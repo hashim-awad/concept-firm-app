@@ -405,6 +405,8 @@ export function createStudioEngine(env = {}) {
     if(s.mode!=="final") dd.watermark={text:"DRAFT FOR REVIEW", color:"#b3261e", opacity:0.10, bold:true, fontSize:64};
     return dd;
   }
+  function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function todayISO(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
   function unesc(t){ return String(t==null?"":t).replace(/\\([\\$*_`~#\[\]()>|{}.!+=<-])/g,"$1"); }
   var T1_REL=["Primary taxpayer","Spouse or common-law partner","Dependant","Other family member"];
   var CRA_GROUP="GMM3H7", CRA_REP="QV7K898";
@@ -475,6 +477,51 @@ export function createStudioEngine(env = {}) {
    B.push({k:"termsT",names:names});
    return B;
   }
+  var T1_TD=[
+  ["p","[CURRENT_DAY_FULL_DATE]"],["p","Dear [ACCOUNT_NAME],"],
+  ["p","Thank you for choosing Concept Accounting for your personal income tax. This letter sets out the services we will provide, your responsibilities and ours, and how our fees work. Please read it and sign it to confirm."],
+  ["p","This letter applies to your current tax year and to each later year we prepare your return, until either of us ends it in writing."],
+  ["h","1. Our services"],
+  ["p","We will prepare and electronically file your T1 Income Tax and Benefit Return. If your spouse or common-law partner is also included under this letter, we will prepare their return too, and each of you must sign."],
+  ["p","Each return will include the schedules and forms that apply to you, based on the information you give us. These can include employment and investment income, self-employment or commission income (Form T2125), rental properties (Form T776), foreign property reporting (Form T1135), and the sale of property, including the principal residence designation where it applies."],
+  ["p","GST/HST returns. If you have self-employment income and we prepare your GST/HST return, we prepare it from the information you give us. We do not audit or verify it. You are responsible for keeping the records that support your claims and for any tax, interest or penalties if CRA disallows a claim."],
+  ["p","We prepare your return from the information and documents you give us through your tax organizer. We do not audit or verify that information, although we may ask you to clarify it."],
+  ["h","2. Your responsibilities"],["p","You are responsible for:"],
+  ["ul",["giving us complete and accurate information, including all tax slips, receipts and records, before we start;","confirming that the expenses you claim are supported by records and are not personal, such as haircuts, vacations, household costs or personal vehicle use, because personal expenses cannot be deducted;","keeping your records and supporting documents for the period the Income Tax Act requires, as CRA may ask for them;","reviewing your return carefully before you sign Form T183, because you have final responsibility for your return; and","telling us about any CRA letter, review or reassessment you receive."]],
+  ["p","Our work cannot be relied on to prevent or detect fraud, errors or omissions. That responsibility stays with you."],
+  ["h","3. CRA access"],
+  ["p","We need Level 2 online access to your CRA information to prepare your return. Your tax organizer explains how to give it. We start work once access is in place. You can cancel our access at any time in your CRA account."],
+  ["h","4. Filing and deadlines"],
+  ["p","When your return is ready, we will send you Form T183. You must review the return and sign Form T183 before we can file it."],
+  ["p","Returns are due April 30 of the year after the tax year. If you or your spouse or common-law partner had self-employment income, the filing deadline is June 15, but any balance owing is still due April 30. Late filing and late payment can result in penalties and interest."],
+  ["h","5. Fees and payment"],["p","Your fee is set from your answers to our scope questions, using our fee schedule. It is one fee for the year's return."],
+  ["ul",["Before we start: we send your fee by invoice with this letter. The invoice is paid before we begin work.","If your return changes: if you give us something that was not in your scope answers, for example a rental property, a property sale, foreign property or self-employment income, we quote the added fee to you in writing first. We only go ahead once you accept it.","Late or changed information: if you send slips or information after we have prepared your return and we must redo part of it, we quote the added fee before we do that work.","Release and filing: we file your return, and release it to you, once your invoice is paid.","Payment: you pay online through your secure client portal. GST/HST is added to each invoice. Invoices are due on receipt. Interest may be charged on balances unpaid for more than 30 days at 1.5% per month (19.56% per year).","Questions about your return are included in your fee.","Legal requests: if a law, regulator or court requires us to produce our files or answer requests about your return, we bill the time and costs involved."]],
+  ["h","6. What is not included"],["p","This letter does not include:"],
+  ["ul",["CRA reviews, audits, objections or representation;","tax planning or advice;","prior-year returns;","bookkeeping, or GST/HST returns unless you ask for them;","payroll, EHT, WSIB or other taxes and levies;","foreign income tax returns or advice on foreign taxes."]],
+  ["p","If you ask for any of these, we will quote them in writing first."],
+  ["p","Unless you ask us to prepare your GST/HST return, we do not review your GST/HST. We may not notice if GST/HST is being collected or claimed incorrectly. Errors can lead to tax, interest and penalties."],
+  ["h","7. Foreign property and foreign reporting"],["p","CRA requires information returns, with significant penalties for filing late or not filing, if at any time in the year you:"],
+  ["ul",["held specified foreign property, such as foreign bank accounts, foreign real estate or shares of foreign companies, costing more than $100,000 in total;","owned at least 10% of a foreign company, alone or together with related persons; or","sent money or property to, received money or property from, or were owed money by a non-resident trust, including an inheritance from a foreign estate."]],
+  ["p","You agree to answer the foreign property questions in your tax organizer completely and to tell us about any of these each year."],
+  ["h","8. Our judgment"],
+  ["p","Tax law is not always clear. Where it is unclear, we use our professional judgment to choose a supportable position. Our conclusions are matters of professional opinion, not certainty. CRA may not agree, and you have rights of appeal if it proposes changes."],
+  ["h","9. Your information and confidentiality"],
+  ["p","We collect, use and keep your personal information only to provide our services, under our privacy policy (conceptaccounting.ca/privacy-policy) and Canadian privacy laws. If you give us information about another person, such as a spouse or dependant, you confirm you have their consent."],
+  ["p","We keep your information confidential and release it only with your consent or as the law requires. Our files may be reviewed by practice inspectors of CPA Ontario, as professional standards require; those inspectors are bound by confidentiality."],
+  ["p","Our team includes members and service providers located outside Canada, so your information may be stored or accessed outside Canada, under confidentiality terms equal to ours."],
+  ["h","10. Electronic communications"],
+  ["p","We communicate by email and through our secure client portal. No one fully controls the security of the internet. We are not liable for loss caused by delay, interception or failed delivery of messages sent outside our own systems."],
+  ["h","11. Limitation of liability"],
+  ["p","Our liability for any claim arising from this engagement, whether in contract, tort or otherwise, is limited to the fees you paid us for the return in question. It does not cover consequential or indirect losses. Our liability is several and not joint: you may only recover our share of any loss, based on our degree of fault. We are not responsible for interest or penalties caused by information that was late, incomplete or inaccurate."],
+  ["h","12. Ending this agreement and governing law"],
+  ["p","Either of us may end this agreement in writing. You will pay for work done up to that date. We may withdraw before filing if we cannot complete the work, and we will tell you why."],
+  ["p","This agreement is governed by the laws of Ontario, and the courts of Ontario have jurisdiction over any dispute."],
+  ["p","By signing below, you confirm that this letter reflects your understanding and that we may proceed."],
+  ["p","Yours truly,"],["p","CONCEPT ACCOUNTING & ADVISORY PROFESSIONAL CORPORATION"]
+  ];
+  function t1TdHtml(){ return '<div style="background:#FFF7E6;border:1px solid #F0C36D;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#7a5200"><b>TaxDome contract template, master copy.</b> Standalone T1 letters are sent from TaxDome (template: Individual - Personal Tax Return Engagement T1). This is the approved wording; nothing is issued from here.</div>'+
+   T1_TD.map(function(b){ if(b[0]==="h") return "<h3>"+esc(b[1])+"</h3>"; if(b[0]==="ul") return "<ul>"+b[1].map(function(i){return "<li>"+esc(i)+"</li>";}).join("")+"</ul>"; return "<p>"+esc(b[1])+"</p>"; }).join(""); }
+  function t1TdText(){ return T1_TD.map(function(b){ if(b[0]==="ul") return b[1].map(function(i){return "- "+i;}).join("\n"); return b[1]; }).join("\n\n"); }
   function craAppSteps(b){
    var S=[];
    S.push({h:"Before you start",t:["You need a CRA account. If you do not have one, register at canada.ca/my-cra-account. To get full access right away, use the CRA document verification service when you register, instead of waiting for a security code in the mail."]});
@@ -482,6 +529,22 @@ export function createStudioEngine(env = {}) {
    if(b.confirm.length) S.push({h:"Confirm our request ("+b.confirm.join(", ")+")",t:["We have sent an authorization request to the CRA for Concept Accounting (Group ID "+CRA_GROUP+") at Level 2.","Sign in to your CRA account at canada.ca/my-cra-account.","On the Welcome page, select your Individual account to open My Account.","Select Profile from the left-side menu.","In the \u201cAuthorized representative(s)\u201d section, select Confirm pending authorizations.","Under \u201cPending authorization requests\u201d, select Concept Accounting and confirm. Tell us when it is done."],num:true});
    S.push({h:"Cancelling access",t:["You can cancel our access at any time in My Account, under Profile, in the \u201cAuthorized representative(s)\u201d section."]});
    return S;
+  }
+  function t1Html(s){
+   var B=buildT1(s),h="";
+   B.forEach(function(b){
+    if(b.k==="lh") h+='<img class="lh" src="'+LH+'" alt="Concept Accounting letterhead">';
+    else if(b.k==="p") h+="<p>"+runsH(b.r)+"</p>";
+    else if(b.k==="h") h+="<h3>"+esc(b.t)+"</h3>";
+    else if(b.k==="ul") h+="<ul>"+b.items.map(function(i){return "<li>"+esc(i)+"</li>";}).join("")+"</ul>";
+    else if(b.k==="addr") h+='<p style="margin-bottom:14px">'+b.lines.map(function(l,i){return i<b.boldN?"<strong>"+esc(l)+"</strong>":esc(l);}).join("<br>")+"</p>";
+    else if(b.k==="table") h+="<table><tr><th>Service</th><th style=\"width:34%\">Fee</th></tr>"+b.rows.map(function(r){ if(r[3]==="sub") return '<tr><td colspan="2" style="background:#F2F5FA;color:#1A3C7C;font-weight:600;font-style:italic">'+esc(r[0])+'</td></tr>'; return "<tr><td>"+(/^Total /.test(r[0])?"<strong>"+esc(r[0])+"</strong>":esc(r[0]))+(r[2]?'<br><span style="font-size:11px;color:#555">'+esc(r[2])+'</span>':"")+"</td><td>"+(r[1]?esc(r[1]):'<span class="missing">fee missing</span>')+"</td></tr>";}).join("")+"</table>";
+    else if(b.k==="sigs"){ var cells=b.people.map(function(n){return sigH("Agreed and accepted",n,[]);});
+     for(var i=0;i<cells.length;i+=2) h+='<div class="sig" style="margin-top:'+(i?18:8)+'px">'+cells[i]+(cells[i+1]||"<div></div>")+'</div>'; }
+    else if(b.k==="craApp") h+='<div class="pgb"><span>Appendix B, new page</span></div><div class="tc"><h3>Appendix B: Give Concept Accounting access to your CRA account</h3>'+craAppSteps(b).map(function(x){return '<p><strong>'+esc(x.h)+'</strong></p>'+(x.num?'<ol style="margin:0 0 9px 18px;padding:0">'+x.t.map(function(l){return '<li>'+esc(l)+'</li>';}).join("")+'</ol>':x.t.map(function(l){return '<p>'+esc(l)+'</p>';}).join(""));}).join("")+'</div>';
+    else if(b.k==="termsT") h+='<div class="pgb"><span>Appendix A, new page</span></div><div class="tc"><h3>Appendix A: Standard Terms and Conditions</h3><p>These Standard Terms and Conditions and the engagement letter they are attached to form one agreement (the \u201cAgreement\u201d) between '+esc(FIRM)+' (\u201cConcept Accounting\u201d) and '+esc(b.names)+' (together, the \u201cClient\u201d).</p>'+termsClient().map(function(t,i){return "<p><strong>"+(i+1)+". "+esc(t[0])+".</strong> "+esc(t[1])+"</p>";}).join("")+"</div>";
+   });
+   return h;
   }
   function t1FileName(s){ var n=(s.people[0]?s.people[0].name:"Client").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,""); return "EL_T1_"+s.taxYear+"_"+n+"_"+EL_VERSION.replace(/\s+/g,"")+(s.mode==="final"?"":"_DRAFT")+".pdf"; }
   var TEMPLATES=[
@@ -557,6 +620,19 @@ export function createStudioEngine(env = {}) {
    p("Hashim Awad, CPA"); B.push({k:"psig"});
    return B;
   }
+  function pHtml(s){
+   return pBuild(s).map(function(b){
+    if(b.k==="lh") return '<img class="lh" src="'+LH+'" alt="Concept Accounting letterhead">';
+    if(b.k==="p") return "<p>"+runsH(b.r)+"</p>";
+    if(b.k==="h") return "<h3>"+esc(b.t)+"</h3>";
+    if(b.k==="ptitle") return '<p style="font-size:20px;font-weight:700;color:#1A3C7C;margin:10px 0 0">'+esc(b.t)+'</p><p style="color:#555">'+esc(b.sub)+'</p>';
+    if(b.k==="ul") return "<ul>"+b.items.map(function(i){return "<li>"+esc(i)+"</li>";}).join("")+"</ul>";
+    if(b.k==="ol") return '<ol style="margin:0 0 9px 18px;padding:0">'+b.items.map(function(i){return "<li>"+esc(i)+"</li>";}).join("")+"</ol>";
+    if(b.k==="psig") return '<p style="margin-top:-6px">'+esc(FIRM)+'</p>';
+    if(b.k==="popts") return '<div style="display:grid;grid-template-columns:repeat('+b.opts.length+',1fr);gap:10px;margin:6px 0 10px">'+b.opts.map(function(o){ return '<div style="border:'+(o.rec?'2px solid #86BC26':'1px solid #c9d3e6')+';border-radius:6px;padding:10px">'+(o.rec?'<div style="background:#86BC26;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:6px">RECOMMENDED</div>':'')+'<div style="font-weight:700;color:#1A3C7C;font-size:14px">'+esc(o.name)+'</div><ul style="margin:6px 0 8px 16px;font-size:12px">'+o.svc.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul><table style="font-size:12px">'+(b.single?o.lines.map(function(l){return '<tr><td>'+esc(l[0])+'</td><td style="text-align:right">'+esc(l[1])+'</td></tr>';}).join(""):'<tr><td>Monthly</td><td style="text-align:right">'+esc(o.m)+'</td></tr>'+(o.q?'<tr><td>Quarterly</td><td style="text-align:right">'+esc(o.q)+'</td></tr>':'')+'<tr><td>Year end</td><td style="text-align:right">'+esc(o.y)+'</td></tr><tr><td>One-time</td><td style="text-align:right">'+esc(o.once)+'</td></tr>')+'<tr><td><b>Annual value</b></td><td style="text-align:right"><b>'+esc(o.annual)+'</b></td></tr></table></div>'; }).join("")+'</div>';
+    return "";
+   }).join("");
+  }
   function pPdf(s){
    var content=[], N=s.opts.length;
    pBuild(s).forEach(function(b){
@@ -580,8 +656,10 @@ export function createStudioEngine(env = {}) {
    if(s.mode!=="final") dd.watermark={text:"DRAFT FOR REVIEW",color:"#b3261e",opacity:0.10,bold:true,fontSize:64};
    return dd;
   }
+  function pPack(s){ return JSON.stringify({c:{n:s.name,ct:s.contact,sa:s.salutation,pr:s.province},o:s.opts.map(function(o){return {n:o.name,s:PSVC.filter(function(x){return o.svc[x[0]];}).map(function(x){return x[0];}),l:o.lines.map(function(l){return [l.svc,l.kind,l.amt];})};})}); }
   function pbServices(r){ try{ var a=JSON.parse(r["Services"]||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
   function pbNum(v){ var n=Number(v); return isFinite(n)&&String(v).trim()!==""?n:null; }
+  function pbAnnual(r){ return (pbNum(r["Monthly fee"])||0)*12+(pbNum(r["Software per month"])||0)*12+(pbNum(r["Year-end fee"])||0); }
   var T1C_ITEMS=[["PTX-120","Rental properties (T776), including short-term rentals","count"],["PTX-121","Self-employment businesses (T2125)","count"],["PTX-122","Vehicles claimed (needs a T2125)","count"],["PTX-123","Home offices claimed (needs a T2125)","count"],["PTX-124","GST/HST returns to file","count"],["PTX-125","Investment sales from broker statements","perret"],["PTX-126","Principal residence sales","count"],["PTX-127","Other property sales: rental, investment, owned under 12 months, assignment","count"],["PTX-128","T1135 foreign property, simplified","perret"],["PTX-129","T1135 foreign property, detailed","perret"],["PTX-130","Foreign income with no Canadian slip","perret"],["PTX-131","Employment expenses (T2200)","perret"],["PTX-132","Moving expenses","perret"]];
   var T1C_TRIAGE=["Crypto or options trading","Property held in a partnership or trust","A foreign tax return is needed","A tax treaty exemption is claimed","GST/HST not handled on an assignment or short-term rental","A required upload is missing"];
   var T1C_OUT=["Non-resident","US person (citizen or green card holder)","Estate or trust return","Prior-year returns","CRA review or audit underway"];
@@ -606,8 +684,44 @@ export function createStudioEngine(env = {}) {
    if(R.tri.length) s+="\nNOT FINAL. Hashim reviews first: "+R.tri.join(", ")+".";
    return s;
   }
+  var IDS=["type","letterDate","ye","firstYear","periodStart","company","signer","signerTitle","salutation","addr1","addr2","city","postal","province","basis","basisCustom","thirdParty","tpName","tpBasis","startMonth","billOnce","reviewed","svc_comp","svc_t2","svc_catchup","svc_books","svc_gst","svc_payroll","svc_pay","svc_cfo","svc_budget","svc_coord","svc_t1","catchFrom","catchTo","payrollMode","extAcct","t1Owner","t1Cra","t1Start","ploLink","pnl","catchTBD","revOf","payMethod"];
   var FEE_PRESETS=[["Compiled financial statements and T2","year","",""],["Corporate tax return (T2)","year","",""],["Monthly accounting and compliance services","month","Includes bookkeeping, compiled financial statements, T2 and GST/HST filing",""],["Software subscription","month","QuickBooks Online and Dext","69"],["Catch-up bookkeeping","once","Period: ",""],["QuickBooks Online setup","once","Chart of accounts and prior-year balances",""],["GST/HST returns","once","",""],["Custom line","once","",""]];
+  var FEES=[], feesTouched=false, feeType=null, feeStyleTouched=false;
+  function feeRow(i){ var x=FEE_PRESETS[i]; return {svc:i===7?"":x[0],kind:x[1],detail:x[2],amt:x[3]}; }
+  var FEE_SVC={books:["Monthly bookkeeping","month","With a monthly profit and loss report"],gst:["GST/HST returns","quarter",""],payroll:["Payroll","month",""],pay:["Payment administration","month",""],cfo:["Quarterly production and financial review","quarter",""],budget:["Annual budget","year","Sales scenarios, cost and payroll plan, monthly cash forecast"],comp:["Year-end financial statements","year",""],t2:["Corporate tax return (T2)","year",""],t1:["Personal tax return (T1)","year",""],coord:["Year-end support for your external accountant","year",""],catchup:["Catch-up bookkeeping","once",""]};
+  function syncFees(s){
+   var SV=s.svc||{}, rec=SV.books||SV.payroll||SV.pay||SV.cfo;
+   var has=function(tag){ return FEES.some(function(f){return f.tag===tag;}); };
+   // main priced lines
+   if(rec && !has("main")) FEES.unshift({tag:"main",svc:"Monthly accounting and compliance services",kind:"month",detail:"",amt:""});
+   if(rec && !has("soft")) FEES.splice(1,0,{tag:"soft",svc:"Software subscription",kind:"month",detail:"QuickBooks Online and Dext",amt:"69"});
+   if(!rec) FEES=FEES.filter(function(f){ return !((f.tag==="main"||f.tag==="soft") && !trim(f.amt).replace(/^69$/,"")); });
+   // one line per ticked service; priced when there is no monthly fee to include it in
+   Object.keys(FEE_SVC).forEach(function(k){ var d=FEE_SVC[k];
+    if(SV[k] && !has(k)){ var amt = (k==="catchup") ? "" : (rec ? "Included" : ((k==="comp"||(k==="t2"&&!SV.comp)) ? "" : "Included")); var det=d[2];
+     if(k==="payroll") d=[s.payrollMode==="advisory"?"Payroll support":"Payroll",d[1],d[2]];
+     if(k==="t1") det=(trim(s.t1Owner)?"For "+trim(s.t1Owner)+", ":"")+"under a separate personal tax letter";
+     if(k==="books") det=s.pnl?"With a monthly profit and loss report":"";
+     if(k==="catchup" && parseD(s.catchFrom) && parseD(s.catchTo)) det=fmtD(s.catchFrom)+" to "+fmtD(s.catchTo);
+     FEES.push({tag:k,svc:d[0],kind:d[1],detail:det,amt:amt}); }
+    if(!SV[k] && has(k)) FEES=FEES.filter(function(f){return f.tag!==k;});
+   });
+   FEES.forEach(function(f){ if(!f.tag||f.user||!FEE_SVC[f.tag]) return;
+    if(f.tag==="comp"||f.tag==="t2") f.amt = rec ? "Included" : ((f.tag==="comp"||(f.tag==="t2"&&!SV.comp)) ? "" : "Included");
+    if(f.tag==="payroll") f.svc = s.payrollMode==="advisory"?"Payroll support":"Payroll";
+    if(f.tag==="t1") f.svc = / and /i.test(trim(s.t1Owner))?"Personal tax returns (T1)":"Personal tax return (T1)"; if(f.tag==="t1") f.detail = (trim(s.t1Owner)?"For "+trim(s.t1Owner)+", ":"")+"under a separate personal tax letter";
+    if(f.tag==="books") f.detail = s.pnl?"With a monthly profit and loss report":"";
+    if(f.tag==="catchup"){ if(s.catchTBD){ f.svc="Catch-up bookkeeping"; f.detail=parseD(s.catchTo)?"Months not completed up to "+fmtD(s.catchTo):""; } else { f.svc="Catch-up bookkeeping"; if(parseD(s.catchFrom)&&parseD(s.catchTo)) f.detail=fmtD(s.catchFrom)+" to "+fmtD(s.catchTo); } } });
+   if(!FEES.length) FEES.push({svc:"",kind:"once",detail:"",amt:""});
+  }
+  var SVC_UI=[["comp","Compilation engagement (CSRS 4200)",1],["t2","Corporate income tax return (T2)",1],["catchup","Catch-up bookkeeping",0],["books","Monthly bookkeeping",0],["gst","GST/HST returns",0],["payroll","Payroll",0],["pay","Payment administration",0],["cfo","CFO reporting",0],["budget","Annual budget",0],["coord","Year-end support for an external accountant",0],["t1","Owner\u2019s personal tax return (T1), fee included, separate T1 letter",0]];
+  function lastYE(md,letter){ if(!/^\d{2}-\d{2}$/.test(md||"")) return ""; var y=+letter.slice(0,4), d=y+"-"+md; if(d>=letter) d=(y-1)+"-"+md; return d; }
+  function sigH(label,who,lines,opt){opt=opt||{};return '<div><div style="color:#1A3C7C;font-weight:700">'+esc(label)+'</div>'+(opt.sig?'<img src="'+SIG+'" alt="Signature" style="width:150px;display:block;margin:2px 0 -14px 8px">':'')+'<div class="ln"'+(opt.sig?' style="margin-top:0"':'')+'>'+(esc(who)||'<span class="missing">name</span>')+'</div>'+lines.map(function(l){return '<div style="font-size:12px">'+esc(l)+'</div>';}).join("")+'<div style="margin-top:12px;font-size:12px">Date: '+(opt.date?esc(opt.date):'______________________')+'</div></div>';}
+  function runsH(r){return r.map(function(x){return typeof x==="string"?esc(x):(x.b?"<strong>"+esc(x.t)+"</strong>":esc(x.t));}).join("");}
   if (env.SIGNER) SIGNER = env.SIGNER;
   if (env.SIGNER_TITLE) SIGNER_TITLE = env.SIGNER_TITLE;
-  return { BASIS, CRA_GROUP, CRA_OPT, CRA_REP, EL_VERSION, EL_VERSION_DATE, FEE_PRESETS, FIRM, FIRM_ADDR, GREEN, MONTHS, NAVY, PAY_LABEL, PKIND, POPTS, PSVC, SIGNER, SIGNER_TITLE, T1C, T1C_ITEMS, T1C_OUT, T1C_TRIAGE, T1_REL, TEMPLATES, TERMS, TYPES, appendixA, build, buildT1, catByCode, checks, craAppSteps, deriveType, feeText, feeVal, fileName, firstInvoice, floorFor, fmtD, fmtMonth, money, pBuild, pChecks, pClientUrl, pLastRec, pNewOption, pPdf, pRec, pTotals, pValidUntil, parseD, payInfo, pbNum, pbServices, pdfDoc, periodInfo, runsToPdf, sigBlock, statementsList, svcList, t1Checks, t1FileName, t1Names, t1cCalc, t1cSummary, termsClient, trim, unesc };
+  // get/set for the page-level variables Studio's functions read and reassign.
+  function __get(name) { switch (name) { case "FEES": return FEES; case "T1C": return T1C; case "POPTS": return POPTS; case "pRec": return pRec; } }
+  function __set(name, v) { switch (name) { case "FEES": FEES = v; return; case "T1C": T1C = v; return; case "POPTS": POPTS = v; return; case "pRec": pRec = v; return; } }
+  return { BASIS, CRA_GROUP, CRA_OPT, CRA_REP, EL_VERSION, EL_VERSION_DATE, FEES, FEE_PRESETS, FEE_SVC, FIRM, FIRM_ADDR, GREEN, IDS, MONTHS, NAVY, PAY_LABEL, PKIND, POPTS, PSVC, SIGNER, SIGNER_TITLE, SVC_UI, T1C, T1C_ITEMS, T1C_OUT, T1C_TRIAGE, T1_REL, T1_TD, TEMPLATES, TERMS, TYPES, appendixA, build, buildT1, catByCode, checks, craAppSteps, deriveType, esc, feeRow, feeStyleTouched, feeText, feeType, feeVal, feesTouched, fileName, firstInvoice, floorFor, fmtD, fmtMonth, lastYE, money, pBuild, pChecks, pClientUrl, pHtml, pLastRec, pNewOption, pPack, pPdf, pRec, pTotals, pValidUntil, parseD, payInfo, pbAnnual, pbNum, pbServices, pdfDoc, periodInfo, runsH, runsToPdf, sigBlock, sigH, statementsList, svcList, syncFees, t1Checks, t1FileName, t1Html, t1Names, t1TdHtml, t1TdText, t1cCalc, t1cSummary, termsClient, todayISO, trim, unesc, __get, __set };
 }

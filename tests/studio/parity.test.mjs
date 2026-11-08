@@ -35,7 +35,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 for (const c of CORPORATE) {
   test(`corporate letter: ${c.name}`, async () => {
     const studio = await page.evaluate(({ fields, feeAmounts }) => {
-      go("el");
+      FEES = []; feeType = null; feesTouched = false; go("el"); buildEL();
       for (const [id, v] of Object.entries(fields)) {
         const el = document.getElementById(id); if (!el) throw new Error("missing field " + id);
         if (el.type === "checkbox") el.checked = v; else el.value = v;
@@ -109,3 +109,55 @@ test("signer name comes from the owner setting", async () => {
   const e = createStudioEngine({ SIGNER: "Test Signer, CPA", LH: "LH", SIG: "SIG" });
   assert.match(JSON.stringify(e.pdfDoc(s, e.build(s), "LH")), /Test Signer, CPA/);
 });
+
+// ---- App screen logic (controllers) against Studio's forms, same steps in the same order ----
+const { CorporateLetter, T1Letter, Proposal } = await import("../../src/lib/studio/controllers.ts");
+const TODAY = await (async () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+
+for (const c of CORPORATE) {
+  test(`app letter logic = Studio form: ${c.name}`, async () => {
+    const studio = await page.evaluate(({ fields, feeAmounts }) => {
+      FEES = []; feeType = null; feesTouched = false; go("el"); buildEL(); // fresh form, as when Studio opens
+      for (const [id, v] of Object.entries(fields)) {
+        const el = document.getElementById(id);
+        if (el.type === "checkbox") el.checked = v; else el.value = v;
+        el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      feeAmounts.forEach((a, i) => { if (FEES[i]) FEES[i].amt = a; });
+      return JSON.parse(JSON.stringify(state()));
+    }, c);
+    const ctl = new CorporateLetter(engine(), TODAY);
+    for (const [id, v] of Object.entries(c.fields)) { ctl.set(id, v); ctl.refresh(); }
+    c.feeAmounts.forEach((a, i) => { if (ctl.fees[i]) ctl.fees[i].amt = a; });
+    const out = ctl.output();
+    assert.deepEqual(plain(out.s), studio, "letter inputs differ");
+  });
+}
+
+for (const c of T1) {
+  test(`app T1 logic = Studio form: ${c.name}`, async () => {
+    const studio = await page.evaluate(({ fields }) => {
+      go("t1"); buildT1View();
+      for (const [k, v] of Object.entries(fields)) { const el = document.getElementById("t1_" + k); el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); }
+      return JSON.parse(JSON.stringify(t1State()));
+    }, c);
+    const ctl = new T1Letter(engine(), TODAY);
+    for (const [k, v] of Object.entries(c.fields)) ctl.set(k, v);
+    assert.deepEqual(plain(ctl.state()), studio, "T1 inputs differ");
+  });
+}
+
+for (const c of PROPOSALS) {
+  test(`app proposal logic = Studio form: ${c.name}`, async () => {
+    const studio = await page.evaluate(({ fields, opts, rec }) => {
+      go("prop"); buildPropView();
+      for (const [k, v] of Object.entries(fields)) { const el = document.getElementById("p_" + k); el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); }
+      POPTS = opts; pRec = rec;
+      return JSON.parse(JSON.stringify(pState()));
+    }, c);
+    const ctl = new Proposal(engine(), TODAY);
+    for (const [k, v] of Object.entries(c.fields)) ctl.set(k, v);
+    ctl.e.__set("POPTS", JSON.parse(JSON.stringify(c.opts))); ctl.e.__set("pRec", c.rec);
+    assert.deepEqual(plain(ctl.state()), studio, "proposal inputs differ");
+  });
+}

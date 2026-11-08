@@ -52,7 +52,7 @@ export const PROPOSALS = [
   },
   {
     name: "Three options, one below floor",
-    fields: { name: "Example Agent PREC", contact: "Pat Test", salutation: "Pat", province: "ON", segment: "Agent", date: "2026-11-08", valid: "30", format: "multi" },
+    fields: { name: "Example Agent PREC", contact: "Pat Test", salutation: "Pat", province: "ON", segment: "Agent", date: "2026-11-08", valid: "30", format: "options" },
     opts: [
       { name: "Option A", offer: "Agent: year-end T2 only", svc: { comp: true, t2: true, gst: true }, lines: [{ svc: "Compiled financial statements and T2", kind: "year", amt: "2500" }] },
       { name: "Option B", offer: "Agent: year-end T2 with bookkeeping", svc: { comp: true, t2: true, catchup: true }, lines: [{ svc: "Compiled financial statements and T2", kind: "year", amt: "4560" }] },

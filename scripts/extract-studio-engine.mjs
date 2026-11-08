@@ -23,7 +23,13 @@ const ROOTS = [
   "pChecks", "pBuild", "pPdf", "pTotals", "pValidUntil", "pNewOption", "PSVC", "PKIND", "POPTS",
   "t1cCalc", "t1cSummary", "T1C_ITEMS", "T1C_TRIAGE", "T1C_OUT", "T1C",
   "TEMPLATES",
+  // Screen logic that is pure and reused as is: fee lines follow the ticked services.
+  "syncFees", "FEE_SVC", "SVC_UI", "IDS", "feeRow", "lastYE", "todayISO",
+  // T1 standalone master wording (Studio shows it instead of issuing a letter) and previews.
+  "t1TdHtml", "t1TdText", "t1Html", "pHtml", "pPack", "pbServices", "pbNum", "pbAnnual", "unesc", "esc",
 ];
+// Top-level variables the screens read and change (Studio keeps them as page globals).
+const MUTABLE = ["FEES", "T1C", "POPTS", "pRec"];
 // Supplied by the app at run time (page, data or images), never copied.
 const INJECTED = new Set(["$", "DB", "mcp", "LH", "SIG", "ILLUS", "document", "window", "localStorage", "pdfMake", "PDFLib"]);
 
@@ -43,7 +49,7 @@ for (const node of ast.body) {
 const take = new Set();
 const injectedUsed = new Set();
 const unknown = new Set();
-const queue = [...ROOTS];
+const queue = [...ROOTS, ...MUTABLE];
 while (queue.length) {
   const name = queue.shift();
   if (take.has(name)) continue;
@@ -76,7 +82,10 @@ export function createStudioEngine(env = {}) {
 ${body.split("\n").map((l) => "  " + l).join("\n")}
   if (env.SIGNER) SIGNER = env.SIGNER;
   if (env.SIGNER_TITLE) SIGNER_TITLE = env.SIGNER_TITLE;
-  return { ${names.join(", ")} };
+  // get/set for the page-level variables Studio's functions read and reassign.
+  function __get(name) { switch (name) { ${MUTABLE.map((n) => `case "${n}": return ${n};`).join(" ")} } }
+  function __set(name, v) { switch (name) { ${MUTABLE.map((n) => `case "${n}": ${n} = v; return;`).join(" ")} } }
+  return { ${names.join(", ")}, __get, __set };
 }
 `;
 writeFileSync(OUT, factory);
