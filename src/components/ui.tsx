@@ -1,46 +1,32 @@
+// Shared page parts for staff screens. Built on the design system (src/components/ds).
 import type { ReactNode } from "react";
+import { PageHeader as DsPageHeader, Alert } from "@/components/ds/primitives";
+import { Logo } from "@/components/ds/brand";
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
-  return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-      </div>
-      {actions}
-    </div>
-  );
+export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: string; actions?: ReactNode; eyebrow?: string }) {
+  return <DsPageHeader title={title} description={description} actions={actions} eyebrow={eyebrow} />;
 }
 
 export function Notice({ msg, error }: { msg?: string | null; error?: string | null }) {
-  if (error) {
-    return <p role="alert" className="mb-4 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>;
-  }
-  if (msg) {
-    return <p role="status" className="mb-4 rounded-md border border-ok/30 bg-ok/5 px-4 py-3 text-sm text-ok">{msg}</p>;
-  }
+  if (error) return <div className="mb-5"><Alert tone="danger">{error}</Alert></div>;
+  if (msg) return <div className="mb-5"><Alert tone="success">{msg}</Alert></div>;
   return null;
 }
 
+// Sign-in, password and no-access pages.
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-paper px-4 py-12">
       <div className="w-full max-w-sm">
-        <p className="mb-6 text-center text-sm font-medium text-muted">Concept Accounting &amp; Advisory</p>
-        <div className="card">
-          <h1 className="mb-4 text-xl font-semibold">{title}</h1>
+        <div className="mb-8 flex justify-center"><Logo height={44} priority /></div>
+        <div className="rounded-2xl border border-sand-200 bg-surface p-6 shadow-[var(--shadow-raised)] md:p-8">
+          <h1 className="mb-5 text-xl font-semibold tracking-tight">{title}</h1>
           {children}
         </div>
+        <p className="mt-6 text-center text-xs text-ink-3">Staff sign-in · Your information is stored securely in Canada.</p>
       </div>
     </main>
   );
 }
 
-export function formatDateTime(value: string | null | undefined) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat("en-CA", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/Toronto",
-  }).format(new Date(value));
-}
+export { formatDateTime } from "@/lib/dates";

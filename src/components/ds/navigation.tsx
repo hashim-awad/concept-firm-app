@@ -5,23 +5,25 @@ import { Logo } from "./brand";
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: string };
 export type NavGroup = { label: string; items: NavItem[] };
 
-// Staff sidebar: navy, grouped sections, green active item (as in Concept Studio).
+// Staff sidebar: navy, grouped sections. Active item: navy-tint highlight with a green marker
+// (white text on navy, never white on green). Sized to fit a laptop screen without scrolling.
 export function Sidebar({ groups, footer, user }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string } }) {
   return (
-    <aside className="flex h-full w-64 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white">
-      <div className="px-5 pt-6 pb-5"><Logo tone="white" /></div>
-      <nav aria-label="Main" className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
+    <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white">
+      <div className="px-5 pt-5 pb-4"><Logo tone="white" height={48} /></div>
+      <nav aria-label="Main" className="sidebar-scroll flex-1 space-y-4 overflow-y-auto px-2.5 pb-3">
         {groups.map((g) => (
           <div key={g.label}>
-            <p className="px-3 pb-1.5 text-[11px] font-semibold tracking-wider text-white/45 uppercase">{g.label}</p>
-            <ul className="space-y-0.5">
+            <p className="px-3 pb-1 text-[10.5px] font-semibold tracking-wider text-white/45 uppercase">{g.label}</p>
+            <ul className="space-y-px">
               {g.items.map((i) => (
                 <li key={i.label}>
                   <a href={i.href} aria-current={i.active ? "page" : undefined}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${i.active ? "bg-lime-500 text-navy-900" : "text-white/85 hover:bg-white/10 hover:text-white"}`}>
-                    <span className="h-4.5 w-4.5 shrink-0 [&>svg]:h-4.5 [&>svg]:w-4.5" aria-hidden>{i.icon}</span>
-                    <span className="flex-1">{i.label}</span>
-                    {i.badge && <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/70">{i.badge}</span>}
+                    className={`relative flex items-center gap-2.5 rounded-md px-3 py-[7px] text-[13.5px] font-medium transition-colors ${i.active ? "bg-white/12 text-white" : "text-white/80 hover:bg-white/8 hover:text-white"}`}>
+                    {i.active && <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-lime-500" aria-hidden />}
+                    <span className={`h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${i.active ? "text-lime-400" : ""}`} aria-hidden>{i.icon}</span>
+                    <span className="flex-1 truncate">{i.label}</span>
+                    {i.badge && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/65">{i.badge}</span>}
                   </a>
                 </li>
               ))}
@@ -29,13 +31,12 @@ export function Sidebar({ groups, footer, user }: { groups: NavGroup[]; footer?:
           </div>
         ))}
       </nav>
-      {user && (
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="text-sm font-medium">{user.name}</p>
-          <p className="text-xs text-white/60">{user.role}</p>
+      {(user || footer) && (
+        <div className="border-t border-white/10 px-5 py-3.5">
+          {user && (<><p className="truncate text-[13px] font-medium">{user.name}</p><p className="text-xs text-white/60">{user.role}</p></>)}
+          {footer}
         </div>
       )}
-      {footer}
     </aside>
   );
 }

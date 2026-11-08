@@ -7,8 +7,12 @@ Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener,
 
 ## What
 One firm web app, owned by the firm, that keeps running without Claude. It is the firm's one app and will grow beyond T1 quotes.
-- Phase 1: leads, screening, quote and sign for personal (T1) and corporate (T2) tax clients.
-- Phase 2: move Concept Studio (engagement letters, proposals) into the same app.
+Phase order changed by Hashim on 2026-11-08:
+- **Phase 1 (now): Concept Studio in the app.** See "Phase 1: Concept Studio" below.
+- **Phase 2: T1 workflow.** Public start page, screening questions, leads, automatic quotes, signing and the TaxDome handoff, as described in this brief. Starts after Phase 1 is approved.
+- **Phase 3: Year-end compilation.** Unchanged.
+
+Already built and kept for Phase 2: staff logins, roles and permissions, activity log, settings, price book, screening questions and pricing rules, staff email through Microsoft 365, design system.
 
 ## Decisions made
 | # | Topic | Decision |
@@ -35,7 +39,8 @@ One firm web app, owned by the firm, that keeps running without Claude. It is th
 | 20 | Sent | Staff click "Copy email", send from Outlook, then click "Mark as sent". The 21-day clock starts at that click. Auto-generated quotes stay draft until a staff member marks them sent. |
 | 21 | Retention | Lost and out-of-scope leads, with their screening answers, are deleted automatically 24 months after they close. Owners can change the period in settings. Signed documents and signing records are kept. Each deletion is logged with date and count only. |
 | 22 | Sales tax on quotes | GST/HST only, based on the client's province. Concept does not collect PST or QST (an owner can add that later on the admin page). Every rate shows its CRA source page, date checked and who checked it. Hashim approves the rate table before any quote uses it. If the province is missing or unclear, no quote is generated until it is fixed. Never default to Ontario. |
-| 23 | Design system | Concept navy #1A3C7C as the main colour, warm neutral palette, one accent for actions, Concept logo in the sidebar and on all client pages. One professional font with a clear size scale; tabular figures in tables. Shared components everywhere. Client pages first: premium, calm, mobile-first. Staff screens dense and fast. Readable contrast, keyboard friendly. A Design page shows all of it with dummy data; Hashim approves before screens are restyled. |
+| 23 | Design system | Approved 2026-11-08 (page: /design). Concept navy #1A3C7C, Concept green #86BC28 accent (navy text on green, never white), warm neutrals, Plus Jakarta Sans with tabular figures, supplied logo artwork. Sidebar active item: navy-tint highlight with green marker. DRAFT FOR REVIEW watermark only on unsent quotes in staff preview, never on the client's copy. One date format on screen: "Nov 5, 2026". Start page headline: "Your tax return, prepared and reviewed by a CPA." Client pages keep "Checked by our team before you sign" and "Your information is stored securely in Canada"; no time estimates, no "No payment today". |
+| 24 | Phase order | Phase 1 Concept Studio in the app, Phase 2 T1 workflow, Phase 3 year-end compilation (2026-11-08). |
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.
@@ -145,8 +150,15 @@ Prices, rules and tax rates are edited only on owner-only admin pages.
 - Signed documents and their signing records are kept.
 - Each deletion run is logged in the activity log with date and count only, no client details.
 
-## Phase 2: Concept Studio (do not start until Phase 1 is approved)
-Concept Studio today is a single HTML tool on claude.ai: engagement letters (T1, corporate master letter with service schedules), proposals (single price and multi-option), price floors, packages, PDF output. Its data lives in Notion. It moves into this app; Notion data is copied in once, then the app is the source.
+## Phase 1: Concept Studio in the app (now)
+Concept Studio today is a single HTML tool on claude.ai. Its data lives in Notion. It moves into this app so Hashim can use it daily, test it, then invite the team.
+- Everything Studio does today: engagement letters (T1 letter, corporate master letter with service schedules), proposals (single price and multi-option), price book, price floors with their checks, packages, and PDF output.
+- Same wording and the same results. Parity test: for the same inputs, a letter or proposal from the app must match one from Studio. Side-by-side comparisons are shown to Hashim before it is called done.
+- Studio's data moves in once: price book, price floors, packages and letter records. After that the app is the source. The import runs through an owner-only import screen in the app, never through the repo, because letter records contain client names.
+- Every generated letter and proposal is stored in the document vault with versions, like quotes.
+- Uses the approved design system.
+- Tax rates (GST/HST) are built in Phase 1, since proposals need them too (rules in decision 22).
+- When Phase 1 is approved, Hashim invites the team.
 
 ## Still open
 - Engagement terms text (waiting for the current T1 engagement letter).

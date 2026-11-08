@@ -8,7 +8,7 @@ export function ClientShell({ children, step }: { children: ReactNode; step?: st
     <div className="ds flex min-h-full flex-col bg-paper">
       <header className="border-b border-sand-200 bg-surface/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-5">
-          <Logo size="sm" />
+          <Logo height={32} priority />
           {step && <span className="text-xs font-medium text-ink-3">{step}</span>}
         </div>
       </header>
@@ -61,7 +61,7 @@ export function TrustRow() {
   return (
     <p className="flex items-center justify-center gap-2 text-[13px] text-ink-3">
       <ShieldCheck className="h-4 w-4 text-success" aria-hidden />
-      Checked by our team before you sign. No payment today.
+      Checked by our team before you sign.
     </p>
   );
 }

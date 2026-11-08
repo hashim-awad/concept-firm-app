@@ -6,6 +6,7 @@ import { DataTable, type Column } from "@/components/ds/data-table";
 import { ConfirmDialog, useToast } from "@/components/ds/overlays";
 import { Button, ChoiceCards, Field, Input, Select, StatusPill, type Status, money, Checkbox, Textarea } from "@/components/ds/primitives";
 import { Steps } from "@/components/ds/navigation";
+import { formatDate } from "@/lib/dates";
 
 type Row = { id: string; client: string; route: string; staff: string; status: Status; total: number; sent: string };
 const ROWS: Row[] = [
@@ -22,7 +23,7 @@ const COLUMNS: Column<Row>[] = [
   { key: "route", header: "Type", sortValue: (r) => r.route },
   { key: "staff", header: "Assigned", sortValue: (r) => r.staff, render: (r) => <span className={r.staff === "Unassigned" ? "text-ink-3" : ""}>{r.staff}</span> },
   { key: "status", header: "Status", sortValue: (r) => r.status, render: (r) => <StatusPill status={r.status} /> },
-  { key: "sent", header: "Sent", sortValue: (r) => r.sent, render: (r) => r.sent || <span className="text-ink-3">Not sent</span> },
+  { key: "sent", header: "Sent", sortValue: (r) => r.sent, render: (r) => (r.sent ? formatDate(r.sent) : <span className="text-ink-3">Not sent</span>) },
   { key: "total", header: "Total before tax", align: "right", sortValue: (r) => r.total, render: (r) => (r.total ? money(r.total) : "") },
 ];
 

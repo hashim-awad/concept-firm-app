@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en-CA" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="ds min-h-full">{children}</body>
     </html>
   );
 }

@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f7f5;
-  --surface: #ffffff;
-  --foreground: #1c1f1e;
-  --muted: #5f6663;
-  --border: #dfe2df;
-  --accent: #1f5c46;
-  --accent-hover: #174636;
-  --danger: #a3261b;
-  --ok: #1f5c46;
+  --background: #FAF9F6;
+  --surface: #FFFFFF;
+  --foreground: #1B2130;
+  --muted: #4E5466;
+  --border: #E3DFD6;
+  --accent: #1A3C7C;
+  --accent-hover: #142F66;
+  --danger: #B42318;
+  --ok: #1F7A4A;
 }
 
 /* ---------------------------------------------------------------------------
@@ -74,44 +74,49 @@
   --color-accent-hover: var(--accent-hover);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-sans: var(--font-brand);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-brand);
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Shared classes used by existing screens, restyled to the design system. */
 .btn {
-  @apply inline-flex items-center justify-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50;
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-navy-700 px-4 text-sm font-medium text-white shadow-[var(--shadow-card)] transition-colors hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
 }
 .btn-secondary {
-  @apply inline-flex items-center justify-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-background;
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sand-300 bg-surface px-3.5 text-sm font-medium text-ink transition-colors hover:bg-sand-50 disabled:opacity-50;
 }
 .btn-danger {
-  @apply inline-flex items-center justify-center rounded-md border border-danger/40 bg-surface px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/5;
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-danger/30 bg-surface px-3.5 text-sm font-medium text-danger transition-colors hover:bg-danger-soft disabled:opacity-50;
 }
 .input {
-  @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+  @apply w-full rounded-lg border border-sand-300 bg-surface px-3.5 py-2 text-[15px] text-ink transition-colors placeholder:text-ink-3 hover:border-ink-3 focus:border-navy-600 focus:outline-none focus:ring-4 focus:ring-navy-600/15 disabled:bg-sand-50 disabled:text-ink-3;
 }
 .label {
-  @apply mb-1 block text-sm font-medium;
+  @apply mb-1.5 block text-sm font-medium text-ink;
 }
 .card {
-  @apply rounded-lg border border-border bg-surface p-5;
+  @apply rounded-[var(--radius-ds)] border border-sand-200 bg-surface p-5 shadow-[var(--shadow-card)] md:p-6;
 }
 .table {
-  @apply w-full text-left text-sm;
+  @apply w-full text-left text-sm tabular-nums;
 }
 .table th {
-  @apply border-b border-border px-3 py-2 font-medium text-muted;
+  @apply border-b border-sand-200 px-4 py-2.5 text-[11px] font-semibold tracking-wider text-ink-3 uppercase;
 }
 .table td {
-  @apply border-b border-border px-3 py-2 align-middle;
+  @apply border-b border-sand-100 px-4 py-3 align-middle;
 }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: var(--color-sand-50); }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700); }
 
-/* Design system base, applied inside .ds containers only (until approval). */
+/* Design system base (approved 2026-11-08). The body carries the .ds class. */
 .ds {
   font-family: var(--font-brand);
   color: var(--color-ink);
@@ -119,3 +124,9 @@ body {
 }
 .ds .num, .ds table { font-variant-numeric: tabular-nums; }
 .ds :focus-visible { outline: 2px solid var(--color-navy-600); outline-offset: 2px; border-radius: 6px; }
+
+/* Sidebar scrollbar: thin and quiet, only if the menu ever outgrows the screen. */
+.sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.2) transparent; }
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.2); border-radius: 3px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }

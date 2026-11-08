@@ -18,8 +18,10 @@ select test.check('every item has a current price',
 select test.check('single return is $299.00',
   (select p.amount_cents from public.current_item_prices p join public.catalogue_items i on i.id = p.item_id
    where i.code = 'T1_BASE_SINGLE') = 29900);
-select test.check('personal v1 published', exists (
-  select 1 from public.questionnaires where route = 'personal' and version = 1 and status = 'published'));
+select test.check('personal v2 published without the 3-minute line', exists (
+  select 1 from public.questionnaires where route = 'personal' and version = 2 and status = 'published' and intro not like '%3 minutes%'));
+select test.check('personal v1 kept as retired', exists (
+  select 1 from public.questionnaires where route = 'personal' and version = 1 and status = 'retired'));
 select test.check('corporate v1 is a draft', exists (
   select 1 from public.questionnaires where route = 'corporate' and version = 1 and status = 'draft'));
 
@@ -74,8 +76,8 @@ delete from public.rules where conditions @> '[{"question":"nope"}]';
 select test.check('publish works', test.try($$select public.publish_questionnaire(
   (select id from public.questionnaires where route = 'personal' and status = 'draft'))$$) = 'OK');
 select test.check('old version retired, new one published',
-  (select status from public.questionnaires where route = 'personal' and version = 1) = 'retired'
-  and (select status from public.questionnaires where route = 'personal' and version = 2) = 'published');
+  (select status from public.questionnaires where route = 'personal' and version = 2) = 'retired'
+  and (select status from public.questionnaires where route = 'personal' and version = 3) = 'published');
 select test.check('corporate draft cannot publish without prices', test.try($$select public.publish_questionnaire(
   (select id from public.questionnaires where route = 'corporate' and status = 'draft'))$$) like '%No rule adds a price%');
 select test.check('published version cannot be deleted', test.try($$select public.delete_questionnaire_draft(

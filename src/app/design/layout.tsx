@@ -1,4 +1,3 @@
-import "@fontsource-variable/plus-jakarta-sans";
 import { requireAccess } from "@/lib/access";
 import { ToastProvider } from "@/components/ds/overlays";
 

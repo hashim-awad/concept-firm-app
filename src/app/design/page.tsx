@@ -9,7 +9,7 @@ import { ChoiceDemo, FormDemo, OverlayDemo, StepsDemo, TableDemo } from "./demos
 const SECTIONS = [
   ["brand", "Brand"], ["colour", "Colour"], ["type", "Type"], ["buttons", "Buttons"], ["status", "Status"],
   ["forms", "Forms"], ["feedback", "Feedback"], ["layout", "Layout"], ["tables", "Tables"],
-  ["navigation", "Navigation"], ["client", "Client pages"],
+  ["staff-preview", "Draft preview"], ["navigation", "Navigation"], ["client", "Client pages"],
 ] as const;
 
 const SWATCHES: { name: string; token: string; hex: string; use: string; contrast?: string; dark?: boolean }[] = [
@@ -45,10 +45,10 @@ export default function DesignPage() {
         ))}
       </nav>
 
-      <Section id="brand" title="Brand" note="The C mark is drawn from your logo file. The wordmark beside it is a typed placeholder until the logo files are uploaded to the repo.">
+      <Section id="brand" title="Brand" note="Your supplied logo artwork, navy on light and white on navy. The small C mark (browser tab, tight spaces) is a vector drawn from the logo's exact shape.">
         <div className="grid gap-4 md:grid-cols-3">
-          <Card><p className={`${type.caption} mb-4 text-ink-3`}>On light</p><Logo size="lg" /></Card>
-          <Card className="!bg-navy-800 !border-navy-800"><p className={`${type.caption} mb-4 text-white/60`}>On navy</p><Logo size="lg" tone="white" /></Card>
+          <Card><p className={`${type.caption} mb-4 text-ink-3`}>On light</p><Logo height={52} /></Card>
+          <Card className="!bg-navy-800 !border-navy-800"><p className={`${type.caption} mb-4 text-white/60`}>On navy</p><Logo height={52} tone="white" /></Card>
           <Card><p className={`${type.caption} mb-4 text-ink-3`}>Mark only (favicon, small spaces)</p><div className="flex items-end gap-5"><ConceptMark size={56} /><ConceptMark size={36} /><ConceptMark size={20} /></div></Card>
         </div>
       </Section>
@@ -115,7 +115,7 @@ export default function DesignPage() {
       <Section id="feedback" title="Alerts, dialogs and toasts" note="Dialogs confirm anything that cannot be undone. Toasts confirm that something worked.">
         <div className="grid gap-3 md:grid-cols-2">
           <Alert tone="info" title="Rates need approval">The GST/HST table must be approved by an owner before quotes use it.</Alert>
-          <Alert tone="success" title="Signed">Both spouses signed on November 7, 2026.</Alert>
+          <Alert tone="success" title="Signed">Both spouses signed on Nov 7, 2026.</Alert>
           <Alert tone="warning" title="Expires in 3 days">The client has not signed yet.</Alert>
           <Alert tone="danger" title="Province missing">This quote cannot be made until the client&apos;s province is entered.</Alert>
         </div>
@@ -129,10 +129,21 @@ export default function DesignPage() {
           <Meta items={[
             { label: "Status", value: <StatusPill status="viewed" /> },
             { label: "Quote total before tax", value: <span className="tabular-nums">{money(54700)}</span> },
-            { label: "Sent", value: "November 5, 2026 by Test Staff A" },
-            { label: "Link expires", value: "November 26, 2026" },
+            { label: "Sent", value: "Nov 5, 2026 by Test Staff A" },
+            { label: "Link expires", value: "Nov 26, 2026" },
           ]} />
         </Card>
+      </Section>
+
+      <Section id="staff-preview" title="Staff preview of an unsent quote" note="Staff see DRAFT FOR REVIEW until the quote is sent. The client's copy never shows it.">
+        <div className="max-w-xl">
+          <DocumentSheet draft>
+            <p className={`${type.caption} text-ink-3`}>Quote · Personal tax · Draft</p>
+            <h3 className="mt-1 text-xl font-semibold">Taylor Dummy</h3>
+            <p className="mt-4 text-sm text-ink-2">Personal tax return, single</p>
+            <p className="text-sm font-semibold tabular-nums">{money(29900)}</p>
+          </DocumentSheet>
+        </div>
       </Section>
 
       <Section id="tables" title="Tables" note="Click a column heading to sort. Every table has a plain empty state.">
@@ -141,7 +152,7 @@ export default function DesignPage() {
 
       <Section id="navigation" title="Navigation" note="Staff sidebar in Concept navy with grouped sections, like Concept Studio. Step tracker for multi-step work.">
         <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
-          <div className="h-[680px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]">
+          <div className="h-[640px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]">
             <Sidebar user={{ name: "Test Owner", role: "Owner" }} groups={[
               { label: "Workspace", items: [
                 { href: "#navigation", label: "Home", icon: <Home />, active: true },
@@ -171,9 +182,8 @@ export default function DesignPage() {
         <div className="grid justify-items-center gap-6 md:grid-cols-2 xl:grid-cols-3">
           <Phone label="1. Start page">
             <ClientShell>
-              <p className="text-[13px] font-semibold text-lime-600">Concept Accounting &amp; Advisory</p>
-              <h1 className="mt-2 text-[28px] leading-9 font-semibold tracking-tight">Get your tax return done, properly.</h1>
-              <p className="mt-3 text-[15px] leading-6 text-ink-2">Answer a few questions and a CPA prepares your quote. It takes about 3 minutes.</p>
+              <h1 className="text-[28px] leading-9 font-semibold tracking-tight">Your tax return, prepared and reviewed by a CPA.</h1>
+              <p className="mt-3 text-[15px] leading-6 text-ink-2">Answer a few questions and we prepare your quote.</p>
               <div className="mt-6 space-y-3">
                 <RouteCard href="#client" icon={<User />} title="File your personal tax return" body="For individuals and couples." />
                 <RouteCard href="#client" icon={<Building2 />} title="File your corporate tax return" body="For corporations and PRECs." />
@@ -197,10 +207,10 @@ export default function DesignPage() {
 
           <Phone label="3. Quote">
             <ClientShell step="Your quote">
-              <DocumentSheet draft>
+              <DocumentSheet>
                 <p className={`${type.caption} text-ink-3`}>Quote · Personal tax</p>
                 <h1 className="mt-1 text-[22px] leading-8 font-semibold">Riley and Sam Example</h1>
-                <p className="text-sm text-ink-2">Prepared by Test Staff A · November 5, 2026</p>
+                <p className="text-sm text-ink-2">Prepared by Test Staff A · Nov 5, 2026</p>
                 <table className="mt-6 w-full text-sm">
                   <tbody>
                     {[["Personal tax returns, couple", 34900], ["Investment sales (Riley)", 9900], ["Investment sales (Sam)", 9900]].map(([n, c]) => (

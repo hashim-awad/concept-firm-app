@@ -1,7 +1,8 @@
+import Image from "next/image";
+
 // Concept brand marks.
 // <ConceptMark> is the "C" with the green chevron, drawn from the supplied logo (exact geometry).
-// <Logo> uses the real wordmark image once /public/brand/concept-logo-*.svg|png exist.
-// Until then it shows the mark plus a typed placeholder, marked data-placeholder.
+// <Logo> is the full supplied logo artwork (public/brand).
 
 export function ConceptMark({ size = 32, ring = "navy" }: { size?: number; ring?: "navy" | "white" | "black" }) {
   const ringColour = ring === "white" ? "#FFFFFF" : ring === "black" ? "#000000" : "var(--color-navy-700)";
@@ -13,21 +14,16 @@ export function ConceptMark({ size = 32, ring = "navy" }: { size?: number; ring?
   );
 }
 
-export function Logo({ tone = "navy", size = "md" }: { tone?: "navy" | "white"; size?: "sm" | "md" | "lg" }) {
-  const markSize = size === "lg" ? 40 : size === "sm" ? 24 : 32;
-  const text = tone === "white" ? "text-white" : "text-navy-700";
+// Full Concept logo (supplied artwork). Navy on light backgrounds, white on navy.
+const LOGO = {
+  navy: { src: "/brand/concept-logo-navy.webp", w: 1500, h: 388 },
+  white: { src: "/brand/concept-logo-white.webp", w: 2000, h: 517 },
+};
+export function Logo({ tone = "navy", height = 36, priority }: { tone?: "navy" | "white"; height?: number; priority?: boolean }) {
+  const l = LOGO[tone];
   return (
-    <span className={`inline-flex items-center gap-2.5 ${text}`} data-placeholder="wordmark" aria-label="Concept Accounting & Advisory">
-      <ConceptMark size={markSize} ring={tone === "white" ? "white" : "navy"} />
-      <span className="leading-none">
-        <span className={`block font-bold tracking-tight ${size === "lg" ? "text-2xl" : size === "sm" ? "text-base" : "text-xl"}`}>Concept</span>
-        {size !== "sm" && (
-          <span className={`mt-1 block text-[10px] font-semibold tracking-[0.12em] uppercase ${tone === "white" ? "text-white/70" : "text-ink-3"}`}>
-            Accounting &amp; Advisory
-          </span>
-        )}
-      </span>
-    </span>
+    <Image src={l.src} alt="Concept Accounting & Advisory, Chartered Professional Accountants"
+      width={Math.round((l.w / l.h) * height)} height={height} priority={priority} className="h-auto max-w-full" />
   );
 }
 
