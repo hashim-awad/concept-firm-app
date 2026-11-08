@@ -35,7 +35,7 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
             ? <>in the price book{ptx129.price_cents != null ? `, $${(ptx129.price_cents / 100).toFixed(0)}` : ""}. Its decimal Order (51.5) is stored as is.</>
             : <span className="text-danger">not in the price book. Re-import the Service Catalog file (Settings, Import from Studio); it adds only this row.</span>}
         </p>
-        <p><b>2. Corporate prices:</b> {perClient} item{perClient === 1 ? "" : "s"} with price type Per client and no price now show &ldquo;Priced per client (see packages)&rdquo;.</p>
+        <p><b>2. Corporate prices:</b> {perClient} item{perClient === 1 ? "" : "s"} with price type Per client and no price: shown as &ldquo;Priced per client (see packages)&rdquo; when a package lists them, otherwise &ldquo;Quoted per client&rdquo;.</p>
         <p><b>6. Fields from Notion:</b> QBO income account blank on {blank("income_account").length}{blank("income_account").length ? ` (${blank("income_account").join(", ")})` : ""};
           &ldquo;Replaces in QBO&rdquo; filled on {real.length - blank("replaces_qbo").length} of {real.length};
           &ldquo;Replaces in TaxDome&rdquo; filled on {real.length - blank("replaces_taxdome").length} of {real.length}. Each is in its own field (see Edit on any item). Blank means blank in Notion.</p>

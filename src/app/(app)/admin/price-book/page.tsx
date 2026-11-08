@@ -9,6 +9,8 @@ import { addItem } from "./actions";
 import { PriceBookTabs } from "./tabs";
 import { planCleanup } from "@/lib/price-book/cleanup";
 import { loadItems } from "@/lib/price-book/load";
+import { packagesCovering, suggestCode } from "@/lib/price-book/labels";
+import { LineAndCode } from "./add-item-code";
 
 type Line = { id: string; key: string; name: string; sort_order: number };
 type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number; price_type: string; internal_note: string };
@@ -20,11 +22,23 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   const sp = await searchParams;
   const supabase = await createClient();
   const today = todayToronto();
-  const [{ data: lines }, { data: items }, { data: prices }] = await Promise.all([
+  const [{ data: lines }, { data: items }, { data: prices }, { data: offers }] = await Promise.all([
     supabase.from("service_lines").select("id, key, name, sort_order").order("sort_order"),
     supabase.from("catalogue_items").select("id, service_line_id, code, name, unit_label, per_spouse, is_active, sort_order, price_type, internal_note").order("sort_order"),
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").order("effective_from"),
+    supabase.from("offers").select("offer, segment, services, is_active"),
   ]);
+  const allItems = (items ?? []) as Item[];
+  const offerRows = (offers ?? []) as { offer: string; segment: string; services: string[]; is_active: boolean }[];
+  const allCodes = allItems.map((i) => i.code);
+  const lineChoices = ((lines ?? []) as Line[]).map((l) => ({ id: l.id, name: l.name,
+    suggestion: suggestCode(allItems.filter((i) => i.service_line_id === l.id).map((i) => i.code), allCodes) }));
+  // No price: "Priced per client (see packages)" only when a package lists the item; otherwise "Quoted per client".
+  const noPrice = (i: Item) => {
+    const pk = packagesCovering(i, offerRows);
+    return pk.length ? <span className="text-ink-2" title={pk.join(", ")}>Priced per client (see packages)<span className="block text-xs text-muted">{pk.join(", ")}</span></span>
+      : <span className="text-ink-2">Quoted per client</span>;
+  };
 
   // The clean-up link shows only while the clean-up still has something to do (needed again in Live).
   let cleanupPending = false;
@@ -72,7 +86,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
                           <span className="block text-xs text-muted">{i.code}{i.internal_note ? ` · ${i.internal_note}` : ""}</span>
                         </td>
                         <td className="whitespace-nowrap">{i.unit_label}{i.per_spouse ? ", each spouse" : ""}</td>
-                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : i.price_type === "Per client" ? <span className="text-ink-2">Priced per client (see packages)</span> : <span className="text-danger">No price</span>}</td>
+                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : i.price_type === "Per client" ? noPrice(i) : <span className="text-danger">No price</span>}</td>
                         <td className="whitespace-nowrap text-muted">{next ? `${formatCents(next.amount_cents)} from ${formatDate(next.effective_from)}` : ""}</td>
                         <td className="text-right"><Link href={`/admin/price-book/${i.id}`} className="btn-secondary">{editable ? "Edit" : "View"}</Link></td>
                       </tr>
@@ -89,17 +103,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
         <section className="card">
           <h2 className="mb-3 font-semibold">Add an item</h2>
           <form action={addItem} className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label htmlFor="service_line_id" className="label">Service line</label>
-              <select id="service_line_id" name="service_line_id" className="input" required>
-                {((lines ?? []) as Line[]).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="code" className="label">Code</label>
-              <input id="code" name="code" required pattern="[A-Za-z0-9][A-Za-z0-9_\-]{1,39}" placeholder="CTX-104" className="input uppercase" />
-              <p className="mt-1 text-xs text-muted">Short ID used by rules. Cannot be changed later.</p>
-            </div>
+            <LineAndCode lines={lineChoices} />
             <div className="md:col-span-2">
               <label htmlFor="name" className="label">Name shown on quotes</label>
               <input id="name" name="name" required maxLength={120} className="input" />
