@@ -78,6 +78,13 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
         </form>
       )}
 
+      {access.is_owner && (
+        <section className="card mb-6 text-sm">
+          <h2 className="mb-1 text-base font-semibold">Import from Studio</h2>
+          <p className="text-muted">One-time move of Studio&rsquo;s data from Notion CSV files. <a href="/admin/import" className="text-navy-700 underline">Open the import page</a></p>
+        </section>
+      )}
+
       <form action={saveLeadAssignment} className="card mb-6">
         <fieldset disabled={!editable} className="space-y-4">
           <legend className="mb-1 font-semibold">Lead assignment</legend>

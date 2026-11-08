@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, Building2, Calculator, FileSignature, FileText, FolderLock, History, Home, Import, Landmark, ListChecks, LogOut, Menu, Percent, Settings, ShieldCheck, Users, X } from "lucide-react";
+import { BookOpen, Building2, Calculator, FileSignature, FileText, FolderLock, History, Home, Landmark, Library, ListChecks, LogOut, Menu, Percent, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { Sidebar, type NavGroup } from "@/components/ds/navigation";
 import { Logo } from "@/components/ds/brand";
 
@@ -11,6 +11,7 @@ export type SidebarAccess = {
   roleName: string;
   isOwner: boolean;
   priceBook: boolean;
+  templates: boolean;
   documents: boolean;
   documentsEdit: boolean;
   clients: boolean;
@@ -46,16 +47,16 @@ export function AppSidebar({ access, signOut }: { access: SidebarAccess; signOut
     ] });
   }
   if (access.priceBook) {
-    groups.push({ label: "Price book", items: [
+    groups.push({ label: "Price book", items: ([
       item("/admin/price-book", "Price book", <BookOpen key="i" />),
+      access.templates && item("/admin/templates", "Template library", <Library key="i" />),
       item("/admin/screening", "Screening questions", <ListChecks key="i" />),
-    ] });
+    ].filter(Boolean)) as NavGroup["items"] });
   }
   const admin = [
     access.staff && item("/admin/staff", "Staff", <Users key="i" />),
     access.taxRates && item("/admin/tax-rates", "GST/HST rates", <Percent key="i" />),
     access.isOwner && item("/admin/roles", "Roles and permissions", <ShieldCheck key="i" />),
-    access.isOwner && item("/admin/import", "Import from Studio", <Import key="i" />),
     access.settings && item("/admin/settings", "Settings", <Settings key="i" />),
     access.isOwner && item("/admin/activity", "Activity log", <History key="i" />),
   ].filter(Boolean) as NavGroup["items"];

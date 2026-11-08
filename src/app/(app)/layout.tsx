@@ -16,6 +16,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             roleName: access.role_name,
             isOwner: access.is_owner,
             priceBook: canView(access, "price_book"),
+            templates: canView(access, "engagement_terms"),
             documents: canView(access, "documents") || canView(access, "vault"),
             documentsEdit: canEdit(access, "documents"),
             clients: canView(access, "clients"),

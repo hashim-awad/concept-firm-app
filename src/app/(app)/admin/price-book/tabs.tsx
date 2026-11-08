@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const TABS = [["/admin/price-book", "Catalogue"], ["/admin/price-book/packages", "Packages, floors and T1 rows"], ["/admin/price-book/templates", "Template library"]] as const;
+const TABS = [["/admin/price-book", "Catalogue"], ["/admin/price-book/packages", "Packages, floors and T1 rows"]] as const;
 
 export function PriceBookTabs({ current }: { current: string }) {
   return (

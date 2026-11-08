@@ -10,10 +10,11 @@ export async function approveTemplate(formData: FormData) {
   const key = String(formData.get("key") ?? "");
   const e = createStudioEngine({});
   const t = (e.TEMPLATES as { k: string; name: string; basis: string; status: string }[]).find((x) => x.k === key);
-  const back = "/admin/price-book/templates";
+  const back = `/admin/templates/${key}`;
   if (!t || t.status !== "Trial") redirect(withMessage(back, "error", "Only a trial template can be approved."));
+  if (formData.get("read") !== "on") redirect(withMessage(back, "error", "Tick the box to confirm you read the wording."));
   const supabase = await createClient();
   const { error } = await supabase.from("template_approvals").insert({ template_key: t!.k, template_name: t!.name, el_version: e.EL_VERSION, basis: t!.basis ?? "" });
-  revalidatePath(back);
+  revalidatePath("/admin/templates"); revalidatePath(back);
   redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can approve templates." : error.message) : `Approved for client use at ${e.EL_VERSION}.`));
 }
