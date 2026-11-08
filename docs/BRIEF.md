@@ -65,21 +65,22 @@ End state of the staff menu. Pages not built yet show greyed out with "Soon" and
 | Clients | Clients (individuals and corporations, linked); Engagements (each client, year and service, with status) |
 | Work | Personal tax (T1) (soon); Year-End & T2 (soon, the CaseWare-style workspace from Phase 3); CFO reports (soon); Owner pay planner (soon); Incorporations (soon) |
 | Documents | The document vault |
-| Quality | Reviews and inspections (soon) |
-| Firm setup (owners) | Price book (catalogue, packages, floors); Templates (letters, terms, notes library); Screening questions; Chart of accounts and GIFI (soon); Vendor rules (soon); GST/HST rates |
+| Quality | Reviews (soon) |
+| Firm setup (owners) | Price book (catalogue, packages, floors); Templates (letters, terms, notes library); Screening questions; Chart of accounts (soon; includes GIFI); Vendor rules (soon); GST/HST rates |
 | Admin (owners) | Team and roles (staff merged with roles and permissions); Settings; Activity log |
 
 UI rules:
 - Menu groups fold away (remembered per browser), with count badges: proposals awaiting signature (status Sent) on Proposals, engagement letters awaiting signature (EL sent) on Engagement letters. A folded group shows the total.
 - Global search (Ctrl+K, or "Find a client" in the menu) jumps to any client by name.
 - The client page is the hub, with tabs: Overview (record, linked clients, at a glance), Engagements, Proposals and letters, Year-Ends (corporations; soon), Documents, Activity (owners).
+- Every page uses the full width beside the sidebar. Menu labels are never cut off (they wrap if needed).
 - Not built, because TaxDome runs them: tasks, jobs, pipelines, calendar, inbox, billing.
 
 How permissions decide what shows (built 2026-11-08):
 - My day: everyone; its lists need Documents view. Deadlines: T2 filing due six months after the year end (month-end year ends: last day of the sixth month; CRA rule checked Nov 8, 2026), for open engagements with a T2, overdue or due in 90 days. Tax payment deadlines come with Year-End.
 - Leads: Leads view. Proposals and Engagements: Documents view. Engagement letters and the T1 pricing calculator: Documents edit. Clients: Clients view. Document vault: Documents or Vault view.
 - Work (all soon): shown with Clients view until each gets its own permission area when built.
-- Quality, Chart of accounts and GIFI, Vendor rules (soon): owners.
+- Quality (Reviews), Chart of accounts, Vendor rules (soon): owners.
 - Firm setup: Price book and Screening questions need Price book view; Templates need Engagement terms view; GST/HST rates need Tax rates view. Owners have all of these by default; owners can grant them to other roles.
 - Admin: Team and roles needs Staff accounts view (Roles tab: owners only); Settings needs Settings view; Activity log: owners.
 

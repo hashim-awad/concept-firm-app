@@ -64,7 +64,7 @@ export function Sidebar({ groups, footer, user, onSearch }: { groups: NavGroup[]
                         <span aria-disabled="true" title="Not built yet"
                           className="flex cursor-default items-center gap-2.5 rounded-md px-3 py-[6px] text-[13.5px] font-medium text-white/35 [@media(max-height:820px)]:py-[3px] [@media(max-height:820px)]:text-[13px]">
                           <span className="h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4" aria-hidden>{i.icon}</span>
-                          <span className="flex-1 truncate">{i.label}</span>
+                          <span className="flex-1 leading-tight">{i.label}</span>
                           <span className="shrink-0 rounded border border-white/15 px-1 text-[9.5px] leading-4 font-semibold text-white/45">Soon</span>
                         </span>
                       ) : (
@@ -72,7 +72,7 @@ export function Sidebar({ groups, footer, user, onSearch }: { groups: NavGroup[]
                           className={`relative flex items-center gap-2.5 rounded-md px-3 py-[6px] text-[13.5px] [@media(max-height:820px)]:py-[3px] [@media(max-height:820px)]:text-[13px] font-medium transition-colors ${i.active ? "bg-white/12 text-white" : "text-white/80 hover:bg-white/8 hover:text-white"}`}>
                           {i.active && <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-lime-500" aria-hidden />}
                           <span className={`h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${i.active ? "text-lime-400" : ""}`} aria-hidden>{i.icon}</span>
-                          <span className="flex-1 truncate">{i.label}</span>
+                          <span className="flex-1 leading-tight">{i.label}</span>
                           {i.badge && <span className="rounded bg-lime-500 px-1.5 py-0.5 text-[10px] font-semibold text-navy-900">{i.badge}</span>}
                         </a>
                       )}
