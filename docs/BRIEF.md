@@ -1,6 +1,6 @@
 # Build Brief: Concept Firm App
 
-Last updated: 2026-11-08 (decisions from Hashim's answers added)
+Last updated: 2026-11-08 (roles, lead assignment, sources, retention added)
 
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
@@ -26,6 +26,14 @@ One firm web app, owned by the firm, that keeps running without Claude. It is th
 | 11 | Vercel seats | Hashim only. Staff log in to the app through Supabase. |
 | 12 | Email | Microsoft 365. Staff login emails go through the firm's M365 mail, not Supabase's built-in sender. |
 | 13 | DNS | Hashim manages the domain. Claude guides click by click when connecting app.conceptaccounting.ca. |
+| 14 | Roles and permissions | Role-based access managed by owners on the admin page. See "Roles and permissions". |
+| 15 | Lead assignment | A rule set by owners in settings, never a hard-coded person. See "Lead flow". |
+| 16 | Old triage items | Hashim is pricing each one and will send it as a price or as out of scope. "Required documents missing" is dropped from screening (TaxDome handles it after sign-up). |
+| 17 | Lead sources | Website, Referral, Existing client, Brokerage or team partner, Talk or event, Social media, Other. Owners can edit this list. |
+| 18 | Corporate signing | One signing officer (name and title) by default, with an option to add a second signer. |
+| 19 | Spam | Hidden trap field plus a submission limit. No third-party captcha. |
+| 20 | Sent | Staff click "Copy email", send from Outlook, then click "Mark as sent". The 21-day clock starts at that click. Auto-generated quotes stay draft until a staff member marks them sent. |
+| 21 | Retention | Lost and out-of-scope leads, with their screening answers, are deleted automatically 24 months after they close. Owners can change the period in settings. Signed documents and signing records are kept. Each deletion is logged with date and count only. |
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.
@@ -42,18 +50,31 @@ One firm web app, owned by the firm, that keeps running without Claude. It is th
 - Screening questions and pricing rules can be added and changed from the admin page without code changes.
 
 ## Users
-- Staff: each person has their own login (email and password). Hashim is owner and admin. Record who created and sent every document.
+- Staff: each person has their own login (email and password). Record who created and sent every document.
 - Clients: no login. Each signer gets their own private link that cannot be guessed.
+- No staff name is hard-coded anywhere in the app. The first owners are set as data during setup.
+
+## Roles and permissions
+- Roles are defined in the app. Each role has a permission per area: leads, clients, quotes and documents, vault, price book and rules, tax rates, engagement terms, custom line, staff accounts, exports, settings.
+- Each permission is one of: no access, view, edit.
+- Owners create roles, change permissions and assign people to roles from the admin page, without code changes.
+- Owner role: full access, cannot be edited. At setup: Hashim Awad and Asmaa Ibrahim.
+- Only an owner can grant or remove the owner role. The app always keeps at least one active owner.
+- All other staff get a role an owner assigns.
+- Every change to roles, permissions and role assignments is recorded in the activity log.
 
 ## Lead flow (personal and corporate)
 1. Public start page: the client chooses "File your personal tax return" or "File your corporate tax return".
 2. Each route has its own screening questions. Answers are cross-checked automatically.
-3. Every submission creates a lead record automatically (CRM style): status, source, answers, assigned staff member.
+3. Every submission creates a lead record automatically (CRM style): status, source, answers, assigned staff member. Spam protection: hidden trap field and a submission limit, no third-party captcha.
+   - Assignment follows the rule owners set in settings: all new leads to one chosen person, to an unassigned queue, or rotating between chosen people. Owners can reassign any lead.
+   - Sources: Website, Referral, Existing client, Brokerage or team partner, Talk or event, Social media, Other (owner-editable list).
 4. In-scope answers: the quote is generated automatically, with fees calculated from the screening answers and the price book, and HST by province.
-5. Staff see a pre-drafted email with the quote link, copy it, and send it from their own Outlook. The app does not send this email.
+5. Staff see a pre-drafted email with the quote link, copy it, and send it from their own Outlook. The app does not send this email. Staff then click "Mark as sent". The quote stays draft until then, so the client sees nothing a person has not released.
 6. Out-of-scope answers (non-resident, US person, estate or trust, prior years, CRA review underway): no quote. The lead is flagged for Hashim.
 7. Price book completeness: the T1 and T2 price books will be complete before go-live, so every in-scope answer prices automatically. There is no triage route for in-scope answers. An owner-only custom line exists as a safety net only, not as a normal route.
-8. Quote link expires 21 days after it is sent. Unsigned quotes expire and the lead is marked lost.
+8. Quote link expires 21 days after "Mark as sent". Unsigned quotes expire and the lead is marked lost.
+   - Corporate quotes: one signing officer (name and title) by default, with an option to add a second signer.
 9. After signing: download-your-copy page, then Continue to https://portal.conceptaccounting.ca/en-us/signup. TaxDome runs the work from there.
 10. The TaxDome invoice is created after the client completes the organizer and uploads documents, not at sign-up. Staff create it manually from the signed quote for now. The design allows a TaxDome API link to be added later.
 
@@ -91,7 +112,7 @@ Add-ons:
 | Employment expenses (T2200/T777) | $149 | per return | per spouse |
 | Moving expenses | $149 | per return | per spouse |
 
-Items from the first brief still to be priced or moved to out of scope (pending Hashim): crypto or options, property held in a partnership or trust, foreign tax return needed, treaty claims, GST/HST on an assignment not handled at closing.
+Items from the first brief still to be priced or moved to out of scope (Hashim is pricing these now): crypto or options, property held in a partnership or trust, foreign tax return needed, treaty claims, GST/HST on an assignment not handled at closing. "Required documents missing" is dropped from screening.
 
 Out of scope (flagged for Hashim, no quote): non-resident, US person, estate or trust, prior years, CRA review underway.
 
@@ -102,12 +123,17 @@ Prices, rules and tax rates are edited only on owner-only admin pages.
 - Staff can search by client, filter by type and status, open and download.
 - Backups: Supabase backups plus a "Download full export" button Hashim clicks monthly, saved to a firm records folder. Never save exports into client folders on the T: drive (those sync to the client portal).
 
+## Retention
+- Lost and out-of-scope leads, with their screening answers, are deleted automatically 24 months after they close. Owners can change the period in settings.
+- Signed documents and their signing records are kept.
+- Each deletion run is logged in the activity log with date and count only, no client details.
+
 ## Phase 2: Concept Studio (do not start until Phase 1 is approved)
 Concept Studio today is a single HTML tool on claude.ai: engagement letters (T1, corporate master letter with service schedules), proposals (single price and multi-option), price floors, packages, PDF output. Its data lives in Notion. It moves into this app; Notion data is copied in once, then the app is the source.
 
 ## Still open
 - Engagement terms text (waiting for the current T1 engagement letter).
-- Remaining T1 items and their prices.
+- Remaining T1 items and their prices, including the old triage items (price or out of scope).
 - T2 price book from Concept Studio.
 
 ## How to work with Hashim
