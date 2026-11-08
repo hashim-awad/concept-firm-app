@@ -70,3 +70,6 @@ Route: Supabase Auth "Send Email" hook -> app route /api/hooks/send-email -> Mic
   - Directory (tenant) ID: 96888d59-12fe-454f-9988-c7292bb5c710
   - No API permissions granted in Entra on purpose. Sending is allowed only for
     app@conceptaccounting.ca through Exchange "RBAC for Applications" (see below).
+  - Client secret "Vercel - concept-firm-app": created 2026-11-08, expires 2027-11-08 (12 months).
+    Stored only in Vercel as MS_CLIENT_SECRET (Production and Preview). Outlook reminder set for
+    2027-10-25 with renewal steps.
