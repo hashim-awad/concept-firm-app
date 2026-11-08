@@ -26,7 +26,7 @@ const ROOTS = [
   // Screen logic that is pure and reused as is: fee lines follow the ticked services.
   "syncFees", "FEE_SVC", "SVC_UI", "IDS", "feeRow", "lastYE", "todayISO",
   // T1 standalone master wording (Studio shows it instead of issuing a letter) and previews.
-  "t1TdHtml", "t1TdText", "t1Html", "pHtml", "render", "pkgOptions", "parseD", "TYPES", "SIGNER", "SIGNER_TITLE", "FIRM", "pPack", "pbServices", "pbNum", "pbAnnual", "unesc", "esc",
+  "t1TdHtml", "t1TdText", "t1Html", "pHtml", "render", "pkgOptions", "parseD", "PAY_NOTION", "TYPE_NOTION", "TYPES", "SIGNER", "SIGNER_TITLE", "FIRM", "pPack", "pbServices", "pbNum", "pbAnnual", "unesc", "esc",
 ];
 // Top-level variables the screens read and change (Studio keeps them as page globals).
 const MUTABLE = ["FEES", "T1C", "POPTS", "pRec"];

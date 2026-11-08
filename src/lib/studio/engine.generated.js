@@ -92,6 +92,7 @@ export function createStudioEngine(env = {}) {
    var signInv=method!=="pad" && (timing==="sign"||timing==="split") && oT>0;
    return {rec:rec,auto:auto,method:method,timing:timing,oT:oT,yT:yT,signInv:signInv,needLink:method==="pad"||((method==="once"||method==="tdlink")&&signInv)}; }
   var PAY_LABEL={pad:"Plooto PAD (repeating payments)",once:"Plooto one-time payment link",td:"TaxDome portal (sign and pay in TaxDome)",tdlink:"TaxDome payment link (letter signed outside TaxDome)"};
+  var PAY_NOTION={pad:"PAD pending",once:"Plooto one-time",td:"TaxDome portal",tdlink:"TaxDome payment link"};
   function firstInvoice(s){ var m=0,q=0,o=0; (s.fees||[]).forEach(function(f){ var v=feeVal(f.amt); if(v.k!=="num") return; if(f.tag==="catchup"&&s.catchTBD) return; if(f.kind==="month") m+=v.n; else if(f.kind==="quarter") q+=v.n; else if(f.kind==="once") o+=v.n; });
     var oNow = s.billOnce==="split" ? Math.round(o/2*100)/100 : (s.billOnce==="complete" ? 0 : o); return {m:m,q:q,o:oNow,total:Math.round((m+q+oNow)*100)/100}; }
   function svcList(s){ var SV=s.svc||{}, L=[];
@@ -739,10 +740,11 @@ export function createStudioEngine(env = {}) {
    });
    $("paper").innerHTML=h; $("paper").classList.toggle("draft",s.mode!=="final");
   }
+  var TYPE_NOTION={ye:"Year-end compilation + T2",mfs:"Monthly full service",t2:"T2 only",svc:"Corporate services"};
   if (env.SIGNER) SIGNER = env.SIGNER;
   if (env.SIGNER_TITLE) SIGNER_TITLE = env.SIGNER_TITLE;
   // get/set for the page-level variables Studio's functions read and reassign.
   function __get(name) { switch (name) { case "FEES": return FEES; case "T1C": return T1C; case "POPTS": return POPTS; case "pRec": return pRec; } }
   function __set(name, v) { switch (name) { case "FEES": FEES = v; return; case "T1C": T1C = v; return; case "POPTS": POPTS = v; return; case "pRec": pRec = v; return; } }
-  return { BASIS, CRA_GROUP, CRA_OPT, CRA_REP, EL_VERSION, EL_VERSION_DATE, FEES, FEE_PRESETS, FEE_SVC, FIRM, FIRM_ADDR, GREEN, IDS, MONTHS, NAVY, PAY_LABEL, PKIND, POPTS, PSVC, SIGNER, SIGNER_TITLE, SVC_UI, T1C, T1C_ITEMS, T1C_OUT, T1C_TRIAGE, T1_REL, T1_TD, TEMPLATES, TERMS, TYPES, appendixA, build, buildT1, catByCode, checks, craAppSteps, deriveType, esc, feeRow, feeStyleTouched, feeText, feeType, feeVal, feesTouched, fileName, firstInvoice, floorFor, fmtD, fmtMonth, lastYE, money, pBuild, pChecks, pClientUrl, pHtml, pLastRec, pNewOption, pPack, pPdf, pRec, pTotals, pValidUntil, parseD, payInfo, pbAnnual, pbNum, pbRows, pbServices, pdfDoc, periodInfo, pkgOptions, render, runsH, runsToPdf, sigBlock, sigH, statementsList, svcList, syncFees, t1Checks, t1FileName, t1Html, t1Names, t1TdHtml, t1TdText, t1cCalc, t1cSummary, termsClient, todayISO, trim, unesc, __get, __set };
+  return { BASIS, CRA_GROUP, CRA_OPT, CRA_REP, EL_VERSION, EL_VERSION_DATE, FEES, FEE_PRESETS, FEE_SVC, FIRM, FIRM_ADDR, GREEN, IDS, MONTHS, NAVY, PAY_LABEL, PAY_NOTION, PKIND, POPTS, PSVC, SIGNER, SIGNER_TITLE, SVC_UI, T1C, T1C_ITEMS, T1C_OUT, T1C_TRIAGE, T1_REL, T1_TD, TEMPLATES, TERMS, TYPES, TYPE_NOTION, appendixA, build, buildT1, catByCode, checks, craAppSteps, deriveType, esc, feeRow, feeStyleTouched, feeText, feeType, feeVal, feesTouched, fileName, firstInvoice, floorFor, fmtD, fmtMonth, lastYE, money, pBuild, pChecks, pClientUrl, pHtml, pLastRec, pNewOption, pPack, pPdf, pRec, pTotals, pValidUntil, parseD, payInfo, pbAnnual, pbNum, pbRows, pbServices, pdfDoc, periodInfo, pkgOptions, render, runsH, runsToPdf, sigBlock, sigH, statementsList, svcList, syncFees, t1Checks, t1FileName, t1Html, t1Names, t1TdHtml, t1TdText, t1cCalc, t1cSummary, termsClient, todayISO, trim, unesc, __get, __set };
 }
