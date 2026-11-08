@@ -9,13 +9,13 @@ import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
-export function T1LetterScreen({ env, clients, isOwner, handlers, initial, today }: {
+export function T1LetterScreen({ env, clients, isOwner, handlers, initial, startClientId, today }: {
   env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
-  initial?: { f: Record<string, any>; clientId?: string; documentId?: string }; today?: string;
+  initial?: { f: Record<string, any>; clientId?: string; documentId?: string }; today?: string; startClientId?: string;
 }) {
   const [box] = useState(() => makeEngine(env));
-  const [ctl, act] = useController(() => { const c = new T1Letter(box.e, today); if (initial) Object.assign(c.f, initial.f); return c; });
-  const [clientId, setClientId] = useState(initial?.clientId ?? "");
+  const [ctl, act] = useController(() => { const c = new T1Letter(box.e, today); if (initial) Object.assign(c.f, initial.f); else if (startClientId) c.applyClient(clients.find((x) => x.url === startClientId) ?? null); return c; });
+  const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");
   const e = ctl.e, f = ctl.f;
   const client = clients.find((c) => c.url === clientId) ?? null;
   const out = ctl.output();

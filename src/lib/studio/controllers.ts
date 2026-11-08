@@ -121,6 +121,19 @@ export class CorporateLetter {
     this.refresh();
   }
 
+  // Studio pToLetter(): an accepted proposal option fills the letter. "o" is the option in
+  // Studio's packed form ({n, s, l}); "c" the prospect ({n, ct, sa, pr}) when there is no client record.
+  fromProposal(o: { n: string; s: string[]; l: [string, string, string][] }, c: { n: string; ct: string; sa: string; pr: string } | null, client: StudioClientRow | null) {
+    if (client) this.applyClient(client);
+    else if (c) Object.assign(this.f, { company: c.n, signer: c.ct, salutation: c.sa, province: c.pr || "ON" });
+    for (const [k] of this.e.SVC_UI as [string][]) this.f["svc_" + k] = o.s.indexOf(k) >= 0;
+    this.f.pnl = o.s.indexOf("pnl") >= 0;
+    this.refresh();
+    this.e.__set("FEES", o.l.map((l) => ({ svc: l[0], detail: "", kind: ["month", "quarter", "year", "once"].indexOf(l[1]) >= 0 ? l[1] : "once", amt: l[2] })));
+    const st = this.state(); this.feeType = JSON.stringify(st.svc) + st.payrollMode;
+    this.refresh();
+  }
+
   output() {
     const s = this.state();
     return { s, checks: this.e.checks(s), blocks: this.e.build(s), fileName: this.e.fileName(s) };

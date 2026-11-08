@@ -13,13 +13,14 @@ export default async function T1LetterPage({ searchParams }: PageProps<"/documen
   const { data, env } = await screenSetup(supabase, access, "letter");
   const open = await openDocument(supabase, typeof sp.doc === "string" ? sp.doc : undefined, "t1_letter");
   const today = todayToronto();
+  const startClientId = typeof sp.client === "string" ? sp.client : undefined;
   const initial = open ? {
     f: open.lastMode === "final" ? { ...open.inputs.f, letterDate: today, reviewed: false } : open.inputs.f, clientId: open.clientId, documentId: open.documentId,
   } : undefined;
   return (
     <>
       <PageHeader eyebrow="Documents" title="Personal Tax Letter (T1)" description="Personal tax engagement letters for individuals and families." />
-      <T1LetterScreen env={env} clients={individuals(data.clients)} isOwner={access.is_owner} today={today} initial={initial}
+      <T1LetterScreen env={env} clients={individuals(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>
   );

@@ -2,7 +2,8 @@ import { PageHeader, Notice } from "@/components/ui";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
-import { saveLeadAssignment, saveRetention } from "./actions";
+import { formatDateTime } from "@/lib/dates";
+import { saveLeadAssignment, saveRetention, saveSigner, uploadSignature } from "./actions";
 
 type Assignment = { mode: "single" | "unassigned" | "rotate"; staff_ids: string[] };
 
@@ -19,11 +20,62 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
   const assignment = (byKey.get("lead_assignment") ?? { mode: "unassigned", staff_ids: [] }) as Assignment;
   const retention = Number(byKey.get("retention_months") ?? 24);
   const people = (staff ?? []) as { id: string; full_name: string }[];
+  const signer = (k: string) => (byKey.get(k) ?? { name: "", title: "Director" }) as { name: string; title: string };
+  const sigInfo = (byKey.get("signature_image") ?? { uploaded: false }) as { uploaded: boolean; uploaded_at?: string };
+  const SIGNERS: [string, string, string][] = [
+    ["signer_engagement_letter", "Engagement letters", "Corporate and T1 letters. Use the name registered with CPA Ontario."],
+    ["signer_proposal", "Proposals", "The name on proposals."],
+    ["signer_other", "Everything else", "Other documents the app makes."],
+  ];
 
   return (
     <>
       <PageHeader title="Settings" description={editable ? "Changes are recorded in the activity log." : "You can view these settings. Only people with Edit can change them."} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">Signer names</h2>
+        <p className="mb-4 text-sm text-muted">The name and title printed in the signature block. Only an owner can change these.</p>
+        <div className="grid gap-5">
+          {SIGNERS.map(([key, label, hint]) => (
+            <form key={key} action={saveSigner} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <input type="hidden" name="key" value={key} />
+              <div>
+                <label htmlFor={`${key}-name`} className="label">{label}</label>
+                <input id={`${key}-name`} name="name" defaultValue={signer(key).name} disabled={!access.is_owner} className="input" />
+                <span className="text-xs text-muted">{hint}</span>
+              </div>
+              <div>
+                <label htmlFor={`${key}-title`} className="label">Title</label>
+                <input id={`${key}-title`} name="title" defaultValue={signer(key).title} disabled={!access.is_owner} className="input" />
+                <span className="text-xs">&nbsp;</span>
+              </div>
+              {access.is_owner && <button type="submit" className="btn mb-5">Save</button>}
+            </form>
+          ))}
+        </div>
+      </section>
+
+      {access.is_owner && (
+        <form action={uploadSignature} className="card mb-6 space-y-3">
+          <h2 className="font-semibold">Signature image</h2>
+          <p className="text-sm text-muted">
+            Placed only on Final letters, which only an owner can issue. Stored privately in Canada and readable by owners only. Never stored in the app&rsquo;s code.
+          </p>
+          <p className="text-sm">{sigInfo.uploaded ? <>Uploaded{sigInfo.uploaded_at ? ` ${formatDateTime(sigInfo.uploaded_at)}` : ""}.</> : "Not uploaded yet. Final letters are blocked until it is."}</p>
+          {sigInfo.uploaded && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/documents/signature" alt="Current signature" className="h-16 w-auto rounded border border-sand-200 bg-white p-1" />
+          )}
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label htmlFor="signature" className="label">PNG image, under 1 MB</label>
+              <input id="signature" name="signature" type="file" accept="image/png" required className="text-sm" />
+            </div>
+            <button type="submit" className="btn">{sigInfo.uploaded ? "Replace signature" : "Upload signature"}</button>
+          </div>
+        </form>
+      )}
 
       <form action={saveLeadAssignment} className="card mb-6">
         <fieldset disabled={!editable} className="space-y-4">

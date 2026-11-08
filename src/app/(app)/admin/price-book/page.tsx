@@ -6,6 +6,7 @@ import { messageFrom } from "@/lib/messages";
 import { formatCents } from "@/lib/screening/engine";
 import { formatDate, todayToronto } from "@/lib/dates";
 import { addItem } from "./actions";
+import { PriceBookTabs } from "./tabs";
 
 type Line = { id: string; key: string; name: string; sort_order: number };
 type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number };
@@ -33,6 +34,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   return (
     <>
       <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made." />
+      <PriceBookTabs current="/admin/price-book" />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       {((lines ?? []) as Line[]).map((line) => {

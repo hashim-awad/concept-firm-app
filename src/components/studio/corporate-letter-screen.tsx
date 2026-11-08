@@ -14,17 +14,19 @@ import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
 const KINDS: [string, string][] = [["month", "Monthly"], ["quarter", "Quarterly"], ["year", "Each year end"], ["once", "One-time"]];
 
-export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial, today }: {
+export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial, startClientId, proposalPick, today }: {
   env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
-  initial?: { f: Record<string, any>; fees: any[]; clientId?: string; documentId?: string }; today?: string;
+  initial?: { f: Record<string, any>; fees: any[]; clientId?: string; documentId?: string }; today?: string; startClientId?: string; proposalPick?: { option: any; prospect: any };
 }) {
   const [box] = useState(() => makeEngine(env));
   const [ctl, act] = useController(() => {
     const c = new CorporateLetter(box.e, today);
     if (initial) c.load(initial.f, initial.fees);
+    else if (startClientId) c.applyClient(clients.find((x) => x.url === startClientId) ?? null);
+    if (proposalPick) c.fromProposal(proposalPick.option, proposalPick.prospect, clients.find((x) => x.url === startClientId) ?? null);
     return c;
   });
-  const [clientId, setClientId] = useState(initial?.clientId ?? "");
+  const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");
   const [pkg, setPkg] = useState("");
   const [addSel, setAddSel] = useState("0");
   const e = ctl.e, f = ctl.f;

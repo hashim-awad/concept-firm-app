@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
     },
   },
   poweredByHeader: false,
+  // Signature image and the owner's Notion CSV imports are sent to server actions.
+  // Vercel accepts request bodies up to 4.5 MB.
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   async headers() {
     return [
       {

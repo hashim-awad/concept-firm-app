@@ -8,17 +8,18 @@ import { Button } from "@/components/ds/primitives";
 import { ChecksPanel, Hint, Labelled, ModeSwitch, Panel, Paper, PROVINCES, Row, SelectIn, Stepper, StudioLayout, TextIn, makeEngine, useController, type ScreenEnv } from "./kit";
 import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
-export function ProposalScreen({ env, clients, isOwner, handlers, initial, today, recent }: {
+export function ProposalScreen({ env, clients, isOwner, handlers, initial, startClientId, approvedTax, today, recent }: {
   env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
-  initial?: { f: Record<string, string>; opts: any[]; rec: number; clientId?: string; documentId?: string }; today?: string; recent?: ReactNode;
+  initial?: { f: Record<string, string>; opts: any[]; rec: number; clientId?: string; documentId?: string }; today?: string; startClientId?: string; approvedTax?: Record<string, string>; recent?: ReactNode;
 }) {
   const [box] = useState(() => makeEngine(env));
   const [ctl, act] = useController(() => {
     const c = new Proposal(box.e, today);
     if (initial) { Object.assign(c.f, initial.f); c.e.__set("POPTS", JSON.parse(JSON.stringify(initial.opts))); c.e.__set("pRec", initial.rec); }
+    else if (startClientId) c.applyClient(clients.find((x) => x.url === startClientId) ?? null);
     return c;
   });
-  const [clientId, setClientId] = useState(initial?.clientId ?? "");
+  const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");
   const e = ctl.e, f = ctl.f;
   const s = ctl.state();
   const scr = proposalScreen(e, s, { client: null, loaded: env.loaded, isOwner, acks: {} });
@@ -144,6 +145,12 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, today
       side={
         <div className="grid gap-4">
           <Panel className="xl:sticky xl:top-4 xl:z-10">
+            {approvedTax && !approvedTax[f.province] && (
+              <p role="status" className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-[#5C3D00]">
+                No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final proposal needs one: an owner approves rates under GST/HST rates. Drafts are fine.
+              </p>
+            )}
+            {approvedTax?.[f.province] && <p className="text-[13px] text-ink-3">Tax on this proposal: {approvedTax[f.province]} (approved rate).</p>}
             <ChecksPanel id="p_checks" list={scr.checks} />
             <ModeSwitch name="pmode" mode={ctl.mode} onMode={(m) => act((c) => c.setMode(m))} />
             <DocumentActions kind="proposal" handlers={handlers} ok={scr.ok} message={scr.message} mode={ctl.mode} showSaveClient={false}

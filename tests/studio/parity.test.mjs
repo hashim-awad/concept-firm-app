@@ -161,3 +161,20 @@ for (const c of PROPOSALS) {
     assert.deepEqual(plain(ctl.state()), studio, "proposal inputs differ");
   });
 }
+
+test("app: accepted proposal fills the letter = Studio pToLetter", async () => {
+  const p = PROPOSALS[1];
+  const studio = await page.evaluate(({ fields, opts, rec }) => {
+    go("prop"); buildPropView();
+    for (const [k, v] of Object.entries(fields)) { const el = document.getElementById("p_" + k); el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); }
+    POPTS = opts; pRec = rec;
+    const packed = pPack(pState());
+    FEES = []; feeType = null; feesTouched = false; go("el"); buildEL();
+    pToLetter({ "Options data": packed, "Chosen option": "Option B", Client: "" });
+    return { packed, s: JSON.parse(JSON.stringify(state())) };
+  }, p);
+  const data = JSON.parse(studio.packed);
+  const ctl = new CorporateLetter(engine(), TODAY);
+  ctl.fromProposal(data.o.find((x) => x.n === "Option B"), data.c, null);
+  assert.deepEqual(plain(ctl.state()), studio.s, "letter filled from the proposal differs");
+});

@@ -26,15 +26,15 @@ export async function loadStudioData(supabase: SupabaseClient, access: Access): 
   const today = todayToronto();
   const [offers, items, prices, clients, signers] = await Promise.all([
     floorsOk ? supabase.from("offers").select("*").eq("is_active", true).order("sort_order") : Promise.resolve({ data: [] }),
-    supabase.from("catalogue_items").select("id, code, name").eq("is_active", true),
+    supabase.from("catalogue_items").select("id, code, name, unit_label").eq("is_active", true),
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").lte("effective_from", today).order("effective_from"),
     canView(access, "clients") ? supabase.from("clients").select(CLIENT_COLUMNS).eq("status", "active").order("legal_name") : Promise.resolve({ data: [] }),
     supabase.rpc("signer_settings"),
   ]);
   const price = new Map<string, number>();
   for (const p of (prices.data ?? []) as { item_id: string; amount_cents: number }[]) price.set(p.item_id, p.amount_cents / 100);
-  const cat = ((items.data ?? []) as { id: string; code: string; name: string }[]).map((i) => ({
-    Code: i.code, Service: i.name, Price: price.has(i.id) ? price.get(i.id) : "",
+  const cat = ((items.data ?? []) as { id: string; code: string; name: string; unit_label: string }[]).map((i) => ({
+    Code: i.code, Service: i.name, Unit: i.unit_label, Price: price.has(i.id) ? price.get(i.id) : "",
   }));
   const s = (signers.data ?? {}) as Record<string, { name?: string; title?: string; uploaded?: boolean }>;
   const signer = (k: string, fallback: string): Signer => ({ name: s[k]?.name || fallback, title: s[k]?.title || "Director" });

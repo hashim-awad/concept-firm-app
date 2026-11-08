@@ -1,4 +1,4 @@
-import { requireAccess, canView } from "@/lib/access";
+import { requireAccess, canView, canEdit } from "@/lib/access";
 import { ToastProvider } from "@/components/ds/overlays";
 import { signOut } from "../login/actions";
 import { AppSidebar } from "./app-sidebar";
@@ -15,6 +15,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             roleName: access.role_name,
             isOwner: access.is_owner,
             priceBook: canView(access, "price_book"),
+            documents: canView(access, "documents") || canView(access, "vault"),
+            documentsEdit: canEdit(access, "documents"),
+            clients: canView(access, "clients"),
+            taxRates: canView(access, "tax_rates"),
             staff: canView(access, "staff_accounts"),
             settings: canView(access, "settings"),
           }}

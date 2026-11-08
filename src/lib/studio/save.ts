@@ -40,6 +40,13 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   catch (err) { return { ok: false, error: err instanceof Error ? err.message : "Could not build the document." }; }
   if (!b.scr.ok) return { ok: false, error: b.scr.message || "Fix the items listed first." };
 
+  // Decision 22: a Final proposal needs an approved GST/HST rate for the client's province.
+  if (final && input.kind === "proposal") {
+    const prov = String(input.snapshot?.f?.province ?? "");
+    const { data: rate } = ["ON", "AB", "BC"].includes(prov) ? await supabase.rpc("approved_tax_rate", { p_province: prov }) : { data: null };
+    if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An owner approves rates under GST/HST rates first." };
+  }
+
   // Final documents are recorded first, so a refusal (e.g. already signed) stops before filing.
   let engagementId: string | null = null, proposalId: string | null = null, note = "";
   if (final) {

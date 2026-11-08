@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookOpen, History, Home, ListChecks, LogOut, Menu, Palette, Settings, ShieldCheck, Users, X } from "lucide-react";
+import { BookOpen, Building2, Calculator, FileSignature, FileText, FolderLock, History, Home, Import, Landmark, ListChecks, LogOut, Menu, Percent, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { Sidebar, type NavGroup } from "@/components/ds/navigation";
 import { Logo } from "@/components/ds/brand";
 
@@ -11,6 +11,10 @@ export type SidebarAccess = {
   roleName: string;
   isOwner: boolean;
   priceBook: boolean;
+  documents: boolean;
+  documentsEdit: boolean;
+  clients: boolean;
+  taxRates: boolean;
   staff: boolean;
   settings: boolean;
 };
@@ -19,12 +23,28 @@ export type SidebarAccess = {
 export function AppSidebar({ access, signOut }: { access: SidebarAccess; signOut: () => Promise<void> }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  const is = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+  // The create screens live under /documents but have their own menu items.
+  const CREATE = ["/documents/corporate-letter", "/documents/t1-letter", "/documents/proposal"];
+  const is = (href: string) => (href === "/" ? path === "/"
+    : href === "/documents" ? (path === href || path.startsWith("/documents/")) && !CREATE.some((c) => path.startsWith(c))
+    : path === href || path.startsWith(`${href}/`));
   const item = (href: string, label: string, icon: React.ReactNode, badge?: string) => ({ href, label, icon, active: is(href), badge });
 
   const groups: NavGroup[] = [
-    { label: "Workspace", items: [item("/", "Home", <Home key="i" />)] },
+    { label: "Workspace", items: [
+      item("/", "Home", <Home key="i" />),
+      access.documents && item("/documents", "Documents", <FolderLock key="i" />),
+      access.clients && item("/clients", "Clients", <Building2 key="i" />),
+    ].filter(Boolean) as NavGroup["items"] },
   ];
+  if (access.documentsEdit) {
+    groups.push({ label: "Create", items: [
+      item("/documents/corporate-letter", "Corporate letter", <FileSignature key="i" />),
+      item("/documents/t1-letter", "T1 letter", <FileText key="i" />),
+      item("/documents/proposal", "Proposal", <Landmark key="i" />),
+      item("/t1-pricing", "T1 pricing", <Calculator key="i" />),
+    ] });
+  }
   if (access.priceBook) {
     groups.push({ label: "Price book", items: [
       item("/admin/price-book", "Price book", <BookOpen key="i" />),
@@ -33,10 +53,11 @@ export function AppSidebar({ access, signOut }: { access: SidebarAccess; signOut
   }
   const admin = [
     access.staff && item("/admin/staff", "Staff", <Users key="i" />),
+    access.taxRates && item("/admin/tax-rates", "GST/HST rates", <Percent key="i" />),
     access.isOwner && item("/admin/roles", "Roles and permissions", <ShieldCheck key="i" />),
+    access.isOwner && item("/admin/import", "Import from Studio", <Import key="i" />),
     access.settings && item("/admin/settings", "Settings", <Settings key="i" />),
     access.isOwner && item("/admin/activity", "Activity log", <History key="i" />),
-    item("/design", "Design system", <Palette key="i" />),
   ].filter(Boolean) as NavGroup["items"];
   groups.push({ label: "Admin", items: admin });
 
