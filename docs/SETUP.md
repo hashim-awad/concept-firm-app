@@ -21,17 +21,13 @@ every table), so both behave the same whatever the dashboard settings are.
 Database passwords are kept in the firm's password manager only:
 - "Supabase – Concept Firm App – Test – database"
 
-## Supabase access token (for GitHub deploys)
+## Supabase access token (deleted)
 
-- Name: "GitHub - concept-firm-app deploy"
-- Created 2026-11-08, expires 2027-02-06 (90 days). Renew before expiry.
-- Limited to: Concept Firm App, Concept Firm App - Test.
-- Permissions: Project Settings = Read, Migrations = Read and write. Everything else none.
-- Stored in: firm password manager ("Supabase – access token – GitHub deploy") and GitHub repository secret SUPABASE_ACCESS_TOKEN.
-- Not used by the deploy workflow (it connects with the database password instead). Recommended: delete it.
-- Note: this token was pasted into a Claude chat on 2026-11-08. Hashim chose to keep it.
-  It must be replaced with a new token before any real client data is in the live project
-  (go-live checklist item).
+- A token "GitHub - concept-firm-app deploy" was created on 2026-11-08 and pasted into a Claude chat.
+- It turned out not to be needed (deploys use the database password). Hashim deleted it from
+  Supabase, from GitHub secrets and from the password manager on 2026-11-08.
+- No Supabase access token is in use. If one is needed later, create a new one limited to the
+  two projects and the minimum permissions, and never paste it into a chat.
 
 ## How database changes are deployed
 
