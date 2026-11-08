@@ -63,3 +63,18 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Parity with the original Studio page
         run: npm run test:parity
+      - name: Build the app for the screen test (placeholders, no database)
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+          SUPABASE_SECRET_KEY: placeholder
+          SITE_URL: http://localhost:3000
+      - name: App screens filled like Studio's forms give identical output
+        run: npm run test:screens
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_placeholder
+          SUPABASE_SECRET_KEY: placeholder
+          SITE_URL: http://localhost:3000

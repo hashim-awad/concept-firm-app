@@ -63,8 +63,15 @@ export class CorporateLetter {
   // Studio refresh(): fee lines follow the ticked services (only when the services change).
   refresh() {
     const s = this.state();
-    const svKey = JSON.stringify(s.svc) + s.payrollMode + "|" + s.pnl + "|" + s.catchTBD + "|" + this.e.trim(s.t1Owner) + "|" + s.catchFrom + s.catchTo;
+    const svKey = this.svKey(s);
     if (this.feeType !== svKey) { this.feeType = svKey; this.e.syncFees(s); }
+  }
+  private svKey(s: any) { return JSON.stringify(s.svc) + s.payrollMode + "|" + s.pnl + "|" + s.catchTBD + "|" + this.e.trim(s.t1Owner) + "|" + s.catchFrom + s.catchTo; }
+
+  // Reopen a saved letter exactly as it was: its fields and its fee lines, unchanged.
+  load(f: Record<string, Val>, fees: Fee[], mode: "draft" | "final" = "draft") {
+    Object.assign(this.f, f); this.e.__set("FEES", fees.map((x) => ({ ...x }))); this.mode = mode;
+    this.feeType = this.svKey(this.state());
   }
 
   set(id: string, v: Val) { this.f[id] = v; this.refresh(); }

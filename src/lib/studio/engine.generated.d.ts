@@ -11,5 +11,6 @@ export type StudioEnv = {
   LH?: string;
   SIG?: string;
   ILLUS?: string;
+  $?: (id: string) => unknown;
 };
 export declare function createStudioEngine(env?: StudioEnv): StudioEngine;

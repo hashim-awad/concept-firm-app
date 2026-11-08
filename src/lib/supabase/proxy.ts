@@ -5,6 +5,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/", "/api/hooks/"];
 
 export async function updateSession(request: NextRequest) {
+  // Screen parity test page: only in a test run started with STUDIO_HARNESS=1. Uses no session.
+  if (process.env.STUDIO_HARNESS === "1" && request.nextUrl.pathname.startsWith("/studio-harness/")) return NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -130,3 +130,26 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700
 .sidebar-scroll::-webkit-scrollbar { width: 6px; }
 .sidebar-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.2); border-radius: 3px; }
 .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Studio letter preview: Studio's own paper styles (EL v3.31), scoped to the preview box. */
+.studio-preview .paper{background:#fff;color:#1d2330;width:816px;max-width:none;margin:0 auto;padding:44px 56px;border-radius:4px;box-shadow:0 2px 14px rgba(0,0,0,.12);font-family:Roboto,Arial,sans-serif;font-size:13px;line-height:1.5;position:relative;font-variant-numeric:normal}
+.studio-preview .paper.draft::after{content:"DRAFT FOR REVIEW";position:absolute;top:220px;left:0;right:0;text-align:center;font-size:58px;font-weight:700;color:rgba(179,38,30,.09);transform:rotate(-30deg);pointer-events:none}
+.studio-preview .paper img.lh{width:100%;margin-bottom:18px}
+.studio-preview .paper p{margin:0 0 9px;text-align:justify}
+.studio-preview .paper li{text-align:justify}
+.studio-preview .paper h3{color:#1A3C7C;font-size:14px;font-weight:700;margin:14px 0 6px}
+.studio-preview .paper ul{margin:0 0 9px 18px;padding:0;list-style:disc}
+.studio-preview .paper ol{list-style:decimal}
+.studio-preview .paper table{border-collapse:collapse;width:100%;margin:4px 0 10px}
+.studio-preview .paper th{background:#1A3C7C;color:#fff;text-align:left;padding:5px 8px}
+.studio-preview .paper td{border:1px solid #c9d3e6;padding:5px 8px;vertical-align:top}
+.studio-preview .paper .pgb{border-top:2px dashed #c9d3e6;margin:26px -56px 22px;position:relative}
+.studio-preview .paper .pgb span{position:absolute;top:-10px;left:56px;background:#fff;padding:0 6px;font-size:11px;color:#7a8394}
+.studio-preview .paper .sig{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:8px}
+.studio-preview .paper .sig .ln{border-top:1px solid #333;margin-top:30px;padding-top:3px}
+.studio-preview .paper .tc p{font-size:12px}
+.studio-preview .paper .app-r{text-align:right;margin-top:22px}
+.studio-preview .paper .missing{background:#fbeceb;color:#b3261e;padding:0 3px;border-radius:3px}
+.studio-preview .paper .illus{position:relative;overflow:hidden}
+.studio-preview .paper .illus::after{content:"ILLUSTRATIVE ONLY";position:absolute;top:45%;left:-10%;right:-10%;text-align:center;font-size:54px;font-weight:700;color:rgba(179,38,30,.17);transform:rotate(38deg);pointer-events:none}
+.studio-preview .paper .illus .ban{background:#b3261e;color:#fff;font-weight:700;text-align:center;padding:6px 10px;font-size:12px;margin-bottom:10px}

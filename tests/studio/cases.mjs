@@ -73,3 +73,52 @@ export const FLOORS = [
 export const T1CALC = [
   { name: "T1 calculator sample", inputs: null },
 ];
+
+// ---- Screen cases: the same steps are played on Studio's forms and on the app's screens ----
+const setAll = (fields, prefix = "") => Object.entries(fields).map(([k, v]) => ({ set: "#" + prefix + k, value: v }));
+
+function proposalSteps(p) {
+  const steps = setAll(p.fields, "p_");
+  const base = p.fields.format === "options" ? 2 : 1; // options format starts with two options
+  for (let i = base; i < p.opts.length; i++) steps.push({ click: "#p_addopt" });
+  p.opts.forEach((o, i) => {
+    steps.push({ set: `#po_name${i}`, value: o.name }, { set: `#po_offer${i}`, value: o.offer });
+    for (const k of ["comp", "t2", "catchup", "books", "pnl", "gst", "payroll", "pay", "cfo", "budget", "coord"]) steps.push({ set: `[data-o="${i}"][data-s="${k}"]`, value: !!o.svc[k] });
+    // Each option starts with Studio's two default fee lines; add or remove to match.
+    for (let j = 2; j < o.lines.length; j++) steps.push({ click: `[data-ladd="${i}"]` });
+    for (let j = 2; j > o.lines.length; j--) steps.push({ click: `[data-ldel="${i}:${j - 1}"]` });
+    o.lines.forEach((l, j) => {
+      steps.push({ set: `[data-o="${i}"][data-l="${j}"][data-f="svc"]`, value: l.svc }, { set: `[data-o="${i}"][data-l="${j}"][data-f="kind"]`, value: l.kind }, { set: `[data-o="${i}"][data-l="${j}"][data-f="amt"]`, value: l.amt });
+    });
+  });
+  if (p.opts.length > 1) steps.push({ set: `input[name=prec][value="${p.rec}"]`, value: true });
+  return steps;
+}
+
+export const SCREEN_CASES = [
+  ...CORPORATE.map((c) => ({ screen: "corporate", name: c.name, steps: [...setAll(c.fields), ...c.feeAmounts.map((a, i) => ({ set: "#fa_" + i, value: a }))] })),
+  {
+    screen: "corporate", name: "Package applied, fee line added and edited, Final with review box",
+    steps: [
+      ...setAll({ company: "Sample Agent PREC Inc.", signer: "Drew Example", salutation: "Drew", addr1: "5 Test Way", city: "Kitchener", postal: "N2B 2B2", province: "ON", letterDate: "2026-11-08", ye: "2026-12-31" }),
+      { set: "#pkgSel", value: "Agent: monthly bookkeeping plus year-end T2" }, { click: "#pkgApply" },
+      { set: "#feeAddSel", value: "5" }, { click: "#feeAddBtn" },
+      { set: "#payMethod", value: "pad" }, { set: "#ploLink", value: "https://example.com/pay/dummy" },
+      { set: "input[name=mode][value=final]", value: true }, { set: "#reviewed", value: true },
+    ],
+  },
+  {
+    screen: "corporate", name: "Alberta registration check, catch-up not known yet, custom basis",
+    steps: setAll({ company: "Test Alberta Holdings Ltd.", signer: "Robin Sample", salutation: "Robin", addr1: "1 Placeholder Rd", city: "Edmonton", postal: "T5J 0A1", province: "AB",
+      letterDate: "2026-11-08", ye: "2026-08-31", svc_catchup: true, catchTBD: true, catchTo: "2026-08-31", basis: "custom", basisCustom: "the dummy loan agreement dated March 1, 2026, which requires the cash basis" }),
+  },
+  ...T1.map((c) => ({ screen: "t1", name: c.name, steps: Object.entries(c.fields).map(([k, v]) => (k === "card" ? { click: `.t1card[data-card="${v}"]` } : { set: "#t1_" + k, value: v })) })),
+  {
+    screen: "t1", name: "T1 company client, spouse without a name, BC, Final",
+    steps: [
+      ...setAll({ name0: "Avery Sample", letterDate: "2026-11-08", taxYear: "2026", salutation: "Avery", addr1: "8 Dummy St", city: "Victoria", postal: "V8W 1A1", province: "BC", corp: "Sample Holdings Ltd.", spouseBlank: true }, "t1_"),
+      { set: "input[name=t1mode][value=final]", value: true }, { set: "#t1_reviewed", value: true },
+    ],
+  },
+  ...PROPOSALS.map((p) => ({ screen: "proposal", name: p.name, steps: proposalSteps(p) })),
+];
