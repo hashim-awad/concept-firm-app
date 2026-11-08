@@ -8,6 +8,7 @@ import { Button, inputClass } from "@/components/ds/primitives";
 import { checkLabel, checksSummary, type Check } from "@/lib/studio/screen";
 import { createStudioEngine } from "@/lib/studio/engine.generated";
 import type { StudioEngine, StudioEnv } from "@/lib/studio/engine.generated";
+import { wordingEnv, type Wording } from "@/lib/studio/wording";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -18,6 +19,7 @@ export type ScreenEnv = {
   loaded: boolean;
   signer: { name: string; title: string };
   images: { LH: string; SIG: string; ILLUS: string };
+  wording?: Wording | null;
 };
 
 // Studio's render() writes into a "paper" element; the app gives it a stand-in and reads the HTML.
@@ -27,6 +29,7 @@ export function makeEngine(env: ScreenEnv): { e: StudioEngine; paper: { innerHTM
     DB: { floors: env.floors, floorsOk: env.floorsOk, loaded: env.loaded, cat: env.cat },
     LH: env.images.LH, SIG: env.images.SIG, ILLUS: env.images.ILLUS,
     SIGNER: env.signer.name, SIGNER_TITLE: env.signer.title,
+    ...wordingEnv(env.wording),
     $: ((id: string) => (id === "paper" ? paper : null)) as unknown as StudioEnv["$"],
   } as StudioEnv);
   return { e, paper };

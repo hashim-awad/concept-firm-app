@@ -46,6 +46,7 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 27 | T1 price book in Phase 1 | Studio's T1 price book ported exactly for the parity test. After parity sign-off, the brief's T1 changes are applied as a recorded price-book change. |
 | 28 | Past letters in the vault | Past corporate letters and proposals: PDF regenerated from Studio's saved data, labelled on every page "Regenerated from Studio records, not the signed original". Past T1 letters: records only. |
 | 29 | Studio import | CSV export per Notion database, owner-only import screen, dry run with counts and problems before saving. Client data never passes through the repo or chat. Quality log stays for Phase 3. Signature image uploaded once by Hashim in the app. |
+| 30 | Source of truth | From 2026-11-09 the app and its database are the only source of truth. Concept Studio is phased out: it was the jump start, not a limit on what the app can do. Hashim uses the app alone for one to two weeks, then invites the team. Wording is edited in the app as numbered versions (draft, owner approval, current), not through code. Studio parity stays only as a baseline check that EL v3.31 moved into the app unchanged. |
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.

@@ -12,6 +12,7 @@ export async function screenSetup(supabase: SupabaseClient, access: Access, kind
   const env: ScreenEnv = {
     floors: data.floors, floorsOk: data.floorsOk, cat: data.cat, loaded: true,
     signer: kind === "proposal" ? data.signers.proposal : data.signers.letter,
+    wording: data.wording,
     images: { LH: "/studio/letterhead.jpg", ILLUS: "/studio/illustrative-watermark.png", SIG: access.is_owner && data.signatureUploaded ? "/documents/signature" : "" },
   };
   return { data, env };

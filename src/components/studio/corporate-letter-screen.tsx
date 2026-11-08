@@ -230,7 +230,7 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
             ))}
             <ModeSwitch name="mode" mode={ctl.mode} onMode={(m) => act((c) => c.setMode(m))} />
             {tick("reviewed", "I am Hashim Awad and I have reviewed this letter.", ctl.mode !== "final")}
-            <DocumentActions kind="corporate_letter" handlers={handlers} ok={scr.ok} message={scr.message} mode={ctl.mode}
+            <DocumentActions wordingId={env.wording?.id} kind="corporate_letter" handlers={handlers} ok={scr.ok} message={scr.message} mode={ctl.mode}
               showSaveClient={scr.showSaveClient}
               snapshot={() => ({ f: { ...ctl.f }, fees: ctl.fees.map((x) => ({ ...x })), mode: ctl.mode, acks: { ...ctl.acks } })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={(id) => setClientId(id)} />

@@ -150,7 +150,7 @@ export async function regeneratePast(supabase: SupabaseClient, access: Access, l
   let done = 0;
 
   const file = async (kind: "corporate_letter" | "proposal", title: string, link: Record<string, string | null>, snapshot: any) => {
-    const b = rebuild(kind, engineFor(kind, data, BLANK_PNG), snapshot, null, true, todayToronto());
+    const b = rebuild(kind, engineFor(kind, { ...data, wording: null }, BLANK_PNG), snapshot, null, true, todayToronto());
     const pdf = await renderPdf(b.def, { regenerated: true });
     const { data: doc, error } = await supabase.from("documents").insert({ kind, title, ...link }).select("id").single();
     if (error || !doc) throw new Error(error?.message ?? "document not created");

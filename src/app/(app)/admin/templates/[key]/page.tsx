@@ -23,15 +23,15 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   if (!t || t.status === "Planned") notFound();
   const supabase = await createClient();
   const [{ data: ap }, data] = await Promise.all([
-    supabase.from("template_approvals").select("approved_on, el_version").eq("template_key", key).eq("el_version", e.EL_VERSION).maybeSingle(),
+    supabase.from("template_approvals").select("approved_on, el_version").eq("template_key", key).order("approved_on", { ascending: false }).limit(1).maybeSingle(),
     loadStudioData(supabase, access),
   ]);
-  const sample = templateSample(key, data.signers);
+  const sample = templateSample(key, data.signers, data.wording);
   const status = ap && t.status === "Trial" ? "Live" : t.status;
   return (
     <>
       <PageHeader eyebrow="Template library" title={t.name}
-        description={`${status}${ap ? `, approved ${formatDate(ap.approved_on)}` : t.status === "Live" ? ", approved at release" : ", awaiting approval"} · ${e.EL_VERSION} · Source: ${t.basis}`}
+        description={`${status}${ap ? `, approved ${formatDate(ap.approved_on)}` : t.status === "Live" ? ", approved at release" : ", awaiting approval"} · Wording ${data.wording?.label ?? e.EL_VERSION} · Source: ${t.basis}`}
         actions={<Link href="/admin/templates" className="btn-secondary btn">All templates</Link>} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <p className="mb-4 text-sm text-ink-2">
@@ -50,7 +50,7 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
         access.is_owner ? (
           <form action={approveTemplate} className="card mt-6 space-y-3">
             <input type="hidden" name="key" value={key} />
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" /> I read this wording and approve it for client use at {e.EL_VERSION}.</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" /> I read this wording and approve it for client use.</label>
             <button className="btn" type="submit">Approve</button>
           </form>
         ) : <p className="card mt-6 text-sm text-muted">Awaiting an owner&rsquo;s approval.</p>

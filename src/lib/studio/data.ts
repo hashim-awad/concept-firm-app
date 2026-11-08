@@ -7,6 +7,15 @@ import { canView, type Access } from "@/lib/access";
 import { todayToronto } from "@/lib/dates";
 import { toStudioClient, toStudioFloor, type ClientRecord, type OfferRecord } from "./screen";
 import type { StudioClientRow } from "./controllers";
+import type { Wording } from "./wording";
+
+// The current approved wording; the approval date is shown in each letter's footer.
+function toWording(d: unknown): Wording | null {
+  const w = d as { id?: string; label?: string; approved_at?: string; texts?: Record<string, string> } | null;
+  if (!w?.id || !w.label) return null;
+  const date = w.approved_at ? new Date(w.approved_at).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }) : "";
+  return { id: w.id, label: w.label, date, texts: w.texts ?? {} };
+}
 
 export const CLIENT_COLUMNS =
   "id, kind, legal_name, entity_type, signing_officer, signer_title, salutation, street_address, address_line2, city, postal_code, province, year_end_md, basis, custom_basis_wording, third_party_user, third_party_basis, name_verified";
@@ -19,17 +28,19 @@ export type StudioData = {
   clients: StudioClientRow[];
   signers: { letter: Signer; proposal: Signer };
   signatureUploaded: boolean;
+  wording: Wording | null;
 };
 
 export async function loadStudioData(supabase: SupabaseClient, access: Access): Promise<StudioData> {
   const floorsOk = canView(access, "price_book");
   const today = todayToronto();
-  const [offers, items, prices, clients, signers] = await Promise.all([
+  const [offers, items, prices, clients, signers, wording] = await Promise.all([
     floorsOk ? supabase.from("offers").select("*").eq("is_active", true).order("sort_order") : Promise.resolve({ data: [] }),
     supabase.from("catalogue_items").select("id, code, name, unit_label").eq("is_active", true),
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").lte("effective_from", today).order("effective_from"),
     canView(access, "clients") ? supabase.from("clients").select(CLIENT_COLUMNS).eq("status", "active").order("legal_name") : Promise.resolve({ data: [] }),
     supabase.rpc("signer_settings"),
+    supabase.rpc("current_wording"),
   ]);
   const price = new Map<string, number>();
   for (const p of (prices.data ?? []) as { item_id: string; amount_cents: number }[]) price.set(p.item_id, p.amount_cents / 100);
@@ -45,6 +56,7 @@ export async function loadStudioData(supabase: SupabaseClient, access: Access): 
     clients: ((clients.data ?? []) as ClientRecord[]).map(toStudioClient),
     signers: { letter: signer("signer_engagement_letter", "Hashim Abouelfetouh, CPA"), proposal: signer("signer_proposal", "Hashim Awad") },
     signatureUploaded: !!s.signature_image?.uploaded,
+    wording: toWording(wording.data),
   };
 }
 

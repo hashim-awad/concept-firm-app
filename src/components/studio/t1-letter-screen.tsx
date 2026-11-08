@@ -119,7 +119,7 @@ export function T1LetterScreen({ env, clients, isOwner, handlers, initial, start
             ))}
             <ModeSwitch name="t1mode" mode={ctl.mode} onMode={(m) => act((c) => c.setMode(m))} />
             <Tick id="t1_reviewed" checked={!!f.reviewed} onValue={(v) => act((c) => c.set("reviewed", v))} hidden={ctl.mode !== "final"}>I am Hashim Awad and I have reviewed this letter.</Tick>
-            <DocumentActions kind="t1_letter" handlers={standalone ? undefined : handlers} disabledNote={standalone ? scr.message : undefined}
+            <DocumentActions wordingId={env.wording?.id} kind="t1_letter" handlers={standalone ? undefined : handlers} disabledNote={standalone ? scr.message : undefined}
               ok={scr.ok} message={scr.message} mode={ctl.mode} showSaveClient={scr.showSaveClient}
               snapshot={() => ({ f: { ...ctl.f }, mode: ctl.mode, acks: { ...ctl.acks } })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={(id) => setClientId(id)} />

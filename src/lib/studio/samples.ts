@@ -4,13 +4,16 @@ import "server-only";
  
 import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
+import { wordingEnv, type Wording } from "./wording";
 
 const LH = "/studio/letterhead.jpg", ILLUS = "/studio/illustrative-watermark.png";
 const DUMMY = { company: "Example Holdings Inc.", signer: "Taylor Sample", signerTitle: "Director", salutation: "Taylor", addr1: "1 Test Street", city: "Kitchener", postal: "N2A 1A1", province: "ON", ye: "2026-12-31" };
 
+let WORDING: Wording | null = null;
+let MARK = false;
 function engine(signer: { name: string; title: string }) {
   const paper = { innerHTML: "", classList: { toggle() {} } };
-  const e = createStudioEngine({ LH, ILLUS, SIGNER: signer.name, SIGNER_TITLE: signer.title, $: ((id: string) => (id === "paper" ? paper : null)) as StudioEnv["$"] });
+  const e = createStudioEngine({ LH, ILLUS, SIGNER: signer.name, SIGNER_TITLE: signer.title, ...wordingEnv(WORDING), WORDING_MARK: MARK, $: ((id: string) => (id === "paper" ? paper : null)) as StudioEnv["$"] });
   return { e, paper };
 }
 
@@ -47,7 +50,8 @@ const SCHEDULE: Record<string, [string, string]> = {
 
 export type Sample = { parts: { label: string; html: string }[]; note?: string };
 
-export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }): Sample | null {
+export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null): Sample | null {
+  WORDING = wording;
   const L = signers.letter;
   if (key === "master") return { parts: [{ label: "Full corporate letter, every service ticked", html: corporate(L, Object.values(SCHEDULE).map(([k]) => k).concat("payroll", "t1"), { t1Owner: "Taylor Sample" }) }] };
   if (SCHEDULE[key]) {
@@ -82,4 +86,22 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   }
   if (key === "memo") return { parts: [], note: "The compilation file memo is part of Year-End (Phase 3). Its wording will be shown here when Phase 3 is built." };
   return null;
+}
+
+// Wording editor: sample documents covering every template, with each piece of wording marked
+// so it can be clicked. Markers become <span data-w="key">.
+export function wordingSamples(signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null): { id: string; label: string; html: string }[] {
+  WORDING = wording; MARK = true;
+  try {
+    const L = signers.letter;
+    const all = Object.values(SCHEDULE).map(([k]) => k).concat("payroll", "t1");
+    const out = [
+      { id: "corp", label: "Corporate letter (every service)", html: corporate(L, all, { t1Owner: "Taylor Sample" }) },
+      { id: "corp2", label: "Corporate letter (payroll support, first year, catch-up not known)", html: corporate(L, ["comp", "t2", "payroll", "catchup", "books"], { payrollMode: "advisory", firstYear: true, periodStart: "2026-01-15", catchTBD: true, catchTo: "2026-09-30", province: "AB" }) },
+      { id: "t1", label: "T1 letter", html: templateSample("t1", signers, wording)!.parts[0].html },
+      { id: "t1td", label: "Standalone T1 (TaxDome master)", html: templateSample("t1td", signers, wording)!.parts[0].html },
+      { id: "prop", label: "Proposal", html: templateSample("prop", signers, wording)!.parts[0].html },
+    ];
+    return out.map((x) => ({ ...x, html: x.html.replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>") }));
+  } finally { MARK = false; WORDING = null; }
 }

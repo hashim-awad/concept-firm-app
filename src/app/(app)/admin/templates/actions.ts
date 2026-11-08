@@ -14,7 +14,9 @@ export async function approveTemplate(formData: FormData) {
   if (!t || t.status !== "Trial") redirect(withMessage(back, "error", "Only a trial template can be approved."));
   if (formData.get("read") !== "on") redirect(withMessage(back, "error", "Tick the box to confirm you read the wording."));
   const supabase = await createClient();
-  const { error } = await supabase.from("template_approvals").insert({ template_key: t!.k, template_name: t!.name, el_version: e.EL_VERSION, basis: t!.basis ?? "" });
+  const { data: cw } = await supabase.rpc("current_wording");
+  const label = (cw as { label?: string } | null)?.label ?? e.EL_VERSION;
+  const { error } = await supabase.from("template_approvals").insert({ template_key: t!.k, template_name: t!.name, el_version: label, basis: t!.basis ?? "" });
   revalidatePath("/admin/templates"); revalidatePath(back);
-  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can approve templates." : error.message) : `Approved for client use at ${e.EL_VERSION}.`));
+  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can approve templates." : error.message) : `Approved for client use (wording ${label}).`));
 }

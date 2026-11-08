@@ -152,7 +152,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
             {approvedTax?.[f.province] && <p className="text-[13px] text-ink-3">Tax on this proposal: {approvedTax[f.province]} (approved rate).</p>}
             <ChecksPanel id="p_checks" list={scr.checks} />
             <ModeSwitch name="pmode" mode={ctl.mode} onMode={(m) => act((c) => c.setMode(m))} />
-            <DocumentActions kind="proposal" handlers={handlers} ok={scr.ok} message={scr.message} mode={ctl.mode} showSaveClient={false}
+            <DocumentActions wordingId={env.wording?.id} kind="proposal" handlers={handlers} ok={scr.ok} message={scr.message} mode={ctl.mode} showSaveClient={false}
               snapshot={() => ({ f: { ...ctl.f }, opts: JSON.parse(JSON.stringify(ctl.opts)), rec: ctl.rec, mode: ctl.mode })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={() => {}} />
           </Panel>

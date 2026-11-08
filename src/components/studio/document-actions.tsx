@@ -9,13 +9,13 @@ export type DocKind = "corporate_letter" | "t1_letter" | "proposal";
 export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string } | { ok: false; error: string };
 export type ClientResult = { ok: true; clientId: string } | { ok: false; error: string };
 export type DocumentHandlers = {
-  saveDocument: (input: { kind: DocKind; snapshot: unknown; clientId: string; documentId: string }) => Promise<SaveResult>;
+  saveDocument: (input: { kind: DocKind; snapshot: unknown; clientId: string; documentId: string; wordingId?: string }) => Promise<SaveResult>;
   saveClient: (input: { kind: DocKind; snapshot: unknown }) => Promise<ClientResult>;
 };
 
-export function DocumentActions({ kind, handlers, ok, message, mode, showSaveClient, snapshot, clientId, initialDocumentId, onClientSaved, disabledNote }: {
+export function DocumentActions({ kind, handlers, ok, message, mode, showSaveClient, snapshot, clientId, initialDocumentId, onClientSaved, disabledNote, wordingId }: {
   kind: DocKind; handlers?: DocumentHandlers; ok: boolean; message: string; mode: "draft" | "final"; showSaveClient: boolean;
-  snapshot: () => unknown; clientId: string; initialDocumentId?: string; onClientSaved: (id: string) => void; disabledNote?: string;
+  snapshot: () => unknown; clientId: string; initialDocumentId?: string; onClientSaved: (id: string) => void; disabledNote?: string; wordingId?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"" | "pdf" | "client">("");
@@ -26,7 +26,7 @@ export function DocumentActions({ kind, handlers, ok, message, mode, showSaveCli
     if (!handlers) return;
     setBusy("pdf"); setStatus("Building PDF...");
     try {
-      const r = await handlers.saveDocument({ kind, snapshot: snapshot(), clientId, documentId });
+      const r = await handlers.saveDocument({ kind, snapshot: snapshot(), clientId, documentId, wordingId });
       if (!r.ok) { setStatus(r.error); return; }
       setDocumentId(r.documentId);
       const a = document.createElement("a"); a.href = `/documents/file/${r.versionId}?download=1`; a.download = r.fileName;

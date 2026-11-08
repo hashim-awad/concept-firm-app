@@ -12,5 +12,9 @@ export type StudioEnv = {
   SIG?: string;
   ILLUS?: string;
   $?: (id: string) => unknown;
+  WORDING?: Record<string, string>;
+  WORDING_MARK?: boolean;
+  EL_VERSION?: string;
+  EL_VERSION_DATE?: string;
 };
 export declare function createStudioEngine(env?: StudioEnv): StudioEngine;

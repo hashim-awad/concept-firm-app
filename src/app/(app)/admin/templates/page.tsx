@@ -15,14 +15,18 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/admin/
   const sp = await searchParams;
   const e = createStudioEngine({});
   const supabase = await createClient();
-  const { data } = await supabase.from("template_approvals").select("template_key, el_version, approved_on").eq("el_version", e.EL_VERSION);
+  const [{ data }, { data: cw }] = await Promise.all([
+    supabase.from("template_approvals").select("template_key, el_version, approved_on").order("approved_on"),
+    supabase.rpc("current_wording"),
+  ]);
+  const current = { label: (cw as { label?: string } | null)?.label ?? e.EL_VERSION, date: (cw as { approved_at?: string } | null)?.approved_at ?? e.EL_VERSION_DATE };
   const approved = new Map((data ?? []).map((a) => [a.template_key, a]));
   const templates = e.TEMPLATES as T[];
   return (
     <>
       <PageHeader title="Template library" description="The approved wording for letters and proposals. Open a template to read its wording; trial templates are approved there." />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <p className="mb-4 text-sm text-ink-2">Current wording version: <b>{e.EL_VERSION}</b> ({formatDate(e.EL_VERSION_DATE)}). Wording is not edited on screen. A change becomes a new numbered version, tested before release, so every letter shows which wording it used.</p>
+      <p className="mb-4 text-sm text-ink-2">Current wording version: <b>{current.label}</b> (approved {formatDate(current.date)}). To change wording, open <Link href="/admin/templates/versions" className="text-navy-700 underline">Wording versions</Link>: start a new version, edit, preview, then an owner approves it. Letters already made keep the wording they used.</p>
       {GROUPS.map((g) => {
         const L = templates.filter((t) => t.group === g);
         if (!L.length) return null;

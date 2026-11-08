@@ -59,7 +59,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Engine copy matches the Studio reference file
-        run: npm run studio:extract && git diff --exit-code src/lib/studio/engine.generated.js
+        run: npm run studio:extract && git diff --exit-code src/lib/studio/engine.generated.js src/lib/studio/wording.generated.json
       - run: npx playwright install --with-deps chromium
       - name: Parity with the original Studio page
         run: npm run test:parity

@@ -7,16 +7,18 @@ import { CorporateLetter, Proposal, T1Letter, type Fee } from "./controllers.ts"
 import { corporateScreen, proposalScreen, t1Screen, type ScreenResult } from "./screen.ts";
 import { ILLUSTRATIVE, LETTERHEAD } from "./assets.generated.ts";
 import type { StudioData } from "./data";
+import { wordingEnv, type Wording } from "./wording.ts";
 
 export type DocKind = "corporate_letter" | "t1_letter" | "proposal";
 
 export const BLANK_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
-export function engineFor(kind: DocKind, data: Pick<StudioData, "floors" | "floorsOk" | "cat" | "signers">, sig: string): StudioEngine {
+export function engineFor(kind: DocKind, data: Pick<StudioData, "floors" | "floorsOk" | "cat" | "signers"> & { wording?: Wording | null }, sig: string): StudioEngine {
   const signer = kind === "proposal" ? data.signers.proposal : data.signers.letter;
   return createStudioEngine({
     DB: { floors: data.floors, floorsOk: data.floorsOk, loaded: true, cat: data.cat },
     LH: LETTERHEAD, ILLUS: ILLUSTRATIVE, SIG: sig, SIGNER: signer.name, SIGNER_TITLE: signer.title,
+    ...wordingEnv(data.wording),
   });
 }
 

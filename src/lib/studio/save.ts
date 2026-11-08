@@ -16,7 +16,7 @@ import { renderPdf } from "./pdf";
 import { todayToronto as today } from "@/lib/dates";
 
 export type { DocKind };
-export type SaveInput = { kind: DocKind; snapshot: any; clientId: string; documentId: string };
+export type SaveInput = { kind: DocKind; snapshot: any; clientId: string; documentId: string; wordingId?: string };
 export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string } | { ok: false; error: string };
 
 export async function saveDocument(supabase: SupabaseClient, access: Access, input: SaveInput): Promise<SaveResult> {
@@ -25,6 +25,8 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   const data = await loadStudioData(supabase, access);
   const client = input.clientId ? data.clients.find((c) => c.url === input.clientId) ?? null : null;
   if (input.clientId && !client) return { ok: false, error: "That client record was not found." };
+  // The letter must be built with the wording the person was looking at.
+  if (input.wordingId && data.wording && input.wordingId !== data.wording.id) return { ok: false, error: `The approved wording changed to ${data.wording.label} while you were working. Reload the page to see it, then download again.` };
   const final = input.snapshot?.mode === "final";
 
   let sig = BLANK_PNG;
