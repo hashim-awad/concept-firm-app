@@ -59,7 +59,10 @@ Database passwords are kept in the firm's password manager only:
 - Project concept-firm-app imported 2026-11-08. Framework preset: Next.js. Production branch: main.
 - Preview environment variables (Test project): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   (Config type), SUPABASE_SECRET_KEY (Secret type). System environment variables exposed.
-- Production environment variables: none yet (go-live).
+- Production environment variables (2026-11-08): NEXT_PUBLIC_SUPABASE_URL (Live), NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  (Live), SITE_URL https://studio.conceptaccounting.ca (Config); SUPABASE_SECRET_KEY (Secret, Supabase Live key
+  "vercel_production"); MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM shared with Preview.
+  SEND_EMAIL_HOOK_SECRET for Production comes with the live email hook.
 - Plan is a 14-day Pro trial from 2026-11-08: upgrade before 2026-11-22.
 
 ## Microsoft 365 email (staff login emails)
@@ -160,7 +163,7 @@ One step at a time, each confirmed with a screenshot.
 2. Done 2026-11-08: Supabase organization on the Pro plan (US$25/month charged today; Supabase
    estimated US$35/month with both projects). Spend cap on. Micro compute for one project is
    included: Live set to Micro (no extra cost), 2026-11-08.
-3. Vercel Production environment variables (before merging, so the first production build works):
+3. Done 2026-11-08: Vercel Production environment variables (before merging, so the first production build works):
    live Supabase URL and keys, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@).
    SEND_EMAIL_HOOK_SECRET follows in step 6.
 4. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
