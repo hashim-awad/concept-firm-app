@@ -31,6 +31,7 @@ select test.check('owner applies the plan', test.try($$select public.apply_catal
   {"op":"replace_item","from":"T1_STR","to":"PTX-120"},
   {"op":"replace_item","from":"T1_INVESTMENT_SALES","to":"PTX-125"},
   {"op":"set_fields","code":"PTX-125","per_spouse":true},
+  {"op":"set_fields","code":"PTX-110","name":"Personal tax return (T1), single"},
   {"op":"set_fields","code":"PTX-120","unit_label":"per property","internal_note":"Includes short-term rentals."},
   {"op":"set_line","code":"PTX-110","line":"t1"},{"op":"set_line","code":"PTX-120","line":"t1"},{"op":"set_line","code":"PTX-125","line":"t1"},
   {"op":"add_item","code":"PTX-133","name":"Crypto or active trading, including options","unit_label":"per return","per_spouse":true,"sort_order":133,"line":"t1","income_account":"4020 Tax Preparation - Personal (T1)","price_type":"Fixed","price_cents":24900},
@@ -38,6 +39,7 @@ select test.check('owner applies the plan', test.try($$select public.apply_catal
 select test.check('rules now add the Studio items', not exists (select 1 from public.rules where item_code in ('T1_BASE_SINGLE', 'T1_RENTAL', 'T1_STR', 'T1_INVESTMENT_SALES'))
   and exists (select 1 from public.rules r join public.questionnaires q on q.id = r.questionnaire_id where q.status = 'published' and r.item_code = 'PTX-120'));
 select test.check('seed items and their prices removed', not exists (select 1 from public.catalogue_items where code in ('T1_BASE_SINGLE', 'T1_RENTAL', 'T1_STR', 'T1_INVESTMENT_SALES')));
+select test.check('renamed, code unchanged', (select name from public.catalogue_items where code = 'PTX-110') = 'Personal tax return (T1), single');
 select test.check('per-spouse carried over', (select per_spouse from public.catalogue_items where code = 'PTX-125'));
 select test.check('note moved', (select internal_note from public.catalogue_items where code = 'PTX-120') = 'Includes short-term rentals.');
 select test.check('new item with its price', (select amount_cents from public.current_item_prices p join public.catalogue_items i on i.id = p.item_id where i.code = 'PTX-133') = 24900);

@@ -40,11 +40,18 @@ export const NEW_ITEMS = [
   { code: "PTX-136", name: "US state return", unit_label: "per state return", per_spouse: true, price_cents: 24900, sort_order: 136 },
 ];
 
+// 7. Names (Hashim, 2026-11-08). Codes unchanged.
+export const NAMES: Record<string, string> = {
+  "PTX-101": "Owner's personal tax return (T1)",
+  "PTX-110": "Personal tax return (T1), single",
+  "PTX-111": "Personal tax returns (T1), couple",
+};
+
 // 6. Notes moved out of the "Charged" column.
 export const NOTES: Record<string, string> = {
   "SFT-101": "New QBO income account 4005, matched to cost 5010 to track the margin.",
   "CTX-103": "New QBO income account 4015.",
-  "PTX-101": "Company-client T1s, often included.",
+  "PTX-101": "For owners of our corporate clients; included in or priced with their package.",
   "ADV-103": "Topic in the invoice description.",
   "INC-101": "Corporation type in the invoice description.",
   "PTX-127": "Quantity = number of properties; type in the description.",
@@ -107,6 +114,15 @@ export function planCleanup(items: Item[], lineKeys: string[]): { changes: Chang
     if (unit === i.unit_label && i.internal_note === note) continue;
     changes.push({ code, name: i.name, what: "Charged column and internal note", before: `Charged: ${i.unit_label}${i.internal_note ? ` · Note: ${i.internal_note}` : ""}`, after: `Charged: ${unit} · Note: ${note}` });
     plan.push({ op: "set_fields", code, unit_label: unit, internal_note: note });
+  }
+
+  // 7. Names.
+  for (const [code, name] of Object.entries(NAMES)) {
+    const i = by.get(code);
+    if (!i) { notes.push(`${code} is not in the price book, so it was not renamed.`); continue; }
+    if (i.name === name) continue;
+    changes.push({ code, name: i.name, what: "Name", before: i.name, after: name });
+    plan.push({ op: "set_fields", code, name });
   }
 
   // 5. New T1 items.

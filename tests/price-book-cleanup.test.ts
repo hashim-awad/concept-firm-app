@@ -47,13 +47,26 @@ test("missing PTX-129 blocks the clean-up", () => {
 
 test("nothing left to change after applying", () => {
   const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), item("PTX-133", "t1", { per_spouse: true }), item("PTX-134", "t1"),
-    item("PTX-135", "t1", { per_spouse: true }), item("PTX-136", "t1", { per_spouse: true })];
+    item("PTX-135", "t1", { per_spouse: true }), item("PTX-136", "t1", { per_spouse: true }),
+    item("PTX-101", "t1", { name: "Owner's personal tax return (T1)", unit_label: "per return", internal_note: "For owners of our corporate clients; included in or priced with their package." }),
+    item("PTX-110", "t1", { name: "Personal tax return (T1), single" }), item("PTX-111", "t1", { name: "Personal tax returns (T1), couple" })];
   const r = planCleanup(items, ["t1", "bookkeeping"]);
-  assert.equal(r.plan.length, 0);
+  assert.deepEqual(r.plan, []);
 });
 
 test("applied before the spouse change: PTX-135 and PTX-136 set to each spouse, nothing else", () => {
-  const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), item("PTX-133", "t1", { per_spouse: true }), item("PTX-134", "t1"), item("PTX-135", "t1"), item("PTX-136", "t1")];
+  const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), item("PTX-133", "t1", { per_spouse: true }), item("PTX-134", "t1"), item("PTX-135", "t1"), item("PTX-136", "t1"),
+    item("PTX-101", "t1", { name: "Owner's personal tax return (T1)", unit_label: "per return", internal_note: "For owners of our corporate clients; included in or priced with their package." }),
+    item("PTX-110", "t1", { name: "Personal tax return (T1), single" }), item("PTX-111", "t1", { name: "Personal tax returns (T1), couple" })];
   const r = planCleanup(items, ["t1", "bookkeeping"]);
   assert.deepEqual(r.plan, [{ op: "set_fields", code: "PTX-135", per_spouse: true }, { op: "set_fields", code: "PTX-136", per_spouse: true }]);
+});
+
+test("renames PTX-101, PTX-110 and PTX-111, and updates the PTX-101 note", () => {
+  const items = [item("PTX-129", "t1"), item("PTX-101", "t1", { name: "Owner T1", unit_label: "per return", internal_note: "Company-client T1s, often included." }),
+    item("PTX-110", "t1", { name: "Single" }), item("PTX-111", "t1", { name: "Personal tax return (T1), couple" })];
+  const r = planCleanup(items, ["t1"]);
+  const names = r.plan.filter((o) => o.name && o.op === "set_fields").map((o) => `${o.code}=${o.name}`);
+  assert.deepEqual(names, ["PTX-101=Owner's personal tax return (T1)", "PTX-110=Personal tax return (T1), single", "PTX-111=Personal tax returns (T1), couple"]);
+  assert.ok(r.plan.some((o) => o.code === "PTX-101" && o.internal_note === "For owners of our corporate clients; included in or priced with their package."));
 });
