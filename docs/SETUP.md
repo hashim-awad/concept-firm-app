@@ -47,3 +47,9 @@ Database passwords are kept in the firm's password manager only:
 - First owner set: hashim@conceptaccounting.ca, via `private.bootstrap_owner` in the SQL editor.
 - Still to do on Test: invite and recovery email templates, Microsoft 365 SMTP, Site URL and redirect URLs.
 - Live project: none of the above done yet (go-live checklist).
+
+## Vercel
+
+- Team "Concept Accounting", Pro plan (US$20/month, 1 seat: Hashim). Signed up 2026-11-08.
+- Vercel GitHub app installed on hashim-awad with access to concept-firm-app only.
+- Server code region: Montréal (yul1), set in `vercel.json` so it is part of the code.
