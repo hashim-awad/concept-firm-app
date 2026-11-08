@@ -82,7 +82,7 @@ No other known bugs.
 ## Next steps, in order
 
 1. **Email:** finish the studio@ move (Hashim, then Claude).
-2. **Go live** (decision 35), one step at a time with Hashim:
+2. **Go live** (decision 35), one step at a time with Hashim. Checklist in `docs/SETUP.md`. Live database deploy workflow written (`db-deploy-live.yml`, owner approval, main only):
    - live database deploy with owner approval
    - studio.conceptaccounting.ca on Vercel production
    - the live email hook

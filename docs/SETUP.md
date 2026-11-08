@@ -38,8 +38,10 @@ Database passwords are kept in the firm's password manager only:
   the direct database address (IPv6 only).
 - Secret used: SUPABASE_DB_PASSWORD in the GitHub environment "test".
 - First successful run: 2026-11-08, applied 20261108000000_foundation_security.sql to Test.
-- Live deploys: not set up yet. Plan: a "production" GitHub environment with Hashim as required
-  reviewer, running only from main.
+- Live deploys: `.github/workflows/db-deploy-live.yml` (written 2026-11-08). Runs only from main,
+  waits for approval in the GitHub environment "production" (Hashim as required reviewer, main
+  only), shows the changes, then applies them. Secret: SUPABASE_DB_PASSWORD in "production" (the
+  LIVE database password). Not run yet.
 
 ## Test project: auth setup (2026-11-08)
 
@@ -145,3 +147,22 @@ Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b018
 - Live: needs its own hook (on the live Supabase project) pointing at studio.conceptaccounting.ca,
   with its own signing secret in the Vercel Production environment. No bypass needed there.
 - Verified 2026-11-07 23:24 (Toronto): password reset email delivered from app@conceptaccounting.ca and reset completed on the preview.
+
+## Go-live checklist (decision 35)
+
+One step at a time, each confirmed with a screenshot.
+
+1. GitHub environment "production": required reviewer Hashim, deployment branch main only,
+   secret SUPABASE_DB_PASSWORD = live database password (reset it in Supabase Live first if it is
+   not in the password manager; save it there as "Supabase – Concept Firm App – Live – database").
+2. Supabase Live on the Pro plan (brief: Pro before go-live).
+3. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
+   live database deploy waits for approval, then applies every migration.
+4. Vercel Production environment variables: live Supabase URL and keys, MS_TENANT_ID,
+   MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@), SEND_EMAIL_HOOK_SECRET (new, live).
+5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
+6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
+   Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.
+7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
+8. Real client data cleared from Test (Test is dummy data only).
+9. Vercel Pro paid before Nov 22, 2026; 2FA on Vercel, Supabase and GitHub.
