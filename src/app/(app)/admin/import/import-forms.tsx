@@ -3,7 +3,7 @@ import { useActionState, useState, useTransition } from "react";
 import { Alert, Button } from "@/components/ds/primitives";
 import { importCsv, type ImportState } from "./actions";
 
-const LABEL: Record<string, string> = { rows: "Rows in the file", new: "New (will be added)", already_in_app: "Already in the app (left as is)", not_imported: "Not imported (see problems)",
+const LABEL: Record<string, string> = { rows: "Rows in the file", new: "New (not yet in the app)", saved: "Saved", not_saved: "Not saved (see problems)", already_in_app: "Already in the app (left as is)", not_imported: "Not imported (see problems)",
   problems: "Problems", with_price: "With a price", name_checked: "Name already checked in Studio", with_letter_data: "Corporate letters that can be regenerated" };
 
 export function ImportForm() {
@@ -24,9 +24,19 @@ export function ImportForm() {
       {state && !state.ok && <Alert tone="danger">{state.error}</Alert>}
       {state && state.ok && (
         <div className="space-y-3">
-          <Alert tone={state.problems.length ? "warning" : "success"} title={`${state.dryRun ? "Check" : "Import"} of ${state.source}: ${state.dryRun ? "nothing was saved" : "done"}`}>
-            <ul className="mt-1 grid gap-0.5">{Object.entries(state.counts).map(([k, v]) => <li key={k}>{LABEL[k] ?? k}: <b>{v}</b></li>)}</ul>
-          </Alert>
+          {(() => {
+            const c = state.counts, saved = c.saved ?? 0;
+            const title = state.dryRun ? `Check of ${state.source}: nothing was saved`
+              : saved === 0 ? `Import of ${state.source}: nothing was saved`
+              : saved < c.new || state.problems.length ? `Import of ${state.source}: ${saved} saved, ${c.new - saved} not saved`
+              : `Import of ${state.source}: done, ${saved} saved`;
+            const tone = !state.dryRun && saved === 0 && (c.new > 0 || state.problems.length) ? "danger" : state.problems.length ? "warning" : "success";
+            return (
+              <Alert tone={tone} title={title}>
+                <ul className="mt-1 grid gap-0.5">{Object.entries(c).map(([k, v]) => <li key={k}>{LABEL[k] ?? k}: <b>{v}</b></li>)}</ul>
+              </Alert>
+            );
+          })()}
           {state.problems.length > 0 && (
             <div className="max-h-72 overflow-y-auto rounded-lg border border-sand-200">
               <table className="table text-sm"><thead><tr><th>Row</th><th>Problem</th></tr></thead>

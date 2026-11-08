@@ -76,3 +76,30 @@ test("a past proposal regenerates from Studio's saved options data", () => {
   assert.equal(b.s.rec, c.rec); assert.equal(b.s.valid, "30"); assert.equal(b.s.name, c.fields.name);
   assert.deepEqual(e.pBuild({ ...s, opts: want }), b.e.pBuild(b.s), "same document text as the original, apart from the price-book offer Studio did not save");
 });
+
+import { nRelations, nameKey, looseKey, linkFormat } from "../src/lib/import/notion.ts";
+
+test("client links: every format Notion exports", () => {
+  const id = "0123456789abcdef0123456789abcdef";
+  const cases: [string, string, string][] = [
+    [`Example Holdings Inc. (https://www.notion.so/Example-Holdings-Inc-${id}?pvs=21)`, "Example Holdings Inc.", "name with a web link"],
+    [`Example Holdings Inc. (Studio%20Clients/Example%20Holdings%20Inc%20${id}.md)`, "Example Holdings Inc.", "name with a file path"],
+    [`Example Holdings Inc. (../Studio%20Clients%20${id}/Example%20Holdings%20Inc%20${id}.md)`, "Example Holdings Inc.", "name with a file path"],
+    [`Sample, Test & Co. (Ontario) Ltd. (https://www.notion.so/${id})`, "Sample, Test & Co. (Ontario) Ltd.", "name with a web link"],
+    [`https://www.notion.so/Example-Holdings-Inc-${id}`, "Example Holdings Inc", "web link only"],
+    [`Studio%20Clients/Example%20Holdings%20Inc%20${id}.md`, "Example Holdings Inc", "file path only"],
+    ["Example Holdings Inc.", "Example Holdings Inc.", "plain name"],
+  ];
+  for (const [cell, name, fmt] of cases) {
+    assert.equal(nRelations(cell)[0]?.name, name, cell);
+    assert.equal(linkFormat(cell), fmt, cell);
+  }
+  assert.deepEqual(nRelations(`A Ltd. (https://www.notion.so/A-${id}), B Inc. (https://www.notion.so/B-${id})`).map((r) => r.name), ["A Ltd.", "B Inc."]);
+});
+
+test("name matching ignores case, spaces, quote styles; loose key for address-only links", () => {
+  assert.equal(nameKey("  Sample Realty   LTD. "), nameKey("Sample Realty Ltd."));
+  assert.equal(nameKey("Taylor’s Holdings Inc."), nameKey("Taylor's Holdings Inc."));
+  assert.equal(looseKey("Example Holdings Inc"), looseKey("Example Holdings Inc."));
+  assert.notEqual(looseKey("Example Holdings Inc"), looseKey("Example Holding Inc"));
+});

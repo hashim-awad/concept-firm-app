@@ -6,7 +6,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayToronto } from "@/lib/dates";
-import { parseSource, proposalFromPack, type CatalogueRow, type ClientRow, type EngagementRow, type OfferRow, type ProposalRow, type Problem, type Source } from "./notion";
+import { looseKey, nameKey, parseSource, proposalFromPack, type CatalogueRow, type ClientRow, type EngagementRow, type OfferRow, type ProposalRow, type Problem, type Source } from "./notion";
 import { BLANK_PNG, engineFor, rebuild } from "@/lib/studio/build";
 import { loadStudioData } from "@/lib/studio/data";
 import { renderPdf, REGENERATED_LABEL } from "@/lib/studio/pdf";
@@ -23,14 +23,17 @@ export async function runImport(supabase: SupabaseClient, fileName: string, text
   const { source, rows } = parsed;
   const problems = [...parsed.problems];
   const counts: Record<string, number> = { rows: rows.length, new: 0, already_in_app: 0, not_imported: 0 };
-  let writes: (() => Promise<string | null>)[] = [];
+  type Write = () => Promise<{ saved: number; error: string | null }>;
+  // A batch insert is one statement: all of its rows are saved, or none.
+  const batch = async (n: number, q: PromiseLike<{ error: { message: string } | null }>) => { const { error } = await q; return { saved: error ? 0 : n, error: error?.message ?? null }; };
+  let writes: Write[] = [];
 
   if (source === "offers") {
     const { data } = await supabase.from("offers").select("offer");
     const have = new Set((data ?? []).map((x) => key(x.offer)));
     const fresh = rows.filter((r) => !have.has(key((r.data as OfferRow).offer)));
     counts.already_in_app = rows.length - fresh.length; counts.new = fresh.length;
-    writes = chunk(fresh).map((c) => async () => (await supabase.from("offers").insert(c.map((r) => ({ ...(r.data as OfferRow), source: { from: "Studio", row: r.row } })))).error?.message ?? null);
+    writes = chunk(fresh).map((c) => () => batch(c.length, supabase.from("offers").insert(c.map((r) => ({ ...(r.data as OfferRow), source: { from: "Studio", row: r.row } })))));
   }
 
   if (source === "catalogue") {
@@ -44,12 +47,12 @@ export async function runImport(supabase: SupabaseClient, fileName: string, text
     writes = fresh.map((r) => async () => {
       const { price, line_key, ...d } = r.data as CatalogueRow;
       const { data: ins, error } = await supabase.from("catalogue_items").insert({ ...d, service_line_id: lineId.get(line_key) }).select("id").single();
-      if (error || !ins) return `Row ${r.row}: ${error?.message}`;
+      if (error || !ins) return { saved: 0, error: `Row ${r.row}: not saved (${error?.message})` };
       if (price != null) {
         const p = await supabase.from("item_prices").insert({ item_id: ins.id, amount_cents: Math.round(price * 100), effective_from: today, note: "From the Studio Service Catalog" });
-        if (p.error) return `Row ${r.row}: price not saved (${p.error.message})`;
+        if (p.error) return { saved: 1, error: `Row ${r.row}: service saved, price not saved (${p.error.message})` };
       }
-      return null;
+      return { saved: 1, error: null };
     });
   }
 
@@ -64,21 +67,29 @@ export async function runImport(supabase: SupabaseClient, fileName: string, text
     });
     counts.already_in_app = rows.length - fresh.length - counts.not_imported; counts.new = fresh.length;
     counts.name_checked = fresh.filter((r) => (r.data as ClientRow).name_verified).length;
-    writes = chunk(fresh).map((c) => async () => (await supabase.from("clients").insert(c.map((r) => {
+    writes = chunk(fresh).map((c) => () => batch(c.length, supabase.from("clients").insert(c.map((r) => {
       const d = r.data as ClientRow;
       return { ...d, name_verified_on: d.name_verified ? d.name_verified_on : null, source: { from: "Studio", row: r.row } };
-    }))).error?.message ?? null);
+    }))));
   }
 
   if (source === "engagements" || source === "proposals") {
     const { data: cl } = await supabase.from("clients").select("id, legal_name");
-    const byName = new Map<string, string[]>();
-    for (const c of cl ?? []) byName.set(key(c.legal_name), [...(byName.get(key(c.legal_name)) ?? []), c.id]);
-    const clientId = (name: string | null, row: number, required: boolean): string | null | false => {
-      if (!name) { if (required) { problems.push({ row, msg: "No client linked. Not imported." }); return false; } return null; }
-      const ids = byName.get(key(name)) ?? [];
+    // Match on the legal name, ignoring case, spacing and quote styles; if that finds nothing,
+    // on letters and digits only (links that carry only the address form of the name).
+    const exact = new Map<string, string[]>(), loose = new Map<string, string[]>();
+    for (const c of cl ?? []) {
+      exact.set(nameKey(c.legal_name), [...(exact.get(nameKey(c.legal_name)) ?? []), c.id]);
+      loose.set(looseKey(c.legal_name), [...(loose.get(looseKey(c.legal_name)) ?? []), c.id]);
+    }
+    const clientId = (name: string | null, format: string, row: number, required: boolean): string | null | false => {
+      if (!name) { if (required) { problems.push({ row, msg: "No client linked in the Client column. Not imported." }); return false; } return null; }
+      let ids = exact.get(nameKey(name)) ?? [];
+      if (!ids.length) ids = loose.get(looseKey(name)) ?? [];
       if (ids.length === 1) return ids[0];
-      problems.push({ row, msg: ids.length ? "Linked client name matches more than one client record. Not imported." : "Linked client is not in the app yet. Import Clients first. Not imported." });
+      problems.push({ row, msg: ids.length
+        ? "Linked client matches more than one client record. Not imported."
+        : `Linked client not found among the ${cl?.length ?? 0} clients in the app (link written as: ${format}). Not imported.` });
       return false;
     };
     if (source === "engagements") {
@@ -87,35 +98,37 @@ export async function runImport(supabase: SupabaseClient, fileName: string, text
       const fresh: any[] = [];
       for (const r of rows) {
         const d = r.data as EngagementRow;
-        const cid = clientId(d.client_name, r.row, true);
+        const cid = clientId(d.client_name, d.link_format, r.row, true);
         if (cid === false) { counts.not_imported++; continue; }
         if (have.has(`${cid}|${d.type}|${d.fiscal_year_end}|${key(d.title)}`)) { counts.already_in_app++; continue; }
-        const { client_name: _c, ...rest } = d; void _c;
+        const { client_name: _c, link_format: _f, ...rest } = d; void _c; void _f;
         fresh.push({ ...rest, client_id: cid, source: { from: "Studio", row: r.row } });
       }
       counts.new = fresh.length;
       counts.with_letter_data = fresh.filter((x) => x.letter_data && x.type !== "T1 personal").length;
-      writes = chunk(fresh).map((c) => async () => (await supabase.from("engagements").insert(c)).error?.message ?? null);
+      writes = chunk(fresh).map((c) => () => batch(c.length, supabase.from("engagements").insert(c)));
     } else {
       const { data: ex } = await supabase.from("proposals").select("title, date_sent");
       const have = new Set((ex ?? []).map((p) => `${key(p.title)}|${p.date_sent}`));
       const fresh: any[] = [];
       for (const r of rows) {
         const d = r.data as ProposalRow;
-        const cid = clientId(d.client_name, r.row, false);
+        const cid = clientId(d.client_name, d.link_format, r.row, false);
         if (cid === false) { counts.not_imported++; continue; }
         if (have.has(`${key(d.title)}|${d.date_sent}`)) { counts.already_in_app++; continue; }
-        const { client_name: _c, ...rest } = d; void _c;
+        const { client_name: _c, link_format: _f, ...rest } = d; void _c; void _f;
         fresh.push({ ...rest, client_id: cid, source: { from: "Studio", row: r.row } });
       }
       counts.new = fresh.length;
-      writes = chunk(fresh).map((c) => async () => (await supabase.from("proposals").insert(c)).error?.message ?? null);
+      writes = chunk(fresh).map((c) => () => batch(c.length, supabase.from("proposals").insert(c)));
     }
   }
 
   counts.problems = problems.length;
   if (!dryRun) {
-    for (const w of writes) { const err = await w(); if (err) problems.push({ row: 0, msg: `Write failed: ${err}` }); }
+    counts.saved = 0; counts.not_saved = 0;
+    for (const w of writes) { const r = await w(); counts.saved += r.saved; if (r.error) problems.push({ row: 0, msg: `Not saved: ${r.error}` }); }
+    counts.not_saved = counts.new - counts.saved;
     counts.problems = problems.length;
   }
   await supabase.from("import_runs").insert({ source, file_name: fileName.slice(0, 200), dry_run: dryRun, counts, problems });

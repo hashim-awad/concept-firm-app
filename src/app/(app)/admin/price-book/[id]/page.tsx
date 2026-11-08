@@ -49,7 +49,7 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
           </div>
           <div>
             <label htmlFor="sort_order" className="label">Order in list</label>
-            <input id="sort_order" name="sort_order" type="number" defaultValue={item.sort_order} className="input" />
+            <input id="sort_order" name="sort_order" type="number" step="any" defaultValue={item.sort_order} className="input" />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input name="per_spouse" type="checkbox" defaultChecked={item.per_spouse} className="h-4 w-4 accent-accent" />

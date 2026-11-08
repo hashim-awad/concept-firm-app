@@ -35,15 +35,60 @@ export function nNum(v: string): number | null | undefined {
 export const nBool = (v: string) => /^(yes|true|__yes__|checked)$/i.test(v.trim());
 export const nList = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
 
-// Relation cells: "Name (https://www.notion.so/Name-<id>)" (several separated by commas).
-export function nRelationNames(v: string): string[] {
-  const out: string[] = [];
-  const re = /([^,(]+?)\s*\((https?:\/\/[^)]+)\)/g;
-  let m: RegExpExecArray | null, any = false;
-  while ((m = re.exec(v))) { any = true; out.push(m[1].trim()); }
-  if (!any && v.trim()) out.push(...nList(v));
-  return out;
+// Relation cells. Notion writes them in several ways, depending on the export:
+//   "Name (https://www.notion.so/Name-<32 hex>?pvs=21)"         web link
+//   "Name (Studio%20Clients/Name%20<32 hex>.md)"                 relative file path (Markdown & CSV)
+//   "https://www.notion.so/Name-<32 hex>"                        bare page link (no name)
+//   "Name"                                                       plain name
+// Several links are separated by commas. Returns what can be matched: the name, or for a bare
+// link the name part of its address.
+export type RelationRef = { name: string; slug: boolean };
+const looksLikeLink = (t: string) => /notion\.(so|site|com)|\.md\b|[0-9a-f]{32}|%20|\//i.test(t);
+// Name part of a page address or file path: "Example-Holdings-Inc-<id>" or "Example%20Holdings%20Inc%20<id>.md".
+const nameFromAddress = (u: string) => {
+  let last = u.split("?")[0].split("#")[0].replace(/\/+$/, "").split("/").pop() ?? "";
+  try { last = decodeURIComponent(last); } catch { /* keep as is */ }
+  return last.replace(/\.md$/i, "").replace(/[\s-]*[0-9a-f]{32}$/i, "").replace(/-/g, " ").trim();
+};
+export function nRelations(v: string): RelationRef[] {
+  const s = v.trim();
+  if (!s) return [];
+  const out: RelationRef[] = [];
+  let i = 0, nameStart = 0;
+  while (i < s.length) {
+    if (s[i] !== "(") { i++; continue; }
+    let depth = 1, j = i + 1;
+    while (j < s.length && depth) { if (s[j] === "(") depth++; else if (s[j] === ")") depth--; j++; }
+    if (looksLikeLink(s.slice(i + 1, j - 1))) {
+      const name = s.slice(nameStart, i).replace(/^\s*,\s*/, "").trim();
+      if (name) out.push({ name, slug: false });
+      nameStart = j;
+    }
+    i = j;
+  }
+  if (out.length) return out;
+  // Bare page links or file paths, one or more.
+  const links = s.split(/,\s*(?=https?:|\S+\.md\b)/).map((x) => x.trim()).filter((x) => /^https?:\/\//.test(x) || /\.md$/i.test(x));
+  if (links.length) return links.map((u) => ({ name: nameFromAddress(u), slug: true }));
+  // Plain text: one name (commas kept, since legal names can contain them).
+  return [{ name: s, slug: false }];
 }
+// How the link cell is written, for problem messages (never the name itself).
+export function linkFormat(v: string): string {
+  const s = v.trim();
+  if (!s) return "blank";
+  if (/\(https?:\/\//.test(s)) return "name with a web link";
+  if (/\([^()]*\.md\)/i.test(s)) return "name with a file path";
+  if (/^https?:\/\//.test(s)) return "web link only";
+  if (/\.md$/i.test(s)) return "file path only";
+  return "plain name";
+}
+export function nRelationNames(v: string): string[] { return nRelations(v).map((r) => r.name); }
+
+// Keys for matching names across files: exact (ignoring case, spacing and quote styles), and
+// loose (letters and digits only), for links that only carry the address form of the name.
+export const nameKey = (s: string) => s.normalize("NFKC").replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\s+/g, " ").trim().toLowerCase();
+export const looseKey = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const REQUIRED: Record<Source, string[]> = {
   offers: ["Offer", "Segment", "Annual floor"],
@@ -73,11 +118,11 @@ export type CatalogueRow = { code: string; name: string; description: string; un
 export type ClientRow = { kind: "individual" | "corporation"; legal_name: string; entity_type: string; signing_officer: string; signer_title: string; salutation: string; email: string;
   street_address: string; address_line2: string; city: string; postal_code: string; province: string; year_end_md: string; basis: string; custom_basis_wording: string;
   third_party_user: string; third_party_basis: string; name_verified: boolean; name_verified_on: string | null; status: string; notes: string };
-export type EngagementRow = { title: string; client_name: string | null; type: string; fiscal_year_end: string | null; el_version: string; status: string; el_issued: string | null; el_signed: string | null;
+export type EngagementRow = { title: string; client_name: string | null; link_format: string; type: string; fiscal_year_end: string | null; el_version: string; status: string; el_issued: string | null; el_signed: string | null;
   fee: number | null; monthly_fee: number | null; monthly_billing_starts: string | null; period_start: string | null; payment_method: string; registration_confirmed: boolean;
   t1_individual: string; t1_tax_year: number | null; t1_fee: number | null; gst_addon_fee: number | null; cra_authorization: string; cra_request_date: string | null;
   recorded_after_issue: boolean; notes: string; letter_data: unknown; extra: Record<string, unknown> };
-export type ProposalRow = { title: string; client_name: string | null; prospect_name: string; contact: string; province: string; segment: string; status: string; date_sent: string | null;
+export type ProposalRow = { title: string; client_name: string | null; link_format: string; prospect_name: string; contact: string; province: string; segment: string; status: string; date_sent: string | null;
   valid_until: string | null; options_summary: string; recommended: string; chosen_option: string; options_data: unknown; notes: string };
 
 const CATEGORY_LINE: Record<string, string> = { Corporate: "corporate", "T1 personal": "t1", Incorporation: "incorporation", Advisory: "advisory", Adjustments: "adjustments" };
@@ -141,12 +186,12 @@ export function parseSource(text: string): Parsed<OfferRow | CatalogueRow | Clie
     } else if (source === "engagements") {
       const ld = parseLetterData(g("Letter data"));
       if (ld === undefined) problems.push({ row: c.row, msg: "Letter data could not be read. The engagement comes in without it." });
-      const clients = nRelationNames(g("Client"));
+      const clients = nRelationNames(g("Client")); const link_format = linkFormat(g("Client"));
       if (clients.length > 1) problems.push({ row: c.row, msg: "More than one client linked. The first is used." });
       const type = oneOf(c, "Type", g("Type"), ["Year-end compilation + T2", "Monthly full service", "T2 only", "T1 personal", "Corporate services"] as const);
       if (!type) return;
       data = {
-        title: g("Engagement"), client_name: clients[0] ?? null, type, fiscal_year_end: date(c, "Fiscal year end", g("Fiscal year end")), el_version: g("EL version"),
+        title: g("Engagement"), client_name: clients[0] ?? null, link_format, type, fiscal_year_end: date(c, "Fiscal year end", g("Fiscal year end")), el_version: g("EL version"),
         status: oneOf(c, "Status", g("Status"), ["EL drafted", "EL sent", "EL signed", "Draft package sent", "MAL signed", "Issued", "Cancelled"] as const, "EL drafted"),
         el_issued: date(c, "EL issued", g("EL issued")), el_signed: date(c, "EL signed", g("EL signed")), fee: num(c, "Fee", g("Fee")), monthly_fee: num(c, "Monthly fee", g("Monthly fee")),
         monthly_billing_starts: date(c, "Monthly billing starts", g("Monthly billing starts")), period_start: date(c, "Period start (first year)", g("Period start (first year)")),
@@ -166,9 +211,9 @@ export function parseSource(text: string): Parsed<OfferRow | CatalogueRow | Clie
     } else {
       let od: unknown = null;
       if (g("Options data")) { try { od = JSON.parse(g("Options data")); } catch { problems.push({ row: c.row, msg: "Options data could not be read. The proposal comes in without it." }); } }
-      const clients = nRelationNames(g("Client"));
+      const clients = nRelationNames(g("Client")); const link_format = linkFormat(g("Client"));
       data = {
-        title: g("Proposal"), client_name: clients[0] ?? null, prospect_name: g("Prospect name"), contact: g("Contact"),
+        title: g("Proposal"), client_name: clients[0] ?? null, link_format, prospect_name: g("Prospect name"), contact: g("Contact"),
         province: ({ ON: "ON", AB: "AB", BC: "BC", Other: "OTHER" } as Record<string, string>)[g("Province")] ?? "OTHER",
         segment: oneOf(c, "Segment", g("Segment"), ["Team or brokerage", "Agent", "Other"] as const, "Other"), status: oneOf(c, "Status", g("Status"), ["Draft", "Sent", "Accepted", "Declined", "Expired"] as const, "Draft"),
         date_sent: date(c, "Date sent", g("Date sent")), valid_until: date(c, "Valid until", g("Valid until")), options_summary: g("Options"), recommended: g("Recommended"),
