@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, formatDateTime, todayToronto } from "@/lib/dates";
-import { addRate, setRateStatus } from "./actions";
+import { addRate, approveAllRates, loadCraRates, setRateStatus } from "./actions";
+import { CRA_TABLE } from "@/lib/tax/cra-rates";
 
 const CRA_RATES = "https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html";
 const PROVINCES: [string, string][] = [["AB", "Alberta"], ["BC", "British Columbia"], ["MB", "Manitoba"], ["NB", "New Brunswick"], ["NL", "Newfoundland and Labrador"], ["NS", "Nova Scotia"], ["NT", "Northwest Territories"], ["NU", "Nunavut"], ["ON", "Ontario"], ["PE", "Prince Edward Island"], ["QC", "Quebec"], ["SK", "Saskatchewan"], ["YT", "Yukon"]];
@@ -49,7 +50,12 @@ export default async function TaxRatesPage({ searchParams }: PageProps<"/admin/t
 
       {rates.some((r) => r.status === "pending") && (
         <section className="card mb-6 overflow-x-auto p-0">
-          <h2 className="px-5 pt-4 pb-2 font-semibold">Waiting for approval</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-2">
+            <h2 className="font-semibold">Waiting for approval ({rates.filter((r) => r.status === "pending").length})</h2>
+            {access.is_owner && (
+              <form action={approveAllRates}><button className="btn" type="submit">Approve all</button></form>
+            )}
+          </div>
           <table className="table">
             <thead><tr><th>Province</th><th>Rate</th><th>From</th><th>Checked</th><th>Notes</th><th></th></tr></thead>
             <tbody>{rates.filter((r) => r.status === "pending").map((r) => (
@@ -64,6 +70,18 @@ export default async function TaxRatesPage({ searchParams }: PageProps<"/admin/t
             ))}</tbody>
           </table>
         </section>
+      )}
+
+      {access.is_owner && (
+        <form action={loadCraRates} className="card mb-6 space-y-3">
+          <h2 className="font-semibold">Load the CRA table</h2>
+          <p className="text-sm text-muted">
+            Loads all 13 GST/HST rates from the <a href={CRA_RATES} target="_blank" rel="noopener noreferrer" className="text-navy-700 underline">CRA rates page</a> as pending, in effect from {formatDate(CRA_TABLE.effectiveFrom)}, checked {formatDate(CRA_TABLE.checkedOn)}. Rates already loaded are skipped. Nothing is used until you approve.
+          </p>
+          <p className="text-sm">{CRA_TABLE.rates.map((r) => `${r.name} ${r.rate}% ${r.tax}`).join(" · ")}</p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="confirm" required className="h-4 w-4 accent-navy-700" /> I checked this table against the CRA page. My name is recorded as the checker.</label>
+          <button className="btn" type="submit">Load as pending</button>
+        </form>
       )}
 
       {editable && (

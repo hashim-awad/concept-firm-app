@@ -34,3 +34,33 @@ export async function setRateStatus(formData: FormData) {
   revalidatePath(PAGE);
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : status === "approved" ? "Rate approved." : "Rate retired."));
 }
+
+// Owner only: load the CRA table as pending rates. The owner who clicks is recorded as the
+// checker (they confirm they checked the table against the CRA page). Rows already loaded are skipped.
+export async function loadCraRates(formData: FormData) {
+  const access = await getAccess();
+  if (!access?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner can load the CRA table."));
+  if (formData.get("confirm") !== "on") redirect(withMessage(PAGE, "error", "Tick the box to confirm you checked the table against the CRA page."));
+  const { CRA_TABLE, CRA_RATES_PAGE } = await import("@/lib/tax/cra-rates");
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("tax_rates").select("province, tax, rate_percent, effective_from, status").neq("status", "retired");
+  const have = new Set((existing ?? []).map((r) => `${r.province}|${r.tax}|${Number(r.rate_percent)}|${r.effective_from}`));
+  const rows = CRA_TABLE.rates
+    .filter((r) => !have.has(`${r.province}|${r.tax}|${r.rate}|${CRA_TABLE.effectiveFrom}`))
+    .map((r) => ({ province: r.province, tax: r.tax, rate_percent: r.rate, effective_from: CRA_TABLE.effectiveFrom, source_url: CRA_RATES_PAGE,
+      checked_on: CRA_TABLE.checkedOn, checked_by: access!.staff_id, notes: "Loaded by the app from the CRA rates table." }));
+  if (!rows.length) redirect(withMessage(PAGE, "msg", "All 13 CRA rates are already loaded."));
+  const { error } = await supabase.from("tax_rates").insert(rows);
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Loaded ${rows.length} rates as pending. Review them, then press Approve all.`));
+}
+
+// Owner only (the database checks too): approve every pending rate in one step.
+export async function approveAllRates() {
+  const access = await getAccess();
+  if (!access?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner can approve rates."));
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("tax_rates").update({ status: "approved" }).eq("status", "pending").select("id");
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Approved ${data?.length ?? 0} rate${data?.length === 1 ? "" : "s"}. Quotes and proposals now use them.`));
+}
