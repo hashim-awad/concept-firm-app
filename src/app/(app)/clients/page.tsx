@@ -60,7 +60,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
                   <td>{c.year_end_md}</td>
                   <td>{c.name_verified ? "Yes" : <span className="text-danger">Not yet</span>}</td>
                   <td className="whitespace-nowrap text-right text-sm">
-                    <Link href={c.kind === "individual" ? `/documents/t1-letter?client=${c.id}` : `/documents/corporate-letter?client=${c.id}`} className="text-navy-700 underline">New letter</Link>
+                    <Link href={c.kind === "individual" ? `/engagement-letters?type=t1&client=${c.id}` : `/engagement-letters?type=corporate&client=${c.id}`} className="text-navy-700 underline">New letter</Link>
                   </td>
                 </tr>
               ))}

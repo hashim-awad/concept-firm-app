@@ -70,7 +70,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
             {(docs ?? []).length === 0 ? <p className="text-sm text-muted">No letter in the vault for this engagement.</p> :
               <ul className="grid gap-2 text-sm">{(docs ?? []).map((d) => <li key={d.id}><Link href={`/documents/vault/${d.id}`} className="text-navy-700 underline">{d.title}</Link> <span className="text-muted">· version {d.current_version}</span></li>)}</ul>}
             {editable && !t1 && e.letter_data && (docs ?? []).length > 0 && (
-              <p className="mt-3 text-sm"><Link href={`/documents/corporate-letter?doc=${docs![0].id}`} className="text-navy-700 underline">Revise letter</Link></p>
+              <p className="mt-3 text-sm"><Link href={`/engagement-letters?type=corporate&doc=${docs![0].id}`} className="text-navy-700 underline">Revise letter</Link></p>
             )}
           </section>
         </div>

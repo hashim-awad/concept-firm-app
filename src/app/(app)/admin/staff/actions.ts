@@ -8,7 +8,7 @@ import { getAccess, canEdit } from "@/lib/access";
 import { env } from "@/lib/env";
 import { withMessage } from "@/lib/messages";
 
-const PAGE = "/admin/staff";
+const PAGE = "/admin/team?tab=people";
 
 export async function inviteStaff(formData: FormData) {
   const fullName = String(formData.get("full_name") ?? "").trim();
@@ -48,7 +48,7 @@ export async function inviteStaff(formData: FormData) {
     await admin.auth.admin.deleteUser(invited.user.id);
     redirect(withMessage(PAGE, "error", error.message));
   }
-  revalidatePath(PAGE);
+  revalidatePath("/admin/team");
   redirect(withMessage(PAGE, "msg", `Invite sent to ${email}.`));
 }
 
@@ -58,7 +58,7 @@ export async function changeRole(formData: FormData) {
     p_staff_id: String(formData.get("staff_id")),
     p_role_id: String(formData.get("role_id")),
   });
-  revalidatePath(PAGE);
+  revalidatePath("/admin/team");
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Role changed."));
 }
 
@@ -69,6 +69,6 @@ export async function setActive(formData: FormData) {
     p_staff_id: String(formData.get("staff_id")),
     p_active: active,
   });
-  revalidatePath(PAGE);
+  revalidatePath("/admin/team");
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : active ? "Account switched on." : "Account switched off."));
 }

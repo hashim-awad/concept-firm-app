@@ -11,7 +11,7 @@ export async function markProposal(formData: FormData) {
   const result = String(formData.get("result") ?? "");
   const supabase = await createClient();
   const { data: p } = await supabase.from("proposals").select("options_data, status").eq("id", id).maybeSingle();
-  const back = "/documents?tab=proposals";
+  const back = "/proposals";
   if (!p) redirect(withMessage(back, "error", "Proposal not found."));
   let patch: Record<string, string>;
   if (result === "decl") patch = { status: "Declined" };
@@ -22,7 +22,7 @@ export async function markProposal(formData: FormData) {
     patch = { status: "Accepted", chosen_option: o!.n };
   } else redirect(withMessage(back, "error", "Choose a result."));
   const { error } = await supabase.from("proposals").update(patch!).eq("id", id);
-  revalidatePath("/documents");
+  revalidatePath("/proposals");
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Proposal updated."));
 }
 
@@ -43,7 +43,7 @@ export async function updateEngagement(formData: FormData) {
   if (E.length) redirect(withMessage(back, "error", E.join(" ")));
   const supabase = await createClient();
   const { data: cur } = await supabase.from("engagements").select("status, type").eq("id", id).maybeSingle();
-  if (!cur) redirect(withMessage("/documents", "error", "Engagement not found."));
+  if (!cur) redirect(withMessage("/engagements", "error", "Engagement not found."));
   const cancelled = formData.get("cancelled") === "on";
   // Later stages (draft package, MAL, issued) belong to Phase 3; keep them if already set.
   const later = ["Draft package sent", "MAL signed", "Issued"].includes(cur!.status);
@@ -58,6 +58,6 @@ export async function updateEngagement(formData: FormData) {
     patch.cra_request_date = String(formData.get("cra_request_date") ?? "") || null;
   } else patch.payment_method = String(formData.get("payment_method") ?? "");
   const { error } = await supabase.from("engagements").update(patch).eq("id", id);
-  revalidatePath("/documents");
+  revalidatePath("/engagements");
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `Saved. Status: ${status}.`));
 }

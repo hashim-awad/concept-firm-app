@@ -33,7 +33,7 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
 
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/admin/roles" className="text-accent underline">All roles</Link></p>
+      <p className="mb-2 text-sm"><Link href="/admin/team?tab=roles" className="text-accent underline">All roles</Link></p>
       <PageHeader
         title={role.name}
         description={locked ? "The Owner role always has Edit on every area. It cannot be changed." : `${count ?? 0} staff member(s) have this role.`}

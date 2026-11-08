@@ -53,6 +53,37 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 34 | Templates (wording) | Modelled on proposal and letter apps: open a template as a document, click any text to change it, fill-ins shown by name ([Company name]) and kept; changes are saved as unpublished changes; an owner reviews (before/after) and publishes; History lists published versions with Restore (owner, with a reason). New letters use the published wording; letters already made keep theirs; each PDF records the version. Trial templates are marked ready for clients by an owner on the template page. Structure (section order, adding or removing a clause) is still in code. (2026-11-08) |
 | 35 | Live set-up and email | Go live before real daily use: live Supabase project with an owner-approved deploy, studio.conceptaccounting.ca on Vercel production, live email hook; setup redone in Live (import, signature, rates, clean-up); real data then cleared from Test (Test is dummy data only). Changes keep coming after go-live: Test first, then Live with approval. Staff email sender to become studio@conceptaccounting.ca (display name "Concept Studio"), keeping app@ as an alias; the Exchange sending lock and MAIL_FROM move with it. (2026-11-08) |
 | 36 | Price book: add an item | The suggested code follows the chosen service line: the prefix most used in that line, one above the highest number with that prefix (Personal tax: next PTX; Corporate tax: next CTX). Editable before saving. (2026-11-08) |
+| 37 | Menu and navigation | End state set by Hashim 2026-11-08, replacing any earlier menu plan. See "Navigation". |
+
+## Navigation (decision 37, 2026-11-08)
+End state of the staff menu. Pages not built yet show greyed out with "Soon" and are not links. A section or item shows only if the person's role permits it. Every existing page keeps working; only its place and name changed.
+
+| Section | Items |
+|---|---|
+| Home | My day: leads to review, proposals awaiting signature, gates waiting, deadlines |
+| Sales | Leads (soon); Proposals (one page for T1 instant quotes and business proposals, with a type label and filter; the T1 pricing calculator lives inside it); Engagement letters (corporate and T1 on one page, type chosen at the top) |
+| Clients | Clients (individuals and corporations, linked); Engagements (each client, year and service, with status) |
+| Work | Personal tax (T1) (soon); Year-End & T2 (soon, the CaseWare-style workspace from Phase 3); CFO reports (soon); Owner pay planner (soon); Incorporations (soon) |
+| Documents | The document vault |
+| Quality | Reviews and inspections (soon) |
+| Firm setup (owners) | Price book (catalogue, packages, floors); Templates (letters, terms, notes library); Screening questions; Chart of accounts and GIFI (soon); Vendor rules (soon); GST/HST rates |
+| Admin (owners) | Team and roles (staff merged with roles and permissions); Settings; Activity log |
+
+UI rules:
+- Menu groups fold away (remembered per browser), with count badges: proposals awaiting signature (status Sent) on Proposals, engagement letters awaiting signature (EL sent) on Engagement letters. A folded group shows the total.
+- Global search (Ctrl+K, or "Find a client" in the menu) jumps to any client by name.
+- The client page is the hub, with tabs: Overview (record, linked clients, at a glance), Engagements, Proposals and letters, Year-Ends (corporations; soon), Documents, Activity (owners).
+- Not built, because TaxDome runs them: tasks, jobs, pipelines, calendar, inbox, billing.
+
+How permissions decide what shows (built 2026-11-08):
+- My day: everyone; its lists need Documents view. Deadlines: T2 filing due six months after the year end (month-end year ends: last day of the sixth month; CRA rule checked Nov 8, 2026), for open engagements with a T2, overdue or due in 90 days. Tax payment deadlines come with Year-End.
+- Leads: Leads view. Proposals and Engagements: Documents view. Engagement letters and the T1 pricing calculator: Documents edit. Clients: Clients view. Document vault: Documents or Vault view.
+- Work (all soon): shown with Clients view until each gets its own permission area when built.
+- Quality, Chart of accounts and GIFI, Vendor rules (soon): owners.
+- Firm setup: Price book and Screening questions need Price book view; Templates need Engagement terms view; GST/HST rates need Tax rates view. Owners have all of these by default; owners can grant them to other roles.
+- Admin: Team and roles needs Staff accounts view (Roles tab: owners only); Settings needs Settings view; Activity log: owners.
+
+Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator; builder still /documents/proposal), Engagement letters /engagement-letters?type=corporate|t1, Engagements /engagements, Document vault /documents, Team and roles /admin/team. Old addresses (/t1-pricing, /documents?tab=..., /admin/staff, /admin/roles) forward to the new pages; /documents/corporate-letter and /documents/t1-letter still open the same screens.
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.

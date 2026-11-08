@@ -11,8 +11,8 @@ export async function createRole(formData: FormData) {
     p_name: String(formData.get("name") ?? ""),
     p_description: String(formData.get("description") ?? ""),
   });
-  if (error) redirect(withMessage("/admin/roles", "error", friendly(error.message)));
-  revalidatePath("/admin/roles");
+  if (error) redirect(withMessage("/admin/team?tab=roles", "error", friendly(error.message)));
+  revalidatePath("/admin/team");
   redirect(withMessage(`/admin/roles/${data}`, "msg", "Role created. Every area starts at No access. Set the levels below."));
 }
 
@@ -35,7 +35,7 @@ export async function saveRole(formData: FormData) {
   const { error } = await supabase.rpc("set_role_permissions", { p_role_id: roleId, p_levels: levels });
   if (error) redirect(withMessage(page, "error", friendly(error.message)));
 
-  revalidatePath("/admin/roles");
+  revalidatePath("/admin/team");
   redirect(withMessage(page, "msg", "Role saved."));
 }
 
@@ -44,8 +44,8 @@ export async function deleteRole(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_role", { p_role_id: roleId });
   if (error) redirect(withMessage(`/admin/roles/${roleId}`, "error", friendly(error.message)));
-  revalidatePath("/admin/roles");
-  redirect(withMessage("/admin/roles", "msg", "Role deleted."));
+  revalidatePath("/admin/team");
+  redirect(withMessage("/admin/team?tab=roles", "msg", "Role deleted."));
 }
 
 function friendly(message: string) {

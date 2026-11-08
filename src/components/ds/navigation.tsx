@@ -1,45 +1,6 @@
-import type { ReactNode } from "react";
 import { Check } from "lucide-react";
-import { StudioLogo } from "./brand";
 
-export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: string };
-export type NavGroup = { label: string; items: NavItem[] };
-
-// Staff sidebar: navy, grouped sections. Active item: navy-tint highlight with a green marker
-// (white text on navy, never white on green). Sized to fit a laptop screen without scrolling.
-export function Sidebar({ groups, footer, user }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string } }) {
-  return (
-    <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white">
-      <div className="px-5 pt-4 pb-3 [@media(max-height:820px)]:pt-3 [@media(max-height:820px)]:pb-2"><StudioLogo tone="white" height={46} /></div>
-      <nav aria-label="Main" className="sidebar-scroll flex-1 space-y-3 overflow-y-auto px-2.5 pb-3 [@media(max-height:820px)]:space-y-1.5">
-        {groups.map((g) => (
-          <div key={g.label}>
-            <p className="px-3 pb-1 [@media(max-height:820px)]:pb-0 text-[10.5px] font-semibold tracking-wider text-white/45 uppercase">{g.label}</p>
-            <ul className="space-y-px">
-              {g.items.map((i) => (
-                <li key={i.label}>
-                  <a href={i.href} aria-current={i.active ? "page" : undefined}
-                    className={`relative flex items-center gap-2.5 rounded-md px-3 py-[6px] text-[13.5px] [@media(max-height:820px)]:py-[3px] [@media(max-height:820px)]:text-[13px] font-medium transition-colors ${i.active ? "bg-white/12 text-white" : "text-white/80 hover:bg-white/8 hover:text-white"}`}>
-                    {i.active && <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-lime-500" aria-hidden />}
-                    <span className={`h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${i.active ? "text-lime-400" : ""}`} aria-hidden>{i.icon}</span>
-                    <span className="flex-1 truncate">{i.label}</span>
-                    {i.badge && <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/65">{i.badge}</span>}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
-      {(user || footer) && (
-        <div className="border-t border-white/10 px-5 py-3.5 [@media(max-height:820px)]:py-2">
-          {user && (<><p className="truncate text-[13px] font-medium">{user.name}</p><p className="text-xs text-white/60">{user.role}</p></>)}
-          {footer}
-        </div>
-      )}
-    </aside>
-  );
-}
+export { Sidebar, type NavItem, type NavGroup } from "./sidebar";
 
 // Step tracker, e.g. 1 Type, 2 Client, 3 Fees.
 export function Steps({ steps, current }: { steps: string[]; current: number }) {

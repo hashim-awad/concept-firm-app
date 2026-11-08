@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
 
-const SCREEN: Record<string, string> = { corporate_letter: "/documents/corporate-letter", t1_letter: "/documents/t1-letter", proposal: "/documents/proposal" };
+const SCREEN: Record<string, string> = { corporate_letter: "/engagement-letters?type=corporate", t1_letter: "/engagement-letters?type=t1", proposal: "/documents/proposal" };
 
 export default async function VaultDocumentPage({ params }: PageProps<"/documents/vault/[id]">) {
   const access = await requireAccess();
@@ -19,7 +19,7 @@ export default async function VaultDocumentPage({ params }: PageProps<"/document
   return (
     <>
       <PageHeader eyebrow="Document vault" title={d.title} description="Every version is kept. Nothing is overwritten."
-        actions={canEdit(access, "documents") && d.status !== "regenerated" ? <Link href={`${SCREEN[d.kind]}?doc=${d.id}`} className="btn">{d.status === "final" ? "Revise (new version)" : "Keep working (new version)"}</Link> : undefined} />
+        actions={canEdit(access, "documents") && d.status !== "regenerated" ? <Link href={`${SCREEN[d.kind]}${SCREEN[d.kind].includes("?") ? "&" : "?"}doc=${d.id}`} className="btn">{d.status === "final" ? "Revise (new version)" : "Keep working (new version)"}</Link> : undefined} />
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead><tr><th>Version</th><th>Made</th><th>By</th><th>Kind</th><th>File</th><th>Fingerprint (SHA-256)</th></tr></thead>

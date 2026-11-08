@@ -34,7 +34,7 @@ export default async function ProposalPage({ searchParams }: PageProps<"/documen
           ))}
         </tbody>
       </table>
-      <p className="mt-2 text-[13px]"><Link href="/documents?tab=proposals" className="text-navy-700 underline">Mark results under Documents</Link></p>
+      <p className="mt-2 text-[13px]"><Link href="/proposals" className="text-navy-700 underline">Mark results under Proposals</Link></p>
     </div>
   ) : <p className="text-sm text-ink-3">No proposals recorded yet.</p>;
   return (
