@@ -3,6 +3,7 @@
 # then stops the app. Needs "next build" first. Uses no secrets and touches no database.
 set -euo pipefail
 PORT="${PORT:-3100}"
+if curl -s -o /dev/null "http://localhost:$PORT/"; then echo "Port $PORT is already in use. Stop the other app first." >&2; exit 1; fi
 STUDIO_HARNESS=1 npx next start -p "$PORT" > /tmp/screen-parity-app.log 2>&1 &
 APP_PID=$!
 trap 'kill $APP_PID 2>/dev/null || true' EXIT

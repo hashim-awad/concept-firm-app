@@ -98,3 +98,12 @@ for (const c of SCREEN_CASES) {
     assert.equal(await html(app, paperId), await html(studio, paperId), "preview differs");
   });
 }
+
+test("server PDF builds in the production app (fonts, letterhead, regenerated label)", async () => {
+  const r = await fetch(`${APP}/studio-harness/pdf`);
+  assert.equal(r.status, 200);
+  const buf = Buffer.from(await r.arrayBuffer());
+  assert.equal(buf.subarray(0, 5).toString(), "%PDF-");
+  assert.ok(buf.length > 50000, "PDF includes the letterhead image");
+  assert.match(r.headers.get("x-sha256") ?? "", /^[0-9a-f]{64}$/);
+});
