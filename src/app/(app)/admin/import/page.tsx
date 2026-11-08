@@ -24,7 +24,7 @@ export default async function ImportPage() {
         <ol className="list-decimal space-y-1 pl-5">
           <li>In Notion, open each Studio database, then the menu (three dots), Export, format Markdown &amp; CSV. Unzip the download.</li>
           <li>Import <b>Price Floors</b>, then <b>Service Catalog</b>, then <b>Clients</b>, then <b>Engagements</b>, then <b>Proposals</b>. Engagements and Proposals link to clients by legal name, so Clients go first.</li>
-          <li>For each file: press <b>Check</b>, read the counts and problems, tick the box, then press <b>Import</b>. Running a file again adds only rows not already in the app.</li>
+          <li>For each file: choose it, read the check (counts and problems), then press <b>Import</b>. Running a file again adds only rows not already in the app.</li>
           <li>Then regenerate past letters and proposals, and apply the agreed floor corrections (below).</li>
         </ol>
       </section>
