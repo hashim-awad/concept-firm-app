@@ -14,8 +14,8 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
   const access = await requireAccess("price_book", "view");
   const sp = await searchParams;
   const supabase = await createClient();
-  const { items, lineKeys } = await loadItems(supabase);
-  const { changes, plan, blockers, notes } = planCleanup(items, lineKeys);
+  const { items, lineKeys, t1Offers } = await loadItems(supabase);
+  const { changes, plan, blockers, notes } = planCleanup(items, lineKeys, t1Offers);
   const real = items.filter((i) => !i.code.startsWith("T1_"));
   const blank = (f: "income_account" | "replaces_qbo" | "replaces_taxdome") => real.filter((i) => !i[f]?.trim()).map((i) => i.code);
   const ptx129 = items.find((i) => i.code === "PTX-129");

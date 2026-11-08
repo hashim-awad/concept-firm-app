@@ -31,16 +31,11 @@ export default async function OfferPage({ params, searchParams }: PageProps<"/ad
         <fieldset disabled={!editable} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
             <div><label htmlFor="offer" className="label">Offer</label><input id="offer" name="offer" defaultValue={o.offer} required className="input" /></div>
-            <div><label htmlFor="segment" className="label">Segment</label><select id="segment" name="segment" defaultValue={o.segment} className="input">{["Team or brokerage", "Agent", "T1 personal"].map((x) => <option key={x}>{x}</option>)}</select></div>
+            <div><label htmlFor="segment" className="label">Segment</label><select id="segment" name="segment" defaultValue={o.segment} className="input">{["Team or brokerage", "Agent"].map((x) => <option key={x}>{x}</option>)}</select></div>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {field("monthly_fee", "Monthly fee", n(o.monthly_fee))}{field("software_per_month", "Software per month", n(o.software_per_month))}{field("year_end_fee", "Year-end fee", n(o.year_end_fee))}
             {field("annual_floor", "Annual floor", n(o.annual_floor))}{field("monthly_reference", "Monthly reference", n(o.monthly_reference))}{field("sort_order", "Order", String(o.sort_order ?? 0))}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div><label htmlFor="t1_group" className="label">T1 group (T1 rows only)</label><select id="t1_group" name="t1_group" defaultValue={o.t1_group ?? ""} className="input"><option value="">None</option>{["Base", "Add-on", "Triage", "Out of scope"].map((x) => <option key={x}>{x}</option>)}</select></div>
-            <div><label htmlFor="unit" className="label">Unit</label><input id="unit" name="unit" defaultValue={o.unit} className="input" /></div>
-            {field("unit_price", "Unit price", n(o.unit_price))}
           </div>
           <fieldset><legend className="label">Services in the package</legend>
             <div className="grid gap-1.5 sm:grid-cols-2">{SERVICES.map(([k, l]) => <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" name="services" value={k} defaultChecked={o.services.includes(k)} className="h-4 w-4 accent-navy-700" />{l}</label>)}</div>

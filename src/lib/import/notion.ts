@@ -153,6 +153,8 @@ export function parseSource(text: string): Parsed<OfferRow | CatalogueRow | Clie
         unit: g("Unit"), unit_price: num(c, "Unit price", g("Unit price")), notes: g("Notes"), sort_order: num(c, "Order", g("Order")) ?? 0,
       };
       if (!(data as OfferRow).segment) return;
+      // Studio's T1 rows are not imported: the Catalogue's Personal tax (T1) items are the one T1 price list.
+      if ((data as OfferRow).segment === "T1 personal") return;
     } else if (source === "catalogue") {
       const code = g("Code").toUpperCase();
       if (!/^[A-Z0-9][A-Z0-9_-]{1,39}$/.test(code)) { problems.push({ row: c.row, msg: `Code "${g("Code")}" is blank or not valid.` }); return; }

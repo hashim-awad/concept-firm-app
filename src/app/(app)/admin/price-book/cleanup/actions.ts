@@ -15,8 +15,8 @@ export async function applyCleanup(formData: FormData) {
   if (!access?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner can apply the clean-up."));
   if (formData.get("read") !== "on") redirect(withMessage(PAGE, "error", "Tick the box to confirm you checked the changes."));
   const supabase = await createClient();
-  const { items, lineKeys } = await loadItems(supabase);
-  const { plan, blockers } = planCleanup(items, lineKeys);
+  const { items, lineKeys, t1Offers } = await loadItems(supabase);
+  const { plan, blockers } = planCleanup(items, lineKeys, t1Offers);
   if (blockers.length) redirect(withMessage(PAGE, "error", blockers[0]));
   if (JSON.stringify(plan) !== String(formData.get("plan"))) redirect(withMessage(PAGE, "error", "The price book changed since this page opened. Check the list again, then apply."));
   const { error } = await supabase.rpc("apply_catalogue_cleanup", { p_plan: plan });

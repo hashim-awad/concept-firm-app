@@ -76,7 +76,7 @@ export function unitWithoutNote(unit: string, note: string, fallback = "each"): 
 
 const money = (c: number | null) => (c == null ? "no price" : "$" + (c / 100).toFixed(c % 100 ? 2 : 0));
 
-export function planCleanup(items: Item[], lineKeys: string[]): { changes: Change[]; plan: Op[]; blockers: string[]; notes: string[] } {
+export function planCleanup(items: Item[], lineKeys: string[], t1Offers = 0): { changes: Change[]; plan: Op[]; blockers: string[]; notes: string[] } {
   const by = new Map(items.map((i) => [i.code, i]));
   const changes: Change[] = [], plan: Op[] = [], blockers: string[] = [], notes: string[] = [];
 
@@ -139,6 +139,13 @@ export function planCleanup(items: Item[], lineKeys: string[]): { changes: Chang
     }
     changes.push({ code: n.code, name: n.name, what: "New item", before: "", after: `${money(n.price_cents)} ${n.unit_label}${n.per_spouse ? ", each spouse" : ""} · ${T1_ACCOUNT} · Fixed` });
     plan.push({ op: "add_item", ...n, line: "t1", income_account: T1_ACCOUNT, price_type: "Fixed", description: "" });
+  }
+
+  // 8. Studio's T1 rows in offers: a second T1 price list nothing reads. The Catalogue's
+  // Personal tax (T1) items are the one T1 price list (Hashim, 2026-11-08).
+  if (t1Offers > 0) {
+    changes.push({ code: "", name: "T1 rows (Studio)", what: "Removed: the Catalogue's Personal tax (T1) items are the only T1 price list", before: `${t1Offers} T1 row${t1Offers === 1 ? "" : "s"} under Packages`, after: "" });
+    plan.push({ op: "remove_t1_offers" });
   }
 
   // Remove the Corporate line once nothing is left in it.

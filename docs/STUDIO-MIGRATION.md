@@ -15,7 +15,7 @@ Studio does not store PDFs: it builds them when someone presses Download.
 | Clients | 4aba89ff… | Client records (names, signers, addresses) | Yes | Owner import screen (client data) |
 | Engagements | 0de2dbc7… | One row per letter, incl. "Letter data" JSON (corporate) | Yes | Owner import screen (client data) |
 | Proposals | 703dc73f… | Proposals sent, incl. "Options data" JSON | Yes | Owner import screen (client data) |
-| Price Floors | 3448ec94… | 9 packages/offers with floors + 25 T1 price book rows | Yes | Owner import screen |
+| Price Floors | 3448ec94… | 9 packages/offers with floors + 25 T1 price book rows | Yes (packages and floors only; T1 rows not imported, the Catalogue PTX items are the one T1 price list) | Owner import screen |
 | Service Catalog | 113b1186… | 39 services, codes, income accounts, QBO/TaxDome mapping | Yes | Owner import screen |
 | Quality log | 267e634a… | Quality management log (staff, inspection items) | No (Phase 3) | Not read |
 | CFO clients, CFO months | 9b490aea…, 6c0af462… | Monthly CFO reports | No (later) | Not read |

@@ -70,3 +70,9 @@ test("renames PTX-101, PTX-110 and PTX-111, and updates the PTX-101 note", () =>
   assert.deepEqual(names, ["PTX-101=Owner's personal tax return (T1)", "PTX-110=Personal tax return (T1), single", "PTX-111=Personal tax returns (T1), couple"]);
   assert.ok(r.plan.some((o) => o.code === "PTX-101" && o.internal_note === "For owners of our corporate clients; included in or priced with their package."));
 });
+
+test("Studio's T1 rows are removed once, then nothing to do", () => {
+  const r = planCleanup([item("PTX-129", "t1")], ["t1"], 25);
+  assert.ok(r.plan.some((o) => o.op === "remove_t1_offers"));
+  assert.ok(!planCleanup([item("PTX-129", "t1")], ["t1"], 0).plan.some((o) => o.op === "remove_t1_offers"));
+});

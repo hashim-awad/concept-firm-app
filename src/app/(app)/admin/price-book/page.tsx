@@ -36,15 +36,16 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   // No price: "Priced per client (see packages)" only when a package lists the item; otherwise "Quoted per client".
   const noPrice = (i: Item) => {
     const pk = packagesCovering(i, offerRows);
-    return pk.length ? <span className="text-ink-2" title={pk.join(", ")}>Priced per client (see packages)<span className="block text-xs text-muted">{pk.join(", ")}</span></span>
+    return pk.length ? <span className="text-ink-2">Priced per client (see packages)
+        <Link href="/admin/price-book/packages" title={pk.join("\n")} className="block text-xs text-muted underline">In {pk.length} package{pk.length === 1 ? "" : "s"}</Link></span>
       : <span className="text-ink-2">Quoted per client</span>;
   };
 
   // The clean-up link shows only while the clean-up still has something to do (needed again in Live).
   let cleanupPending = false;
   if (access.is_owner) {
-    const { items: all, lineKeys } = await loadItems(supabase);
-    const r = planCleanup(all, lineKeys);
+    const { items: all, lineKeys, t1Offers } = await loadItems(supabase);
+    const r = planCleanup(all, lineKeys, t1Offers);
     cleanupPending = r.plan.length > 0 || r.blockers.length > 0;
   }
 
@@ -72,7 +73,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
             ) : (
               <table className="table">
                 <thead>
-                  <tr><th>Item</th><th>Charged</th><th className="text-right">Price now</th><th>Next change</th><th></th></tr>
+                  <tr><th className="min-w-[16rem]">Item</th><th>Charged</th><th className="text-right">Price now</th><th>Next change</th><th></th></tr>
                 </thead>
                 <tbody>
                   {lineItems.map((i) => {

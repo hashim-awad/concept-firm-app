@@ -25,6 +25,8 @@ select test.check('staff still cannot change published rules', test.try($$update
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('a bad plan changes nothing (all or nothing)', test.try($$select public.apply_catalogue_cleanup('[{"op":"replace_item","from":"T1_RENTAL","to":"PTX-120"},{"op":"replace_item","from":"T1_STR","to":"PTX-999"}]')$$) like '%PTX-999%'
   and exists (select 1 from public.catalogue_items where code = 'T1_RENTAL'));
+insert into public.offers (offer, segment, t1_group, unit, unit_price) values ('Single return', 'T1 personal', 'Base', 'per return', 299);
+insert into public.offers (offer, segment, is_package) values ('Team: Core', 'Team or brokerage', true);
 select test.check('owner applies the plan', test.try($$select public.apply_catalogue_cleanup('[
   {"op":"replace_item","from":"T1_BASE_SINGLE","to":"PTX-110"},
   {"op":"replace_item","from":"T1_RENTAL","to":"PTX-120"},
@@ -35,7 +37,9 @@ select test.check('owner applies the plan', test.try($$select public.apply_catal
   {"op":"set_fields","code":"PTX-120","unit_label":"per property","internal_note":"Includes short-term rentals."},
   {"op":"set_line","code":"PTX-110","line":"t1"},{"op":"set_line","code":"PTX-120","line":"t1"},{"op":"set_line","code":"PTX-125","line":"t1"},
   {"op":"add_item","code":"PTX-133","name":"Crypto or active trading, including options","unit_label":"per return","per_spouse":true,"sort_order":133,"line":"t1","income_account":"4020 Tax Preparation - Personal (T1)","price_type":"Fixed","price_cents":24900},
+  {"op":"remove_t1_offers"},
   {"op":"remove_empty_line","line":"corporate"}]')$$) = 'OK');
+select test.check('T1 rows removed, packages kept', not exists (select 1 from public.offers where segment = 'T1 personal') and exists (select 1 from public.offers where offer = 'Team: Core'));
 select test.check('rules now add the Studio items', not exists (select 1 from public.rules where item_code in ('T1_BASE_SINGLE', 'T1_RENTAL', 'T1_STR', 'T1_INVESTMENT_SALES'))
   and exists (select 1 from public.rules r join public.questionnaires q on q.id = r.questionnaire_id where q.status = 'published' and r.item_code = 'PTX-120'));
 select test.check('seed items and their prices removed', not exists (select 1 from public.catalogue_items where code in ('T1_BASE_SINGLE', 'T1_RENTAL', 'T1_STR', 'T1_INVESTMENT_SALES')));
