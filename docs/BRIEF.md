@@ -1,6 +1,6 @@
 # Build Brief: Concept Firm App
 
-Last updated: 2026-11-08 (roles, lead assignment, sources, retention added)
+Last updated: 2026-11-08 (Phase 3 year-end section replaced in full)
 
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
@@ -10,7 +10,7 @@ One firm web app, owned by the firm, that keeps running without Claude. It is th
 Phase order changed by Hashim on 2026-11-08:
 - **Phase 1 (now): Concept Studio in the app.** See "Phase 1: Concept Studio" below.
 - **Phase 2: T1 workflow.** Public start page, screening questions, leads, automatic quotes, signing and the TaxDome handoff, as described in this brief. Starts after Phase 1 is approved.
-- **Phase 3: Year-end compilation.** Unchanged.
+- **Phase 3: Year-end.** See "Phase 3: Year-End" below (replaces all earlier Phase 3 wording, 2026-11-08). Not built yet. Foundation fit: `docs/PHASE3-FOUNDATION.md`.
 
 Already built and kept for Phase 2: staff logins, roles and permissions, activity log, settings, price book, screening questions and pricing rules, staff email through Microsoft 365, design system.
 
@@ -165,9 +165,127 @@ Concept Studio today is a single HTML tool on claude.ai. Its data lives in Notio
 - Tax rates (GST/HST) are built in Phase 1, since proposals need them too (rules in decision 22).
 - When Phase 1 is approved, Hashim invites the team.
 
+## Phase 3: Year-End
+(Replaces all earlier Phase 3 wording, 2026-11-08. Not built yet.)
+
+One section in the left panel, "Year-End", holds the whole engagement end to end. Staff never leave this section to finish a year-end. It is modelled on CaseWare Working Papers and replaces our Excel Compilation Workpaper. Rule throughout: we never ask the client for information we can get ourselves from CRA, the statements or the trial balance.
+
+### A. Engagement setup
+- One engagement per client per fiscal year: client, Business Number, fiscal year end, preparer, reviewer, estimated hours, tax software (ProFile).
+- Deadlines calculated from the fiscal year end: tax payment deadline (two or three months, set per corporation) and T2 filing deadline (six months). The app works back from the payment deadline.
+
+### B. Roll forward
+- If a prior-year engagement exists, bring forward: closing balances as opening balances, account mapping, client vendor rules, permanent documents (articles, shareholder list, prior notices), schedules with continuity (shareholder loan, fixed assets and CCA, retained earnings), and open issues. Show a list of what rolled forward.
+- First year in the app: opening balances are entered once from the prior-year statements and T2.
+
+### C. Acceptance and planning (CSRS 4200)
+- Engagement acceptance or continuance, knowledge of the entity, time budget, withdrawal worksheet if needed.
+- The signed engagement letter (from the app's letters) must be linked before work starts.
+
+### D. Intake
+- The client completes our TaxDome organizer "CORP - Year-End T2 (year-end clients)". It goes out automatically from TaxDome after the 50% deposit is paid, with reminders every 7 days, 3 times.
+- The app records the date the organizer was submitted and links the client's documents to the engagement.
+- There are no Excel information request workbooks.
+
+### D2. CRA check
+- Using CRA Represent a Client, staff record: GST/HST registration status and filing frequency, GST/HST returns filed for the year, corporate tax and GST/HST instalments, and balances owing.
+
+### E. Gate A: records sufficiency
+- Preparer may pass it. Statements present for every month of every account. Client trial balance balances and agrees to the bank reconciliation (where one is provided). First-year clients: prior-year statements and T2 on file.
+
+### F. Client type and data in
+- Client type comes from the organizer's accounting records question:
+  - "No system, statements only" sets Type 1 (Raw Records): we build the books.
+  - QuickBooks Online or other software makes the client a Type 2 candidate (Client-Prepared TB), confirmed only by the qualification test.
+- Type 2 qualification test, recorded pass/fail with a note for each: (1) TB balances, (2) bank and card accounts reconciled to year end, (3) no material suspense or uncategorized balance, (4) prior-year closing balances carry into this year's opening. Any fail: run as Type 1, or Type 2 with a scoped cleanup, recorded in writing.
+- Type 1: one register per bank or card account, no row limits. Import by CSV using one firm template only: Date (YYYY-MM-DD), Description, Amount (single signed number: money out negative, money in positive). The app converts card activity correctly. Account, statement period and opening and closing balances are entered at upload. Each upload must reconcile opening to closing before it can be finalized. Statement continuity check: each closing balance equals the next opening; a missing month blocks Gate A. The app validates every file and rejects anything that doesn't match, naming the row and problem. "Download template" button on the upload screen.
+- Type 2: import the client's TB by CSV (firm template: Account number, Account name, Debit, Credit). Must balance before use. Map each client account to a GIFI account with drag-and-drop. The mapping is saved per client and rolls forward. Balance support for each balance sheet account: balance per client TB, what supports it, last reconciled.
+
+### G. Coding and second-round request
+- Firm master chart of accounts based on CRA GIFI: code, name, statement (BS or IS), group, sort order. Owner-edited. Initial list loaded from our current workpaper's GIFI COA tab. Per engagement, bank and card accounts are renamed to the client's accounts.
+- Each transaction: GIFI account, status (OK or Ask Client), note. Each line books both sides, so the trial balance always nets to zero.
+- Vendor rules suggest the account; staff always confirm. Firm-wide rules (owner-managed) and client-specific rules.
+- Clearing accounts 1490 CC Payment and 1495 Suspense - Ask Client must be zero before Gate B and Gate C.
+- Staff work out shareholder withdrawals, personal expenses, receivables and payables from the statements or trial balance.
+- Second-round request: once coding is done, one batch request goes to the client, never one question at a time. It covers: unknown transactions (including shareholder withdrawals), receipts for purchases over $500, assets sold or disposed of during the year (date and proceeds), and any shareholders beyond two (names and ownership). Answers are logged on each item (date, explanation, disposition) as compilation evidence.
+
+### H. Working trial balance
+- Columns: Prior year, Prelim, AJE, RJE, Final, Change. Must net to zero.
+- AJE (adjusting) and RJE (reclass) entries, each must balance, with date, memo, reference and preparer.
+
+### I. Lead sheets
+- One per group: cash, receivables, prepaids, fixed assets, payables, taxes, shareholder accounts, debt, equity, revenue, expense groups.
+- Each shows prior year, current year and change, with links to supporting documents and schedules. Workpaper references and tickmarks.
+
+### J. Supporting schedules (general feature)
+- Shareholder loan continuity, one per shareholder: opening balance carried forward; corporate expenses paid personally by the shareholder; personal expenses paid by the corporation; advances and repayments in either direction; salary, bonus or dividends credited; closing balance, which must agree to the balance sheet (difference shown until it ties).
+- s.15(2) tracking: for any balance owed by the shareholder, record the date it arose. The app calculates the repayment deadline as one year after the end of the corporation's taxation year in which the balance arose, and flags any balance not repaid by then. Record whether repayments may form part of a series of loans and repayments. Any flag blocks Gate B until an owner reviews it. The app flags; it does not decide the tax treatment.
+- Also: fixed assets and CCA continuity, HST reconciliation (using the CRA check in D2), accruals, prepaids, retained earnings continuity.
+
+### K. Binder (document manager)
+- Every workpaper, schedule, uploaded file and letter, filed in folders by section.
+- Each item has preparer and reviewer sign-off. Any change after reviewer sign-off is flagged and shows who changed what and when.
+- Review notes tracked until resolved.
+
+### L. Reasonableness checks and Gate B
+- Checks, each with an explanation field: revenue against GST/HST returns filed; wages against the T4 Summary; asset additions against invoices; prior-year comparatives for anything that moved without explanation.
+- Gate B: pre-statement review. Needs the "gate reviewer" permission (owner role by default). Statements cannot be generated before Gate B is passed.
+
+### M. Financial statements
+- Balance sheet, statement of earnings and retained earnings, notes from a notes library (including the basis of accounting note CSRS 4200 requires), prior-year comparatives, compilation engagement report.
+- Checks, all must pass: balance sheet balances; completeness (every account with a balance appears); retained earnings equals prior closing plus net income less dividends; prior-year closing equals this year's opening.
+
+### N. Client approval
+- Client approves the statements and signs the management acknowledgement in writing, using the app's signing (same signing record as quotes).
+
+### O. GIFI export
+- Assign GIFI codes and export a standard GIFI file (.GFI) for ProFile, with signs adjusted as GIFI requires.
+- GIFI export test before Phase 3 goes live: export a GIFI file from a dummy engagement and import it into ProFile. Every GIFI line and amount on Schedules 100 and 125 must match the app's statements, including sign flips. Hashim runs the import; the app shows the expected figures to compare against.
+
+### P. Tax workpapers
+- Accounting-to-taxable income reconciliation, every difference explained.
+- Tie-out check: GIFI in ProFile agrees to the app's statements. CCA, SBD and the return itself are prepared in ProFile.
+
+### Q. T183 CORP
+- Signed by the client and stored in the binder. Filing is blocked until it is on file.
+
+### R. Gate C: final review
+- Needs the "gate reviewer" permission. Cannot pass until every item is met or explained: TB nets to zero; statement checks pass; Suspense and CC Payment are zero; second-round request fully answered; revenue agrees to GST/HST returns or difference explained; wages agree to T4 Summary; shareholder loan continuity complete and s.15(2) timing checked; prior-year closing equals opening; every balance maps to a valid GIFI code; client's written approval on file; signed T183 CORP on file; accounting-to-taxable income reconciliation documented.
+
+### S. Filing
+- The app cannot EFILE (CRA requires certified tax software; we use ProFile). EFILE is done in ProFile.
+- The app records the EFILE confirmation number and date and stores the filed T2 PDF. The engagement cannot be closed until these are recorded.
+
+### T. T2 package and minute book
+- Generate the T2 package in the app: cover, compilation engagement report, balance sheet, statement of earnings and retained earnings, notes, management acknowledgement. Same content and standard as our current package.
+- Generate the minute book letter and year-end minute book documents.
+- Flag T5 slips needed for dividends declared.
+- Everything stored in the vault.
+
+### U. Delivery
+- Year-end letter to the client: what was filed, tax owing and the payment deadline, what to do differently next year.
+
+### V. Lockdown
+- The engagement locks on completion. Only an owner can unlock it, with a reason recorded in the activity log.
+
+### W. Year-end close
+- Next-year note: type classification, GIFI mapping used, recurring issues, actual hours against quoted. Ready to roll forward next year.
+
+### Outputs and rules
+- Internal only, never shared with clients: the working file, queries, suspense postings, review notes.
+- All gate passes, sign-offs, unlocks and changes recorded in the activity log.
+- Data organized by client, fiscal year and engagement, kept like any client file (the 24-month deletion rule applies only to leads that never became clients).
+
+### Later (not Phase 3)
+Send the second-round request online through a private link (no login, like the quote page). Answers land on the matching transactions for staff to code.
+
+### Still needed from Hashim
+Our Compilation Workpaper (GIFI COA list), to load as the starting chart of accounts before Phase 3 starts.
+
 ## Still open
 - Engagement terms text (waiting for the current T1 engagement letter).
 - T2 price book from Concept Studio.
+- Compilation Workpaper (GIFI COA list) for the Phase 3 starting chart of accounts.
 
 ## How to work with Hashim
 - Plain words, short answers. Answer first.
