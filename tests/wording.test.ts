@@ -44,3 +44,22 @@ test("every piece has a unique key and a non-empty text", () => {
   assert.equal(new Set(W.map((p) => p.key)).size, W.length);
   assert.ok(W.every((p) => p.text.trim().length > 0));
 });
+
+import { toFriendly, fromFriendly, checkEdit } from "../src/lib/studio/wording-pieces.ts";
+
+test("fill-ins show by name and convert back", () => {
+  const k = key("Dear {1},");
+  assert.equal(toFriendly(k, "Dear {1},"), "Dear [Salutation],");
+  assert.equal(fromFriendly(k, "Hello [Salutation], welcome"), "Hello {1}, welcome");
+  assert.equal(checkEdit(k, fromFriendly(k, "Hello [Salutation],")), null);
+  assert.match(checkEdit(k, fromFriendly(k, "Hello,")) ?? "", /\[Salutation\]/);
+  assert.match(checkEdit(k, fromFriendly(k, "Hello [Salutation] [Salutation],")) ?? "", /once/);
+});
+
+test("every fill-in has a name", () => {
+  for (const p of W as { text: string; fills?: string[] }[]) {
+    const n = (p.text.match(/\{\d+\}/g) ?? []).length;
+    assert.equal((p.fills ?? []).length, n, p.text);
+    assert.ok((p.fills ?? []).every((f) => f && !/^Detail( \d+)?$/.test(f)), p.text);
+  }
+});

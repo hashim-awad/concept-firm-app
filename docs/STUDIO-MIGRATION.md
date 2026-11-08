@@ -121,7 +121,9 @@ running for that). Wording is edited in the app:
 - Database: `wording_versions` (draft, approved, one current) and `wording_texts` (only the
   pieces that differ from EL v3.31). Owners approve; an earlier version can be made current
   again with a reason. Approved versions never change.
-- Screens: Template library, Wording versions. Click wording in the sample documents, edit,
-  save in the draft, approve. New letters use the current version; each PDF records which.
+- Screens (Templates): open a template, click any text, change it; fill-ins show by name
+  ([Company name]). Changes are saved as unpublished changes; an owner reviews and publishes
+  them (Review and publish). History lists published versions with Restore. New letters use
+  the published version; each PDF records which.
 - Not editable yet: the order of sections, adding or removing a clause, and which section a
   service adds. Those are structure, still in code; ask for them as a change.

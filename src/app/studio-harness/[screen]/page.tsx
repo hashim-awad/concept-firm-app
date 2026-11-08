@@ -4,22 +4,24 @@
 // and no database is touched.
 import { notFound } from "next/navigation";
 import { Harness } from "./harness";
-import { wordingSamples } from "@/lib/studio/samples";
-import { PIECES } from "@/lib/studio/wording-pieces";
-import { WordingEditor } from "../../(app)/admin/templates/versions/[id]/wording-editor";
+import { templateSample } from "@/lib/studio/samples";
+import { PIECE, toFriendly } from "@/lib/studio/wording-pieces";
+import { TemplateEditor } from "@/components/studio/template-editor";
 
 export default async function StudioHarnessPage({ params }: PageProps<"/studio-harness/[screen]">) {
   if (process.env.STUDIO_HARNESS !== "1") notFound();
   const { screen } = await params;
   if (screen === "wording") {
-    // Wording editor with the original wording and made-up details (nothing can be saved here).
+    // Template editor with the original wording and made-up details (nothing can be saved here).
     const signers = { letter: { name: "Test Signer, CPA", title: "Director" }, proposal: { name: "Test Signer", title: "Director" } };
-    const samples = wordingSamples(signers, null);
-    const pieces = PIECES.map((p) => ({ key: p.key, original: p.text, current: p.text, draft: p.text }));
+    const sample = templateSample("master", signers, null, true)!;
+    const keys = [...new Set(sample.parts.flatMap((p) => [...p.html.matchAll(/data-w="(w[0-9a-f]{10})"/g)].map((m) => m[1])))];
+    const pieces = keys.filter((k) => PIECE.has(k)).map((k) => { const t = toFriendly(k, PIECE.get(k)!.text); return { key: k, original: t, live: t, draft: t, fills: PIECE.get(k)!.fills ?? [] }; });
     return (
-      <div id="harness-ready" className="flex h-screen flex-col bg-paper p-4">
-        <WordingEditor versionId="00000000-0000-0000-0000-000000000000" label="EL v3.32" currentLabel="EL v3.31" editable samples={samples} pieces={pieces} />
-      </div>
+      <main id="harness-ready" className="bg-paper p-6">
+        <h1 className="mb-4 text-[26px] font-semibold">Corporate master letter</h1>
+        <TemplateEditor parts={sample.parts} pieces={pieces} canEdit />
+      </main>
     );
   }
   if (!["corporate", "t1", "proposal"].includes(screen)) notFound();

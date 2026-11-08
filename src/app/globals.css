@@ -155,5 +155,5 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700
 .studio-preview .paper .illus .ban{background:#b3261e;color:#fff;font-weight:700;text-align:center;padding:6px 10px;font-size:12px;margin-bottom:10px}
 
 /* Wording editor: wording you can edit, highlighted when pointed at. */
-.wording-edit .studio-preview [data-w] { cursor: pointer; border-radius: 2px; }
-.wording-edit .studio-preview [data-w]:hover { background: rgba(26, 60, 124, 0.08); outline: 1px dashed rgba(26, 60, 124, 0.4); }
+.template-doc .studio-preview [data-w] { cursor: pointer; border-radius: 2px; }
+.template-doc .studio-preview [data-w]:hover { background: rgba(26, 60, 124, 0.08); outline: 1px dashed rgba(26, 60, 124, 0.4); }

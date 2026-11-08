@@ -49,7 +49,7 @@ export function AppSidebar({ access, signOut }: { access: SidebarAccess; signOut
   if (access.priceBook) {
     groups.push({ label: "Price book", items: ([
       item("/admin/price-book", "Price book", <BookOpen key="i" />),
-      access.templates && item("/admin/templates", "Template library", <Library key="i" />),
+      access.templates && item("/admin/templates", "Templates", <Library key="i" />),
       item("/admin/screening", "Screening questions", <ListChecks key="i" />),
     ].filter(Boolean)) as NavGroup["items"] });
   }

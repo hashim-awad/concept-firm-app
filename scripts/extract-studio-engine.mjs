@@ -82,7 +82,7 @@ const body = stmts.map((st) => {
   for (const p of r.pieces) {
     const cur = pieces.get(p.key);
     if (cur) { if (!cur.fns.includes(p.fn)) cur.fns.push(p.fn); }
-    else pieces.set(p.key, { key: p.key, text: p.text, fns: [p.fn] });
+    else pieces.set(p.key, { key: p.key, text: p.text, fns: [p.fn], fills: p.fills });
   }
   return r.source;
 }).join("\n");

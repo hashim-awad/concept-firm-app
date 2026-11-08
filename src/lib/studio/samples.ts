@@ -28,8 +28,11 @@ function corporate(signer: { name: string; title: string }, services: string[], 
 }
 
 // The part of the letter from a numbered heading ("3. Catch-up bookkeeping") to the next heading.
+// Editor markers may sit anywhere inside the heading, so the match allows them between characters.
+const M = "(?:\\uE000[^\\uE001]*\\uE001|\\uE002)*";
+const loose = (t: string) => t.split("").map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(M);
 function section(html: string, title: string) {
-  const start = html.search(new RegExp(`<h3>\\d+\\. ${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^<]*</h3>`));
+  const start = html.search(new RegExp(`<h3>${M}\\d+\\.${M} ${M}${loose(title)}[^<]*</h3>`));
   if (start < 0) return "";
   const rest = html.slice(start + 4);
   const next = rest.search(/<h3>|<div class="sig"|<div class="pgb"/);
@@ -50,7 +53,15 @@ const SCHEDULE: Record<string, [string, string]> = {
 
 export type Sample = { parts: { label: string; html: string }[]; note?: string };
 
-export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null): Sample | null {
+// Markers from the engine's editor mode become clickable <span data-w="key"> elements.
+export const markToSpans = (html: string) => html.replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>");
+
+export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
+  if (mark) {
+    const prev = MARK; MARK = true;
+    try { const r = templateSample(key, signers, wording, false); return r && { ...r, parts: r.parts.map((p) => ({ ...p, html: markToSpans(p.html) })) }; }
+    finally { MARK = prev; }
+  }
   WORDING = wording;
   const L = signers.letter;
   if (key === "master") return { parts: [{ label: "Full corporate letter, every service ticked", html: corporate(L, Object.values(SCHEDULE).map(([k]) => k).concat("payroll", "t1"), { t1Owner: "Taylor Sample" }) }] };
@@ -88,20 +99,14 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   return null;
 }
 
-// Wording editor: sample documents covering every template, with each piece of wording marked
-// so it can be clicked. Markers become <span data-w="key">.
-export function wordingSamples(signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null): { id: string; label: string; html: string }[] {
-  WORDING = wording; MARK = true;
-  try {
-    const L = signers.letter;
-    const all = Object.values(SCHEDULE).map(([k]) => k).concat("payroll", "t1");
-    const out = [
-      { id: "corp", label: "Corporate letter (every service)", html: corporate(L, all, { t1Owner: "Taylor Sample" }) },
-      { id: "corp2", label: "Corporate letter (payroll support, first year, catch-up not known)", html: corporate(L, ["comp", "t2", "payroll", "catchup", "books"], { payrollMode: "advisory", firstYear: true, periodStart: "2026-01-15", catchTBD: true, catchTo: "2026-09-30", province: "AB" }) },
-      { id: "t1", label: "T1 letter", html: templateSample("t1", signers, wording)!.parts[0].html },
-      { id: "t1td", label: "Standalone T1 (TaxDome master)", html: templateSample("t1td", signers, wording)!.parts[0].html },
-      { id: "prop", label: "Proposal", html: templateSample("prop", signers, wording)!.parts[0].html },
-    ];
-    return out.map((x) => ({ ...x, html: x.html.replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>") }));
-  } finally { MARK = false; WORDING = null; }
+// Which wording pieces each template shows (to say where a change appears).
+export function templateKeys(signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null, keys: string[]): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const k of keys) {
+    const s = templateSample(k, signers, wording, true);
+    const set = new Set<string>();
+    for (const p of s?.parts ?? []) for (const m of p.html.matchAll(/data-w="(w[0-9a-f]{10})"/g)) set.add(m[1]);
+    out.set(k, set);
+  }
+  return out;
 }

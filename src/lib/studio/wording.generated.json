@@ -5,6 +5,9 @@
   "fns": [
    "feeText",
    "buildT1"
+  ],
+  "fills": [
+   "Amount"
   ]
  },
  {
@@ -15,83 +18,98 @@
    "build",
    "pBuild",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wffab7916ba",
   "text": "The compiled financial information will be prepared on the historical cost basis. It will reflect cash transactions, with the addition of the accruals that apply to the Company, such as accounts receivable, accounts payable and accrued liabilities, amortization of capital assets, and income taxes payable. It will not apply all the recognition, measurement, presentation and disclosure requirements of Canadian accounting standards for private enterprises (ASPE).",
   "fns": [
    "BASIS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w666c21194d",
   "text": "The compiled financial information will be prepared on the cash basis. Revenue is recorded when cash is received and expenses are recorded when cash is paid. It will not apply the requirements of Canadian accounting standards for private enterprises (ASPE).",
   "fns": [
    "BASIS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdc93381d94",
   "text": "Year-end: compiled financial statements and T2",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd622940f6f",
   "text": "Year-End Compilation and T2",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc6dac0406c",
   "text": "Monthly full service: bookkeeping, GST/HST, compiled financial statements and T2",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w18367ae7f1",
   "text": "Monthly Full Service",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w887cd78c49",
   "text": "T2 only: corporate tax return, no compiled financial statements",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8185f02736",
   "text": "Corporate Tax Return (T2)",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf77a5ee50c",
   "text": "Corporate services",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa2f43c25f7",
   "text": "Corporate Services",
   "fns": [
    "TYPES"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc7a6fae9e9",
   "text": "the period from {1} to {2}",
   "fns": [
    "periodInfo"
+  ],
+  "fills": [
+   "Start date",
+   "Year end"
   ]
  },
  {
@@ -99,6 +117,10 @@
   "text": "the year {1} {2}",
   "fns": [
    "periodInfo"
+  ],
+  "fills": [
+   "ending or ended",
+   "Year end"
   ]
  },
  {
@@ -106,6 +128,10 @@
   "text": "the balance sheet as at {1}, the statement of income and retained earnings for the {2} then ended, and Note 1, which describes the basis of accounting applied",
   "fns": [
    "statementsList"
+  ],
+  "fills": [
+   "Year-end date",
+   "year or period"
   ]
  },
  {
@@ -113,20 +139,25 @@
   "text": "Compilation engagement (CSRS 4200)",
   "fns": [
    "svcList"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w08794059af",
   "text": " and Alberta return (AT1)",
   "fns": [
    "svcList"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w421602e1a5",
   "text": "Corporate income tax return (T2){1}",
   "fns": [
    "svcList"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -138,7 +169,8 @@
    "FEE_PRESETS",
    "FEE_SVC",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc712547d57",
@@ -146,7 +178,8 @@
   "fns": [
    "svcList",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9e68f23182",
@@ -156,7 +189,8 @@
    "PSVC",
    "FEE_PRESETS",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb1ad016033",
@@ -165,7 +199,8 @@
    "svcList",
    "build",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd45987441a",
@@ -176,7 +211,8 @@
    "PSVC",
    "FEE_SVC",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6b4fd43884",
@@ -184,14 +220,16 @@
   "fns": [
    "svcList",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w12612268c0",
   "text": "CFO reporting",
   "fns": [
    "svcList"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w65c5e1087e",
@@ -199,7 +237,8 @@
   "fns": [
    "svcList",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc70f364f4d",
@@ -208,7 +247,8 @@
    "svcList",
    "PSVC",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfb1b79c88f",
@@ -216,13 +256,17 @@
   "fns": [
    "svcList",
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1dca0ff6e6",
   "text": "Personal tax returns (T1) for {1}, under a separate letter",
   "fns": [
    "svcList"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -231,7 +275,8 @@
   "fns": [
    "build",
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1dc61b1a06",
@@ -239,7 +284,8 @@
   "fns": [
    "build",
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfc5ee4758f",
@@ -247,7 +293,8 @@
   "fns": [
    "build",
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9eda94114a",
@@ -256,6 +303,9 @@
    "build",
    "buildT1",
    "pBuild"
+  ],
+  "fills": [
+   "Salutation"
   ]
  },
  {
@@ -263,6 +313,10 @@
   "text": "Re: Engagement letter for {1}{2}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Client name",
+   "Period"
   ]
  },
  {
@@ -270,6 +324,9 @@
   "text": "This letter replaces our engagement letter dated {1}. ",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Date"
   ]
  },
  {
@@ -277,13 +334,18 @@
   "text": "Once you sign it, the earlier letter no longer applies.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we00f4a687c",
   "text": "This letter confirms the terms of our engagement with {1} (the “Company”). It sets out the services we will provide, your responsibilities and ours, and our fees. The Standard Terms and Conditions in Appendix {2} form part of this agreement.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Client name",
+   "Appendix letter"
   ]
  },
  {
@@ -291,6 +353,9 @@
   "text": "{1}. Compilation engagement",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -298,13 +363,18 @@
   "text": "Objective and scope. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9950f61352",
   "text": "You have asked us to perform a compilation engagement for the Company for {1}. In a compilation engagement, we assist management in preparing financial information. The compiled financial information will be {2} (the “compiled financial information”).",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Period",
+   "Statements"
   ]
  },
  {
@@ -312,13 +382,17 @@
   "text": "The compiled financial information is intended to be used by management of the Company, and to support the Company’s corporate income tax return filed with the Canada Revenue Agency (CRA). CRA is in a position to request and obtain further information from the Company.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w74082d2564",
   "text": "You confirm that {1} has agreed with you the basis of accounting to be applied.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Third party"
   ]
  },
  {
@@ -326,6 +400,9 @@
   "text": "You confirm that {1} is in a position to request and obtain further information from the Company.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Third party"
   ]
  },
  {
@@ -333,6 +410,10 @@
   "text": " It will also be provided to {1}. {2}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Third party",
+   "Optional wording"
   ]
  },
  {
@@ -340,20 +421,25 @@
   "text": " If you plan to give the compiled financial information to anyone else, such as a lender or landlord, please tell us first. It should only be given to a party that is in a position to request and obtain further information from the Company, or that has agreed with you the basis of accounting applied.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wde5809398f",
   "text": "Intended use. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbe9cbce0c2",
   "text": "The compiled financial information will be prepared using the basis of accounting required by {1}. It will not apply all the requirements of Canadian accounting standards for private enterprises (ASPE).",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Agreed basis"
   ]
  },
  {
@@ -361,13 +447,17 @@
   "text": "Basis of accounting. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wec2bd5fc95",
   "text": "{1} Note 1 to the compiled financial information will describe this basis. If your needs change during the engagement and a different basis is needed, we will agree the change with you in writing.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Bold text"
   ]
  },
  {
@@ -375,118 +465,137 @@
   "text": "Our responsibilities. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w3e8b3c77a4",
   "text": "We will perform the engagement in accordance with Canadian Standard on Related Services (CSRS) 4200, Compilation Engagements. CSRS 4200 requires us to comply with relevant ethical requirements, including the CPA Ontario Code of Professional Conduct. We will use our accounting and financial reporting expertise to help you prepare and present the compiled financial information. We will discuss with you any significant judgments on which we assist. We will read the compiled financial information in light of what we know about the Company and the basis of accounting. If it appears to be misleading, we will ask you for additional or corrected information. If it is not provided, we will withdraw from the engagement and tell you why.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w28919cc903",
   "text": "A compilation engagement is not an audit or a review. We will not verify the accuracy or completeness of the information you give us. We will not express an audit opinion or a review conclusion, or provide any form of assurance on the compiled financial information. This engagement cannot be relied on to detect errors, fraud or illegal acts. The Code of Professional Conduct does not require us to be independent of the Company for this engagement. If we are not independent, our report will say so.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w0f88c66bc9",
   "text": "By signing this letter, management acknowledges that:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2ea9029ad8",
   "text": "a compilation engagement is appropriate for the intended use described above;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wec934b3ffb",
   "text": "a compilation engagement is not an audit or a review, and will not meet any legal, regulatory or contractual requirement for an audit or a review; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w65e78da86e",
   "text": "the compiled financial information should not be used by third parties other than those who are in a position to request and obtain further information from the Company, or who have agreed with you the basis of accounting applied.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we0b8382f1e",
   "text": "Management is responsible for:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb9e7d2f25e",
   "text": "the compiled financial information;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd6f393c65e",
   "text": "selecting a basis of accounting that is appropriate for the intended use;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4288f44f75",
   "text": "the accuracy and completeness of the records, documents, explanations and other information given to us;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcd04fee8bf",
   "text": "keeping proper books and records and internal controls, and giving us access to them and to the people we need to speak with; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w41bcbd2b33",
   "text": "attaching our compilation engagement report whenever the compiled financial information is distributed or reproduced.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2935fa9dee",
   "text": "Before we issue our report, management will confirm in writing that it takes responsibility for the final version of the compiled financial information.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8aae0448ec",
   "text": "Our report. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa907a65d18",
   "text": "Our compilation engagement report is expected to be in the form shown in Appendix B. Appendix B is an illustration only. It is not our report and must not be used, copied or attached to any financial information. There may be circumstances in which the report differs from its expected form and content, based on our findings during the engagement.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf86458947d",
   "text": "{1}. Corporate income tax return",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -494,20 +603,28 @@
   "text": ", and its Alberta Corporate Income Tax Return (AT1).",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "web276f639e",
   "text": ", including the provincial schedules.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w16a12bfa7c",
   "text": "We will prepare the Company’s T2 Corporation Income Tax Return for the taxation {1} {2} {3}{4}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "year or period",
+   "ending or ended",
+   "Year-end date",
+   "Optional wording"
   ]
  },
  {
@@ -515,13 +632,18 @@
   "text": "This engagement does not include compiled financial statements. The Company’s financial information will be presented only in the forms CRA prescribes for the return. We will not issue a compilation engagement report. If the Company needs financial statements for a lender or any other user, please tell us. That is a separate engagement.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w00a926527c",
   "text": "We will prepare the return from the information you give us and from our discussions with management. We will not audit or otherwise verify that information. The return must be filed within six months after the end of the taxation {1}. Any balance of tax owing is due earlier, generally two or three months after the end of the {2}, depending on the Company’s status. Late filing or late payment can result in penalties and interest.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "year or period 1",
+   "year or period 2"
   ]
  },
  {
@@ -529,13 +651,17 @@
   "text": "When the return is ready, we will send you Form T183CORP. An authorized signing officer must review the return, sign Form T183CORP and return it to us. We cannot file the return electronically until we receive the signed form.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfc048ef4e5",
   "text": "{1}. Catch-up bookkeeping, if needed",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -543,6 +669,10 @@
   "text": " at {1} plus {2} for each month not completed",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Amount",
+   "GST or HST"
   ]
  },
  {
@@ -550,6 +680,10 @@
   "text": "The Company’s books should be complete up to {1}. After you give us access to QuickBooks Online, we will check whether they are. If any months are not complete, we will bring them up to date{2}. This includes reviewing GST/HST returns already filed for those months, preparing and filing any outstanding GST/HST returns, and making the adjustments we consider necessary. We will confirm the months and the total to you in writing before we start this work. Catch-up bookkeeping cannot be relied on to prevent or detect errors, fraud or illegal acts. That responsibility stays with management.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "End date",
+   "Optional wording"
   ]
  },
  {
@@ -557,6 +691,9 @@
   "text": "{1}. Catch-up bookkeeping",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -564,6 +701,10 @@
   "text": "We will bring the Company’s books up to date for the period {1} to {2}. This includes reviewing GST/HST returns already filed for that period, preparing and filing any outstanding GST/HST returns, and making the adjustments we consider necessary. Catch-up bookkeeping cannot be relied on to prevent or detect errors, fraud or illegal acts. That responsibility stays with management.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Start date",
+   "End date"
   ]
  },
  {
@@ -571,6 +712,9 @@
   "text": "{1}. Monthly bookkeeping",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -578,6 +722,9 @@
   "text": "Starting {1}, we will:",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Billing start"
   ]
  },
  {
@@ -585,48 +732,57 @@
   "text": "record the Company’s transactions each month in QuickBooks Online, using the source documents, receipts captured in Dext, and the bank and credit card feeds you give us access to;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5e5c2e8d5f",
   "text": "reconcile the Company’s bank and credit card accounts each month and post the adjusting entries needed; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcb01b1a2ae",
   "text": "prepare a monthly profit and loss report for management.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb68ccb7b53",
   "text": "record the Company’s transactions each month in QuickBooks Online, using the source documents, receipts captured in Dext, and the bank and credit card feeds you give us access to; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6b99a21f04",
   "text": "reconcile the Company’s bank and credit card accounts each month and post the adjusting entries needed.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w24f8cbe80e",
   "text": "Monthly reports are for management’s internal use. They are not compiled financial information, and we will not attach a compilation engagement report to them.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w13363533dc",
   "text": "We will set up and manage the Company’s QuickBooks Online and Dext accounts. You authorize us to accept those providers’ terms and privacy policies for the Company. Please read them before you sign: QuickBooks Online at intuit.com/legal/terms/en-ca/quickbooks/online and Dext at dext.com/terms-and-conditions. {1}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -634,13 +790,17 @@
   "text": "Bookkeeping cannot be relied on to prevent or detect errors, fraud or illegal acts. That responsibility stays with management.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa6163c2ec4",
   "text": "{1}. GST/HST returns",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -648,20 +808,25 @@
   "text": "the books we keep",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5d138c6d86",
   "text": "the information you give us",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb949ac6a04",
   "text": "We will prepare and file the Company’s GST/HST returns at the filing frequency CRA has assigned to the Company, from {1}. You remain responsible for paying any GST/HST owing by the due date.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -669,62 +834,73 @@
   "text": "The Company runs its own payroll. When you ask, we will answer payroll questions and help you correct payroll issues. Under this letter we do not process payroll, remit source deductions, or prepare T4 slips or Records of Employment.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5638c2cbae",
   "text": "Using the payroll information you give us each pay period, we will:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7d1ca4ff55",
   "text": "calculate gross pay, source deductions and the employer’s share for each employee;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbf3ef64f90",
   "text": "prepare pay statements for each pay period;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w645a9b40bf",
   "text": "prepare each source deduction remittance so the Company can pay it by the due date;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb8eaa4f1d2",
   "text": "prepare T4 slips and the T4 Summary after year end, and file them with CRA; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9e8b72211c",
   "text": "prepare Records of Employment when an employee leaves.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we16afb066e",
   "text": "You are responsible for giving us accurate hours, pay rates, new hires and terminations on time, and for paying wages and remittances by their due dates.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdad2840c54",
   "text": "{1}. Payment administration",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -732,41 +908,49 @@
   "text": "We will:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8f8b1f109a",
   "text": "set up and run the Company’s account on our secure payment platform, for collecting amounts owed to the Company and paying approved vendor invoices;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa344cc9687",
   "text": "send vendor invoices to you for approval before they are paid; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7abbb11797",
   "text": "reconcile payment platform activity to the Company’s books each month.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf9e88c934a",
   "text": "We pay only invoices you have approved. You are responsible for keeping enough funds in the Company’s account.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w27ef2cc0fd",
   "text": "{1}. CFO reporting",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -774,34 +958,42 @@
   "text": "We will provide:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we75d916151",
   "text": "a quarterly production and financial review with management; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w218a3fcde7",
   "text": "management dashboards and performance reports for the Company’s internal use.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w132e705277",
   "text": "These reports are for management’s internal use. They are not compiled financial information and carry no assurance.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w99ab118797",
   "text": "{1}. Personal tax return{2}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number",
+   "Plural ending"
   ]
  },
  {
@@ -809,6 +1001,9 @@
   "text": "The personal income tax returns (T1) for {1} are",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Owner names"
   ]
  },
  {
@@ -816,6 +1011,9 @@
   "text": "{1}’s personal income tax return (T1) is",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Owner names"
   ]
  },
  {
@@ -823,27 +1021,35 @@
   "text": "each person signs",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w32e6d0f303",
   "text": "Their fees are",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w558dbb1cf4",
   "text": "Its fee is",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w681d789b9b",
   "text": "{1} covered by a separate personal tax engagement letter, which {2} personally. {3} included in the fees in Appendix A.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording 1",
+   "Optional wording 2",
+   "Optional wording 3"
   ]
  },
  {
@@ -851,6 +1057,9 @@
   "text": "{1}. Annual budget",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -858,13 +1067,17 @@
   "text": " in the quarterly production and financial review.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc68cfef6b4",
   "text": "Each year we will prepare an annual budget with management. It includes sales scenarios, a cost and payroll plan, and a monthly cash forecast. We will review the budget with you before the year starts, and compare actual results with it during the year{1}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -872,13 +1085,17 @@
   "text": "The budget is for management’s internal use. It is based on your plans and assumptions, actual results will differ, and we do not provide any assurance on it.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6dd94670c2",
   "text": "{1}. Year-end support for your external accountant",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -886,6 +1103,9 @@
   "text": "At year end we will give the Company’s external accountant{1} the working trial balance and supporting workpapers, and answer their reasonable questions during their year-end work. We will not prepare the Company’s financial statements or tax returns under this service.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "External accountant"
   ]
  },
  {
@@ -893,27 +1113,33 @@
   "text": "review or audit engagements",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w39898f1068",
   "text": "tax planning and reorganizations",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w65c15ede76",
   "text": "CRA audits, objections and disputes",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf59dac1ecb",
   "text": "personal tax returns, other than those for {1} under the separate letter",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -921,27 +1147,34 @@
   "text": "personal tax returns",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfa3e24e595",
   "text": "legal, valuation and investment advice",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w84832f505f",
   "text": "Our fees, billing terms and how to set up your payment details are in Appendix A, Fees and payment. Appendix A forms part of this letter.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf9007995b2",
   "text": "{1} per month not completed, plus {2}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Amount",
+   "GST or HST"
   ]
  },
  {
@@ -949,6 +1182,9 @@
   "text": "{1}We confirm the total in writing before we start.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Detail line"
   ]
  },
  {
@@ -956,14 +1192,16 @@
   "text": " per month",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w59df8d8ec6",
   "text": " per quarter",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5307a48b7d",
@@ -971,34 +1209,42 @@
   "fns": [
    "build",
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6842f80ee0",
   "text": "Total one-time fees",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2df5861a5a",
   "text": "Your fees include:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc376325671",
   "text": "Total monthly fee",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w769859cc27",
   "text": "{1} per month plus {2}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Amount",
+   "GST or HST"
   ]
  },
  {
@@ -1006,27 +1252,34 @@
   "text": "Your monthly fee includes:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4cfe1d17ef",
   "text": "If needed:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "waa83ccb44d",
   "text": "One-time fees are billed in two parts:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa32b04be4a",
   "text": "{1} plus {2} when you sign this letter",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Amount",
+   "GST or HST"
   ]
  },
  {
@@ -1034,6 +1287,10 @@
   "text": "{1} plus {2} when the work is complete",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Amount",
+   "GST or HST"
   ]
  },
  {
@@ -1041,20 +1298,25 @@
   "text": "One-time fees are billed when the work is complete.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6f0fc417c0",
   "text": "One-time fees are billed when you sign this letter.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7cae7854e3",
   "text": "Monthly fees start on {1} and are billed on the 1st of each month.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Billing start"
   ]
  },
  {
@@ -1062,6 +1324,9 @@
   "text": "Quarterly fees start on {1} and are billed on the 1st day of each quarter.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Billing start"
   ]
  },
  {
@@ -1069,34 +1334,42 @@
   "text": "Year-end fees are billed each year when the year-end work is complete.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w0d3af02255",
   "text": " Year-end invoices are sent the same way.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdee3afb236",
   "text": "Pay your first invoice. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4a0938d467",
   "text": " Each later invoice comes with its own secure Plooto link.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1f9420c5c9",
   "text": "We use Plooto, a secure payment platform, to collect our fees. Your first invoice{1} is ready. Use the link or QR code below to pay it.{2} You enter your payment details on Plooto’s site, not with us.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "GST or HST",
+   "Optional wording"
   ]
  },
  {
@@ -1104,27 +1377,34 @@
   "text": "When you sign this letter, we will send you an invoice with a secure Plooto link to pay it.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1d59eb594a",
   "text": "We will send you two invoices, the first when you sign this letter and the second when the work is complete. Each one comes with a secure Plooto link to pay it.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd64f28cbd4",
   "text": "When the work is complete, we will send you an invoice with a secure Plooto link to pay it.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wee5496a4e2",
   "text": "We use Plooto, a secure payment platform, to collect our fees. {1}{2} You enter your payment details on Plooto’s site, not with us.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording 1",
+   "Optional wording 2"
   ]
  },
  {
@@ -1132,13 +1412,17 @@
   "text": "You sign this letter and pay the invoice in the same step, in your secure TaxDome client portal.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1b54c117b5",
   "text": "After you sign this letter, use the link or QR code below to pay your invoice{1}. You pay by card or bank debit on a secure payment page. You do not need to log in.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "GST or HST"
   ]
  },
  {
@@ -1146,6 +1430,9 @@
   "text": "When you sign this letter, we will send your invoice{1} through your secure client portal. You can pay it online by card or bank debit.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "GST or HST"
   ]
  },
  {
@@ -1153,20 +1440,25 @@
   "text": "We will send two invoices through your secure client portal, the first when you sign this letter and the second when the work is complete. You can pay each one online by card or bank debit.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we6257077c2",
   "text": "When the work is complete, we will send your invoice through your secure client portal. You can pay it online by card or bank debit.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8632b93b9c",
   "text": "{1} You enter your payment details on the secure payment page, not with us.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -1174,13 +1466,17 @@
   "text": "Set up your payment details. ",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa4be773428",
   "text": "We use Plooto, a secure payment platform, to collect our fees. Your first invoice{1} is ready. Use the link or QR code below to pay it and set up automatic payments for future invoices. You enter your details once, on Plooto’s site, not with us. Payments are then made automatically when each invoice is due.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "GST or HST"
   ]
  },
  {
@@ -1188,62 +1484,73 @@
   "text": "We collect fees through our secure payment platform. You will receive a link to set up your payment details. Payments are then made automatically when each invoice is due, so there is nothing to process on your side.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wde2c4305de",
   "text": "Our fees assume that:",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8e4909ee93",
   "text": "records and information are complete and reach us on time, in the form we agree;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w0120b961a7",
   "text": "bank and credit card accounts reconcile, with no major unreconciled balances;",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w085123ce63",
   "text": "you, and the people we need to speak with, are available when needed; and",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd752f2ddf0",
   "text": "the services and timetable in this letter do not change.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w16ff5c8f67",
   "text": "If the work takes longer because one of these is not met, we will tell you before we do the extra work and agree the extra fee with you in writing, in a Change Order.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w44362f914b",
   "text": "We review our fees each January. We will give you advance written notice of any change.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w667f178308",
   "text": "{1}. Other matters",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Number"
   ]
  },
  {
@@ -1251,13 +1558,18 @@
   "text": "If we cannot complete the engagement, we may withdraw before issuing our report or filing a return. If this happens, we will tell you the reasons.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9928b0c954",
   "text": "This letter covers only the services described above. Other work is not included, for example {1}; and {2}. We will agree any other work with you in writing, in a Change Order, before we start.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Work not included 1",
+   "Work not included 2"
   ]
  },
  {
@@ -1265,6 +1577,9 @@
   "text": "If this engagement ends before we issue our report, we may tell {1} that we no longer act for the Company.",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Third party"
   ]
  },
  {
@@ -1272,13 +1587,17 @@
   "text": ", for example if the intended use or the basis of accounting changes.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w19b17bcdff",
   "text": "This letter continues to apply to future years until it is ended or replaced. Each year we will consider whether a new letter is needed{1}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -1286,20 +1605,25 @@
   "text": " and your payment details are set up.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w95f27628ce",
   "text": " and the first invoice is paid.",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd218e2d83e",
   "text": "Please sign and return this letter to confirm that it reflects your understanding. We will start work once we receive the signed letter{1}",
   "fns": [
    "build"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -1309,20 +1633,25 @@
    "build",
    "buildT1",
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w3afcd50e89",
   "text": "Appendix A: Fees and payment",
   "fns": [
    "build"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4ba49e3eef",
   "text": "To Management of {1}:",
   "fns": [
    "appendixA"
+  ],
+  "fills": [
+   "Client name"
   ]
  },
  {
@@ -1330,6 +1659,11 @@
   "text": "On the basis of information provided by management, we have compiled the balance sheet of {1} as at {2}, the statement of income and retained earnings for the {3} then ended, and Note 1, which describes the basis of accounting applied in the preparation of the compiled financial information (“financial information”).",
   "fns": [
    "appendixA"
+  ],
+  "fills": [
+   "Client name",
+   "Year-end date",
+   "year or period"
   ]
  },
  {
@@ -1337,140 +1671,160 @@
   "text": "Management is responsible for the accompanying financial information, including the accuracy and completeness of the underlying information used to compile it and the selection of the basis of accounting.",
   "fns": [
    "appendixA"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbf70b541c3",
   "text": "We performed this engagement in accordance with Canadian Standard on Related Services (CSRS) 4200, Compilation Engagements, which requires us to comply with relevant ethical requirements. Our responsibility is to assist management in the preparation of the financial information.",
   "fns": [
    "appendixA"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8addab994d",
   "text": "We did not perform an audit engagement or a review engagement, nor were we required to perform procedures to verify the accuracy or completeness of the information provided by management. Accordingly, we do not express an audit opinion or a review conclusion, or provide any form of assurance on the financial information.",
   "fns": [
    "appendixA"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w322e8b3c20",
   "text": "Readers are cautioned that the financial information may not be appropriate for their purposes.",
   "fns": [
    "appendixA"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w06868408d4",
   "text": "Timely performance",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w36956040a8",
   "text": "Concept Accounting will use all reasonable efforts to complete the services described in the engagement letter within any agreed time frame. Concept Accounting is not liable for failures or delays caused by matters beyond its control, including the Company not meeting its obligations under the engagement letter on time.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w648917af1c",
   "text": "Right to end the engagement",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w11923bafb3",
   "text": "The Company may end the engagement on 30 days’ written notice. The Company will then pay for time and expenses incurred up to the end date, and for reasonable time and expenses needed to bring the services to an orderly close. If the Company does not meet its obligations under this Agreement and does not fix the default within 30 days after receiving notice from Concept Accounting, Concept Accounting may end the engagement by written notice, without prejudice to its other rights. In that case, Concept Accounting is not responsible for any loss, cost, expense or damage resulting from ending the engagement.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcca9e2acbb",
   "text": "Change Order",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6d0f36187b",
   "text": "If the Company needs a significant change to the services after the date of the engagement letter, the change must be agreed in writing in a Change Order. The Change Order will set out the revised services and any added fees.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w72abbc9284",
   "text": "Fees",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8c46dc53f5",
   "text": "Any fee estimate assumes the agreed level of preparation and help from the Company’s personnel. Concept Accounting will tell management promptly if that help is not provided, or if anything else will cause the work to take longer than estimated.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wabaec4522b",
   "text": "Billing",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7b3e40d9af",
   "text": "Invoices are due on receipt. Payments are applied to the oldest unpaid invoice first. If a scheduled payment is not received, Concept Accounting may pause work until it is. Concept Accounting may charge interest on any balance unpaid for more than 30 days at 1.5% per month (19.56% per year).",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7e36e3192e",
   "text": "Taxes",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w70c22fdb61",
   "text": "Fees and other charges do not include GST/HST or any other sales or similar taxes, now in force or imposed later. The Company will pay these taxes in addition to the fees.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4676ad8df9",
   "text": "Governing law",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w76b0ae45d2",
   "text": "This Agreement is governed by the laws of the Province of Ontario and the federal laws of Canada that apply in Ontario. It is an Ontario contract. The Company and Concept Accounting submit to the courts of Ontario for all matters arising under this Agreement.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w66ef9ede50",
   "text": "Working papers",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w570c0d1d21",
   "text": "Concept Accounting owns all working papers, files, materials, reports and work it creates during the engagement, including the intellectual property used to prepare them. Concept Accounting will give management a copy of any working papers it prepares that are needed for the Company’s accounting records. Any tools Concept Accounting gives the Company, such as spreadsheets, are provided as is, at its discretion, and must not be shared with any third party. Except as required by the Code of Professional Conduct or by law, Concept Accounting is not required to share its working papers with the Company or anyone else.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb1b9e59387",
@@ -1478,140 +1832,160 @@
   "fns": [
    "TERMS",
    "termsClient"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we7e9c324f0",
   "text": "The Company will not give Concept Accounting any personal information, as defined in Canadian federal and provincial privacy laws, except as needed for the services. If personal information is collected, used or disclosed by Concept Accounting, the Company consents to this and confirms that it has obtained all consents and given all notices required by law. Concept Accounting will handle personal information under its privacy policy (conceptaccounting.ca/privacy-policy) and in line with applicable Canadian privacy laws.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w642e7d8638",
   "text": "Confidentiality",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wffe22378db",
   "text": "Concept Accounting will not disclose the Company’s confidential information to any third party without the Company’s consent, except: (a) when properly acting in the course of the services, including to its subcontractors and advisors who need to know; (b) as required by law or permitted by professional standards; or (c) where the information is or becomes public other than through a breach by Concept Accounting, is disclosed by the Company to a third party without similar restrictions, is received by Concept Accounting from another source without a duty of confidence, was already known to Concept Accounting, or is developed by Concept Accounting independently. The Company acknowledges that Concept Accounting’s files, including the files for this engagement, may be reviewed by practice inspectors of CPA Ontario, and of any other provincial CPA body that regulates Concept Accounting, as required by law and professional standards. Those inspectors are bound by confidentiality.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb1b85e1fdf",
   "text": "Data analytics",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2f94122f33",
   "text": "Concept Accounting may use the information the Company gives it during the engagement (“Client Data”) to prepare reports for the Company alone, and to prepare aggregated benchmarking and industry reports using de-identified data. Aggregated reports will not contain any information that would allow a third party to identify the Company, and de-identified data will not be re-identified.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we8e8e54b0a",
   "text": "Release and limitation of liability",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w28186ef11e",
   "text": "(a) In any claim arising out of the engagement, Concept Accounting’s liability is several and not joint, and the Company may only recover Concept Accounting’s proportionate share of the total liability, based on its degree of fault as finally determined by a court. (b) Except for matters finally determined to result from Concept Accounting’s gross negligence, fraud or wilful misconduct, and whether the claim is in contract, tort or otherwise: (i) Concept Accounting is not liable for, and the Company releases it from, all claims, damages, costs and expenses (including legal fees) arising out of the engagement to the extent they exceed the total professional fees paid by the Company to Concept Accounting for this engagement in the 12 months starting on the date of the engagement letter; and (ii) Concept Accounting is not liable for any consequential, indirect or lost profit damages, or for any failure to realize expected savings.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5d3d0f655b",
   "text": "Indemnity",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w33fe83bc16",
   "text": "The Company will indemnify and hold Concept Accounting harmless against: (a) all claims, damages, costs and expenses (including legal fees) arising out of the engagement, whether civil, penal, regulatory or administrative, except those finally determined by a court to result from Concept Accounting’s gross negligence, fraud or wilful misconduct; and (b) despite (a), all claims, damages, costs and expenses (including legal fees) arising out of the engagement that result from any deliberate misstatement or omission in any information or representation supplied or approved by any officer or director of the Company.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8ad054517d",
   "text": "Meaning of Concept Accounting",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdb533cf603",
   "text": "In the Release and Limitation of Liability clause and the Indemnity clause, “Concept Accounting” means Concept Accounting & Advisory Professional Corporation and its directors, officers, employees, contractors and agents, and any successor or assignee.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfe88ea8d5f",
   "text": "Survival",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc13934539d",
   "text": "The Release and Limitation of Liability clause, the Indemnity clause, the Confidentiality clause and the Working Papers clause continue to apply after the engagement ends.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wec338fcc0d",
   "text": "Electronic communications",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w79eda74e2d",
   "text": "Unless the Company asks in writing for a particular method, Concept Accounting will communicate in the way it considers most efficient, which will often be email and secure client portals. Neither party controls the performance, reliability or security of the internet. Concept Accounting is not liable for any loss or damage caused by delay, interception, corruption, security breach or failed delivery of any communication sent outside Concept Accounting’s own systems.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w871d2b6d2f",
   "text": "Third-party services",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we87eb170b9",
   "text": "Concept Accounting may use third parties, including team members and service providers located outside Canada, for professional, administrative and support services. Client Data may therefore be stored, used or accessed outside the Company’s province or outside Canada, where it may be subject to the laws of that jurisdiction. Concept Accounting requires these third parties to keep Client Data confidential on terms equivalent to this Agreement. Concept Accounting is not responsible for any third-party product or service the Company obtains on its own, even if Concept Accounting helped to arrange it.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcc98d59633",
   "text": "Order of priority",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5bd632a42e",
   "text": "If these Standard Terms and Conditions conflict with the engagement letter, the engagement letter governs.",
   "fns": [
    "TERMS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w145e67bb20",
@@ -1619,6 +1993,9 @@
   "fns": [
    "sigBlock",
    "sigH"
+  ],
+  "fills": [
+   "Date"
   ]
  },
  {
@@ -1626,7 +2003,8 @@
   "text": "Date:",
   "fns": [
    "sigBlock"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w329cb8b6ba",
@@ -1635,7 +2013,8 @@
    "pdfDoc",
    "t1Html",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc6e89c9caf",
@@ -1644,7 +2023,8 @@
    "pdfDoc",
    "t1Html",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbe3214bc43",
@@ -1652,6 +2032,9 @@
   "fns": [
    "pdfDoc",
    "render"
+  ],
+  "fills": [
+   "Client name"
   ]
  },
  {
@@ -1660,7 +2043,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7f9772987d",
@@ -1668,7 +2052,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4e4c016f2c",
@@ -1676,7 +2061,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1973c2ebc0",
@@ -1684,7 +2070,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfe93dee30f",
@@ -1692,7 +2079,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc2f71957fc",
@@ -1700,7 +2088,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc718f9a34b",
@@ -1708,7 +2097,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf419fdf7de",
@@ -1716,7 +2106,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcf13ed096d",
@@ -1724,7 +2115,8 @@
   "fns": [
    "pdfDoc",
    "t1Html"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w07a377d266",
@@ -1732,7 +2124,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w863d4a0652",
@@ -1740,7 +2133,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6b05109f97",
@@ -1748,7 +2142,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w42264c76b3",
@@ -1756,7 +2151,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w157609b2fa",
@@ -1764,7 +2160,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w820cc6712b",
@@ -1772,7 +2169,8 @@
   "fns": [
    "pdfDoc",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8abcd1db10",
@@ -1780,6 +2178,9 @@
   "fns": [
    "pdfDoc",
    "render"
+  ],
+  "fills": [
+   "Appendix letter"
   ]
  },
  {
@@ -1788,7 +2189,8 @@
   "fns": [
    "pdfDoc",
    "t1Html"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wba42a26e06",
@@ -1796,6 +2198,10 @@
   "fns": [
    "pdfDoc",
    "t1Html"
+  ],
+  "fills": [
+   "Firm name",
+   "Taxpayer names"
   ]
  },
  {
@@ -1804,6 +2210,9 @@
   "fns": [
    "pdfDoc",
    "render"
+  ],
+  "fills": [
+   "Appendix letter"
   ]
  },
  {
@@ -1812,6 +2221,10 @@
   "fns": [
    "pdfDoc",
    "render"
+  ],
+  "fills": [
+   "Firm name",
+   "Client name"
   ]
  },
  {
@@ -1819,6 +2232,9 @@
   "text": "Engagement letter - {1}",
   "fns": [
    "pdfDoc"
+  ],
+  "fills": [
+   "Client name"
   ]
  },
  {
@@ -1826,6 +2242,11 @@
   "text": "{1}  |  Engagement letter  |  {2} ({3})",
   "fns": [
    "pdfDoc"
+  ],
+  "fills": [
+   "Client name",
+   "Wording version",
+   "Wording date"
   ]
  },
  {
@@ -1834,6 +2255,10 @@
   "fns": [
    "pdfDoc",
    "pPdf"
+  ],
+  "fills": [
+   "Current item",
+   "Amount"
   ]
  },
  {
@@ -1842,20 +2267,26 @@
   "fns": [
    "pdfDoc",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc01bb73a7f",
   "text": "Concept Accounting will collect, use and disclose your personal information only to provide the services, under its privacy policy (conceptaccounting.ca/privacy-policy) and applicable Canadian privacy laws. You consent to this. If you give us information about another person, such as a spouse or dependant, you confirm that you have their consent to do so.",
   "fns": [
    "termsClient"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w499eb0a8f6",
   "text": "Re: Engagement letter for personal income tax {1} (T1) for the {2} tax year",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Rate",
+   "Year"
   ]
  },
  {
@@ -1863,6 +2294,9 @@
   "text": "This letter confirms the terms of our engagement with {1} (“you”). It sets out the services we will provide, your responsibilities and ours, and our fees. The Standard Terms and Conditions in Appendix A form part of this agreement.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Taxpayer names"
   ]
  },
  {
@@ -1871,13 +2305,17 @@
   "fns": [
    "buildT1",
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9632db0ca6",
   "text": "We will prepare and electronically file the {1} T1 Income Tax and Benefit Return for:",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Year"
   ]
  },
  {
@@ -1885,20 +2323,25 @@
   "text": "your spouse or common-law partner",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "waa7a8800bd",
   "text": " If you are registered for GST/HST on self-employment income, we can also prepare and file your GST/HST return. Section 5 explains how fees for these are set.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w278831f1d4",
   "text": "Each return will include the schedules and forms that apply to you, based on the information you give us. These can include employment income, self-employment or commission income (Form T2125), rental properties (Form T776), foreign property reporting (Form T1135), and the sale of property, including the principal residence designation where it applies.{1}",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -1906,6 +2349,9 @@
   "text": "We will prepare the {1} from the information and documents you give us and from our discussions with you. We will not audit or otherwise verify that information.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Rate"
   ]
  },
  {
@@ -1913,13 +2359,17 @@
   "text": "2. CRA access",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w50caf76716",
   "text": "We need Level 2 online access to your CRA information to prepare your {1}. Your tax organizer explains how to give it. We will start work once access is in place. You can cancel our access at any time in your CRA account.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Rate"
   ]
  },
  {
@@ -1927,20 +2377,28 @@
   "text": "3. Filing and deadlines",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w96c0b2a7a2",
   "text": "We file T1 returns electronically. When a return is ready, we will send you Form T183, Information Return for Electronic Filing of an Individual’s Income Tax and Benefit Return. You must review the return and sign Form T183 before we can file it.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbff488613c",
   "text": "For the {1} tax year, returns are due April 30, {2}. If you or your spouse or common-law partner had self-employment income, the filing deadline is June 15, {3}, but any balance owing is still due April 30, {4}. Late filing and late payment can result in penalties and interest.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Year",
+   "Next year 1",
+   "Next year 2",
+   "Next year 3"
   ]
  },
  {
@@ -1948,7 +2406,8 @@
   "text": "4. Your responsibilities",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6513f69d84",
@@ -1956,35 +2415,40 @@
   "fns": [
    "buildT1",
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb087281d73",
   "text": "giving us complete and accurate information, including all tax slips, receipts and records;",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4aa5bf63a8",
   "text": "keeping complete records of any self-employment or rental income and expenses;",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w641a3c8ccf",
   "text": "reviewing each return before you sign Form T183;",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wbd437ffa08",
   "text": "keeping your records and supporting documents for the period the Income Tax Act requires; and",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w642f2c49a3",
@@ -1992,41 +2456,51 @@
   "fns": [
    "buildT1",
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7211f77533",
   "text": "these returns",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4d28c86427",
   "text": "this return",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w575cba7c3d",
   "text": "They are",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w3dd5d5b49f",
   "text": "It is",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa4711b02f3",
   "text": "There is no separate fee for {1}. {2} included in the fees under the engagement letter with {3}.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Optional wording 1",
+   "Optional wording 2",
+   "Company name"
   ]
  },
  {
@@ -2034,62 +2508,74 @@
   "text": "Personal tax return (T1), per return",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa5daefcc0b",
   "text": "If your tax organizer shows that you need more than a standard return, such as rental properties, a property sale, foreign property reporting, self-employment income or a GST/HST return, we will quote the additional fee to you in writing before we do that work. We only go ahead once you accept the quote.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w51ced595ab",
   "text": "The base fee is billed when you sign this letter and is paid before we start. Any accepted additional fee is billed when your return is ready. We file your return once all fees are paid. Fees are paid online through your secure client portal.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa5c7e94f92",
   "text": "Our fees assume complete and organized records are provided on time. Prior-year returns, CRA reviews and other work outside this letter will be agreed with you separately, in writing, before we start.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1100e924af",
   "text": "6. Other matters",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w134ce8cc45",
   "text": "If we cannot complete the engagement, we may withdraw before filing a return. If this happens, we will tell you the reasons.",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w48e4cd68ef",
   "text": "Each person named above must sign. ",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w689d909643",
   "text": ", the base fee is paid",
   "fns": [
    "buildT1"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wab3ce8fa23",
   "text": "Please sign and return this letter to confirm that it reflects your understanding. {1}We will start work once we receive the signed letter{2} and our CRA access is in place.",
   "fns": [
    "buildT1"
+  ],
+  "fills": [
+   "Optional wording 1",
+   "Optional wording 2"
   ]
  },
  {
@@ -2097,440 +2583,505 @@
   "text": "Dear [ACCOUNT_NAME],",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w3891069b3e",
   "text": "Thank you for choosing Concept Accounting for your personal income tax. This letter sets out the services we will provide, your responsibilities and ours, and how our fees work. Please read it and sign it to confirm.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7716df818b",
   "text": "This letter applies to your current tax year and to each later year we prepare your return, until either of us ends it in writing.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w69706391fb",
   "text": "We will prepare and electronically file your T1 Income Tax and Benefit Return. If your spouse or common-law partner is also included under this letter, we will prepare their return too, and each of you must sign.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa4305c3073",
   "text": "Each return will include the schedules and forms that apply to you, based on the information you give us. These can include employment and investment income, self-employment or commission income (Form T2125), rental properties (Form T776), foreign property reporting (Form T1135), and the sale of property, including the principal residence designation where it applies.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w0ddf64b901",
   "text": "GST/HST returns. If you have self-employment income and we prepare your GST/HST return, we prepare it from the information you give us. We do not audit or verify it. You are responsible for keeping the records that support your claims and for any tax, interest or penalties if CRA disallows a claim.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w605f73e505",
   "text": "We prepare your return from the information and documents you give us through your tax organizer. We do not audit or verify that information, although we may ask you to clarify it.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w17e9e659a4",
   "text": "2. Your responsibilities",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w44fb1e55eb",
   "text": "giving us complete and accurate information, including all tax slips, receipts and records, before we start;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa11318cf87",
   "text": "confirming that the expenses you claim are supported by records and are not personal, such as haircuts, vacations, household costs or personal vehicle use, because personal expenses cannot be deducted;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w956b800ad4",
   "text": "keeping your records and supporting documents for the period the Income Tax Act requires, as CRA may ask for them;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd9f6f3efa9",
   "text": "reviewing your return carefully before you sign Form T183, because you have final responsibility for your return; and",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w02f963628c",
   "text": "Our work cannot be relied on to prevent or detect fraud, errors or omissions. That responsibility stays with you.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8b16adc9d1",
   "text": "3. CRA access",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w663a55d2c9",
   "text": "We need Level 2 online access to your CRA information to prepare your return. Your tax organizer explains how to give it. We start work once access is in place. You can cancel our access at any time in your CRA account.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9803bd4d6c",
   "text": "4. Filing and deadlines",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1e874ae29e",
   "text": "When your return is ready, we will send you Form T183. You must review the return and sign Form T183 before we can file it.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc3cbf0b998",
   "text": "Returns are due April 30 of the year after the tax year. If you or your spouse or common-law partner had self-employment income, the filing deadline is June 15, but any balance owing is still due April 30. Late filing and late payment can result in penalties and interest.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wfcc86e6c61",
   "text": "5. Fees and payment",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2066dbaed1",
   "text": "Your fee is set from your answers to our scope questions, using our fee schedule. It is one fee for the year's return.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w110e41732a",
   "text": "Before we start: we send your fee by invoice with this letter. The invoice is paid before we begin work.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8c9cdc6238",
   "text": "If your return changes: if you give us something that was not in your scope answers, for example a rental property, a property sale, foreign property or self-employment income, we quote the added fee to you in writing first. We only go ahead once you accept it.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7e5b37e658",
   "text": "Late or changed information: if you send slips or information after we have prepared your return and we must redo part of it, we quote the added fee before we do that work.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w500ccfe85b",
   "text": "Release and filing: we file your return, and release it to you, once your invoice is paid.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc5dfc3da77",
   "text": "Payment: you pay online through your secure client portal. GST/HST is added to each invoice. Invoices are due on receipt. Interest may be charged on balances unpaid for more than 30 days at 1.5% per month (19.56% per year).",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w510fe4a253",
   "text": "Questions about your return are included in your fee.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wae9586cafa",
   "text": "Legal requests: if a law, regulator or court requires us to produce our files or answer requests about your return, we bill the time and costs involved.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5d8f6c9ec8",
   "text": "6. What is not included",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we884a74607",
   "text": "This letter does not include:",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7a409aac76",
   "text": "CRA reviews, audits, objections or representation;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc569c8b4af",
   "text": "tax planning or advice;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc2b3ec9beb",
   "text": "prior-year returns;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w42328c2fe8",
   "text": "bookkeeping, or GST/HST returns unless you ask for them;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd94fbbc138",
   "text": "payroll, EHT, WSIB or other taxes and levies;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd9ab18d126",
   "text": "foreign income tax returns or advice on foreign taxes.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd82e19f051",
   "text": "If you ask for any of these, we will quote them in writing first.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wce1f24e491",
   "text": "Unless you ask us to prepare your GST/HST return, we do not review your GST/HST. We may not notice if GST/HST is being collected or claimed incorrectly. Errors can lead to tax, interest and penalties.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "waabe170675",
   "text": "7. Foreign property and foreign reporting",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8b8f87ecf6",
   "text": "CRA requires information returns, with significant penalties for filing late or not filing, if at any time in the year you:",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w639f8f6f39",
   "text": "held specified foreign property, such as foreign bank accounts, foreign real estate or shares of foreign companies, costing more than $100,000 in total;",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we4ba0ce492",
   "text": "owned at least 10% of a foreign company, alone or together with related persons; or",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wceb7b47710",
   "text": "sent money or property to, received money or property from, or were owed money by a non-resident trust, including an inheritance from a foreign estate.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1f7a787e5b",
   "text": "You agree to answer the foreign property questions in your tax organizer completely and to tell us about any of these each year.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4da9417098",
   "text": "8. Our judgment",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9eefc390d6",
   "text": "Tax law is not always clear. Where it is unclear, we use our professional judgment to choose a supportable position. Our conclusions are matters of professional opinion, not certainty. CRA may not agree, and you have rights of appeal if it proposes changes.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5db90a8d27",
   "text": "9. Your information and confidentiality",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w40734af2ac",
   "text": "We collect, use and keep your personal information only to provide our services, under our privacy policy (conceptaccounting.ca/privacy-policy) and Canadian privacy laws. If you give us information about another person, such as a spouse or dependant, you confirm you have their consent.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we721b9c359",
   "text": "We keep your information confidential and release it only with your consent or as the law requires. Our files may be reviewed by practice inspectors of CPA Ontario, as professional standards require; those inspectors are bound by confidentiality.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6d2bf76d2a",
   "text": "Our team includes members and service providers located outside Canada, so your information may be stored or accessed outside Canada, under confidentiality terms equal to ours.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we1d3ccd01e",
   "text": "10. Electronic communications",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we978ab0647",
   "text": "We communicate by email and through our secure client portal. No one fully controls the security of the internet. We are not liable for loss caused by delay, interception or failed delivery of messages sent outside our own systems.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd6c2ef29fd",
   "text": "11. Limitation of liability",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa8af12e612",
   "text": "Our liability for any claim arising from this engagement, whether in contract, tort or otherwise, is limited to the fees you paid us for the return in question. It does not cover consequential or indirect losses. Our liability is several and not joint: you may only recover our share of any loss, based on our degree of fault. We are not responsible for interest or penalties caused by information that was late, incomplete or inaccurate.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w780939c736",
   "text": "12. Ending this agreement and governing law",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w26b3ff0158",
   "text": "Either of us may end this agreement in writing. You will pay for work done up to that date. We may withdraw before filing if we cannot complete the work, and we will tell you why.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wcbf81b9570",
   "text": "This agreement is governed by the laws of Ontario, and the courts of Ontario have jurisdiction over any dispute.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w255bb645c0",
   "text": "By signing below, you confirm that this letter reflects your understanding and that we may proceed.",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w3c3ac3fc7e",
   "text": "CONCEPT ACCOUNTING & ADVISORY PROFESSIONAL CORPORATION",
   "fns": [
    "T1_TD"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w434828b958",
   "text": "TaxDome contract template, master copy.",
   "fns": [
    "t1TdHtml"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4f57da3d29",
   "text": " Standalone T1 letters are sent from TaxDome (template: Individual - Personal Tax Return Engagement T1). This is the approved wording; nothing is issued from here.",
   "fns": [
    "t1TdHtml"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2c445dd599",
   "text": "Before you start",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w484ec1c599",
   "text": "You need a CRA account. If you do not have one, register at canada.ca/my-cra-account. To get full access right away, use the CRA document verification service when you register, instead of waiting for a security code in the mail.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5621597602",
   "text": "Add Concept Accounting as your representative ({1})",
   "fns": [
    "craAppSteps"
+  ],
+  "fills": [
+   "Tax accounts"
   ]
  },
  {
@@ -2538,41 +3089,49 @@
   "text": "Sign in to your CRA account at canada.ca/my-cra-account.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8311050b50",
   "text": "On the Welcome page, select your Individual account to open My Account.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w62e9b41b4f",
   "text": "Select Profile from the left-side menu.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5e2142ee77",
   "text": "In the “Authorized representative(s)” section, select Add.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w142062300c",
   "text": "Read “Before you begin” and select Start.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdbc81e49c2",
   "text": "Enter our Group ID: {1}.",
   "fns": [
    "craAppSteps"
+  ],
+  "fills": [
+   "CRA Group ID"
   ]
  },
  {
@@ -2580,20 +3139,25 @@
   "text": "Choose Level 2 access.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4fae4c06ad",
   "text": "Confirm the information and submit. Our access starts right away. Tell us when it is done.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7f61b617f6",
   "text": "Confirm our request ({1})",
   "fns": [
    "craAppSteps"
+  ],
+  "fills": [
+   "Tax accounts"
   ]
  },
  {
@@ -2601,6 +3165,9 @@
   "text": "We have sent an authorization request to the CRA for Concept Accounting (Group ID {1}) at Level 2.",
   "fns": [
    "craAppSteps"
+  ],
+  "fills": [
+   "CRA Group ID"
   ]
  },
  {
@@ -2608,28 +3175,32 @@
   "text": "In the “Authorized representative(s)” section, select Confirm pending authorizations.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa619419d98",
   "text": "Under “Pending authorization requests”, select Concept Accounting and confirm. Tell us when it is done.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w21b17e3809",
   "text": "Cancelling access",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w17de166051",
   "text": "You can cancel our access at any time in My Account, under Profile, in the “Authorized representative(s)” section.",
   "fns": [
    "craAppSteps"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd1d549adc0",
@@ -2637,7 +3208,8 @@
   "fns": [
    "t1Html",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb2e719b662",
@@ -2645,21 +3217,24 @@
   "fns": [
    "t1Html",
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc15e7c3444",
   "text": "Appendix B: Give Concept Accounting access to your CRA account",
   "fns": [
    "t1Html"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w9ec53322f9",
   "text": "Appendix A, new page",
   "fns": [
    "t1Html"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w4002948e62",
@@ -2667,7 +3242,8 @@
   "fns": [
    "PSVC",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdaed1970f1",
@@ -2676,28 +3252,32 @@
    "PSVC",
    "FEE_PRESETS",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd38ac29386",
   "text": "Monthly bookkeeping in QuickBooks Online",
   "fns": [
    "PSVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8a4e8f3fc4",
   "text": "Monthly profit and loss report",
   "fns": [
    "PSVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w2be8a487fc",
   "text": "Accounts payable and payment runs",
   "fns": [
    "PSVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd986a2da68",
@@ -2705,20 +3285,25 @@
   "fns": [
    "PSVC",
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w219907505e",
   "text": "Annual budget with a monthly cash forecast",
   "fns": [
    "PSVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w0744814890",
   "text": "Proposal for {1}",
   "fns": [
    "pBuild"
+  ],
+  "fills": [
+   "Taxpayer names"
   ]
  },
  {
@@ -2726,6 +3311,9 @@
   "text": "Prepared for {1}",
   "fns": [
    "pBuild"
+  ],
+  "fills": [
+   "Contact name"
   ]
  },
  {
@@ -2733,20 +3321,25 @@
   "text": "the service we recommend and our fee",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc2fa5cc570",
   "text": "the options we recommend",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7a93382c8f",
   "text": "Thank you for your time on our call. This proposal sets out what we heard, {1}, and the next steps.",
   "fns": [
    "pBuild"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -2754,41 +3347,50 @@
   "text": "What we heard",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa2ce82c3e2",
   "text": "Our service and fee",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb035b8bb0c",
   "text": "Your options",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6eef664840",
   "text": "None",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6a2a98749a",
   "text": ", the quarterly fee for 4 quarters",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb2a19a0343",
   "text": "All fees are plus {1}. Annual value is the monthly fee for 12 months{2} and the year-end fee. One-time fees are billed once.",
   "fns": [
    "pBuild"
+  ],
+  "fills": [
+   "GST or HST",
+   "Optional wording"
   ]
  },
  {
@@ -2797,48 +3399,57 @@
   "fns": [
    "pBuild",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w047a905d6b",
   "text": "Reply to this email to accept.",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wa3ab7806ed",
   "text": "Reply to this email with the option you choose.",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w5725499754",
   "text": "We send your engagement letter for e-signature. It sets out the full terms of our work.",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w134c9423c8",
   "text": "You set up your payment details. Payments are then made automatically when each invoice is due.",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w7cce0d03ca",
   "text": "We hold a kickoff call and set up access to your records.",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "we1b92a0e35",
   "text": "This proposal is valid until {1}.",
   "fns": [
    "pBuild"
+  ],
+  "fills": [
+   "Date"
   ]
  },
  {
@@ -2846,21 +3457,24 @@
   "text": "Hashim Awad, CPA",
   "fns": [
    "pBuild"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w1f588a322d",
   "text": "2px solid #86BC26",
   "fns": [
    "pHtml"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8ef6af3697",
   "text": "1px solid #c9d3e6",
   "fns": [
    "pHtml"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wd31edb7b8a",
@@ -2868,7 +3482,8 @@
   "fns": [
    "pHtml",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8a34f70880",
@@ -2876,7 +3491,8 @@
   "fns": [
    "pHtml",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w02a5ff587d",
@@ -2884,7 +3500,8 @@
   "fns": [
    "pHtml",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w408a27b5e4",
@@ -2892,13 +3509,18 @@
   "fns": [
    "pHtml",
    "pPdf"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wb6e7d695e2",
   "text": "{1}  |  Proposal  |  valid until {2}",
   "fns": [
    "pPdf"
+  ],
+  "fills": [
+   "Taxpayer names",
+   "Valid until"
   ]
  },
  {
@@ -2906,7 +3528,8 @@
   "text": "Compiled financial statements and T2",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdd4a992cc4",
@@ -2914,14 +3537,16 @@
   "fns": [
    "FEE_PRESETS",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w84a23bcbe0",
   "text": "Includes bookkeeping, compiled financial statements, T2 and GST/HST filing",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6f73e49984",
@@ -2929,7 +3554,8 @@
   "fns": [
    "FEE_PRESETS",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc4cabc56f7",
@@ -2937,35 +3563,40 @@
   "fns": [
    "FEE_PRESETS",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w6a2299cf17",
   "text": "Period: ",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w560722cd7c",
   "text": "QuickBooks Online setup",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wc765eed5b3",
   "text": "Chart of accounts and prior-year balances",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8d2289313a",
   "text": "Custom line",
   "fns": [
    "FEE_PRESETS"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wefe91387e5",
@@ -2973,14 +3604,16 @@
   "fns": [
    "FEE_SVC",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w8a4683eea2",
   "text": "Sales scenarios, cost and payroll plan, monthly cash forecast",
   "fns": [
    "FEE_SVC"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w35a9fee8dd",
@@ -2988,13 +3621,17 @@
   "fns": [
    "FEE_SVC",
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w158eeaac19",
   "text": "For {1}, ",
   "fns": [
    "syncFees"
+  ],
+  "fills": [
+   "Taxpayer names"
   ]
  },
  {
@@ -3002,6 +3639,9 @@
   "text": "{1}under a separate personal tax letter",
   "fns": [
    "syncFees"
+  ],
+  "fills": [
+   "Optional wording"
   ]
  },
  {
@@ -3009,13 +3649,17 @@
   "text": "Personal tax returns (T1)",
   "fns": [
    "syncFees"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wf7257345af",
   "text": "Months not completed up to {1}",
   "fns": [
    "syncFees"
+  ],
+  "fills": [
+   "End date"
   ]
  },
  {
@@ -3023,20 +3667,25 @@
   "text": "QR code",
   "fns": [
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "w560f819746",
   "text": "in PDF",
   "fns": [
    "render"
-  ]
+  ],
+  "fills": []
  },
  {
   "key": "wdc06fe8d4c",
   "text": "Appendix {1}, new page",
   "fns": [
    "render"
+  ],
+  "fills": [
+   "Appendix letter"
   ]
  },
  {
@@ -3044,6 +3693,9 @@
   "text": "{1}, new page",
   "fns": [
    "render"
+  ],
+  "fills": [
+   "Number"
   ]
  }
 ]

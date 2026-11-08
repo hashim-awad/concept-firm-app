@@ -23,6 +23,24 @@ const DATA_KEYS = new Set(["k", "lvl", "key", "tag", "kind", "type", "image", "s
 const STRING_CALLS = new Set(["indexOf", "lastIndexOf", "includes", "startsWith", "endsWith", "split", "replace", "match", "test", "join",
   "localeCompare", "getElementById", "querySelector", "querySelectorAll", "setAttribute", "getAttribute", "createElement", "toggle", "add", "remove"]);
 
+// A plain name for a fill-in, from the code that fills it (shown as [Company name]).
+const FILL_NAMES = [
+  [/__W\(|__WH\(|sameWay|later\?/, "Optional wording"], [/^TXc?$|\bTX\b/, "GST or HST"], [/P\.unit/, "year or period"], [/yeTxt/, "Year-end date"],
+  [/P\.phrase/, "Period"], [/tense/, "ending or ended"], [/^Y\+1$/, "Next year"], [/^Y$/, "Year"], [/letter|^L$|T\.comp\?/, "Appendix letter"],
+  [/^ow$/, "Owner names"], [/statementsList/, "Statements"], [/basisCustom/, "Agreed basis"], [/s\.corp/, "Company name"], [/pl\?"s"/, "Plural ending"],
+  [/^det/, "Detail line"], [/b\.(confirm|add)\.join/, "Tax accounts"], [/EXL/, "Work not included"], [/^rt$/, "Rate"], [/^cur$/, "Current item"], [/^bt$/, "Bold text"],
+  [/FIRM_ADDR/, "Firm address"], [/SIGNER_TITLE/, "Firm signer title"], [/\bSIGNER\b/, "Firm signer"], [/\bFIRM\b/, "Firm name"],
+  [/EL_VERSION_DATE/, "Wording date"], [/EL_VERSION/, "Wording version"], [/CRA_GROUP/, "CRA Group ID"], [/CRA_REP/, "CRA RepID"],
+  [/signerTitle/, "Signer title"], [/\bsigner\b|\.signer\b|\bwho\b/, "Signing officer"], [/salutation/, "Salutation"],
+  [/letterDate/, "Letter date"], [/taxYear/, "Tax year"], [/periodStart|catchFrom/, "Start date"], [/catchTo/, "End date"], [/startMonth/, "Billing start"],
+  [/pValidUntil|valid/, "Valid until"], [/\bye\b|\.ye\b|fye/, "Year end"], [/tpName|thirdParty/, "Third party"], [/extAcct/, "External accountant"],
+  [/t1Owner|t1Name|t1Names|people|\bnames?\b/, "Taxpayer names"], [/contact/, "Contact name"], [/\bco\b|company|\.name\b/, "Client name"],
+  [/province|prov|PROV/, "Province"], [/svcList|services|\bsvc\b/, "Services"], [/periodInfo|period/, "Period"],
+  [/money\(|amt|fee|total|annual|price/, "Amount"], [/fmtD\(|fmtMonth\(|date/i, "Date"], [/\.length|count|qty|\bn\b|\bi\b|\bc\b|\bt\b/, "Number"],
+];
+export function fillName(src) { for (const [re, name] of FILL_NAMES) if (re.test(src)) return name; if (process.env.FILL_DEBUG) console.log("DETAIL:", src.slice(0, 160)); return "Detail"; }
+const nameFills = (srcs) => { const seen = {}; return srcs.map((x) => { const n = fillName(x); seen[n] = (seen[n] || 0) + 1; return n; }).map((n, i, all) => (all.filter((m) => m === n).length > 1 ? `${n} ${all.slice(0, i + 1).filter((m) => m === n).length}` : n)); };
+
 export const keyOf = (text) => "w" + createHash("sha1").update(text).digest("hex").slice(0, 10);
 const isStr = (n) => n && n.type === "Literal" && typeof n.value === "string";
 const decode = (s) => s.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, d) => String.fromCharCode(+d));
@@ -111,7 +129,7 @@ export function wordifyStatement(code, node, name) {
       units.push({ start: root.start, end: root.end, build: (emit) => {
         let t = "", args = [];
         for (const it of items) { if (it.text != null) t += it.text; else { args.push(emit(it.expr.start, it.expr.end)); t += "{" + args.length + "}"; } }
-        pieces.push({ key: keyOf(t), text: t, fn: name, html: false });
+        pieces.push({ key: keyOf(t), text: t, fn: name, html: false, fills: nameFills(args) });
         return `__W(${JSON.stringify(keyOf(t))}, ${JSON.stringify(t)}, [${args.join(", ")}])`;
       } });
       return;
@@ -143,7 +161,7 @@ export function wordifyStatement(code, node, name) {
           let raw = "", args = [];
           for (const p of s.parts) { if (p.text != null) raw += p.text; else { args.push(emit(p.expr.start, p.expr.end)); raw += "{" + args.length + "}"; } }
           const plain = decode(raw);
-          pieces.push({ key: keyOf(plain), text: plain, fn: name, html: true });
+          pieces.push({ key: keyOf(plain), text: plain, fn: name, html: true, fills: nameFills(args) });
           out.push(`__WH(${JSON.stringify(keyOf(plain))}, ${JSON.stringify(raw)}, [${args.join(", ")}])`);
         } else {
           for (const p of s.parts) out.push(p.text != null ? JSON.stringify(p.text) : "(" + emit(p.expr.start, p.expr.end) + ")");
