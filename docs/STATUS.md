@@ -46,7 +46,7 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## In progress
 
-- **Price book clean-up:** approved by Hashim 2026-11-08 with one change: PTX-135 (US 1040-NR, federal) and PTX-136 (US state return) charged for each spouse who needs it (decision 7). Change made; Hashim presses Apply on this branch's preview.
+- **Price book clean-up:** approved by Hashim 2026-11-08 with one change: PTX-135 (US 1040-NR, federal) and PTX-136 (US state return) charged for each spouse who needs it (decision 7). Applied 2026-11-08 (51 changes) from the older preview, so PTX-135 and PTX-136 were saved as once per couple. The clean-up now finds that and offers the two fixes; Hashim applies them on this branch's preview.
 - **Email sender:** moving from app@ to studio@conceptaccounting.ca.
   1. Hashim: set the primary address and the display name "Concept Studio" in Microsoft 365.
   2. PowerShell command that moves the sending lock (Exchange RBAC scope): **ready** in

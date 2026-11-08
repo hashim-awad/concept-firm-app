@@ -111,7 +111,16 @@ export function planCleanup(items: Item[], lineKeys: string[]): { changes: Chang
 
   // 5. New T1 items.
   for (const n of NEW_ITEMS) {
-    if (by.has(n.code)) continue;
+    const have = by.get(n.code);
+    if (have) {
+      // Already added: make sure "each spouse" matches the list (PTX-135 and 136 changed after a first Apply).
+      if (have.per_spouse !== n.per_spouse) {
+        changes.push({ code: n.code, name: have.name, what: n.per_spouse ? "Charged for each spouse (decision 7)" : "Charged once per couple",
+          before: have.per_spouse ? "Each spouse who needs it" : "Once per couple", after: n.per_spouse ? "Each spouse who needs it" : "Once per couple" });
+        plan.push({ op: "set_fields", code: n.code, per_spouse: n.per_spouse });
+      }
+      continue;
+    }
     changes.push({ code: n.code, name: n.name, what: "New item", before: "", after: `${money(n.price_cents)} ${n.unit_label}${n.per_spouse ? ", each spouse" : ""} · ${T1_ACCOUNT} · Fixed` });
     plan.push({ op: "add_item", ...n, line: "t1", income_account: T1_ACCOUNT, price_type: "Fixed", description: "" });
   }

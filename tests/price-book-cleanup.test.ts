@@ -46,7 +46,14 @@ test("missing PTX-129 blocks the clean-up", () => {
 });
 
 test("nothing left to change after applying", () => {
-  const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), ...["PTX-133", "PTX-134", "PTX-135", "PTX-136"].map((c) => item(c, "t1"))];
+  const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), item("PTX-133", "t1", { per_spouse: true }), item("PTX-134", "t1"),
+    item("PTX-135", "t1", { per_spouse: true }), item("PTX-136", "t1", { per_spouse: true })];
   const r = planCleanup(items, ["t1", "bookkeeping"]);
   assert.equal(r.plan.length, 0);
+});
+
+test("applied before the spouse change: PTX-135 and PTX-136 set to each spouse, nothing else", () => {
+  const items = [item("ACC-102", "bookkeeping"), item("PTX-129", "t1"), item("PTX-133", "t1", { per_spouse: true }), item("PTX-134", "t1"), item("PTX-135", "t1"), item("PTX-136", "t1")];
+  const r = planCleanup(items, ["t1", "bookkeeping"]);
+  assert.deepEqual(r.plan, [{ op: "set_fields", code: "PTX-135", per_spouse: true }, { op: "set_fields", code: "PTX-136", per_spouse: true }]);
 });
