@@ -58,3 +58,15 @@ Database passwords are kept in the firm's password manager only:
   (Config type), SUPABASE_SECRET_KEY (Secret type). System environment variables exposed.
 - Production environment variables: none yet (go-live).
 - Plan is a 14-day Pro trial from 2026-11-08: upgrade before 2026-11-22.
+
+## Microsoft 365 email (staff login emails)
+
+Route: Supabase Auth "Send Email" hook -> app route /api/hooks/send-email -> Microsoft Graph
+(OAuth client credentials) -> sent from the shared mailbox. No mailbox password is used.
+
+- Shared mailbox: app@conceptaccounting.ca ("Concept Firm App"), created 2026-11-08. No licence.
+- Entra app registration: "Concept Firm App - email", single tenant, created 2026-11-08.
+  - Application (client) ID: e841a588-c156-4569-a759-ca34b93b0181
+  - Directory (tenant) ID: 96888d59-12fe-454f-9988-c7292bb5c710
+  - No API permissions granted in Entra on purpose. Sending is allowed only for
+    app@conceptaccounting.ca through Exchange "RBAC for Applications" (see below).
