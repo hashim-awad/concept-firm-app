@@ -25,7 +25,7 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 **Price book**
 - Catalogue, packages and floors, T1 rows.
-- Clean-up applied on Test (decision 33): 51 changes, then PTX-135 and PTX-136 set to each spouse, then PTX-101, 110 and 111 renamed with the PTX-101 note (4 changes) (Hashim, 2026-11-08). Redo in Live.
+- Clean-up applied on Test (decision 33): 51 changes, then PTX-135 and PTX-136 set to each spouse, then PTX-101, 110 and 111 renamed with the PTX-101 note (4 changes), then Studio's T1 rows removed (1 change); the Catalogue is the one T1 price list (Hashim, 2026-11-08). Redo in Live. Package coverage labels from ticked services; ACC-101 and pnl mapping awaiting Hashim.
 
 **Templates (decisions 30 and 34)**
 - Open a template, click text, change it, then Review and publish.

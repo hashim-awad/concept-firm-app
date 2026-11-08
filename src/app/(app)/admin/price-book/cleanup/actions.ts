@@ -21,5 +21,5 @@ export async function applyCleanup(formData: FormData) {
   if (JSON.stringify(plan) !== String(formData.get("plan"))) redirect(withMessage(PAGE, "error", "The price book changed since this page opened. Check the list again, then apply."));
   const { error } = await supabase.rpc("apply_catalogue_cleanup", { p_plan: plan });
   revalidatePath("/admin/price-book");
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Applied ${plan.length} changes. Each is in the activity log.`));
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Applied ${plan.length} change${plan.length === 1 ? "" : "s"}. Each is in the activity log.`));
 }
