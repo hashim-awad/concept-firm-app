@@ -46,6 +46,6 @@ jobs:
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
       - name: Show changes that will be applied
-        run: supabase db push --db-url "$DB_URL" --dry-run
+        run: supabase db push --remote="$DB_URL" --dry-run
       - name: Apply changes
-        run: supabase db push --db-url "$DB_URL"
+        run: supabase db push --remote="$DB_URL" --yes
