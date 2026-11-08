@@ -159,7 +159,7 @@ One step at a time, each confirmed with a screenshot.
    SUPABASE_DB_PASSWORD.
 2. Done 2026-11-08: Supabase organization on the Pro plan (US$25/month charged today; Supabase
    estimated US$35/month with both projects). Spend cap on. Micro compute for one project is
-   included: set Live to Micro.
+   included: Live set to Micro (no extra cost), 2026-11-08.
 3. Vercel Production environment variables (before merging, so the first production build works):
    live Supabase URL and keys, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@).
    SEND_EMAIL_HOOK_SECRET follows in step 6.
