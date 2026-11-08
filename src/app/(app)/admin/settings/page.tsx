@@ -1,4 +1,5 @@
 import { PageHeader, Notice } from "@/components/ui";
+import { fileInputClass } from "@/components/ds/primitives";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
@@ -70,7 +71,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label htmlFor="signature" className="label">PNG image, under 1 MB</label>
-              <input id="signature" name="signature" type="file" accept="image/png" required className="text-sm" />
+              <input id="signature" name="signature" type="file" accept="image/png" required className={fileInputClass} />
             </div>
             <button type="submit" className="btn">{sigInfo.uploaded ? "Replace signature" : "Upload signature"}</button>
           </div>

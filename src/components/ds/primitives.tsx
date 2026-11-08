@@ -203,3 +203,6 @@ export function Meta({ items }: { items: { label: string; value: ReactNode }[] }
 export function money(cents: number) {
   return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
 }
+
+// File picker shown as a secondary button ("Choose file"), with the chosen file name beside it.
+export const fileInputClass = "block text-sm text-ink-2 file:mr-3 file:inline-flex file:h-10 file:cursor-pointer file:items-center file:rounded-lg file:border file:border-solid file:border-navy-700 file:bg-surface file:px-4 file:text-sm file:font-medium file:text-navy-700 hover:file:bg-navy-50 disabled:opacity-50";

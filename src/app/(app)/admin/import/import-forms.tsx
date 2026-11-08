@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Alert, Button } from "@/components/ds/primitives";
+import { Alert, Button, fileInputClass } from "@/components/ds/primitives";
 import { importCsv, type ImportState } from "./actions";
 
 const LABEL: Record<string, string> = { rows: "Rows in the file", new: "New (not yet in the app)", saved: "Saved", not_saved: "Not saved (see problems)", already_in_app: "Already in the app (left as is)", not_imported: "Not imported (see problems)",
@@ -38,7 +38,7 @@ export function ImportForm() {
     <div className="card space-y-4">
       <div>
         <label htmlFor="file" className="label">1. Choose the CSV file exported from Notion</label>
-        <input key={inputKey} id="file" type="file" accept=".csv,text/csv" className="text-sm" disabled={pending}
+        <input key={inputKey} id="file" type="file" accept=".csv,text/csv" className={fileInputClass} disabled={pending}
           onChange={(e) => choose(e.target.files?.[0] ?? null)} />
         <p className="mt-1 text-xs text-muted">The app checks it straight away. Nothing is saved until you press Import.</p>
       </div>
