@@ -30,13 +30,13 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_ID: wtivdpwyoarpcbgohgnr # Concept Firm App - Test (ca-central-1)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
         with:
           version: 3.0.0
       - name: Link to the Test project
         run: supabase link --project-ref "$PROJECT_ID"
       - name: Show changes that will be applied
-        run: supabase db push --dry-run
+        run: supabase db push --remote --dry-run
       - name: Apply changes
-        run: supabase db push
+        run: supabase db push --remote
