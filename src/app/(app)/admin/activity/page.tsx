@@ -73,7 +73,22 @@ function describe(e: Entry, staffName: Map<string, string>, roleName: Map<string
     return oldRow.name !== newRow.name ? `Role renamed: ${oldRow.name} → ${newRow.name}` : `Role updated: ${name}`;
   }
   if (e.entity_type === "settings") {
-    return `${e.entity_id}: ${JSON.stringify(oldRow.value)} → ${JSON.stringify(newRow.value)}`;
+    if (e.entity_id === "lead_assignment") {
+      return `Lead assignment: ${assignmentText(oldRow.value, staffName)} → ${assignmentText(newRow.value, staffName)}`;
+    }
+    if (e.entity_id === "retention_months") {
+      return `Retention: ${oldRow.value ?? "?"} months → ${newRow.value} months`;
+    }
+    return `${e.entity_id} changed`;
   }
   return "";
+}
+
+function assignmentText(value: unknown, staffName: Map<string, string>): string {
+  const v = (value ?? {}) as { mode?: string; staff_ids?: string[] };
+  const names = (v.staff_ids ?? []).map((id) => staffName.get(id) ?? "unknown").join(", ");
+  if (v.mode === "single") return `One person (${names})`;
+  if (v.mode === "rotate") return `Rotate (${names})`;
+  if (v.mode === "unassigned") return "Unassigned queue";
+  return "not set";
 }
