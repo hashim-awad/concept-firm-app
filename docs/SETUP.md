@@ -157,11 +157,14 @@ One step at a time, each confirmed with a screenshot.
    "Supabase – Concept Firm App – Live – database"; GitHub environment "production" with required
    reviewer hashim-awad (self-review allowed), deployment branch main only, secret
    SUPABASE_DB_PASSWORD.
-2. Supabase Live on the Pro plan (brief: Pro before go-live).
-3. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
+2. Done 2026-11-08: Supabase organization on the Pro plan (US$25/month charged today; Supabase
+   estimated US$35/month with both projects). Spend cap on. Micro compute for one project is
+   included: set Live to Micro.
+3. Vercel Production environment variables (before merging, so the first production build works):
+   live Supabase URL and keys, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@).
+   SEND_EMAIL_HOOK_SECRET follows in step 6.
+4. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
    live database deploy waits for approval, then applies every migration.
-4. Vercel Production environment variables: live Supabase URL and keys, MS_TENANT_ID,
-   MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@), SEND_EMAIL_HOOK_SECRET (new, live).
 5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
 6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
    Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.

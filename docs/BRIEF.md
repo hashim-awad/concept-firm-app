@@ -86,7 +86,7 @@ How permissions decide what shows (built 2026-11-08):
 Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator; builder still /documents/proposal), Engagement letters /engagement-letters?type=corporate|t1, Engagements /engagements, Document vault /documents, Team and roles /admin/team. Old addresses (/t1-pricing, /documents?tab=..., /admin/staff, /admin/roles) forward to the new pages; /documents/corporate-letter and /documents/t1-letter still open the same screens.
 
 ## Ownership and data rules (non-negotiable)
-- All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.
+- All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Pro plan from 2026-11-08 (organization-wide, spend cap on).
 - Code lives in this private repo. Standard, common technology, documented so any developer could take over.
 - No passwords or keys in the repo. Row level security on every table. Nothing exposed unless deliberately opened.
 - Client data never leaves the firm's accounts. No third-party tracking or analytics.
