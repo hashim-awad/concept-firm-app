@@ -26,10 +26,10 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
     supabase.from("service_lines").select("id, key, name, sort_order").order("sort_order"),
     supabase.from("catalogue_items").select("id, service_line_id, code, name, unit_label, per_spouse, is_active, sort_order, price_type, internal_note").order("sort_order"),
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").order("effective_from"),
-    supabase.from("offers").select("offer, segment, services, is_active"),
+    supabase.from("offers").select("offer, segment, services, software_per_month, is_active"),
   ]);
   const allItems = (items ?? []) as Item[];
-  const offerRows = (offers ?? []) as { offer: string; segment: string; services: string[]; is_active: boolean }[];
+  const offerRows = (offers ?? []) as { offer: string; segment: string; services: string[]; software_per_month: number | null; is_active: boolean }[];
   const allCodes = allItems.map((i) => i.code);
   const lineChoices = ((lines ?? []) as Line[]).map((l) => ({ id: l.id, name: l.name,
     suggestion: suggestCode(allItems.filter((i) => i.service_line_id === l.id).map((i) => i.code), allCodes) }));

@@ -11,14 +11,19 @@ test("code follows the service line", () => {
   assert.equal(suggestCode([], all), "", "empty line: no guess");
 });
 
-test("priced per client only when a package lists the item", () => {
+test("priced per client only for items a package's ticked services cover", () => {
   const offers = [
-    { offer: "Team: Core", segment: "Team or brokerage", services: ["Year-end compilation", "CTX-101"], is_active: true },
-    { offer: "Old", segment: "Agent", services: ["ADV-103"], is_active: false },
-    { offer: "T1 row", segment: "T1 personal", services: ["INC-101"], is_active: true },
+    { offer: "Team: Essential", segment: "Team or brokerage", services: ["books", "cfo", "comp", "gst", "payroll", "t2"], software_per_month: 69, is_active: true },
+    { offer: "Agent: year-end T2 only", segment: "Agent", services: ["comp", "gst", "t2"], software_per_month: null, is_active: true },
+    { offer: "Old", segment: "Agent", services: ["coord"], is_active: false },
+    { offer: "T1 row", segment: "T1 personal", services: ["t1"], is_active: true },
   ];
-  assert.deepEqual(packagesCovering({ code: "CTX-101", name: "T2 return" }, offers), ["Team: Core"]);
-  assert.deepEqual(packagesCovering({ code: "YE-101", name: "Year-End Compilation" }, offers), ["Team: Core"]);
-  assert.deepEqual(packagesCovering({ code: "ADV-103", name: "Advisory" }, offers), [], "inactive package does not count");
-  assert.deepEqual(packagesCovering({ code: "INC-101", name: "Incorporation" }, offers), [], "T1 rows are not packages");
+  const cov = (code: string) => packagesCovering({ code, name: code }, offers);
+  assert.deepEqual(cov("CTX-101"), ["Team: Essential", "Agent: year-end T2 only"]);
+  assert.deepEqual(cov("YE-102"), ["Team: Essential", "Agent: year-end T2 only"], "statements plus T2");
+  assert.deepEqual(cov("SFT-101"), ["Team: Essential"], "software only where charged");
+  assert.deepEqual(cov("ACC-102"), ["Team: Essential"]);
+  assert.deepEqual(cov("ACC-106"), [], "inactive package does not count");
+  assert.deepEqual(cov("PTX-101"), [], "T1 rows are not packages");
+  assert.deepEqual(cov("ADJ-101"), []);
 });

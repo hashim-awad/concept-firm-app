@@ -5,8 +5,8 @@ import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { saveOffer } from "../actions";
+import { SERVICES } from "@/lib/price-book/labels";
 
-const SERVICES: [string, string][] = [["comp", "Year-end financial statements"], ["t2", "Corporate tax return (T2)"], ["catchup", "Catch-up bookkeeping"], ["books", "Monthly bookkeeping"], ["pnl", "Monthly profit and loss report"], ["gst", "GST/HST returns"], ["payroll", "Payroll"], ["pay", "Payment administration"], ["cfo", "CFO reporting"], ["budget", "Annual budget"], ["coord", "External accountant support"], ["t1", "Owner T1"]];
 
 export default async function OfferPage({ params, searchParams }: PageProps<"/admin/price-book/packages/[id]">) {
   const access = await requireAccess("price_book", "view");

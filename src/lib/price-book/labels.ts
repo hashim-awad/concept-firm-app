@@ -1,21 +1,33 @@
 // Price book labels and suggestions. Pure, so they can be tested without the database.
 
-type Offer = { offer: string; segment: string; services: string[]; is_active: boolean };
+type Offer = { offer: string; segment: string; services: string[]; software_per_month?: number | null; is_active: boolean };
 type CodedItem = { code: string; name: string };
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+// The services a package can include: the tick boxes on the package page (Studio's keys).
+export const SERVICES: [string, string][] = [["comp", "Year-end financial statements"], ["t2", "Corporate tax return (T2)"], ["catchup", "Catch-up bookkeeping"],
+  ["books", "Monthly bookkeeping"], ["pnl", "Monthly profit and loss report"], ["gst", "GST/HST returns"], ["payroll", "Payroll"], ["pay", "Payment administration"],
+  ["cfo", "CFO reporting"], ["budget", "Annual budget"], ["coord", "External accountant support"], ["t1", "Owner T1"]];
+export const serviceName = (k: string) => SERVICES.find(([key]) => key === k)?.[1] ?? k;
 
-// Packages that list this item in their services, by code or by name (case, spacing and
-// punctuation ignored). Only active packages and floors count, not Studio's T1 rows.
+// Which price book items each package service covers (2026-11-08, to be confirmed by Hashim).
+// "pnl" has no price book item. ACC-101 is not mapped yet.
+export const SERVICE_ITEMS: Record<string, string[]> = {
+  comp: ["YE-101"], t2: ["CTX-101"], catchup: ["ACC-103"], books: ["ACC-102"], gst: ["GST-101"], payroll: ["PAY-101"],
+  pay: ["ACC-105"], cfo: ["ADV-101"], budget: ["ADV-102"], coord: ["ACC-106"], t1: ["PTX-101"],
+};
+
+// Codes a package covers: its ticked services, YE-102 when it has both statements and the T2,
+// and SFT-101 when it charges software.
+export function packageCodes(o: Offer): Set<string> {
+  const s = new Set((o.services ?? []).flatMap((k) => SERVICE_ITEMS[k] ?? []));
+  if (o.services?.includes("comp") && o.services?.includes("t2")) s.add("YE-102");
+  if (Number(o.software_per_month ?? 0) > 0) s.add("SFT-101");
+  return s;
+}
+
+// Active packages and floors (not Studio's T1 rows) that cover this item.
 export function packagesCovering(item: CodedItem, offers: Offer[]): string[] {
-  const code = norm(item.code), name = norm(item.name);
-  return offers
-    .filter((o) => o.is_active && o.segment !== "T1 personal")
-    .filter((o) => (o.services ?? []).some((s) => {
-      const n = norm(s);
-      return n === code || n === name || (code.length > 0 && n.startsWith(code));
-    }))
-    .map((o) => o.offer);
+  return offers.filter((o) => o.is_active && o.segment !== "T1 personal" && packageCodes(o).has(item.code)).map((o) => o.offer);
 }
 
 // Next code for a service line: the prefix most used in that line, and one above the highest
