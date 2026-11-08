@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
-import { Logo } from "./brand";
+import { StudioLogo } from "./brand";
 
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: string };
 export type NavGroup = { label: string; items: NavItem[] };
@@ -10,7 +10,7 @@ export type NavGroup = { label: string; items: NavItem[] };
 export function Sidebar({ groups, footer, user }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string } }) {
   return (
     <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white">
-      <div className="px-5 pt-4 pb-3 [@media(max-height:820px)]:pt-3 [@media(max-height:820px)]:pb-2"><Logo tone="white" height={40} /></div>
+      <div className="px-5 pt-4 pb-3 [@media(max-height:820px)]:pt-3 [@media(max-height:820px)]:pb-2"><StudioLogo tone="white" height={46} /></div>
       <nav aria-label="Main" className="sidebar-scroll flex-1 space-y-3 overflow-y-auto px-2.5 pb-3 [@media(max-height:820px)]:space-y-1.5">
         {groups.map((g) => (
           <div key={g.label}>

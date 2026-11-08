@@ -27,6 +27,15 @@ export function Logo({ tone = "navy", height = 36, priority }: { tone?: "navy" |
   );
 }
 
+// Concept Studio: the app's own name and logo, on every staff screen and staff email.
+// Client-facing pages use the firm's logo (<Logo>), never this one.
+const STUDIO = { white: "/brand/studio-logo-white.png", navy: "/brand/studio-logo-navy.png", w: 360, h: 141 };
+export function StudioLogo({ tone = "navy", height = 40, priority }: { tone?: "navy" | "white"; height?: number; priority?: boolean }) {
+  return (
+    <Image src={STUDIO[tone]} alt="Concept Studio" width={Math.round((STUDIO.w / STUDIO.h) * height)} height={height} priority={priority} className="h-auto max-w-full" />
+  );
+}
+
 // Firm details for client pages and documents (public business information).
 export const FIRM = {
   legalName: "Concept Accounting & Advisory Professional Corporation",

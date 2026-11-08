@@ -64,7 +64,7 @@ Database passwords are kept in the firm's password manager only:
 Route: Supabase Auth "Send Email" hook -> app route /api/hooks/send-email -> Microsoft Graph
 (OAuth client credentials) -> sent from the shared mailbox. No mailbox password is used.
 
-- Shared mailbox: app@conceptaccounting.ca ("Concept Firm App"), created 2026-11-08. No licence.
+- Shared mailbox: app@conceptaccounting.ca, created 2026-11-08. No licence. Display name to be "Concept Studio" (the name staff see as the sender; renamed by Hashim in Microsoft 365 admin, decision 31).
 - Entra app registration: "Concept Firm App - email", single tenant, created 2026-11-08.
   - Application (client) ID: e841a588-c156-4569-a759-ca34b93b0181
   - Directory (tenant) ID: 96888d59-12fe-454f-9988-c7292bb5c710
@@ -108,6 +108,6 @@ app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False
 - Supabase Test > Authentication > Auth Hooks > Send Email hook (HTTPS):
   <branch preview address>/api/hooks/send-email?x-vercel-protection-bypass=<bypass secret>
 - Hook signing secret: Vercel Preview variable SEND_EMAIL_HOOK_SECRET (Secret).
-- Live: needs its own hook (on the live Supabase project) pointing at app.conceptaccounting.ca,
+- Live: needs its own hook (on the live Supabase project) pointing at studio.conceptaccounting.ca,
   with its own signing secret in the Vercel Production environment. No bypass needed there.
 - Verified 2026-11-07 23:24 (Toronto): password reset email delivered from app@conceptaccounting.ca and reset completed on the preview.

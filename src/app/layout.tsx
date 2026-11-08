@@ -3,8 +3,8 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Concept Firm App",
-  description: "Concept Accounting & Advisory firm app",
+  title: "Concept Studio",
+  description: "Concept Studio, the staff app of Concept Accounting & Advisory",
   robots: { index: false, follow: false },
 };
 

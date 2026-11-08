@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { BookOpen, Building2, Calculator, FileSignature, FileText, FolderLock, History, Home, Landmark, Library, ListChecks, LogOut, Menu, Percent, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { Sidebar, type NavGroup } from "@/components/ds/navigation";
-import { Logo } from "@/components/ds/brand";
+import { StudioLogo } from "@/components/ds/brand";
 
 export type SidebarAccess = {
   fullName: string;
@@ -74,7 +74,7 @@ export function AppSidebar({ access, signOut }: { access: SidebarAccess; signOut
     <>
       {/* Phone and tablet: top bar with a menu button */}
       <div className="flex h-14 items-center justify-between bg-navy-800 px-4 md:hidden">
-        <Logo tone="white" height={28} />
+        <StudioLogo tone="white" height={34} />
         <button type="button" onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md p-2 text-white hover:bg-white/10"><Menu className="h-5 w-5" /></button>
       </div>
       {open && (

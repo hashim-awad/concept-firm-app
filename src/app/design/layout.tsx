@@ -1,7 +1,7 @@
 import { requireAccess } from "@/lib/access";
 import { ToastProvider } from "@/components/ds/overlays";
 
-export const metadata = { title: "Design system · Concept Firm App" };
+export const metadata = { title: "Design system · Concept Studio" };
 
 export default async function DesignLayout({ children }: LayoutProps<"/design">) {
   await requireAccess();

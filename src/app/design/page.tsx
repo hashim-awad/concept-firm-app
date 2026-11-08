@@ -33,7 +33,7 @@ export default function DesignPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-10">
       <HeroHeader
-        eyebrow="Concept Firm App · Design system · For approval"
+        eyebrow="Concept Studio · Design system"
         title="How the app looks and feels"
         description="Every colour, size and component the app will use, shown with dummy data. Once approved, existing screens are restyled to match and new screens are built from these parts."
         stats={[{ label: "Colours", value: "14" }, { label: "Components", value: "20+" }, { label: "Client pages", value: "5" }, { label: "Font", value: "1" }]}

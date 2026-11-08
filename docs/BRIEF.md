@@ -1,12 +1,12 @@
-# Build Brief: Concept Firm App
+# Build Brief: Concept Studio
 
-Last updated: 2026-11-08 (Phase 3 year-end section replaced in full)
+Last updated: 2026-11-08 (app named Concept Studio; Phase 3 year-end section replaced in full)
 
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
 
 ## What
-One firm web app, owned by the firm, that keeps running without Claude. It is the firm's one app and will grow beyond T1 quotes.
+One firm web app, **Concept Studio**, owned by the firm, that keeps running without Claude. ("Concept Firm App" is only the internal developer name: the GitHub repository, Supabase projects and Vercel project keep it.) It is the firm's one app and will grow beyond T1 quotes.
 Phase order changed by Hashim on 2026-11-08:
 - **Phase 1 (now): Concept Studio in the app.** See "Phase 1: Concept Studio" below.
 - **Phase 2: T1 workflow.** Public start page, screening questions, leads, automatic quotes, signing and the TaxDome handoff, as described in this brief. Starts after Phase 1 is approved.
@@ -22,14 +22,14 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 3 | HST | Shown as its own line, based on the client's province. Owner-edited rate table, checked against CRA before go-live. |
 | 4 | Signed copy | After signing, show "Signed. Download your copy", then a Continue button to the TaxDome sign-up page. The app does not email the client. |
 | 5 | Engagement terms | Hashim sends the current T1 engagement letter. Claude adapts it. Hashim approves the final wording. |
-| 6 | Address | app.conceptaccounting.ca |
+| 6 | Address | studio.conceptaccounting.ca (changed from app.conceptaccounting.ca, 2026-11-08) |
 | 7 | Couples pricing | Per-property and per-business add-ons are charged once. Per-return add-ons (investment sales, T1135, foreign income, employment expenses, moving) are charged per spouse. Example: both spouses have investment sales = 2 x $99. |
 | 8 | Couples signing | One link per spouse. The quote counts as signed only when both have signed. No email code. |
 | 9 | Backups | Supabase backups plus a "Download full export" button Hashim clicks monthly. |
 | 10 | Supabase | Live project "Concept Firm App" exists in Canada (Central). A separate Test project is created with Hashim, one step at a time. Previews use Test only. |
 | 11 | Vercel seats | Hashim only. Staff log in to the app through Supabase. |
 | 12 | Email | Microsoft 365. Staff login emails go through the firm's M365 mail, not Supabase's built-in sender. |
-| 13 | DNS | Hashim manages the domain. Claude guides click by click when connecting app.conceptaccounting.ca. |
+| 13 | DNS | Hashim manages the domain. Claude guides click by click when connecting studio.conceptaccounting.ca. |
 | 14 | Roles and permissions | Role-based access managed by owners on the admin page. See "Roles and permissions". |
 | 15 | Lead assignment | A rule set by owners in settings, never a hard-coded person. See "Lead flow". |
 | 16 | Old triage items | Hashim is pricing each one and will send it as a price or as out of scope. "Required documents missing" is dropped from screening (TaxDome handles it after sign-up). |
@@ -47,6 +47,7 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 28 | Past letters in the vault | Past corporate letters and proposals: PDF regenerated from Studio's saved data, labelled on every page "Regenerated from Studio records, not the signed original". Past T1 letters: records only. |
 | 29 | Studio import | CSV export per Notion database, owner-only import screen, dry run with counts and problems before saving. Client data never passes through the repo or chat. Quality log stays for Phase 3. Signature image uploaded once by Hashim in the app. |
 | 30 | Source of truth | From 2026-11-09 the app and its database are the only source of truth. Concept Studio is phased out: it was the jump start, not a limit on what the app can do. Hashim uses the app alone for one to two weeks, then invites the team. Wording is edited in the app as numbered versions (draft, owner approval, current), not through code. Studio parity stays only as a baseline check that EL v3.31 moved into the app unchanged. |
+| 31 | App name | The app is "Concept Studio" everywhere staff see it: sidebar, browser tab, sign-in pages, staff emails, Design page. Logo: Studio's own (white "Concept", green "Studio") on navy, and a navy version on white. Client-facing pages (start page, screening questions, quotes, signing, signed page) use the firm's brand, Concept Accounting & Advisory, never the tool name. The repository, Supabase projects and Vercel project keep their names. (2026-11-08) |
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.

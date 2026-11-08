@@ -1,4 +1,6 @@
-# Concept Firm App
+# Concept Studio
+
+The staff app of Concept Accounting & Advisory. Internal developer name: Concept Firm App (repository, Supabase and Vercel projects keep that name).
 
 The firm web app for Concept Accounting & Advisory Professional Corporation.
 Owned by the firm. Built to keep running and be maintainable by any web developer.
