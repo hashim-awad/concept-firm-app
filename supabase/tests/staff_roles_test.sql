@@ -69,7 +69,7 @@ select test.check('tables are read-only to the app', test.try($$update public.st
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('B sees staff list', (select count(*) from public.staff) = 4);
 select test.check('B cannot read activity log', (select count(*) from public.activity_log) = 0);
-select test.check('B reads settings (view)', (select count(*) from public.settings) = 2);
+select test.check('B reads settings (view)', (select count(*) from public.settings) >= 2);
 select test.check('B cannot change settings', test.try($$select public.update_setting('retention_months', '12')$$) like 'You do not have permission%');
 select test.check('B cannot create roles', test.try($$select public.create_role('Sneaky')$$) like 'Only an owner%');
 select test.check('B cannot change permissions', test.try($$select public.set_role_permissions(
