@@ -1,6 +1,6 @@
 # Phase 1: Concept Studio into the app — migration plan
 
-Status: plan, 2026-11-08. Source of truth for what Studio does: `reference/studio/` (EL v3.31).
+Status: built, 2026-11-08. Waiting for Hashim's import and sign-off (see the end). Source of truth for what Studio does: `reference/studio/` (EL v3.31).
 
 ## What Studio is today
 
@@ -69,6 +69,42 @@ contents of Price Floors and Service Catalog only. No client names found in eith
 6. Tax rates screen and approval.
 7. Side-by-side parity review with Hashim's five cases. Then Hashim invites the team.
 
-## Open questions for Hashim
+## How parity is proven (all automatic, every push, dummy data only)
 
-See the latest message in the build conversation; answers are recorded in `docs/BRIEF.md`.
+| Test | What it compares | File |
+|---|---|---|
+| Engine copy | The app's engine file must equal what the extractor copies from Studio's page today | CI step "Engine copy matches" |
+| Engine parity | Studio's own functions vs the app's copy: checks, letter blocks, PDF definitions, T1 calculator | `tests/studio/parity.test.mjs` |
+| Screen logic | The app's screen rules (defaults, fee lines, billing rules, packages, accepted proposal to letter) vs Studio's forms | `tests/studio/parity.test.mjs` |
+| Screens | One list of typing and clicks is played on Studio's page and on the app's real screens. Required equal: letter inputs, checks shown on screen, document text, PDF definition, file name, preview HTML | `tests/studio/screens.test.mjs` |
+| Server | The server rebuilds each document from the screen's inputs and gets the same result; Final rules hold on the server; each case renders a real PDF, also in the production build | `tests/studio-build.test.ts`, `screens.test.mjs` |
+| Import | Notion CSV reading and mapping; a past proposal regenerates with the same text | `tests/import.test.ts` |
+
+A one-field difference on the app side fails every screen case (checked by hand once, on purpose).
+The only wording allowed to differ on screen: Studio's button "Save client to Concept Studio" is
+"Save client" in the app.
+
+The screen test runs the app with `STUDIO_HARNESS=1`, which opens the test-only page
+`/studio-harness/...`. Never set `STUDIO_HARNESS` on Vercel; without it the page is "not found".
+
+## Differences from Studio, on purpose
+
+- Download also files the PDF in the vault as a new version. A Final letter records the
+  engagement (EL sent) in the same step; Studio needed a second click.
+- Final proposals need an approved GST/HST rate for the client's province (decision 22). Shown
+  above the checks, so Studio's checks list stays the same.
+- Template approvals are stored in the app (Studio kept them in the Quality log, Phase 3).
+  Trial templates approved in Studio show "Awaiting approval" until approved again here.
+- Regenerated past documents carry no signature image, only the label on every page.
+- Studio did not save a proposal's "What we heard" lines or the price-book offer per option,
+  so regenerated proposals leave those blank.
+
+## What Hashim does before the team is invited
+
+1. Settings: check the signer names; upload the signature image (PNG).
+2. Admin, Import from Studio: export each Studio database from Notion as CSV; for each file
+   press Check, read it, then Import. Order: Price Floors, Service Catalog, Clients,
+   Engagements, Proposals. Then regenerate past letters and apply the floor corrections.
+3. GST/HST rates: enter the rates for ON, AB and BC after checking the CRA page, then approve.
+4. Template library: approve the trial templates you approved in Studio.
+5. Side-by-side review with your five cases (dummy names): make each in Studio and in the app.
