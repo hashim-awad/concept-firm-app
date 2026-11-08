@@ -110,3 +110,4 @@ app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False
 - Hook signing secret: Vercel Preview variable SEND_EMAIL_HOOK_SECRET (Secret).
 - Live: needs its own hook (on the live Supabase project) pointing at app.conceptaccounting.ca,
   with its own signing secret in the Vercel Production environment. No bypass needed there.
+- Verified 2026-11-07 23:24 (Toronto): password reset email delivered from app@conceptaccounting.ca and reset completed on the preview.
