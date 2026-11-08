@@ -1,7 +1,7 @@
 # Concept Studio: status
 
 Last updated: 2026-11-08. Branch `claude/modest-euler-ldxydw`. Decisions are in `docs/BRIEF.md`
-(1 to 35); setup details in `docs/SETUP.md`; Studio move in `docs/STUDIO-MIGRATION.md`;
+(1 to 36); setup details in `docs/SETUP.md`; Studio move in `docs/STUDIO-MIGRATION.md`;
 Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## Where things run
