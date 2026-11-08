@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader, buttonClass } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
+import { AutoSubmitSelect } from "@/components/auto-submit-select";
 
 type Row = { id: string; kind: string; legal_name: string; entity_type: string; province: string; year_end_md: string; name_verified: boolean; status: string };
 
@@ -13,11 +14,15 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const show = sp.show === "inactive" ? "inactive" : "active";
+  const type = sp.type === "corporation" || sp.type === "individual" ? sp.type : "all";
   const supabase = await createClient();
   let query = supabase.from("clients").select("id, kind, legal_name, entity_type, province, year_end_md, name_verified, status").eq("status", show).order("legal_name").limit(500);
   if (q) query = query.ilike("legal_name", `%${q.replace(/[%_\\]/g, "\\$&")}%`);
   const { data } = await query;
-  const rows = (data ?? []) as Row[];
+  // Counts for the type filter follow the search and Active/Inactive choice.
+  const all = (data ?? []) as Row[];
+  const count = { all: all.length, corporation: all.filter((c) => c.kind === "corporation").length, individual: all.filter((c) => c.kind === "individual").length };
+  const rows = type === "all" ? all : all.filter((c) => c.kind === type);
   return (
     <>
       <PageHeader title="Clients" description="Client records used by letters and proposals. A Final letter needs the legal name checked against the registry (or ID for individuals)."
@@ -29,8 +34,16 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
           <input id="q" name="q" defaultValue={q} className="input w-64" />
         </div>
         <div>
+          <label htmlFor="type" className="label">Type</label>
+          <AutoSubmitSelect id="type" name="type" defaultValue={type} className="input">
+            <option value="all">All clients ({count.all})</option>
+            <option value="corporation">Companies ({count.corporation})</option>
+            <option value="individual">Individuals ({count.individual})</option>
+          </AutoSubmitSelect>
+        </div>
+        <div>
           <label htmlFor="show" className="label">Show</label>
-          <select id="show" name="show" defaultValue={show} className="input"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+          <AutoSubmitSelect id="show" name="show" defaultValue={show} className="input"><option value="active">Active</option><option value="inactive">Inactive</option></AutoSubmitSelect>
         </div>
         <button className="btn" type="submit">Search</button>
       </form>
