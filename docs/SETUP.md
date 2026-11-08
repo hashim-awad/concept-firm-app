@@ -97,3 +97,16 @@ to every mailbox and override the lock.
 
 Lock applied 2026-11-08 and checked with Test-ServicePrincipalAuthorization:
 app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False.
+
+### Supabase Send Email hook (Test project)
+
+- Branch preview address (stable for branch claude/modest-euler-ldxydw):
+  https://concept-firm-app-git-claude-modest-eu-014c3b-concept-accounting.vercel.app
+- Vercel Deployment Protection: Vercel Authentication on (previews private to the team).
+  A "Protection Bypass for Automation" secret (note: "Supabase email hook") lets Supabase reach
+  the hook. It is part of the hook URL saved in Supabase, and nowhere else.
+- Supabase Test > Authentication > Auth Hooks > Send Email hook (HTTPS):
+  <branch preview address>/api/hooks/send-email?x-vercel-protection-bypass=<bypass secret>
+- Hook signing secret: Vercel Preview variable SEND_EMAIL_HOOK_SECRET (Secret).
+- Live: needs its own hook (on the live Supabase project) pointing at app.conceptaccounting.ca,
+  with its own signing secret in the Vercel Production environment. No bypass needed there.
