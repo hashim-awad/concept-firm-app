@@ -40,6 +40,8 @@ export async function sendMail(email: { to: string; subject: string; html: strin
     body: JSON.stringify({
       message: {
         subject: email.subject,
+        // Say the sender address outright, so it does not depend on how Exchange picks one.
+        from: { emailAddress: { address: from } },
         body: { contentType: "HTML", content: email.html },
         toRecipients: [{ emailAddress: { address: email.to } }],
       },
