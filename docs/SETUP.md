@@ -98,6 +98,33 @@ to every mailbox and override the lock.
 Lock applied 2026-11-08 and checked with Test-ServicePrincipalAuthorization:
 app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False.
 
+### Move the lock to studio@conceptaccounting.ca (decision 35, prepared 2026-11-08, not run yet)
+
+The lock matches the mailbox's primary address. As soon as the primary address changes to
+studio@, the old filter no longer matches and the app cannot send (password resets fail) until
+the three steps below are done. Do them in one sitting.
+
+1. Hashim, Microsoft 365 admin: on the shared mailbox, make studio@conceptaccounting.ca the
+   primary address, keep app@conceptaccounting.ca as an alias, display name "Concept Studio".
+2. Exchange admin, PowerShell (changes the existing scope; nothing new is created):
+
+```powershell
+Connect-ExchangeOnline -UserPrincipalName hashim@conceptaccounting.ca
+# Confirm the switch took: PrimarySmtpAddress should be studio@, EmailAddresses should still list app@
+Get-Mailbox app@conceptaccounting.ca | Format-List DisplayName,PrimarySmtpAddress,EmailAddresses
+Set-ManagementScope -Identity "Concept Firm App mailbox only" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'studio@conceptaccounting.ca'"
+# Checks: first should be InScope True, second False
+Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b0181 -Resource studio@conceptaccounting.ca
+Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b0181 -Resource hashim@conceptaccounting.ca
+```
+
+   Exchange can take up to about 2 hours to apply a scope change; the test command shows the
+   new result at once, but sending may lag.
+3. Vercel: set MAIL_FROM to studio@conceptaccounting.ca in Production and Preview, then redeploy
+   the preview.
+4. Test: request a password reset on the preview. The email must arrive from "Concept Studio"
+   <studio@conceptaccounting.ca>. If it fails with 403, wait and retry (step 2 delay).
+
 ### Supabase Send Email hook (Test project)
 
 - Branch preview address (stable for branch claude/modest-euler-ldxydw):
