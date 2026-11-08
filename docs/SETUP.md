@@ -20,6 +20,7 @@ every table), so both behave the same whatever the dashboard settings are.
 
 Database passwords are kept in the firm's password manager only:
 - "Supabase – Concept Firm App – Test – database"
+- "Supabase – Concept Firm App – Live – database" (reset 2026-11-08)
 
 ## Supabase access token (deleted)
 
@@ -152,9 +153,10 @@ Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b018
 
 One step at a time, each confirmed with a screenshot.
 
-1. GitHub environment "production": required reviewer Hashim, deployment branch main only,
-   secret SUPABASE_DB_PASSWORD = live database password (reset it in Supabase Live first if it is
-   not in the password manager; save it there as "Supabase – Concept Firm App – Live – database").
+1. Done 2026-11-08: live database password reset and saved in the password manager as
+   "Supabase – Concept Firm App – Live – database"; GitHub environment "production" with required
+   reviewer hashim-awad (self-review allowed), deployment branch main only, secret
+   SUPABASE_DB_PASSWORD.
 2. Supabase Live on the Pro plan (brief: Pro before go-live).
 3. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
    live database deploy waits for approval, then applies every migration.
