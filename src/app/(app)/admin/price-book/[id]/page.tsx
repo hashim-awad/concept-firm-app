@@ -51,6 +51,26 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
             <label htmlFor="sort_order" className="label">Order in list</label>
             <input id="sort_order" name="sort_order" type="number" step="any" defaultValue={item.sort_order} className="input" />
           </div>
+          <div>
+            <label htmlFor="price_type" className="label">Price type</label>
+            <select id="price_type" name="price_type" defaultValue={item.price_type} className="input"><option>Fixed</option><option>Per client</option></select>
+          </div>
+          <div>
+            <label htmlFor="income_account" className="label">QBO income account</label>
+            <input id="income_account" name="income_account" defaultValue={item.income_account} maxLength={120} className="input" />
+          </div>
+          <div>
+            <label htmlFor="replaces_qbo" className="label">Replaces in QBO</label>
+            <input id="replaces_qbo" name="replaces_qbo" defaultValue={item.replaces_qbo} maxLength={300} className="input" />
+          </div>
+          <div>
+            <label htmlFor="replaces_taxdome" className="label">Replaces in TaxDome</label>
+            <input id="replaces_taxdome" name="replaces_taxdome" defaultValue={item.replaces_taxdome} maxLength={300} className="input" />
+          </div>
+          <div className="md:col-span-2">
+            <label htmlFor="internal_note" className="label">Internal note (staff only, never on quotes or invoices)</label>
+            <input id="internal_note" name="internal_note" defaultValue={item.internal_note} maxLength={500} className="input" />
+          </div>
           <label className="flex items-center gap-2 text-sm">
             <input name="per_spouse" type="checkbox" defaultChecked={item.per_spouse} className="h-4 w-4 accent-accent" />
             Charged for each spouse who needs it

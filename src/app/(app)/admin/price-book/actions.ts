@@ -49,6 +49,11 @@ export async function updateItem(formData: FormData) {
       per_spouse: formData.get("per_spouse") === "on",
       sort_order: Number(formData.get("sort_order") ?? 0) || 0,
       is_active: formData.get("is_active") === "on",
+      price_type: formData.get("price_type") === "Per client" ? "Per client" : "Fixed",
+      income_account: String(formData.get("income_account") ?? "").trim(),
+      replaces_qbo: String(formData.get("replaces_qbo") ?? "").trim(),
+      replaces_taxdome: String(formData.get("replaces_taxdome") ?? "").trim(),
+      internal_note: String(formData.get("internal_note") ?? "").trim(),
     })
     .eq("id", id);
   revalidatePath("/admin/price-book");

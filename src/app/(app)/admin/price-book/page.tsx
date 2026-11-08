@@ -9,7 +9,7 @@ import { addItem } from "./actions";
 import { PriceBookTabs } from "./tabs";
 
 type Line = { id: string; key: string; name: string; sort_order: number };
-type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number };
+type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number; price_type: string; internal_note: string };
 type Price = { item_id: string; amount_cents: number; effective_from: string };
 
 export default async function PriceBookPage({ searchParams }: PageProps<"/admin/price-book">) {
@@ -20,7 +20,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   const today = todayToronto();
   const [{ data: lines }, { data: items }, { data: prices }] = await Promise.all([
     supabase.from("service_lines").select("id, key, name, sort_order").order("sort_order"),
-    supabase.from("catalogue_items").select("id, service_line_id, code, name, unit_label, per_spouse, is_active, sort_order").order("sort_order"),
+    supabase.from("catalogue_items").select("id, service_line_id, code, name, unit_label, per_spouse, is_active, sort_order, price_type, internal_note").order("sort_order"),
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").order("effective_from"),
   ]);
 
@@ -35,6 +35,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
     <>
       <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made." />
       <PriceBookTabs current="/admin/price-book" />
+      {access.is_owner && <p className="mb-4 text-sm"><Link href="/admin/price-book/cleanup" className="text-navy-700 underline">Price book clean-up (after the Studio import)</Link></p>}
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       {((lines ?? []) as Line[]).map((line) => {
@@ -58,10 +59,10 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
                         <td>
                           <span className="font-medium">{i.name}</span>
                           {!i.is_active && <span className="ml-2 text-xs">(switched off)</span>}
-                          <span className="block text-xs text-muted">{i.code}</span>
+                          <span className="block text-xs text-muted">{i.code}{i.internal_note ? ` · ${i.internal_note}` : ""}</span>
                         </td>
                         <td className="whitespace-nowrap">{i.unit_label}{i.per_spouse ? ", each spouse" : ""}</td>
-                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : <span className="text-danger">No price</span>}</td>
+                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : i.price_type === "Per client" ? <span className="text-ink-2">Priced per client (see packages)</span> : <span className="text-danger">No price</span>}</td>
                         <td className="whitespace-nowrap text-muted">{next ? `${formatCents(next.amount_cents)} from ${formatDate(next.effective_from)}` : ""}</td>
                         <td className="text-right"><Link href={`/admin/price-book/${i.id}`} className="btn-secondary">{editable ? "Edit" : "View"}</Link></td>
                       </tr>
@@ -86,7 +87,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
             </div>
             <div>
               <label htmlFor="code" className="label">Code</label>
-              <input id="code" name="code" required pattern="[A-Za-z0-9_]{2,40}" placeholder="T2_HOLDCO" className="input uppercase" />
+              <input id="code" name="code" required pattern="[A-Za-z0-9][A-Za-z0-9_\-]{1,39}" placeholder="CTX-104" className="input uppercase" />
               <p className="mt-1 text-xs text-muted">Short ID used by rules. Cannot be changed later.</p>
             </div>
             <div className="md:col-span-2">
