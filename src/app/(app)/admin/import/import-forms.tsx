@@ -67,6 +67,11 @@ function ResultBox({ state }: { state: NonNullable<ImportState> }) {
     : saved < c.new || state.problems.length ? `Import of ${state.source}: ${saved} saved, ${c.new - saved} not saved`
     : `Import of ${state.source}: done, ${saved} saved`;
   const tone = !state.dryRun && saved === 0 && (c.new > 0 || state.problems.length) ? "danger" : state.problems.length ? "warning" : "success";
+  if (c.rows === 0) return (
+    <Alert tone="warning" title={`The ${state.source} file has column headings but no rows`}>
+      Nothing to import. If the Studio database in Notion has rows, export it again and choose the new file. If it is empty, skip this file.
+    </Alert>
+  );
   const labels = state.dryRun ? { ...LABEL, new: "New (will be added when you import)" } : LABEL;
   return (
     <div className="space-y-3">
