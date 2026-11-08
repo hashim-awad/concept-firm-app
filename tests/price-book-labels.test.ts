@@ -13,7 +13,7 @@ test("code follows the service line", () => {
 
 test("priced per client only for items a package's ticked services cover", () => {
   const offers = [
-    { offer: "Team: Essential", segment: "Team or brokerage", services: ["books", "cfo", "comp", "gst", "payroll", "t2"], software_per_month: 69, is_active: true },
+    { offer: "Team: Essential", segment: "Team or brokerage", services: ["books", "cfo", "comp", "gst", "payroll", "t2"], monthly_fee: 1150, software_per_month: 69, is_active: true },
     { offer: "Agent: year-end T2 only", segment: "Agent", services: ["comp", "gst", "t2"], software_per_month: null, is_active: true },
     { offer: "Old", segment: "Agent", services: ["coord"], is_active: false },
     { offer: "T1 row", segment: "T1 personal", services: ["t1"], is_active: true },
@@ -26,4 +26,6 @@ test("priced per client only for items a package's ticked services cover", () =>
   assert.deepEqual(cov("ACC-106"), [], "inactive package does not count");
   assert.deepEqual(cov("PTX-101"), [], "T1 rows are not packages");
   assert.deepEqual(cov("ADJ-101"), []);
+  assert.deepEqual(cov("ACC-101"), ["Team: Essential"], "monthly fee means ACC-101; year-end only does not");
+  assert.deepEqual(packagesCovering({ code: "ACC-101", name: "x" }, [{ offer: "P", segment: "Agent", services: ["pnl"], is_active: true }]), ["P"], "pnl is part of ACC-101");
 });

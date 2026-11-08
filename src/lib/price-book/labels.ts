@@ -1,6 +1,6 @@
 // Price book labels and suggestions. Pure, so they can be tested without the database.
 
-type Offer = { offer: string; segment: string; services: string[]; software_per_month?: number | null; is_active: boolean };
+type Offer = { offer: string; segment: string; services: string[]; monthly_fee?: number | null; software_per_month?: number | null; is_active: boolean };
 type CodedItem = { code: string; name: string };
 
 // The services a package can include: the tick boxes on the package page (Studio's keys).
@@ -9,18 +9,20 @@ export const SERVICES: [string, string][] = [["comp", "Year-end financial statem
   ["cfo", "CFO reporting"], ["budget", "Annual budget"], ["coord", "External accountant support"], ["t1", "Owner T1"]];
 export const serviceName = (k: string) => SERVICES.find(([key]) => key === k)?.[1] ?? k;
 
-// Which price book items each package service covers (2026-11-08, to be confirmed by Hashim).
-// "pnl" has no price book item. ACC-101 is not mapped yet.
+// Which price book items each package service covers (confirmed by Hashim, 2026-11-08).
+// "pnl" (monthly P&L report) is part of the monthly service, ACC-101; never billed on its own.
 export const SERVICE_ITEMS: Record<string, string[]> = {
-  comp: ["YE-101"], t2: ["CTX-101"], catchup: ["ACC-103"], books: ["ACC-102"], gst: ["GST-101"], payroll: ["PAY-101"],
+  pnl: ["ACC-101"], comp: ["YE-101"], t2: ["CTX-101"], catchup: ["ACC-103"], books: ["ACC-102"], gst: ["GST-101"], payroll: ["PAY-101"],
   pay: ["ACC-105"], cfo: ["ADV-101"], budget: ["ADV-102"], coord: ["ACC-106"], t1: ["PTX-101"],
 };
 
 // Codes a package covers: its ticked services, YE-102 when it has both statements and the T2,
-// and SFT-101 when it charges software.
+// ACC-101 when it has a monthly fee (the line monthly packages are invoiced under), and SFT-101
+// when it charges software.
 export function packageCodes(o: Offer): Set<string> {
   const s = new Set((o.services ?? []).flatMap((k) => SERVICE_ITEMS[k] ?? []));
   if (o.services?.includes("comp") && o.services?.includes("t2")) s.add("YE-102");
+  if (Number(o.monthly_fee ?? 0) > 0) s.add("ACC-101");
   if (Number(o.software_per_month ?? 0) > 0) s.add("SFT-101");
   return s;
 }
