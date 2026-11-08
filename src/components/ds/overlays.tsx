@@ -43,6 +43,27 @@ export function ConfirmDialog({ trigger, title, body, confirmLabel, tone = "prim
   );
 }
 
+/* ---------- Form dialog: a button that opens a form in a window (native <dialog>) ---------- */
+export function FormDialog({ label, title, children }: { label: string; title: string; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  return (
+    <>
+      <Button onClick={() => ref.current?.showModal()}>{label}</Button>
+      <dialog ref={ref} aria-labelledby={titleId}
+        className="m-auto max-h-[90vh] w-[min(92vw,44rem)] overflow-y-auto rounded-2xl border border-sand-200 bg-surface p-0 text-ink shadow-[var(--shadow-raised)] backdrop:bg-navy-950/40 backdrop:backdrop-blur-[2px]">
+        <div className="p-6">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <h2 id={titleId} className="text-base font-semibold">{title}</h2>
+            <button type="button" onClick={() => ref.current?.close()} aria-label="Close" className="rounded p-0.5 text-ink-3 hover:text-ink"><X className="h-4.5 w-4.5" /></button>
+          </div>
+          {children}
+        </div>
+      </dialog>
+    </>
+  );
+}
+
 /* ---------- Toasts ---------- */
 type Toast = { id: number; tone: "success" | "error" | "info"; text: string };
 const ToastCtx = createContext<(t: Omit<Toast, "id">) => void>(() => {});

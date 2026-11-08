@@ -11,6 +11,7 @@ import { planCleanup } from "@/lib/price-book/cleanup";
 import { loadItems } from "@/lib/price-book/load";
 import { packagesCovering, suggestCode } from "@/lib/price-book/labels";
 import { LineAndCode } from "./add-item-code";
+import { FormDialog } from "@/components/ds/overlays";
 
 type Line = { id: string; key: string; name: string; sort_order: number };
 type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number; price_type: string; internal_note: string };
@@ -58,7 +59,40 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
 
   return (
     <>
-      <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made." />
+      <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made."
+        actions={editable ? (
+          <FormDialog label="Add item" title="Add an item">
+            <form action={addItem} className="grid gap-3 md:grid-cols-2">
+              <LineAndCode lines={lineChoices} />
+              <div className="md:col-span-2">
+                <label htmlFor="name" className="label">Name shown on quotes</label>
+                <input id="name" name="name" required maxLength={120} className="input" />
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="description" className="label">Description</label>
+                <input id="description" name="description" maxLength={300} className="input" />
+              </div>
+              <div>
+                <label htmlFor="unit_label" className="label">Charged</label>
+                <input id="unit_label" name="unit_label" defaultValue="each" maxLength={40} className="input" />
+              </div>
+              <div className="flex items-end gap-2 pb-2">
+                <input id="per_spouse" name="per_spouse" type="checkbox" className="h-4 w-4 accent-accent" />
+                <label htmlFor="per_spouse" className="text-sm">Charged for each spouse who needs it</label>
+              </div>
+              <div>
+                <label htmlFor="price" className="label">Price before tax ($)</label>
+                <input id="price" name="price" required inputMode="decimal" placeholder="299.00" className="input" />
+              </div>
+              <div>
+                <label htmlFor="effective_from" className="label">Price starts on</label>
+                <input id="effective_from" name="effective_from" type="date" required defaultValue={today} className="input" />
+              </div>
+              <input type="hidden" name="sort_order" value="1000" />
+              <div className="flex justify-end md:col-span-2"><button type="submit" className="btn">Add item</button></div>
+            </form>
+          </FormDialog>
+        ) : undefined} />
       <PriceBookTabs current="/admin/price-book" />
       {cleanupPending && <p className="mb-4 text-sm"><Link href="/admin/price-book/cleanup" className="text-navy-700 underline">Price book clean-up (after the Studio import)</Link></p>}
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -100,40 +134,6 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
         );
       })}
 
-      {editable && (
-        <section className="card">
-          <h2 className="mb-3 font-semibold">Add an item</h2>
-          <form action={addItem} className="grid gap-3 md:grid-cols-2">
-            <LineAndCode lines={lineChoices} />
-            <div className="md:col-span-2">
-              <label htmlFor="name" className="label">Name shown on quotes</label>
-              <input id="name" name="name" required maxLength={120} className="input" />
-            </div>
-            <div className="md:col-span-2">
-              <label htmlFor="description" className="label">Description</label>
-              <input id="description" name="description" maxLength={300} className="input" />
-            </div>
-            <div>
-              <label htmlFor="unit_label" className="label">Charged</label>
-              <input id="unit_label" name="unit_label" defaultValue="each" maxLength={40} className="input" />
-            </div>
-            <div className="flex items-end gap-2 pb-2">
-              <input id="per_spouse" name="per_spouse" type="checkbox" className="h-4 w-4 accent-accent" />
-              <label htmlFor="per_spouse" className="text-sm">Charged for each spouse who needs it</label>
-            </div>
-            <div>
-              <label htmlFor="price" className="label">Price before tax ($)</label>
-              <input id="price" name="price" required inputMode="decimal" placeholder="299.00" className="input" />
-            </div>
-            <div>
-              <label htmlFor="effective_from" className="label">Price starts on</label>
-              <input id="effective_from" name="effective_from" type="date" required defaultValue={today} className="input" />
-            </div>
-            <input type="hidden" name="sort_order" value="1000" />
-            <div className="md:col-span-2"><button type="submit" className="btn">Add item</button></div>
-          </form>
-        </section>
-      )}
     </>
   );
 }
