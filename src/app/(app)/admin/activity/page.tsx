@@ -9,6 +9,12 @@ const ENTITY_LABEL: Record<string, string> = {
   roles: "Role",
   role_permissions: "Permissions",
   settings: "Setting",
+  catalogue_items: "Price book item",
+  item_prices: "Price",
+  questionnaires: "Screening version",
+  questions: "Screening question",
+  rules: "Screening rule",
+  service_lines: "Service line",
 };
 
 export default async function ActivityPage() {
@@ -24,7 +30,7 @@ export default async function ActivityPage() {
 
   return (
     <>
-      <PageHeader title="Activity log" description="Every change to staff, roles, permissions and settings. The latest 200 entries. Entries cannot be changed or deleted." />
+      <PageHeader title="Activity log" description="Every change to staff, roles, permissions, settings, the price book and screening. The latest 200 entries. Entries cannot be changed or deleted." />
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead>
@@ -71,6 +77,31 @@ function describe(e: Entry, staffName: Map<string, string>, roleName: Map<string
     if (e.action === "insert") return `Role created: ${name}`;
     if (e.action === "delete") return `Role deleted: ${name}`;
     return oldRow.name !== newRow.name ? `Role renamed: ${oldRow.name} → ${newRow.name}` : `Role updated: ${name}`;
+  }
+  if (e.entity_type === "item_prices") {
+    const cents = Number(newRow.amount_cents ?? 0);
+    return `New price ${new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100)} from ${newRow.effective_from}${newRow.note ? ` (${newRow.note})` : ""}`;
+  }
+  if (e.entity_type === "catalogue_items") {
+    const name = String(newRow.name ?? oldRow.name ?? "");
+    if (e.action === "insert") return `Item added: ${name} (${newRow.code})`;
+    if (oldRow.is_active !== newRow.is_active) return `${name}: ${newRow.is_active ? "switched on" : "switched off"}`;
+    return `Item changed: ${name}`;
+  }
+  if (e.entity_type === "questionnaires") {
+    const label = `${newRow.route ?? oldRow.route} v${newRow.version ?? oldRow.version}`;
+    if (e.action === "insert") return `Draft started: ${label}`;
+    if (e.action === "delete") return `Draft deleted: ${label}`;
+    if (oldRow.status !== newRow.status) return `${label}: ${oldRow.status} → ${newRow.status}`;
+    return `${label}: details changed`;
+  }
+  if (e.entity_type === "questions") {
+    return `${e.action === "insert" ? "Added" : e.action === "delete" ? "Deleted" : "Changed"}: ${String(newRow.prompt ?? oldRow.prompt ?? "")}`;
+  }
+  if (e.entity_type === "rules") {
+    const r = (e.action === "delete" ? oldRow : newRow) as { kind?: string; item_code?: string; message?: string };
+    const what = r.kind === "add_item" ? `price rule for ${r.item_code}` : `${r.kind === "check" ? "check" : "out of scope rule"}: ${r.message}`;
+    return `${e.action === "insert" ? "Added" : e.action === "delete" ? "Deleted" : "Changed"} ${what}`;
   }
   if (e.entity_type === "settings") {
     if (e.entity_id === "lead_assignment") {

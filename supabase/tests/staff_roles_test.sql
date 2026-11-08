@@ -1,26 +1,6 @@
 -- Local tests for staff, roles and permissions. Run on a plain Postgres after local_shim.sql
 -- and all migrations. Every check prints PASS or raises an error.
 \set ON_ERROR_STOP 1
-create schema test;
-grant usage on schema test to authenticated, anon;
-
--- Runs a statement as the current role and returns the error message, or 'OK'.
-create function test.try(p_sql text) returns text language plpgsql as $$
-begin
-  execute p_sql;
-  return 'OK';
-exception when others then
-  return sqlerrm;
-end $$;
-grant execute on function test.try(text) to authenticated, anon;
-
-create function test.check(p_label text, p_ok boolean) returns text language plpgsql as $$
-begin
-  if not coalesce(p_ok, false) then raise exception 'FAIL: %', p_label; end if;
-  return 'PASS: ' || p_label;
-end $$;
-grant execute on function test.check(text, boolean) to authenticated, anon;
-
 -- Dummy logins (not real people).
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),

@@ -6,6 +6,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();
 
   const adminLinks = [
+    canView(access, "price_book") && { href: "/admin/price-book", label: "Price book" },
+    canView(access, "price_book") && { href: "/admin/screening", label: "Screening questions" },
     canView(access, "staff_accounts") && { href: "/admin/staff", label: "Staff" },
     access.is_owner && { href: "/admin/roles", label: "Roles and permissions" },
     canView(access, "settings") && { href: "/admin/settings", label: "Settings" },
