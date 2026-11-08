@@ -98,7 +98,7 @@ to every mailbox and override the lock.
 Lock applied 2026-11-08 and checked with Test-ServicePrincipalAuthorization:
 app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False.
 
-### Move the lock to studio@conceptaccounting.ca (decision 35, prepared 2026-11-08, not run yet)
+### Move the lock to studio@conceptaccounting.ca (decision 35, run 2026-11-08)
 
 The lock matches the mailbox's primary address. As soon as the primary address changes to
 studio@, the old filter no longer matches and the app cannot send (password resets fail) until
@@ -122,6 +122,9 @@ Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b018
    new result at once, but sending may lag.
 3. Vercel: set MAIL_FROM to studio@conceptaccounting.ca in Production and Preview, then redeploy
    the preview.
+   Done 2026-11-08 by Hashim: mailbox "Concept Studio", primary SMTP:studio@conceptaccounting.ca,
+   aliases app@conceptaccounting.ca and app@xceedcpas.onmicrosoft.com. Scope changed;
+   Test-ServicePrincipalAuthorization: studio@ InScope True, hashim@ InScope False.
 4. Test: request a password reset on the preview. The email must arrive from "Concept Studio"
    <studio@conceptaccounting.ca>. If it fails with 403, wait and retry (step 2 delay).
 

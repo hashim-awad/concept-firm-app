@@ -50,8 +50,8 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 ## In progress
 
 - **Email sender:** moving from app@ to studio@conceptaccounting.ca.
-  1. Hashim: set the primary address and the display name "Concept Studio" in Microsoft 365.
-  2. PowerShell command that moves the sending lock (Exchange RBAC scope): **ready** in
+  1. Done: primary address studio@, display name "Concept Studio", app@ kept as an alias.
+  2. Done: sending lock moved (studio@ InScope True, hashim@ False). Command in
      `docs/SETUP.md`, "Move the lock to studio@". Run it right after step 1: once the primary
      address changes, the app cannot send until the scope and MAIL_FROM are updated.
   3. Update MAIL_FROM in Vercel.
