@@ -161,14 +161,14 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
 
   const feesStep = (
     <Panel title="Fees">
-      <div id="feeTable" className="grid gap-2">
+      <div id="feeTable" className="@container grid gap-2">
         {ctl.fees.length ? (
-          <div className="hidden grid-cols-[2.2fr_1.2fr_1fr_28px] gap-1.5 text-[11.5px] text-ink-3 sm:grid"><span>Service</span><span>Frequency</span><span>Amount</span><span /></div>
+          <div className="hidden grid-cols-[2.2fr_1.2fr_1fr_28px] gap-1.5 text-[11.5px] text-ink-3 @lg:grid"><span>Service</span><span>Frequency</span><span>Amount</span><span /></div>
         ) : <p className="text-sm text-ink-3">No fee lines yet.</p>}
         {ctl.fees.map((fee, i) => (
           <div key={i} className="grid gap-1">
-            <div className="grid grid-cols-[2.2fr_1.2fr_1fr_28px] items-center gap-1.5">
-              <TextIn id={"fs_" + i} aria-label="Service" value={fee.svc} onValue={(x) => act((c) => c.setFee(i, "svc", x))} />
+            <div className="grid grid-cols-[1.3fr_1fr_28px] items-center gap-1.5 @lg:grid-cols-[2.2fr_1.2fr_1fr_28px]">
+              <TextIn id={"fs_" + i} className="col-span-3 @lg:col-span-1" aria-label="Service" value={fee.svc} onValue={(x) => act((c) => c.setFee(i, "svc", x))} />
               <SelectIn id={"fk_" + i} aria-label="Frequency" value={fee.kind} onValue={(x) => act((c) => c.setFee(i, "kind", x))}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</SelectIn>
               <TextIn id={"fa_" + i} aria-label="Amount" placeholder="$ or Included" value={fee.amt} onValue={(x) => act((c) => c.setFee(i, "amt", x))} />
               <button type="button" data-del={i} title="Remove line" aria-label="Remove line" onClick={() => act((c) => c.removeFee(i))} className="text-lg text-ink-3 hover:text-danger">&times;</button>
@@ -222,9 +222,8 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
   return (
     <StudioLayout
       form={<Stepper steps={steps} lastNote="Last step. Review the letter, then download." />}
-      side={
-        <div className="grid gap-4">
-          <Panel className="xl:sticky xl:top-4 xl:z-10">
+      controls={
+          <Panel>
             <ChecksPanel id="checks" list={scr.checks} />
             {scr.checks.filter((x) => x.key).map((x) => (
               <Tick key={x.key} checked={!!ctl.acks[x.key!]} onValue={(on) => act((c) => { c.acks[x.key!] = on; })} data-ack={x.key}>Registration position confirmed in writing (required for Final)</Tick>
@@ -236,9 +235,8 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
               snapshot={() => ({ f: { ...ctl.f }, fees: ctl.fees.map((x) => ({ ...x })), mode: ctl.mode, acks: { ...ctl.acks } })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={(id) => setClientId(id)} />
           </Panel>
-          <Paper id="paper" html={html} draft={ctl.mode !== "final"} />
-        </div>
       }
+      preview={<Paper id="paper" html={html} draft={ctl.mode !== "final"} />}
     />
   );
 }

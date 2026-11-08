@@ -9,5 +9,8 @@ export default async function StudioHarnessPage({ params }: PageProps<"/studio-h
   if (process.env.STUDIO_HARNESS !== "1") notFound();
   const { screen } = await params;
   if (!["corporate", "t1", "proposal"].includes(screen)) notFound();
-  return <Harness screen={screen as "corporate" | "t1" | "proposal"} />;
+  async function signOut() {
+    "use server";
+  }
+  return <Harness screen={screen as "corporate" | "t1" | "proposal"} signOut={signOut} />;
 }

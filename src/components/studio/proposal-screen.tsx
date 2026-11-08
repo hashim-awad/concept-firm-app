@@ -69,10 +69,10 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
             ))}
           </div>
           <p className="mt-3 mb-1 text-[13px] text-ink-3">Fees</p>
-          <div className="grid gap-1.5">
+          <div className="@container grid gap-1.5">
             {o.lines.map((l: any, j: number) => (
-              <div key={j} className="grid grid-cols-[2fr_1.2fr_1fr_auto] items-center gap-1.5">
-                <TextIn data-o={i} data-l={j} data-f="svc" aria-label="Fee description" id={`pl_${i}_${j}_svc`} value={l.svc} onValue={(x) => act((c) => c.setLine(i, j, "svc", x))} />
+              <div key={j} className="grid grid-cols-[1.3fr_1fr_auto] items-center gap-1.5 @lg:grid-cols-[2fr_1.2fr_1fr_auto]">
+                <TextIn className="col-span-3 @lg:col-span-1" data-o={i} data-l={j} data-f="svc" aria-label="Fee description" id={`pl_${i}_${j}_svc`} value={l.svc} onValue={(x) => act((c) => c.setLine(i, j, "svc", x))} />
                 <SelectIn data-o={i} data-l={j} data-f="kind" aria-label="Fee type" value={l.kind} onValue={(x) => act((c) => c.setLine(i, j, "kind", x))}>
                   {(e.PKIND as [string, string][]).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
                 </SelectIn>
@@ -142,9 +142,8 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
   return (
     <StudioLayout
       form={<Stepper steps={steps} lastNote="Last step. Review the proposal, then download." />}
-      side={
-        <div className="grid gap-4">
-          <Panel className="xl:sticky xl:top-4 xl:z-10">
+      controls={
+          <Panel>
             {approvedTax && !approvedTax[f.province] && (
               <p role="status" className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-[#5C3D00]">
                 No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final proposal needs one: an owner approves rates under GST/HST rates. Drafts are fine.
@@ -157,9 +156,8 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
               snapshot={() => ({ f: { ...ctl.f }, opts: JSON.parse(JSON.stringify(ctl.opts)), rec: ctl.rec, mode: ctl.mode })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={() => {}} />
           </Panel>
-          <Paper id="p_paper" html={html} draft={ctl.mode !== "final"} />
-        </div>
       }
+      preview={<Paper id="p_paper" html={html} draft={ctl.mode !== "final"} />}
     />
   );
 }

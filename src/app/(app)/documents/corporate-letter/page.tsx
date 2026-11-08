@@ -1,6 +1,6 @@
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
+import { WorkspaceHeader } from "@/components/studio/kit";
 import { CorporateLetterScreen } from "@/components/studio/corporate-letter-screen";
 import { corporations, openDocument, screenSetup } from "@/lib/studio/page-data";
 import { todayToronto } from "@/lib/dates";
@@ -32,7 +32,7 @@ export default async function CorporateLetterPage({ searchParams }: PageProps<"/
   }
   return (
     <>
-      <PageHeader eyebrow="Documents" title="Corporate Letter" description="One letter per corporate client. Tick the services; each adds its own section." />
+      <WorkspaceHeader title="Corporate Letter" description="One letter per corporate client. Tick the services; each adds its own section." />
       <CorporateLetterScreen env={env} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={fromProposalClient ?? startClientId} proposalPick={proposalPick as never}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>

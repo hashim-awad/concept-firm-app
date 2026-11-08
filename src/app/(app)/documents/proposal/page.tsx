@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
+import { WorkspaceHeader } from "@/components/studio/kit";
 import { ProposalScreen } from "@/components/studio/proposal-screen";
 import { corporations, openDocument, screenSetup } from "@/lib/studio/page-data";
 import { formatDate, todayToronto } from "@/lib/dates";
@@ -39,7 +39,7 @@ export default async function ProposalPage({ searchParams }: PageProps<"/documen
   ) : <p className="text-sm text-ink-3">No proposals recorded yet.</p>;
   return (
     <>
-      <PageHeader eyebrow="Documents" title="Proposal" description="Up to three options. The client picks one, and it becomes the Corporate Letter." />
+      <WorkspaceHeader title="Proposal" description="Up to three options. The client picks one, and it becomes the Corporate Letter." />
       <ProposalScreen env={env} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId} approvedTax={approvedTax} recent={list}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>

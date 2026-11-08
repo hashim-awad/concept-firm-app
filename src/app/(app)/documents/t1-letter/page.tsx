@@ -1,6 +1,6 @@
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
+import { WorkspaceHeader } from "@/components/studio/kit";
 import { T1LetterScreen } from "@/components/studio/t1-letter-screen";
 import { individuals, openDocument, screenSetup } from "@/lib/studio/page-data";
 import { todayToronto } from "@/lib/dates";
@@ -19,7 +19,7 @@ export default async function T1LetterPage({ searchParams }: PageProps<"/documen
   } : undefined;
   return (
     <>
-      <PageHeader eyebrow="Documents" title="Personal Tax Letter (T1)" description="Personal tax engagement letters for individuals and families." />
+      <WorkspaceHeader title="Personal Tax Letter (T1)" description="Personal tax engagement letters for individuals and families." />
       <T1LetterScreen env={env} clients={individuals(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>

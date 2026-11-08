@@ -111,9 +111,8 @@ export function T1LetterScreen({ env, clients, isOwner, handlers, initial, start
   return (
     <StudioLayout
       form={<Stepper steps={steps} lastNote="Last step. Review the letter, then download." />}
-      side={
-        <div className="grid gap-4">
-          <Panel className="xl:sticky xl:top-4 xl:z-10">
+      controls={
+          <Panel>
             <ChecksPanel id="t1_checks" list={scr.checks} />
             {scr.checks.filter((x) => x.key).map((x) => (
               <Tick key={x.key} checked={!!ctl.acks[x.key!]} onValue={(on) => act((c) => { c.acks[x.key!] = on; })} data-t1ack={x.key}>Registration position confirmed in writing (required for Final)</Tick>
@@ -125,9 +124,8 @@ export function T1LetterScreen({ env, clients, isOwner, handlers, initial, start
               snapshot={() => ({ f: { ...ctl.f }, mode: ctl.mode, acks: { ...ctl.acks } })}
               clientId={clientId} initialDocumentId={initial?.documentId} onClientSaved={(id) => setClientId(id)} />
           </Panel>
-          <Paper id="t1_paper" html={html} draft={!standalone && ctl.mode !== "final"} />
-        </div>
       }
+      preview={<Paper id="t1_paper" html={html} draft={!standalone && ctl.mode !== "final"} />}
     />
   );
 }

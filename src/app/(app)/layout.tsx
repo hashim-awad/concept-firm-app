@@ -2,6 +2,7 @@ import { requireAccess, canView, canEdit } from "@/lib/access";
 import { ToastProvider } from "@/components/ds/overlays";
 import { signOut } from "../login/actions";
 import { AppSidebar } from "./app-sidebar";
+import { MainArea } from "./main-area";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();
@@ -23,9 +24,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             settings: canView(access, "settings"),
           }}
         />
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-9">
-          <div className="mx-auto max-w-6xl">{children}</div>
-        </main>
+        <MainArea>{children}</MainArea>
       </div>
     </ToastProvider>
   );
