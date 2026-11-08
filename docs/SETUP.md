@@ -40,3 +40,10 @@ Database passwords are kept in the firm's password manager only:
 - First successful run: 2026-11-08, applied 20261108000000_foundation_security.sql to Test.
 - Live deploys: not set up yet. Plan: a "production" GitHub environment with Hashim as required
   reviewer, running only from main.
+
+## Test project: auth setup (2026-11-08)
+
+- Public sign-up switched off (Authentication > Sign In / Providers > Allow new users to sign up = off).
+- First owner set: hashim@conceptaccounting.ca, via `private.bootstrap_owner` in the SQL editor.
+- Still to do on Test: invite and recovery email templates, Microsoft 365 SMTP, Site URL and redirect URLs.
+- Live project: none of the above done yet (go-live checklist).
