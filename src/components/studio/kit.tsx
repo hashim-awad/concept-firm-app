@@ -2,7 +2,7 @@
 // Shared parts of the Studio document screens: the controller hook, form controls that keep
 // Studio's element ids (the screen parity test fills both pages with the same steps), the
 // stepper, the checks panel and the paper preview.
-import { useReducer, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Check as CheckIcon } from "lucide-react";
 import { Button, inputClass } from "@/components/ds/primitives";
 import { checkLabel, checksSummary, type Check } from "@/lib/studio/screen";
@@ -151,11 +151,22 @@ export function ModeSwitch({ name, mode, onMode }: { name: string; mode: "draft"
   );
 }
 
-/* ---------- Paper preview (Studio's own HTML) ---------- */
+/* ---------- Paper preview (Studio's own HTML, scaled to fit like Studio's "Fit width") ---------- */
 export function Paper({ id, html, draft }: { id: string; html: string; draft: boolean }) {
+  const [zoom, setZoom] = useState(1);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const fit = () => setZoom(Math.max(0.4, Math.min(1, (el.clientWidth - 24) / 816)));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="studio-preview overflow-x-auto rounded-lg bg-sand-100 p-3">
-      <div id={id} className={cx("paper", draft && "draft")} dangerouslySetInnerHTML={{ __html: html }} />
+    <div ref={wrap} className="studio-preview overflow-hidden rounded-lg bg-sand-100 p-3">
+      <div id={id} className={cx("paper", draft && "draft")} style={{ zoom }} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }
