@@ -53,3 +53,8 @@ Database passwords are kept in the firm's password manager only:
 - Team "Concept Accounting", Pro plan (US$20/month, 1 seat: Hashim). Signed up 2026-11-08.
 - Vercel GitHub app installed on hashim-awad with access to concept-firm-app only.
 - Server code region: Montréal (yul1), set in `vercel.json` so it is part of the code.
+- Project concept-firm-app imported 2026-11-08. Framework preset: Next.js. Production branch: main.
+- Preview environment variables (Test project): NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  (Config type), SUPABASE_SECRET_KEY (Secret type). System environment variables exposed.
+- Production environment variables: none yet (go-live).
+- Plan is a 14-day Pro trial from 2026-11-08: upgrade before 2026-11-22.
