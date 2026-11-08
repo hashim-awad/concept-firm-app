@@ -73,3 +73,24 @@ Route: Supabase Auth "Send Email" hook -> app route /api/hooks/send-email -> Mic
   - Client secret "Vercel - concept-firm-app": created 2026-11-08, expires 2027-11-08 (12 months).
     Stored only in Vercel as MS_CLIENT_SECRET (Production and Preview). Outlook reminder set for
     2027-10-25 with renewal steps.
+  - Enterprise application (service principal) Object ID: b7c7a738-5524-4238-a6bc-2139854da921
+  - Vercel settings (Production and Preview): MS_TENANT_ID, MS_CLIENT_ID, MAIL_FROM (Config),
+    MS_CLIENT_SECRET (Secret).
+
+### Lock: the app may send only as app@conceptaccounting.ca (Exchange RBAC for Applications)
+
+Run once in PowerShell by an Exchange admin:
+
+```powershell
+Install-Module ExchangeOnlineManagement -Scope CurrentUser
+Connect-ExchangeOnline -UserPrincipalName hashim@conceptaccounting.ca
+New-ServicePrincipal -AppId e841a588-c156-4569-a759-ca34b93b0181 -ObjectId b7c7a738-5524-4238-a6bc-2139854da921 -DisplayName "Concept Firm App - email"
+New-ManagementScope -Name "Concept Firm App mailbox only" -RecipientRestrictionFilter "PrimarySmtpAddress -eq 'app@conceptaccounting.ca'"
+New-ManagementRoleAssignment -App e841a588-c156-4569-a759-ca34b93b0181 -Role "Application Mail.Send" -CustomResourceScope "Concept Firm App mailbox only"
+# Checks: first should be InScope True, second False
+Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b0181 -Resource app@conceptaccounting.ca
+Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b0181 -Resource hashim@conceptaccounting.ca
+```
+
+Never add Mail.Send under "API permissions" in Entra for this app: that permission would apply
+to every mailbox and override the lock.
