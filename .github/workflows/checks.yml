@@ -48,3 +48,18 @@ jobs:
       - run: npx eslint src
       - run: npm test
       - run: npx next build
+
+  studio-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Engine copy matches the Studio reference file
+        run: npm run studio:extract && git diff --exit-code src/lib/studio/engine.generated.js
+      - run: npx playwright install --with-deps chromium
+      - name: Parity with the original Studio page
+        run: npm run test:parity
