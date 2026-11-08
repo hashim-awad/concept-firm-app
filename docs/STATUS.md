@@ -25,7 +25,7 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 **Price book**
 - Catalogue, packages and floors, T1 rows.
-- Clean-up screen built (decision 33).
+- Clean-up applied on Test (decision 33): 51 changes, then PTX-135 and PTX-136 set to each spouse (Hashim, 2026-11-08). Redo in Live.
 
 **Templates (decisions 30 and 34)**
 - Open a template, click text, change it, then Review and publish.
@@ -46,7 +46,6 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## In progress
 
-- **Price book clean-up:** approved by Hashim 2026-11-08 with one change: PTX-135 (US 1040-NR, federal) and PTX-136 (US state return) charged for each spouse who needs it (decision 7). Applied 2026-11-08 (51 changes) from the older preview, so PTX-135 and PTX-136 were saved as once per couple. The clean-up now finds that and offers the two fixes; Hashim applies them on this branch's preview.
 - **Email sender:** moving from app@ to studio@conceptaccounting.ca.
   1. Hashim: set the primary address and the display name "Concept Studio" in Microsoft 365.
   2. PowerShell command that moves the sending lock (Exchange RBAC scope): **ready** in
@@ -68,26 +67,24 @@ No other known bugs.
 
 ## Waiting on Hashim
 
-1. **Price book clean-up:** open Price book, then Price book clean-up. Check it (send a screenshot if anything looks off) and press Apply.
-2. **Email:** Microsoft 365 step for studio@ (primary address and display name). Send a screenshot.
-3. **Templates:** make one small change, Review and publish, then check it in a draft Corporate letter.
-4. **Trial templates:** mark ready the ones you approved in Studio.
-5. **Quality log:** in Phase 3, or dropped?
-6. **Accounts:** Vercel Pro before Nov 22, 2026, and 2FA on Vercel, Supabase and GitHub.
-7. **Later inputs:**
+1. **Email:** Microsoft 365 step for studio@ (primary address and display name). Send a screenshot.
+2. **Templates:** make one small change, Review and publish, then check it in a draft Corporate letter.
+3. **Trial templates:** mark ready the ones you approved in Studio.
+4. **Quality log:** in Phase 3, or dropped?
+5. **Accounts:** Vercel Pro before Nov 22, 2026, and 2FA on Vercel, Supabase and GitHub.
+6. **Later inputs:**
    - For Phase 2: the T2 price book and the current T1 engagement letter.
    - For Phase 3: the Compilation Workpaper (GIFI COA list).
 
 ## Next steps, in order
 
-1. **Price book clean-up:** Apply (Hashim).
-2. **Email:** finish the studio@ move (Hashim, then Claude).
-3. **Go live** (decision 35), one step at a time with Hashim:
+1. **Email:** finish the studio@ move (Hashim, then Claude).
+2. **Go live** (decision 35), one step at a time with Hashim:
    - live database deploy with owner approval
    - studio.conceptaccounting.ca on Vercel production
    - the live email hook
    - setup redone in Live (import, signature, rates, clean-up)
    - real data cleared from Test
-4. **Use it alone:** Hashim uses Concept Studio alone for 1 to 2 weeks and reports anything wrong or awkward, then invites the team.
-5. **Phase 2:** T1 workflow. Public start page, screening, leads, automatic quotes with GST/HST, online signing, TaxDome handoff.
-6. **Phase 3:** Year-End, as in the brief (gates, ledger, schedules, binder, GIFI export, T2 package).
+3. **Use it alone:** Hashim uses Concept Studio alone for 1 to 2 weeks and reports anything wrong or awkward, then invites the team.
+4. **Phase 2:** T1 workflow. Public start page, screening, leads, automatic quotes with GST/HST, online signing, TaxDome handoff.
+5. **Phase 3:** Year-End, as in the brief (gates, ledger, schedules, binder, GIFI export, T2 package).
