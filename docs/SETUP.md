@@ -94,3 +94,6 @@ Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b018
 
 Never add Mail.Send under "API permissions" in Entra for this app: that permission would apply
 to every mailbox and override the lock.
+
+Lock applied 2026-11-08 and checked with Test-ServicePrincipalAuthorization:
+app@conceptaccounting.ca InScope True; hashim@conceptaccounting.ca InScope False.
