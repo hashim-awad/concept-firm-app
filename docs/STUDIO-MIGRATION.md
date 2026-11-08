@@ -108,3 +108,20 @@ The screen test runs the app with `STUDIO_HARNESS=1`, which opens the test-only 
 3. GST/HST rates: enter the rates for ON, AB and BC after checking the CRA page, then approve.
 4. Template library: approve the trial templates you approved in Studio.
 5. Side-by-side review with your five cases (dummy names): make each in Studio and in the app.
+
+## After the switch (decision 30, from 2026-11-09)
+
+The app is the only source of truth; Studio is retired. Studio parity is now a baseline check:
+with no wording edits, the app must still produce exactly EL v3.31 (the tests above keep
+running for that). Wording is edited in the app:
+
+- `scripts/wordify.mjs` turns each piece of client-facing wording in the copied engine into
+  an editable piece (`__W`/`__WH`), keyed by a hash of the original text. The list of pieces is
+  `src/lib/studio/wording.generated.json`.
+- Database: `wording_versions` (draft, approved, one current) and `wording_texts` (only the
+  pieces that differ from EL v3.31). Owners approve; an earlier version can be made current
+  again with a reason. Approved versions never change.
+- Screens: Template library, Wording versions. Click wording in the sample documents, edit,
+  save in the draft, approve. New letters use the current version; each PDF records which.
+- Not editable yet: the order of sections, adding or removing a clause, and which section a
+  service adds. Those are structure, still in code; ask for them as a change.
