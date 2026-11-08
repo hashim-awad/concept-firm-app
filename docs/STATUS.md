@@ -47,6 +47,14 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 **Menu (decision 37)**
 - New menu: Home, Sales, Clients, Work, Documents, Quality, Firm setup, Admin. Soon items greyed out. Folding groups with badges, Ctrl+K client search, client page with tabs, My day with signatures waiting and T2 filing deadlines, Team and roles merged.
 
+## Blocked: GitHub account suspended (2026-11-08)
+
+- GitHub suspended the account hashim-awad on Nov 8, 2026 (most likely an automatic abuse flag on a new account with heavy automated activity; GitHub has not said). Sign-in, the repository, pull request #1 and pushes are blocked (403).
+- Appeal sent: GitHub Support ticket 4973605 (Nov 8, 2026, 3:23 PM).
+- Code backed up: full copy of the current code and the change list sent to Hashim on Nov 8, 2026, saved in the firm records folder.
+- Go-live paused at step 4 (merge pull request #1 into main). Live database untouched and empty. The Test app keeps running on its existing Vercel builds.
+- Do not open a second GitHub account to get around the suspension.
+
 ## In progress
 
 - **Email sender:** moving from app@ to studio@conceptaccounting.ca.
