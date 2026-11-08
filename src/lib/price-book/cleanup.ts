@@ -30,13 +30,14 @@ export const REPLACE: [string, string][] = [
   ["T1_T1135_DETAILED", "PTX-129"], ["T1_FOREIGN_INCOME", "PTX-130"], ["T1_EMPLOYMENT_EXP", "PTX-131"], ["T1_MOVING", "PTX-132"],
 ];
 
-// 5. New T1 items from the brief.
+// 5. New T1 items from the brief. PTX-133, 135 and 136 are charged for each spouse who needs
+// them, like the other per-return add-ons (decision 7; 135 and 136 set by Hashim, 2026-11-08).
 const T1_ACCOUNT = "4020 Tax Preparation - Personal (T1)";
 export const NEW_ITEMS = [
   { code: "PTX-133", name: "Crypto or active trading, including options", unit_label: "per return", per_spouse: true, price_cents: 24900, sort_order: 133 },
   { code: "PTX-134", name: "Partnership interest with a T5013 slip", unit_label: "per partnership", per_spouse: false, price_cents: 14900, sort_order: 134 },
-  { code: "PTX-135", name: "US non-resident return (1040-NR), federal", unit_label: "per return", per_spouse: false, price_cents: 79900, sort_order: 135 },
-  { code: "PTX-136", name: "US state return", unit_label: "per state return", per_spouse: false, price_cents: 24900, sort_order: 136 },
+  { code: "PTX-135", name: "US non-resident return (1040-NR), federal", unit_label: "per return", per_spouse: true, price_cents: 79900, sort_order: 135 },
+  { code: "PTX-136", name: "US state return", unit_label: "per state return", per_spouse: true, price_cents: 24900, sort_order: 136 },
 ];
 
 // 6. Notes moved out of the "Charged" column.

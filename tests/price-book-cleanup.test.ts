@@ -31,6 +31,15 @@ test("plan: lines, seed replacement with per-spouse carried over, notes, new ite
   assert.equal(r.plan[r.plan.length - 1].op, "remove_empty_line");
 });
 
+test("new items: crypto and the US returns are charged for each spouse, partnership once", () => {
+  const r = planCleanup([item("PTX-129", "t1")], ["t1"]);
+  const spouse = (c: string) => r.plan.find((o) => o.op === "add_item" && o.code === c)?.per_spouse;
+  assert.equal(spouse("PTX-133"), true);
+  assert.equal(spouse("PTX-134"), false);
+  assert.equal(spouse("PTX-135"), true);
+  assert.equal(spouse("PTX-136"), true);
+});
+
 test("missing PTX-129 blocks the clean-up", () => {
   const r = planCleanup([item("PTX-110", "t1")], ["t1"]);
   assert.ok(r.blockers.some((b) => b.includes("PTX-129")));
