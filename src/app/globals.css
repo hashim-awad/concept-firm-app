@@ -12,6 +12,58 @@
   --ok: #1f5c46;
 }
 
+/* ---------------------------------------------------------------------------
+   Concept design system tokens (see /design). Names are new so existing screens
+   keep their current look until the redesign is approved.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Brand: Concept navy */
+  --color-navy-950: #0B1A3A;
+  --color-navy-900: #0F2350;
+  --color-navy-800: #142F66;
+  --color-navy-700: #1A3C7C; /* brand */
+  --color-navy-600: #2A5096;
+  --color-navy-500: #4A6DAE;
+  --color-navy-200: #C9D5EA;
+  --color-navy-100: #E4EAF5;
+  --color-navy-50: #F2F5FB;
+
+  /* Warm neutrals */
+  --color-paper: #FAF9F6;     /* page background */
+  --color-surface: #FFFFFF;   /* cards */
+  --color-sand-50: #F6F4EF;
+  --color-sand-100: #EEEBE4;
+  --color-sand-200: #E3DFD6;  /* borders */
+  --color-sand-300: #CFC9BD;  /* strong borders */
+  --color-ink: #1B2130;       /* main text, 15:1 on paper */
+  --color-ink-2: #4E5466;     /* secondary text, 7.4:1 */
+  --color-ink-3: #6B7080;     /* small print, 4.7:1 */
+
+  /* Concept green (the chevron in the logo). Accent for highlights and key actions.
+     Always pair with navy text: navy on green is 4.7:1. Never white text on green. */
+  --color-lime-600: #6E9C1F;
+  --color-lime-500: #86BC28;
+  --color-lime-400: #9DCB4A;
+  --color-lime-100: #EEF6DD;
+  --color-lime-50: #F6FAEC;
+
+  /* Feedback */
+  --color-success: #1F7A4A;
+  --color-success-soft: #E5F3EA;
+  --color-warning: #8A5A00;
+  --color-warning-soft: #FBF0D9;
+  --color-danger: #B42318;
+  --color-danger-soft: #FCE8E6;
+  --color-info: #1A3C7C;
+  --color-info-soft: #E4EAF5;
+
+  --font-brand: "Plus Jakarta Sans Variable", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --radius-ds: 10px;
+  --shadow-card: 0 1px 2px rgb(27 33 48 / 0.04), 0 1px 3px rgb(27 33 48 / 0.06);
+  --shadow-raised: 0 4px 12px rgb(27 33 48 / 0.08), 0 2px 4px rgb(27 33 48 / 0.05);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -58,3 +110,12 @@ body {
 .table td {
   @apply border-b border-border px-3 py-2 align-middle;
 }
+
+/* Design system base, applied inside .ds containers only (until approval). */
+.ds {
+  font-family: var(--font-brand);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+.ds .num, .ds table { font-variant-numeric: tabular-nums; }
+.ds :focus-visible { outline: 2px solid var(--color-navy-600); outline-offset: 2px; border-radius: 6px; }

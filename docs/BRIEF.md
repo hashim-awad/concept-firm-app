@@ -34,6 +34,8 @@ One firm web app, owned by the firm, that keeps running without Claude. It is th
 | 19 | Spam | Hidden trap field plus a submission limit. No third-party captcha. |
 | 20 | Sent | Staff click "Copy email", send from Outlook, then click "Mark as sent". The 21-day clock starts at that click. Auto-generated quotes stay draft until a staff member marks them sent. |
 | 21 | Retention | Lost and out-of-scope leads, with their screening answers, are deleted automatically 24 months after they close. Owners can change the period in settings. Signed documents and signing records are kept. Each deletion is logged with date and count only. |
+| 22 | Sales tax on quotes | GST/HST only, based on the client's province. Concept does not collect PST or QST (an owner can add that later on the admin page). Every rate shows its CRA source page, date checked and who checked it. Hashim approves the rate table before any quote uses it. If the province is missing or unclear, no quote is generated until it is fixed. Never default to Ontario. |
+| 23 | Design system | Concept navy #1A3C7C as the main colour, warm neutral palette, one accent for actions, Concept logo in the sidebar and on all client pages. One professional font with a clear size scale; tabular figures in tables. Shared components everywhere. Client pages first: premium, calm, mobile-first. Staff screens dense and fast. Readable contrast, keyboard friendly. A Design page shows all of it with dummy data; Hashim approves before screens are restyled. |
 
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Free plan while building; Pro before go-live.
@@ -112,7 +114,22 @@ Add-ons:
 | Employment expenses (T2200/T777) | $149 | per return | per spouse |
 | Moving expenses | $149 | per return | per spouse |
 
-Items from the first brief still to be priced or moved to out of scope (Hashim is pricing these now): crypto or options, property held in a partnership or trust, foreign tax return needed, treaty claims, GST/HST on an assignment not handled at closing. "Required documents missing" is dropped from screening.
+Remaining T1 items (decided 2026-11-08, all before HST). There is no triage route for T1.
+| Situation | Treatment |
+|---|---|
+| Crypto or active trading, including options | $249 per return (per spouse if both). Required upload: crypto tax report or broker realized gain/loss report. No report: out of scope. |
+| Partnership interest with a T5013 slip | $149 per partnership |
+| Partnership with no slip (needs its own return) | Out of scope |
+| Trust beneficiary with a T3 slip | No add-on, covered by the base |
+| Client acting as trustee | Out of scope |
+| US non-resident return (1040-NR) for US rental or US-source income | $799 federal, plus $249 per state return |
+| US persons | Out of scope |
+| Other foreign country returns | Out of scope |
+| Routine treaty deductions on foreign pensions | Included in the $149 foreign income add-on |
+| Residency tie-breaker claims, treaty-exempt employment income | Out of scope |
+| GST/HST on an assignment sale not handled at closing | Out of scope |
+
+"Required documents missing" is dropped from screening.
 
 Out of scope (flagged for Hashim, no quote): non-resident, US person, estate or trust, prior years, CRA review underway.
 
@@ -133,7 +150,6 @@ Concept Studio today is a single HTML tool on claude.ai: engagement letters (T1,
 
 ## Still open
 - Engagement terms text (waiting for the current T1 engagement letter).
-- Remaining T1 items and their prices, including the old triage items (price or out of scope).
 - T2 price book from Concept Studio.
 
 ## How to work with Hashim

@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </div>
         <nav className="flex flex-wrap gap-1 px-3 pb-3 md:block md:space-y-1">
           <NavLink href="/" label="Home" />
+          <NavLink href="/design" label="Design (for approval)" />
           {adminLinks.length > 0 && (
             <p className="hidden px-2 pt-4 pb-1 text-xs font-medium uppercase tracking-wide text-muted md:block">Admin</p>
           )}
