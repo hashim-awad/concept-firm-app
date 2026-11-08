@@ -129,6 +129,10 @@ Test-ServicePrincipalAuthorization -Identity e841a588-c156-4569-a759-ca34b93b018
 
 - Branch preview address (stable for branch claude/modest-euler-ldxydw):
   https://concept-firm-app-git-claude-modest-eu-014c3b-concept-accounting.vercel.app
+- Current work branch claude/affectionate-davinci-bfls2w (from 2026-11-08), stable address:
+  https://concept-firm-app-git-claude-affection-694391-concept-accounting.vercel.app
+  Each push also makes a one-off deployment link; use the stable branch address instead.
+  The Send Email hook still points at the modest-euler preview, so links in staff emails open there.
 - Vercel Deployment Protection: Vercel Authentication on (previews private to the team).
   A "Protection Bypass for Automation" secret (note: "Supabase email hook") lets Supabase reach
   the hook. It is part of the hook URL saved in Supabase, and nowhere else.
