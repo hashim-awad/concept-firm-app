@@ -7,6 +7,8 @@ import { formatCents } from "@/lib/screening/engine";
 import { formatDate, todayToronto } from "@/lib/dates";
 import { addItem } from "./actions";
 import { PriceBookTabs } from "./tabs";
+import { planCleanup } from "@/lib/price-book/cleanup";
+import { loadItems } from "@/lib/price-book/load";
 
 type Line = { id: string; key: string; name: string; sort_order: number };
 type Item = { id: string; service_line_id: string; code: string; name: string; unit_label: string; per_spouse: boolean; is_active: boolean; sort_order: number; price_type: string; internal_note: string };
@@ -24,6 +26,14 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
     supabase.from("item_prices").select("item_id, amount_cents, effective_from").order("effective_from"),
   ]);
 
+  // The clean-up link shows only while the clean-up still has something to do (needed again in Live).
+  let cleanupPending = false;
+  if (access.is_owner) {
+    const { items: all, lineKeys } = await loadItems(supabase);
+    const r = planCleanup(all, lineKeys);
+    cleanupPending = r.plan.length > 0 || r.blockers.length > 0;
+  }
+
   const current = new Map<string, Price>();
   const upcoming = new Map<string, Price>();
   for (const p of (prices ?? []) as Price[]) {
@@ -35,7 +45,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
     <>
       <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made." />
       <PriceBookTabs current="/admin/price-book" />
-      {access.is_owner && <p className="mb-4 text-sm"><Link href="/admin/price-book/cleanup" className="text-navy-700 underline">Price book clean-up (after the Studio import)</Link></p>}
+      {cleanupPending && <p className="mb-4 text-sm"><Link href="/admin/price-book/cleanup" className="text-navy-700 underline">Price book clean-up (after the Studio import)</Link></p>}
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       {((lines ?? []) as Line[]).map((line) => {
