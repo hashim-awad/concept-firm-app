@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
-import { settingsPage } from "./tabs";
 
+// Each setting has its own page under /admin/settings; a save returns to that page.
 const PAGE = "/admin/settings";
 
 export async function saveLeadAssignment(formData: FormData) {
@@ -19,16 +19,16 @@ export async function saveLeadAssignment(formData: FormData) {
     p_key: "lead_assignment",
     p_value: { mode, staff_ids: staffIds },
   });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Lead assignment saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/lead-assignment`, error ? "error" : "msg", error ? error.message : "Lead assignment saved."));
 }
 
 export async function saveRetention(formData: FormData) {
   const months = Number(formData.get("months"));
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "retention_months", p_value: months });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("data"), error ? "error" : "msg", error ? error.message : "Retention period saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/retention`, error ? "error" : "msg", error ? error.message : "Retention period saved."));
 }
 
 // Signer names per document type (decision 25). Owners only; the database checks again.
@@ -39,14 +39,14 @@ export async function saveSigner(formData: FormData) {
     p_key: key,
     p_value: { name: String(formData.get("name") ?? ""), title: String(formData.get("title") ?? "") },
   });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("letters"), error ? "error" : "msg", error ? error.message : "Signer name saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/signers`, error ? "error" : "msg", error ? error.message : "Signer name saved."));
 }
 
 // The signature image goes to private storage (owners only), never into the code.
 export async function uploadSignature(formData: FormData) {
   const file = formData.get("signature");
-  const fail = (m: string) => redirect(withMessage(settingsPage("letters"), "error", m));
+  const fail = (m: string) => redirect(withMessage(`${PAGE}/signature`, "error", m));
   if (!(file instanceof File) || file.size === 0) fail("Choose the signature image (PNG).");
   const f = file as File;
   if (f.size > 1024 * 1024) fail("The image must be under 1 MB.");
@@ -57,8 +57,8 @@ export async function uploadSignature(formData: FormData) {
   const up = await supabase.storage.from("brand-private").upload("signature/signature.png", bytes, { contentType: "image/png", upsert: true });
   if (up.error) fail("Only an owner can upload the signature.");
   const { error } = await supabase.rpc("update_setting", { p_key: "signature_image", p_value: { uploaded: true } });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("letters"), error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/signature`, error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
 }
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -68,15 +68,15 @@ export async function saveBusinessHours(formData: FormData) {
   const value = Object.fromEntries(DAYS.map((d) => [d, formData.get(`${d}_open`) === "on" ? [String(formData.get(`${d}_start`) ?? ""), String(formData.get(`${d}_end`) ?? "")] : null]));
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "business_hours", p_value: value });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Business hours saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/business-hours`, error ? "error" : "msg", error ? error.message : "Business hours saved."));
 }
 
 export async function saveBookingLink(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "booking_link", p_value: String(formData.get("url") ?? "").trim() });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Booking link saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/booking-link`, error ? "error" : "msg", error ? error.message : "Booking link saved."));
 }
 
 export async function saveT1Rules(formData: FormData) {
@@ -85,21 +85,21 @@ export async function saveT1Rules(formData: FormData) {
   const { error } = await supabase.rpc("update_setting", { p_key: "t1_rules", p_value: {
     moving_km: num("moving_km"), t1135_simple_over: num("t1135_simple_over"), t1135_detailed_from: num("t1135_detailed_from"), checked_on: String(formData.get("checked_on") ?? ""),
   } });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("tax"), error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/t1-rules`, error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
 }
 
 export async function saveLeadSources(formData: FormData) {
   const list = String(formData.get("sources") ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "lead_sources", p_value: list });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Lead sources saved."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/lead-sources`, error ? "error" : "msg", error ? error.message : "Lead sources saved."));
 }
 
 export async function saveStartPage(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "start_page_open", p_value: formData.get("open") === "on" });
-  revalidatePath(PAGE);
-  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
+  revalidatePath(PAGE, "layout");
+  redirect(withMessage(`${PAGE}/start-page`, error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
 }

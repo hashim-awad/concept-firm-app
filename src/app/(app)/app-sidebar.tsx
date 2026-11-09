@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, BookOpen, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, History, Home, Landmark, Library, ListChecks,
-  CloudDownload, LogOut, Menu, Newspaper, Percent, ScrollText, Settings, Sparkles, Tags, UserPlus, Users, Wallet, X, Briefcase, Layers,
+  BarChart3, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, Home, Landmark,
+  LogOut, Menu, ScrollText, Settings, Sparkles, Tags, UserPlus, Wallet, X, Briefcase, Layers,
 } from "lucide-react";
 import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
 import { StudioLogo } from "@/components/ds/brand";
@@ -32,7 +32,7 @@ export type SidebarCounts = { proposalsAwaiting: number; lettersAwaiting: number
 const OWNER: [string, string][] = [
   ["/documents/proposal", "/proposals"], ["/t1-pricing", "/proposals"],
   ["/documents/corporate-letter", "/engagement-letters"], ["/documents/t1-letter", "/engagement-letters"],
-  ["/documents/engagements", "/engagements"], ["/admin/staff", "/admin/team"], ["/admin/roles", "/admin/team"],
+  ["/documents/engagements", "/engagements"],
 ];
 
 // Menu sections and items follow the person's permissions. The database enforces them again on every read.
@@ -70,19 +70,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     group("Documents", [(access.documents || access.vault) && item("/documents", "Document vault", <FolderLock key="i" />)]),
     group("Quality", [access.isOwner && soon("Reviews", <ClipboardCheck key="i" />)]),
     group("Firm setup", [
-      access.pricing && item("/admin/price-book", "Price book", <BookOpen key="i" />),
-      access.templates && item("/admin/templates", "Templates", <Library key="i" />),
-      access.screening && item("/admin/screening", "Screening questions", <ListChecks key="i" />),
       access.isOwner && soon("Chart of accounts", <ScrollText key="i" />),
       access.isOwner && soon("Vendor rules", <Tags key="i" />),
-      access.taxRates && item("/admin/tax-rates", "GST/HST rates", <Percent key="i" />),
-    ]),
-    group("Admin", [
-      (access.staff || access.isOwner) && item("/admin/team", "Team and roles", <Users key="i" />),
-      access.settings && item("/admin/settings", "Settings", <Settings key="i" />),
-      access.isOwner && item("/admin/taxdome-import", "Import from TaxDome", <CloudDownload key="i" />),
-      access.isOwner && item("/admin/activity", "Activity log", <History key="i" />),
-      item("/admin/changelog", "Change log", <Newspaper key="i" />),
     ]),
   ].filter(Boolean) as NavGroup[];
 
@@ -94,7 +83,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     </form>
   );
   const onSearch = access.clients ? () => { setOpen(false); search.setOpen(true); } : undefined;
-  const sidebar = <Sidebar groups={groups} user={{ name: access.fullName, role: access.roleName }} footer={signOutButton} onSearch={onSearch} />;
+  const settings: NavItem = { href: "/admin/settings", label: "Settings", icon: <Settings key="i" />, active: path === "/admin" || path.startsWith("/admin/") };
+  const sidebar = <Sidebar groups={groups} bottom={settings} user={{ name: access.fullName, role: access.roleName }} footer={signOutButton} onSearch={onSearch} />;
 
   return (
     <>

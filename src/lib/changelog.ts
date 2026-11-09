@@ -5,9 +5,12 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
-    title: "Settings in tabs",
+    title: "New Settings layout",
     points: [
-      "Settings is split into four tabs: Leads and quotes, Letters and signing, Tax rules, and Data and retention. After you save, you stay on the same tab.",
+      "Settings now has its own menu on the left, grouped: Firm, Sales and quotes, Pricing, Letters and signing, Tax rules, Connections, and Data and security. A search box at the top finds a setting by name.",
+      "Each setting has its own short page with its own Save button.",
+      "Price book, Templates, Screening questions, GST/HST rates, Team and roles, Import from TaxDome, Activity log and Change log moved from the main menu into Settings. The main menu keeps daily work, with Settings at the bottom.",
+      "A lock shows on pages only an owner can open or change. Nothing else changed: same pages, same permissions.",
     ],
   },
   {

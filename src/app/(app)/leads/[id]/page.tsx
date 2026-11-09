@@ -56,7 +56,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
             <div><label htmlFor="notes" className="label">Notes (staff only)</label><textarea id="notes" name="notes" defaultValue={l.notes} rows={4} className="input" /></div>
             {editable && <button type="submit" className="btn w-fit">Save</button>}
           </fieldset>
-          <p className="text-xs text-muted">Lost and out-of-scope leads are deleted automatically 24 months after they close (Settings, Data and retention).</p>
+          <p className="text-xs text-muted">Lost and out-of-scope leads are deleted automatically 24 months after they close (Settings, Retention).</p>
         </form>
       </div>
     </>
