@@ -2,11 +2,13 @@ import { formatDateTime } from "@/components/ui";
 import { canEdit, type Access } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions";
+import { LockIcon } from "../settings-nav";
 
 type StaffRow = { id: string; full_name: string; email: string; phone: string; role_id: string; is_active: boolean; created_at: string };
 type RoleRow = { id: string; name: string; is_owner: boolean };
 
-// People: everyone who can sign in. Shown on Team and roles.
+// People: everyone who can sign in. Shown on Team and roles. Everyone edits their own phone; only owners
+// change roles (decision 48; the database enforces it in set_staff_role).
 export async function PeopleSection({ access }: { access: Access }) {
   const editable = canEdit(access, "staff_accounts");
   const supabase = await createClient();
@@ -57,7 +59,7 @@ export async function PeopleSection({ access }: { access: Access }) {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th>Role</th>
+              <th><span className="inline-flex items-center gap-1.5">Role <LockIcon title="Only an owner can change roles" /></span></th>
               <th>Status</th>
               <th>Added</th>
               {editable && <th className="text-right">Account</th>}
@@ -80,7 +82,7 @@ export async function PeopleSection({ access }: { access: Access }) {
                     ) : s.phone}
                   </td>
                   <td>
-                    {editable && !isSelf ? (
+                    {access.is_owner && !isSelf ? (
                       <form action={changeRole} className="flex items-center gap-2">
                         <input type="hidden" name="staff_id" value={s.id} />
                         <select name="role_id" defaultValue={s.role_id} className="input py-1" aria-label={`Role for ${s.full_name}`}>

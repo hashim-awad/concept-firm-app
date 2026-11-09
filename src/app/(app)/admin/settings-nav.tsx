@@ -6,11 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { Lock, Search } from "lucide-react";
 import type { SettingsGroup, SettingsItem } from "./settings-menu";
 
-export const lockTitle = (i: SettingsItem) => i.lock === "owner" ? "Owners only" : "Only an owner can change this";
-
-export function LockIcon({ item }: { item: SettingsItem }) {
-  if (!item.lock) return null;
-  return <span title={lockTitle(item)} className="shrink-0 text-ink-3"><Lock className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{lockTitle(item)}</span></span>;
+// A lock with its reason (hover to read it; screen readers read it out).
+export function LockIcon({ title }: { title?: string }) {
+  if (!title) return null;
+  return <span title={title} className="inline-flex shrink-0 text-ink-3"><Lock className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{title}</span></span>;
 }
 
 export function SettingsNav({ groups }: { groups: SettingsGroup[] }) {
@@ -40,13 +39,13 @@ export function SettingsNav({ groups }: { groups: SettingsGroup[] }) {
               <li key={i.label}>
                 {i.soon ? (
                   <span aria-disabled="true" title="Not built yet" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink-3">
-                    <span className="flex-1">{i.label}</span><LockIcon item={i} />
+                    <span className="flex-1">{i.label}</span><LockIcon title={i.lock} />
                     <span className="rounded border border-sand-300 px-1 text-[10px] leading-4 font-semibold">Soon</span>
                   </span>
                 ) : (
                   <a href={i.href} aria-current={isActive(i) ? "page" : undefined}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${isActive(i) ? "bg-navy-50 font-medium text-navy-800 shadow-[inset_3px_0_0_var(--color-lime-500)]" : "text-ink-2 hover:bg-sand-100 hover:text-ink"}`}>
-                    <span className="flex-1">{i.label}</span><LockIcon item={i} />
+                    <span className="flex-1">{i.label}</span><LockIcon title={i.lock} />
                   </a>
                 )}
               </li>

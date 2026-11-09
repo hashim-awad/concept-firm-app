@@ -81,11 +81,14 @@ select test.check('B cannot give a role beyond own access', test.try($$select pu
 select test.check('B can add E as Reviewer', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
   'Test New E', 'new.e@example.test', (select id from public.roles where name = 'Reviewer'))$$) = 'OK');
 select test.check('B cannot change an owner', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Reviewer'))$$) like '%more access than you%');
+  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an owner can change roles%');
 select test.check('B cannot switch off an owner', test.try($$select public.set_staff_active(
   '00000000-0000-0000-0000-00000000000d', false)$$) like '%more access than you%');
 select test.check('B cannot change own role', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000b', (select id from public.roles where name = 'Staff'))$$) like '%your own role%');
+  '00000000-0000-0000-0000-00000000000b', (select id from public.roles where name = 'Staff'))$$) like 'Only an owner can change roles%');
+select test.check('B (staff-account editor) cannot change a Reviewer''s role: owners only', test.try($$select public.set_staff_role(
+  '00000000-0000-0000-0000-00000000000e', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an owner can change roles%');
+select test.check('B can still set own phone', test.try($$select public.update_staff_phone('00000000-0000-0000-0000-00000000000b', '226-555-0101')$$) = 'OK');
 select test.check('B can switch off E', test.try($$select public.set_staff_active('00000000-0000-0000-0000-00000000000e', false)$$) = 'OK');
 select test.check('B can rename self', test.try($$select public.update_staff_name('00000000-0000-0000-0000-00000000000b', 'Test Reviewer Bee')$$) = 'OK');
 

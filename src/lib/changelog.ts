@@ -10,7 +10,9 @@ export const CHANGELOG: ChangeEntry[] = [
       "Settings now has its own menu on the left, grouped: Firm, Sales and quotes, Pricing, Letters and signing, Tax rules, Connections, and Data and security. A search box at the top finds a setting by name.",
       "Each setting has its own short page with its own Save button.",
       "Price book, Templates, Screening questions, GST/HST rates, Team and roles, Import from TaxDome, Activity log and Change log moved from the main menu into Settings. The main menu keeps daily work, with Settings at the bottom.",
-      "A lock shows on pages only an owner can open or change. Nothing else changed: same pages, same permissions.",
+      "A lock shows where something is limited to owners or to the Pricing permission. Point at it to see what. The locks follow the real permission rules and are checked automatically.",
+      "Chart of accounts and Vendor rules (still coming) moved into Settings, under Accounting.",
+      "Team and roles: everyone can change their own phone number. Only an owner can change someone's role.",
     ],
   },
   {

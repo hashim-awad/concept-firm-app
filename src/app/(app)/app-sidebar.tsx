@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, Home, Landmark,
-  LogOut, Menu, ScrollText, Settings, Sparkles, Tags, UserPlus, Wallet, X, Briefcase, Layers,
+  LogOut, Menu, Settings, Sparkles, UserPlus, Wallet, X, Briefcase, Layers,
 } from "lucide-react";
 import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
 import { StudioLogo } from "@/components/ds/brand";
@@ -69,10 +69,6 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     ] : []),
     group("Documents", [(access.documents || access.vault) && item("/documents", "Document vault", <FolderLock key="i" />)]),
     group("Quality", [access.isOwner && soon("Reviews", <ClipboardCheck key="i" />)]),
-    group("Firm setup", [
-      access.isOwner && soon("Chart of accounts", <ScrollText key="i" />),
-      access.isOwner && soon("Vendor rules", <Tags key="i" />),
-    ]),
   ].filter(Boolean) as NavGroup[];
 
   const signOutButton = (

@@ -10,7 +10,7 @@ export default async function SettingsHome({ searchParams }: PageProps<"/admin/s
   const sp = await searchParams;
   return (
     <>
-      <PageHeader title="Settings" description="Firm setup, pricing, letters and connections. Choose a setting. A lock means only an owner can open or change it." />
+      <PageHeader title="Settings" description="Firm setup, pricing, letters and connections. Choose a setting. A lock means part or all of the page is limited to owners or to the Pricing permission. Point at the lock to see what." />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="grid gap-4 lg:grid-cols-2">
         {settingsMenu(access).map((g) => (
@@ -21,7 +21,7 @@ export default async function SettingsHome({ searchParams }: PageProps<"/admin/s
                 <li key={i.label} className="flex items-center gap-2">
                   {i.soon ? <span className="text-ink-3">{i.label} <span className="rounded border border-sand-300 px-1 text-[10px] font-semibold">Soon</span></span>
                     : <a href={i.href} className="text-navy-700 hover:underline">{i.label}</a>}
-                  <LockIcon item={i} />
+                  <LockIcon title={i.lock} />
                 </li>
               ))}
             </ul>
