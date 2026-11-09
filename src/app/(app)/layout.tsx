@@ -11,6 +11,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
   const seeDocs = canView(access, "documents");
   const pricing = canView(access, "pricing");
+  const { count: leadsNew } = canView(access, "leads") ? await supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : { count: 0 };
   const [{ count: proposalsAwaiting }, { count: lettersAwaiting }] = seeDocs ? await Promise.all([
     pricing ? supabase.from("proposals").select("id", { count: "exact", head: true }).eq("status", "Sent") : Promise.resolve({ count: 0 }),
     supabase.from("engagements").select("id", { count: "exact", head: true }).eq("status", "EL sent"),
@@ -36,7 +37,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             staff: canView(access, "staff_accounts"),
             settings: canView(access, "settings"),
           }}
-          counts={{ proposalsAwaiting: proposalsAwaiting ?? 0, lettersAwaiting: lettersAwaiting ?? 0 }}
+          counts={{ proposalsAwaiting: proposalsAwaiting ?? 0, lettersAwaiting: lettersAwaiting ?? 0, leadsNew: leadsNew ?? 0 }}
         />
         <MainArea>{children}</MainArea>
       </div>

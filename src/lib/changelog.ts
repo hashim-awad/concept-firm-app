@@ -4,6 +4,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-10",
+    title: "Leads",
+    points: [
+      "Public start page at /start, in the firm's branding: \"My personal tax return\" or \"My company\", then the client's details. It stays closed to the public until an owner opens it in Settings; staff can always preview it.",
+      "Every request becomes a lead: Leads in the menu (with a count of new ones), a page per lead with status, source, notes and the person assigned. Only owners reassign. What the client entered is kept as sent.",
+      "Spam protection: a hidden trap field, a minimum time to fill the form, and a limit of 5 requests per visitor per hour.",
+      "Lost and out-of-scope leads are deleted automatically after the retention period (24 months). The activity log keeps no client details for leads.",
+      "My day lists new leads to review. Settings has the lead sources list and the start page switch.",
+    ],
+  },
+  {
     date: "2026-11-09",
     title: "Settings for leads and quotes",
     points: [

@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { PageHeader, Notice } from "@/components/ui";
 import { fileInputClass } from "@/components/ds/primitives";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
-import { saveBookingLink, saveBusinessHours, saveLeadAssignment, saveRetention, saveSigner, saveT1Rules, uploadSignature } from "./actions";
+import { saveBookingLink, saveBusinessHours, saveLeadAssignment, saveLeadSources, saveRetention, saveSigner, saveStartPage, saveT1Rules, uploadSignature } from "./actions";
 import { formatDate } from "@/lib/dates";
 
 type Assignment = { mode: "single" | "unassigned" | "rotate"; staff_ids: string[] };
@@ -29,6 +30,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
   const t1 = (byKey.get("t1_rules") ?? {}) as { moving_km?: number; t1135_simple_over?: number; t1135_detailed_from?: number; checked_on?: string };
   const DAYS: [string, string][] = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
   const hoursSet = DAYS.some(([d]) => hours[d]);
+  const sources = (byKey.get("lead_sources") ?? []) as string[];
+  const startOpen = byKey.get("start_page_open") === true;
   const SIGNERS: [string, string, string][] = [
     ["signer_engagement_letter", "Engagement letters", "Corporate and T1 letters. Use the name registered with CPA Ontario."],
     ["signer_proposal", "Proposals", "The name on proposals."],
@@ -192,6 +195,24 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
             <div><label htmlFor="t1135_detailed_from" className="label">T1135 detailed method when cost was at least ($)</label><input id="t1135_detailed_from" name="t1135_detailed_from" inputMode="numeric" defaultValue={t1.t1135_detailed_from ?? ""} className="input" /></div>
             {access.is_owner && <div className="sm:col-span-2"><button type="submit" className="btn w-fit">Save T1 rule values</button></div>}
           </fieldset>
+        </form>
+      </section>
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">Public start page</h2>
+        <p className="mb-4 text-sm text-muted">The page clients use to ask for a quote: <Link href="/start" className="text-navy-700 underline">/start</Link>. While closed, only signed-in staff can see it. Open it when the screening questions are ready. Only an owner can change this.</p>
+        <form action={saveStartPage} className="flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={startOpen} disabled={!access.is_owner} className="h-4 w-4 accent-navy-700" />Open to the public</label>
+          {access.is_owner && <button type="submit" className="btn-secondary">Save</button>}
+          <span className={startOpen ? "font-medium text-success" : "text-muted"}>Now: {startOpen ? "open" : "closed"}</span>
+        </form>
+      </section>
+
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">Lead sources</h2>
+        <p className="mb-4 text-sm text-muted">The choices for &ldquo;How did you hear about us?&rdquo; and the Source on each lead. One per line.</p>
+        <form action={saveLeadSources} className="grid max-w-md gap-2">
+          <textarea name="sources" rows={8} defaultValue={sources.join("\n")} disabled={!editable} aria-label="Lead sources, one per line" className="input" />
+          {editable && <button type="submit" className="btn-secondary w-fit">Save lead sources</button>}
         </form>
       </section>
     </>

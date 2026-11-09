@@ -87,3 +87,18 @@ export async function saveT1Rules(formData: FormData) {
   revalidatePath(PAGE);
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
 }
+
+export async function saveLeadSources(formData: FormData) {
+  const list = String(formData.get("sources") ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_setting", { p_key: "lead_sources", p_value: list });
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Lead sources saved."));
+}
+
+export async function saveStartPage(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_setting", { p_key: "start_page_open", p_value: formData.get("open") === "on" });
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
+}

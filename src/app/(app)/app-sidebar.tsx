@@ -26,7 +26,7 @@ export type SidebarAccess = {
   staff: boolean;
   settings: boolean;
 };
-export type SidebarCounts = { proposalsAwaiting: number; lettersAwaiting: number };
+export type SidebarCounts = { proposalsAwaiting: number; lettersAwaiting: number; leadsNew: number };
 
 // Which menu item a page belongs to (pages keep their addresses; only their place in the menu changed).
 const OWNER: [string, string][] = [
@@ -52,7 +52,7 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
   const groups = [
     { label: "Home", items: [item("/", "My day", <Home key="i" />)] } as NavGroup,
     group("Sales", [
-      access.leads && soon("Leads", <UserPlus key="i" />),
+      access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
       access.documents && access.pricing && item("/proposals", "Proposals", <Landmark key="i" />, counts.proposalsAwaiting),
       access.documentsEdit && access.pricing && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
     ]),

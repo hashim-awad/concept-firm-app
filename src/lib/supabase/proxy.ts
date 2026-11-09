@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Pages anyone can open without signing in.
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/", "/api/hooks/"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/auth/", "/api/hooks/", "/api/cron/", "/start"];
 
 export async function updateSession(request: NextRequest) {
   // Screen parity test page: only in a test run started with STUDIO_HARNESS=1. Uses no session.

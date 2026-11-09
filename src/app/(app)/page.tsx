@@ -30,8 +30,11 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const today = todayToronto();
   const seeDocs = canView(access, "documents");
   const seeClients = canView(access, "clients"), editClients = canEdit(access, "clients");
+  const seeLeads = canView(access, "leads");
+  type L = { id: string; first_name: string; last_name: string; route: string; created_at: string };
   const pricing = canView(access, "pricing");
   const supabase = await createClient();
+  const leadsNew = seeLeads ? (((await supabase.from("leads").select("id, first_name, last_name, route, created_at").eq("status", "new").order("created_at")).data ?? []) as L[]) : [];
 
   type P = { id: string; title: string; date_sent: string | null; valid_until: string | null };
   type E = { id: string; title: string; type: string; status: string; fiscal_year_end: string | null; el_issued: string | null; client_id: string | null; clients: { legal_name: string } | null };
@@ -63,9 +66,20 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
     <>
       <PageHeader title={`Good day, ${firstName}`} description={`My day · ${formatDate(today)}`} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      {!seeDocs && !seeClients ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
+      {!seeDocs && !seeClients && !seeLeads ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
         <div className="grid gap-5 lg:grid-cols-2">
-          <Card title="Leads to review" soon="Leads arrive with the public start page (Phase 2)." />
+          {seeLeads ? (
+            <Card title="Leads to review" count={leadsNew.length}>
+              {leadsNew.length === 0 ? <p className="text-sm text-muted">None.</p> : (
+                <ul className="grid gap-2 text-sm">{leadsNew.slice(0, 8).map((l) => (
+                  <li key={l.id} className="flex flex-wrap items-baseline gap-x-2">
+                    <Link href={`/leads/${l.id}`} className="font-medium text-navy-700 hover:underline">{l.first_name} {l.last_name}</Link>
+                    <span className="text-muted">{l.route === "personal" ? "Personal tax" : "Company"} · received {formatDate(l.created_at)}</span>
+                  </li>
+                ))}{leadsNew.length > 8 && <li><Link href="/leads" className="text-navy-700 underline">All {leadsNew.length} new leads</Link></li>}</ul>
+              )}
+            </Card>
+          ) : <Card title="Leads to review" soon="Your role does not include leads." />}
           <Card title="Gates waiting" soon="Year-end gates arrive with Year-End & T2 (Phase 3)." />
 {pricing && (
           <Card title="Proposals awaiting signature" count={proposals.length}>
