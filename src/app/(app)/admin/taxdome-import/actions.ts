@@ -8,7 +8,7 @@ import { planImport, type Account, type Existing, type Flag, type Planned } from
 
 // The browser reads the TaxDome file and sends only the needed fields (accounts.ts COLUMNS).
 // Nothing from the file is stored except what the owner saves.
-export type Preview = { ok: true; planned: Planned[]; flags: Flag[] } | { ok: false; error: string };
+export type Preview = { ok: true; planned: Planned[]; flags: Flag[]; candidates: { id: string; legal_name: string }[] } | { ok: false; error: string };
 
 async function loadExisting() {
   const supabase = await createClient();
@@ -22,20 +22,22 @@ const clean = (accounts: Account[]): Account[] => accounts.slice(0, 5000).map((a
   fyeRaw: String(a.fyeRaw).slice(0, 40), fye: /^\d{2}-\d{2}$/.test(a.fye) ? a.fye : "", province: ["ON", "AB", "BC", "OTHER"].includes(a.province) ? a.province : "",
 }));
 
-export async function previewTaxdome(accounts: Account[]): Promise<Preview> {
+const cleanLinks = (links: Record<string, string>) => Object.fromEntries(Object.entries(links ?? {}).filter(([k, v]) => /^[\w-]{1,64}$/.test(k) && /^[0-9a-f-]{36}$/.test(v)));
+
+export async function previewTaxdome(accounts: Account[], links: Record<string, string> = {}): Promise<Preview> {
   const access = await getAccess();
   if (!access?.is_owner) return { ok: false, error: "Only an owner can import from TaxDome." };
   const { existing } = await loadExisting();
-  const { planned, flags } = planImport(clean(accounts), existing);
-  return { ok: true, planned, flags };
+  const { planned, flags, candidates } = planImport(clean(accounts), existing, cleanLinks(links));
+  return { ok: true, planned, flags, candidates };
 }
 
 // Works the plan out again on the server and applies it all or nothing.
-export async function applyTaxdome(accounts: Account[], expected: number): Promise<{ ok: boolean; message: string }> {
+export async function applyTaxdome(accounts: Account[], expected: number, links: Record<string, string> = {}): Promise<{ ok: boolean; message: string }> {
   const access = await getAccess();
   if (!access?.is_owner) return { ok: false, message: "Only an owner can import from TaxDome." };
   const { supabase, existing } = await loadExisting();
-  const { planned } = planImport(clean(accounts), existing);
+  const { planned } = planImport(clean(accounts), existing, cleanLinks(links));
   if (planned.length !== expected) return { ok: false, message: "The client list changed since the preview. Check the file again, then save." };
   const plan = planned.map((p) => ({
     op: p.action, client_id: p.clientId ?? null, taxdome_id: p.account.taxdomeId, legal_name: p.account.legalName,

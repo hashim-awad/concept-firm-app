@@ -84,3 +84,15 @@ test("re-import with nothing new makes no changes", () => {
   const { planned } = planImport([acct("101", "Alpha Realty Inc.", "725603690")], existing);
   assert.deepEqual(planned[0].changes, []);
 });
+
+test("the owner can tie a new account to an existing Studio client with a different name", () => {
+  const existing = [client("c1", "Old Name Realty"), client("c2", "Other Co.")];
+  const first = planImport([acct("601", "New Name Realty Inc.", "123123123")], existing);
+  assert.equal(first.planned[0].action, "insert");
+  assert.deepEqual(first.candidates.map((c) => c.id), ["c1", "c2"]);
+  const tied = planImport([acct("601", "New Name Realty Inc.", "123123123")], existing, { "601": "c1" });
+  assert.equal(tied.planned[0].action, "update"); assert.equal(tied.planned[0].clientId, "c1"); assert.equal(tied.planned[0].matchedBy, "chosen by you");
+  assert.deepEqual(tied.candidates.map((c) => c.id), ["c2"], "a chosen client is no longer offered");
+  const twice = planImport([acct("601", "A", "111111111"), acct("602", "B", "222222222")], existing, { "601": "c1", "602": "c1" });
+  assert.equal(twice.planned.length, 1); assert.match(twice.flags[0].reason, /same Studio client/);
+});

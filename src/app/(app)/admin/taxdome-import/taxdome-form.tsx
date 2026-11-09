@@ -10,14 +10,15 @@ const MD = (md: string) => { if (!md) return ""; const [m, d] = md.split("-").ma
 export function TaxdomeImport() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [readFlags, setReadFlags] = useState<Flag[]>([]);
-  const [preview, setPreview] = useState<{ planned: Planned[]; flags: Flag[] } | null>(null);
+  const [preview, setPreview] = useState<{ planned: Planned[]; flags: Flag[]; candidates: { id: string; legal_name: string }[] } | null>(null);
+  const [links, setLinks] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
   const [checked, setChecked] = useState(false);
   const [pending, start] = useTransition();
 
   async function onFile(file: File | undefined) {
-    setError(""); setDone(""); setPreview(null); setChecked(false);
+    setError(""); setDone(""); setPreview(null); setChecked(false); setLinks({});
     if (!file) return;
     const text = new TextDecoder("utf-8").decode(await file.arrayBuffer());
     const r = readAccounts(text);
@@ -26,14 +27,26 @@ export function TaxdomeImport() {
     start(async () => {
       const p = await previewTaxdome(r.accounts);
       if (!p.ok) { setError(p.error); return; }
-      setPreview({ planned: p.planned, flags: p.flags });
+      setPreview({ planned: p.planned, flags: p.flags, candidates: p.candidates });
+    });
+  }
+
+  // The owner ties a new account to an existing Studio client: the preview is worked out again.
+  function link(taxdomeId: string, clientId: string) {
+    const next = { ...links };
+    if (clientId) next[taxdomeId] = clientId; else delete next[taxdomeId];
+    setLinks(next); setChecked(false);
+    start(async () => {
+      const p = await previewTaxdome(accounts, next);
+      if (!p.ok) { setError(p.error); return; }
+      setPreview({ planned: p.planned, flags: p.flags, candidates: p.candidates });
     });
   }
 
   function save() {
     if (!preview) return;
     start(async () => {
-      const r = await applyTaxdome(accounts, preview.planned.length);
+      const r = await applyTaxdome(accounts, preview.planned.length, links);
       if (r.ok) { setDone(r.message); setPreview(null); setAccounts([]); } else setError(r.message);
     });
   }
@@ -63,16 +76,23 @@ export function TaxdomeImport() {
             {updates.length === 0 ? <p className="px-5 pb-4 text-sm text-muted">None.</p> : (
               <table className="table"><thead><tr><th>Row</th><th>TaxDome account</th><th>Matched by</th><th>Changes</th></tr></thead>
                 <tbody>{updates.map((p) => (
-                  <tr key={p.account.taxdomeId}><td>{p.account.row}</td><td className="font-medium">{p.account.legalName}{notes(p)}</td><td>{p.matchedBy}</td>
+                  <tr key={p.account.taxdomeId}><td>{p.account.row}</td><td className="font-medium">{p.account.legalName}{notes(p)}</td>
+                    <td>{p.matchedBy}{p.matchedBy === "chosen by you" && <button type="button" onClick={() => link(p.account.taxdomeId, "")} className="ml-2 text-xs text-navy-700 underline">Undo</button>}</td>
                     <td className="text-xs">{p.changes.length === 0 ? <span className="text-muted">No change</span> : p.changes.map((c, i) => <span key={i} className="block">{c.field}: {c.from || "(blank)"} → {c.to || "(blank)"}</span>)}</td></tr>
                 ))}</tbody></table>)}
           </section>
           <section className="card overflow-x-auto p-0">
             <h2 className="px-5 pt-4 pb-2 font-semibold">New clients ({inserts.length})</h2>
             {inserts.length === 0 ? <p className="px-5 pb-4 text-sm text-muted">None.</p> : (
-              <table className="table"><thead><tr><th>Row</th><th>Legal name</th><th>Business Number</th><th>Year-end</th><th>Province</th><th>Tags</th></tr></thead>
+              <table className="table"><thead><tr><th>Row</th><th>Legal name</th><th>Business Number</th><th>Year-end</th><th>Province</th><th>Tags</th><th>Same as existing Studio client</th></tr></thead>
                 <tbody>{inserts.map((p) => (
-                  <tr key={p.account.taxdomeId}><td>{p.account.row}</td><td className="font-medium">{p.account.legalName}{notes(p)}</td><td>{p.account.bn}</td><td>{MD(p.account.fye)}</td><td>{p.account.province || "Other (none in TaxDome)"}</td><td className="text-xs">{p.account.tags.join(", ")}</td></tr>
+                  <tr key={p.account.taxdomeId}><td>{p.account.row}</td><td className="font-medium">{p.account.legalName}{notes(p)}</td><td>{p.account.bn}</td><td>{MD(p.account.fye)}</td><td>{p.account.province || "Other (none in TaxDome)"}</td><td className="text-xs">{p.account.tags.join(", ")}</td>
+                    <td>{(preview.candidates.length > 0) && (
+                      <select aria-label={`Same as existing Studio client, row ${p.account.row}`} value="" onChange={(e) => link(p.account.taxdomeId, e.target.value)} className="input h-8 w-auto py-0 text-sm" disabled={pending}>
+                        <option value="">No, a new client</option>
+                        {preview.candidates.map((c) => <option key={c.id} value={c.id}>{c.legal_name}</option>)}
+                      </select>
+                    )}</td></tr>
                 ))}</tbody></table>)}
           </section>
           <section className="card overflow-x-auto p-0">

@@ -85,14 +85,15 @@ export type Planned = {
   account: Account;
   action: "update" | "insert";
   clientId?: string;
-  matchedBy?: "taxdome id" | "business number" | "legal name";
+  matchedBy?: "taxdome id" | "business number" | "legal name" | "chosen by you";
   changes: { field: string; from: string; to: string }[];
   notes: string[];
 };
 
 // Matching: TaxDome id (a re-import), then Business Number, then legal name. Name matches and accounts
 // without a Business Number are marked for Hashim to check. Two possible matches -> flagged, never guessed.
-export function planImport(accounts: Account[], existing: Existing[]): { planned: Planned[]; flags: Flag[] } {
+// links: accounts the owner tied to an existing Studio client in the preview (taxdome id -> client id).
+export function planImport(accounts: Account[], existing: Existing[], links: Record<string, string> = {}): { planned: Planned[]; flags: Flag[]; candidates: { id: string; legal_name: string }[] } {
   const flags: Flag[] = [], planned: Planned[] = [];
   const count = <T,>(xs: T[], k: (x: T) => string) => xs.reduce((m, x) => { const key = k(x); if (key) m.set(key, (m.get(key) ?? 0) + 1); return m; }, new Map<string, number>());
   const bnInFile = count(accounts, (a) => a.bn), idInFile = count(accounts, (a) => a.taxdomeId);
@@ -107,7 +108,10 @@ export function planImport(accounts: Account[], existing: Existing[]): { planned
     if ((idInFile.get(a.taxdomeId) ?? 0) > 1) { flags.push({ row: a.row, name: a.legalName, reason: "The same TaxDome id appears more than once in the file. Not imported." }); continue; }
     if (a.bn && (bnInFile.get(a.bn) ?? 0) > 1) { flags.push({ row: a.row, name: a.legalName, reason: `Business Number ${a.bn} appears on more than one account in the file. Not imported.` }); continue; }
     let match: Existing | undefined, matchedBy: Planned["matchedBy"];
-    if (byId.has(a.taxdomeId)) { match = byId.get(a.taxdomeId); matchedBy = "taxdome id"; }
+    const chosen = links[a.taxdomeId] ? existing.find((c) => c.id === links[a.taxdomeId]) : undefined;
+    if (links[a.taxdomeId] && !chosen) { flags.push({ row: a.row, name: a.legalName, reason: "The Studio client chosen for this account no longer exists. Not imported." }); continue; }
+    if (chosen && !byId.has(a.taxdomeId)) { match = chosen; matchedBy = "chosen by you"; }
+    else if (byId.has(a.taxdomeId)) { match = byId.get(a.taxdomeId); matchedBy = "taxdome id"; }
     else if (a.bn && byBn.has(a.bn)) {
       const hits = byBn.get(a.bn)!;
       if (hits.length > 1) { flags.push({ row: a.row, name: a.legalName, reason: `More than one Studio client has Business Number ${a.bn}. Not imported.` }); continue; }
@@ -137,5 +141,8 @@ export function planImport(accounts: Account[], existing: Existing[]): { planned
       planned.push({ account: a, action: "insert", changes: [], notes });
     }
   }
-  return { planned, flags };
+  // Studio companies not linked to TaxDome and not matched in this file: offered in the preview.
+  const candidates = existing.filter((c) => c.kind === "corporation" && !c.taxdome_account_id && !used.has(c.id))
+    .map((c) => ({ id: c.id, legal_name: c.legal_name })).sort((x, y) => x.legal_name.localeCompare(y.legal_name));
+  return { planned, flags, candidates };
 }
