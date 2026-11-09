@@ -5,6 +5,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-09",
+    title: "T2 deadlines from TaxDome",
+    points: [
+      "New page, Admin, Import from TaxDome (owners): upload the TaxDome Accounts export. Company accounts tagged T2 come in with their legal name, Business Number, fiscal year-end, tags and TaxDome link. Nothing else in the file is read.",
+      "Matches existing clients by Business Number, then by legal name. You see the matches, new clients and flagged rows before anything is saved. It never creates duplicates.",
+      "TaxDome is the master list: the legal name, Business Number and year-end of a linked client change only through a new import.",
+      "Each corporate client has a balance-due setting (2 or 3 months after year-end) and an \"Exclude from deadlines\" switch.",
+      "My day shows every T2 filing and balance-due date that is overdue or due in the next 90 days, oldest first. Press Done when it is filed or paid. T2 clients with no year-end are listed so they can be fixed in TaxDome.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Pricing permission",
     points: [
       "New permission, Pricing: it covers the price book, packages and floors, quote amounts and breakdowns, and issuing quotes. The Owner role has it.",

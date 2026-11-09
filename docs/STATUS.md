@@ -108,7 +108,8 @@ No other known bugs.
 - Batch saved as `docs/PHASE2-BATCH.md`; brief updated to match (decisions 38 to 40, standing rules, Phase 2 summary, Phase 3 D note).
 - Build plan approved Nov 9, 2026 with additions (brief decisions 42 to 44). Each step: built and tested on Test with dummy data only, then Hashim approves it before it reaches Live (merge into main).
 - Order: 1 Pricing permission and change log; 2 T2 deadlines from TaxDome (decision 43); 3 settings fields; 4 leads; 5 lead alerts; 6 T1 screening and PTX-100; 7 T1 quote and emails; 8 signing; 9 corporate form, items and quote; 10 monthly leads; 11 full export with files; 12 remaining design fixes (menu fits a laptop, two date formats).
-- Step 1 built on Test (Nov 9): Pricing permission in the database and on every screen, database tests for it (staff without Pricing see no prices; owners see all), change log page under Admin. Waiting for Hashim's check and approval for Live.
+- Step 1 built on Test (Nov 9): Pricing permission in the database and on every screen, database tests for it (staff without Pricing see no prices; owners see all), change log page under Admin. Checked by Hashim on Test; waiting for his approval for Live.
+- Step 2 built on Test (Nov 9): Import from TaxDome, per-client balance-due period and exclude switch, T2 deadlines card on My day with Done, missing year-end flags (decisions 43 and 45). Waiting for Hashim's check on Test with a dummy file.
 - Already in place: standing rules in the brief; Phase 3 text (matches Appendix B) with the monthly-clients note; section 12 correction (decision 41); renames 5.1; import fixes 14.1 to 14.3.
 
 ## Next steps, in order

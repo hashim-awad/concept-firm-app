@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, BookOpen, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, History, Home, Landmark, Library, ListChecks,
-  LogOut, Menu, Newspaper, Percent, ScrollText, Settings, Sparkles, Tags, UserPlus, Users, Wallet, X, Briefcase, Layers,
+  CloudDownload, LogOut, Menu, Newspaper, Percent, ScrollText, Settings, Sparkles, Tags, UserPlus, Users, Wallet, X, Briefcase, Layers,
 } from "lucide-react";
 import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
 import { StudioLogo } from "@/components/ds/brand";
@@ -80,6 +80,7 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     group("Admin", [
       (access.staff || access.isOwner) && item("/admin/team", "Team and roles", <Users key="i" />),
       access.settings && item("/admin/settings", "Settings", <Settings key="i" />),
+      access.isOwner && item("/admin/taxdome-import", "Import from TaxDome", <CloudDownload key="i" />),
       access.isOwner && item("/admin/activity", "Activity log", <History key="i" />),
       item("/admin/changelog", "Change log", <Newspaper key="i" />),
     ]),

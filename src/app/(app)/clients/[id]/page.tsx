@@ -8,6 +8,9 @@ import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
 import type { ClientForm } from "@/lib/clients";
 import { ClientEditor } from "../client-editor";
+import { saveT2Settings } from "../actions";
+import { lastYearEnd, t2BalanceDue, t2FilingDeadline } from "@/lib/deadlines";
+import { todayToronto } from "@/lib/dates";
 import { PageTabs } from "@/components/page-tabs";
 import { formatDateTime } from "@/components/ui";
 
@@ -52,6 +55,8 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   ]);
   type L = { relationship: string; client_id: string; a: { id: string; legal_name: string; kind: string } | null; b: { id: string; legal_name: string; kind: string } | null };
   const links = ((linkRows ?? []) as unknown as L[]).map((l) => ({ rel: l.relationship, other: l.client_id === id ? l.b : l.a })).filter((l) => l.other);
+  const tdUrl = c.taxdome_account_id ? ((await supabase.rpc("taxdome_account_url")).data as string | null) || "" : "";
+  const lastYe = /^\d{2}-\d{2}$/.test(c.year_end_md ?? "") ? lastYearEnd(c.year_end_md, todayToronto()) : "";
   const letterHref = c.kind === "individual" ? `/engagement-letters?type=t1&client=${id}` : `/engagement-letters?type=corporate&client=${id}`;
   const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Proposal" };
   const empty = (t: string) => <p className="p-5 text-sm text-muted">{t}</p>;
@@ -97,8 +102,35 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   } else {
     content = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ClientEditor id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} />
+        <ClientEditor id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} taxdomeManaged={!!c.taxdome_account_id} />
         <div className="grid content-start gap-6">
+          {c.kind === "corporation" && (
+            <section className="card">
+              <h2 className="mb-2 font-semibold">TaxDome and T2 deadlines</h2>
+              {c.taxdome_account_id ? (
+                <ul className="mb-3 grid gap-1 text-sm">
+                  <li>Business Number: {c.business_number || <span className="text-warning">none in TaxDome</span>}</li>
+                  <li>Year-end: {c.year_end_md || <span className="text-warning">none in TaxDome</span>}</li>
+                  <li>TaxDome tags: {(c.taxdome_tags ?? []).join(", ")}</li>
+                  {tdUrl && <li><a href={tdUrl.replace("{id}", encodeURIComponent(c.taxdome_account_id))} target="_blank" rel="noreferrer" className="text-navy-700 underline">Open in TaxDome</a></li>}
+                  <li className="text-xs text-muted">From TaxDome, last imported {c.taxdome_synced_at ? formatDate(c.taxdome_synced_at) : ""}.</li>
+                </ul>
+              ) : <p className="mb-3 text-sm text-muted">Not linked to TaxDome. Linked clients come from the TaxDome import.</p>}
+              {lastYe && <p className="mb-3 text-sm">Year ending {formatDate(lastYe)}: balance due {formatDate(t2BalanceDue(lastYe, c.t2_balance_due_months === 3 ? 3 : 2))}, T2 due {formatDate(t2FilingDeadline(lastYe))}.</p>}
+              <form action={saveT2Settings} className="grid gap-2 text-sm">
+                <input type="hidden" name="id" value={id} />
+                <fieldset disabled={!editable} className="grid gap-2">
+                  <label className="flex items-center gap-2">Balance due
+                    <select name="months" defaultValue={String(c.t2_balance_due_months)} className="input h-8 w-auto py-0 text-sm">
+                      <option value="2">2 months after year-end</option><option value="3">3 months after year-end</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2"><input type="checkbox" name="exclude" defaultChecked={c.t2_exclude_deadlines} className="h-4 w-4 accent-navy-700" />Exclude from deadlines (inactive corporation)</label>
+                  {editable && <button type="submit" className="btn-secondary w-fit">Save</button>}
+                </fieldset>
+              </form>
+            </section>
+          )}
           <section className="card">
             <h2 className="mb-2 font-semibold">Linked clients</h2>
             {links.length === 0 ? <p className="text-sm text-muted">None.</p> : (

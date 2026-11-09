@@ -8,7 +8,7 @@ import { Hint, Labelled, Row, SelectIn, TextIn, Tick } from "@/components/studio
 import { clientErrors, ENTITY_TYPES, THIRD_PARTY_BASIS, type ClientForm } from "@/lib/clients";
 import { saveClientRecord } from "./actions";
 
-export function ClientEditor({ id, initial, verifiedOn, editable }: { id: string | null; initial: ClientForm; verifiedOn: string; editable: boolean }) {
+export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged = false }: { id: string | null; initial: ClientForm; verifiedOn: string; editable: boolean; taxdomeManaged?: boolean }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [reticked, setReticked] = useState(false);
@@ -18,7 +18,7 @@ export function ClientEditor({ id, initial, verifiedOn, editable }: { id: string
   const errors = clientErrors(f, { wasVerified: initial.name_verified, oldName: initial.legal_name, retickedAfterChange: reticked });
   const person = f.kind === "individual";
   const txt = (k: keyof ClientForm, label: string) => (
-    <Labelled id={"cl_" + k} label={label}><TextIn id={"cl_" + k} value={String(f[k])} onValue={(v) => set(k, v as never)} disabled={!editable} /></Labelled>
+    <Labelled id={"cl_" + k} label={label}><TextIn id={"cl_" + k} value={String(f[k])} onValue={(v) => set(k, v as never)} disabled={!editable || (taxdomeManaged && (k === "legal_name" || k === "year_end_md"))} /></Labelled>
   );
 
   function save() {
@@ -35,6 +35,7 @@ export function ClientEditor({ id, initial, verifiedOn, editable }: { id: string
     <Card>
       <form className="grid gap-4" onSubmit={(ev) => { ev.preventDefault(); if (!errors.length) save(); }}>
         <p className="text-sm text-ink-2">Changes here update the client record. Next year&rsquo;s letters use them.</p>
+        {taxdomeManaged && <p className="text-xs text-muted">The legal name and year-end come from TaxDome. Change them in TaxDome, then import again.</p>}
         {!id && (
           <Labelled id="cl_kind" label="Client type">
             <SelectIn id="cl_kind" value={f.kind} onValue={(v) => set("kind", v as ClientForm["kind"])}>
