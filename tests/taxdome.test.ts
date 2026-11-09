@@ -48,6 +48,11 @@ test("reads only T2 companies; individuals with T2 are flagged; private columns 
   assert.equal(r.accounts[1].fye, "");
 });
 
+test("invisible characters are removed from names; real dashes kept", () => {
+  const csv = [HEAD, row("501", "Example Co. \u2014 1000000 Ontario Inc.\uFEFF", "Active", "Company", "T2", "", "", "", "Dec 31", "", "", "", "Ontario", "")].join("\n");
+  assert.equal(readAccounts(csv).accounts[0].legalName, "Example Co. \u2014 1000000 Ontario Inc.");
+});
+
 test("missing columns stop the import", () => {
   assert.ok(readAccounts("id,Account Name\n1,X").missingColumns.length > 0);
 });

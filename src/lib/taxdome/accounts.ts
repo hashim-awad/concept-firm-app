@@ -53,6 +53,8 @@ export function province(raw: string): string {
 }
 
 export const nameKey = (s: string) => s.normalize("NFKD").toLowerCase().replace(/[‘’`´]/g, "'").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+// Invisible characters removed, spaces tidied: U+FEFF (byte-order mark), zero-width spaces and joiners.
+export const clean = (s: string) => s.replace(/[\uFEFF\u200B-\u200D\u2060\u00AD]/g, "").replace(/\s+/g, " ").trim();
 const hasT2 = (tags: string[]) => tags.some((t) => t.trim().toUpperCase() === "T2");
 
 // Reads the export. Returns only the needed fields of T2-tagged Company accounts, plus flags.
@@ -65,7 +67,8 @@ export function readAccounts(text: string): { accounts: Account[]; flags: Flag[]
     const row = i + 2;
     const tags = (r[COLUMNS.tags] ?? "").split(/[,;]/).map((t) => t.trim()).filter(Boolean);
     if (!hasT2(tags)) return;
-    const name = (r[COLUMNS.name] ?? "").trim();
+    // Names sometimes carry invisible characters (a byte-order mark, zero-width spaces): removed.
+    const name = clean(r[COLUMNS.name] ?? "");
     const type = (r[COLUMNS.type] ?? "").trim();
     if (type.toLowerCase() !== "company") { flags.push({ row, name, reason: `Tagged T2 but the account type is "${type || "blank"}", not Company. Not imported.` }); return; }
     if (!name) { flags.push({ row, name: "(no name)", reason: "No account name. Not imported." }); return; }
