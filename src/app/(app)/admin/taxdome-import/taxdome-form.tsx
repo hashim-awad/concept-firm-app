@@ -88,7 +88,7 @@ export function TaxdomeImport() {
                 <tbody>{inserts.map((p) => (
                   <tr key={p.account.taxdomeId}><td>{p.account.row}</td><td className="font-medium">{p.account.legalName}{notes(p)}</td><td>{p.account.bn}</td><td>{MD(p.account.fye)}</td><td>{p.account.province || "Other (none in TaxDome)"}</td><td className="text-xs">{p.account.tags.join(", ")}</td>
                     <td>{(preview.candidates.length > 0) && (
-                      <select aria-label={`Same as existing Studio client, row ${p.account.row}`} value="" onChange={(e) => link(p.account.taxdomeId, e.target.value)} className="input h-8 w-auto py-0 text-sm" disabled={pending}>
+                      <select aria-label={`Same as existing Studio client, row ${p.account.row}`} value="" onChange={(e) => link(p.account.taxdomeId, e.target.value)} className="input w-auto text-sm" disabled={pending}>
                         <option value="">No, a new client</option>
                         {preview.candidates.map((c) => <option key={c.id} value={c.id}>{c.legal_name}</option>)}
                       </select>

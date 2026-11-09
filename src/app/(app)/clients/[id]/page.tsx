@@ -121,7 +121,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
                 <input type="hidden" name="id" value={id} />
                 <fieldset disabled={!editable} className="grid gap-2">
                   <label className="flex items-center gap-2">Balance due
-                    <select name="months" defaultValue={String(c.t2_balance_due_months)} className="input h-8 w-auto py-0 text-sm">
+                    <select name="months" defaultValue={String(c.t2_balance_due_months)} className="input w-auto text-sm">
                       <option value="2">2 months after year-end</option><option value="3">3 months after year-end</option>
                     </select>
                   </label>

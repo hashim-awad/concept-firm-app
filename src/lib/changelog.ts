@@ -12,7 +12,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "If a Studio company has a different name in TaxDome, choose it in the \"Same as existing Studio client\" list next to the new account, so it updates that client instead of adding a second one.",
       "TaxDome is the master list: the legal name, Business Number and year-end of a linked client change only through a new import.",
       "Each corporate client has a balance-due setting (2 or 3 months after year-end) and an \"Exclude from deadlines\" switch.",
-      "My day shows every T2 filing and balance-due date that is overdue or due in the next 90 days, oldest first. Press Done when it is filed or paid. T2 clients with no year-end are listed so they can be fixed in TaxDome.",
+      "My day shows every T2 filing and balance-due date that is overdue or due in the next 90 days, oldest first. Press Done when it is filed or paid, or tick several and press \"Mark selected done\". T2 clients with no year-end are listed so they can be fixed in TaxDome.",
     ],
   },
   {
