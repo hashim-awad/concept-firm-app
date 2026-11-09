@@ -58,6 +58,8 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## Parked (low priority)
 
+- Two-step sign-in (2FA) on Vercel, Supabase and GitHub (Hashim, Nov 9, 2026).
+
 - Staff login emails show the sender address as app@conceptaccounting.ca instead of studio@, although the mailbox's primary address is studio@ and the display name "Concept Studio" is right. Not investigated further (Hashim, Nov 9, 2026). Next check when picked up: the MAIL_FROM value in Vercel Production, and the sender address in the Exchange message trace.
 
 ## In progress

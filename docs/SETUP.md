@@ -63,7 +63,7 @@ Database passwords are kept in the firm's password manager only:
   (Live), SITE_URL https://studio.conceptaccounting.ca (Config); SUPABASE_SECRET_KEY (Secret, Supabase Live key
   "vercel_production"); MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM shared with Preview.
   SEND_EMAIL_HOOK_SECRET for Production comes with the live email hook.
-- Plan is a 14-day Pro trial from 2026-11-08: upgrade before 2026-11-22.
+- Plan is a 14-day Pro trial from 2026-11-08; the card on file is charged automatically when it ends (Hashim, Nov 9, 2026).
 
 ## Microsoft 365 email (staff login emails)
 
@@ -193,4 +193,4 @@ One step at a time, each confirmed with a screenshot.
    0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
    floors. After: 0 clients, engagements, proposals, documents, versions and import runs; price book (43) and
    packages (9) kept. The 1 stored PDF deleted from the Test "documents" bucket. Test now holds no real client data.
-9. Vercel Pro paid before Nov 22, 2026; 2FA on Vercel, Supabase and GitHub.
+9. Vercel Pro: charged automatically to the card on file. 2FA on Vercel, Supabase and GitHub: parked, low priority.
