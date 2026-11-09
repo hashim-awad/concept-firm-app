@@ -1,0 +1,744 @@
+{
+    "items": [
+        {
+            "code": "T1_BASE_SINGLE",
+            "name": "Personal tax return, single",
+            "unit_label": "per return",
+            "amount_cents": 29900
+        },
+        {
+            "code": "T1_BASE_COUPLE",
+            "name": "Personal tax returns, couple filing together",
+            "unit_label": "per couple",
+            "amount_cents": 34900
+        },
+        {
+            "code": "T1_RENTAL",
+            "name": "Rental property (T776)",
+            "unit_label": "per property",
+            "amount_cents": 24900
+        },
+        {
+            "code": "T1_STR",
+            "name": "Short-term rental",
+            "unit_label": "per property",
+            "amount_cents": 24900
+        },
+        {
+            "code": "T1_SELF_EMPLOYED",
+            "name": "Self-employment (T2125)",
+            "unit_label": "per business",
+            "amount_cents": 49900
+        },
+        {
+            "code": "T1_VEHICLE",
+            "name": "Vehicle claim",
+            "unit_label": "per vehicle",
+            "amount_cents": 15000
+        },
+        {
+            "code": "T1_HOME_OFFICE",
+            "name": "Home office",
+            "unit_label": "per business",
+            "amount_cents": 15000
+        },
+        {
+            "code": "T1_GST_RETURN",
+            "name": "GST/HST return",
+            "unit_label": "per return filed",
+            "amount_cents": 14900
+        },
+        {
+            "code": "T1_INVESTMENT_SALES",
+            "name": "Investment sales",
+            "unit_label": "per person",
+            "amount_cents": 9900
+        },
+        {
+            "code": "T1_PR_SALE",
+            "name": "Principal residence sale",
+            "unit_label": "per sale",
+            "amount_cents": 9900
+        },
+        {
+            "code": "T1_PROPERTY_SALE",
+            "name": "Rental or investment property sale",
+            "unit_label": "per property",
+            "amount_cents": 24900
+        },
+        {
+            "code": "T1_T1135_SIMPLE",
+            "name": "Foreign property report (T1135), simplified",
+            "unit_label": "per person",
+            "amount_cents": 14900
+        },
+        {
+            "code": "T1_T1135_DETAILED",
+            "name": "Foreign property report (T1135), detailed",
+            "unit_label": "per person",
+            "amount_cents": 29900
+        },
+        {
+            "code": "T1_FOREIGN_INCOME",
+            "name": "Foreign income with no Canadian slip",
+            "unit_label": "per person",
+            "amount_cents": 14900
+        },
+        {
+            "code": "T1_EMPLOYMENT_EXP",
+            "name": "Employment expenses (T2200/T777)",
+            "unit_label": "per person",
+            "amount_cents": 14900
+        },
+        {
+            "code": "T1_MOVING",
+            "name": "Moving expenses",
+            "unit_label": "per person",
+            "amount_cents": 14900
+        }
+    ],
+    "questionnaire": {
+        "rules": [
+            {
+                "kind": "out_of_scope",
+                "message": "Earlier tax years",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "no",
+                        "question": "latest_year"
+                    }
+                ],
+                "sort_order": 10,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "out_of_scope",
+                "message": "Estate or trust return",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "estate_or_trust"
+                    }
+                ],
+                "sort_order": 20,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "out_of_scope",
+                "message": "Non-resident",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "non_resident"
+                    }
+                ],
+                "sort_order": 30,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "out_of_scope",
+                "message": "US citizen or green card holder",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "us_person"
+                    }
+                ],
+                "sort_order": 40,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "out_of_scope",
+                "message": "CRA review or audit underway",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "cra_review"
+                    }
+                ],
+                "sort_order": 50,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "check",
+                "message": "Home offices cannot be more than the number of businesses.",
+                "item_code": null,
+                "conditions": [
+                    {
+                        "op": "gt_question",
+                        "value": "business_count",
+                        "question": "home_office_count"
+                    }
+                ],
+                "sort_order": 60,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_BASE_SINGLE",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "single",
+                        "question": "filing_type"
+                    }
+                ],
+                "sort_order": 100,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_BASE_COUPLE",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "couple",
+                        "question": "filing_type"
+                    }
+                ],
+                "sort_order": 110,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_RENTAL",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "rental_count"
+                    }
+                ],
+                "sort_order": 120,
+                "quantity_question_key": "rental_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_STR",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "str_count"
+                    }
+                ],
+                "sort_order": 130,
+                "quantity_question_key": "str_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_SELF_EMPLOYED",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "business_count"
+                    }
+                ],
+                "sort_order": 140,
+                "quantity_question_key": "business_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_VEHICLE",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "vehicle_count"
+                    }
+                ],
+                "sort_order": 150,
+                "quantity_question_key": "vehicle_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_HOME_OFFICE",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "home_office_count"
+                    }
+                ],
+                "sort_order": 160,
+                "quantity_question_key": "home_office_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_GST_RETURN",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "gst_return_count"
+                    }
+                ],
+                "sort_order": 170,
+                "quantity_question_key": "gst_return_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_INVESTMENT_SALES",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "investment_sales"
+                    }
+                ],
+                "sort_order": 180,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_PR_SALE",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "home_sale_count"
+                    }
+                ],
+                "sort_order": 190,
+                "quantity_question_key": "home_sale_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_PROPERTY_SALE",
+                "conditions": [
+                    {
+                        "op": "gt",
+                        "value": 0,
+                        "question": "property_sale_count"
+                    }
+                ],
+                "sort_order": 200,
+                "quantity_question_key": "property_sale_count"
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_T1135_SIMPLE",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "simple",
+                        "question": "foreign_property"
+                    }
+                ],
+                "sort_order": 210,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_T1135_DETAILED",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "detailed",
+                        "question": "foreign_property"
+                    }
+                ],
+                "sort_order": 220,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_FOREIGN_INCOME",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "foreign_income"
+                    }
+                ],
+                "sort_order": 230,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_EMPLOYMENT_EXP",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "employment_expenses"
+                    }
+                ],
+                "sort_order": 240,
+                "quantity_question_key": null
+            },
+            {
+                "kind": "add_item",
+                "message": "",
+                "item_code": "T1_MOVING",
+                "conditions": [
+                    {
+                        "op": "eq",
+                        "value": "yes",
+                        "question": "moving_expenses"
+                    }
+                ],
+                "sort_order": 250,
+                "quantity_question_key": null
+            }
+        ],
+        "questions": [
+            {
+                "key": "filing_type",
+                "prompt": "Who is filing?",
+                "options": [
+                    {
+                        "label": "Just me",
+                        "value": "single"
+                    },
+                    {
+                        "label": "Me and my spouse or common-law partner. We live together, Concept prepares both returns, one invoice.",
+                        "value": "couple"
+                    }
+                ],
+                "section": "About you",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": false,
+                "sort_order": 10,
+                "answer_type": "single_choice"
+            },
+            {
+                "key": "province",
+                "prompt": "Which province or territory did you live in on December 31?",
+                "options": [
+                ],
+                "section": "About you",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": false,
+                "sort_order": 20,
+                "answer_type": "province"
+            },
+            {
+                "key": "latest_year",
+                "prompt": "Is this for the most recent tax year only?",
+                "options": [
+                ],
+                "section": "About you",
+                "show_if": null,
+                "required": true,
+                "help_text": "Earlier years are handled separately.",
+                "max_value": null,
+                "min_value": null,
+                "per_person": false,
+                "sort_order": 30,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "estate_or_trust",
+                "prompt": "Is this return for an estate or a trust?",
+                "options": [
+                ],
+                "section": "About you",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": false,
+                "sort_order": 40,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "non_resident",
+                "prompt": "Were you a non-resident of Canada for tax purposes at any time in the year?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 50,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "us_person",
+                "prompt": "Are you a US citizen or a US green card holder?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 60,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "cra_review",
+                "prompt": "Is CRA reviewing or auditing any of your tax returns right now?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 70,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "investment_sales",
+                "prompt": "Did you sell any stocks, funds or other investments?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "Count all your accounts together.",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 80,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "foreign_property",
+                "prompt": "What was the total cost of property you owned outside Canada, at its highest point in the year?",
+                "options": [
+                    {
+                        "label": "None, or under $100,000",
+                        "value": "none"
+                    },
+                    {
+                        "label": "$100,000 to $249,999",
+                        "value": "simple"
+                    },
+                    {
+                        "label": "$250,000 or more",
+                        "value": "detailed"
+                    }
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "Cost, not market value. Include foreign bank accounts, shares and property you rent out. Do not include a home you use yourself.",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 90,
+                "answer_type": "single_choice"
+            },
+            {
+                "key": "foreign_income",
+                "prompt": "Did you earn income from outside Canada that has no Canadian tax slip?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 100,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "employment_expenses",
+                "prompt": "Did your employer give you a T2200 to claim employment expenses?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 110,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "moving_expenses",
+                "prompt": "Did you move for work or school and want to claim moving expenses?",
+                "options": [
+                ],
+                "section": "Each person",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": null,
+                "min_value": null,
+                "per_person": true,
+                "sort_order": 120,
+                "answer_type": "yes_no"
+            },
+            {
+                "key": "rental_count",
+                "prompt": "How many rental properties do you have?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": null,
+                "required": true,
+                "help_text": "One address is one property. A basement suite in your own home counts as one. If you own it with your spouse, count it once. Do not count short-term rentals here.",
+                "max_value": 20,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 130,
+                "answer_type": "number"
+            },
+            {
+                "key": "str_count",
+                "prompt": "How many short-term rental properties do you have (for example Airbnb)?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": 20,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 140,
+                "answer_type": "number"
+            },
+            {
+                "key": "business_count",
+                "prompt": "How many businesses do you run as self-employed (not incorporated)?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": null,
+                "required": true,
+                "help_text": "If you are filing with your spouse, count both of your businesses.",
+                "max_value": 10,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 150,
+                "answer_type": "number"
+            },
+            {
+                "key": "vehicle_count",
+                "prompt": "How many vehicles do you use for those businesses?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": {
+                    "op": "gt",
+                    "value": 0,
+                    "question": "business_count"
+                },
+                "required": true,
+                "help_text": "",
+                "max_value": 10,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 160,
+                "answer_type": "number"
+            },
+            {
+                "key": "home_office_count",
+                "prompt": "How many of those businesses claim a home office?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": {
+                    "op": "gt",
+                    "value": 0,
+                    "question": "business_count"
+                },
+                "required": true,
+                "help_text": "",
+                "max_value": 10,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 170,
+                "answer_type": "number"
+            },
+            {
+                "key": "gst_return_count",
+                "prompt": "How many GST/HST returns should we file for you?",
+                "options": [
+                ],
+                "section": "Property and business",
+                "show_if": null,
+                "required": true,
+                "help_text": "Enter 0 if you are not registered for GST/HST.",
+                "max_value": 10,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 180,
+                "answer_type": "number"
+            },
+            {
+                "key": "home_sale_count",
+                "prompt": "How many homes that you lived in did you sell?",
+                "options": [
+                ],
+                "section": "Sales",
+                "show_if": null,
+                "required": true,
+                "help_text": "",
+                "max_value": 5,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 190,
+                "answer_type": "number"
+            },
+            {
+                "key": "property_sale_count",
+                "prompt": "How many rental or investment properties did you sell?",
+                "options": [
+                ],
+                "section": "Sales",
+                "show_if": null,
+                "required": true,
+                "help_text": "Include property you owned less than 12 months and assignment sales.",
+                "max_value": 20,
+                "min_value": 0,
+                "per_person": false,
+                "sort_order": 200,
+                "answer_type": "number"
+            }
+        ],
+        "couple_value": "couple",
+        "couple_question_key": "filing_type"
+    }
+}

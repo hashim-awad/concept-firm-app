@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FAF9F6;
+  --surface: #FFFFFF;
+  --foreground: #1B2130;
+  --muted: #4E5466;
+  --border: #E3DFD6;
+  --accent: #1A3C7C;
+  --accent-hover: #142F66;
+  --danger: #B42318;
+  --ok: #1F7A4A;
+}
+
+/* ---------------------------------------------------------------------------
+   Concept design system tokens (see /design). Names are new so existing screens
+   keep their current look until the redesign is approved.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Brand: Concept navy */
+  --color-navy-950: #0B1A3A;
+  --color-navy-900: #0F2350;
+  --color-navy-800: #142F66;
+  --color-navy-700: #1A3C7C; /* brand */
+  --color-navy-600: #2A5096;
+  --color-navy-500: #4A6DAE;
+  --color-navy-200: #C9D5EA;
+  --color-navy-100: #E4EAF5;
+  --color-navy-50: #F2F5FB;
+
+  /* Warm neutrals */
+  --color-paper: #FAF9F6;     /* page background */
+  --color-surface: #FFFFFF;   /* cards */
+  --color-sand-50: #F6F4EF;
+  --color-sand-100: #EEEBE4;
+  --color-sand-200: #E3DFD6;  /* borders */
+  --color-sand-300: #CFC9BD;  /* strong borders */
+  --color-ink: #1B2130;       /* main text, 15:1 on paper */
+  --color-ink-2: #4E5466;     /* secondary text, 7.4:1 */
+  --color-ink-3: #6B7080;     /* small print, 4.7:1 */
+
+  /* Concept green (the chevron in the logo). Accent for highlights and key actions.
+     Always pair with navy text: navy on green is 4.7:1. Never white text on green. */
+  --color-lime-600: #6E9C1F;
+  --color-lime-500: #86BC28;
+  --color-lime-400: #9DCB4A;
+  --color-lime-100: #EEF6DD;
+  --color-lime-50: #F6FAEC;
+
+  /* Feedback */
+  --color-success: #1F7A4A;
+  --color-success-soft: #E5F3EA;
+  --color-warning: #8A5A00;
+  --color-warning-soft: #FBF0D9;
+  --color-danger: #B42318;
+  --color-danger-soft: #FCE8E6;
+  --color-info: #1A3C7C;
+  --color-info-soft: #E4EAF5;
+
+  --font-brand: "Plus Jakarta Sans Variable", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --radius-ds: 10px;
+  --shadow-card: 0 1px 2px rgb(27 33 48 / 0.04), 0 1px 3px rgb(27 33 48 / 0.06);
+  --shadow-raised: 0 4px 12px rgb(27 33 48 / 0.08), 0 2px 4px rgb(27 33 48 / 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-brand);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-brand);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Shared classes used by existing screens, restyled to the design system. */
+.btn {
+  @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-navy-700 px-4 text-sm font-medium text-white shadow-[var(--shadow-card)] transition-colors hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
+}
+.btn-secondary {
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sand-300 bg-surface px-3.5 text-sm font-medium text-ink transition-colors hover:bg-sand-50 disabled:opacity-50;
+}
+.btn-danger {
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-danger/30 bg-surface px-3.5 text-sm font-medium text-danger transition-colors hover:bg-danger-soft disabled:opacity-50;
+}
+.input {
+  @apply w-full rounded-lg border border-sand-300 bg-surface px-3.5 py-2 text-[15px] text-ink transition-colors placeholder:text-ink-3 hover:border-ink-3 focus:border-navy-600 focus:outline-none focus:ring-4 focus:ring-navy-600/15 disabled:bg-sand-50 disabled:text-ink-3;
+}
+.label {
+  @apply mb-1.5 block text-sm font-medium text-ink;
+}
+.card {
+  @apply rounded-[var(--radius-ds)] border border-sand-200 bg-surface p-5 shadow-[var(--shadow-card)] md:p-6;
+}
+.table {
+  @apply w-full text-left text-sm tabular-nums;
+}
+.table th {
+  @apply border-b border-sand-200 px-4 py-2.5 text-[11px] font-semibold tracking-wider text-ink-3 uppercase;
+}
+.table td {
+  @apply border-b border-sand-100 px-4 py-3 align-middle;
+}
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr:hover { background: var(--color-sand-50); }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700); }
+
+/* Design system base (approved 2026-11-08). The body carries the .ds class. */
+.ds {
+  font-family: var(--font-brand);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+.ds .num, .ds table { font-variant-numeric: tabular-nums; }
+.ds :focus-visible { outline: 2px solid var(--color-navy-600); outline-offset: 2px; border-radius: 6px; }
+
+/* Sidebar scrollbar: thin and quiet, only if the menu ever outgrows the screen. */
+.sidebar-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.2) transparent; }
+.sidebar-scroll::-webkit-scrollbar { width: 6px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.2); border-radius: 3px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Studio letter preview: Studio's own paper styles (EL v3.31), scoped to the preview box. */
+.studio-preview .paper{background:#fff;color:#1d2330;width:816px;max-width:none;margin:0 auto;padding:44px 56px;border-radius:4px;box-shadow:0 2px 14px rgba(0,0,0,.12);font-family:Roboto,Arial,sans-serif;font-size:13px;line-height:1.5;position:relative;font-variant-numeric:normal}
+.studio-preview .paper.draft::after{content:"DRAFT FOR REVIEW";position:absolute;top:220px;left:0;right:0;text-align:center;font-size:58px;font-weight:700;color:rgba(179,38,30,.09);transform:rotate(-30deg);pointer-events:none}
+.studio-preview .paper img.lh{width:100%;margin-bottom:18px}
+.studio-preview .paper p{margin:0 0 9px;text-align:justify}
+.studio-preview .paper li{text-align:justify}
+.studio-preview .paper h3{color:#1A3C7C;font-size:14px;font-weight:700;margin:14px 0 6px}
+.studio-preview .paper ul{margin:0 0 9px 18px;padding:0;list-style:disc}
+.studio-preview .paper ol{list-style:decimal}
+.studio-preview .paper table{border-collapse:collapse;width:100%;margin:4px 0 10px}
+.studio-preview .paper th{background:#1A3C7C;color:#fff;text-align:left;padding:5px 8px}
+.studio-preview .paper td{border:1px solid #c9d3e6;padding:5px 8px;vertical-align:top}
+.studio-preview .paper .pgb{border-top:2px dashed #c9d3e6;margin:26px -56px 22px;position:relative}
+.studio-preview .paper .pgb span{position:absolute;top:-10px;left:56px;background:#fff;padding:0 6px;font-size:11px;color:#7a8394}
+.studio-preview .paper .sig{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:8px}
+.studio-preview .paper .sig .ln{border-top:1px solid #333;margin-top:30px;padding-top:3px}
+.studio-preview .paper .tc p{font-size:12px}
+.studio-preview .paper .app-r{text-align:right;margin-top:22px}
+.studio-preview .paper .missing{background:#fbeceb;color:#b3261e;padding:0 3px;border-radius:3px}
+.studio-preview .paper .illus{position:relative;overflow:hidden}
+.studio-preview .paper .illus::after{content:"ILLUSTRATIVE ONLY";position:absolute;top:45%;left:-10%;right:-10%;text-align:center;font-size:54px;font-weight:700;color:rgba(179,38,30,.17);transform:rotate(38deg);pointer-events:none}
+.studio-preview .paper .illus .ban{background:#b3261e;color:#fff;font-weight:700;text-align:center;padding:6px 10px;font-size:12px;margin-bottom:10px}
+
+/* Wording editor: wording you can edit, highlighted when pointed at. */
+.template-doc .studio-preview [data-w] { cursor: pointer; border-radius: 2px; }
+.template-doc .studio-preview [data-w]:hover { background: rgba(26, 60, 124, 0.08); outline: 1px dashed rgba(26, 60, 124, 0.4); }
