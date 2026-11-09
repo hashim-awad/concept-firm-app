@@ -1,5 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { withMessage } from "@/lib/messages";
 import { getAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { planImport, type Account, type Existing, type Flag, type Planned } from "@/lib/taxdome/accounts";
@@ -47,9 +49,11 @@ export async function applyTaxdome(accounts: Account[], expected: number): Promi
 }
 
 export async function saveTaxdomeLink(formData: FormData): Promise<void> {
+  const page = "/admin/taxdome-import";
   const access = await getAccess();
-  if (!access?.is_owner) return;
+  if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can change the TaxDome link."));
   const supabase = await createClient();
-  await supabase.rpc("update_setting", { p_key: "taxdome_account_url", p_value: String(formData.get("url") ?? "").trim() });
-  revalidatePath("/admin/taxdome-import");
+  const { error } = await supabase.rpc("update_setting", { p_key: "taxdome_account_url", p_value: String(formData.get("url") ?? "").trim() });
+  revalidatePath(page);
+  redirect(withMessage(page, error ? "error" : "msg", error ? error.message : "Link saved."));
 }
