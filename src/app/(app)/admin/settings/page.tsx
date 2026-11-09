@@ -158,7 +158,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
             {DAYS.map(([d, label]) => {
               const h = hours[d];
               return (
-                <div key={d} className="grid grid-cols-[7rem_auto_8rem_auto_8rem] items-center gap-2 text-sm">
+                <div key={d} className="grid grid-cols-[7rem_5rem_11rem_2rem_11rem] items-center justify-start gap-2 text-sm">
                   <span>{label}</span>
                   <label className="flex items-center gap-1.5"><input type="checkbox" name={`${d}_open`} defaultChecked={!!h} className="h-4 w-4 accent-navy-700" />Open</label>
                   <input type="time" name={`${d}_start`} defaultValue={h?.[0] ?? "09:00"} aria-label={`${label} start`} className="input" />
