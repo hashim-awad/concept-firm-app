@@ -56,6 +56,10 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 - Do not open a second GitHub account to get around the suspension.
 - Nov 9, 2026: GitHub lifted the suspension. Repository, branches and pull request #1 checked intact; held commits pushed. Go-live resumed: pull request #1 merged and the live database deployed on Nov 9, 2026.
 
+## Parked (low priority)
+
+- Staff login emails show the sender address as app@conceptaccounting.ca instead of studio@, although the mailbox's primary address is studio@ and the display name "Concept Studio" is right. Not investigated further (Hashim, Nov 9, 2026). Next check when picked up: the MAIL_FROM value in Vercel Production, and the sender address in the Exchange message trace.
+
 ## In progress
 
 - **Email sender:** moving from app@ to studio@conceptaccounting.ca.

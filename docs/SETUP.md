@@ -187,7 +187,7 @@ One step at a time, each confirmed with a screenshot.
    rates loaded and approved, price book clean-up applied. Checked in the Live SQL editor: 8 clients,
    5 engagements (0 without a client), 0 proposals, 43 price book items, PTX-129 present, 9 packages and
    floors, 13 approved rates; Agent floor $5,388 with software $69, and the Core, Finance Office and
-   Custom GCI notes correct. Past letters not yet regenerated (0 documents).
+   Custom GCI notes correct. Past letters not regenerated, by Hashim's choice (decision 28); the vault starts empty.
 8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
    `scripts/test-only/clear-real-client-data.sql`, run by Hashim in the Test SQL editor. Before: 8 clients,
    0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
