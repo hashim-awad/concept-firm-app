@@ -170,7 +170,9 @@ One step at a time, each confirmed with a screenshot.
    Hashim and applied all 12 migrations (20261108000000 to 20261108110000) to the live project; Vercel
    production build succeeded. Note: the workflow warns that supabase/setup-cli@v1 runs on a deprecated
    Node version; update the action version at the next workflow change.
-5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
+5. Domain studio.conceptaccounting.ca on Vercel production. Nov 9, 2026: added in Vercel (Production);
+   DNS at Hostinger (hPanel > Domains > conceptaccounting.ca > DNS records): CNAME `studio` ->
+   ad53d178b891b41c.vercel-dns-017.com, TTL 14400. Other records untouched.
 6. Supabase Live auth. Done Nov 9, 2026: sign-ups off (manual linking and anonymous sign-ins off, Email
    provider only); login hashim@conceptaccounting.ca created in Authentication > Users (auto-confirmed,
    password in the password manager as "Concept Studio – Live – Hashim"); first owner set with
