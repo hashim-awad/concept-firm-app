@@ -42,7 +42,7 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 23 | Design system | Approved 2026-11-08 (page: /design). Concept navy #1A3C7C, Concept green #86BC28 accent (navy text on green, never white), warm neutrals, Plus Jakarta Sans with tabular figures, supplied logo artwork. Sidebar active item: navy-tint highlight with green marker. DRAFT FOR REVIEW watermark only on unsent quotes in staff preview, never on the client's copy. One date format on screen: "Nov 5, 2026". Start page headline: "Your tax return, prepared and reviewed by a CPA." Client pages keep "Checked by our team before you sign" and "Your information is stored securely in Canada"; no time estimates, no "No payment today". |
 | 24 | Phase order | Phase 1 Concept Studio in the app, Phase 2 T1 workflow, Phase 3 year-end compilation (2026-11-08). |
 | 25 | Signer names | Owner-edited setting per document type, not hard-coded. Engagement letters: "Hashim Abouelfetouh, CPA" (CPA Ontario registered name, documents signed in CPA capacity). Proposals and all other documents: "Hashim Awad". (2026-11-08) |
-| 26 | Price Floors corrections | Recorded as price-book changes after the import, not during it. Agent monthly bookkeeping plus year-end T2: software $69; floor ($380 + $69) x 12 = $5,388 (was $5,220); note updated. Team Finance Office: GCI $3M to $5M. Team Core: GCI $1M to $3M. Team Custom: GCI above $5M (unchanged). |
+| 26 | Price Floors corrections | Recorded as price-book changes after the import, not during it. From Nov 9, 2026 the corrections are made in Notion at the source (Agent floor $5,388, Core, Finance Office and Custom GCI notes), so the "Apply these corrections" button on the Import page is not used for the Live import. Agent monthly bookkeeping plus year-end T2: software $69; floor ($380 + $69) x 12 = $5,388 (was $5,220); note updated. Team Finance Office: GCI $3M to $5M. Team Core: GCI $1M to $3M. Team Custom: GCI above $5M (unchanged). |
 | 27 | T1 price book in Phase 1 | Studio's T1 price book ported exactly for the parity test. After parity sign-off, the brief's T1 changes are applied as a recorded price-book change. |
 | 28 | Past letters in the vault | Past corporate letters and proposals: PDF regenerated from Studio's saved data, labelled on every page "Regenerated from Studio records, not the signed original". Past T1 letters: records only. |
 | 29 | Studio import | CSV export per Notion database, owner-only import screen, dry run with counts and problems before saving. Client data never passes through the repo or chat. Quality log stays for Phase 3. Signature image uploaded once by Hashim in the app. |
@@ -57,6 +57,7 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 38 | Phase 2 batch | `docs/PHASE2-BATCH.md` adopted Nov 9, 2026. Its decisions are final and win over anything older in this brief. |
 | 39 | No price breakdown to clients | Standing rule 1.1 below. |
 | 40 | Pricing permission | Covers the price book, quote amounts, quote breakdowns and Issue quote. Owner role today. Tied to roles, never names. |
+| 41 | Monthly real estate package suggestion | Batch section 12, corrected by Hashim Nov 9, 2026. Revenue under $1 million: "Agent" for a single agent, "Team: Essential" for a team or brokerage. $1M to $3M: Core. $3M to $5M: Finance Office. Over $5M: Custom (priced by Hashim). Other industries: no suggestion. The form does not ask agent or team, so staff mark it on the lead (Studio pre-fills a guess from the business-type answer). |
 
 ## Navigation (decision 37, 2026-11-08)
 End state of the staff menu. Pages not built yet show greyed out with "Soon" and are not links. A section or item shows only if the person's role permits it. Every existing page keeps working; only its place and name changed.
@@ -148,7 +149,7 @@ For every signature keep: signer name, email, date and time, IP address, browser
 
 ## Price book status
 - T1: loaded from this brief. A few remaining items are being priced by Hashim and will be sent.
-- T2 / corporate: year-end auto-pricing items YE-110, YE-111, YE-112, YE-120, YE-121 and GST-110 (batch section 11). Monthly clients are quoted after a call with the existing packages and floors (batch section 12).
+- T2 / corporate: year-end auto-pricing items YE-110, YE-111, YE-112, YE-120, YE-121 and GST-110 (batch section 11). Monthly clients are quoted after a call with the existing packages and floors (batch section 12; package suggestion in decision 41).
 - PTX-100 "Personal tax return services": invoice-only item, no price, never on quotes or in screening (batch section 5.2).
 
 ### T1 price book (all prices before HST, one invoice, charged once; staff only, never shown to clients as line prices)
