@@ -88,6 +88,15 @@ No other known bugs.
    - For Phase 2: the T2 price book and the current T1 engagement letter.
    - For Phase 3: the Compilation Workpaper (GIFI COA list).
 
+## Backup restore test (Nov 9, 2026): passed
+
+- Backup used: Test project ("Concept Firm App - Test"), scheduled physical backup of Nov 9, 2026, 06:29:11 UTC (taken before the real client data was cleared from Test).
+- Restored with Supabase "Restore to new project" into a scratch project "RESTORE TEST - delete Nov 9", in the firm's own organization, region Canada (Central) ca-central-1. Nothing was downloaded.
+- Result: passed. Restored counts matched Test before clearing: 8 clients, 5 engagements, 1 document, 1 document version, 43 price book items, 9 packages and floors; also 1 staff, 15 GST/HST rate rows, 12 of 12 database changes applied.
+- Scratch project deleted by Hashim on Nov 9, 2026; confirmed gone at about 12:20 PM EST (Toronto) from the project list, which shows only "Concept Firm App" and "Concept Firm App - Test".
+- Live backups confirmed: daily physical backups on the live project, latest Nov 9, 2026 10:03 UTC. Database backups do not include stored files (vault PDFs); the full export (decision 9) must include them.
+- Next restore test: within a year (standing rule 1.2).
+
 ## Phase 2 (Nov 9, 2026)
 
 - Batch saved as `docs/PHASE2-BATCH.md`; brief updated to match (decisions 38 to 40, standing rules, Phase 2 summary, Phase 3 D note).
