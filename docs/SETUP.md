@@ -172,5 +172,9 @@ One step at a time, each confirmed with a screenshot.
 6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
    Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.
 7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
-8. Real client data cleared from Test (Test is dummy data only).
+8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
+   `scripts/test-only/clear-real-client-data.sql`, run by Hashim in the Test SQL editor. Before: 8 clients,
+   0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
+   floors. After: 0 clients, engagements, proposals, documents, versions and import runs; price book (43) and
+   packages (9) kept. The 1 stored PDF deleted from the Test "documents" bucket. Test now holds no real client data.
 9. Vercel Pro paid before Nov 22, 2026; 2FA on Vercel, Supabase and GitHub.

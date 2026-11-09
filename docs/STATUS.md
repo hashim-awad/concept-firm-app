@@ -8,7 +8,7 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 - Everything runs on **Test** (Supabase "Concept Firm App - Test", Vercel branch preview).
 - **Live is not set up yet.**
-- Real client data from the Studio import is now in Test. That breaks the "Test is dummy data only" rule until Live is set up and Test is cleared (decision 35).
+- Real client data cleared from Test on Nov 9, 2026 (counts in docs/SETUP.md). Test holds no real client data. The Studio import is redone in Live after the merge.
 
 ## Done (Phase 1)
 
