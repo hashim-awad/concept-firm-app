@@ -1,6 +1,6 @@
 # Build Brief: Concept Studio
 
-Last updated: 2026-11-08 (app named Concept Studio; Phase 3 year-end section replaced in full)
+Last updated: 2026-11-09 (Phase 2 batch adopted: docs/PHASE2-BATCH.md governs Phase 2; where they differ, the batch wins)
 
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
@@ -9,7 +9,7 @@ Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener,
 One firm web app, **Concept Studio**, owned by the firm, that keeps running without Claude. ("Concept Firm App" is only the internal developer name: the GitHub repository, Supabase projects and Vercel project keep it.) It is the firm's one app and will grow beyond T1 quotes.
 Phase order changed by Hashim on 2026-11-08:
 - **Phase 1 (now): Concept Studio in the app.** See "Phase 1: Concept Studio" below.
-- **Phase 2: T1 workflow.** Public start page, screening questions, leads, automatic quotes, signing and the TaxDome handoff, as described in this brief. Starts after Phase 1 is approved.
+- **Phase 2: Leads, quotes and signing (personal and corporate).** Full instructions in `docs/PHASE2-BATCH.md` (approved by Hashim, Nov 9, 2026; every decision in it is final). Summary in "Phase 2" below.
 - **Phase 3: Year-end.** See "Phase 3: Year-End" below (replaces all earlier Phase 3 wording, 2026-11-08). Not built yet. Foundation fit: `docs/PHASE3-FOUNDATION.md`.
 
 Already built and kept for Phase 2: staff logins, roles and permissions, activity log, settings, price book, screening questions and pricing rules, staff email through Microsoft 365, design system.
@@ -20,11 +20,11 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 1 | Hosting | Vercel Pro, server code in Montréal (yul1). Requirement: all records and files are stored in Canada (Supabase ca-central-1). |
 | 2 | Screening form | Built into this app. |
 | 3 | HST | Shown as its own line, based on the client's province. Owner-edited rate table, checked against CRA before go-live. |
-| 4 | Signed copy | After signing, show "Signed. Download your copy", then a Continue button to the TaxDome sign-up page. The app does not email the client. |
-| 5 | Engagement terms | Hashim sends the current T1 engagement letter. Claude adapts it. Hashim approves the final wording. |
+| 4 | Signed copy | After signing, show "Signed. Download your copy" and a button "Continue to the secure portal" (https://portal.conceptaccounting.ca/en-us/signup). The app does not email the client. (Wording updated by the Phase 2 batch, section 9.) |
+| 5 | Engagement terms | T1: approved wording in PHASE2-BATCH.md Appendix A, word for word. Corporate year-end: the Studio corporate master letter with its year-end schedule, plus the two changes in batch section 11. Both stored as editable templates. |
 | 6 | Address | studio.conceptaccounting.ca (changed from app.conceptaccounting.ca, 2026-11-08) |
-| 7 | Couples pricing | Per-property and per-business add-ons are charged once. Per-return add-ons (investment sales, T1135, foreign income, employment expenses, moving) are charged per spouse. Example: both spouses have investment sales = 2 x $99. |
-| 8 | Couples signing | One link per spouse. The quote counts as signed only when both have signed. No email code. |
+| 7 | Couples pricing | Per-property and per-business add-ons are charged once per household. Per-return add-ons are charged per spouse: investment sales, crypto, T1135, foreign income, employment expenses, moving expenses, US returns. Example: both spouses have investment sales = 2 x $99. |
+| 8 | Couples signing | One quote, one document, one price, two signers. One email with two signing buttons, one per spouse. Signed only when both have signed; "Signed by [name], waiting for [name]" until then. After the first signs, offer same-device signing for the second (recorded). No email code. (Batch section 7.) |
 | 9 | Backups | Supabase backups plus a "Download full export" button Hashim clicks monthly. |
 | 10 | Supabase | Live project "Concept Firm App" exists in Canada (Central). A separate Test project is created with Hashim, one step at a time. Previews use Test only. |
 | 11 | Vercel seats | Hashim only. Staff log in to the app through Supabase. |
@@ -54,6 +54,9 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 35 | Live set-up and email | Go live before real daily use: live Supabase project with an owner-approved deploy, studio.conceptaccounting.ca on Vercel production, live email hook; setup redone in Live (import, signature, rates, clean-up); real data then cleared from Test (Test is dummy data only). Changes keep coming after go-live: Test first, then Live with approval. Staff email sender to become studio@conceptaccounting.ca (display name "Concept Studio"), keeping app@ as an alias; the Exchange sending lock and MAIL_FROM move with it. (2026-11-08) |
 | 36 | Price book: add an item | The suggested code follows the chosen service line: the prefix most used in that line, one above the highest number with that prefix (Personal tax: next PTX; Corporate tax: next CTX). Editable before saving. (2026-11-08) |
 | 37 | Menu and navigation | End state set by Hashim 2026-11-08, replacing any earlier menu plan. See "Navigation". |
+| 38 | Phase 2 batch | `docs/PHASE2-BATCH.md` adopted Nov 9, 2026. Its decisions are final and win over anything older in this brief. |
+| 39 | No price breakdown to clients | Standing rule 1.1 below. |
+| 40 | Pricing permission | Covers the price book, quote amounts, quote breakdowns and Issue quote. Owner role today. Tied to roles, never names. |
 
 ## Navigation (decision 37, 2026-11-08)
 End state of the staff menu. Pages not built yet show greyed out with "Soon" and are not links. A section or item shows only if the person's role permits it. Every existing page keeps working; only its place and name changed.
@@ -86,6 +89,10 @@ How permissions decide what shows (built 2026-11-08):
 
 Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator; builder still /documents/proposal), Engagement letters /engagement-letters?type=corporate|t1, Engagements /engagements, Document vault /documents, Team and roles /admin/team. Old addresses (/t1-pricing, /documents?tab=..., /admin/staff, /admin/roles) forward to the new pages; /documents/corporate-letter and /documents/t1-letter still open the same screens.
 
+## Standing rules (Phase 2 batch, section 1)
+- **No price breakdown to clients.** A client never sees the price book, a line price or any per-item amount: not on the quote, engagement letter, emails, signed PDF or download page. The client sees the services included and one total fee, plus GST/HST. Applies to T1 quotes and auto-priced corporate quotes. The full breakdown is stored with the signed quote and shown only to staff with the Pricing permission.
+- **Living-system maintenance.** The brief is updated first, before the code. Every change is tested in the Test project before Live. Automatic tests grow with the app; a new feature adds its tests. The app keeps a change log in plain words Hashim can read. Backups are restored once before go-live and once a year after, to prove they work.
+
 ## Ownership and data rules (non-negotiable)
 - All records and files stored in Canada: Supabase project "Concept Firm App", region Canada (Central), ca-central-1. Pro plan from 2026-11-08 (organization-wide, spend cap on).
 - Code lives in this private repo. Standard, common technology, documented so any developer could take over.
@@ -106,7 +113,7 @@ Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator
 - No staff name is hard-coded anywhere in the app. The first owners are set as data during setup.
 
 ## Roles and permissions
-- Roles are defined in the app. Each role has a permission per area: leads, clients, quotes and documents, vault, price book and rules, tax rates, engagement terms, custom line, staff accounts, exports, settings.
+- Roles are defined in the app. Each role has a permission per area: leads, clients, quotes and documents, vault, price book and rules, tax rates, engagement terms, custom line, staff accounts, exports, settings, and **Pricing** (price book, quote amounts, quote breakdowns, Issue quote; batch section 2). Staff without Pricing see leads, clients and documents with no prices anywhere.
 - Each permission is one of: no access, view, edit.
 - Owners create roles, change permissions and assign people to roles from the admin page, without code changes.
 - Owner role: full access, cannot be edited. At setup: Hashim Awad and Asmaa Ibrahim.
@@ -115,22 +122,23 @@ Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator
 - Every change to roles, permissions and role assignments is recorded in the activity log.
 
 ## Lead flow (personal and corporate)
-1. Public start page: the client chooses "File your personal tax return" or "File your corporate tax return".
+1. Public start page: the client chooses **My personal tax return** or **My company** (small text: "Year-end, tax return or monthly bookkeeping"). Questions: batch sections 4 (personal) and 10 (company).
 2. Each route has its own screening questions. Answers are cross-checked automatically.
 3. Every submission creates a lead record automatically (CRM style): status, source, answers, assigned staff member. Spam protection: hidden trap field and a submission limit, no third-party captcha.
    - Assignment follows the rule owners set in settings: all new leads to one chosen person, to an unassigned queue, or rotating between chosen people. Owners can reassign any lead.
    - Sources: Website, Referral, Existing client, Brokerage or team partner, Talk or event, Social media, Other (owner-editable list).
-4. In-scope answers: the quote is generated automatically, with fees calculated from the screening answers and the price book, and HST by province.
+4. In-scope answers: the quote is generated automatically, with fees calculated from the screening answers and the price book, and GST/HST by province. Corporate: auto-priced for year-end only (batch section 11); monthly bookkeeping, paper receipts or any complex-situation box routes to a booked call. Corporate quotes need the company legal name, entered by staff, before Issue quote.
+   - Lead alerts: everyone with Pricing gets an email at once; My day shows a business-hours timer; a second email if the quote is not marked sent within 45 business minutes (batch section 3). The confirmation screen says the quote will arrive by email and never promises a time.
 5. Staff see a pre-drafted email with the quote link, copy it, and send it from their own Outlook. The app does not send this email. Staff then click "Mark as sent". The quote stays draft until then, so the client sees nothing a person has not released.
-6. Out-of-scope answers (non-resident, US person, estate or trust, prior years, CRA review underway): no quote. The lead is flagged for Hashim.
+6. Out-of-scope answers (batch section 4: not resident all year, US person, deceased or trust return, earlier year or adjustment, CRA review; also self-employment without income and expense totals, assignment GST/HST not handled at closing, crypto without a gains report, a foreign return other than US): a polite message, no quote, the lead is flagged for Hashim.
 7. Price book completeness: the T1 and T2 price books will be complete before go-live, so every in-scope answer prices automatically. There is no triage route for in-scope answers. An owner-only custom line exists as a safety net only, not as a normal route.
 8. Quote link expires 21 days after "Mark as sent". Unsigned quotes expire and the lead is marked lost.
    - Corporate quotes: one signing officer (name and title) by default, with an option to add a second signer.
-9. After signing: download-your-copy page, then Continue to https://portal.conceptaccounting.ca/en-us/signup. TaxDome runs the work from there.
-10. The TaxDome invoice is created after the client completes the organizer and uploads documents, not at sign-up. Staff create it manually from the signed quote for now. The design allows a TaxDome API link to be added later.
+9. After signing: "Signed. Download your copy." and "Continue to the secure portal" (https://portal.conceptaccounting.ca/en-us/signup). TaxDome runs the work from there.
+10. T1: the TaxDome invoice is created after the organizer and documents are in. Studio shows one line to copy: PTX-100 "Personal tax return services, [tax year]", amount = quote total before tax, and the GST/HST rate for the province. Corporate year-end: 50% deposit invoice after signing, balance at client approval; Studio shows both amounts. The design allows a TaxDome API link later.
 
 ## Quote rules
-- The quote is one document: client name, services with prices, total before tax, HST line, total, then the engagement terms, then a signature section.
+- The quote and engagement letter are one document: Part A the quote (services included, one total fee plus GST/HST, never line prices), Part B the engagement terms, Part C signing. T1 wording: batch Appendix A; corporate Part A and email: Appendix C. Valid 21 days after "Mark as sent". DRAFT FOR REVIEW only on unsent quotes in staff preview.
 - Prices come only from the price book, never typed freely (except the owner-only custom line).
 - Statuses: draft, sent, viewed, signed, expired, withdrawn.
 - A revised quote is a new version. Nothing is ever overwritten.
@@ -140,9 +148,10 @@ For every signature keep: signer name, email, date and time, IP address, browser
 
 ## Price book status
 - T1: loaded from this brief. A few remaining items are being priced by Hashim and will be sent.
-- T2: built from Concept Studio's current corporate price book, sent before go-live. The corporate route and screening structure are built now.
+- T2 / corporate: year-end auto-pricing items YE-110, YE-111, YE-112, YE-120, YE-121 and GST-110 (batch section 11). Monthly clients are quoted after a call with the existing packages and floors (batch section 12).
+- PTX-100 "Personal tax return services": invoice-only item, no price, never on quotes or in screening (batch section 5.2).
 
-### T1 price book (all prices before HST, one invoice, charged once)
+### T1 price book (all prices before HST, one invoice, charged once; staff only, never shown to clients as line prices)
 Base: single return $299; couple filing together $349 (married or common-law, same household, both returns by Concept, one invoice).
 
 Add-ons:
@@ -204,6 +213,9 @@ Concept Studio today is a single HTML tool on claude.ai. Its data lives in Notio
 - Tax rates (GST/HST) are built in Phase 1, since proposals need them too (rules in decision 22).
 - When Phase 1 is approved, Hashim invites the team.
 
+## Phase 2: Leads, quotes and signing
+Governed by `docs/PHASE2-BATCH.md` (sections 1 to 16 and Appendices A to C). Order of work: rules and permissions (1 to 3), personal tax route (4 to 9), corporate routes (10 to 12), fixes and Phase 3 text (13 to 15). Settings Hashim fills before go-live: business hours, booking link for the call path, GST/HST rate approval (section 16). T1 rule values stored as editable settings, not code: the 40 km moving-expense distance and the $100,000 and $250,000 T1135 cost thresholds (checked on canada.ca, Nov 9, 2026).
+
 ## Phase 3: Year-End
 (Replaces all earlier Phase 3 wording, 2026-11-08. Not built yet.)
 
@@ -225,6 +237,7 @@ One section in the left panel, "Year-End", holds the whole engagement end to end
 - The client completes our TaxDome organizer "CORP - Year-End T2 (year-end clients)". It goes out automatically from TaxDome after the 50% deposit is paid, with reminders every 7 days, 3 times.
 - The app records the date the organizer was submitted and links the client's documents to the engagement.
 - There are no Excel information request workbooks.
+- Monthly clients (TaxDome tag BK) get the Home Office & Auto organizer instead of the CORP year-end organizer. The TaxDome pipeline 'TX - Corporate Tax (T2) - Year-End' handles all corporate year-ends, with tag conditions.
 
 ### D2. CRA check
 - Using CRA Represent a Client, staff record: GST/HST registration status and filing frequency, GST/HST returns filed for the year, corporate tax and GST/HST instalments, and balances owing.
@@ -323,8 +336,6 @@ Our Compilation Workpaper (GIFI COA list), to load as the starting chart of acco
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)
-- Engagement terms text (waiting for the current T1 engagement letter).
-- T2 price book from Concept Studio.
 - Compilation Workpaper (GIFI COA list) for the Phase 3 starting chart of accounts.
 
 ## How to work with Hashim

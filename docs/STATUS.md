@@ -87,6 +87,11 @@ No other known bugs.
    - For Phase 2: the T2 price book and the current T1 engagement letter.
    - For Phase 3: the Compilation Workpaper (GIFI COA list).
 
+## Phase 2 (Nov 9, 2026)
+
+- Batch saved as `docs/PHASE2-BATCH.md`; brief updated to match (decisions 38 to 40, standing rules, Phase 2 summary, Phase 3 D note).
+- Build plan sent to Hashim; waiting for approval. Building is also blocked from reaching Test until GitHub restores the account.
+
 ## Next steps, in order
 
 1. **Email:** finish the studio@ move (Hashim, then Claude).
