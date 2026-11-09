@@ -5,6 +5,14 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-09",
+    title: "Settings for leads and quotes",
+    points: [
+      "Settings has three new sections: business hours (for the lead timer and the 45-minute reminder), the booking link for company leads that need a call, and the T1 rule values (moving distance 40 km; T1135 thresholds $100,000 and $250,000), which an owner can change when CRA does.",
+      "Team and roles shows each person's phone number, used in the sender block of quote emails. Everyone can set their own.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "T2 deadlines from TaxDome",
     points: [
       "New page, Admin, Import from TaxDome (owners): upload the TaxDome Accounts export. Company accounts tagged T2 come in with their legal name, Business Number, fiscal year-end, tags and TaxDome link. Nothing else in the file is read.",
