@@ -12,7 +12,11 @@ export default async function ImportPage() {
   const [{ data: runs }, fc, { count: engs }, { count: regen }] = await Promise.all([
     supabase.from("import_runs").select("id, source, file_name, dry_run, counts, created_at").order("created_at", { ascending: false }).limit(15),
     floorCorrections(supabase),
-    supabase.from("engagements").select("id", { count: "exact", head: true }).not("letter_data", "is", null).neq("type", "T1 personal"),
+    // Letter inputs carry fees, so they are read through engagement_fees() (Pricing permission).
+    Promise.all([supabase.rpc("engagement_fees"), supabase.from("engagements").select("id, type")]).then(([f, e]) => {
+      const corp = new Set((e.data ?? []).filter((x) => x.type !== "T1 personal").map((x) => x.id));
+      return { count: ((f.data ?? []) as { id: string; letter_data: unknown }[]).filter((x) => x.letter_data != null && corp.has(x.id)).length };
+    }),
     supabase.from("documents").select("id", { count: "exact", head: true }).eq("status", "regenerated"),
   ]);
   return (

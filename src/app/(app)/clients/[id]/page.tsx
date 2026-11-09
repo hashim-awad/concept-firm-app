@@ -30,7 +30,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const { data: c } = await supabase.from("clients").select("*").eq("id", id).maybeSingle();
   if (!c) notFound();
   const initial: ClientForm = Object.fromEntries(Object.keys(BLANK).map((k) => [k, c[k] ?? BLANK[k as keyof ClientForm]])) as ClientForm;
-  const seeDocs = canView(access, "documents"), seeVault = seeDocs || canView(access, "vault");
+  const seeDocs = canView(access, "documents"), seeVault = seeDocs || canView(access, "vault"), pricing = canView(access, "pricing");
 
   // The client page is the hub: everything about this client, in tabs.
   const TABS = [
@@ -48,7 +48,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     supabase.from("client_links").select("relationship, client_id, linked_id, a:clients!client_links_client_id_fkey(id, legal_name, kind), b:clients!client_links_linked_id_fkey(id, legal_name, kind)").or(`client_id.eq.${id},linked_id.eq.${id}`),
     seeDocs ? supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, el_signed").eq("client_id", id).order("fiscal_year_end", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
     seeVault ? supabase.from("documents").select("id, kind, title, status, current_version, updated_at").eq("client_id", id).order("updated_at", { ascending: false }).then((r) => r.data ?? []) : Promise.resolve([]),
-    seeDocs ? supabase.from("proposals").select("id, title, status, date_sent, valid_until, chosen_option").eq("client_id", id).order("date_sent", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
+    seeDocs && pricing ? supabase.from("proposals").select("id, title, status, date_sent, valid_until, chosen_option").eq("client_id", id).order("date_sent", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
   ]);
   type L = { relationship: string; client_id: string; a: { id: string; legal_name: string; kind: string } | null; b: { id: string; legal_name: string; kind: string } | null };
   const links = ((linkRows ?? []) as unknown as L[]).map((l) => ({ rel: l.relationship, other: l.client_id === id ? l.b : l.a })).filter((l) => l.other);
@@ -68,9 +68,9 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     const made = docs;
     content = (
       <div className="grid gap-6">
-        <section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Proposals</h2>{props.length === 0 ? empty("No proposals for this client.") : (
+        {pricing && (<section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Proposals</h2>{props.length === 0 ? empty("No proposals for this client.") : (
           <table className="table"><thead><tr><th>Proposal</th><th>Sent</th><th>Valid until</th><th>Status</th><th>Option</th></tr></thead>
-            <tbody>{props.map((p) => <tr key={p.id}><td className="font-medium">{p.title}</td><td>{formatDate(p.date_sent)}</td><td>{formatDate(p.valid_until)}</td><td>{p.status === "Sent" ? "Awaiting signature" : p.status}</td><td>{p.chosen_option}</td></tr>)}</tbody></table>)}</section>
+            <tbody>{props.map((p) => <tr key={p.id}><td className="font-medium">{p.title}</td><td>{formatDate(p.date_sent)}</td><td>{formatDate(p.valid_until)}</td><td>{p.status === "Sent" ? "Awaiting signature" : p.status}</td><td>{p.chosen_option}</td></tr>)}</tbody></table>)}</section>)}
         <section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Letters and proposal PDFs</h2>{made.length === 0 ? empty("None yet.") : (
           <table className="table"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Status</th><th>Last change</th></tr></thead>
             <tbody>{made.map((d) => <tr key={d.id}><td><Link href={`/documents/vault/${d.id}`} className="font-medium text-navy-700 hover:underline">{d.title}</Link></td><td>{KIND[d.kind]}</td><td>{d.current_version}</td><td className="capitalize">{d.status}</td><td>{formatDate(d.updated_at)}</td></tr>)}</tbody></table>)}</section>

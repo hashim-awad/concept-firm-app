@@ -18,8 +18,8 @@ type Item = { id: string; service_line_id: string; code: string; name: string; u
 type Price = { item_id: string; amount_cents: number; effective_from: string };
 
 export default async function PriceBookPage({ searchParams }: PageProps<"/admin/price-book">) {
-  const access = await requireAccess("price_book", "view");
-  const editable = canEdit(access, "price_book");
+  const access = await requireAccess("pricing", "view");
+  const editable = canEdit(access, "pricing");
   const sp = await searchParams;
   const supabase = await createClient();
   const today = todayToronto();

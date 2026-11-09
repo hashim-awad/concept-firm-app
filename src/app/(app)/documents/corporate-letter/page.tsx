@@ -1,4 +1,4 @@
-import { requireAccess } from "@/lib/access";
+import { requireAccessWithPricing } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { WorkspaceHeader } from "@/components/studio/kit";
 import { CorporateLetterScreen } from "@/components/studio/corporate-letter-screen";
@@ -7,7 +7,7 @@ import { todayToronto } from "@/lib/dates";
 import { saveClientAction, saveDocumentAction } from "../actions";
 
 export default async function CorporateLetterPage({ searchParams }: PageProps<"/documents/corporate-letter">) {
-  const access = await requireAccess("documents", "edit");
+  const access = await requireAccessWithPricing("documents", "edit");
   const sp = await searchParams;
   const supabase = await createClient();
   const { data, env } = await screenSetup(supabase, access, "letter");

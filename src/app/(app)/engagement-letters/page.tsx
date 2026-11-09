@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireAccess } from "@/lib/access";
+import { requireAccessWithPricing } from "@/lib/access";
 import CorporateLetterPage from "../documents/corporate-letter/page";
 import T1LetterPage from "../documents/t1-letter/page";
 
 // Engagement letters: corporate and T1 on one page, the type chosen at the top.
 export default async function EngagementLettersPage({ searchParams }: PageProps<"/engagement-letters">) {
-  await requireAccess("documents", "edit");
+  await requireAccessWithPricing("documents", "edit");
   const sp = await searchParams;
   const type = sp.type === "t1" ? "t1" : "corporate";
   const keep = new URLSearchParams();

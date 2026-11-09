@@ -8,6 +8,8 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
   (select id from public.roles where name = 'Staff'));
+-- Document versions need Pricing (Phase 2 batch, section 2); this test's staff member has it.
+select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing": "edit"}');
 reset role;
 select test.check('RLS on for every public table',
   not exists (select 1 from pg_tables where schemaname = 'public' and not rowsecurity));

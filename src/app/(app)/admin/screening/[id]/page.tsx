@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, Notice } from "@/components/ui";
-import { requireAccess, canEdit } from "@/lib/access";
+import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { loadQuestionnaire, loadCurrentItems } from "@/lib/screening/load";
@@ -19,6 +19,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/a
   if (!qn) notFound();
   const isDraft = qn.row.status === "draft";
   const editable = canEdit(access, "price_book") && isDraft;
+  const showPrices = canView(access, "pricing");
   const items = await loadCurrentItems();
   const itemByCode = new Map(items.map((i) => [i.code, i]));
   const supabase = await createClient();
@@ -108,7 +109,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/a
                   <td className="text-muted">{r.conditions.map((c) => describeCondition(c, qn.questions)).join(" and ")}</td>
                   <td>
                     {r.kind === "add_item"
-                      ? `Add ${item ? `${item.name} (${formatCents(item.amount_cents)})` : r.item_code}${qtyQ ? `, times the answer to “${qtyQ.prompt}”` : ""}`
+                      ? `Add ${item ? `${item.name}${showPrices ? ` (${formatCents(item.amount_cents)})` : ""}` : r.item_code}${qtyQ ? `, times the answer to “${qtyQ.prompt}”` : ""}`
                       : r.kind === "out_of_scope" ? `No quote. Flag for an owner: ${r.message}` : `Stop and show: ${r.message}`}
                   </td>
                   <td className="text-right"><Link href={`/admin/screening/${id}/rule/${r.id}`} className="btn-secondary">{editable ? "Edit" : "View"}</Link></td>

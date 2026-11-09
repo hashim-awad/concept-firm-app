@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAccess, canEdit } from "@/lib/access";
+import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, Meta } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
@@ -16,10 +16,13 @@ export default async function EngagementPage({ params, searchParams }: PageProps
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = await createClient();
-  const { data: e } = await supabase.from("engagements").select("*, clients(id, legal_name, province)").eq("id", id).maybeSingle();
+  const { data: e } = await supabase.from("engagements").select("id, title, type, status, el_version, el_issued, el_signed, fiscal_year_end, registration_confirmed, payment_method, cra_authorization, cra_request_date, notes, created_at, clients(id, legal_name, province)").eq("id", id).maybeSingle();
   if (!e) notFound();
+  // Fees only with the Pricing permission (Phase 2 batch, section 2).
+  const pricing = canView(access, "pricing");
+  const fees = pricing ? ((await supabase.rpc("engagement_fees", { p_id: id })).data?.[0] as { fee: number | null; monthly_fee: number | null; letter_data: unknown } | undefined) : undefined;
   const editable = canEdit(access, "documents");
-  const client = e.clients as { id: string; legal_name: string; province: string } | null;
+  const client = e.clients as unknown as { id: string; legal_name: string; province: string } | null;
   const abbc = client && (client.province === "AB" || client.province === "BC");
   const { data: docs } = await supabase.from("documents").select("id, title, current_version, status").eq("engagement_id", id);
   const t1 = e.type === "T1 personal";
@@ -60,8 +63,10 @@ export default async function EngagementPage({ params, searchParams }: PageProps
             <Meta items={[
               { label: "Client", value: client ? <Link href={`/clients/${client.id}`} className="text-navy-700 underline">{client.legal_name}</Link> : "None" },
               { label: "Year end", value: formatDate(e.fiscal_year_end) },
-              { label: "Fee", value: e.fee != null ? `$${Number(e.fee).toLocaleString("en-CA", { minimumFractionDigits: 2 })}` : "" },
-              { label: "Monthly fee", value: e.monthly_fee != null ? `$${Number(e.monthly_fee).toLocaleString("en-CA", { minimumFractionDigits: 2 })}` : "" },
+              ...(pricing ? [
+                { label: "Fee", value: fees?.fee != null ? `$${Number(fees.fee).toLocaleString("en-CA", { minimumFractionDigits: 2 })}` : "" },
+                { label: "Monthly fee", value: fees?.monthly_fee != null ? `$${Number(fees.monthly_fee).toLocaleString("en-CA", { minimumFractionDigits: 2 })}` : "" },
+              ] : []),
               { label: "Recorded", value: formatDateTime(e.created_at) },
             ]} />
           </section>
@@ -69,7 +74,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
             <h2 className="mb-2 font-semibold">Letters</h2>
             {(docs ?? []).length === 0 ? <p className="text-sm text-muted">No letter in the vault for this engagement.</p> :
               <ul className="grid gap-2 text-sm">{(docs ?? []).map((d) => <li key={d.id}><Link href={`/documents/vault/${d.id}`} className="text-navy-700 underline">{d.title}</Link> <span className="text-muted">· version {d.current_version}</span></li>)}</ul>}
-            {editable && !t1 && e.letter_data && (docs ?? []).length > 0 && (
+            {editable && pricing && !t1 && fees?.letter_data != null && (docs ?? []).length > 0 && (
               <p className="mt-3 text-sm"><Link href={`/engagement-letters?type=corporate&doc=${docs![0].id}`} className="text-navy-700 underline">Revise letter</Link></p>
             )}
           </section>

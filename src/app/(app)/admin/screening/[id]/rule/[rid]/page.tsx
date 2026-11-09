@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, Notice } from "@/components/ui";
 import { ConditionFields } from "@/components/condition-fields";
-import { requireAccess, canEdit } from "@/lib/access";
+import { requireAccess, canEdit, canView } from "@/lib/access";
 import { messageFrom } from "@/lib/messages";
 import { loadQuestionnaire, loadCurrentItems } from "@/lib/screening/load";
 import { formatCents } from "@/lib/screening/engine";
@@ -18,6 +18,7 @@ export default async function RulePage({ params, searchParams }: PageProps<"/adm
   const r = isNew ? null : qn.rules.find((x) => x.id === rid);
   if (!isNew && !r) notFound();
   const editable = canEdit(access, "price_book") && qn.row.status === "draft";
+  const showPrices = canView(access, "pricing");
   const items = (await loadCurrentItems()).filter((i) => i.is_active || i.code === r?.item_code);
   const numberQuestions = qn.questions.filter((q) => q.answer_type === "number");
   const nextOrder = (qn.rules.at(-1)?.sort_order ?? 0) + 10;
@@ -54,7 +55,7 @@ export default async function RulePage({ params, searchParams }: PageProps<"/adm
               <label htmlFor="item_code" className="label">Price rule: item to add</label>
               <select id="item_code" name="item_code" defaultValue={r?.item_code ?? ""} className="input">
                 <option value="">(choose an item)</option>
-                {items.map((i) => <option key={i.code} value={i.code}>{i.name} ({formatCents(i.amount_cents)})</option>)}
+                {items.map((i) => <option key={i.code} value={i.code}>{i.name}{showPrices ? ` (${formatCents(i.amount_cents)})` : ""}</option>)}
               </select>
             </div>
             <div>

@@ -30,6 +30,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const firstName = access.full_name.split(" ")[0];
   const today = todayToronto();
   const seeDocs = canView(access, "documents");
+  const pricing = canView(access, "pricing");
   const supabase = await createClient();
 
   type P = { id: string; title: string; date_sent: string | null; valid_until: string | null };
@@ -37,7 +38,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   let proposals: P[] = [], letters: E[] = [], open: E[] = [];
   if (seeDocs) {
     const [p, l, o] = await Promise.all([
-      supabase.from("proposals").select("id, title, date_sent, valid_until").eq("status", "Sent").order("valid_until", { ascending: true, nullsFirst: false }),
+      pricing ? supabase.from("proposals").select("id, title, date_sent, valid_until").eq("status", "Sent").order("valid_until", { ascending: true, nullsFirst: false }) : Promise.resolve({ data: [] }),
       supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").eq("status", "EL sent").order("el_issued"),
       supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").in("type", T2_TYPES).not("status", "in", "(Issued,Cancelled)").not("fiscal_year_end", "is", null),
     ]);
@@ -60,6 +61,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
         <div className="grid gap-5 lg:grid-cols-2">
           <Card title="Leads to review" soon="Leads arrive with the public start page (Phase 2)." />
           <Card title="Gates waiting" soon="Year-end gates arrive with Year-End & T2 (Phase 3)." />
+{pricing && (
           <Card title="Proposals awaiting signature" count={proposals.length}>
             {proposals.length === 0 ? <p className="text-sm text-muted">None.</p> : (
               <ul className="grid gap-2 text-sm">{proposals.map((r) => (
@@ -71,6 +73,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
               ))}</ul>
             )}
           </Card>
+          )}
           <Card title="Engagement letters awaiting signature" count={letters.length}>
             {letters.length === 0 ? <p className="text-sm text-muted">None.</p> : (
               <ul className="grid gap-2 text-sm">{letters.map((e) => (

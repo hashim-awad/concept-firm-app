@@ -3,6 +3,7 @@
 const KNOWN: Record<string, string> = {
   "no-permission": "You do not have access to that page.",
   "owners-only": "Only an owner can open that page.",
+  "pricing-needed": "That page shows prices. Your role does not include the Pricing permission.",
 };
 
 export function messageFrom(value: string | string[] | undefined): string | null {

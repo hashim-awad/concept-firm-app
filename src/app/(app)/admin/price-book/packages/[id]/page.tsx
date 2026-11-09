@@ -9,10 +9,10 @@ import { SERVICES } from "@/lib/price-book/labels";
 
 
 export default async function OfferPage({ params, searchParams }: PageProps<"/admin/price-book/packages/[id]">) {
-  const access = await requireAccess("price_book", "view");
+  const access = await requireAccess("pricing", "view");
   const { id } = await params;
   const sp = await searchParams;
-  const editable = canEdit(access, "price_book");
+  const editable = canEdit(access, "pricing");
   const isNew = id === "new";
   if (!isNew && !/^[0-9a-f-]{36}$/.test(id)) notFound();
   if (isNew && !editable) notFound();

@@ -2,12 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import { ScreeningForm } from "@/components/screening-form";
-import { requireAccess } from "@/lib/access";
+import { requireAccessWithPricing } from "@/lib/access";
 import { loadQuestionnaire, toEngine } from "@/lib/screening/load";
 import { tryQuestionnaire } from "./actions";
 
 export default async function TryPage({ params }: PageProps<"/admin/screening/[id]/try">) {
-  await requireAccess("price_book", "view");
+  await requireAccessWithPricing("price_book", "view");
   const { id } = await params;
   const qn = await loadQuestionnaire(id);
   if (!qn) notFound();

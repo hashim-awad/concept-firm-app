@@ -12,9 +12,9 @@ type Offer = { id: string; offer: string; segment: string; is_package: boolean; 
 const $ = (n: number | null) => (n == null ? "" : "$" + Number(n).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 2 }));
 
 export default async function PackagesPage({ searchParams }: PageProps<"/admin/price-book/packages">) {
-  const access = await requireAccess("price_book", "view");
+  const access = await requireAccess("pricing", "view");
   const sp = await searchParams;
-  const editable = canEdit(access, "price_book");
+  const editable = canEdit(access, "pricing");
   const supabase = await createClient();
   const { data } = await supabase.from("offers").select("*").order("sort_order").order("offer");
   const offers = (data ?? []) as Offer[];

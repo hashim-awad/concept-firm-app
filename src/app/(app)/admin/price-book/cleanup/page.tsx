@@ -11,7 +11,7 @@ import { applyCleanup } from "./actions";
 const LINES = ["bookkeeping", "t2", "gst_hst", "payroll", "cfo", "advisory", "incorporation", "adjustments", "t1"];
 
 export default async function CleanupPage({ searchParams }: PageProps<"/admin/price-book/cleanup">) {
-  const access = await requireAccess("price_book", "view");
+  const access = await requireAccess("pricing", "view");
   const sp = await searchParams;
   const supabase = await createClient();
   const { items, lineKeys, t1Offers } = await loadItems(supabase);
