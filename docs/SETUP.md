@@ -42,7 +42,7 @@ Database passwords are kept in the firm's password manager only:
 - Live deploys: `.github/workflows/db-deploy-live.yml` (written 2026-11-08). Runs only from main,
   waits for approval in the GitHub environment "production" (Hashim as required reviewer, main
   only), shows the changes, then applies them. Secret: SUPABASE_DB_PASSWORD in "production" (the
-  LIVE database password). Not run yet.
+  LIVE database password). First run Nov 9, 2026: all 12 migrations applied.
 
 ## Test project: auth setup (2026-11-08)
 
@@ -166,8 +166,10 @@ One step at a time, each confirmed with a screenshot.
 3. Done 2026-11-08: Vercel Production environment variables (before merging, so the first production build works):
    live Supabase URL and keys, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@).
    SEND_EMAIL_HOOK_SECRET follows in step 6.
-4. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
-   live database deploy waits for approval, then applies every migration.
+4. Done Nov 9, 2026: pull request #1 merged into main by Hashim; "Database deploy - Live" approved by
+   Hashim and applied all 12 migrations (20261108000000 to 20261108110000) to the live project; Vercel
+   production build succeeded. Note: the workflow warns that supabase/setup-cli@v1 runs on a deprecated
+   Node version; update the action version at the next workflow change.
 5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
 6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
    Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.

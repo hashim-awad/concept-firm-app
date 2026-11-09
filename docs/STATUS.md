@@ -54,7 +54,7 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 - Code backed up: full copy of the current code and the change list sent to Hashim on Nov 8, 2026, saved in the firm records folder.
 - Go-live paused at step 4 (merge pull request #1 into main). Live database untouched and empty. The Test app keeps running on its existing Vercel builds.
 - Do not open a second GitHub account to get around the suspension.
-- Nov 9, 2026: GitHub lifted the suspension. Repository, branches and pull request #1 checked intact; held commits pushed. Go-live resumes at step 4 (merge pull request #1).
+- Nov 9, 2026: GitHub lifted the suspension. Repository, branches and pull request #1 checked intact; held commits pushed. Go-live resumed: pull request #1 merged and the live database deployed on Nov 9, 2026.
 
 ## In progress
 
