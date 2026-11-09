@@ -171,7 +171,10 @@ One step at a time, each confirmed with a screenshot.
    production build succeeded. Note: the workflow warns that supabase/setup-cli@v1 runs on a deprecated
    Node version; update the action version at the next workflow change.
 5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
-6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
+6. Supabase Live auth. Done Nov 9, 2026: sign-ups off (manual linking and anonymous sign-ins off, Email
+   provider only); login hashim@conceptaccounting.ca created in Authentication > Users (auto-confirmed,
+   password in the password manager as "Concept Studio – Live – Hashim"); first owner set with
+   private.bootstrap_owner (Hashim Awad, role Owner). Still to do: Site URL and redirect URLs,
    Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.
 7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
 8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
