@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, todayToronto } from "@/lib/dates";
 import { t2Deadlines, type T2Client } from "@/lib/deadlines";
-import { markDeadlineDone } from "./my-day-actions";
+import { T2DeadlineTable } from "./t2-deadline-table";
 
 const AHEAD_DAYS = 90;
 
@@ -58,8 +58,6 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const deadlines = t2Deadlines(t2, today, doneKeys, AHEAD_DAYS);
   const noYearEnd = t2.filter((c) => !/^\d{2}-\d{2}$/.test(c.year_end_md));
 
-  const due = (days: number) => days < 0 ? <span className="font-medium text-danger">{-days} day{days === -1 ? "" : "s"} overdue</span>
-    : days === 0 ? <span className="font-medium text-danger">Due today</span> : <span className="text-muted">in {days} day{days === 1 ? "" : "s"}</span>;
 
   return (
     <>
@@ -95,24 +93,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
           <div className="lg:col-span-2">
             <Card title={`T2 deadlines, overdue or in the next ${AHEAD_DAYS} days`} count={deadlines.length}>
               {deadlines.length === 0 ? <p className="text-sm text-muted">None.</p> : (
-                <table className="table">
-                  <thead><tr><th>Client</th><th>Deadline</th><th>Year end</th><th>Due</th><th></th>{editClients && <th></th>}</tr></thead>
-                  <tbody>{deadlines.map((x) => (
-                    <tr key={`${x.clientId}|${x.yearEnd}|${x.kind}`}>
-                      <td><Link href={`/clients/${x.clientId}`} className="font-medium text-navy-700 hover:underline">{x.client}</Link></td>
-                      <td>{x.kind === "filing" ? "T2 filing" : "Balance due"}</td>
-                      <td>{formatDate(x.yearEnd)}</td><td>{formatDate(x.due)}</td><td>{due(x.days)}</td>
-                      {editClients && (
-                        <td className="text-right">
-                          <form action={markDeadlineDone}>
-                            <input type="hidden" name="client_id" value={x.clientId} /><input type="hidden" name="year_end" value={x.yearEnd} /><input type="hidden" name="kind" value={x.kind} />
-                            <button type="submit" className="btn-secondary h-8 px-3 text-sm" title={x.kind === "filing" ? "Mark the T2 as filed" : "Mark the balance as paid or not owing"}>Done</button>
-                          </form>
-                        </td>
-                      )}
-                    </tr>
-                  ))}</tbody>
-                </table>
+                <T2DeadlineTable editable={editClients} items={deadlines.map((x) => ({ ...x, yearEndText: formatDate(x.yearEnd), dueText: formatDate(x.due) }))} />
               )}
               {noYearEnd.length > 0 && (
                 <div className="mt-4 rounded-lg border border-warning/30 bg-warning-soft p-3 text-sm">
