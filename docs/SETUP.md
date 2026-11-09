@@ -176,8 +176,12 @@ One step at a time, each confirmed with a screenshot.
 6. Supabase Live auth. Done Nov 9, 2026: sign-ups off (manual linking and anonymous sign-ins off, Email
    provider only); login hashim@conceptaccounting.ca created in Authentication > Users (auto-confirmed,
    password in the password manager as "Concept Studio – Live – Hashim"); first owner set with
-   private.bootstrap_owner (Hashim Awad, role Owner). Still to do: Site URL and redirect URLs,
-   Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.
+   private.bootstrap_owner (Hashim Awad, role Owner). Site URL https://studio.conceptaccounting.ca and redirect URL
+   https://studio.conceptaccounting.ca/** (Nov 9). Send Email hook (HTTPS) to
+   https://studio.conceptaccounting.ca/api/hooks/send-email, its secret saved in Vercel as
+   SEND_EMAIL_HOOK_SECRET (Production, Secret); production redeployed. Verified Nov 9, 2026 12:50 PM:
+   reset email delivered from "Concept Studio" with the logo, password reset completed, sign-in to
+   My day on studio.conceptaccounting.ca.
 7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
 8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
    `scripts/test-only/clear-real-client-data.sql`, run by Hashim in the Test SQL editor. Before: 8 clients,
