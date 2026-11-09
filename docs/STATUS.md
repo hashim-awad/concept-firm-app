@@ -47,13 +47,14 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 **Menu (decision 37)**
 - New menu: Home, Sales, Clients, Work, Documents, Quality, Firm setup, Admin. Soon items greyed out. Folding groups with badges, Ctrl+K client search, client page with tabs, My day with signatures waiting and T2 filing deadlines, Team and roles merged.
 
-## Blocked: GitHub account suspended (2026-11-08)
+## Resolved: GitHub account suspended (Nov 8 to Nov 9, 2026)
 
 - GitHub suspended the account hashim-awad on Nov 8, 2026 (most likely an automatic abuse flag on a new account with heavy automated activity; GitHub has not said). Sign-in, the repository, pull request #1 and pushes are blocked (403).
 - Appeal sent: GitHub Support ticket 4973605 (Nov 8, 2026, 3:23 PM).
 - Code backed up: full copy of the current code and the change list sent to Hashim on Nov 8, 2026, saved in the firm records folder.
 - Go-live paused at step 4 (merge pull request #1 into main). Live database untouched and empty. The Test app keeps running on its existing Vercel builds.
 - Do not open a second GitHub account to get around the suspension.
+- Nov 9, 2026: GitHub lifted the suspension. Repository, branches and pull request #1 checked intact; held commits pushed. Go-live resumes at step 4 (merge pull request #1).
 
 ## In progress
 
@@ -90,7 +91,7 @@ No other known bugs.
 ## Phase 2 (Nov 9, 2026)
 
 - Batch saved as `docs/PHASE2-BATCH.md`; brief updated to match (decisions 38 to 40, standing rules, Phase 2 summary, Phase 3 D note).
-- Build plan sent to Hashim; waiting for approval. Building is also blocked from reaching Test until GitHub restores the account.
+- Build plan sent to Hashim; waiting for approval.
 
 ## Next steps, in order
 
