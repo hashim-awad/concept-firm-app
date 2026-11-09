@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
+import { settingsPage } from "./tabs";
 
 const PAGE = "/admin/settings";
 
@@ -19,7 +20,7 @@ export async function saveLeadAssignment(formData: FormData) {
     p_value: { mode, staff_ids: staffIds },
   });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Lead assignment saved."));
+  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Lead assignment saved."));
 }
 
 export async function saveRetention(formData: FormData) {
@@ -27,7 +28,7 @@ export async function saveRetention(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "retention_months", p_value: months });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Retention period saved."));
+  redirect(withMessage(settingsPage("data"), error ? "error" : "msg", error ? error.message : "Retention period saved."));
 }
 
 // Signer names per document type (decision 25). Owners only; the database checks again.
@@ -39,13 +40,13 @@ export async function saveSigner(formData: FormData) {
     p_value: { name: String(formData.get("name") ?? ""), title: String(formData.get("title") ?? "") },
   });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Signer name saved."));
+  redirect(withMessage(settingsPage("letters"), error ? "error" : "msg", error ? error.message : "Signer name saved."));
 }
 
 // The signature image goes to private storage (owners only), never into the code.
 export async function uploadSignature(formData: FormData) {
   const file = formData.get("signature");
-  const fail = (m: string) => redirect(withMessage(PAGE, "error", m));
+  const fail = (m: string) => redirect(withMessage(settingsPage("letters"), "error", m));
   if (!(file instanceof File) || file.size === 0) fail("Choose the signature image (PNG).");
   const f = file as File;
   if (f.size > 1024 * 1024) fail("The image must be under 1 MB.");
@@ -57,7 +58,7 @@ export async function uploadSignature(formData: FormData) {
   if (up.error) fail("Only an owner can upload the signature.");
   const { error } = await supabase.rpc("update_setting", { p_key: "signature_image", p_value: { uploaded: true } });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
+  redirect(withMessage(settingsPage("letters"), error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
 }
 
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -68,14 +69,14 @@ export async function saveBusinessHours(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "business_hours", p_value: value });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Business hours saved."));
+  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Business hours saved."));
 }
 
 export async function saveBookingLink(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "booking_link", p_value: String(formData.get("url") ?? "").trim() });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Booking link saved."));
+  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Booking link saved."));
 }
 
 export async function saveT1Rules(formData: FormData) {
@@ -85,7 +86,7 @@ export async function saveT1Rules(formData: FormData) {
     moving_km: num("moving_km"), t1135_simple_over: num("t1135_simple_over"), t1135_detailed_from: num("t1135_detailed_from"), checked_on: String(formData.get("checked_on") ?? ""),
   } });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
+  redirect(withMessage(settingsPage("tax"), error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
 }
 
 export async function saveLeadSources(formData: FormData) {
@@ -93,12 +94,12 @@ export async function saveLeadSources(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "lead_sources", p_value: list });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Lead sources saved."));
+  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : "Lead sources saved."));
 }
 
 export async function saveStartPage(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "start_page_open", p_value: formData.get("open") === "on" });
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
+  redirect(withMessage(settingsPage("leads"), error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
 }

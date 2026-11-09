@@ -5,6 +5,13 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Settings in tabs",
+    points: [
+      "Settings is split into four tabs: Leads and quotes, Letters and signing, Tax rules, and Data and retention. After you save, you stay on the same tab.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Leads",
     points: [
       "Public start page at /start, in the firm's branding: \"My personal tax return\" or \"My company\", then the client's details. It stays closed to the public until an owner opens it in Settings; staff can always preview it.",
