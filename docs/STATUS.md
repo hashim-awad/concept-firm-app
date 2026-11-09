@@ -58,6 +58,8 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## Parked (low priority)
 
+- "Refresh from TaxDome" button instead of the CSV export (Hashim, Nov 9, 2026). Needs TaxDome's public API (announced Oct 28, 2026, rolling out to firms); not yet in the firm's TaxDome (Settings > Integrations shows no API, Nov 9). When it appears: read-only key in Vercel, same preview and Save, CSV upload kept as a fallback. Zapier not used: it would route client data through a US third party.
+
 - Two-step sign-in (2FA) on Vercel, Supabase and GitHub (Hashim, Nov 9, 2026).
 
 - Staff login emails show the sender address as app@conceptaccounting.ca instead of studio@, although the mailbox's primary address is studio@ and the display name "Concept Studio" is right. Not investigated further (Hashim, Nov 9, 2026). Next check when picked up: the MAIL_FROM value in Vercel Production, and the sender address in the Exchange message trace.
