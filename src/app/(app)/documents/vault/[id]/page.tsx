@@ -15,11 +15,14 @@ export default async function VaultDocumentPage({ params }: PageProps<"/document
   const supabase = await createClient();
   const { data: d } = await supabase.from("documents").select("id, kind, title, status, client_id, engagement_id, proposal_id").eq("id", id).maybeSingle();
   if (!d) notFound();
-  const { data: versions } = await supabase.from("document_versions").select("id, version, mode, el_version, file_name, file_sha256, file_size, regenerated, label, created_at, staff:created_by(full_name)").eq("document_id", id).order("version", { ascending: false });
+  // Versions hold the inputs and PDF, which carry fees: Pricing permission only (approved Nov 9, 2026).
+  const pricing = canView(access, "pricing");
+  const { data: versions } = !pricing ? { data: [] } : await supabase.from("document_versions").select("id, version, mode, el_version, file_name, file_sha256, file_size, regenerated, label, created_at, staff:created_by(full_name)").eq("document_id", id).order("version", { ascending: false });
   return (
     <>
       <PageHeader eyebrow="Document vault" title={d.title} description="Every version is kept. Nothing is overwritten."
-        actions={canEdit(access, "documents") && d.status !== "regenerated" ? <Link href={`${SCREEN[d.kind]}${SCREEN[d.kind].includes("?") ? "&" : "?"}doc=${d.id}`} className="btn">{d.status === "final" ? "Revise (new version)" : "Keep working (new version)"}</Link> : undefined} />
+        actions={pricing && canEdit(access, "documents") && d.status !== "regenerated" ? <Link href={`${SCREEN[d.kind]}${SCREEN[d.kind].includes("?") ? "&" : "?"}doc=${d.id}`} className="btn">{d.status === "final" ? "Revise (new version)" : "Keep working (new version)"}</Link> : undefined} />
+      {!pricing && <p className="card mb-4 text-sm text-muted">This document shows fees. Opening it needs the Pricing permission, which your role does not include.</p>}
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead><tr><th>Version</th><th>Made</th><th>By</th><th>Kind</th><th>File</th><th>Fingerprint (SHA-256)</th></tr></thead>

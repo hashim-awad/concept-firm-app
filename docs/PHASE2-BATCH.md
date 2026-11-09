@@ -333,7 +333,7 @@ QBO income accounts: YE-110, YE-111, YE-112, YE-120 and YE-121 use the same inco
 
 - The lead page shows all the answers before the call, including questions A to C.
 - **Real estate leads** (agents, teams, brokerages): Studio suggests a package from the revenue band:
-  - Under $1 million: Agent
+  - Under $1 million: "Agent" for a single agent; "Team: Essential" for a team or brokerage (corrected by Hashim, Nov 9, 2026)
   - $1 million to $3 million: Core
   - $3 million to $5 million: Finance Office
   - Over $5 million: Custom (priced by Hashim)

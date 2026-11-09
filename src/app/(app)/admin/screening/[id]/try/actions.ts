@@ -6,7 +6,7 @@ import { evaluate, type Answers, type Result } from "@/lib/screening/engine";
 
 export async function tryQuestionnaire(id: string, _prev: Result | null, formData: FormData): Promise<Result | null> {
   const access = await getAccess();
-  if (!access || !canView(access, "price_book")) return null;
+  if (!access || !canView(access, "price_book") || !canView(access, "pricing")) return null;
   const qn = await loadQuestionnaire(id);
   if (!qn) return null;
   let answers: Answers;

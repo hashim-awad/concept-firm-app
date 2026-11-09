@@ -31,3 +31,15 @@ export async function saveClientRecord(id: string | null, form: ClientForm, wasV
   revalidatePath("/clients");
   return { ok: true as const, id: data.id as string };
 }
+
+// Per client, set by staff: balance-due period (2 or 3 months) and "Exclude from deadlines" (decision 43).
+export async function saveT2Settings(formData: FormData): Promise<void> {
+  const access = await getAccess();
+  if (!access || !canEdit(access, "clients")) return;
+  const id = String(formData.get("id") ?? "");
+  const months = formData.get("months") === "3" ? 3 : 2;
+  const supabase = await createClient();
+  await supabase.from("clients").update({ t2_balance_due_months: months, t2_exclude_deadlines: formData.get("exclude") === "on" }).eq("id", id);
+  revalidatePath(`/clients/${id}`);
+  revalidatePath("/");
+}

@@ -10,8 +10,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   // Menu badges: proposals and engagement letters sent and waiting for the client's signature.
   const supabase = await createClient();
   const seeDocs = canView(access, "documents");
+  const pricing = canView(access, "pricing");
   const [{ count: proposalsAwaiting }, { count: lettersAwaiting }] = seeDocs ? await Promise.all([
-    supabase.from("proposals").select("id", { count: "exact", head: true }).eq("status", "Sent"),
+    pricing ? supabase.from("proposals").select("id", { count: "exact", head: true }).eq("status", "Sent") : Promise.resolve({ count: 0 }),
     supabase.from("engagements").select("id", { count: "exact", head: true }).eq("status", "EL sent"),
   ]) : [{ count: 0 }, { count: 0 }];
   return (
@@ -28,7 +29,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             documents: seeDocs,
             documentsEdit: canEdit(access, "documents"),
             vault: canView(access, "vault"),
-            priceBook: canView(access, "price_book"),
+            pricing,
+            screening: canView(access, "price_book"),
             templates: canView(access, "engagement_terms"),
             taxRates: canView(access, "tax_rates"),
             staff: canView(access, "staff_accounts"),

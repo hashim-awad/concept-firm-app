@@ -32,7 +32,7 @@ export type StudioData = {
 };
 
 export async function loadStudioData(supabase: SupabaseClient, access: Access): Promise<StudioData> {
-  const floorsOk = canView(access, "price_book");
+  const floorsOk = canView(access, "pricing");
   const today = todayToronto();
   const [offers, items, prices, clients, signers, wording] = await Promise.all([
     floorsOk ? supabase.from("offers").select("*").eq("is_active", true).order("sort_order") : Promise.resolve({ data: [] }),

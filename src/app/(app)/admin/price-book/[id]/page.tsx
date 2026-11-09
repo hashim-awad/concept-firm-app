@@ -11,8 +11,8 @@ import { updateItem, addPrice } from "../actions";
 type Price = { id: string; amount_cents: number; effective_from: string; note: string; created_at: string; created_by: string | null };
 
 export default async function ItemPage({ params, searchParams }: PageProps<"/admin/price-book/[id]">) {
-  const access = await requireAccess("price_book", "view");
-  const editable = canEdit(access, "price_book");
+  const access = await requireAccess("pricing", "view");
+  const editable = canEdit(access, "pricing");
   const { id } = await params;
   const sp = await searchParams;
   const supabase = await createClient();

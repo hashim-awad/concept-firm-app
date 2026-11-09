@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FilePlus2 } from "lucide-react";
-import { requireAccess, canEdit } from "@/lib/access";
+import { requireAccessWithPricing, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, buttonClass } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
@@ -17,7 +17,7 @@ const TYPES = [["all", "All types"], ["business", "Business proposal"], ["t1", "
 const STATUSES = ["Draft", "Sent", "Accepted", "Declined", "Expired"];
 
 export default async function ProposalsPage({ searchParams }: PageProps<"/proposals">) {
-  const access = await requireAccess("documents", "view");
+  const access = await requireAccessWithPricing("documents", "view");
   const sp = await searchParams;
   const editable = canEdit(access, "documents");
   const tab = sp.tab === "calculator" && editable ? "calculator" : "list";

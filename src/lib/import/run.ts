@@ -143,7 +143,13 @@ export async function regeneratePast(supabase: SupabaseClient, access: Access, l
   const { data: docs } = await supabase.from("documents").select("engagement_id, proposal_id");
   const hasEng = new Set((docs ?? []).map((d) => d.engagement_id).filter(Boolean));
   const hasProp = new Set((docs ?? []).map((d) => d.proposal_id).filter(Boolean));
-  const { data: engs } = await supabase.from("engagements").select("id, client_id, title, el_issued, fiscal_year_end, registration_confirmed, letter_data").not("letter_data", "is", null).neq("type", "T1 personal");
+  // Letter inputs carry fees, so they come through engagement_fees() (Pricing permission).
+  const [{ data: engRows }, { data: fees }] = await Promise.all([
+    supabase.from("engagements").select("id, client_id, title, el_issued, fiscal_year_end, registration_confirmed, type").neq("type", "T1 personal"),
+    supabase.rpc("engagement_fees"),
+  ]);
+  const ldBy = new Map(((fees ?? []) as { id: string; letter_data: unknown }[]).map((f) => [f.id, f.letter_data]));
+  const engs = (engRows ?? []).map((e) => ({ ...e, letter_data: ldBy.get(e.id) ?? null })).filter((e) => e.letter_data != null);
   const { data: props } = await supabase.from("proposals").select("id, client_id, title, segment, date_sent, valid_until, recommended, options_data").not("options_data", "is", null).neq("status", "Draft");
   const todoE = (engs ?? []).filter((e) => !hasEng.has(e.id) && (e.letter_data as any)?.f);
   const todoP = (props ?? []).filter((p) => !hasProp.has(p.id));

@@ -42,7 +42,7 @@ Database passwords are kept in the firm's password manager only:
 - Live deploys: `.github/workflows/db-deploy-live.yml` (written 2026-11-08). Runs only from main,
   waits for approval in the GitHub environment "production" (Hashim as required reviewer, main
   only), shows the changes, then applies them. Secret: SUPABASE_DB_PASSWORD in "production" (the
-  LIVE database password). Not run yet.
+  LIVE database password). First run Nov 9, 2026: all 12 migrations applied.
 
 ## Test project: auth setup (2026-11-08)
 
@@ -63,7 +63,7 @@ Database passwords are kept in the firm's password manager only:
   (Live), SITE_URL https://studio.conceptaccounting.ca (Config); SUPABASE_SECRET_KEY (Secret, Supabase Live key
   "vercel_production"); MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM shared with Preview.
   SEND_EMAIL_HOOK_SECRET for Production comes with the live email hook.
-- Plan is a 14-day Pro trial from 2026-11-08: upgrade before 2026-11-22.
+- Plan is a 14-day Pro trial from 2026-11-08; the card on file is charged automatically when it ends (Hashim, Nov 9, 2026).
 
 ## Microsoft 365 email (staff login emails)
 
@@ -166,15 +166,31 @@ One step at a time, each confirmed with a screenshot.
 3. Done 2026-11-08: Vercel Production environment variables (before merging, so the first production build works):
    live Supabase URL and keys, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM (studio@).
    SEND_EMAIL_HOOK_SECRET follows in step 6.
-4. Merge the work into main (pull request, approved by Hashim). Vercel builds production; the
-   live database deploy waits for approval, then applies every migration.
-5. Domain studio.conceptaccounting.ca on Vercel production (DNS record at the domain host).
-6. Supabase Live auth: sign-ups off, first owner (bootstrap_owner), Site URL and redirect URLs,
-   Send Email hook to https://studio.conceptaccounting.ca/api/hooks/send-email.
-7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
+4. Done Nov 9, 2026: pull request #1 merged into main by Hashim; "Database deploy - Live" approved by
+   Hashim and applied all 12 migrations (20261108000000 to 20261108110000) to the live project; Vercel
+   production build succeeded. Note: the workflow warns that supabase/setup-cli@v1 runs on a deprecated
+   Node version; update the action version at the next workflow change.
+5. Domain studio.conceptaccounting.ca on Vercel production. Nov 9, 2026: added in Vercel (Production);
+   DNS at Hostinger (hPanel > Domains > conceptaccounting.ca > DNS records): CNAME `studio` ->
+   ad53d178b891b41c.vercel-dns-017.com, TTL 14400. Other records untouched.
+6. Supabase Live auth. Done Nov 9, 2026: sign-ups off (manual linking and anonymous sign-ins off, Email
+   provider only); login hashim@conceptaccounting.ca created in Authentication > Users (auto-confirmed,
+   password in the password manager as "Concept Studio – Live – Hashim"); first owner set with
+   private.bootstrap_owner (Hashim Awad, role Owner). Site URL https://studio.conceptaccounting.ca and redirect URL
+   https://studio.conceptaccounting.ca/** (Nov 9). Send Email hook (HTTPS) to
+   https://studio.conceptaccounting.ca/api/hooks/send-email, its secret saved in Vercel as
+   SEND_EMAIL_HOOK_SECRET (Production, Secret); production redeployed. Verified Nov 9, 2026 12:50 PM:
+   reset email delivered from "Concept Studio" with the logo, password reset completed, sign-in to
+   My day on studio.conceptaccounting.ca.
+7. Setup redone in Live (Nov 9, 2026, by Hashim): Studio import from fresh Notion CSVs (Price Floors
+   corrected in Notion first, so the corrections button was not used), signature uploaded, 13 GST/HST
+   rates loaded and approved, price book clean-up applied. Checked in the Live SQL editor: 8 clients,
+   5 engagements (0 without a client), 0 proposals, 43 price book items, PTX-129 present, 9 packages and
+   floors, 13 approved rates; Agent floor $5,388 with software $69, and the Core, Finance Office and
+   Custom GCI notes correct. Past letters not regenerated, by Hashim's choice (decision 28); the vault starts empty.
 8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
    `scripts/test-only/clear-real-client-data.sql`, run by Hashim in the Test SQL editor. Before: 8 clients,
    0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
    floors. After: 0 clients, engagements, proposals, documents, versions and import runs; price book (43) and
    packages (9) kept. The 1 stored PDF deleted from the Test "documents" bucket. Test now holds no real client data.
-9. Vercel Pro paid before Nov 22, 2026; 2FA on Vercel, Supabase and GitHub.
+9. Vercel Pro: charged automatically to the card on file. 2FA on Vercel, Supabase and GitHub: parked, low priority.

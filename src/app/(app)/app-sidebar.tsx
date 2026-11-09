@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, BookOpen, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, History, Home, Landmark, Library, ListChecks,
-  LogOut, Menu, Percent, ScrollText, Settings, Sparkles, Tags, UserPlus, Users, Wallet, X, Briefcase, Layers,
+  CloudDownload, LogOut, Menu, Newspaper, Percent, ScrollText, Settings, Sparkles, Tags, UserPlus, Users, Wallet, X, Briefcase, Layers,
 } from "lucide-react";
 import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
 import { StudioLogo } from "@/components/ds/brand";
@@ -19,7 +19,8 @@ export type SidebarAccess = {
   documents: boolean;
   documentsEdit: boolean;
   vault: boolean;
-  priceBook: boolean;
+  pricing: boolean;
+  screening: boolean;
   templates: boolean;
   taxRates: boolean;
   staff: boolean;
@@ -52,8 +53,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     { label: "Home", items: [item("/", "My day", <Home key="i" />)] } as NavGroup,
     group("Sales", [
       access.leads && soon("Leads", <UserPlus key="i" />),
-      access.documents && item("/proposals", "Proposals", <Landmark key="i" />, counts.proposalsAwaiting),
-      access.documentsEdit && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
+      access.documents && access.pricing && item("/proposals", "Proposals", <Landmark key="i" />, counts.proposalsAwaiting),
+      access.documentsEdit && access.pricing && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
     ]),
     group("Clients", [
       access.clients && item("/clients", "Clients", <Building2 key="i" />),
@@ -69,9 +70,9 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     group("Documents", [(access.documents || access.vault) && item("/documents", "Document vault", <FolderLock key="i" />)]),
     group("Quality", [access.isOwner && soon("Reviews", <ClipboardCheck key="i" />)]),
     group("Firm setup", [
-      access.priceBook && item("/admin/price-book", "Price book", <BookOpen key="i" />),
+      access.pricing && item("/admin/price-book", "Price book", <BookOpen key="i" />),
       access.templates && item("/admin/templates", "Templates", <Library key="i" />),
-      access.priceBook && item("/admin/screening", "Screening questions", <ListChecks key="i" />),
+      access.screening && item("/admin/screening", "Screening questions", <ListChecks key="i" />),
       access.isOwner && soon("Chart of accounts", <ScrollText key="i" />),
       access.isOwner && soon("Vendor rules", <Tags key="i" />),
       access.taxRates && item("/admin/tax-rates", "GST/HST rates", <Percent key="i" />),
@@ -79,7 +80,9 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     group("Admin", [
       (access.staff || access.isOwner) && item("/admin/team", "Team and roles", <Users key="i" />),
       access.settings && item("/admin/settings", "Settings", <Settings key="i" />),
+      access.isOwner && item("/admin/taxdome-import", "Import from TaxDome", <CloudDownload key="i" />),
       access.isOwner && item("/admin/activity", "Activity log", <History key="i" />),
+      item("/admin/changelog", "Change log", <Newspaper key="i" />),
     ]),
   ].filter(Boolean) as NavGroup[];
 

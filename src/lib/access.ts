@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Level = "none" | "view" | "edit";
 export type Area =
-  | "leads" | "clients" | "documents" | "vault" | "price_book" | "tax_rates"
+  | "leads" | "clients" | "documents" | "vault" | "price_book" | "pricing" | "tax_rates"
   | "engagement_terms" | "custom_line" | "staff_accounts" | "exports" | "settings";
 
 export type Access = {
@@ -37,6 +37,14 @@ export async function requireAccess(area?: Area, level: "view" | "edit" = "view"
   const access = await getAccess();
   if (!access) redirect("/no-access");
   if (area && !(level === "edit" ? canEdit(access, area) : canView(access, area))) redirect("/?error=no-permission");
+  return access;
+}
+
+// Pages that show prices (price book, quotes, letters and proposals with fees) also need Pricing
+// (Phase 2 batch, section 2). The database enforces the same rule.
+export async function requireAccessWithPricing(area: Area, level: "view" | "edit" = "view"): Promise<Access> {
+  const access = await requireAccess(area, level);
+  if (!canView(access, "pricing")) redirect("/?error=pricing-needed");
   return access;
 }
 

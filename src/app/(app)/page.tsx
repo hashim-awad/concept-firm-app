@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { PageHeader, Notice } from "@/components/ui";
-import { requireAccess, canView } from "@/lib/access";
+import { requireAccess, canView, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, todayToronto } from "@/lib/dates";
-import { daysBetween, t2FilingDeadline } from "@/lib/deadlines";
+import { t2Deadlines, type T2Client } from "@/lib/deadlines";
+import { markDeadlineDone } from "./my-day-actions";
 
-// Engagement types that include a T2 return.
-const T2_TYPES = ["Year-end compilation + T2", "Monthly full service", "T2 only"];
 const AHEAD_DAYS = 90;
 
 function Card({ title, count, children, soon }: { title: string; count?: number; children?: React.ReactNode; soon?: string }) {
@@ -30,24 +29,34 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const firstName = access.full_name.split(" ")[0];
   const today = todayToronto();
   const seeDocs = canView(access, "documents");
+  const seeClients = canView(access, "clients"), editClients = canEdit(access, "clients");
+  const pricing = canView(access, "pricing");
   const supabase = await createClient();
 
   type P = { id: string; title: string; date_sent: string | null; valid_until: string | null };
   type E = { id: string; title: string; type: string; status: string; fiscal_year_end: string | null; el_issued: string | null; client_id: string | null; clients: { legal_name: string } | null };
-  let proposals: P[] = [], letters: E[] = [], open: E[] = [];
+  let proposals: P[] = [], letters: E[] = [];
   if (seeDocs) {
-    const [p, l, o] = await Promise.all([
-      supabase.from("proposals").select("id, title, date_sent, valid_until").eq("status", "Sent").order("valid_until", { ascending: true, nullsFirst: false }),
+    const [p, l] = await Promise.all([
+      pricing ? supabase.from("proposals").select("id, title, date_sent, valid_until").eq("status", "Sent").order("valid_until", { ascending: true, nullsFirst: false }) : Promise.resolve({ data: [] }),
       supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").eq("status", "EL sent").order("el_issued"),
-      supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").in("type", T2_TYPES).not("status", "in", "(Issued,Cancelled)").not("fiscal_year_end", "is", null),
     ]);
     proposals = (p.data ?? []) as P[];
     letters = (l.data ?? []) as unknown as E[];
-    open = (o.data ?? []) as unknown as E[];
   }
-  const deadlines = open.map((e) => ({ e, due: t2FilingDeadline(e.fiscal_year_end!) }))
-    .map((x) => ({ ...x, days: daysBetween(today, x.due) }))
-    .filter((x) => x.days <= AHEAD_DAYS).sort((a, b) => a.days - b.days);
+
+  // T2 deadlines (decision 43): T2 clients from TaxDome, not excluded, active.
+  let t2: T2Client[] = [], doneKeys = new Set<string>();
+  if (seeClients) {
+    const [c, d] = await Promise.all([
+      supabase.from("clients").select("id, legal_name, year_end_md, t2_balance_due_months").contains("taxdome_tags", ["T2"]).eq("t2_exclude_deadlines", false).eq("status", "active").order("legal_name"),
+      supabase.from("t2_deadline_done").select("client_id, year_end, kind"),
+    ]);
+    t2 = (c.data ?? []) as T2Client[];
+    doneKeys = new Set((d.data ?? []).map((x: { client_id: string; year_end: string; kind: string }) => `${x.client_id}|${x.year_end}|${x.kind}`));
+  }
+  const deadlines = t2Deadlines(t2, today, doneKeys, AHEAD_DAYS);
+  const noYearEnd = t2.filter((c) => !/^\d{2}-\d{2}$/.test(c.year_end_md));
 
   const due = (days: number) => days < 0 ? <span className="font-medium text-danger">{-days} day{days === -1 ? "" : "s"} overdue</span>
     : days === 0 ? <span className="font-medium text-danger">Due today</span> : <span className="text-muted">in {days} day{days === 1 ? "" : "s"}</span>;
@@ -56,10 +65,11 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
     <>
       <PageHeader title={`Good day, ${firstName}`} description={`My day · ${formatDate(today)}`} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      {!seeDocs ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
+      {!seeDocs && !seeClients ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
         <div className="grid gap-5 lg:grid-cols-2">
           <Card title="Leads to review" soon="Leads arrive with the public start page (Phase 2)." />
           <Card title="Gates waiting" soon="Year-end gates arrive with Year-End & T2 (Phase 3)." />
+{pricing && (
           <Card title="Proposals awaiting signature" count={proposals.length}>
             {proposals.length === 0 ? <p className="text-sm text-muted">None.</p> : (
               <ul className="grid gap-2 text-sm">{proposals.map((r) => (
@@ -71,6 +81,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
               ))}</ul>
             )}
           </Card>
+          )}
           <Card title="Engagement letters awaiting signature" count={letters.length}>
             {letters.length === 0 ? <p className="text-sm text-muted">None.</p> : (
               <ul className="grid gap-2 text-sm">{letters.map((e) => (
@@ -82,20 +93,34 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
             )}
           </Card>
           <div className="lg:col-span-2">
-            <Card title={`T2 filing deadlines, overdue or in the next ${AHEAD_DAYS} days`} count={deadlines.length}>
+            <Card title={`T2 deadlines, overdue or in the next ${AHEAD_DAYS} days`} count={deadlines.length}>
               {deadlines.length === 0 ? <p className="text-sm text-muted">None.</p> : (
                 <table className="table">
-                  <thead><tr><th>Client</th><th>Engagement</th><th>Year end</th><th>T2 due</th><th></th></tr></thead>
-                  <tbody>{deadlines.map(({ e, due: d, days }) => (
-                    <tr key={e.id}>
-                      <td>{e.client_id ? <Link href={`/clients/${e.client_id}`} className="font-medium text-navy-700 hover:underline">{e.clients?.legal_name ?? ""}</Link> : ""}</td>
-                      <td>{e.type}<span className="block text-xs text-muted">{e.status}</span></td>
-                      <td>{formatDate(e.fiscal_year_end)}</td><td>{formatDate(d)}</td><td>{due(days)}</td>
+                  <thead><tr><th>Client</th><th>Deadline</th><th>Year end</th><th>Due</th><th></th>{editClients && <th></th>}</tr></thead>
+                  <tbody>{deadlines.map((x) => (
+                    <tr key={`${x.clientId}|${x.yearEnd}|${x.kind}`}>
+                      <td><Link href={`/clients/${x.clientId}`} className="font-medium text-navy-700 hover:underline">{x.client}</Link></td>
+                      <td>{x.kind === "filing" ? "T2 filing" : "Balance due"}</td>
+                      <td>{formatDate(x.yearEnd)}</td><td>{formatDate(x.due)}</td><td>{due(x.days)}</td>
+                      {editClients && (
+                        <td className="text-right">
+                          <form action={markDeadlineDone}>
+                            <input type="hidden" name="client_id" value={x.clientId} /><input type="hidden" name="year_end" value={x.yearEnd} /><input type="hidden" name="kind" value={x.kind} />
+                            <button type="submit" className="btn-secondary h-8 px-3 text-sm" title={x.kind === "filing" ? "Mark the T2 as filed" : "Mark the balance as paid or not owing"}>Done</button>
+                          </form>
+                        </td>
+                      )}
                     </tr>
                   ))}</tbody>
                 </table>
               )}
-              <p className="mt-3 text-xs text-muted">T2 due six months after the year end (month-end year ends: last day of the sixth month). Weekends and holidays are not moved. Open engagements only (not Issued or Cancelled). Tax payment deadlines arrive with Year-End &amp; T2.</p>
+              {noYearEnd.length > 0 && (
+                <div className="mt-4 rounded-lg border border-warning/30 bg-warning-soft p-3 text-sm">
+                  <p className="font-medium">{noYearEnd.length} T2 client{noYearEnd.length === 1 ? " has" : "s have"} no fiscal year-end in TaxDome, so no deadlines are shown for {noYearEnd.length === 1 ? "it" : "them"}:</p>
+                  <p className="mt-1">{noYearEnd.map((c, i) => <span key={c.id}>{i > 0 && ", "}<Link href={`/clients/${c.id}`} className="underline">{c.legal_name}</Link></span>)}</p>
+                </div>
+              )}
+              <p className="mt-3 text-xs text-muted">T2 clients from the TaxDome import. Balance due 2 or 3 months after the year end (set on each client); T2 filing due 6 months after (month-end year ends: last day of the month). Weekends and holidays are not moved. Shows the latest year end and the next one; press Done when a return is filed or a balance is paid. Excluded clients are left out.</p>
             </Card>
           </div>
         </div>
