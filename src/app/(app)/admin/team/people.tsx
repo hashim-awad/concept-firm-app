@@ -1,9 +1,9 @@
 import { formatDateTime } from "@/components/ui";
 import { canEdit, type Access } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { inviteStaff, changeRole, setActive } from "../staff/actions";
+import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions";
 
-type StaffRow = { id: string; full_name: string; email: string; role_id: string; is_active: boolean; created_at: string };
+type StaffRow = { id: string; full_name: string; email: string; phone: string; role_id: string; is_active: boolean; created_at: string };
 type RoleRow = { id: string; name: string; is_owner: boolean };
 
 // People: everyone who can sign in. Shown on Team and roles.
@@ -12,7 +12,7 @@ export async function PeopleSection({ access }: { access: Access }) {
   const supabase = await createClient();
 
   const [{ data: staff }, { data: roles }] = await Promise.all([
-    supabase.from("staff").select("id, full_name, email, role_id, is_active, created_at").order("full_name"),
+    supabase.from("staff").select("id, full_name, email, phone, role_id, is_active, created_at").order("full_name"),
     supabase.from("roles").select("id, name, is_owner").order("is_owner", { ascending: false }).order("name"),
   ]);
   const roleList = (roles ?? []) as RoleRow[];
@@ -56,6 +56,7 @@ export async function PeopleSection({ access }: { access: Access }) {
             <tr>
               <th>Name</th>
               <th>Email</th>
+              <th>Phone</th>
               <th>Role</th>
               <th>Status</th>
               <th>Added</th>
@@ -69,6 +70,15 @@ export async function PeopleSection({ access }: { access: Access }) {
                 <tr key={s.id}>
                   <td className="font-medium">{s.full_name}{isSelf && <span className="text-muted"> (you)</span>}</td>
                   <td>{s.email}</td>
+                  <td>
+                    {editable || isSelf ? (
+                      <form action={savePhone} className="flex items-center gap-2">
+                        <input type="hidden" name="staff_id" value={s.id} />
+                        <input name="phone" defaultValue={s.phone} placeholder="226-789-9591" aria-label={`Phone for ${s.full_name}`} className="input w-40" />
+                        <button type="submit" className="btn-secondary">Save</button>
+                      </form>
+                    ) : s.phone}
+                  </td>
                   <td>
                     {editable && !isSelf ? (
                       <form action={changeRole} className="flex items-center gap-2">

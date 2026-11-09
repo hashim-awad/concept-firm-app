@@ -4,7 +4,8 @@ import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
-import { saveLeadAssignment, saveRetention, saveSigner, uploadSignature } from "./actions";
+import { saveBookingLink, saveBusinessHours, saveLeadAssignment, saveRetention, saveSigner, saveT1Rules, uploadSignature } from "./actions";
+import { formatDate } from "@/lib/dates";
 
 type Assignment = { mode: "single" | "unassigned" | "rotate"; staff_ids: string[] };
 
@@ -23,6 +24,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
   const people = (staff ?? []) as { id: string; full_name: string }[];
   const signer = (k: string) => (byKey.get(k) ?? { name: "", title: "Director" }) as { name: string; title: string };
   const sigInfo = (byKey.get("signature_image") ?? { uploaded: false }) as { uploaded: boolean; uploaded_at?: string };
+  const hours = (byKey.get("business_hours") ?? {}) as Record<string, [string, string] | null>;
+  const booking = String(byKey.get("booking_link") ?? "");
+  const t1 = (byKey.get("t1_rules") ?? {}) as { moving_km?: number; t1135_simple_over?: number; t1135_detailed_from?: number; checked_on?: string };
+  const DAYS: [string, string][] = [["mon", "Monday"], ["tue", "Tuesday"], ["wed", "Wednesday"], ["thu", "Thursday"], ["fri", "Friday"], ["sat", "Saturday"], ["sun", "Sunday"]];
+  const hoursSet = DAYS.some(([d]) => hours[d]);
   const SIGNERS: [string, string, string][] = [
     ["signer_engagement_letter", "Engagement letters", "Corporate and T1 letters. Use the name registered with CPA Ontario."],
     ["signer_proposal", "Proposals", "The name on proposals."],
@@ -144,6 +150,50 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
           </div>
         </fieldset>
       </form>
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">Business hours</h2>
+        <p className="mb-4 text-sm text-muted">Toronto time. The lead timer on My day and the second alert after 45 business minutes count only these hours.{!hoursSet && <span className="text-warning"> Not set yet.</span>}</p>
+        <form action={saveBusinessHours} className="grid gap-2">
+          <fieldset disabled={!editable} className="grid gap-2">
+            {DAYS.map(([d, label]) => {
+              const h = hours[d];
+              return (
+                <div key={d} className="grid grid-cols-[7rem_5rem_11rem_2rem_11rem] items-center justify-start gap-2 text-sm">
+                  <span>{label}</span>
+                  <label className="flex items-center gap-1.5"><input type="checkbox" name={`${d}_open`} defaultChecked={!!h} className="h-4 w-4 accent-navy-700" />Open</label>
+                  <input type="time" name={`${d}_start`} defaultValue={h?.[0] ?? "09:00"} aria-label={`${label} start`} className="input" />
+                  <span className="text-center text-muted">to</span>
+                  <input type="time" name={`${d}_end`} defaultValue={h?.[1] ?? "17:00"} aria-label={`${label} end`} className="input" />
+                </div>
+              );
+            })}
+            {editable && <button type="submit" className="btn mt-2 w-fit">Save business hours</button>}
+          </fieldset>
+        </form>
+      </section>
+
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">Booking link</h2>
+        <p className="mb-4 text-sm text-muted">The &ldquo;Choose a time&rdquo; button when a company lead needs a short call (monthly bookkeeping, paper receipts, or a complex situation).{!booking && <span className="text-warning"> Not set yet.</span>}</p>
+        <form action={saveBookingLink} className="flex flex-wrap gap-2">
+          <input name="url" defaultValue={booking} placeholder="https://…" disabled={!editable} aria-label="Booking link" className="input min-w-[20rem] flex-1" />
+          {editable && <button type="submit" className="btn-secondary">Save link</button>}
+        </form>
+      </section>
+
+      <section className="card mb-6">
+        <h2 className="mb-1 font-semibold">T1 rule values</h2>
+        <p className="mb-4 text-sm text-muted">Used by the personal tax screening questions. Check them on canada.ca when CRA changes a rule. Only an owner can change them.{t1.checked_on ? ` Last checked ${formatDate(t1.checked_on)}.` : ""}</p>
+        <form action={saveT1Rules} className="grid gap-3 sm:grid-cols-2">
+          <fieldset disabled={!access.is_owner} className="contents">
+            <div><label htmlFor="moving_km" className="label">Moving expenses: minimum distance closer (km)</label><input id="moving_km" name="moving_km" inputMode="numeric" defaultValue={t1.moving_km ?? ""} className="input" /></div>
+            <div><label htmlFor="checked_on" className="label">Checked on canada.ca on</label><input id="checked_on" name="checked_on" type="date" defaultValue={t1.checked_on ?? ""} className="input" /></div>
+            <div><label htmlFor="t1135_simple_over" className="label">T1135 needed when foreign property cost more than ($)</label><input id="t1135_simple_over" name="t1135_simple_over" inputMode="numeric" defaultValue={t1.t1135_simple_over ?? ""} className="input" /></div>
+            <div><label htmlFor="t1135_detailed_from" className="label">T1135 detailed method when cost was at least ($)</label><input id="t1135_detailed_from" name="t1135_detailed_from" inputMode="numeric" defaultValue={t1.t1135_detailed_from ?? ""} className="input" /></div>
+            {access.is_owner && <div className="sm:col-span-2"><button type="submit" className="btn w-fit">Save T1 rule values</button></div>}
+          </fieldset>
+        </form>
+      </section>
     </>
   );
 }

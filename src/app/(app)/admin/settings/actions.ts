@@ -59,3 +59,31 @@ export async function uploadSignature(formData: FormData) {
   revalidatePath(PAGE);
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
 }
+
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+// Business hours (Toronto time): each day open with a start and end, or closed.
+export async function saveBusinessHours(formData: FormData) {
+  const value = Object.fromEntries(DAYS.map((d) => [d, formData.get(`${d}_open`) === "on" ? [String(formData.get(`${d}_start`) ?? ""), String(formData.get(`${d}_end`) ?? "")] : null]));
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_setting", { p_key: "business_hours", p_value: value });
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Business hours saved."));
+}
+
+export async function saveBookingLink(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_setting", { p_key: "booking_link", p_value: String(formData.get("url") ?? "").trim() });
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Booking link saved."));
+}
+
+export async function saveT1Rules(formData: FormData) {
+  const num = (k: string) => String(formData.get(k) ?? "").replace(/[$,\s]/g, "");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_setting", { p_key: "t1_rules", p_value: {
+    moving_km: num("moving_km"), t1135_simple_over: num("t1135_simple_over"), t1135_detailed_from: num("t1135_detailed_from"), checked_on: String(formData.get("checked_on") ?? ""),
+  } });
+  revalidatePath(PAGE);
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "T1 rule values saved."));
+}

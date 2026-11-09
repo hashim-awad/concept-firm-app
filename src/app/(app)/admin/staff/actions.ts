@@ -72,3 +72,11 @@ export async function setActive(formData: FormData) {
   revalidatePath("/admin/team");
   redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : active ? "Account switched on." : "Account switched off."));
 }
+
+// Phone for the sender block on quote emails. A person can set their own; staff-account editors set others'.
+export async function savePhone(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_staff_phone", { p_staff_id: String(formData.get("staff_id") ?? ""), p_phone: String(formData.get("phone") ?? "") });
+  revalidatePath("/admin/team");
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Phone saved."));
+}
