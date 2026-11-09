@@ -89,7 +89,7 @@ No other known bugs.
 2. **Templates:** make one small change, Review and publish, then check it in a draft Corporate letter.
 3. **Trial templates:** mark ready the ones you approved in Studio.
 4. **Quality log:** in Phase 3, or dropped?
-5. **Accounts:** Vercel Pro before Nov 22, 2026, and 2FA on Vercel, Supabase and GitHub.
+5. **Accounts:** Vercel Pro is charged automatically to the card on file (Hashim, Nov 9, 2026). 2FA parked as low priority.
 6. **Later inputs:**
    - For Phase 2: the T2 price book and the current T1 engagement letter.
    - For Phase 3: the Compilation Workpaper (GIFI COA list).
