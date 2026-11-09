@@ -182,7 +182,12 @@ One step at a time, each confirmed with a screenshot.
    SEND_EMAIL_HOOK_SECRET (Production, Secret); production redeployed. Verified Nov 9, 2026 12:50 PM:
    reset email delivered from "Concept Studio" with the logo, password reset completed, sign-in to
    My day on studio.conceptaccounting.ca.
-7. Setup redone in Live: Studio import, signature, GST/HST rates, price book clean-up.
+7. Setup redone in Live (Nov 9, 2026, by Hashim): Studio import from fresh Notion CSVs (Price Floors
+   corrected in Notion first, so the corrections button was not used), signature uploaded, 13 GST/HST
+   rates loaded and approved, price book clean-up applied. Checked in the Live SQL editor: 8 clients,
+   5 engagements (0 without a client), 0 proposals, 43 price book items, PTX-129 present, 9 packages and
+   floors, 13 approved rates; Agent floor $5,388 with software $69, and the Core, Finance Office and
+   Custom GCI notes correct. Past letters not yet regenerated (0 documents).
 8. Done Nov 9, 2026 (moved before the merge, at Hashim's request): real client data cleared from Test with
    `scripts/test-only/clear-real-client-data.sql`, run by Hashim in the Test SQL editor. Before: 8 clients,
    0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
