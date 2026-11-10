@@ -5,6 +5,13 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Personal tax form: what the base fee covers",
+    points: [
+      "The \"What happened\" step now says the base fee already covers employment (T4), pension and investment slips, so an employed client knows to tick None of these.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Menu fits a laptop screen; readable dates",
     points: [
       "Menu groups whose pages are not built yet (Work, Quality) start folded and show how many are coming. Click a group to unfold it; your browser remembers.",

@@ -172,7 +172,7 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
 
       {step === "happened" && (
         <div className="grid gap-3">
-          <p className="font-medium">Tick everything that applies{couple ? " to you or your spouse or partner" : ""}.</p>
+          <p className="font-medium">Your base fee already covers employment (T4), pension and investment slips. Tick anything else that applies{couple ? " to you or your spouse or partner" : ""}.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {TILES.map((tile) => {
               const v = ticked.get(tile.key);
