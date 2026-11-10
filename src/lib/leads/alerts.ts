@@ -14,9 +14,14 @@ import { buildLeadAlert, type AlertLead } from "./alert-email";
 type Kind = "new" | "reminder";
 type Admin = ReturnType<typeof createAdminClient>;
 
+// Claim an alert before sending, so two runs never send the same one. A claim that failed to send
+// can be taken again after 5 minutes (the error stays on record until it goes).
 async function claim(db: Admin, leadId: string, kind: Kind): Promise<boolean> {
   const { data, error } = await db.from("lead_alerts").upsert({ lead_id: leadId, kind }, { onConflict: "lead_id,kind", ignoreDuplicates: true }).select("lead_id");
-  return !error && (data?.length ?? 0) > 0;
+  if (!error && (data?.length ?? 0) > 0) return true;
+  const { data: again } = await db.from("lead_alerts").update({ claimed_at: new Date().toISOString() })
+    .eq("lead_id", leadId).eq("kind", kind).is("sent_at", null).lt("claimed_at", new Date(Date.now() - 5 * 60_000).toISOString()).select("lead_id");
+  return (again?.length ?? 0) > 0;
 }
 
 async function deliver(db: Admin, kind: Kind, lead: AlertLead): Promise<void> {
@@ -25,20 +30,18 @@ async function deliver(db: Admin, kind: Kind, lead: AlertLead): Promise<void> {
   try {
     const { data: to, error } = await db.rpc("lead_alert_recipients");
     if (error) throw new Error(error.message);
+    const list = (to ?? []) as string[];
+    if (list.length === 0) problem = "Nobody has the Pricing permission.";
     const { subject, html } = buildLeadAlert(kind, lead, env.siteUrl(), REMINDER_MINUTES);
-    for (const address of (to ?? []) as string[]) {
+    for (const address of list) {
       try { await sendMail({ to: address, subject, html }); sent++; } catch (e) { problem = e instanceof Error ? e.message : "Email failed."; }
     }
-    if ((to ?? []).length === 0) problem = "Nobody has the Pricing permission.";
   } catch (e) {
     problem = e instanceof Error ? e.message : "Email failed.";
   }
-  if (sent === 0 && problem !== "Nobody has the Pricing permission.") {
-    // Nothing went out: release the claim so the next run tries again.
-    await db.from("lead_alerts").delete().eq("lead_id", lead.id).eq("kind", kind);
-    return;
-  }
-  await db.from("lead_alerts").update({ sent_at: new Date().toISOString(), recipients: sent, error: problem.slice(0, 300) }).eq("lead_id", lead.id).eq("kind", kind);
+  // Sent to at least one person: done. Nothing sent: keep the reason on record; the next run retries.
+  await db.from("lead_alerts").update({ sent_at: sent > 0 ? new Date().toISOString() : null, recipients: sent, error: problem.slice(0, 300) })
+    .eq("lead_id", lead.id).eq("kind", kind);
 }
 
 const LEAD_COLS = "id, route, province, status, answers, created_at";
@@ -59,7 +62,7 @@ export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<
   const since = new Date(Date.now() - 14 * 86400000).toISOString();
   const [{ data: leads }, { data: done }, { data: hoursRow }] = await Promise.all([
     db.from("leads").select(LEAD_COLS).gte("created_at", since),
-    db.from("lead_alerts").select("lead_id, kind"),
+    db.from("lead_alerts").select("lead_id, kind").not("sent_at", "is", null),
     db.from("settings").select("value").eq("key", "business_hours").maybeSingle(),
   ]);
   const have = new Set((done ?? []).map((r: { lead_id: string; kind: string }) => `${r.lead_id}|${r.kind}`));
@@ -67,8 +70,10 @@ export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<
   const now = Date.now();
   let newSent = 0, reminders = 0;
   for (const l of (leads ?? []) as (AlertLead & { created_at: string })[]) {
-    // A first alert that has not gone out (sending right after the form failed): retry after 2 minutes.
-    if (!have.has(`${l.id}|new`) && now - Date.parse(l.created_at) > 120_000) { await deliver(db, "new", l); newSent++; }
+    // A first alert that has not gone out (sending right after the form failed): retry after 2 minutes,
+    // for up to 2 days.
+    const age = now - Date.parse(l.created_at);
+    if (!have.has(`${l.id}|new`) && age > 120_000 && age < 2 * 86400000) { await deliver(db, "new", l); newSent++; }
     if (!have.has(`${l.id}|reminder`) && WAITING_STATUSES.includes(l.status) && businessMinutes(l.created_at, now, hours) >= REMINDER_MINUTES) {
       await deliver(db, "reminder", l); reminders++;
     }
@@ -81,4 +86,10 @@ export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<
 export async function readBusinessHours(): Promise<BusinessHours | null> {
   const { data } = await createAdminClient().from("settings").select("value").eq("key", "business_hours").maybeSingle();
   return (data?.value ?? null) as BusinessHours | null;
+}
+
+// For the lead page: what happened to this lead's alert emails.
+export async function leadAlertStatus(leadId: string) {
+  const { data } = await createAdminClient().from("lead_alerts").select("kind, sent_at, recipients, error").eq("lead_id", leadId);
+  return (data ?? []) as { kind: Kind; sent_at: string | null; recipients: number; error: string }[];
 }
