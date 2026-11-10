@@ -16,7 +16,9 @@ export type QuoteData = {
   signer: { name: string; title: string };
 };
 export type Sender = { name: string; phone: string; email: string };
-type Opts = { mark?: boolean; watermark?: boolean };
+// letterhead: the image to show at the top of Part A (the firm name and address are on it).
+type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string };
+export const LETTERHEAD_URL = "/studio/letterhead.jpg";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -57,14 +59,17 @@ export function serviceLines(texts: Record<string, string>, d: QuoteData, mark?:
   return out;
 }
 
+// The look of the firm's letters: navy headings, dark text, letter spacing.
+const NAVY = "#1A3C7C";
 const S = {
-  doc: "font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.55; color: #1c1f1e; position: relative;",
-  h1: "font-size: 20px; margin: 18px 0 8px;",
-  h2: "font-size: 17px; margin: 22px 0 6px;",
-  h3: "font-size: 15px; margin: 16px 0 4px;",
+  doc: "font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.6; color: #1d2330; position: relative;",
+  lh: "display: block; width: 100%; max-width: 680px; height: auto; margin: 0 0 22px;",
+  h1: `font-size: 20px; line-height: 1.35; font-weight: bold; color: ${NAVY}; margin: 0 0 12px;`,
+  h2: `font-size: 16px; font-weight: bold; color: ${NAVY}; margin: 22px 0 8px;`,
+  h3: `font-size: 15px; font-weight: bold; color: ${NAVY}; margin: 18px 0 6px;`,
   p: "margin: 0 0 10px;",
   small: "margin: 0 0 2px; color: #3d4441;",
-  fee: "font-size: 17px; font-weight: bold; margin: 14px 0 6px;",
+  fee: `font-size: 18px; font-weight: bold; color: ${NAVY}; margin: 16px 0 6px; padding: 10px 14px; background: #F2F5FB; border-left: 3px solid ${NAVY};`,
   ul: "margin: 0 0 10px; padding-left: 22px; list-style-type: disc;",
   ol: "margin: 0 0 10px; padding-left: 22px; list-style-type: decimal;",
   mark: "position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; font-size: 64px; font-weight: bold; color: rgba(200, 40, 40, 0.13); transform: rotate(-24deg); letter-spacing: 4px;",
@@ -78,14 +83,14 @@ export function renderQuote(texts: Record<string, string>, d: QuoteData, o: Opts
   const wm = o.watermark ? `<div style="${S.mark}" aria-hidden="true">DRAFT FOR REVIEW</div>` : "";
 
   const partA = `<div style="${S.doc}">${wm}
-<p style="${S.p}"><b>${t(A.firm)}</b><br>${t(A.address)}</p>
+${o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(`${pieceText(texts, A.firm)}, ${pieceText(texts, A.address)}`)}" style="${S.lh}">` : `<p style="${S.p}"><b>${t(A.firm)}</b><br>${t(A.address)}</p>`}
 <h1 style="${S.h1}">${t(A.title, couple ? "returns" : "return", d.taxYear)}</h1>
-<p style="${S.small}">${t(A.preparedFor, names)}</p>
-<p style="${S.small}">${t(A.preparedBy, d.preparedBy, longDate(d.preparedOn))}</p>
-<p style="${S.p}">${t(A.validUntil, longDate(d.validUntil))}</p>
+<p data-k="meta" style="${S.small}">${t(A.preparedFor, names)}</p>
+<p data-k="meta" style="${S.small}">${t(A.preparedBy, d.preparedBy, longDate(d.preparedOn))}</p>
+<p data-k="meta" style="${S.small} margin-bottom: 10px;">${t(A.validUntil, longDate(d.validUntil))}</p>
 <h2 style="${S.h2}">${t(A.servicesHeading)}</h2>
 <ul style="${S.ul}">${li(t(A.base, couple ? "both" : "your", d.taxYear, couple ? "Returns" : "Return"))}${serviceLines(texts, d, o.mark).map(li).join("")}${li(t(A.cpaReview))}</ul>
-<p style="${S.fee}">${t(A.fee, money(d.totalCents))}</p>
+<p data-k="fee" style="${S.fee}">${t(A.fee, money(d.totalCents))}</p>
 <p style="${S.p}">${t(A.feeCovers)}</p>
 <h2 style="${S.h2}">${t(A.nextHeading)}</h2>
 <ol style="${S.ol}">${[A.next1, A.next2, A.next3, A.next4, A.next5].map((p) => li(t(p))).join("")}</ol>
@@ -108,7 +113,7 @@ ${h(B.h9)}${para(B.s9a)}${para(B.s9b)}${para(B.s9c)}
 ${h(B.h10)}${para(B.s10a)}${para(B.s10b)}
 ${h(B.h11)}${para(B.s11)}
 ${h(B.h12)}${para(B.s12a)}${para(B.s12b)}
-${para(B.yours)}<p style="${S.p}">${t(B.firmCaps)}<br>${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>
+${para(B.yours)}<p data-k="signer" style="${S.p}">${t(B.firmCaps)}<br>${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>
 </div>`;
 
   const partC = `<div style="${S.doc}">
@@ -162,3 +167,8 @@ export const SAMPLE: QuoteData = {
   totalCents: 69700, preparedBy: "Asmaa Ibrahim", preparedOn: "2026-11-10", validUntil: "2026-12-01", signer: { name: "Hashim Abouelfetouh, CPA", title: "" },
 };
 export const SAMPLE_SENDER: Sender = { name: "Asmaa Ibrahim", phone: "226-789-9591", email: "asmaa@conceptaccounting.ca" };
+
+// One piece as plain text, with its fill-ins (for buttons and labels on the client's page).
+export function pieceText(texts: Record<string, string>, p: QPiece, ...fills: (string | number)[]): string {
+  return (texts[p.key] ?? p.text).replace(/\{(\d+)\}/g, (m, i) => (fills[Number(i) - 1] !== undefined ? String(fills[Number(i) - 1]) : m));
+}
