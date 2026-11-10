@@ -99,7 +99,7 @@ Decisions 38 to 56 in docs/BRIEF.md. Key ones for Phase 3 readers:
 - Hashim is reviewing the 72 T2 deadlines on My day before marking them done.
 - Screening questions page on Live:
   - It still shows an old unused "Corporate tax" draft (version 1). The company form does not use it. Delete it, or I can hide it.
-  - Its labels still say "File your personal tax return". The start page now says "My personal tax return".
+  - Its labels now match the start page: "My personal tax return" and "My company" (PR #17, Nov 10).
 - docs/STATUS.md:
   - The header date and the "In progress", "Waiting on Hashim" and "Next steps" sections are out of date.
   - The Phase 2 section is current.
