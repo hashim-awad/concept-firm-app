@@ -23,7 +23,9 @@ export function CompanySteps() {
   const [need, setNeed] = useState<CorpAnswers["need"] | "">("");
   const [extras, setExtras] = useState({ gst: false, slips: false });
   const [books, setBooks] = useState<Books | "">("");
-  const [counts, setCounts] = useState<Record<string, string>>({ bank: "", cc: "", loc: "", loan: "", car: "" });
+  // The base includes 1 bank account and 1 credit card, so those start at 1; the rest start at 0.
+  const [counts, setCounts] = useState<Record<string, number>>({ bank: 1, cc: 1, loc: 0, loan: 0, car: 0 });
+  const bump = (k: string, d: number) => setCounts((c) => ({ ...c, [k]: Math.max(0, Math.min(50, (c[k] ?? 0) + d)) }));
   const [ye, setYe] = useState({ month: "", day: "", unsure: false });
   const [business, setBusiness] = useState("");
   const [flags, setFlags] = useState({ behind: false, multi: false, property: false, cra: false });
@@ -35,7 +37,7 @@ export function CompanySteps() {
 
   const answers = (): CorpAnswers => ({
     form: "corporate-v1", need: need as CorpAnswers["need"], extras, books: books as Books,
-    counts: Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, Number(v)])) as CorpAnswers["counts"],
+    counts: counts as CorpAnswers["counts"],
     ye: ye.unsure ? null : { month: Number(ye.month), day: Number(ye.day) }, business, flags,
     ...(need === "monthly" ? { monthly: size as NonNullable<CorpAnswers["monthly"]> } : {}),
   });
@@ -44,7 +46,6 @@ export function CompanySteps() {
     if (step === "need" && !need) return "Choose what you need.";
     if (step === "books") {
       if (!books) return "Tell us how your company's books are kept today.";
-      if (books === "statements" && COUNTS.some(([k]) => !/^\d{1,2}$/.test(counts[k]))) return "Enter how many of each the company has. Enter 0 if none.";
     }
     if (step === "company") {
       if (!ye.unsure && (!ye.month || !ye.day)) return "Choose the month and day your company's year ends, or tick I'm not sure.";
@@ -127,10 +128,20 @@ export function CompanySteps() {
             {radio("books", books, setBooks, Object.entries(BOOKS) as [Books, string][])}</div>
           {books === "statements" && (
             <div className="card grid gap-3"><h2 className="font-semibold">4. How many of these does the company have?</h2>
-              {COUNTS.map(([k, label]) => (
-                <label key={k} className="flex items-center justify-between gap-3 text-sm"><span>{label}</span>
-                  <input inputMode="numeric" value={counts[k]} onChange={(e) => setCounts({ ...counts, [k]: e.target.value.replace(/\D/g, "").slice(0, 2) })} aria-label={label} className="input w-20 text-right" /></label>
-              ))}</div>
+              <div className="divide-y divide-sand-200">
+                {COUNTS.map(([k, label]) => (
+                  <div key={k} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                    <span className="font-medium">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => bump(k, -1)} disabled={counts[k] === 0} aria-label={`One less: ${label}`} className="grid h-9 w-9 place-items-center rounded-full border border-sand-300 text-lg disabled:opacity-40">&minus;</button>
+                      <input inputMode="numeric" value={counts[k]} aria-label={label}
+                        onChange={(e) => setCounts({ ...counts, [k]: Math.min(50, Number(e.target.value.replace(/\D/g, "") || 0)) })}
+                        className="input h-9 w-14 px-0 text-center tabular-nums" />
+                      <button type="button" onClick={() => bump(k, 1)} aria-label={`One more: ${label}`} className="grid h-9 w-9 place-items-center rounded-full border border-sand-300 text-lg">+</button>
+                    </div>
+                  </div>
+                ))}
+              </div></div>
           )}
         </div>
       )}

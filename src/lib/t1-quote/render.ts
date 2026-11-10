@@ -128,28 +128,33 @@ ${para(B.yours)}<p data-k="signer" style="${S.p}">${t(B.firmCaps)}<br>${esc(d.si
   ];
 }
 
+// An email button Outlook keeps when the email is pasted in: a coloured table cell around the link
+// (Outlook drops buttons made only from a styled link).
+export function emailButton(href: string, labelHtml: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="display: inline-table; border-collapse: separate; margin: 0 8px 8px 0;"><tr><td bgcolor="#1A3C7C" style="background: #1A3C7C; border-radius: 6px; padding: 10px 18px;"><a href="${esc(href)}" style="color: #ffffff; text-decoration: none; font-weight: bold; font-family: Arial, Helvetica, sans-serif; font-size: 15px;">${labelHtml}</a></td></tr></table>`;
+}
+
 // The quote email, ready to paste into Outlook (HTML) or plain text. links: one per signer, in order.
 export function renderEmail(texts: Record<string, string>, d: QuoteData, sender: Sender, links: string[], o: Opts = {}) {
   const t = (p: QPiece, ...f: (string | number)[]) => piece(texts, p, f, o.mark);
   const plain = (p: QPiece, ...f: (string | number)[]) => (texts[p.key] ?? p.text).replace(/\{(\d+)\}/g, (m, i) => (f[Number(i) - 1] !== undefined ? String(f[Number(i) - 1]) : m));
   const couple = !!d.spouse;
   const valid = longDate(d.validUntil);
-  const btn = "display: inline-block; background: #1A3C7C; color: #ffffff; padding: 10px 18px; border-radius: 6px; text-decoration: none; margin: 0 8px 8px 0;";
   const p = (s: string) => `<p style="margin: 0 0 12px;">${s}</p>`;
   const k = couple
     ? { subject: EMAIL.subject2, thanks: EMAIL.thanks2, ready: EMAIL.ready2, after: EMAIL.after2, steps: [EMAIL.step1b, EMAIL.step2b, EMAIL.step3b], valid: EMAIL.valid2, firm: EMAIL.firm2 }
     : { subject: EMAIL.subject, thanks: EMAIL.thanks1, ready: EMAIL.ready1, after: EMAIL.after1, steps: [EMAIL.step1, EMAIL.step2, EMAIL.step3a], valid: EMAIL.valid1, firm: EMAIL.firm1 };
   const hi = couple ? t(EMAIL.hi2, d.client.first, d.spouse!.first) : t(EMAIL.hi1, d.client.first);
   const buttons = couple
-    ? [d.client.first, d.spouse!.first].map((n, i) => `<a href="${esc(links[i] ?? "#")}" style="${btn}">${t(EMAIL.button2, n)}</a>`).join("")
-    : `<a href="${esc(links[0] ?? "#")}" style="${btn}">${t(EMAIL.button1)}</a>`;
+    ? [d.client.first, d.spouse!.first].map((n, i) => emailButton(links[i] ?? "#", t(EMAIL.button2, n))).join("")
+    : emailButton(links[0] ?? "#", t(EMAIL.button1));
   const html = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">
 ${p(hi)}${p(t(k.thanks))}${p(t(k.ready, d.taxYear))}${p(t(k.after))}
 <ol style="margin: 0 0 12px; padding-left: 22px; list-style-type: decimal;">${k.steps.map((s) => `<li style="margin: 0 0 6px;">${t(s)}</li>`).join("")}</ol>
 ${p(t(k.valid, valid))}
-<p style="margin: 16px 0;">${buttons}</p>
+<div style="margin: 16px 0;">${buttons}</div>
 <p style="margin: 16px 0 0;">${esc(sender.name)}<br>${t(k.firm)}<br>${esc([sender.phone, sender.email].filter(Boolean).join(" | "))}</p>
-</div>`;
+</div>`.replace(/\n/g, "");
   const text = [
     couple ? plain(EMAIL.hi2, d.client.first, d.spouse!.first) : plain(EMAIL.hi1, d.client.first), "",
     plain(k.thanks), "", plain(k.ready, d.taxYear), "", plain(k.after),

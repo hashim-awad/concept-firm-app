@@ -12,6 +12,9 @@ export const CHANGELOG: ChangeEntry[] = [
       "New price book items YE-110, YE-111, YE-112, YE-120, YE-121 and GST-110 (section 11 prices).",
       "On a company lead, staff enter the company's legal name and the confirmed year-end, then prepare the quote: Part A from Appendix C, Part B the corporate master letter, Part C signing. The email is ready to copy.",
       "After signing, the quote page shows the deposit and balance to invoice in TaxDome, and the lead has the first-year checklist (TaxDome tag 1st-yr client).",
+      "The company form counts accounts with minus and plus buttons. One bank account and one credit card are filled in, so no one has to type 0.",
+      "The signing page is wider, has a Go to signing button at the top, and shows the download and portal buttons right under the signature. There is no checkbox: clicking Sign is the agreement.",
+      "The quote email buttons now keep their look when pasted into Outlook.",
     ],
   },
   {

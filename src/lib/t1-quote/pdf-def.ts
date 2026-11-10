@@ -80,7 +80,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
       ...signatures.slice(1),
       { image: "lh", width: 492, margin: [0, 0, 0, 18], pageBreak: "before" },
       { text: "Signing record", fontSize: 13.5, bold: true, color: NAVY, margin: [0, 0, 0, 6] },
-      { text: "This page records how this quote and engagement letter was signed in Concept Studio. Each person signed through their own private link by typing their full name and ticking the agreement box. The fingerprint identifies the exact text of the quote and terms that was signed; any change to the text gives a different fingerprint.", fontSize: 9, margin: [0, 0, 0, 8] },
+      { text: "This page records how this quote and engagement letter was signed in Concept Studio. Each person signed through their own private link by typing their full name and clicking Sign under the statement that they have read the quote and engagement terms and agree to them. The fingerprint identifies the exact text of the quote and terms that was signed; any change to the text gives a different fingerprint.", fontSize: 9, margin: [0, 0, 0, 8] },
       { table: { widths: [130, "*"], body: [
         row("Quote reference", audit.quoteId), row("Tax year", String(audit.taxYear)), row("Sent", auditTime(audit.sentAt)),
         row("Valid until", day(audit.validUntil)), row("Wording version", audit.wordingLabel || "Published wording at sending"),

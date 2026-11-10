@@ -11,7 +11,7 @@ import { ILLUSTRATIVE } from "../studio/assets.generated.ts";
 
 const BLANK_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 import { C, CORP, CORP_EMAIL, A as T1A, type QPiece } from "../t1-quote/wording.ts";
-import { longDate, money, type Sender } from "../t1-quote/render.ts";
+import { emailButton, longDate, money, type Sender } from "../t1-quote/render.ts";
 
 export type CorpQuoteData = {
   client: { first: string; last: string };
@@ -158,16 +158,15 @@ export function renderCorpEmail(texts: Record<string, string>, d: CorpQuoteData,
   const t = (p: QPiece, ...f: (string | number)[]) => piece(texts, p, f, o.mark);
   const E = CORP_EMAIL;
   const p = (s: string) => `<p style="margin: 0 0 12px;">${s}</p>`;
-  const btn = "display: inline-block; background: #1A3C7C; color: #ffffff; padding: 10px 18px; border-radius: 6px; text-decoration: none;";
   const ye = longDate(d.yearEnd), valid = longDate(d.validUntil);
   const steps = [E.step1, E.step2, E.step3, E.step4];
   const html = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">
 ${p(t(E.hi, d.client.first))}${p(t(E.thanks))}${p(t(E.ready, d.company, ye))}${p(t(E.after))}
 <ol style="margin: 0 0 12px; padding-left: 22px; list-style-type: decimal;">${steps.map((s) => `<li style="margin: 0 0 6px;">${t(s)}</li>`).join("")}</ol>
 ${p(t(E.valid, valid))}
-<p style="margin: 16px 0;"><a href="${esc(link)}" style="${btn}">${t(E.button)}</a></p>
+<div style="margin: 16px 0;">${emailButton(link, t(E.button))}</div>
 <p style="margin: 16px 0 0;">${esc(sender.name)}<br>${t(E.firm)}<br>${esc([sender.phone, sender.email].filter(Boolean).join(" | "))}</p>
-</div>`;
+</div>`.replace(/\n/g, "");
   const text = [plain(texts, E.hi, d.client.first), "", plain(texts, E.thanks), "", plain(texts, E.ready, d.company, ye), "", plain(texts, E.after),
     ...steps.map((s, i) => `${i + 1}. ${plain(texts, s)}`), "", plain(texts, E.valid, valid), "", `${plain(texts, E.button)}: ${link}`, "",
     sender.name, plain(texts, E.firm), [sender.phone, sender.email].filter(Boolean).join(" | ")].join("\n");

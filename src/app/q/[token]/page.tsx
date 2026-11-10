@@ -56,8 +56,15 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
 
   return (
     <ClientShell>
-      <div className="mx-auto grid max-w-3xl gap-6">
+      <div className="mx-auto grid max-w-5xl gap-6">
         {done}
+        {/* Not signed yet: a shortcut to the signature at the end of the letter. */}
+        {!me.signed_at && !signed && (
+          <div className="card flex flex-wrap items-center justify-between gap-3">
+            <p className="text-ink-2">Read your quote below. The place to sign is at the end.</p>
+            <a href="#sign" className="btn">Go to signing</a>
+          </div>
+        )}
         {/* The quote and the terms as one letter page, on the firm's letterhead. */}
         <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-5 py-7 shadow-sm sm:px-12 sm:py-12">
           <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
@@ -73,6 +80,8 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
             ? <p className="text-sm text-success">{`Signed by ${me.first_name}.`}</p>
             : <SignForm token={token} forOther={false} who={`${me.first_name} ${me.last_name}`} labels={labels} />}
         </section>
+        {/* After signing, the same buttons right here, so nobody scrolls back to the top. */}
+        {done && <div id="done">{done}</div>}
         {waiting}
       </div>
     </ClientShell>
