@@ -6,7 +6,7 @@ import { LETTERHEAD } from "../studio/assets.generated.ts";
 
 const NAVY = "#1A3C7C";
 
-export type AuditSigner = { name: string; signedName: string; email: string; signedAt: string; ip: string; agent: string; sameDevice: boolean; documentHash: string };
+export type AuditSigner = { name: string; signedName: string; email: string; signedAt: string; ip: string; agent: string; sameDevice: boolean; documentHash: string; title?: string };
 // company: a corporate quote, signed on behalf of the company (the master letter's signature wording).
 export type AuditInfo = { quoteId: string; taxYear: number; sentAt: string; validUntil: string; wordingLabel: string; clientNames?: string; company?: string; signers: AuditSigner[] };
 
@@ -40,7 +40,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
     { text: s.signedName, fontSize: 18, italics: true, color: NAVY, margin: [0, 0, 0, 2] },
     { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.6, lineColor: "#7a8394" }] },
     { text: s.name, bold: true, margin: [0, 4, 0, 0] },
-    ...(audit.company ? [{ text: "I have authority to bind the Company.", fontSize: 9 }] : []),
+    ...(audit.company ? [...(s.title ? [{ text: `Title: ${s.title}` }] : []), { text: "I have authority to bind the Company.", fontSize: 9 }] : []),
     { text: `Signed electronically ${auditTime(s.signedAt)}${s.sameDevice ? ", on the same device as the other signer" : ""}`, fontSize: 8.5, color: "#3d4441" },
   ] });
   const signatures: any[] = [];
@@ -52,9 +52,10 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
   const audits = audit.signers.flatMap((s, i) => [
     { text: `Signer ${i + 1}: ${s.name}`, bold: true, color: NAVY, margin: [0, 12, 0, 4] },
     { table: { widths: [130, "*"], body: [
-      row("Name typed to sign", s.signedName), row("Email", s.email), row("Signed", auditTime(s.signedAt)),
+      row("Name typed to sign", s.signedName), ...(s.title ? [row("Title", s.title)] : []), row("Email", s.email), row("Signed", auditTime(s.signedAt)),
       row("IP address", s.ip || "Not available"), row("Browser", s.agent || "Not available"),
-      row("Same device as the other signer", s.sameDevice ? "Yes" : "No"), row("Document fingerprint (SHA-256)", s.documentHash),
+      // Only when there is another signer (a couple).
+      ...(audit.signers.length > 1 ? [row("Same device as the other signer", s.sameDevice ? "Yes" : "No")] : []), row("Document fingerprint (SHA-256)", s.documentHash),
     ] }, layout: "lightHorizontalLines" },
   ]);
   return {

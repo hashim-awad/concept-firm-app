@@ -25,7 +25,7 @@ select test.check('the key is stored only as a hash', (select draft_token_hash f
 select test.try(format($f$select public.complete_company_lead(%L, %L, '{"form":"corporate-v1"}', 'new')$f$, :'lead', repeat('2', 64))) as wrong \gset
 select test.check('a wrong key cannot finish the lead', :'wrong' like '%already been sent%');
 set role service_role;
-select public.complete_company_lead(:'lead', :key, '{"form":"corporate-v1","need":"year_end","books":"statements","extras":{"gst":true,"slips":true},"business":"Real estate"}', 'new');
+select public.complete_company_lead(:'lead', :key, '{"form":"corporate-v1","need":"year_end","books":"statements","extras":{"gst":true,"slips":true},"counts":{"bank":2,"cc":1,"loc":0,"loan":0,"car":1},"business":"Real estate"}', 'new');
 reset role;
 select test.check('finished: answers stored, key cleared', (select answers ->> 'books' from public.leads where id = :'lead') = 'statements'
   and (select draft_token_hash from public.leads where id = :'lead') is null);
@@ -49,6 +49,7 @@ update public.leads set year_end = '2026-12-31' where id = :'lead';
 select public.create_corporate_quote(:'lead') as q \gset
 select test.check('a corporate quote with the company and its answers', (select kind || '|' || company_name || '|' || year_end || '|' || tax_year || '|' || (details ->> 'books') || '|' || (details -> 'extras' ->> 'gst') from public.t1_quotes where id = :'q')
   = 'corporate|Example Holdings Inc.|2026-12-31|2026|statements|true');
+select test.check('the quote keeps the account counts', (select details -> 'counts' ->> 'bank' || '/' || (details -> 'counts' ->> 'car') from public.t1_quotes where id = :'q') = '2/1');
 select test.check('one signer, with a private link', (select count(*) from public.t1_quote_signers where quote_id = :'q') = 1);
 update public.leads set company_name = 'Example Holdings Ltd.' where id = :'lead';
 select public.create_corporate_quote(:'lead');
@@ -62,3 +63,13 @@ update public.leads set first_year_tag_done = true where id = :'lead';
 select test.check('staff tick the first-year checklist', (select first_year_tag_done from public.leads where id = :'lead'));
 reset role;
 reset request.jwt.claims;
+
+-- Signing: a company's signer must give their title (shown next to "I have authority to bind the Company.").
+\set hash '''aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'''
+select test.try(format($f$select public.record_t1_signature(%L, 0, 'Taylor Dummy', '', '', %L, false, '')$f$, :'q', :hash)) as notitle \gset
+select test.check('no signature without the title', :'notitle' like '%title%');
+set role service_role;
+select public.record_t1_signature(:'q', 0, 'Taylor Dummy', '', '', :hash, false, 'President');
+reset role;
+select test.check('signed, with the title kept', (select signed_title from public.t1_quote_signers where quote_id = :'q') = 'President'
+  and (select status from public.t1_quotes where id = :'q') = 'signed');

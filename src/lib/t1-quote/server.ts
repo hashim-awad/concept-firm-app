@@ -13,7 +13,7 @@ export type QuoteRow = {
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
   kind?: "t1" | "corporate"; company_name?: string | null; year_end?: string | null;
-  details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string } | null;
+  details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string; counts?: { bank: number; cc: number; loc: number; loan: number; car: number } } | null;
 };
 export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };
 
@@ -46,6 +46,7 @@ export function toCorpData(q: QuoteRow, signers: SignerRow[], fallback: { prepar
   return {
     client: t.client, company: q.company_name ?? "", yearEnd: q.year_end ?? "", province: q.details?.province ?? "ON",
     books: q.details?.books ?? "bookkeeper", extras: { gst: !!q.details?.extras?.gst, slips: !!q.details?.extras?.slips },
+    counts: q.details?.counts ?? undefined,
     totalCents: q.total_cents, preparedBy: t.preparedBy, preparedOn: t.preparedOn, validUntil: t.validUntil, signer: t.signer,
     letterDate: t.preparedOn,
   };

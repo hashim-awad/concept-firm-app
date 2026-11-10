@@ -15,6 +15,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "The company form counts accounts with minus and plus buttons. One bank account and one credit card are filled in, so no one has to type 0.",
       "The signing page is wider, has a Go to signing button at the top, and shows the download and portal buttons right under the signature. There is no checkbox: clicking Sign is the agreement.",
       "The quote email buttons now keep their look when pasted into Outlook.",
+      "Company quotes: the bookkeeping line lists the accounts it covers, the company's signer types their title, and the letter's wording changes are recorded in the brief (annual GST/HST return, payment timing, plus GST/HST, sign below).",
     ],
   },
   {

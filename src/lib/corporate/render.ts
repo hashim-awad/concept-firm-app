@@ -1,9 +1,9 @@
 // The corporate year-end quote (Phase 2 batch, section 11 and Appendix C) and its email.
 // Part A: Appendix C, word for word, as editable pieces.
 // Part B: the corporate master letter, built by Studio's own engine with the published wording, word
-//   for word, with exactly two changes (recorded in docs/BRIEF.md): the fee sentence points to the
-//   amount in the quote, and the electronic-signature sentence from the T1 letter is added. The
-//   letter's date, address block and signature block are left out (Parts A and C replace them).
+//   for word, except the changes recorded in docs/BRIEF.md ("Corporate quote: changes from the
+//   corporate master letter"). The letter's date, address block and signature block are left out
+//   (Parts A and C replace them).
 // Part C: the same signing section as the T1 quote.
 import { createStudioEngine } from "../studio/engine.generated.js";
 import { CorporateLetter } from "../studio/controllers.ts";
@@ -20,6 +20,7 @@ export type CorpQuoteData = {
   province: string;
   books: "bookkeeper" | "software" | "statements";
   extras: { gst: boolean; slips: boolean };
+  counts?: { bank: number; cc: number; loc: number; loan: number; car: number }; // books = statements
   totalCents: number;
   preparedBy: string;
   preparedOn: string;
@@ -50,12 +51,23 @@ const S = {
   mark: "position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; font-size: 64px; font-weight: bold; color: rgba(200, 40, 40, 0.13); transform: rotate(-24deg); letter-spacing: 4px;",
 };
 
+// The accounts the bookkeeping covers, from the form: "2 bank accounts, 1 credit card, 1 car loan or lease".
+const NOUNS: [keyof NonNullable<CorpQuoteData["counts"]>, string, string][] = [
+  ["bank", "bank account", "bank accounts"], ["cc", "credit card", "credit cards"], ["loc", "line of credit", "lines of credit"],
+  ["loan", "bank loan", "bank loans"], ["car", "car loan or lease", "car loans or leases"],
+];
+export function accountsList(c: CorpQuoteData["counts"]): string {
+  if (!c) return "";
+  return NOUNS.filter(([k]) => (c[k] ?? 0) > 0).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(", ");
+}
+
 // The services list (Appendix C): the "if" lines show only when that answer applies.
 export function corpServices(texts: Record<string, string>, d: CorpQuoteData, mark?: boolean): string[] {
   const t = (p: QPiece, ...f: (string | number)[]) => piece(texts, p, f, mark);
   return [
     t(CORP.statements, longDate(d.yearEnd)), t(CORP.t2),
-    t(d.books === "bookkeeper" ? CORP.bookkeeper : d.books === "software" ? CORP.software : CORP.bankOnly),
+    d.books === "bookkeeper" ? t(CORP.bookkeeper) : d.books === "software" ? t(CORP.software)
+      : accountsList(d.counts) ? t(CORP.bankOnlyCounts, accountsList(d.counts)) : t(CORP.bankOnly),
     ...(d.extras.gst ? [t(CORP.gst)] : []), ...(d.extras.slips ? [t(CORP.slips)] : []),
     t(CORP.planning), t(CORP.review),
   ];
@@ -88,7 +100,7 @@ ${o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(firm)}"
 function letter(texts: Record<string, string>, d: CorpQuoteData) {
   const paper = { innerHTML: "", classList: { toggle() {} } };
   const e: any = createStudioEngine({
-    LH: "", ILLUS: ILLUSTRATIVE, SIG: BLANK_PNG, SIGNER: d.signer.name, SIGNER_TITLE: d.signer.title, WORDING: texts, EL_VERSION: undefined,
+    LH: "", ILLUS: ILLUSTRATIVE, SIG: BLANK_PNG, SIGNER: d.signer.name, SIGNER_TITLE: d.signer.title, WORDING: corpWording(texts), EL_VERSION: undefined,
     $: ((id: string) => (id === "paper" ? paper : null)) as any,
   } as any);
   const c = new CorporateLetter(e, d.letterDate ?? d.preparedOn);
@@ -100,6 +112,27 @@ function letter(texts: Record<string, string>, d: CorpQuoteData) {
   return { e, c, paper, s: c.state() };
 }
 
+// The master letter's pieces this quote words differently (recorded in docs/BRIEF.md). Each new
+// wording is an editable piece on the "Corporate year-end quote (Part A)" template.
+export const CORP_OVERRIDES: [string, QPiece][] = [
+  ["w39898f1068", CORP.exclPlanning], // section 5: "tax planning and reorganizations"
+  ["wa6163c2ec4", CORP.gstHeading], // section 3 heading: "{1}. GST/HST returns"
+  ["wb949ac6a04", CORP.gstText], // section 3: "...GST/HST returns at the filing frequency CRA has assigned..."
+  ["wa32b04be4a", CORP.pay1], // Appendix A: "{1} plus {2} when you sign this letter"
+  ["w2689edee2a", CORP.pay2], // Appendix A: "{1} plus {2} when the work is complete"
+  ["wd218e2d83e", CORP.signBelow], // closing: "Please sign and return this letter..."
+];
+function corpWording(texts: Record<string, string>): Record<string, string> {
+  const w = { ...texts };
+  for (const [k, p] of CORP_OVERRIDES) w[k] = texts[p.key] ?? p.text;
+  return w;
+}
+// Removed: signing happens in Studio, not in TaxDome.
+const TAXDOME_KEY = "w24302510af";
+const TAXDOME_TEXT = "You sign this letter and pay the invoice in the same step, in your secure TaxDome client portal.";
+// The fee table's tax label: always "plus GST/HST".
+const plusTax = (v: string) => v.replace(/ plus (?:HST|GST)\b(?!\/)/g, " plus GST/HST");
+
 // The engine's own fee-pointer sentence (published wording, or the original).
 const FEE_KEY = "w84832f505f";
 const FEE_TEXT = "Our fees, billing terms and how to set up your payment details are in Appendix A, Fees and payment. Appendix A forms part of this letter.";
@@ -110,6 +143,7 @@ export function corpPartBBlocks(texts: Record<string, string>, d: CorpQuoteData)
   const { e, s } = letter(texts, d);
   const fee = texts[FEE_KEY] ?? FEE_TEXT;
   const yours = texts[YOURS_KEY] ?? "Yours truly,";
+  const taxdome = texts[TAXDOME_KEY] ?? TAXDOME_TEXT;
   const runsText = (b: any) => (b.r ?? []).map((r: any) => (typeof r === "string" ? r : r.t)).join("");
   const out: any[] = [];
   let skippedDate = false;
@@ -118,6 +152,8 @@ export function corpPartBBlocks(texts: Record<string, string>, d: CorpQuoteData)
     // The firm's half of the signature block stays; the client's half is Part C.
     if (b.k === "sig") { out.push({ k: "p", r: [{ t: e.FIRM, b: 1 }] }, { k: "p", r: [[d.signer.name, d.signer.title].filter(Boolean).join("\n")] }); continue; }
     if (b.k === "p" && !skippedDate) { skippedDate = true; continue; } // the letter's date: Part A carries the date
+    if (b.k === "p" && runsText(b) === taxdome) continue;
+    if (b.k === "table") { out.push({ ...b, rows: b.rows.map((r: any[]) => r.map((c: any) => (typeof c === "string" ? plusTax(c) : c))) }); continue; }
     if (b.k === "p" && runsText(b) === fee) { out.push({ k: "p", r: [plain(texts, CORP.feePointer)] }); continue; }
     if (b.k === "p" && runsText(b) === yours) out.push({ k: "p", r: [plain(texts, CORP.esign)] });
     out.push(b);
@@ -135,6 +171,9 @@ export function corpPartB(texts: Record<string, string>, d: CorpQuoteData): stri
   h = h.replace(/<p style="margin-bottom:14px">[\s\S]*?<\/p>/, ""); // the address block
   const fee = esc(texts[FEE_KEY] ?? FEE_TEXT).replace(/&#39;/g, "’");
   h = h.replace(new RegExp(`<p>${fee.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</p>`), `<p>${esc(plain(texts, CORP.feePointer))}</p>`);
+  const taxdome = esc(texts[TAXDOME_KEY] ?? TAXDOME_TEXT).replace(/&#39;/g, "’");
+  h = h.replace(`<p>${taxdome}</p>`, "");
+  h = plusTax(h);
   const yours = `<p>${esc(texts[YOURS_KEY] ?? "Yours truly,")}</p>`;
   h = h.replace(yours, `<p>${esc(plain(texts, CORP.esign))}</p>${yours}`);
   const sig = h.indexOf('<div class="sig">');
@@ -181,6 +220,6 @@ export function depositAndBalance(totalCents: number) {
 
 export const CORP_SAMPLE: CorpQuoteData = {
   client: { first: "Taylor", last: "Sample" }, company: "Example Holdings Inc.", yearEnd: "2026-12-31", province: "ON", books: "statements",
-  extras: { gst: true, slips: true }, totalCents: 369900, preparedBy: "Asmaa Ibrahim", preparedOn: "2026-11-10", validUntil: "2026-12-01",
+  extras: { gst: true, slips: true }, counts: { bank: 2, cc: 1, loc: 1, loan: 0, car: 1 }, totalCents: 369900, preparedBy: "Asmaa Ibrahim", preparedOn: "2026-11-10", validUntil: "2026-12-01",
   signer: { name: "Hashim Abouelfetouh, CPA", title: "Director" },
 };

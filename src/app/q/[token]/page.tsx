@@ -3,7 +3,7 @@ import { ClientShell } from "@/components/ds/client";
 import { FIRM } from "@/components/ds/brand";
 import { todayToronto } from "@/lib/dates";
 import { longDate, pieceText } from "@/lib/t1-quote/render";
-import { C } from "@/lib/t1-quote/wording";
+import { C, CORP } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { clientParts } from "@/lib/t1-quote/sign";
 import { SignForm } from "./sign-form";
@@ -30,7 +30,8 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   const texts = quote.wording ?? {};
   const parts = await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
-  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton) };
+  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
+    ...(quote.kind === "corporate" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   // After signing: the download and the portal (section 9). Couples: only when both have signed.
   const done = signed && (

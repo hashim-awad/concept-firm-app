@@ -202,6 +202,15 @@ export const CORP = {
   // The two recorded changes to the master letter in Part B (section 11).
   feePointer: P(430, "Your fee is the amount in your quote. Our billing terms and how to pay are in Appendix A, Fees and payment. Appendix A forms part of this letter.", [], CQ),
   esign: P(431, "You agree that signing this letter electronically has the same effect as signing it by hand.", [], CQ),
+  // Hashim's review of the first corporate quote (Nov 10): more recorded changes, in docs/BRIEF.md.
+  exclPlanning: P(432, "tax planning beyond how you pay yourself, and reorganizations", [], CQ),
+  gstHeading: P(433, "{1}. GST/HST return", ["Section number"], CQ),
+  gstText: P(434, "We will prepare and file the Company's annual GST/HST return for the year, from {1}. You remain responsible for paying any GST/HST owing by the due date.", ["Source of the information"], CQ),
+  pay1: P(435, "{1} plus GST/HST when you sign up in the portal", ["Half the fee"], CQ),
+  pay2: P(436, "{1} plus GST/HST when your statements and tax return are ready for your approval", ["Other half of the fee"], CQ),
+  signBelow: P(437, "Please sign this letter below to confirm that it reflects your understanding. We will start work once we receive the signed letter{1}", ["Ending"], CQ),
+  signerTitle: P(438, "Your title at the company, for example Director or President", [], CQ),
+  bankOnlyCounts: P(439, "Bookkeeping for the year from your bank and credit card statements: {1}", ["Accounts covered"], CQ),
 };
 
 // ---------- Corporate year-end quote email (Appendix C) ----------

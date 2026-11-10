@@ -116,14 +116,30 @@ Addresses: My day /, Proposals /proposals (calculator: /proposals?tab=calculator
 
 ## Corporate quote: changes from the corporate master letter (decision 54)
 
-Part B of the corporate year-end quote is the corporate master letter (compilation engagement and T2, with GST/HST returns when ticked), built by Studio's engine from the published wording. Two changes, both required by section 11. Everything else is word for word.
+Part B of the corporate year-end quote is the corporate master letter (compilation engagement and T2, with GST/HST returns when ticked), built by Studio's engine from the published wording. The changes below are the only ones: the first two are required by section 11, the rest are Hashim's review of the first signed quote (Nov 10, 2026). Everything else is word for word.
 
 | Where | Master wording | New wording | Why |
 | --- | --- | --- | --- |
 | Fees | "Our fees, billing terms and how to set up your payment details are in Appendix A, Fees and payment. Appendix A forms part of this letter." | "Your fee is the amount in your quote. Our billing terms and how to pay are in Appendix A, Fees and payment. Appendix A forms part of this letter." | The fee wording points to the amount in the quote |
 | Closing, before "Yours truly," | None | "You agree that signing this letter electronically has the same effect as signing it by hand." | The client signs in Studio; same sentence as the T1 letter (Appendix A, section 10) |
+| Section 5, work not included | "tax planning and reorganizations" | "tax planning beyond how you pay yourself, and reorganizations" | Part A includes "Tax planning on how you pay yourself from the company" |
+| Section 3, heading (only with GST-110) | "3. GST/HST returns" | "3. GST/HST return" | The quote covers one return |
+| Section 3, text (only with GST-110) | "We will prepare and file the Company's GST/HST returns at the filing frequency CRA has assigned to the Company, from [source]. You remain responsible for paying any GST/HST owing by the due date." | "We will prepare and file the Company's annual GST/HST return for the year, from [source]. You remain responsible for paying any GST/HST owing by the due date." | GST-110 is the annual return only; this quote never promises monthly or quarterly returns |
+| Closing | "Please sign and return this letter to confirm that it reflects your understanding. ..." | "Please sign this letter below to confirm that it reflects your understanding. ..." (rest unchanged) | The client signs on the page, not by returning a copy |
+| Appendix A, first payment | "$[half] plus HST when you sign this letter" | "$[half] plus GST/HST when you sign up in the portal" | Matches Part A: half when you sign up in the portal |
+| Appendix A, second payment | "$[half] plus HST when the work is complete" | "$[half] plus GST/HST when your statements and tax return are ready for your approval" | Matches Part A: half at approval |
+| Appendix A, after the payments | "You sign this letter and pay the invoice in the same step, in your secure TaxDome client portal." | Removed | Signing happens in Studio, not TaxDome |
+| Appendix A, fee table | "$[total] plus HST" (the engine's tax by province) | "$[total] plus GST/HST" | Always "plus GST/HST", never "plus HST" |
 
-Left out because Parts A and C replace them, not changed: the letterhead and date (Part A carries them), the address block (the form does not collect an address), and the client's half of the signature block (Part C; its PDF signature keeps the master letter's "Agreed and accepted on behalf of [company]" and "I have authority to bind the Company."). Appendix A, Fees and payment, shows the quote total as one line and bills it half when you sign and half when the work is complete, as the existing year-end letter does. Both changes are editable pieces on the "Corporate year-end quote (Part A)" template.
+Changes to Part A (Appendix C), Part C and the signing record, from the same review:
+
+| Where | Appendix C / before | Now | Why |
+| --- | --- | --- | --- |
+| Part A, bookkeeping line (books from statements) | "Bookkeeping for the year from your bank and credit card statements" | "Bookkeeping for the year from your bank and credit card statements: [accounts]", for example "2 bank accounts, 1 credit card, 1 car loan or lease", from the form's counts. Only counts above 0 are listed | The client sees which accounts the fee covers. Quotes made before Nov 10 keep the Appendix C line |
+| Part C, company signer | Full name only | Full name and "Your title at the company, for example Director or President" (required). The PDF shows "Title: [title]" above "I have authority to bind the Company." and in the signing record | A company signs through a named officer |
+| Signing record (PDF audit page) | "Same device as the other signer: No" for every signer | Shown only when there are two signers | Means nothing with one signer |
+
+Left out because Parts A and C replace them, not changed: the letterhead and date (Part A carries them), the address block (the form does not collect an address), and the client's half of the signature block (Part C; its PDF signature keeps the master letter's "Agreed and accepted on behalf of [company]" and "I have authority to bind the Company."). Appendix A, Fees and payment, shows the quote total as one line and bills it half when the client signs up in the portal and half at approval. Every new wording above is an editable piece on the "Corporate year-end quote (Part A)" template.
 
 ## Standing rules (Phase 2 batch, section 1)
 - **No price breakdown to clients.** A client never sees the price book, a line price or any per-item amount: not on the quote, engagement letter, emails, signed PDF or download page. The client sees the services included and one total fee, plus GST/HST. Applies to T1 quotes and auto-priced corporate quotes. The full breakdown is stored with the signed quote and shown only to staff with the Pricing permission.

@@ -16,12 +16,13 @@ export async function clientParts(q: QuoteRow, signers: SignerRow[]) {
   return renderQuote(q.wording ?? {}, toQuoteData(q, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() }), { letterhead: LETTERHEAD_URL });
 }
 
-export async function signByToken(token: string, input: { name: string; consent: boolean; forOther: boolean; ip: string; agent: string }): Promise<{ error?: string }> {
+export async function signByToken(token: string, input: { name: string; title?: string; consent: boolean; forOther: boolean; ip: string; agent: string }): Promise<{ error?: string }> {
   const found = await loadQuoteByToken(token);
   if (!found) return { error: "This link does not work." };
   const { quote, signers, me } = found;
   if (!input.consent) return { error: "Tick the box to agree to your quote and the engagement terms." };
   if (input.name.trim().length < 2) return { error: "Type your full name to sign." };
+  if (quote.kind === "corporate" && (input.title ?? "").trim().length < 2) return { error: "Type your title at the company to sign." };
   // Same device (section 7): after one spouse signs, the other can sign here, on the first one's link.
   let person = me.person;
   if (input.forOther) {
@@ -32,7 +33,7 @@ export async function signByToken(token: string, input: { name: string; consent:
   const hash = documentHash(await clientParts(quote, signers));
   const db = createAdminClient();
   const { data: all, error } = await db.rpc("record_t1_signature", {
-    p_quote: quote.id, p_person: person, p_name: input.name.trim(), p_ip: input.ip, p_agent: input.agent, p_hash: hash, p_same_device: input.forOther,
+    p_quote: quote.id, p_person: person, p_name: input.name.trim(), p_ip: input.ip, p_agent: input.agent, p_hash: hash, p_same_device: input.forOther, p_title: quote.kind === "corporate" ? (input.title ?? "").trim() : null,
   });
   if (error) return { error: error.message };
   if (all === true) await makeSignedPdf(quote.id).catch(() => undefined); // retried on download if it fails
@@ -45,8 +46,8 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const { data: q } = await db.from("t1_quotes").select("id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, pdf_path").eq("id", quoteId).maybeSingle();
   if (!q || q.status !== "signed") return null;
   if (q.pdf_path) return q.pdf_path as string;
-  const { data: s } = await db.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_name, signed_ip, signed_agent, document_hash, same_device").eq("quote_id", quoteId).order("person");
-  const signers = (s ?? []) as (SignerRow & { signed_name: string; signed_ip: string; signed_agent: string; document_hash: string; same_device: boolean })[];
+  const { data: s } = await db.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_name, signed_ip, signed_agent, document_hash, same_device, signed_title").eq("quote_id", quoteId).order("person");
+  const signers = (s ?? []) as (SignerRow & { signed_name: string; signed_ip: string; signed_agent: string; document_hash: string; same_device: boolean; signed_title: string | null })[];
   const parts = await clientParts(q as QuoteRow, signers);
   // Corporate: Part B is the master letter, laid out by Studio's own engine (pdfDoc), word for word.
   let partB: { content: unknown[]; images: Record<string, string> } | undefined;
@@ -60,7 +61,7 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
     quoteId: q.id, taxYear: q.tax_year, sentAt: q.sent_at ?? "", validUntil: q.valid_until ?? "", wordingLabel: q.wording_label ?? "",
     clientNames: q.kind === "corporate" ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
     company: q.kind === "corporate" ? q.company_name ?? "" : undefined,
-    signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash })),
+    signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash, title: x.signed_title ?? undefined })),
   }, partB));
   const path = `t1-quotes/${q.id}/signed-${sha256.slice(0, 12)}.pdf`;
   const up = await db.storage.from("documents").upload(path, bytes, { contentType: "application/pdf", upsert: false });
