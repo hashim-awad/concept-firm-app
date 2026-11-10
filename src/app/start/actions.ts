@@ -2,6 +2,8 @@
 import { createHmac } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { sendNewLeadAlert } from "@/lib/leads/alerts";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 
@@ -26,7 +28,9 @@ export async function submitStart(_prev: StartState, formData: FormData): Promis
   const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
   const ipHash = createHmac("sha256", env.supabaseSecretKey()).update(ip).digest("hex");
   const supabase = await createClient();
-  const { error } = await supabase.rpc("submit_lead", { p_route: route, p_contact: contact, p_answers: {}, p_ip_hash: ipHash });
+  const { data: leadId, error } = await supabase.rpc("submit_lead", { p_route: route, p_contact: contact, p_answers: {}, p_ip_hash: ipHash });
   if (error) return { error: error.message };
+  // Email everyone with Pricing right away, after the client's page has loaded (batch section 3).
+  if (leadId) after(() => sendNewLeadAlert(String(leadId)).catch(() => undefined));
   redirect(`/start/thanks?r=${route}`);
 }

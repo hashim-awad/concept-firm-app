@@ -5,6 +5,7 @@ import { getAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
 import { LEAD_STATUS } from "@/lib/leads/provinces";
+import { runLeadAlerts, sendLeadAlertNow } from "@/lib/leads/alerts";
 
 // Staff update a lead: status, source, notes; owners also reassign. What the client entered stays as sent.
 export async function updateLead(formData: FormData) {
@@ -20,4 +21,32 @@ export async function updateLead(formData: FormData) {
   const { error } = await supabase.from("leads").update(patch).eq("id", id);
   revalidatePath("/leads"); revalidatePath(page); revalidatePath("/");
   redirect(withMessage(page, error ? "error" : "msg", error ? error.message : "Lead saved."));
+}
+
+// Owners: send the new-lead alert email now and see the result (for a failed or missing alert).
+export async function sendAlertNow(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const page = `/leads/${id}`;
+  const access = await getAccess();
+  if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can send the alert again."));
+  const r = await sendLeadAlertNow(id);
+  revalidatePath(page);
+  redirect(withMessage(page, r.sent > 0 ? "msg" : "error", r.sent > 0 ? `Alert email sent to ${r.sent} ${r.sent === 1 ? "person" : "people"}.${r.problem ? ` Problem with some: ${r.problem}` : ""}` : `Alert email not sent. Reason: ${r.problem || "unknown"}`));
+}
+
+// Owners: run the lead alert check now (the same one the scheduler runs) and see what it did.
+export async function checkAlertsNow() {
+  const access = await getAccess();
+  if (!access?.is_owner) redirect(withMessage("/leads", "error", "Only an owner can run the alert check."));
+  let text: string, kind: "msg" | "error";
+  try {
+    const r = await runLeadAlerts();
+    kind = r.problems.length ? "error" : "msg";
+    text = `Checked ${r.checked} lead${r.checked === 1 ? "" : "s"}. Reminders due: ${r.due}, sent: ${r.reminders}. First alerts sent: ${r.newSent}.${r.problems.length ? ` Problem: ${r.problems.join(" | ")}` : ""}`;
+  } catch (e) {
+    kind = "error";
+    text = `The check failed: ${e instanceof Error ? e.message : "unknown error"}`;
+  }
+  revalidatePath("/leads");
+  redirect(withMessage("/leads", kind, text));
 }
