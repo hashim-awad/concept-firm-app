@@ -20,15 +20,21 @@ export function withRuleValues<Q extends Pick<Question, "prompt" | "help_text">>
 export type Published = Questionnaire & { id: string; version: number; title: string; intro: string };
 
 export async function loadPublished(route: "personal" | "corporate"): Promise<Published | null> {
+  return (await loadPublishedWhy(route)).qn;
+}
+// The same, with the reason when nothing loads (shown to signed-in staff on the start page, and logged).
+export async function loadPublishedWhy(route: "personal" | "corporate"): Promise<{ qn: Published | null; problem: string }> {
   const db = createAdminClient();
-  const { data: row } = await db.from("questionnaires").select("id, version, title, intro, couple_question_key, couple_value").eq("route", route).eq("status", "published").maybeSingle();
-  if (!row) return null;
+  const { data: row, error } = await db.from("questionnaires").select("id, version, title, intro, couple_question_key, couple_value").eq("route", route).eq("status", "published").maybeSingle();
+  const problem = error ? `Reading the published ${route} questions failed: ${error.message}${error.code ? ` (${error.code})` : ""}` : row ? "" : `No published ${route} questions were found with the server key.`;
+  if (problem) console.error(problem);
+  if (!row) return { qn: null, problem };
   const [{ data: questions }, { data: rules }, r] = await Promise.all([
     db.from("questions").select("key, section, prompt, help_text, answer_type, options, required, per_person, min_value, max_value, show_if, sort_order").eq("questionnaire_id", row.id).order("sort_order"),
     db.from("rules").select("kind, conditions, item_code, quantity_question_key, message, sort_order").eq("questionnaire_id", row.id).order("sort_order"),
     readT1Rules(),
   ]);
-  return { ...row, questions: withRuleValues((questions ?? []) as Question[], r), rules: (rules ?? []) as Rule[] };
+  return { problem: "", qn: { ...row, questions: withRuleValues((questions ?? []) as Question[], r), rules: (rules ?? []) as Rule[] } };
 }
 
 // For the client's browser: the questions and the rules that stop or check the form. No price rules.
