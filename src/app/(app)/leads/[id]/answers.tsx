@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { formatCents, type Answer, type Question } from "@/lib/screening/engine";
 import { readT1Rules, withRuleValues } from "@/lib/screening/server";
+import Link from "next/link";
+import { prepareQuote } from "../quote-actions";
 
 type Stored = {
   questionnaire_id?: string; version?: number; household?: Record<string, Answer>; people?: Record<string, Answer>[];
@@ -49,9 +51,12 @@ export async function LeadAnswers({ answers }: { answers: Stored }) {
 
 // The quote worked out from the answers, line by line. Only people with Pricing can read it
 // (the database refuses everyone else). Clients never see this breakdown.
-export async function LeadQuote({ leadId, people }: { leadId: string; people: number }) {
+export async function LeadQuote({ leadId, people, canPrepare }: { leadId: string; people: number; canPrepare: boolean }) {
   const supabase = await createClient();
-  const { data } = await supabase.from("lead_quotes").select("lines, subtotal_cents").eq("lead_id", leadId).maybeSingle();
+  const [{ data }, { data: t1 }] = await Promise.all([
+    supabase.from("lead_quotes").select("lines, subtotal_cents").eq("lead_id", leadId).maybeSingle(),
+    supabase.from("t1_quotes").select("status").eq("lead_id", leadId).maybeSingle(),
+  ]);
   if (!data) return null;
   const lines = data.lines as QLine[];
   return (
@@ -69,7 +74,13 @@ export async function LeadQuote({ leadId, people }: { leadId: string; people: nu
           <tr><td colSpan={3} className="text-right font-semibold">Total before GST/HST</td><td className="text-right font-semibold">{formatCents(data.subtotal_cents)}</td></tr>
         </tbody>
       </table>
-      <p className="px-5 py-3 text-xs text-muted">Staff only, Pricing permission. The client sees the services and one total, never this breakdown.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+        <p className="text-xs text-muted">Staff only, Pricing permission. The client sees the services and one total, never this breakdown.</p>
+        {t1 ? <Link href={`/leads/${leadId}/quote`} className="btn">{t1.status === "draft" ? "Open the quote (not sent yet)" : "Open the quote"}</Link>
+          : canPrepare ? (
+            <form action={prepareQuote}><input type="hidden" name="lead_id" value={leadId} /><button type="submit" className="btn">Prepare the quote</button></form>
+          ) : null}
+      </div>
     </section>
   );
 }

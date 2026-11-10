@@ -53,7 +53,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
             ]} />
             <LeadAnswers answers={(l.answers ?? {}) as Parameters<typeof LeadAnswers>[0]["answers"]} />
           </section>
-          <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} />
+          <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} canPrepare={canEdit(access, "pricing") && canEdit(access, "leads")} />
         </div>
         <form action={updateLead} className="card grid content-start gap-4">
           <input type="hidden" name="id" value={id} />

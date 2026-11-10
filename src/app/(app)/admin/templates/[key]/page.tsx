@@ -7,9 +7,8 @@ import { buttonClass } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
-import { createStudioEngine } from "@/lib/studio/engine.generated";
 import { loadStudioData } from "@/lib/studio/data";
-import { templateSample } from "@/lib/studio/samples";
+import { allTemplates, templateSample } from "@/lib/studio/samples";
 import { PIECE, toFriendly } from "@/lib/studio/wording-pieces";
 import { changedKeys, loadWordingState } from "@/lib/studio/wording-state";
 import { TemplateEditor } from "@/components/studio/template-editor";
@@ -21,8 +20,7 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   const access = await requireAccess("engagement_terms", "view");
   const { key } = await params;
   const sp = await searchParams;
-  const e = createStudioEngine({});
-  const t = (e.TEMPLATES as T[]).find((x) => x.k === key);
+  const t = (allTemplates() as T[]).find((x) => x.k === key);
   if (!t || t.status === "Planned") notFound();
   const supabase = await createClient();
   const [{ data: ap }, data, state] = await Promise.all([

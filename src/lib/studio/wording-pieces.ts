@@ -1,9 +1,11 @@
 // The editable wording pieces (generated from the engine) and the check every edit must pass.
 // On screen, fill-ins show by name, like [Company name]; they are stored as {1}, {2} ...
 import pieces from "./wording.generated.json" with { type: "json" };
+import { T1Q_PIECES } from "../t1-quote/wording.ts";
 
 export type Piece = { key: string; text: string; fns: string[]; fills?: string[] };
-export const PIECES = pieces as Piece[];
+// The letters' pieces (generated from the engine) and the T1 quote and email pieces (Phase 2 step 7).
+export const PIECES = [...(pieces as Piece[]), ...T1Q_PIECES];
 export const PIECE = new Map(PIECES.map((p) => [p.key, p]));
 
 const tokens = (t: string) => (t.match(/\{\d+\}/g) ?? []).sort().join(" ");

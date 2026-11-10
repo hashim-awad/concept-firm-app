@@ -5,6 +5,8 @@ import "server-only";
 import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
+import { T1Q_TEMPLATES } from "../t1-quote/wording";
+import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
 
 const LH = "/studio/letterhead.jpg", ILLUS = "/studio/illustrative-watermark.png";
 const DUMMY = { company: "Example Holdings Inc.", signer: "Taylor Sample", signerTitle: "Director", salutation: "Taylor", addr1: "1 Test Street", city: "Kitchener", postal: "N2A 1A1", province: "ON", ye: "2026-12-31" };
@@ -56,7 +58,24 @@ export type Sample = { parts: { label: string; html: string }[]; note?: string }
 // Markers from the engine's editor mode become clickable <span data-w="key"> elements.
 export const markToSpans = (html: string) => html.replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>");
 
+export type TemplateInfo = { k: string; name: string; group: string; basis: string; status: string };
+// Every template on the Templates page: the engine's letters, then the T1 quote and its emails.
+export function allTemplates(): TemplateInfo[] {
+  return [...(createStudioEngine({}).TEMPLATES as TemplateInfo[]), ...T1Q_TEMPLATES];
+}
+
 export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
+  // The T1 quote (Appendix A) and its emails, with made-up client details.
+  if (key === "t1quote" || key === "t1email1" || key === "t1email2") {
+    const texts = wording?.texts ?? {};
+    const d = { ...SAMPLE, signer: signers.letter };
+    if (key === "t1quote") return { parts: [
+      ...renderQuote(texts, d, { mark }).map((p) => ({ ...p, label: `Couple: ${p.label}` })),
+      { label: "Single filer: Part A", html: renderQuote(texts, { ...d, spouse: null, lines: [{ code: "PTX-110", person: null, quantity: 1 }, { code: "PTX-120", person: null, quantity: 2 }], totalCents: 79700 }, { mark })[0].html },
+    ] };
+    const e = renderEmail(texts, key === "t1email2" ? d : { ...d, spouse: null }, SAMPLE_SENDER, ["https://example.test/q/link-1", "https://example.test/q/link-2"], { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+  }
   if (mark) {
     const prev = MARK; MARK = true;
     try { const r = templateSample(key, signers, wording, false); return r && { ...r, parts: r.parts.map((p) => ({ ...p, html: markToSpans(p.html) })) }; }

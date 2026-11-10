@@ -10,6 +10,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cleanAnswers, earlyOutOfScope, evaluate, type Answers } from "@/lib/screening/engine";
 import { loadPricesNow, loadPublished } from "@/lib/screening/server";
 import type { FormResult } from "@/components/screening-form";
+import { taxYearFor } from "@/lib/screening/tax-year";
+import { todayToronto } from "@/lib/dates";
 
 export type StartState = { error: string } | null;
 
@@ -94,7 +96,7 @@ export async function submitPersonal(_prev: FormResult | null, formData: FormDat
   const sources = (src?.value ?? []) as string[];
   const source = String(formData.get("source") ?? "");
   const answers = {
-    questionnaire_id: qn.id, version: qn.version, household: clean.household, people: clean.people,
+    questionnaire_id: qn.id, version: qn.version, tax_year: taxYearFor(todayToronto()), household: clean.household, people: clean.people,
     out_of_scope: early.map((e) => ({ reason: e.reason, person: e.person })), consent_at: outOfScope ? null : new Date().toISOString(),
   };
 

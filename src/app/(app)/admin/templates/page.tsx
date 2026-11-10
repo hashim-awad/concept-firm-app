@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/dates";
 import { createStudioEngine } from "@/lib/studio/engine.generated";
 import { loadStudioData } from "@/lib/studio/data";
 import { changedKeys, loadWordingState } from "@/lib/studio/wording-state";
-import { templateKeys } from "@/lib/studio/samples";
+import { allTemplates, templateKeys } from "@/lib/studio/samples";
 
 type T = { k: string; name: string; group: string; basis: string; status: string };
 const GROUPS: [string, string][] = [["Engagement letters", "Engagement letters and proposals"], ["Service schedules", "Service sections in the corporate letter"], ["Shared parts", "Appendices and terms"], ["Quality control", "Quality control"], ["Planned", "Coming later"]];
@@ -25,7 +25,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/admin/
     loadStudioData(supabase, access),
   ]);
   const ok = new Map((approvals ?? []).map((a) => [a.template_key, a.approved_on as string]));
-  const templates = e.TEMPLATES as T[];
+  const templates = allTemplates() as T[];
   const changed = new Set(changedKeys(state.live, state.draft));
   const keys = changed.size ? templateKeys(data.signers, state.live, templates.filter((t) => t.status !== "Planned").map((t) => t.k)) : new Map<string, Set<string>>();
   const changesIn = (k: string) => [...(keys.get(k) ?? [])].filter((x) => changed.has(x)).length;
