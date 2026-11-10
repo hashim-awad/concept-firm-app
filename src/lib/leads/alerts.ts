@@ -24,8 +24,8 @@ async function claim(db: Admin, leadId: string, kind: Kind): Promise<boolean> {
   return (again?.length ?? 0) > 0;
 }
 
-async function deliver(db: Admin, kind: Kind, lead: AlertLead): Promise<void> {
-  if (!(await claim(db, lead.id, kind))) return;
+async function deliver(db: Admin, kind: Kind, lead: AlertLead, force = false): Promise<{ sent: number; problem: string } | null> {
+  if (!(await claim(db, lead.id, kind)) && !force) return null;
   let sent = 0, problem = "";
   try {
     const { data: to, error } = await db.rpc("lead_alert_recipients");
@@ -40,8 +40,10 @@ async function deliver(db: Admin, kind: Kind, lead: AlertLead): Promise<void> {
     problem = e instanceof Error ? e.message : "Email failed.";
   }
   // Sent to at least one person: done. Nothing sent: keep the reason on record; the next run retries.
-  await db.from("lead_alerts").update({ sent_at: sent > 0 ? new Date().toISOString() : null, recipients: sent, error: problem.slice(0, 300) })
+  const { error: saveError } = await db.from("lead_alerts").update({ sent_at: sent > 0 ? new Date().toISOString() : null, recipients: sent, error: problem.slice(0, 300) })
     .eq("lead_id", lead.id).eq("kind", kind);
+  if (saveError && !problem) problem = `The alert record could not be saved: ${saveError.message}`;
+  return { sent, problem };
 }
 
 const LEAD_COLS = "id, route, province, status, answers, created_at";
@@ -92,4 +94,19 @@ export async function readBusinessHours(): Promise<BusinessHours | null> {
 export async function leadAlertStatus(leadId: string) {
   const { data } = await createAdminClient().from("lead_alerts").select("kind, sent_at, recipients, error").eq("lead_id", leadId);
   return (data ?? []) as { kind: Kind; sent_at: string | null; recipients: number; error: string }[];
+}
+
+// Owners: send a lead's first alert now and report exactly what happened (also when it already went).
+export async function sendLeadAlertNow(leadId: string): Promise<{ sent: number; problem: string }> {
+  try {
+    const db = createAdminClient();
+    const { data, error } = await db.from("leads").select(LEAD_COLS).eq("id", leadId).maybeSingle();
+    if (error) return { sent: 0, problem: `Reading the lead failed: ${error.message}` };
+    if (!data) return { sent: 0, problem: "Lead not found." };
+    const { error: claimError } = await db.from("lead_alerts").upsert({ lead_id: leadId, kind: "new" }, { onConflict: "lead_id,kind", ignoreDuplicates: true });
+    if (claimError) return { sent: 0, problem: `The alert record could not be made: ${claimError.message}` };
+    return (await deliver(db, "new", data as AlertLead, true)) ?? { sent: 0, problem: "Not sent." };
+  } catch (e) {
+    return { sent: 0, problem: e instanceof Error ? e.message : "Failed." };
+  }
 }

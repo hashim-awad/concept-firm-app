@@ -6,7 +6,7 @@ import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
 import { LEAD_STATUS, provinceName } from "@/lib/leads/provinces";
-import { updateLead } from "../actions";
+import { sendAlertNow, updateLead } from "../actions";
 import { leadAlertStatus, readBusinessHours } from "@/lib/leads/alerts";
 import { WAITING_STATUSES } from "@/lib/business-hours";
 import { LeadTimer } from "../lead-timer";
@@ -30,6 +30,12 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
     <>
       <PageHeader eyebrow={l.route === "personal" ? "Lead · Personal tax" : "Lead · Company"} title={`${l.first_name} ${l.last_name}`} description={`Received ${formatDateTime(l.created_at)} · ${LEAD_STATUS[l.status] ?? l.status}`} />
       {WAITING_STATUSES.includes(l.status) && <p className="-mt-2 mb-4 text-sm"><LeadTimer since={l.created_at} hours={await readBusinessHours()} /> <span className="text-muted">for the quote to be sent. A reminder email goes to everyone with Pricing at 45 business minutes.</span></p>}
+      {access.is_owner && (
+        <form action={sendAlertNow} className="-mt-2 mb-4">
+          <input type="hidden" name="id" value={l.id} />
+          <button type="submit" className="btn-secondary h-8 px-3 text-sm" title="Owners: send the new-lead email to everyone with Pricing now and see the result">Send alert email now</button>
+        </form>
+      )}
       {(await leadAlertStatus(l.id)).filter((x) => x.error !== "before alerts existed").map((x) => (
         <p key={x.kind} className={`-mt-2 mb-4 text-sm ${x.sent_at ? "text-muted" : "text-danger"}`}>
           {x.kind === "new" ? "Alert email" : "Reminder email"}: {x.sent_at ? `sent to ${x.recipients} ${x.recipients === 1 ? "person" : "people"} ${formatDateTime(x.sent_at)}.` : `not sent yet. Reason: ${x.error || "sending now"}. The app tries again every 5 minutes.`}
