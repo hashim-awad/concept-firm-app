@@ -6,8 +6,9 @@ Phase 3 fit in `docs/PHASE3-FOUNDATION.md`.
 
 ## Where things run
 
-- Everything runs on **Test** (Supabase "Concept Firm App - Test", Vercel branch preview).
-- **Live is not set up yet.**
+- **Test app:** https://concept-firm-app-git-claude-affection-694391-concept-accounting.vercel.app (Supabase "Concept Firm App - Test"; Vercel asks you to sign in to Vercel first).
+- **Live app:** https://studio.conceptaccounting.ca
+- Every request to Hashim includes the full link to open (Hashim, Nov 10, 2026).
 - Real client data cleared from Test on Nov 9, 2026 (counts in docs/SETUP.md). Test holds no real client data. The Studio import is redone in Live after the merge.
 
 ## Done (Phase 1)
