@@ -3,14 +3,14 @@ import "server-only";
 // Runs with the server key; the database checks every rule again (record_t1_signature).
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderPdf } from "@/lib/studio/pdf";
-import { renderQuote } from "./render";
+import { LETTERHEAD_URL, renderQuote } from "./render";
 import { documentHash } from "./document";
 import { signedPdfDef } from "./pdf-def";
 import { letterSigner, loadQuoteByToken, toQuoteData, type QuoteRow, type SignerRow } from "./server";
 
 // The quote exactly as the client sees it (no watermark), from what was saved when it was sent.
 export async function clientParts(q: QuoteRow, signers: SignerRow[]) {
-  return renderQuote(q.wording ?? {}, toQuoteData(q, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() }));
+  return renderQuote(q.wording ?? {}, toQuoteData(q, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() }), { letterhead: LETTERHEAD_URL });
 }
 
 export async function signByToken(token: string, input: { name: string; consent: boolean; forOther: boolean; ip: string; agent: string }): Promise<{ error?: string }> {
@@ -47,6 +47,7 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const parts = await clientParts(q as QuoteRow, signers);
   const { bytes, sha256 } = await renderPdf(signedPdfDef(parts, {
     quoteId: q.id, taxYear: q.tax_year, sentAt: q.sent_at ?? "", validUntil: q.valid_until ?? "", wordingLabel: q.wording_label ?? "",
+    clientNames: signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
     signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash })),
   }));
   const path = `t1-quotes/${q.id}/signed-${sha256.slice(0, 12)}.pdf`;

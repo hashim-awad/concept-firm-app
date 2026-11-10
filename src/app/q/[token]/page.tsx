@@ -58,7 +58,12 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     <ClientShell>
       <div className="mx-auto grid max-w-3xl gap-6">
         {done}
-        {parts.slice(0, 2).map((p) => <section key={p.label} className="card"><div dangerouslySetInnerHTML={{ __html: p.html }} /></section>)}
+        {/* The quote and the terms as one letter page, on the firm's letterhead. */}
+        <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-5 py-7 shadow-sm sm:px-12 sm:py-12">
+          <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
+          <hr className="my-8 border-sand-200" />
+          <div dangerouslySetInnerHTML={{ __html: parts[1].html }} />
+        </article>
         <section className="card grid gap-4" id="sign">
           <div dangerouslySetInnerHTML={{ __html: parts[2].html }} />
           {signers.length > 1 && !signed && (

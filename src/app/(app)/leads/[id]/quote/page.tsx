@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, formatDateTime, todayToronto } from "@/lib/dates";
 import { env } from "@/lib/env";
-import { money, renderEmail, renderQuote } from "@/lib/t1-quote/render";
+import { LETTERHEAD_URL, money, renderEmail, renderQuote } from "@/lib/t1-quote/render";
 import { provinceName } from "@/lib/leads/provinces";
 import { letterSigner, loadQuoteForStaff, toQuoteData } from "@/lib/t1-quote/server";
 import { markQuoteSent } from "../../quote-actions";
@@ -45,7 +45,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
   const data = toQuoteData(quote, signers, { preparedBy: sender.name, signer });
   const links = signers.map((s) => `${env.siteUrl()}/q/${s.token}`);
   const email = renderEmail(texts, data, sender, links);
-  const parts = renderQuote(texts, data, { watermark: !sent });
+  const parts = renderQuote(texts, data, { watermark: !sent, letterhead: LETTERHEAD_URL });
   const expired = sent && quote.valid_until !== null && quote.valid_until < todayToronto();
 
   return (
@@ -102,12 +102,14 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
 
         <section className="grid content-start gap-4">
           <h2 className="font-semibold">The quote and engagement letter{sent ? " (client's copy)" : ""}</h2>
-          {parts.map((p) => (
-            <div key={p.label} className="card overflow-hidden">
-              <p className="mb-3 text-xs font-semibold tracking-wide text-ink-3 uppercase">{p.label}</p>
-              <div dangerouslySetInnerHTML={{ __html: p.html }} />
-            </div>
-          ))}
+          {/* One letter page, as the client reads it. */}
+          <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-6 py-8 shadow-sm sm:px-12 sm:py-12">
+            <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
+            <hr className="my-8 border-sand-200" />
+            <div dangerouslySetInnerHTML={{ __html: parts[1].html }} />
+            <hr className="my-8 border-sand-200" />
+            <div dangerouslySetInnerHTML={{ __html: parts[2].html }} />
+          </article>
         </section>
       </div>
     </>

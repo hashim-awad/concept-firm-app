@@ -60,3 +60,16 @@ test("pdfmake builds the PDF", async () => {
   assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
   assert.ok(bytes.length > 10000);
 });
+
+test("letterhead: on the page and in the PDF, with the firm name and address kept in the document text", async () => {
+  const { LETTERHEAD_URL } = await import("../src/lib/t1-quote/render.ts");
+  const withLh = renderQuote({}, SAMPLE, { letterhead: LETTERHEAD_URL });
+  assert.ok(withLh[0].html.includes('src="/studio/letterhead.jpg"'));
+  const b = blocks(withLh[0].html);
+  assert.equal(b[0].kind, "lh");
+  assert.ok(plainDocument(withLh).startsWith("Concept Accounting & Advisory Professional Corporation, 675 Riverbend Dr., Kitchener, ON N2K 3S3"));
+  const def = signedPdfDef(withLh, audit);
+  assert.ok(String(def.images.lh).startsWith("data:image/jpeg;base64,"));
+  assert.equal(def.content[0].image, "lh");
+  assert.equal(b.find((x) => x.kind === "fee")?.runs[0].text, "Your fee: $697.00 plus GST/HST");
+});

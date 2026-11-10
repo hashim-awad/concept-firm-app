@@ -2,7 +2,7 @@
 // fingerprint cannot differ from the page. Pure (no server imports): tests use it too.
 import { createHash } from "node:crypto";
 
-export type Block = { kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol"; runs: { text: string; bold?: boolean }[]; items?: string[] };
+export type Block = { kind: "h1" | "h2" | "h3" | "p" | "ul" | "ol" | "lh" | "fee" | "meta" | "signer"; runs: { text: string; bold?: boolean }[]; items?: string[] };
 
 const unescape = (s: string) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 const text = (html: string) => unescape(html.replace(/<br\s*\/?>/g, "\n").replace(/<[^>]+>/g, "")).replace(/[ \t]+/g, " ").trim();
@@ -10,8 +10,12 @@ const text = (html: string) => unescape(html.replace(/<br\s*\/?>/g, "\n").replac
 // Headings, paragraphs and lists, in order. The DRAFT watermark (a <div>) is never part of it.
 export function blocks(html: string): Block[] {
   const out: Block[] = [];
-  for (const m of html.matchAll(/<(h1|h2|h3|p|ul|ol)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
-    const kind = m[1] as Block["kind"], inner = m[2];
+  for (const m of html.matchAll(/<img data-lh[^>]*alt="([^"]*)"[^>]*>|<(h1|h2|h3|p|ul|ol)\b([^>]*)>([\s\S]*?)<\/\2>/g)) {
+    // The letterhead: the firm name and address are on it (its alt text keeps them in the document).
+    if (m[1] !== undefined) { out.push({ kind: "lh", runs: [{ text: unescape(m[1]) }] }); continue; }
+    const tag = m[2] as Block["kind"], inner = m[4];
+    const k = /data-k="(fee|meta|signer)"/.exec(m[3])?.[1] as Block["kind"] | undefined;
+    const kind = tag === "p" && k ? k : tag;
     if (kind === "ul" || kind === "ol") { out.push({ kind, runs: [], items: [...inner.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((x) => text(x[1])) }); continue; }
     const runs: Block["runs"] = [];
     let last = 0;

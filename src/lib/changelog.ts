@@ -10,6 +10,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "Clients sign on their own private link: type their full name, tick the agreement, click Sign. We keep the time, IP address, browser and a fingerprint of the exact quote and terms signed.",
       "Couples each sign. The page shows who is still waiting, and the second spouse can sign on the same device. The quote counts as signed when both have signed.",
       "Once signed, the client downloads a signed PDF with a signing-record page, and continues to the secure portal to sign up.",
+      "The quote and the signed PDF are on the firm's letterhead, in the same style as the engagement letters.",
       "On the quote page, staff see who signed, open the signed PDF, and copy the TaxDome invoice line: PTX-100, the total before tax, and the GST/HST rate for the province.",
     ],
   },
