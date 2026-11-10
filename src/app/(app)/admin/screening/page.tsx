@@ -9,8 +9,8 @@ import { T1_V2_TITLE } from "@/lib/screening/t1-v2";
 type Q = { id: string; route: string; version: number; status: string; title: string; published_at: string | null; updated_at: string };
 
 const ROUTES = [
-  { route: "personal", label: "Personal tax (start page: File your personal tax return)" },
-  { route: "corporate", label: "Corporate tax (start page: File your corporate tax return)" },
+  { route: "personal", label: "Personal tax (start page: My personal tax return)" },
+  { route: "corporate", label: "Corporate tax (start page: My company)" },
 ];
 
 export default async function ScreeningPage({ searchParams }: PageProps<"/admin/screening">) {
