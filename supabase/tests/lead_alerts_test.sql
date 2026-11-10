@@ -36,9 +36,13 @@ set role anon;
 select public.submit_lead('personal', '{"first_name":"Jane","last_name":"Dummy","email":"jane@example.test","phone":"519-555-0100","province":"ON"}', '{}', repeat('b', 64)) as lead \gset
 reset role;
 set role service_role;
+select count(*) as sees_lead from public.leads where id = :'lead' \gset
+select count(*) as sees_hours from public.settings where key = 'business_hours' \gset
 insert into public.lead_alerts (lead_id, kind) values (:'lead', 'new') on conflict do nothing;
 insert into public.lead_alerts (lead_id, kind) values (:'lead', 'new') on conflict do nothing;
 reset role;
+select test.check('the server can read the lead for the email', :sees_lead = 1);
+select test.check('the server can read business hours', :sees_hours = 1);
 select test.check('one record per lead and kind', (select count(*) from public.lead_alerts where lead_id = :'lead') = 1);
 delete from public.leads where id = :'lead';
 select test.check('records go with the lead', (select count(*) from public.lead_alerts where lead_id = :'lead') = 0);
