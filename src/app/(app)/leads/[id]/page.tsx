@@ -10,6 +10,7 @@ import { sendAlertNow, updateLead } from "../actions";
 import { leadAlertStatus, readBusinessHours } from "@/lib/leads/alerts";
 import { WAITING_STATUSES } from "@/lib/business-hours";
 import { LeadTimer } from "../lead-timer";
+import { LeadAnswers, LeadQuote } from "./answers";
 
 export default async function LeadPage({ params, searchParams }: PageProps<"/leads/[id]">) {
   const access = await requireAccess("leads", "view");
@@ -25,7 +26,6 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
   if (!l) notFound();
   const editable = canEdit(access, "leads");
   const sources = Array.from(new Set([...(((src?.value as string[] | undefined) ?? ["Website"])), l.source]));
-  const answers = Object.entries((l.answers ?? {}) as Record<string, unknown>);
   return (
     <>
       <PageHeader eyebrow={l.route === "personal" ? "Lead · Personal tax" : "Lead · Company"} title={`${l.first_name} ${l.last_name}`} description={`Received ${formatDateTime(l.created_at)} · ${LEAD_STATUS[l.status] ?? l.status}`} />
@@ -51,10 +51,9 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
               ...(l.phone ? [{ label: "Phone", value: <a href={`tel:${l.phone}`} className="text-navy-700 underline">{l.phone}</a> }] : []),
               { label: "Province", value: provinceName(l.province) },
             ]} />
-            {answers.length > 0 ? (
-              <dl className="mt-4 grid gap-2 text-sm">{answers.map(([k, v]) => <div key={k}><dt className="text-muted">{k}</dt><dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd></div>)}</dl>
-            ) : <p className="mt-4 text-sm text-muted">The screening questions arrive with Phase 2 steps 6 (personal) and 9 (company).</p>}
+            <LeadAnswers answers={(l.answers ?? {}) as Parameters<typeof LeadAnswers>[0]["answers"]} />
           </section>
+          <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} />
         </div>
         <form action={updateLead} className="card grid content-start gap-4">
           <input type="hidden" name="id" value={id} />

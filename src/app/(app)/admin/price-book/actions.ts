@@ -49,7 +49,7 @@ export async function updateItem(formData: FormData) {
       per_spouse: formData.get("per_spouse") === "on",
       sort_order: Number(formData.get("sort_order") ?? 0) || 0,
       is_active: formData.get("is_active") === "on",
-      price_type: formData.get("price_type") === "Per client" ? "Per client" : "Fixed",
+      price_type: formData.get("price_type") === "Per client" ? "Per client" : formData.get("price_type") === "Invoice only" ? "Invoice only" : "Fixed",
       income_account: String(formData.get("income_account") ?? "").trim(),
       replaces_qbo: String(formData.get("replaces_qbo") ?? "").trim(),
       replaces_taxdome: String(formData.get("replaces_taxdome") ?? "").trim(),

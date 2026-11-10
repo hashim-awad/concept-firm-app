@@ -147,3 +147,12 @@ export async function deleteRule(formData: FormData) {
   const { error } = await supabase.from("rules").delete().eq("id", String(formData.get("id")));
   redirect(withMessage(editor(qnId), error ? "error" : "msg", error ? friendly(error.message) : "Rule deleted."));
 }
+
+// Owners: publish the personal questions from Phase 2 batch section 4 (src/lib/screening/t1-v2.ts).
+// The database refuses with the exact reason if the price book differs or a personal draft exists.
+export async function publishSection4() {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("publish_t1_screening_now");
+  revalidatePath(LIST);
+  redirect(withMessage(LIST, error ? "error" : "msg", error ? error.message : "Published: the personal questions from batch section 4 are now live on the start page."));
+}

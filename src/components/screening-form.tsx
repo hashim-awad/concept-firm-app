@@ -1,19 +1,27 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useState, type ReactNode } from "react";
 import {
-  PROVINCES, isVisible, personCount, formatCents,
+  PROVINCES, earlyOutOfScope, isVisible, personCount, formatCents,
   type Answer, type Answers, type Question, type Questionnaire, type Result,
 } from "@/lib/screening/engine";
 
 export type FormQuestionnaire = Questionnaire & { title: string; intro: string };
-type Action = (prev: Result | null, formData: FormData) => Promise<Result | null>;
+export type FormResult = Result & { message?: string };
+type Action = (prev: FormResult | null, formData: FormData) => Promise<FormResult | null>;
 
 const PERSON_LABEL = ["You", "Your spouse or partner"];
+// Couples answer a per-person yes/no question once: no one, me, my spouse, or both (batch section 4).
+const WHO = [{ value: "none", label: "No" }, { value: "me", label: "Yes, me" }, { value: "spouse", label: "Yes, my spouse or partner" }, { value: "both", label: "Yes, both of us" }];
 
 // Renders a screening questionnaire. Questions appear and disappear as answers change.
 // The answers are sent to `action` as JSON; the server checks and prices them again.
-export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: FormQuestionnaire; action: Action; submitLabel: string; showPrices: boolean }) {
+// stopOnOutOfScope: when an answer means we cannot quote, the form stops there and shows the message.
+// before / after: extra fields inside the same form (the public page's contact details, source, consent).
+export function ScreeningForm({ qn, action, submitLabel, showPrices, stopOnOutOfScope, before, after }: {
+  qn: FormQuestionnaire; action: Action; submitLabel: string; showPrices: boolean;
+  stopOnOutOfScope?: { message: ReactNode; submitLabel: string }; before?: ReactNode; after?: ReactNode;
+}) {
   const [household, setHousehold] = useState<Record<string, Answer>>({});
   const [people, setPeople] = useState<Record<string, Answer>[]>([{}, {}]);
   const [result, formAction, pending] = useActionState(action, null);
@@ -22,8 +30,13 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
   const count = personCount(qn, household);
   const answers: Answers = { household, people: people.slice(0, count) };
 
+  // Stop at the first out-of-scope answer: hide everything after that question.
+  const stop = stopOnOutOfScope ? earlyOutOfScope(qn, answers)[0] : undefined;
+  const stopAt = stop ? sorted.find((q) => q.key === stop.question)?.sort_order ?? Infinity : Infinity;
+  const shown = sorted.filter((q) => q.sort_order <= stopAt);
+
   const sections: { name: string; questions: Question[] }[] = [];
-  for (const q of sorted) {
+  for (const q of shown) {
     const last = sections.at(-1);
     if (last && last.name === q.section) last.questions.push(q);
     else sections.push({ name: q.section, questions: [q] });
@@ -31,6 +44,7 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
 
   const errorFor = (key: string, person: number | null) =>
     result?.errors.find((e) => e.key === key && e.person === person)?.message;
+  const setPerson = (i: number, key: string, v: Answer) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [key]: v } : p)));
 
   return (
     // Submitted by hand (not the form "action" prop) so React does not clear the answers on screen.
@@ -48,6 +62,8 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
         {qn.intro && <p className="mt-1 text-sm text-muted">{qn.intro}</p>}
       </div>
 
+      {before}
+
       {sections.map((s) => (
         <fieldset key={s.name} className="card space-y-5">
           {s.name && <legend className="px-1 font-semibold">{s.name}</legend>}
@@ -59,6 +75,17 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
                   onChange={(v) => setHousehold((h) => ({ ...h, [q.key]: v }))} />
               );
             }
+            // A couple answers a yes/no question once, for one or both of them.
+            if (count > 1 && q.answer_type === "yes_no" && !q.show_if) {
+              const a = people[0][q.key], b = people[1][q.key];
+              const value = a === undefined || b === undefined ? "" : a === "yes" && b === "yes" ? "both" : a === "yes" ? "me" : b === "yes" ? "spouse" : "none";
+              const err = errorFor(q.key, 0) ?? errorFor(q.key, 1);
+              return (
+                <Field key={q.key} q={{ ...q, answer_type: "single_choice", options: WHO }} idSuffix="who" value={value} error={err}
+                  onChange={(v) => setPeople((ps) => ps.map((p, i) => ({ ...p, [q.key]: v === "both" || (v === "me" && i === 0) || (v === "spouse" && i === 1) ? "yes" : "no" })))} />
+              );
+            }
+            if (![...Array(count).keys()].some((i) => isVisible(q, { ...household, ...people[i] }))) return null;
             return (
               <div key={q.key} className={count > 1 ? "grid gap-4 md:grid-cols-2" : ""}>
                 {[...Array(count).keys()].map((i) => {
@@ -66,8 +93,7 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
                   if (!isVisible(q, scope)) return null;
                   return (
                     <Field key={i} q={q} idSuffix={`p${i}`} personLabel={count > 1 ? PERSON_LABEL[i] : undefined}
-                      value={people[i][q.key]} error={errorFor(q.key, i)}
-                      onChange={(v) => setPeople((ps) => ps.map((p, j) => (j === i ? { ...p, [q.key]: v } : p)))} />
+                      value={people[i][q.key]} error={errorFor(q.key, i)} onChange={(v) => setPerson(i, q.key, v)} />
                   );
                 })}
               </div>
@@ -76,20 +102,25 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices }: { qn: For
         </fieldset>
       ))}
 
-      {result && result.errors.length > 0 && (
+      {stop && stopOnOutOfScope && <div role="status" className="card border-warning/40 bg-warning-soft text-sm">{stopOnOutOfScope.message}</div>}
+
+      {!stop && after}
+
+      {result?.message && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{result.message}</p>}
+      {result && !result.message && result.errors.length > 0 && (
         <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
           Please check the answers marked in red.
         </p>
       )}
 
-      <button type="submit" className="btn" disabled={pending}>{pending ? "Checking..." : submitLabel}</button>
+      <button type="submit" className="btn" disabled={pending}>{pending ? "Sending..." : stop && stopOnOutOfScope ? stopOnOutOfScope.submitLabel : submitLabel}</button>
 
       {showPrices && result && result.errors.length === 0 && <ResultPanel result={result} />}
     </form>
   );
 }
 
-function Field({ q, value, onChange, error, idSuffix, personLabel }: {
+export function Field({ q, value, onChange, error, idSuffix, personLabel }: {
   q: Question; value: Answer; onChange: (v: Answer) => void; error?: string; idSuffix: string; personLabel?: string;
 }) {
   const id = `${q.key}-${idSuffix}`;
@@ -183,7 +214,7 @@ function ResultPanel({ result }: { result: Result }) {
           </tr>
         </tbody>
       </table>
-      <p className="px-5 py-3 text-xs text-muted">HST by province is added on the quote. Tax rates are the next step.</p>
+      <p className="px-5 py-3 text-xs text-muted">GST/HST for the client&rsquo;s province is added on the quote.</p>
     </div>
   );
 }

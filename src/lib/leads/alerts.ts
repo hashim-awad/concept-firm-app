@@ -48,10 +48,18 @@ async function deliver(db: Admin, kind: Kind, lead: AlertLead, force = false): P
 
 const LEAD_COLS = "id, route, province, status, answers, created_at";
 
+// Attach the quote total (the server's own record; the email shows the total only).
+async function withQuotes<T extends { id: string }>(db: Admin, leads: T[]): Promise<(T & { quote_cents: number | null })[]> {
+  if (leads.length === 0) return [];
+  const { data } = await db.from("lead_quotes").select("lead_id, subtotal_cents").in("lead_id", leads.map((l) => l.id));
+  const by = new Map((data ?? []).map((q: { lead_id: string; subtotal_cents: number }) => [q.lead_id, q.subtotal_cents]));
+  return leads.map((l) => ({ ...l, quote_cents: by.get(l.id) ?? null }));
+}
+
 export async function sendNewLeadAlert(leadId: string): Promise<void> {
   const db = createAdminClient();
   const { data } = await db.from("leads").select(LEAD_COLS).eq("id", leadId).maybeSingle();
-  if (data) await deliver(db, "new", data as AlertLead);
+  if (data) await deliver(db, "new", (await withQuotes(db, [data as AlertLead]))[0]);
 }
 
 let lastRun = 0;
@@ -78,7 +86,7 @@ export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<
   const have = new Set((doneQ.data ?? []).map((r: { lead_id: string; kind: string }) => `${r.lead_id}|${r.kind}`));
   const hours = (hoursQ.data?.value ?? null) as BusinessHours | null;
   const now = Date.now();
-  for (const l of (leadsQ.data ?? []) as (AlertLead & { created_at: string })[]) {
+  for (const l of await withQuotes(db, (leadsQ.data ?? []) as (AlertLead & { created_at: string })[])) {
     out.checked++;
     // A first alert that has not gone out (sending right after the form failed): retry after 2 minutes,
     // for up to 2 days.
@@ -118,7 +126,7 @@ export async function sendLeadAlertNow(leadId: string): Promise<{ sent: number; 
     if (!data) return { sent: 0, problem: "Lead not found." };
     const { error: claimError } = await db.from("lead_alerts").upsert({ lead_id: leadId, kind: "new" }, { onConflict: "lead_id,kind", ignoreDuplicates: true });
     if (claimError) return { sent: 0, problem: `The alert record could not be made: ${claimError.message}` };
-    return (await deliver(db, "new", data as AlertLead, true)) ?? { sent: 0, problem: "Not sent." };
+    return (await deliver(db, "new", (await withQuotes(db, [data as AlertLead]))[0], true)) ?? { sent: 0, problem: "Not sent." };
   } catch (e) {
     return { sent: 0, problem: e instanceof Error ? e.message : "Failed." };
   }

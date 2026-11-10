@@ -5,6 +5,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Personal tax screening questions",
+    points: [
+      "The public personal tax form asks the screening questions from the Phase 2 batch, in steps with a progress bar: About you, Who's filing, Quick check, What happened this year, A few details, Last. Quick check is one list of five boxes; What happened is a grid of tiles, \"Tick everything that applies\". Couples pick Me, Spouse or Both on each item charged per person. A few details asks only about the ticked tiles. The client clicks Get my quote; no consent checkbox.",
+      "If an answer means we cannot quote online, the form stops there with a polite message. The client can still send their details; the lead is marked Out of scope with the reasons.",
+      "The quote is worked out on the server from today's prices. The client never sees a price on the form. Staff with Pricing see the quote line by line on the lead; the alert email shows the total.",
+      "The moving distance and the T1135 amounts in the questions come from Settings, T1 rule values.",
+      "New price book item PTX-100, Personal tax return services: invoice only, no price, never on quotes or in screening.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Lead alerts",
     points: [
       "When a lead comes in, everyone with the Pricing permission gets an email with the lead type, household, province and quote, and a button to open the lead. The email has no client name or contact details.",
