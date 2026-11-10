@@ -6,6 +6,10 @@ import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
 import { LEAD_STATUS, provinceName } from "@/lib/leads/provinces";
+import { after } from "next/server";
+import { readBusinessHours, runLeadAlerts } from "@/lib/leads/alerts";
+import { WAITING_STATUSES } from "@/lib/business-hours";
+import { LeadTimer } from "./lead-timer";
 
 const OPEN = ["new", "call_needed", "quoted", "sent"];
 
@@ -14,6 +18,8 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
   await requireAccess("leads", "view");
   const sp = await searchParams;
   const show = sp.show === "all" ? "all" : sp.show === "closed" ? "closed" : "open";
+  after(() => runLeadAlerts({ throttle: true }).then(() => undefined, () => undefined));
+  const hours = await readBusinessHours();
   const supabase = await createClient();
   let q = supabase.from("leads").select("id, route, status, first_name, last_name, province, source, created_at, staff:assigned_to(full_name)").order("created_at", { ascending: false }).limit(500);
   if (show === "open") q = q.in("status", OPEN);
@@ -37,7 +43,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
                 <td className="whitespace-nowrap text-muted">{formatDateTime(l.created_at)}</td>
                 <td><Link href={`/leads/${l.id}`} className="font-medium text-navy-700 hover:underline">{l.first_name} {l.last_name}</Link></td>
                 <td>{l.route === "personal" ? "Personal tax" : "Company"}</td><td>{provinceName(l.province)}</td>
-                <td>{LEAD_STATUS[l.status] ?? l.status}</td><td>{l.staff?.full_name ?? <span className="text-muted">Unassigned</span>}</td><td>{l.source}</td>
+                <td>{LEAD_STATUS[l.status] ?? l.status}{WAITING_STATUSES.includes(l.status) && <span className="block text-xs"><LeadTimer since={l.created_at} hours={hours} /></span>}</td><td>{l.staff?.full_name ?? <span className="text-muted">Unassigned</span>}</td><td>{l.source}</td>
               </tr>
             ))}</tbody>
           </table>

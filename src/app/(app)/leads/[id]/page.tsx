@@ -7,6 +7,9 @@ import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
 import { LEAD_STATUS, provinceName } from "@/lib/leads/provinces";
 import { updateLead } from "../actions";
+import { readBusinessHours } from "@/lib/leads/alerts";
+import { WAITING_STATUSES } from "@/lib/business-hours";
+import { LeadTimer } from "../lead-timer";
 
 export default async function LeadPage({ params, searchParams }: PageProps<"/leads/[id]">) {
   const access = await requireAccess("leads", "view");
@@ -26,6 +29,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
   return (
     <>
       <PageHeader eyebrow={l.route === "personal" ? "Lead · Personal tax" : "Lead · Company"} title={`${l.first_name} ${l.last_name}`} description={`Received ${formatDateTime(l.created_at)} · ${LEAD_STATUS[l.status] ?? l.status}`} />
+      {WAITING_STATUSES.includes(l.status) && <p className="-mt-2 mb-4 text-sm"><LeadTimer since={l.created_at} hours={await readBusinessHours()} /> <span className="text-muted">for the quote to be sent. A reminder email goes to everyone with Pricing at 45 business minutes.</span></p>}
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="grid content-start gap-6">

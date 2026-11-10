@@ -6,6 +6,9 @@ import { messageFrom } from "@/lib/messages";
 import { formatDate, todayToronto } from "@/lib/dates";
 import { t2Deadlines, type T2Client } from "@/lib/deadlines";
 import { T2DeadlineTable } from "./t2-deadline-table";
+import { after } from "next/server";
+import { readBusinessHours, runLeadAlerts } from "@/lib/leads/alerts";
+import { LeadTimer } from "./leads/lead-timer";
 
 const AHEAD_DAYS = 90;
 
@@ -34,6 +37,9 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   type L = { id: string; first_name: string; last_name: string; route: string; created_at: string };
   const pricing = canView(access, "pricing");
   const supabase = await createClient();
+  // Lead alerts also run when staff open My day (the scheduler runs only on Live), at most once a minute.
+  if (seeLeads) after(() => runLeadAlerts({ throttle: true }).then(() => undefined, () => undefined));
+  const hours = seeLeads ? await readBusinessHours() : null;
   const leadsNew = seeLeads ? (((await supabase.from("leads").select("id, first_name, last_name, route, created_at").eq("status", "new").order("created_at")).data ?? []) as L[]) : [];
 
   type P = { id: string; title: string; date_sent: string | null; valid_until: string | null };
@@ -74,7 +80,8 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
                 <ul className="grid gap-2 text-sm">{leadsNew.slice(0, 8).map((l) => (
                   <li key={l.id} className="flex flex-wrap items-baseline gap-x-2">
                     <Link href={`/leads/${l.id}`} className="font-medium text-navy-700 hover:underline">{l.first_name} {l.last_name}</Link>
-                    <span className="text-muted">{l.route === "personal" ? "Personal tax" : "Company"} · received {formatDate(l.created_at)}</span>
+                    <span className="text-muted">{l.route === "personal" ? "Personal tax" : "Company"} · received {formatDate(l.created_at)} ·</span>
+                    <LeadTimer since={l.created_at} hours={hours} />
                   </li>
                 ))}{leadsNew.length > 8 && <li><Link href="/leads" className="text-navy-700 underline">All {leadsNew.length} new leads</Link></li>}</ul>
               )}

@@ -5,6 +5,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Lead alerts",
+    points: [
+      "When a lead comes in, everyone with the Pricing permission gets an email with the lead type, household, province and quote, and a button to open the lead. The email has no client name or contact details.",
+      "My day, the Leads list and each lead show how long the lead has waited, for example \"Waiting 25 min\". Only business hours count (Settings, Business hours). The timer turns amber at 30 minutes and red at 45.",
+      "If the quote is not marked sent within 45 business minutes, a second email goes to the same people. Leads marked Call needed get no reminder.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "New Settings layout",
     points: [
       "Settings now has its own menu on the left, grouped: Firm, Sales and quotes, Pricing, Letters and signing, Tax rules, Connections, and Data and security. A search box at the top finds a setting by name.",
