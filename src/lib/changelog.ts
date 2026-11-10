@@ -5,6 +5,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Monthly company leads: package suggestion and proposal",
+    points: [
+      "A monthly company lead shows a package suggestion for real estate, from the revenue band: Agent or Team: Essential under $1 million, Core, Finance Office, or Custom over $5 million. Other industries get no suggestion.",
+      "Staff confirm on the lead whether the client is a single agent, a team or brokerage, or not real estate. Until then Studio shows its guess.",
+      "Create proposal opens the proposal builder with the client's details, client type, the matching price book offer and their answers filled in.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Company leads and year-end quotes",
     points: [
       "The start page's \"My company\" route asks the year-end questions in steps. The client's details are saved first, so a lead who stops partway is still on the Leads page.",

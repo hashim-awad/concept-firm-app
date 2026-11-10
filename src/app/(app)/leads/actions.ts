@@ -20,6 +20,7 @@ export async function updateLead(formData: FormData) {
   // Company leads: the legal name and the confirmed year-end staff enter, and the first-year checklist.
   if (formData.has("company_name")) patch.company_name = String(formData.get("company_name") ?? "").trim().slice(0, 200);
   if (formData.has("year_end")) { const ye = String(formData.get("year_end") ?? ""); patch.year_end = /^\d{4}-\d{2}-\d{2}$/.test(ye) ? ye : null; }
+  if (formData.has("client_kind")) { const k = String(formData.get("client_kind")); patch.client_kind = ["agent", "team", "other"].includes(k) ? k : null; }
   if (formData.has("company_name") && formData.get("status") === "signed") patch.first_year_tag_done = formData.get("first_year_tag_done") === "on";
   const supabase = await createClient();
   const { error } = await supabase.from("leads").update(patch).eq("id", id);

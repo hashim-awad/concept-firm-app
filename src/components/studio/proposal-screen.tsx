@@ -8,15 +8,22 @@ import { Button } from "@/components/ds/primitives";
 import { ChecksPanel, Hint, Labelled, ModeSwitch, Panel, Paper, PROVINCES, Row, SelectIn, Stepper, StudioLayout, TextIn, makeEngine, useController, type ScreenEnv } from "./kit";
 import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
-export function ProposalScreen({ env, clients, isOwner, handlers, initial, startClientId, approvedTax, today, recent }: {
+export function ProposalScreen({ env, clients, isOwner, handlers, initial, startClientId, approvedTax, today, recent, prefill }: {
   env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
   initial?: { f: Record<string, string>; opts: any[]; rec: number; clientId?: string; documentId?: string }; today?: string; startClientId?: string; approvedTax?: Record<string, string>; recent?: ReactNode;
+  prefill?: { f: Record<string, string>; offer: string };
 }) {
   const [box] = useState(() => makeEngine(env));
   const [ctl, act] = useController(() => {
     const c = new Proposal(box.e, today);
     if (initial) { Object.assign(c.f, initial.f); c.e.__set("POPTS", JSON.parse(JSON.stringify(initial.opts))); c.e.__set("pRec", initial.rec); }
     else if (startClientId) c.applyClient(clients.find((x) => x.url === startClientId) ?? null);
+    else if (prefill) {
+      // The client type first: it sets the format (agents one price, teams options).
+      if (prefill.f.segment) c.set("segment", prefill.f.segment);
+      for (const [k, v] of Object.entries(prefill.f)) if (k !== "segment") c.set(k, v);
+      if (prefill.offer) c.setOption(0, "offer", prefill.offer);
+    }
     return c;
   });
   const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");

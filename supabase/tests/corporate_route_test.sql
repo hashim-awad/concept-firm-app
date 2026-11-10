@@ -60,6 +60,9 @@ update public.leads set company_name = 'Changed After Sending' where id = :'lead
 select public.create_corporate_quote(:'lead');
 select test.check('a sent quote never changes', (select company_name from public.t1_quotes where id = :'q') = 'Example Holdings Ltd.');
 update public.leads set first_year_tag_done = true where id = :'lead';
+update public.leads set client_kind = 'team' where id = :'lead';
+select test.check('staff mark the client type for the package', (select client_kind from public.leads where id = :'lead') = 'team');
+select test.check('only agent, team or other', test.try(format($f$update public.leads set client_kind = 'x' where id = %L$f$, :'lead')) <> 'OK');
 select test.check('staff tick the first-year checklist', (select first_year_tag_done from public.leads where id = :'lead'));
 reset role;
 reset request.jwt.claims;
