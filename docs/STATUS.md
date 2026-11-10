@@ -123,6 +123,7 @@ No other known bugs.
 - Step 9 review fixes (Nov 10): recorded wording changes to Part B (exclusions, annual GST/HST return, sign below, Appendix A payments, plus GST/HST, TaxDome sentence removed), the accounts listed on the bookkeeping line, the company signer's title, and no same-device line for one signer. Migration 20261110100000_corporate_quote_fixes.sql.
 - Step 10 built on Test (Nov 10, decision 55): monthly lead card with the package suggestion, client type on the lead, Create proposal pre-fills the proposal builder. Migration 20261110110000_monthly_leads.sql.
 - Live fix (Nov 10): the server key could not read the published questions on Live (permission denied for table questionnaires), so /start/personal showed "not ready yet". Migration 20261110120000_server_key_grants.sql grants again and stops the deploy if any grant does not hold. Signed-in staff now see the reason on the start page. Root cause: the Production SUPABASE_SECRET_KEY in Vercel was not a service_role key; Hashim replaced it with the Live secret key and redeployed (Nov 10). /start/personal works on Live.
+- Step 11 built on Test (Nov 10, decision 56): Download full export (owners), every table plus every stored file, manifest and README. Migration 20261110130000_full_export.sql.
 - Already in place: standing rules in the brief; Phase 3 text (matches Appendix B) with the monthly-clients note; section 12 correction (decision 41); renames 5.1; import fixes 14.1 to 14.3.
 
 ## Next steps, in order
