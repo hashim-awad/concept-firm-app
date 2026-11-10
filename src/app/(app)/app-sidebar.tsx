@@ -72,8 +72,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
   ].filter(Boolean) as NavGroup[];
 
   const signOutButton = (
-    <form action={signOut} className="mt-2">
-      <button type="submit" className="inline-flex items-center gap-1.5 text-xs text-white/65 hover:text-white">
+    <form action={signOut} className="shrink-0">
+      <button type="submit" className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-white/65 hover:text-white">
         <LogOut className="h-3.5 w-3.5" aria-hidden />Sign out
       </button>
     </form>

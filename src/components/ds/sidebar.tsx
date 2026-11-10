@@ -24,7 +24,9 @@ function parse(raw: string): string[] {
 
 // Staff sidebar: navy, grouped sections that fold away (remembered per browser). Active item:
 // navy-tint highlight with a green marker. Pages not built yet show greyed out with "Soon" and
-// are not links. A folded group shows the total of its badges.
+// are not links. A folded group shows the total of its badges. A group whose pages are all "Soon"
+// starts folded, so the menu fits a laptop screen without scrolling (batch section 13); for those
+// groups the stored list means "unfolded" instead of "folded".
 export function Sidebar({ groups, footer, user, onSearch, bottom }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string }; onSearch?: () => void; bottom?: NavItem }) {
   const closed = parse(useSyncExternalStore(subscribe, readClosed, () => "[]"));
   const toggle = (label: string) => writeClosed(closed.includes(label) ? closed.filter((x) => x !== label) : [...closed, label]);
@@ -43,7 +45,8 @@ export function Sidebar({ groups, footer, user, onSearch, bottom }: { groups: Na
       <nav aria-label="Main" className="sidebar-scroll flex-1 space-y-2 overflow-y-auto px-2.5 pb-3 [@media(max-height:820px)]:space-y-1">
         {groups.map((g) => {
           const hasActive = g.items.some((i) => i.active);
-          const isOpen = !g.collapsible || hasActive || !closed.includes(g.label);
+          const allSoon = g.items.every((i) => i.soon);
+          const isOpen = !g.collapsible || hasActive || (allSoon ? closed.includes(g.label) : !closed.includes(g.label));
           const total = g.items.reduce((n, i) => n + (Number(i.badge) || 0), 0);
           const id = `nav-${g.label.replace(/\W+/g, "-").toLowerCase()}`;
           return (
@@ -53,6 +56,7 @@ export function Sidebar({ groups, footer, user, onSearch, bottom }: { groups: Na
                   className="flex w-full items-center gap-1 rounded px-3 pb-1 text-left text-[10.5px] font-semibold tracking-wider text-white/45 uppercase hover:text-white/70 disabled:cursor-default disabled:hover:text-white/45">
                   <span className="flex-1">{g.label}</span>
                   {!isOpen && total > 0 && <span className="rounded bg-lime-500 px-1.5 text-[10px] text-navy-900">{total}</span>}
+                  {!isOpen && allSoon && <span className="text-[9.5px] font-semibold tracking-normal normal-case text-white/40">{g.items.length} soon</span>}
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} aria-hidden />
                 </button>
               ) : <p className="px-3 pb-1 text-[10.5px] font-semibold tracking-wider text-white/45 uppercase">{g.label}</p>}
@@ -80,8 +84,8 @@ export function Sidebar({ groups, footer, user, onSearch, bottom }: { groups: Na
       </nav>
       {bottom && <div className="border-t border-white/10 px-2.5 py-2"><NavLink i={bottom} /></div>}
       {(user || footer) && (
-        <div className="border-t border-white/10 px-5 py-3.5 [@media(max-height:820px)]:py-2">
-          {user && (<><p className="truncate text-[13px] font-medium">{user.name}</p><p className="text-xs text-white/60">{user.role}</p></>)}
+        <div className="flex items-end justify-between gap-3 border-t border-white/10 px-5 py-3 [@media(max-height:820px)]:py-2">
+          {user && (<div className="min-w-0"><p className="truncate text-[13px] font-medium">{user.name}</p><p className="truncate text-xs text-white/60">{user.role}</p></div>)}
           {footer}
         </div>
       )}
