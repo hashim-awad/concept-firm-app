@@ -6,6 +6,7 @@ import { ProposalScreen } from "@/components/studio/proposal-screen";
 import { corporations, openDocument, screenSetup } from "@/lib/studio/page-data";
 import { formatDate, todayToronto } from "@/lib/dates";
 import { saveClientAction, saveDocumentAction } from "../actions";
+import { proposalPrefill, type LeadForProposal } from "@/lib/corporate/suggest";
 
 export default async function ProposalPage({ searchParams }: PageProps<"/documents/proposal">) {
   const access = await requireAccessWithPricing("documents", "edit");
@@ -15,6 +16,12 @@ export default async function ProposalPage({ searchParams }: PageProps<"/documen
   const open = await openDocument(supabase, typeof sp.doc === "string" ? sp.doc : undefined, "proposal");
   const today = todayToronto();
   const startClientId = typeof sp.client === "string" ? sp.client : undefined;
+  // From a monthly company lead (section 12): the draft starts with the lead's details and answers.
+  let prefill: ReturnType<typeof proposalPrefill> | undefined;
+  if (!open && typeof sp.lead === "string" && /^[0-9a-f-]{36}$/.test(sp.lead)) {
+    const { data: l } = await supabase.from("leads").select("first_name, last_name, email, province, company_name, client_kind, answers").eq("id", sp.lead).eq("route", "company").maybeSingle();
+    if (l) prefill = proposalPrefill(l as LeadForProposal, env.floors as Parameters<typeof proposalPrefill>[1]);
+  }
   const initial = open ? { f: open.inputs.f, opts: open.inputs.opts, rec: open.inputs.rec ?? 0, clientId: open.clientId, documentId: open.documentId } : undefined;
   // Approved GST/HST rate per province the screen offers (decision 22). OTHER never has one.
   const approvedTax: Record<string, string> = {};
@@ -40,7 +47,14 @@ export default async function ProposalPage({ searchParams }: PageProps<"/documen
   return (
     <>
       <WorkspaceHeader title="Proposal" description="Up to three options. The client picks one, and it becomes the Corporate Letter." />
-      <ProposalScreen env={env} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId} approvedTax={approvedTax} recent={list}
+      {prefill && (
+        <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-4 text-sm">
+          <p className="font-medium">Filled in from the lead. Check every field before you send.</p>
+          <p className="mt-1 text-ink-2">Email: {prefill.email}. {prefill.suggestion ? `Suggested package: ${prefill.suggestion.label} (${prefill.suggestion.why}).` : "No package suggestion: Hashim sets the price."}
+            {prefill.suggestion && !prefill.offer && " No single price book offer matched it, so choose the offer yourself."} The &ldquo;What we heard&rdquo; lines are the client&rsquo;s answers: rewrite them after the call.</p>
+        </div>
+      )}
+      <ProposalScreen env={env} prefill={prefill ? { f: prefill.f, offer: prefill.offer } : undefined} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId} approvedTax={approvedTax} recent={list}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>
   );

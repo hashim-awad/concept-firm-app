@@ -12,6 +12,7 @@ import { WAITING_STATUSES } from "@/lib/business-hours";
 import { LeadTimer } from "../lead-timer";
 import { LeadAnswers, LeadQuote } from "./answers";
 import { CompanyAnswers } from "./company-answers";
+import { CLIENT_KINDS, guessKind, suggestPackage, type ClientKind } from "@/lib/corporate/suggest";
 
 export default async function LeadPage({ params, searchParams }: PageProps<"/leads/[id]">) {
   const access = await requireAccess("leads", "view");
@@ -26,6 +27,10 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
   ]);
   if (!l) notFound();
   const editable = canEdit(access, "leads");
+  // Monthly company leads (section 12): always a call; a package suggestion for real estate.
+  const monthly = l.route === "company" && l.answers?.need === "monthly" && !l.answers?.partial;
+  const kind: ClientKind = (l.client_kind as ClientKind | null) ?? guessKind(String(l.answers?.business ?? ""));
+  const suggestion = monthly ? suggestPackage(l.answers?.monthly?.revenue, kind) : null;
   const sources = Array.from(new Set([...(((src?.value as string[] | undefined) ?? ["Website"])), l.source]));
   return (
     <>
@@ -56,6 +61,17 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
               ? <CompanyAnswers answers={(l.answers ?? {}) as Parameters<typeof CompanyAnswers>[0]["answers"]} yearEnd={l.year_end} />
               : <LeadAnswers answers={(l.answers ?? {}) as Parameters<typeof LeadAnswers>[0]["answers"]} />}
           </section>
+          {monthly && (
+            <section className="card grid gap-3">
+              <h2 className="font-semibold">Monthly client: package and proposal</h2>
+              {kind === "other"
+                ? <p className="text-sm">No package suggestion: not real estate. Hashim sets the price after the call.</p>
+                : <p className="text-sm"><b>Suggested package: {suggestion?.label ?? "none"}</b>{suggestion && <span className="text-muted"> ({suggestion.why})</span>}</p>}
+              {!l.client_kind && <p className="text-xs text-muted">Client type is Studio&rsquo;s guess from &ldquo;{String(l.answers?.business ?? "")}&rdquo;. Confirm it on the right and save.</p>}
+              <p className="text-sm text-ink-2">After the call, create the proposal. It opens with the client&rsquo;s details, their answers and the suggested package filled in. Adjust it and send it through the usual proposal and engagement letter steps. Package prices and floors are the price book&rsquo;s.</p>
+              {canEdit(access, "documents") && <a href={`/documents/proposal?lead=${l.id}`} className="btn w-fit">Create proposal</a>}
+            </section>
+          )}
           <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} canPrepare={canEdit(access, "pricing") && canEdit(access, "leads")} route={l.route} />
         </div>
         <form action={updateLead} className="card grid content-start gap-4">
@@ -75,6 +91,11 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
                 <div><label htmlFor="company_name" className="label">Company legal name</label>
                   <input id="company_name" name="company_name" defaultValue={l.company_name} maxLength={200} className="input" />
                   <span className="text-xs text-muted">The form does not ask for it. A quote cannot be issued without it.</span></div>
+                {monthly && (
+                  <div><label htmlFor="client_kind" className="label">Client type (for the package)</label>
+                    <select id="client_kind" name="client_kind" defaultValue={kind} className="input">{CLIENT_KINDS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                    <span className="text-xs text-muted">The form does not ask. Under $1 million, a single agent gets Agent and a team or brokerage gets Team: Essential.</span></div>
+                )}
                 <div><label htmlFor="year_end" className="label">Year-end (confirmed)</label>
                   <input id="year_end" name="year_end" type="date" defaultValue={l.year_end ?? ""} className="input" />
                   <span className="text-xs text-muted">The year-end this quote is for.</span></div>
