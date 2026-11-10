@@ -121,7 +121,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
                           <span className="block text-xs text-muted">{i.code}{i.internal_note ? ` · ${i.internal_note}` : ""}</span>
                         </td>
                         <td className="whitespace-nowrap">{i.unit_label}{i.per_spouse ? ", each spouse" : ""}</td>
-                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : i.price_type === "Per client" ? noPrice(i) : <span className="text-danger">No price</span>}</td>
+                        <td className="whitespace-nowrap text-right">{now ? formatCents(now.amount_cents) : i.price_type === "Per client" ? noPrice(i) : i.price_type === "Invoice only" ? <span className="text-muted">Invoice only, no price</span> : <span className="text-danger">No price</span>}</td>
                         <td className="whitespace-nowrap text-muted">{next ? `${formatCents(next.amount_cents)} from ${formatDate(next.effective_from)}` : ""}</td>
                         <td className="text-right"><Link href={`/admin/price-book/${i.id}`} className="btn-secondary">{editable ? "Edit" : "View"}</Link></td>
                       </tr>

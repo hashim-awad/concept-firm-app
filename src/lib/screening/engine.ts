@@ -187,6 +187,24 @@ function usesPerPerson(rule: Rule, perPersonKeys: Set<string>) {
     || (rule.quantity_question_key !== null && perPersonKeys.has(rule.quantity_question_key));
 }
 
+// Out-of-scope answers given so far, before the rest of the form is filled in (batch section 4: "out-of-scope
+// questions come early, so clients who don't fit stop quickly"). Each comes with the question that
+// triggered it, so the form can stop right there.
+export function earlyOutOfScope(qn: Questionnaire, raw: Answers): { reason: string; person: number | null; question: string }[] {
+  const answers = cleanAnswers(qn, raw);
+  const perPersonKeys = new Set(qn.questions.filter((q) => q.per_person).map((q) => q.key));
+  const out: { reason: string; person: number | null; question: string }[] = [];
+  for (const r of [...qn.rules].filter((r) => r.kind === "out_of_scope").sort((a, b) => a.sort_order - b.sort_order)) {
+    const targets = usesPerPerson(r, perPersonKeys) ? [...Array(answers.people.length).keys()] : [null];
+    for (const person of targets) {
+      if (r.conditions.length > 0 && r.conditions.every((c) => conditionHolds(c, scopeFor(answers, person)))) {
+        out.push({ reason: r.message, person, question: r.conditions[0].question });
+      }
+    }
+  }
+  return out;
+}
+
 export function evaluate(qn: Questionnaire, raw: Answers, items: PricedItem[]): Result {
   const answers = cleanAnswers(qn, raw);
   const count = answers.people.length;

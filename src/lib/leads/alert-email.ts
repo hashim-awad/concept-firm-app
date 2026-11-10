@@ -3,18 +3,19 @@
 // details, so the email holds as little client information as possible.
 import { provinceName } from "./provinces.ts";
 
-export type AlertLead = { id: string; route: string; province: string; status: string; answers: Record<string, unknown> };
+export type AlertLead = { id: string; route: string; province: string; status: string; answers: Record<string, unknown>; quote_cents?: number | null };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-// Household and quote total come from the screening answers (steps 6 and 9). Until then the email
-// says they are not worked out yet.
+// Household from the screening answers (filing_type); quote total from the quote the server worked out.
 export function leadFacts(l: AlertLead): [string, string][] {
-  const household = l.answers.household === "couple" ? "Couple" : l.answers.household === "single" ? "Single"
-    : l.route === "company" ? "Does not apply" : "Not asked yet";
-  const total = Number(l.answers.quote_total);
+  const h = l.answers.household;
+  const filing = typeof h === "object" && h !== null ? (h as Record<string, unknown>).filing_type : h;
+  const household = filing === "couple" ? "Couple" : filing === "single" ? "Single" : l.route === "company" ? "Does not apply" : "Not asked yet";
+  const total = (l.quote_cents ?? 0) / 100;
   const quote = l.status === "call_needed" ? "Call needed"
-    : Number.isFinite(total) && total > 0 ? `$${total.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} plus GST/HST`
+    : l.status === "out_of_scope" ? "Out of scope, no quote"
+    : total > 0 ? `$${total.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} plus GST/HST`
     : "Not worked out yet";
   return [["Lead type", l.route === "company" ? "Company" : "Personal tax (T1)"], ["Household", household], ["Province", provinceName(l.province)], ["Quote", quote]];
 }

@@ -53,7 +53,7 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
           </div>
           <div>
             <label htmlFor="price_type" className="label">Price type</label>
-            <select id="price_type" name="price_type" defaultValue={item.price_type} className="input"><option>Fixed</option><option>Per client</option></select>
+            <select id="price_type" name="price_type" defaultValue={item.price_type} className="input"><option>Fixed</option><option>Per client</option><option>Invoice only</option></select>
           </div>
           <div>
             <label htmlFor="income_account" className="label">QBO income account</label>

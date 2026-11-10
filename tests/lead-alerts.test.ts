@@ -45,7 +45,7 @@ test("open now, and the timer text", () => {
 });
 
 test("email shows type, household, province, quote; no client name", () => {
-  const lead = { id: "11111111-1111-1111-1111-111111111111", route: "personal", province: "ON", status: "new", answers: { household: "couple", quote_total: 1250 } };
+  const lead = { id: "11111111-1111-1111-1111-111111111111", route: "personal", province: "ON", status: "new", answers: { household: { filing_type: "couple" } }, quote_cents: 125000 };
   assert.deepEqual(leadFacts(lead), [["Lead type", "Personal tax (T1)"], ["Household", "Couple"], ["Province", "Ontario"], ["Quote", "$1,250.00 plus GST/HST"]]);
   const e = buildLeadAlert("new", lead, "https://studio.example.test");
   assert.equal(e.subject, "New lead: Personal tax (T1), Ontario");
@@ -55,5 +55,6 @@ test("email shows type, household, province, quote; no client name", () => {
   const r = buildLeadAlert("reminder", { ...lead, route: "company", province: "BC", status: "call_needed", answers: {} }, "https://s.test");
   assert.equal(r.subject, "Reminder: quote not sent after 45 business minutes (Company, British Columbia)");
   assert.deepEqual(leadFacts({ ...lead, route: "company", status: "call_needed", answers: {} }).map((f) => f[1]), ["Company", "Does not apply", "Ontario", "Call needed"]);
-  assert.equal(leadFacts({ ...lead, answers: {} })[3][1], "Not worked out yet");
+  assert.equal(leadFacts({ ...lead, answers: {}, quote_cents: null })[3][1], "Not worked out yet");
+  assert.equal(leadFacts({ ...lead, status: "out_of_scope", quote_cents: null })[3][1], "Out of scope, no quote");
 });
