@@ -86,3 +86,12 @@ reset request.jwt.claims;
 set role anon;
 select test.check('the public cannot read quotes', test.try($$select count(*) from public.lead_quotes$$) <> 'OK');
 reset role;
+
+-- The owner button: staff cannot use it; for an owner it gives the same checks (a draft exists here).
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('staff cannot use the publish button', test.try($$select public.publish_t1_screening_now()$$) like 'Only an owner%');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select test.check('owner sees the exact reason', test.try($$select public.publish_t1_screening_now()$$) like '%a personal draft exists%');
+reset role;
+reset request.jwt.claims;

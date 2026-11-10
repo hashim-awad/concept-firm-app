@@ -3,7 +3,8 @@ import { PageHeader, Notice, formatDateTime } from "@/components/ui";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
-import { createDraft, deleteDraft } from "./actions";
+import { createDraft, deleteDraft, publishSection4 } from "./actions";
+import { T1_V2_TITLE } from "@/lib/screening/t1-v2";
 
 type Q = { id: string; route: string; version: number; status: string; title: string; published_at: string | null; updated_at: string };
 
@@ -31,6 +32,17 @@ export default async function ScreeningPage({ searchParams }: PageProps<"/admin/
         return (
           <section key={route} className="card mb-6">
             <h2 className="mb-3 font-semibold">{label}</h2>
+            {route === "personal" && published?.title !== T1_V2_TITLE && (
+              <div className="mb-4 rounded-lg border border-warning/40 bg-warning-soft p-3 text-sm">
+                <p className="font-medium">The personal questions from Phase 2 batch section 4 are not live yet.</p>
+                {access.is_owner ? (
+                  <form action={publishSection4} className="mt-2 flex flex-wrap items-center gap-3">
+                    <button type="submit" className="btn">Publish the section 4 questions</button>
+                    <span className="text-xs text-muted">Checks that every price matches section 4 first. If anything differs, you see what, and nothing changes.</span>
+                  </form>
+                ) : <p className="mt-1 text-muted">An owner can publish them here.</p>}
+              </div>
+            )}
             <div className="space-y-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span>
