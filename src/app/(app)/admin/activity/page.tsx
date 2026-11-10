@@ -1,4 +1,5 @@
 import { PageHeader, formatDateTime } from "@/components/ui";
+import { formatDate } from "@/lib/dates";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 
@@ -80,7 +81,7 @@ function describe(e: Entry, staffName: Map<string, string>, roleName: Map<string
   }
   if (e.entity_type === "item_prices") {
     const cents = Number(newRow.amount_cents ?? 0);
-    return `New price ${new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100)} from ${newRow.effective_from}${newRow.note ? ` (${newRow.note})` : ""}`;
+    return `New price ${new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100)} from ${formatDate(String(newRow.effective_from ?? ""))}${newRow.note ? ` (${newRow.note})` : ""}`;
   }
   if (e.entity_type === "catalogue_items") {
     const name = String(newRow.name ?? oldRow.name ?? "");

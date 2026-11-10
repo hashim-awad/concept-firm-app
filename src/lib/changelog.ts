@@ -5,6 +5,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Menu fits a laptop screen; readable dates",
+    points: [
+      "Menu groups whose pages are not built yet (Work, Quality) start folded and show how many are coming. Click a group to unfold it; your browser remembers.",
+      "Your name and Sign out share one row at the bottom of the menu.",
+      "Letters show the template approval date as Nov 8, 2026, and the activity log shows price dates the same way.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Download full export",
     points: [
       "Owners: Settings, Data and security, Download full export. One ZIP with every table (JSON and Excel CSV) and every stored file, including the vault PDFs and signed quotes.",
