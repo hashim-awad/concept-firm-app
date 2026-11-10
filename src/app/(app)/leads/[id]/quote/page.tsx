@@ -10,7 +10,8 @@ import { formatDate, formatDateTime, todayToronto } from "@/lib/dates";
 import { env } from "@/lib/env";
 import { LETTERHEAD_URL, money, renderEmail, renderQuote } from "@/lib/t1-quote/render";
 import { provinceName } from "@/lib/leads/provinces";
-import { letterSigner, loadQuoteForStaff, toQuoteData } from "@/lib/t1-quote/server";
+import { letterSigner, loadQuoteForStaff, toCorpData, toQuoteData } from "@/lib/t1-quote/server";
+import { depositAndBalance, renderCorpEmail, renderCorpQuote } from "@/lib/corporate/render";
 import { markQuoteSent } from "../../quote-actions";
 import { CopyButton } from "./copy-button";
 
@@ -42,16 +43,19 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
   // A sent quote keeps the wording and signer it was sent with; a draft uses today's published wording.
   const texts = sent ? (quote.wording ?? {}) : (((cw as { texts?: Record<string, string> } | null)?.texts) ?? {});
   const sender = quote.sender ?? { name: me?.full_name ?? access.full_name, phone: me?.phone ?? "", email: me?.email ?? "" };
+  const corp = quote.kind === "corporate";
   const data = toQuoteData(quote, signers, { preparedBy: sender.name, signer });
+  const corpData = corp ? toCorpData(quote, signers, { preparedBy: sender.name, signer }) : null;
+  const split = depositAndBalance(quote.total_cents);
   const links = signers.map((s) => `${env.siteUrl()}/q/${s.token}`);
-  const email = renderEmail(texts, data, sender, links);
-  const parts = renderQuote(texts, data, { watermark: !sent, letterhead: LETTERHEAD_URL });
+  const email = corpData ? renderCorpEmail(texts, corpData, sender, links[0]) : renderEmail(texts, data, sender, links);
+  const parts = corpData ? renderCorpQuote(texts, corpData, { watermark: !sent, letterhead: LETTERHEAD_URL }) : renderQuote(texts, data, { watermark: !sent, letterhead: LETTERHEAD_URL });
   const expired = sent && quote.valid_until !== null && quote.valid_until < todayToronto();
 
   return (
     <>
       <Link href={`/leads/${id}`} className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Back to the lead</Link>
-      <PageHeader eyebrow={`T1 quote · ${quote.tax_year}`} title={signers.map((s) => `${s.first_name} ${s.last_name}`).join(" and ")}
+      <PageHeader eyebrow={corp ? `Year-end quote · ${quote.company_name ?? ""}` : `T1 quote · ${quote.tax_year}`} title={signers.map((s) => `${s.first_name} ${s.last_name}`).join(" and ")}
         description={sent ? `Sent ${formatDateTime(quote.sent_at)} by ${quote.sender?.name ?? ""}. Valid until ${formatDate(quote.valid_until)}.${expired ? " Expired." : ""}${quote.wording_label ? ` Wording ${quote.wording_label}.` : ""}` : "Not sent yet. Copy the email below, send it from your Outlook, then click Mark as sent."} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
@@ -89,6 +93,21 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
           {signedAll ? (
             <>
               <a href={`/leads/${id}/quote/pdf`} target="_blank" rel="noreferrer" className="btn-secondary w-fit">Open the signed PDF (with the signing record)</a>
+              {corp ? (
+                <>
+                  <h2 className="font-semibold">4. TaxDome invoices (section 11: half after signing, half at your approval)</h2>
+                  <div className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">
+                    <p><span className="text-muted">Deposit, now: </span>{money(split.deposit)} plus {tax ? `${tax.tax} ${Number(tax.rate_percent)}%` : "GST/HST"}</p>
+                    <p><span className="text-muted">Balance, when the client approves the statements and return: </span>{money(split.balance)} plus {tax ? `${tax.tax} ${Number(tax.rate_percent)}%` : "GST/HST"}</p>
+                    <p className="text-xs text-muted">Quote total before tax: {money(quote.total_cents)}. Use the year-end items in TaxDome; the total is split in two.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <CopyButton label="Copy the deposit" text={(split.deposit / 100).toFixed(2)} />
+                    <CopyButton label="Copy the balance" text={(split.balance / 100).toFixed(2)} />
+                  </div>
+                  <p className="text-sm"><b>First year with Concept:</b> add the TaxDome tag <code>1st-yr client</code> when the account is created, then tick it on the lead.</p>
+                </>
+              ) : (<>
               <h2 className="font-semibold">4. TaxDome invoice (after the organizer and documents are in)</h2>
               <div className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">
                 <p><span className="text-muted">Item: </span>{invoiceLine}</p>
@@ -96,6 +115,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
                 <p><span className="text-muted">Tax: </span>{tax ? `${tax.tax} ${Number(tax.rate_percent)}% (${provinceName(province)})` : <span className="text-warning">No approved GST/HST rate for {provinceName(province) || "this province"}. Check Settings, GST/HST rates.</span>}</p>
               </div>
               <CopyButton label="Copy the invoice line" text={`${invoiceLine}\t${(quote.total_cents / 100).toFixed(2)}${tax ? `\t${tax.tax} ${Number(tax.rate_percent)}%` : ""}`} />
+              </>)}
             </>
           ) : sent && <p className="text-xs text-muted">The quote counts as signed when everyone has signed. Then the signed PDF and the TaxDome invoice line show here.</p>}
         </section>

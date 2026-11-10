@@ -51,7 +51,7 @@ export async function LeadAnswers({ answers }: { answers: Stored }) {
 
 // The quote worked out from the answers, line by line. Only people with Pricing can read it
 // (the database refuses everyone else). Clients never see this breakdown.
-export async function LeadQuote({ leadId, people, canPrepare }: { leadId: string; people: number; canPrepare: boolean }) {
+export async function LeadQuote({ leadId, people, canPrepare, route = "personal" }: { leadId: string; people: number; canPrepare: boolean; route?: string }) {
   const supabase = await createClient();
   const [{ data }, { data: t1 }] = await Promise.all([
     supabase.from("lead_quotes").select("lines, subtotal_cents").eq("lead_id", leadId).maybeSingle(),
@@ -78,7 +78,7 @@ export async function LeadQuote({ leadId, people, canPrepare }: { leadId: string
         <p className="text-xs text-muted">Staff only, Pricing permission. The client sees the services and one total, never this breakdown.</p>
         {t1 ? <Link href={`/leads/${leadId}/quote`} className="btn">{t1.status === "draft" ? "Open the quote (not sent yet)" : "Open the quote"}</Link>
           : canPrepare ? (
-            <form action={prepareQuote}><input type="hidden" name="lead_id" value={leadId} /><button type="submit" className="btn">Prepare the quote</button></form>
+            <form action={prepareQuote}><input type="hidden" name="lead_id" value={leadId} /><input type="hidden" name="route" value={route} /><button type="submit" className="btn">Prepare the quote</button></form>
           ) : null}
       </div>
     </section>

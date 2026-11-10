@@ -5,16 +5,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { todayToronto } from "@/lib/dates";
 import type { QuoteData } from "./render";
+import type { CorpQuoteData } from "@/lib/corporate/render";
 
 export type QuoteRow = {
   id: string; lead_id: string; tax_year: number; couple: boolean; lines: { code: string; person: number | null; quantity: number; unit_cents: number; total_cents: number }[];
   total_cents: number; status: "draft" | "sent" | "signed"; sent_at: string | null; valid_until: string | null;
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
+  kind?: "t1" | "corporate"; company_name?: string | null; year_end?: string | null;
+  details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string } | null;
 };
 export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };
 
-const COLS = "id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label";
+const COLS = "id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details";
 
 export function addDays(iso: string, n: number) {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -34,6 +37,17 @@ export function toQuoteData(q: QuoteRow, signers: SignerRow[], fallback: { prepa
     preparedOn: q.sent_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(new Date(q.sent_at)) : todayToronto(),
     validUntil: q.valid_until ?? addDays(todayToronto(), 21),
     signer: q.signer?.name ? q.signer : fallback.signer,
+  };
+}
+
+// The corporate quote's data (section 11, Appendix C).
+export function toCorpData(q: QuoteRow, signers: SignerRow[], fallback: { preparedBy: string; signer: { name: string; title: string } }): CorpQuoteData {
+  const t = toQuoteData(q, signers, fallback);
+  return {
+    client: t.client, company: q.company_name ?? "", yearEnd: q.year_end ?? "", province: q.details?.province ?? "ON",
+    books: q.details?.books ?? "bookkeeper", extras: { gst: !!q.details?.extras?.gst, slips: !!q.details?.extras?.slips },
+    totalCents: q.total_cents, preparedBy: t.preparedBy, preparedOn: t.preparedOn, validUntil: t.validUntil, signer: t.signer,
+    letterDate: t.preparedOn,
   };
 }
 

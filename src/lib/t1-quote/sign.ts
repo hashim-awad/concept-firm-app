@@ -6,10 +6,13 @@ import { renderPdf } from "@/lib/studio/pdf";
 import { LETTERHEAD_URL, renderQuote } from "./render";
 import { documentHash } from "./document";
 import { signedPdfDef } from "./pdf-def";
-import { letterSigner, loadQuoteByToken, toQuoteData, type QuoteRow, type SignerRow } from "./server";
+import { letterSigner, loadQuoteByToken, toCorpData, toQuoteData, type QuoteRow, type SignerRow } from "./server";
+import { corpPartBBlocks, renderCorpQuote } from "@/lib/corporate/render";
+import { LETTERHEAD } from "@/lib/studio/assets.generated";
 
 // The quote exactly as the client sees it (no watermark), from what was saved when it was sent.
 export async function clientParts(q: QuoteRow, signers: SignerRow[]) {
+  if (q.kind === "corporate") return renderCorpQuote(q.wording ?? {}, toCorpData(q, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() }), { letterhead: LETTERHEAD_URL });
   return renderQuote(q.wording ?? {}, toQuoteData(q, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() }), { letterhead: LETTERHEAD_URL });
 }
 
@@ -39,17 +42,26 @@ export async function signByToken(token: string, input: { name: string; consent:
 // The signed PDF with its audit page, stored once in the private vault bucket.
 export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const db = createAdminClient();
-  const { data: q } = await db.from("t1_quotes").select("id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, pdf_path").eq("id", quoteId).maybeSingle();
+  const { data: q } = await db.from("t1_quotes").select("id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, pdf_path").eq("id", quoteId).maybeSingle();
   if (!q || q.status !== "signed") return null;
   if (q.pdf_path) return q.pdf_path as string;
   const { data: s } = await db.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_name, signed_ip, signed_agent, document_hash, same_device").eq("quote_id", quoteId).order("person");
   const signers = (s ?? []) as (SignerRow & { signed_name: string; signed_ip: string; signed_agent: string; document_hash: string; same_device: boolean })[];
   const parts = await clientParts(q as QuoteRow, signers);
+  // Corporate: Part B is the master letter, laid out by Studio's own engine (pdfDoc), word for word.
+  let partB: { content: unknown[]; images: Record<string, string> } | undefined;
+  if (q.kind === "corporate") {
+    const d = toCorpData(q as QuoteRow, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() });
+    const { e, s: st, blocks } = corpPartBBlocks(q.wording ?? {}, d);
+    const dd = e.pdfDoc(st, blocks, LETTERHEAD);
+    partB = { content: dd.content, images: dd.images };
+  }
   const { bytes, sha256 } = await renderPdf(signedPdfDef(parts, {
     quoteId: q.id, taxYear: q.tax_year, sentAt: q.sent_at ?? "", validUntil: q.valid_until ?? "", wordingLabel: q.wording_label ?? "",
-    clientNames: signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
+    clientNames: q.kind === "corporate" ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
+    company: q.kind === "corporate" ? q.company_name ?? "" : undefined,
     signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash })),
-  }));
+  }, partB));
   const path = `t1-quotes/${q.id}/signed-${sha256.slice(0, 12)}.pdf`;
   const up = await db.storage.from("documents").upload(path, bytes, { contentType: "application/pdf", upsert: false });
   if (up.error && !/exists/i.test(up.error.message)) throw new Error(up.error.message);

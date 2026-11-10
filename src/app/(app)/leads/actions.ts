@@ -17,8 +17,17 @@ export async function updateLead(formData: FormData) {
   const patch: Record<string, unknown> = { notes: String(formData.get("notes") ?? "").trim(), source: String(formData.get("source") ?? "Website") };
   if (LEAD_STATUS[status]) patch.status = status;
   if (access!.is_owner && formData.has("assigned_to")) patch.assigned_to = String(formData.get("assigned_to")) || null;
+  // Company leads: the legal name and the confirmed year-end staff enter, and the first-year checklist.
+  if (formData.has("company_name")) patch.company_name = String(formData.get("company_name") ?? "").trim().slice(0, 200);
+  if (formData.has("year_end")) { const ye = String(formData.get("year_end") ?? ""); patch.year_end = /^\d{4}-\d{2}-\d{2}$/.test(ye) ? ye : null; }
+  if (formData.has("company_name") && formData.get("status") === "signed") patch.first_year_tag_done = formData.get("first_year_tag_done") === "on";
   const supabase = await createClient();
   const { error } = await supabase.from("leads").update(patch).eq("id", id);
+  // A draft year-end quote picks up a corrected legal name or year-end (a sent quote never changes).
+  if (!error && formData.has("company_name")) {
+    const { data: q } = await supabase.from("t1_quotes").select("status").eq("lead_id", id).maybeSingle();
+    if (q?.status === "draft") await supabase.rpc("create_corporate_quote", { p_lead: id });
+  }
   revalidatePath("/leads"); revalidatePath(page); revalidatePath("/");
   redirect(withMessage(page, error ? "error" : "msg", error ? error.message : "Lead saved."));
 }

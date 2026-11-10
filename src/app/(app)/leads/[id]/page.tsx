@@ -11,6 +11,7 @@ import { leadAlertStatus, readBusinessHours } from "@/lib/leads/alerts";
 import { WAITING_STATUSES } from "@/lib/business-hours";
 import { LeadTimer } from "../lead-timer";
 import { LeadAnswers, LeadQuote } from "./answers";
+import { CompanyAnswers } from "./company-answers";
 
 export default async function LeadPage({ params, searchParams }: PageProps<"/leads/[id]">) {
   const access = await requireAccess("leads", "view");
@@ -51,9 +52,11 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
               ...(l.phone ? [{ label: "Phone", value: <a href={`tel:${l.phone}`} className="text-navy-700 underline">{l.phone}</a> }] : []),
               { label: "Province", value: provinceName(l.province) },
             ]} />
-            <LeadAnswers answers={(l.answers ?? {}) as Parameters<typeof LeadAnswers>[0]["answers"]} />
+            {l.route === "company"
+              ? <CompanyAnswers answers={(l.answers ?? {}) as Parameters<typeof CompanyAnswers>[0]["answers"]} yearEnd={l.year_end} />
+              : <LeadAnswers answers={(l.answers ?? {}) as Parameters<typeof LeadAnswers>[0]["answers"]} />}
           </section>
-          <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} canPrepare={canEdit(access, "pricing") && canEdit(access, "leads")} />
+          <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} canPrepare={canEdit(access, "pricing") && canEdit(access, "leads")} route={l.route} />
         </div>
         <form action={updateLead} className="card grid content-start gap-4">
           <input type="hidden" name="id" value={id} />
@@ -67,6 +70,20 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
               {!access.is_owner && <span className="text-xs text-muted">Only an owner can reassign.</span>}</div>
             <div><label htmlFor="source" className="label">Source</label>
               <select id="source" name="source" defaultValue={l.source} className="input">{sources.map((s) => <option key={s}>{s}</option>)}</select></div>
+            {l.route === "company" && (
+              <>
+                <div><label htmlFor="company_name" className="label">Company legal name</label>
+                  <input id="company_name" name="company_name" defaultValue={l.company_name} maxLength={200} className="input" />
+                  <span className="text-xs text-muted">The form does not ask for it. A quote cannot be issued without it.</span></div>
+                <div><label htmlFor="year_end" className="label">Year-end (confirmed)</label>
+                  <input id="year_end" name="year_end" type="date" defaultValue={l.year_end ?? ""} className="input" />
+                  <span className="text-xs text-muted">The year-end this quote is for.</span></div>
+                {l.status === "signed" && (
+                  <label className="flex items-start gap-2 text-sm"><input type="checkbox" name="first_year_tag_done" defaultChecked={l.first_year_tag_done} className="mt-0.5 h-4 w-4 accent-navy-700" />
+                    <span>Added the TaxDome tag <code>1st-yr client</code> to the client&rsquo;s account</span></label>
+                )}
+              </>
+            )}
             <div><label htmlFor="notes" className="label">Notes (staff only)</label><textarea id="notes" name="notes" defaultValue={l.notes} rows={4} className="input" /></div>
             {editable && <button type="submit" className="btn w-fit">Save</button>}
           </fieldset>
