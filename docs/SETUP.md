@@ -63,6 +63,11 @@ Database passwords are kept in the firm's password manager only:
   (Live), SITE_URL https://studio.conceptaccounting.ca (Config); SUPABASE_SECRET_KEY (Secret, Supabase Live key
   "vercel_production"); MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MAIL_FROM shared with Preview.
   SEND_EMAIL_HOOK_SECRET for Production comes with the live email hook.
+- Nov 10, 2026: Production SUPABASE_SECRET_KEY held a key without the service_role role, so every server-key
+  read on Live was refused ("permission denied for table questionnaires"): the personal start form showed "not ready",
+  and company leads, lead emails and signing were affected too. Hashim replaced it with the Live secret key
+  "vercel_production" (sb_secret_...) and redeployed; fixed. After changing any Vercel variable, redeploy Production.
+  When the personal questions cannot load, signed-in staff see the reason and the kind of server key on /start/personal.
 - Plan is a 14-day Pro trial from 2026-11-08; the card on file is charged automatically when it ends (Hashim, Nov 9, 2026).
 
 ## Microsoft 365 email (staff login emails)

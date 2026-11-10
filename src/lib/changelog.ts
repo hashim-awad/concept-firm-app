@@ -5,6 +5,14 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Download full export",
+    points: [
+      "Owners: Settings, Data and security, Download full export. One ZIP with every table (JSON and Excel CSV) and every stored file, including the vault PDFs and signed quotes.",
+      "The page shows when the last export was made and reminds you after 31 days.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Monthly company leads: package suggestion and proposal",
     points: [
       "A monthly company lead shows a package suggestion for real estate, from the revenue band: Agent or Team: Essential under $1 million, Core, Finance Office, or Custom over $5 million. Other industries get no suggestion.",

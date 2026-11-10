@@ -56,7 +56,7 @@ export const SETTINGS: [string, SettingsDef[]][] = [
   ]],
   ["Data and security", [
     { label: "Retention", href: "/admin/settings/retention", open: ["settings"], settingKeys: ["retention_months"] },
-    { label: "Download full export", href: "", open: ["owner"], soon: true },
+    { label: "Download full export", href: "/admin/export", open: ["owner"] },
     { label: "Activity log", href: "/admin/activity", open: ["owner"] },
     { label: "Change log", href: "/admin/changelog", open: ["everyone"] },
   ]],
