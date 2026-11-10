@@ -7,6 +7,7 @@ import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
 import { T1Q_TEMPLATES } from "../t1-quote/wording";
 import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
+import { corpPartA, renderCorpEmail, CORP_SAMPLE } from "../corporate/render";
 
 const LH = "/studio/letterhead.jpg", ILLUS = "/studio/illustrative-watermark.png";
 const DUMMY = { company: "Example Holdings Inc.", signer: "Taylor Sample", signerTitle: "Director", salutation: "Taylor", addr1: "1 Test Street", city: "Kitchener", postal: "N2A 1A1", province: "ON", ye: "2026-12-31" };
@@ -66,6 +67,13 @@ export function allTemplates(): TemplateInfo[] {
 
 export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
   // The T1 quote (Appendix A) and its emails, with made-up client details.
+  if (key === "corpquote" || key === "corpemail") {
+    const texts = wording?.texts ?? {};
+    const d = { ...CORP_SAMPLE, signer: signers.letter };
+    if (key === "corpquote") return { parts: [{ label: "Part A: Your quote (bank statements, GST/HST and tax slips ticked)", html: corpPartA(texts, d, { mark }) }], note: "Part B of the corporate quote is the corporate master letter (the Master template), word for word, with two recorded changes: the fee sentence points to the amount in the quote, and the electronic-signature sentence is added. Both changes are the last two pieces here." };
+    const e = renderCorpEmail(texts, d, SAMPLE_SENDER, "https://example.test/q/link", { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+  }
   if (key === "t1quote" || key === "t1email1" || key === "t1email2") {
     const texts = wording?.texts ?? {};
     const d = { ...SAMPLE, signer: signers.letter };

@@ -171,9 +171,67 @@ export const EMAIL = {
   firm2: P(330, "Concept Accounting & Advisory Professional Corporation", [], E2),
 };
 
+// ---------- Corporate year-end quote, Part A (Appendix C) ----------
+const CQ = "corpquote", CE = "corpemail";
+export const CORP = {
+  title: P(400, "Quote and engagement letter: year-end financial statements and corporate tax return for {1}", ["Company legal name"], CQ),
+  preparedFor: P(401, "Prepared for: {1}, {2}", ["Client name", "Company legal name"], CQ),
+  preparedBy: P(402, "Prepared by: {1}, {2}", ["Sender name", "Date"], CQ),
+  validUntil: P(403, "Valid until: {1}", ["Valid until date"], CQ),
+  servicesHeading: P(404, "Services included", [], CQ),
+  statements: P(405, "Year-end financial statements for the year ending {1}, prepared by a CPA", ["Year-end date"], CQ),
+  t2: P(406, "Corporate income tax return (T2), prepared and filed electronically", [], CQ),
+  bookkeeper: P(407, "Review of your bookkeeper's year-end records and year-end adjustments", [], CQ),
+  software: P(408, "Review of your accounting file and year-end adjustments", [], CQ),
+  bankOnly: P(409, "Bookkeeping for the year from your bank and credit card statements", [], CQ),
+  gst: P(410, "GST/HST return for the year", [], CQ),
+  slips: P(411, "Tax slips for people the company paid (T4, T4A and T5)", [], CQ),
+  planning: P(412, "Tax planning on how you pay yourself from the company", [], CQ),
+  review: P(413, "A CPA reviews the statements and the tax return before they are filed", [], CQ),
+  fee: P(414, "Your fee: {1} plus GST/HST", ["Total"], CQ),
+  feeCovers: P(415, "Your fee covers the services listed above. If your documents include work that is not listed, such as another bank account or a loan, we confirm the added fee with you in writing before we start that work.", [], CQ),
+  twoParts: P(416, "You pay in two parts: half when you sign up in the portal, and half when your statements and tax return are ready for your approval.", [], CQ),
+  nextHeading: P(417, "What happens next", [], CQ),
+  next1: P(418, "You sign this quote and engagement letter below.", [], CQ),
+  next2: P(419, "You create your secure client portal account. The portal is where you send us your documents and pay your invoices.", [], CQ),
+  next3: P(420, "We send your first invoice, for half of your fee. You pay it in the portal.", [], CQ),
+  next4: P(421, "In the portal, you complete your year-end form. It is a short online form where you confirm your company's details and upload your bank and credit card statements and other records. It also shows you, step by step, how to give us access to your company's CRA information.", [], CQ),
+  next5: P(422, "We prepare your statements and tax return, and a CPA reviews them.", [], CQ),
+  next6: P(423, "We send them to you to approve and sign Form T183CORP, with the invoice for the other half of your fee.", [], CQ),
+  next7: P(424, "Once it is paid, we file your return.", [], CQ),
+  // The two recorded changes to the master letter in Part B (section 11).
+  feePointer: P(430, "Your fee is the amount in your quote. Our billing terms and how to pay are in Appendix A, Fees and payment. Appendix A forms part of this letter.", [], CQ),
+  esign: P(431, "You agree that signing this letter electronically has the same effect as signing it by hand.", [], CQ),
+  // Hashim's review of the first corporate quote (Nov 10): more recorded changes, in docs/BRIEF.md.
+  exclPlanning: P(432, "tax planning beyond how you pay yourself, and reorganizations", [], CQ),
+  gstHeading: P(433, "{1}. GST/HST return", ["Section number"], CQ),
+  gstText: P(434, "We will prepare and file the Company's annual GST/HST return for the year, from {1}. You remain responsible for paying any GST/HST owing by the due date.", ["Source of the information"], CQ),
+  pay1: P(435, "{1} plus GST/HST when you sign up in the portal", ["Half the fee"], CQ),
+  pay2: P(436, "{1} plus GST/HST when your statements and tax return are ready for your approval", ["Other half of the fee"], CQ),
+  signBelow: P(437, "Please sign this letter below to confirm that it reflects your understanding. We will start work once we receive the signed letter{1}", ["Ending"], CQ),
+  signerTitle: P(438, "Your title at the company, for example Director or President", [], CQ),
+  bankOnlyCounts: P(439, "Bookkeeping for the year from your bank and credit card statements: {1}", ["Accounts covered"], CQ),
+};
+
+// ---------- Corporate year-end quote email (Appendix C) ----------
+export const CORP_EMAIL = {
+  subject: P(500, "Your company's year-end quote", [], CE),
+  hi: P(501, "Hi {1},", ["First name"], CE),
+  thanks: P(502, "Thank you for trusting Concept Accounting with your company's year-end. We're glad to have you with us.", [], CE),
+  ready: P(503, "I reviewed your answers, and your quote for {1}'s year ending {2} is ready. It shows what's included and your fee, and it's also your engagement letter.", ["Company legal name", "Year-end date"], CE),
+  after: P(504, "Here's what happens after you sign:", [], CE),
+  step1: P(505, "You'll go straight to our secure client portal to create your own account.", [], CE),
+  step2: P(506, "We send your first invoice, for half of your fee.", [], CE),
+  step3: P(507, "A short form will be waiting for you in the portal. It walks you through which documents to upload.", [], CE),
+  step4: P(508, "We prepare your statements and tax return, and send them to you to approve and sign before we file.", [], CE),
+  valid: P(509, "Your quote is valid until {1}.", ["Valid until date"], CE),
+  button: P(510, "Review and sign your quote", [], CE),
+  firm: P(511, "Concept Accounting & Advisory Professional Corporation", [], CE),
+};
+
 export const T1Q_PIECES: QPiece[] = [
   ...Object.values(A), ...Object.values(ITEM_LINES).flat().filter(Boolean) as QPiece[], ...Object.values(SELF_EMPLOYED_WITH),
-  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL),
+  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL), ...Object.values(CORP), ...Object.values(CORP_EMAIL),
 ];
 
 // The three templates on the Templates page.
@@ -181,4 +239,6 @@ export const T1Q_TEMPLATES = [
   { k: "t1quote", name: "T1 quote and engagement letter", group: "Engagement letters", basis: "Phase 2 batch, Appendix A (from EL v3.31)", status: "In use" },
   { k: "t1email1", name: "T1 quote email: single filer", group: "Engagement letters", basis: "Phase 2 batch, section 8", status: "In use" },
   { k: "t1email2", name: "T1 quote email: couple, two signers", group: "Engagement letters", basis: "Phase 2 batch, section 8", status: "In use" },
+  { k: "corpquote", name: "Corporate year-end quote (Part A)", group: "Engagement letters", basis: "Phase 2 batch, Appendix C; Part B is the corporate master letter", status: "In use" },
+  { k: "corpemail", name: "Corporate year-end quote email", group: "Engagement letters", basis: "Phase 2 batch, Appendix C", status: "In use" },
 ];

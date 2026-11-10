@@ -6,8 +6,9 @@ import { LETTERHEAD } from "../studio/assets.generated.ts";
 
 const NAVY = "#1A3C7C";
 
-export type AuditSigner = { name: string; signedName: string; email: string; signedAt: string; ip: string; agent: string; sameDevice: boolean; documentHash: string };
-export type AuditInfo = { quoteId: string; taxYear: number; sentAt: string; validUntil: string; wordingLabel: string; clientNames?: string; signers: AuditSigner[] };
+export type AuditSigner = { name: string; signedName: string; email: string; signedAt: string; ip: string; agent: string; sameDevice: boolean; documentHash: string; title?: string };
+// company: a corporate quote, signed on behalf of the company (the master letter's signature wording).
+export type AuditInfo = { quoteId: string; taxYear: number; sentAt: string; validUntil: string; wordingLabel: string; clientNames?: string; company?: string; signers: AuditSigner[] };
 
 const TZ = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZone: "America/Toronto", timeZoneName: "short" });
 export const auditTime = (iso: string) => (iso ? TZ.format(new Date(iso)) : "");
@@ -30,14 +31,16 @@ function node(b: Block): any {
   }
 }
 
-export function signedPdfDef(parts: { label: string; html: string }[], audit: AuditInfo): any {
+// partB: for a corporate quote, the master letter as Studio's engine lays it out (pdfDoc content and images).
+export function signedPdfDef(parts: { label: string; html: string }[], audit: AuditInfo, partB?: { content: unknown[]; images: Record<string, string> }): any {
   const [a, b] = parts;
   // One signature block per signer, side by side, like the letters' "Agreed and accepted" blocks.
   const sig = (s: AuditSigner) => ({ stack: [
-    { text: "Agreed and accepted", bold: true, color: NAVY, margin: [0, 0, 0, 6] },
+    { text: audit.company ? `Agreed and accepted on behalf of ${audit.company}` : "Agreed and accepted", bold: true, color: NAVY, margin: [0, 0, 0, 6] },
     { text: s.signedName, fontSize: 18, italics: true, color: NAVY, margin: [0, 0, 0, 2] },
     { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.6, lineColor: "#7a8394" }] },
     { text: s.name, bold: true, margin: [0, 4, 0, 0] },
+    ...(audit.company ? [...(s.title ? [{ text: `Title: ${s.title}` }] : []), { text: "I have authority to bind the Company.", fontSize: 9 }] : []),
     { text: `Signed electronically ${auditTime(s.signedAt)}${s.sameDevice ? ", on the same device as the other signer" : ""}`, fontSize: 8.5, color: "#3d4441" },
   ] });
   const signatures: any[] = [];
@@ -49,15 +52,16 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
   const audits = audit.signers.flatMap((s, i) => [
     { text: `Signer ${i + 1}: ${s.name}`, bold: true, color: NAVY, margin: [0, 12, 0, 4] },
     { table: { widths: [130, "*"], body: [
-      row("Name typed to sign", s.signedName), row("Email", s.email), row("Signed", auditTime(s.signedAt)),
+      row("Name typed to sign", s.signedName), ...(s.title ? [row("Title", s.title)] : []), row("Email", s.email), row("Signed", auditTime(s.signedAt)),
       row("IP address", s.ip || "Not available"), row("Browser", s.agent || "Not available"),
-      row("Same device as the other signer", s.sameDevice ? "Yes" : "No"), row("Document fingerprint (SHA-256)", s.documentHash),
+      // Only when there is another signer (a couple).
+      ...(audit.signers.length > 1 ? [row("Same device as the other signer", s.sameDevice ? "Yes" : "No")] : []), row("Document fingerprint (SHA-256)", s.documentHash),
     ] }, layout: "lightHorizontalLines" },
   ]);
   return {
     pageSize: "LETTER",
     pageMargins: [60, 48, 60, 56],
-    images: { lh: LETTERHEAD },
+    images: { ...(partB?.images ?? {}), lh: LETTERHEAD },
     defaultStyle: { font: "Roboto", fontSize: 10, lineHeight: 1.22, color: "#1d2330", alignment: "justify" },
     info: { title: `Quote and engagement letter, ${audit.taxYear}`, author: "Concept Accounting & Advisory Professional Corporation" },
     footer: (cur: number, total: number) => ({ columns: [
@@ -67,7 +71,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
     content: [
       ...blocks(a.html).map(node),
       { text: "", pageBreak: "after" },
-      ...blocks(b.html).map(node),
+      ...(partB ? partB.content : blocks(b.html).map(node)),
       // The heading, the agreement and the first row of signatures stay on one page.
       { unbreakable: true, stack: [
         { text: "Signatures", fontSize: 11.5, bold: true, color: NAVY, margin: [0, 14, 0, 4] },
@@ -77,7 +81,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
       ...signatures.slice(1),
       { image: "lh", width: 492, margin: [0, 0, 0, 18], pageBreak: "before" },
       { text: "Signing record", fontSize: 13.5, bold: true, color: NAVY, margin: [0, 0, 0, 6] },
-      { text: "This page records how this quote and engagement letter was signed in Concept Studio. Each person signed through their own private link by typing their full name and ticking the agreement box. The fingerprint identifies the exact text of the quote and terms that was signed; any change to the text gives a different fingerprint.", fontSize: 9, margin: [0, 0, 0, 8] },
+      { text: "This page records how this quote and engagement letter was signed in Concept Studio. Each person signed through their own private link by typing their full name and clicking Sign under the statement that they have read the quote and engagement terms and agree to them. The fingerprint identifies the exact text of the quote and terms that was signed; any change to the text gives a different fingerprint.", fontSize: 9, margin: [0, 0, 0, 8] },
       { table: { widths: [130, "*"], body: [
         row("Quote reference", audit.quoteId), row("Tax year", String(audit.taxYear)), row("Sent", auditTime(audit.sentAt)),
         row("Valid until", day(audit.validUntil)), row("Wording version", audit.wordingLabel || "Published wording at sending"),

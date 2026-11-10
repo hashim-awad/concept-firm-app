@@ -3,7 +3,7 @@ import { ClientShell } from "@/components/ds/client";
 import { FIRM } from "@/components/ds/brand";
 import { todayToronto } from "@/lib/dates";
 import { longDate, pieceText } from "@/lib/t1-quote/render";
-import { C } from "@/lib/t1-quote/wording";
+import { C, CORP } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { clientParts } from "@/lib/t1-quote/sign";
 import { SignForm } from "./sign-form";
@@ -30,7 +30,8 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   const texts = quote.wording ?? {};
   const parts = await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
-  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton) };
+  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
+    ...(quote.kind === "corporate" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   // After signing: the download and the portal (section 9). Couples: only when both have signed.
   const done = signed && (
@@ -56,8 +57,15 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
 
   return (
     <ClientShell>
-      <div className="mx-auto grid max-w-3xl gap-6">
+      <div className="mx-auto grid max-w-5xl gap-6">
         {done}
+        {/* Not signed yet: a shortcut to the signature at the end of the letter. */}
+        {!me.signed_at && !signed && (
+          <div className="card flex flex-wrap items-center justify-between gap-3">
+            <p className="text-ink-2">Read your quote below. The place to sign is at the end.</p>
+            <a href="#sign" className="btn">Go to signing</a>
+          </div>
+        )}
         {/* The quote and the terms as one letter page, on the firm's letterhead. */}
         <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-5 py-7 shadow-sm sm:px-12 sm:py-12">
           <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
@@ -73,6 +81,8 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
             ? <p className="text-sm text-success">{`Signed by ${me.first_name}.`}</p>
             : <SignForm token={token} forOther={false} who={`${me.first_name} ${me.last_name}`} labels={labels} />}
         </section>
+        {/* After signing, the same buttons right here, so nobody scrolls back to the top. */}
+        {done && <div id="done">{done}</div>}
         {waiting}
       </div>
     </ClientShell>

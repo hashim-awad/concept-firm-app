@@ -12,9 +12,9 @@ reset role;
 
 select test.check('RLS on for every public table',
   not exists (select 1 from pg_tables where schemaname = 'public' and not rowsecurity));
-select test.check('16 T1 items seeded, plus PTX-100 (invoice only, no price)', (select count(*) from public.catalogue_items where price_type <> 'Invoice only') = 16 and (select count(*) from public.catalogue_items where code = 'PTX-100') = 1);
+select test.check('16 T1 items and 6 year-end items seeded, plus PTX-100 (invoice only, no price)', (select count(*) from public.catalogue_items where price_type <> 'Invoice only') = 22 and (select count(*) from public.catalogue_items where code = 'PTX-100') = 1);
 select test.check('every item has a current price',
-  (select count(*) from public.current_item_prices) = 16);
+  (select count(*) from public.current_item_prices) = 22);
 select test.check('single return is $299.00',
   (select p.amount_cents from public.current_item_prices p join public.catalogue_items i on i.id = p.item_id
    where i.code = 'T1_BASE_SINGLE') = 29900);
@@ -28,7 +28,7 @@ select test.check('corporate v1 is a draft', exists (
 -- Staff role: view only
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff without Pricing reads no prices (Phase 2 batch, section 2)', (select count(*) from public.current_item_prices) = 0 and (select count(*) from public.catalogue_items) = 17);
+select test.check('staff without Pricing reads no prices (Phase 2 batch, section 2)', (select count(*) from public.current_item_prices) = 0 and (select count(*) from public.catalogue_items) = 23);
 select test.check('staff cannot add a price', test.try($$insert into public.item_prices (item_id, amount_cents, effective_from)
   select id, 1, date '2027-01-01' from public.catalogue_items where code = 'T1_MOVING'$$) like '%row-level security%');
 select test.check('staff cannot add an item', test.try($$insert into public.catalogue_items (service_line_id, code, name)

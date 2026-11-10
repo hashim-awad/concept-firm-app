@@ -9,7 +9,8 @@ import { formatDate } from "@/lib/dates";
 export async function prepareQuote(formData: FormData) {
   const leadId = String(formData.get("lead_id") ?? "");
   const supabase = await createClient();
-  const { error } = await supabase.rpc("create_t1_quote", { p_lead: leadId });
+  const company = formData.get("route") === "company";
+  const { error } = await supabase.rpc(company ? "create_corporate_quote" : "create_t1_quote", { p_lead: leadId });
   if (error) redirect(withMessage(`/leads/${leadId}`, "error", error.message));
   revalidatePath(`/leads/${leadId}`);
   redirect(`/leads/${leadId}/quote`);

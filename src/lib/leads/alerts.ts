@@ -91,7 +91,8 @@ export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<
     // A first alert that has not gone out (sending right after the form failed): retry after 2 minutes,
     // for up to 2 days.
     const age = now - Date.parse(l.created_at);
-    if (!have.has(`${l.id}|new`) && age > 120_000 && age < 2 * 86400000) {
+    const partial = (l.answers as { partial?: boolean }).partial === true;
+    if (!have.has(`${l.id}|new`) && age > (partial ? 30 * 60_000 : 120_000) && age < 2 * 86400000) {
       const r = await deliver(db, "new", l);
       if (r?.sent) out.newSent++; else if (r?.problem) out.problems.push(r.problem);
     }

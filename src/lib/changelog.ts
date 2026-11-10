@@ -5,6 +5,21 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Company leads and year-end quotes",
+    points: [
+      "The start page's \"My company\" route asks the year-end questions in steps. The client's details are saved first, so a lead who stops partway is still on the Leads page.",
+      "Year-end leads with books kept by a bookkeeper, in software or from bank statements, and nothing unusual, get a price straight away. Monthly bookkeeping, paper receipts and the special cases need a call; the client sees the booking link.",
+      "New price book items YE-110, YE-111, YE-112, YE-120, YE-121 and GST-110 (section 11 prices).",
+      "On a company lead, staff enter the company's legal name and the confirmed year-end, then prepare the quote: Part A from Appendix C, Part B the corporate master letter, Part C signing. The email is ready to copy.",
+      "After signing, the quote page shows the deposit and balance to invoice in TaxDome, and the lead has the first-year checklist (TaxDome tag 1st-yr client).",
+      "The company form counts accounts with minus and plus buttons. One bank account and one credit card are filled in, so no one has to type 0.",
+      "The signing page is wider, has a Go to signing button at the top, and shows the download and portal buttons right under the signature. There is no checkbox: clicking Sign is the agreement.",
+      "The quote email buttons now keep their look when pasted into Outlook.",
+      "Company quotes: the bookkeeping line lists the accounts it covers, the company's signer types their title, and the letter's wording changes are recorded in the brief (annual GST/HST return, payment timing, plus GST/HST, sign below).",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Signing T1 quotes",
     points: [
       "Clients sign on their own private link: type their full name, tick the agreement, click Sign. We keep the time, IP address, browser and a fingerprint of the exact quote and terms signed.",
