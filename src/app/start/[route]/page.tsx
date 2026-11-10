@@ -10,7 +10,7 @@ import { T1Steps } from "./t1-steps";
 import { T1_STEP_KEYS } from "@/lib/screening/t1-steps";
 import { todayToronto } from "@/lib/dates";
 import { taxYearFor } from "@/lib/screening/tax-year";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, serverKeyKind } from "@/lib/supabase/admin";
 
 export default async function StartRoutePage({ params }: PageProps<"/start/[route]">) {
   const { route } = await params;
@@ -30,7 +30,7 @@ export default async function StartRoutePage({ params }: PageProps<"/start/[rout
           : qn ? <PersonalForm qn={forBrowser(qn)} sources={(src?.value ?? ["Website"]) as string[]} />
           : <div className="card text-ink-2"><p>This form is not ready yet. Please call us at {FIRM.phone}.</p>
               {/* Staff only: the real reason, so it can be fixed without guessing. */}
-              {(await getAccess()) && <p className="mt-3 text-sm text-danger">Staff only: {problem || "unknown reason"}</p>}</div>}
+              {(await getAccess()) && <p className="mt-3 text-sm text-danger">Staff only: {problem || "unknown reason"} {serverKeyKind()}</p>}</div>}
       </>
     );
   }
