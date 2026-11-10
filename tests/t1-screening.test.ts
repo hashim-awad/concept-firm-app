@@ -19,8 +19,8 @@ const run = (h: object, people: object[]) =>
   evaluate(qn, { household: { ...fit, ...none, ...h }, people: people.map((p) => ({ ...person, ...p })) } as Answers, items);
 const codes = (r: ReturnType<typeof run>) => r.lines.map((l) => `${l.code}${l.person === null ? "" : `/${l.person}`}x${l.quantity}`).sort();
 
-test("the migration holds exactly the generated SQL", () => {
-  const sql = readFileSync(new URL("../supabase/migrations/20261110040000_t1_screening.sql", import.meta.url), "utf8");
+test("the latest migration holds exactly the generated SQL", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261110060000_t1_screening_no_hint.sql", import.meta.url), "utf8");
   const block = sql.split("-- BEGIN GENERATED (scripts/gen-t1-screening-sql.ts)\n")[1].split("\n-- END GENERATED")[0];
   assert.equal(block, generate(), "Run: node scripts/gen-t1-screening-sql.ts and paste the output into the migration.");
 });
@@ -101,6 +101,10 @@ test("rule values come from Settings, never hard-coded in the wording", () => {
   assert.equal(fillRuleValues(fp.prompt, { t1135_simple_over: 100000 }).includes("$100,000"), true);
   assert.equal(fillRuleValues("{moving_km} km", { moving_km: 40 }), "40 km");
   for (const x of T1_V2_QUESTIONS) assert.ok(!/100,000|250,000|\b40 km/.test(x.prompt + x.help_text), x.key);
+});
+
+test("no repeated 'answer for both of you' hint", () => {
+  for (const x of T1_V2_QUESTIONS) assert.ok(!/answer for both of you/i.test(x.help_text), x.key);
 });
 
 test("plain wording: no em dashes", () => {

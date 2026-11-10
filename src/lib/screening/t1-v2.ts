@@ -1,6 +1,6 @@
 // Personal tax (T1) screening, version 2: Phase 2 batch, section 4, word for word where the batch
 // gives wording. This file is the source for the migration that publishes it
-// (supabase/migrations/20261110040000_t1_screening.sql, made by scripts/gen-t1-screening-sql.ts) and
+// (latest: supabase/migrations/20261110060000_t1_screening_no_hint.sql, made by scripts/gen-t1-screening-sql.ts) and
 // for the tests. After it is published, owners change it on the Screening questions page (a new
 // draft); this file is not used by the app at run time.
 //
@@ -20,15 +20,14 @@ const when = (question: string, op: Op, value?: unknown): Condition => ({ questi
 const CHECKS = "Quick checks";
 const WHO = "Who is filing";
 const INCOME = "Your income and claims";
-const BOTH = "If you are filing with your spouse or partner, answer for both of you.";
 
 export const T1_V2_QUESTIONS: Question[] = [
   // Section 2: fit check. Out-of-scope answers come early, so clients who don't fit stop quickly.
-  q({ key: "lived_in_canada", section: CHECKS, prompt: "Did you live in Canada for the whole year?", help_text: BOTH, answer_type: YN, sort_order: 10 }),
-  q({ key: "us_citizen", section: CHECKS, prompt: "Are you a US citizen or green card holder?", help_text: BOTH, answer_type: YN, sort_order: 20 }),
+  q({ key: "lived_in_canada", section: CHECKS, prompt: "Did you live in Canada for the whole year?", answer_type: YN, sort_order: 10 }),
+  q({ key: "us_citizen", section: CHECKS, prompt: "Are you a US citizen or green card holder?", answer_type: YN, sort_order: 20 }),
   q({ key: "deceased_or_trust", section: CHECKS, prompt: "Is this return for someone who passed away, or for a trust?", answer_type: YN, sort_order: 30 }),
   q({ key: "earlier_year", section: CHECKS, prompt: "Do you need a return for an earlier year, or a change to one already filed?", answer_type: YN, sort_order: 40 }),
-  q({ key: "cra_review", section: CHECKS, prompt: "Is CRA reviewing or auditing any of your returns right now?", help_text: BOTH, answer_type: YN, sort_order: 50 }),
+  q({ key: "cra_review", section: CHECKS, prompt: "Is CRA reviewing or auditing any of your returns right now?", answer_type: YN, sort_order: 50 }),
 
   // Section 3: who is filing.
   q({ key: "filing_type", section: WHO, prompt: "Who is filing?", answer_type: "single_choice", sort_order: 60,
@@ -39,7 +38,7 @@ export const T1_V2_QUESTIONS: Question[] = [
 
   // Section 4: income and claims. Per-property and per-business items are once per household;
   // per-return items are asked for each person (couples answer Me, Spouse or Both).
-  q({ key: "self_employed", section: INCOME, prompt: "Did you have self-employment or commission income, not through a corporation?", help_text: BOTH, answer_type: YN, sort_order: 100 }),
+  q({ key: "self_employed", section: INCOME, prompt: "Did you have self-employment or commission income, not through a corporation?", answer_type: YN, sort_order: 100 }),
   q({ key: "business_count", section: INCOME, prompt: "How many businesses?", help_text: "Count all businesses in your household once.", answer_type: "number", min_value: 1, max_value: 10, sort_order: 110, show_if: when("self_employed", "eq", "yes") }),
   q({ key: "business_totals", section: INCOME, prompt: "Can you give us total income and expenses for each business?", answer_type: YN, sort_order: 120, show_if: when("self_employed", "eq", "yes") }),
   q({ key: "vehicle_count", section: INCOME, prompt: "How many vehicles did you use for the business?", help_text: "Enter 0 if none.", answer_type: "number", min_value: 0, max_value: 10, sort_order: 130, show_if: when("self_employed", "eq", "yes") }),
@@ -48,10 +47,10 @@ export const T1_V2_QUESTIONS: Question[] = [
   q({ key: "gst_frequency", section: INCOME, prompt: "How often do you file GST/HST returns?", answer_type: "single_choice", sort_order: 160, show_if: when("gst_registered", "eq", "yes"),
     options: [{ value: "1", label: "Once a year" }, { value: "4", label: "Every 3 months" }, { value: "12", label: "Every month" }] }),
 
-  q({ key: "rental", section: INCOME, prompt: "Did you have rental income, including Airbnb or a rented basement?", help_text: BOTH, answer_type: YN, sort_order: 200 }),
+  q({ key: "rental", section: INCOME, prompt: "Did you have rental income, including Airbnb or a rented basement?", answer_type: YN, sort_order: 200 }),
   q({ key: "rental_count", section: INCOME, prompt: "How many rental addresses?", help_text: "A property you own with your spouse or partner counts once. Short-term rentals count too.", answer_type: "number", min_value: 1, max_value: 20, sort_order: 210, show_if: when("rental", "eq", "yes") }),
 
-  q({ key: "sold_property", section: INCOME, prompt: "Did you sell a property this year?", help_text: BOTH, answer_type: YN, sort_order: 300 }),
+  q({ key: "sold_property", section: INCOME, prompt: "Did you sell a property this year?", answer_type: YN, sort_order: 300 }),
   q({ key: "sold_home", section: INCOME, prompt: "Did you sell your home, the place you lived in?", answer_type: YN, sort_order: 310, show_if: when("sold_property", "eq", "yes") }),
   q({ key: "property_sale_count", section: INCOME, prompt: "How many other properties did you sell?", help_text: "Rentals, investment properties, properties owned under 12 months, and assignments. Enter 0 if none.", answer_type: "number", min_value: 0, max_value: 20, sort_order: 320, show_if: when("sold_property", "eq", "yes") }),
   q({ key: "assignment", section: INCOME, prompt: "Was any of these an assignment sale?", answer_type: YN, sort_order: 330, show_if: when("property_sale_count", "gt", 0) }),
@@ -69,7 +68,7 @@ export const T1_V2_QUESTIONS: Question[] = [
     options: [{ value: "us", label: "The United States" }, { value: "other", label: "Another country" }] }),
   q({ key: "us_state_count", section: INCOME, prompt: "How many US state returns?", help_text: "Enter 0 if none.", answer_type: "number", min_value: 0, max_value: 10, per_person: true, sort_order: 480, show_if: when("foreign_return_country", "eq", "us") }),
 
-  q({ key: "t5013", section: INCOME, prompt: "Did you get a T5013 slip from a partnership?", help_text: BOTH, answer_type: YN, sort_order: 500 }),
+  q({ key: "t5013", section: INCOME, prompt: "Did you get a T5013 slip from a partnership?", answer_type: YN, sort_order: 500 }),
   q({ key: "t5013_count", section: INCOME, prompt: "How many partnerships?", answer_type: "number", min_value: 1, max_value: 10, sort_order: 510, show_if: when("t5013", "eq", "yes") }),
   q({ key: "t2200", section: INCOME, prompt: "Did you get a signed T2200 from your employer?", answer_type: YN, per_person: true, sort_order: 520 }),
   q({ key: "moving", section: INCOME, prompt: "Did you move at least {moving_km} km closer to a new job, business or full-time school?", answer_type: YN, per_person: true, sort_order: 530 }),

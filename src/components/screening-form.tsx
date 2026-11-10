@@ -120,7 +120,7 @@ export function ScreeningForm({ qn, action, submitLabel, showPrices, stopOnOutOf
   );
 }
 
-function Field({ q, value, onChange, error, idSuffix, personLabel }: {
+export function Field({ q, value, onChange, error, idSuffix, personLabel }: {
   q: Question; value: Answer; onChange: (v: Answer) => void; error?: string; idSuffix: string; personLabel?: string;
 }) {
   const id = `${q.key}-${idSuffix}`;

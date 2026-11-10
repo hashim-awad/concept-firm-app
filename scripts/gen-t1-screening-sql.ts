@@ -1,7 +1,8 @@
 // Prints the SQL that publishes T1 screening version 2, from src/lib/screening/t1-v2.ts.
 // Run: node scripts/gen-t1-screening-sql.ts
 // The output sits between the BEGIN/END GENERATED lines in
-// supabase/migrations/20261110040000_t1_screening.sql; tests/t1-screening.test.ts checks they match.
+// the latest migration that re-creates private.publish_t1_screening (now
+// supabase/migrations/20261110060000_t1_screening_no_hint.sql); tests/t1-screening.test.ts checks they match.
 import { T1_V2_COUPLE, T1_V2_INTRO, T1_V2_PRICES, T1_V2_QUESTIONS, T1_V2_RULES, T1_V2_TITLE } from "../src/lib/screening/t1-v2.ts";
 
 const lit = (v: unknown): string => {
