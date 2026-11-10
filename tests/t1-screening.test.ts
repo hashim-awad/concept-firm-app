@@ -106,3 +106,15 @@ test("rule values come from Settings, never hard-coded in the wording", () => {
 test("plain wording: no em dashes", () => {
   for (const x of T1_V2_QUESTIONS) assert.ok(!/—/.test(x.prompt + x.help_text + x.options.map((o) => o.label).join("")), x.key);
 });
+
+test("an out-of-scope answer is caught before the rest is filled in, so the form can stop there", async () => {
+  const { earlyOutOfScope } = await import("../src/lib/screening/engine.ts");
+  const partial = { household: { lived_in_canada: "yes", us_citizen: "no", deceased_or_trust: "no", earlier_year: "no", cra_review: "yes" }, people: [] };
+  const early = earlyOutOfScope(qn, partial as Answers);
+  assert.deepEqual(early.map((e) => e.question), ["cra_review"]);
+  // The full check would still ask for the unanswered questions; the server uses the early result instead.
+  assert.ok(evaluate(qn, partial as Answers, items).errors.length > 0);
+  // A couple where only the spouse lacks a crypto report stops on that person.
+  const c = earlyOutOfScope(qn, { household: { ...fit, ...couple }, people: [{ crypto: "yes", crypto_report: "yes" }, { crypto: "yes", crypto_report: "no" }] } as Answers);
+  assert.deepEqual(c.map((e) => [e.question, e.person]), [["crypto_report", 1]]);
+});

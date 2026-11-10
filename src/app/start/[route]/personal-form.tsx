@@ -1,6 +1,6 @@
 "use client";
 // The public personal tax form (Phase 2 batch, section 4): your details, the screening questions,
-// how you heard about us, and consent. No prices are shown and none are sent to the browser.
+// how you heard about us. Sending the form is the consent to prepare a quote (Hashim, Nov 10: no checkbox). No prices are shown and none are sent to the browser.
 import { useState } from "react";
 import { ScreeningForm, type FormQuestionnaire } from "@/components/screening-form";
 import { PROVINCES } from "@/lib/leads/provinces";
@@ -42,14 +42,11 @@ export function PersonalForm({ qn, sources }: { qn: FormQuestionnaire; sources: 
           {sources.map((s) => <option key={s}>{s}</option>)}
         </select>
       </div>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="consent" required className="mt-0.5 h-4 w-4 accent-accent" />
-        <span>I agree that Concept Accounting can use my answers to prepare a quote.</span>
-      </label>
+      <p className="text-xs text-muted">By clicking Get my quote, you agree that Concept Accounting can use your answers to prepare your quote.</p>
     </fieldset>
   );
   return (
-    <ScreeningForm qn={qn} action={submitPersonal} submitLabel="Send my answers" showPrices={false} before={before} after={after}
+    <ScreeningForm qn={qn} action={submitPersonal} submitLabel="Get my quote" showPrices={false} before={before} after={after}
       stopOnOutOfScope={{
         submitLabel: "Send my details",
         message: <>

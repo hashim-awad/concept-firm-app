@@ -84,7 +84,6 @@ export async function submitPersonal(_prev: FormResult | null, formData: FormDat
       return fail("We could not prepare your quote right now. Please try again later, or call us.");
     }
     if (r.errors.length) return r;
-    if (formData.get("consent") !== "on") return fail("Please tick the box to let us use your answers to prepare a quote.");
     lines = r.lines;
     subtotal = r.subtotal_cents;
   }
