@@ -56,31 +56,44 @@ export async function sendNewLeadAlert(leadId: string): Promise<void> {
 
 let lastRun = 0;
 
-// The scheduled check. Looks at leads from the last 14 days only.
-export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<{ newSent: number; reminders: number }> {
-  if (opts.throttle && Date.now() - lastRun < 60_000) return { newSent: 0, reminders: 0 };
+export type RunResult = { checked: number; newSent: number; reminders: number; due: number; problems: string[] };
+
+// The scheduled check. Looks at leads from the last 14 days only. Reports what it did and any problem,
+// so the owner "Check alerts now" button can show it (the background runs have nowhere to show it).
+export async function runLeadAlerts(opts: { throttle?: boolean } = {}): Promise<RunResult> {
+  const out: RunResult = { checked: 0, newSent: 0, reminders: 0, due: 0, problems: [] };
+  if (opts.throttle && Date.now() - lastRun < 60_000) return out;
   lastRun = Date.now();
   const db = createAdminClient();
   const since = new Date(Date.now() - 14 * 86400000).toISOString();
-  const [{ data: leads }, { data: done }, { data: hoursRow }] = await Promise.all([
+  const [leadsQ, doneQ, hoursQ] = await Promise.all([
     db.from("leads").select(LEAD_COLS).gte("created_at", since),
     db.from("lead_alerts").select("lead_id, kind").not("sent_at", "is", null),
     db.from("settings").select("value").eq("key", "business_hours").maybeSingle(),
   ]);
-  const have = new Set((done ?? []).map((r: { lead_id: string; kind: string }) => `${r.lead_id}|${r.kind}`));
-  const hours = (hoursRow?.value ?? null) as BusinessHours | null;
+  for (const [name, q] of [["leads", leadsQ], ["alert records", doneQ], ["business hours", hoursQ]] as const) {
+    if (q.error) out.problems.push(`Reading ${name} failed: ${q.error.message}`);
+  }
+  if (out.problems.length) return out;
+  const have = new Set((doneQ.data ?? []).map((r: { lead_id: string; kind: string }) => `${r.lead_id}|${r.kind}`));
+  const hours = (hoursQ.data?.value ?? null) as BusinessHours | null;
   const now = Date.now();
-  let newSent = 0, reminders = 0;
-  for (const l of (leads ?? []) as (AlertLead & { created_at: string })[]) {
+  for (const l of (leadsQ.data ?? []) as (AlertLead & { created_at: string })[]) {
+    out.checked++;
     // A first alert that has not gone out (sending right after the form failed): retry after 2 minutes,
     // for up to 2 days.
     const age = now - Date.parse(l.created_at);
-    if (!have.has(`${l.id}|new`) && age > 120_000 && age < 2 * 86400000) { await deliver(db, "new", l); newSent++; }
+    if (!have.has(`${l.id}|new`) && age > 120_000 && age < 2 * 86400000) {
+      const r = await deliver(db, "new", l);
+      if (r?.sent) out.newSent++; else if (r?.problem) out.problems.push(r.problem);
+    }
     if (!have.has(`${l.id}|reminder`) && WAITING_STATUSES.includes(l.status) && businessMinutes(l.created_at, now, hours) >= REMINDER_MINUTES) {
-      await deliver(db, "reminder", l); reminders++;
+      out.due++;
+      const r = await deliver(db, "reminder", l);
+      if (r?.sent) out.reminders++; else if (r?.problem) out.problems.push(r.problem);
     }
   }
-  return { newSent, reminders };
+  return out;
 }
 
 // Business hours for the lead timer. Read with the service key because not every role can read

@@ -10,12 +10,13 @@ import { after } from "next/server";
 import { readBusinessHours, runLeadAlerts } from "@/lib/leads/alerts";
 import { WAITING_STATUSES } from "@/lib/business-hours";
 import { LeadTimer } from "./lead-timer";
+import { checkAlertsNow } from "./actions";
 
 const OPEN = ["new", "call_needed", "quoted", "sent"];
 
 // Leads from the public start page (brief "Lead flow").
 export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
-  await requireAccess("leads", "view");
+  const access = await requireAccess("leads", "view");
   const sp = await searchParams;
   const show = sp.show === "all" ? "all" : sp.show === "closed" ? "closed" : "open";
   after(() => runLeadAlerts({ throttle: true }).then(() => undefined, () => undefined));
@@ -33,7 +34,13 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
     <>
       <PageHeader title="Leads" description="Every request from the public start page. What the client entered is kept as sent; add notes on the lead." />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <div className="mb-4 flex gap-2">{chip("open", "Open")}{chip("closed", "Closed")}{chip("all", "All")}</div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">{chip("open", "Open")}{chip("closed", "Closed")}{chip("all", "All")}
+        {access.is_owner && (
+          <form action={checkAlertsNow} className="ml-auto">
+            <button type="submit" className="btn-secondary h-8 px-3 text-sm" title="Owners: run the lead alert check now (first alerts and 45-minute reminders) and see what it did">Check alerts now</button>
+          </form>
+        )}
+      </div>
       <section className="card overflow-x-auto p-0">
         {rows.length === 0 ? <p className="p-5 text-sm text-muted">No leads here.</p> : (
           <table className="table">
