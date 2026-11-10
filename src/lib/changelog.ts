@@ -5,6 +5,16 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "T1 quotes",
+    points: [
+      "On a personal tax lead, staff with Pricing click Prepare the quote. The quote page shows the email to send, with Copy buttons, and the quote and engagement letter marked DRAFT FOR REVIEW until it is sent.",
+      "Send the email from your own Outlook, then click Mark as sent. The quote is valid for 21 days from then, and the lead shows Quote sent.",
+      "Each person gets their own private link to read the quote; a couple gets two. The client sees the services and one total, never a line price. Online signing comes next.",
+      "The quote wording (Appendix A) and both emails are on the Templates page, editable and published like the letters.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "Personal tax screening questions",
     points: [
       "The public personal tax form asks the screening questions from the Phase 2 batch, in steps with a progress bar: About you, Who's filing, Quick check, What happened this year, A few details, Last. Quick check is one list of five boxes; What happened is a grid of tiles, \"Tick everything that applies\". Couples pick Me, Spouse or Both on each item charged per person. A few details asks only about the ticked tiles. The client clicks Get my quote; no consent checkbox.",
