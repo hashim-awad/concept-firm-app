@@ -5,6 +5,16 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-10",
+    title: "Signing T1 quotes",
+    points: [
+      "Clients sign on their own private link: type their full name, tick the agreement, click Sign. We keep the time, IP address, browser and a fingerprint of the exact quote and terms signed.",
+      "Couples each sign. The page shows who is still waiting, and the second spouse can sign on the same device. The quote counts as signed when both have signed.",
+      "Once signed, the client downloads a signed PDF with a signing-record page, and continues to the secure portal to sign up.",
+      "On the quote page, staff see who signed, open the signed PDF, and copy the TaxDome invoice line: PTX-100, the total before tax, and the GST/HST rate for the province.",
+    ],
+  },
+  {
+    date: "2026-11-10",
     title: "T1 quotes",
     points: [
       "On a personal tax lead, staff with Pricing click Prepare the quote. The quote page shows the email to send, with Copy buttons, and the quote and engagement letter marked DRAFT FOR REVIEW until it is sent.",

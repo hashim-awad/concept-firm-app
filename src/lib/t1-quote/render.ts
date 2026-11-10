@@ -162,3 +162,8 @@ export const SAMPLE: QuoteData = {
   totalCents: 69700, preparedBy: "Asmaa Ibrahim", preparedOn: "2026-11-10", validUntil: "2026-12-01", signer: { name: "Hashim Abouelfetouh, CPA", title: "" },
 };
 export const SAMPLE_SENDER: Sender = { name: "Asmaa Ibrahim", phone: "226-789-9591", email: "asmaa@conceptaccounting.ca" };
+
+// One piece as plain text, with its fill-ins (for buttons and labels on the client's page).
+export function pieceText(texts: Record<string, string>, p: QPiece, ...fills: (string | number)[]): string {
+  return (texts[p.key] ?? p.text).replace(/\{(\d+)\}/g, (m, i) => (fills[Number(i) - 1] !== undefined ? String(fills[Number(i) - 1]) : m));
+}

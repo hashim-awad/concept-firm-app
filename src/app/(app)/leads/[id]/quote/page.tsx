@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, formatDateTime, todayToronto } from "@/lib/dates";
 import { env } from "@/lib/env";
-import { renderEmail, renderQuote } from "@/lib/t1-quote/render";
+import { money, renderEmail, renderQuote } from "@/lib/t1-quote/render";
+import { provinceName } from "@/lib/leads/provinces";
 import { letterSigner, loadQuoteForStaff, toQuoteData } from "@/lib/t1-quote/server";
 import { markQuoteSent } from "../../quote-actions";
 import { CopyButton } from "./copy-button";
@@ -27,11 +28,17 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
   const editable = canEdit(access, "pricing") && canEdit(access, "leads");
   const sent = quote.status !== "draft";
 
-  const [{ data: me }, { data: cw }, signer] = await Promise.all([
+  const [{ data: me }, { data: cw }, signer, { data: lead }] = await Promise.all([
     supabase.from("staff").select("full_name, phone, email").eq("id", access.staff_id).maybeSingle(),
     supabase.rpc("current_wording"),
     letterSigner(),
+    supabase.from("leads").select("province").eq("id", id).maybeSingle(),
   ]);
+  const province = lead?.province ?? "";
+  const { data: taxRows } = await supabase.rpc("t1_invoice_tax", { p_province: province });
+  const tax = ((taxRows ?? []) as { tax: string; rate_percent: number }[])[0];
+  const signedAll = quote.status === "signed";
+  const invoiceLine = `PTX-100 Personal tax return services, ${quote.tax_year}`;
   // A sent quote keeps the wording and signer it was sent with; a draft uses today's published wording.
   const texts = sent ? (quote.wording ?? {}) : (((cw as { texts?: Record<string, string> } | null)?.texts) ?? {});
   const sender = quote.sender ?? { name: me?.full_name ?? access.full_name, phone: me?.phone ?? "", email: me?.email ?? "" };
@@ -63,7 +70,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
           <div className="rounded-lg border border-sand-200 bg-white p-4" dangerouslySetInnerHTML={{ __html: email.html }} />
           <h2 className="font-semibold">2. Mark as sent</h2>
           {sent ? (
-            <p className="text-sm">Marked as sent {formatDateTime(quote.sent_at)}. {signers.map((s) => `${s.first_name}: ${s.signed_at ? `signed ${formatDateTime(s.signed_at)}` : "not signed yet"}`).join(". ")}.</p>
+            <p className="text-sm">Marked as sent {formatDateTime(quote.sent_at)}.</p>
           ) : editable ? (
             <form action={markQuoteSent} className="grid gap-2 text-sm">
               <input type="hidden" name="lead_id" value={id} /><input type="hidden" name="quote_id" value={quote.id} />
@@ -71,7 +78,26 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
               <button type="submit" className="btn w-fit">Mark as sent</button>
             </form>
           ) : <p className="text-sm text-muted">Someone with Edit on Pricing and Leads marks it as sent.</p>}
-          <p className="text-xs text-muted">Each person signs through their own private link. Do not forward one person&rsquo;s link to the other. Online signing is the next build step.</p>
+          <p className="text-xs text-muted">Each person signs through their own private link. Do not forward one person&rsquo;s link to the other.</p>
+
+          <h2 className="font-semibold">3. Signing</h2>
+          <ul className="grid gap-1 text-sm">
+            {signers.map((s) => (
+              <li key={s.person}>{s.first_name} {s.last_name}: {s.signed_at ? <span className="text-success">signed {formatDateTime(s.signed_at)}</span> : <span className="text-muted">not signed yet</span>}</li>
+            ))}
+          </ul>
+          {signedAll ? (
+            <>
+              <a href={`/leads/${id}/quote/pdf`} target="_blank" rel="noreferrer" className="btn-secondary w-fit">Open the signed PDF (with the signing record)</a>
+              <h2 className="font-semibold">4. TaxDome invoice (after the organizer and documents are in)</h2>
+              <div className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">
+                <p><span className="text-muted">Item: </span>{invoiceLine}</p>
+                <p><span className="text-muted">Amount: </span>{money(quote.total_cents)} (the quote total before tax)</p>
+                <p><span className="text-muted">Tax: </span>{tax ? `${tax.tax} ${Number(tax.rate_percent)}% (${provinceName(province)})` : <span className="text-warning">No approved GST/HST rate for {provinceName(province) || "this province"}. Check Settings, GST/HST rates.</span>}</p>
+              </div>
+              <CopyButton label="Copy the invoice line" text={`${invoiceLine}\t${(quote.total_cents / 100).toFixed(2)}${tax ? `\t${tax.tax} ${Number(tax.rate_percent)}%` : ""}`} />
+            </>
+          ) : sent && <p className="text-xs text-muted">The quote counts as signed when everyone has signed. Then the signed PDF and the TaxDome invoice line show here.</p>}
         </section>
 
         <section className="grid content-start gap-4">
