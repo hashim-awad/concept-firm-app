@@ -14,10 +14,12 @@ export type QuoteData = {
   preparedOn: string; // YYYY-MM-DD
   validUntil: string; // YYYY-MM-DD
   signer: { name: string; title: string };
+  emails?: string[]; // the addressee block: each signer's email (the form collects no mailing address)
 };
 export type Sender = { name: string; phone: string; email: string };
 // letterhead: the image to show at the top of Part A (the firm name and address are on it).
-type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string };
+// signature: the firm signer's signature image (data URL), shown under "Yours truly,".
+export type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string; signature?: string | null };
 export const LETTERHEAD_URL = "/studio/letterhead.jpg";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -99,7 +101,13 @@ ${o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(`${piec
   const para = (p: QPiece, ...f: (string | number)[]) => `<p style="${S.p}">${t(p, ...f)}</p>`;
   const h = (p: QPiece) => `<h3 style="${S.h3}">${t(p)}</h3>`;
   const list = (...ps: QPiece[]) => `<ul style="${S.ul}">${ps.map((p) => li(t(p))).join("")}</ul>`;
+  // The letter stands on its own: letterhead, date, addressee and subject before "Dear".
+  const addressee = [names, ...(d.emails ?? []).filter(Boolean)].map(esc).join("<br>");
   const partB = `<div style="${S.doc}">${wm}
+${o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(`${pieceText(texts, A.firm)}, ${pieceText(texts, A.address)}`)}" style="${S.lh}">` : ""}
+<p data-k="meta" style="${S.p}">${esc(longDate(d.preparedOn))}</p>
+<p data-k="addr" style="${S.p}">${addressee}</p>
+<p style="${S.p}"><b>${t(B.reLine, d.taxYear, couple ? "returns" : "return")}</b></p>
 ${para(B.dear, names)}${para(B.intro)}${para(B.applies, d.taxYear)}
 ${h(B.h1)}${para(B.s1a)}${para(B.s1b)}${para(B.s1c)}${para(B.s1d)}
 ${h(B.h2)}${para(B.s2lead)}${list(B.s2a, B.s2b, B.s2c, B.s2d, B.s2e)}${para(B.s2f)}
@@ -113,7 +121,9 @@ ${h(B.h9)}${para(B.s9a)}${para(B.s9b)}${para(B.s9c)}
 ${h(B.h10)}${para(B.s10a)}${para(B.s10b)}
 ${h(B.h11)}${para(B.s11)}
 ${h(B.h12)}${para(B.s12a)}${para(B.s12b)}
-${para(B.yours)}<p data-k="signer" style="${S.p}">${t(B.firmCaps)}<br>${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>
+${para(B.yours)}<p data-k="signer" style="${S.p}">${t(B.firmCaps)}</p>
+${o.signature ? `<img data-sig="1" src="${esc(o.signature)}" alt="Signature" style="display: block; width: 150px; height: auto; margin: 0 0 2px;">` : ""}
+<p data-k="signer" style="${S.p}">${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>
 </div>`;
 
   const partC = `<div style="${S.doc}">

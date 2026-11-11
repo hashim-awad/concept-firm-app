@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createStudioEngine } from "../src/lib/studio/engine.generated.js";
 import { CorporateLetter } from "../src/lib/studio/controllers.ts";
-import { accountsList, corpPartA, corpPartB, corpPartBBlocks, depositAndBalance, renderCorpEmail, CORP_SAMPLE } from "../src/lib/corporate/render.ts";
+import { SIG_MARK, accountsList, corpPartA, corpPartB, corpPartBBlocks, depositAndBalance, renderCorpEmail, CORP_SAMPLE } from "../src/lib/corporate/render.ts";
 import { SAMPLE_SENDER } from "../src/lib/t1-quote/render.ts";
 
 const batch = readFileSync(new URL("../docs/PHASE2-BATCH.md", import.meta.url), "utf8");
@@ -62,7 +62,6 @@ test("Part B: the corporate master letter, word for word, with only the recorded
   const removed = m.filter((x: string) => !o.includes(x));
   const added = o.filter((x: string) => !m.includes(x));
   assert.deepEqual(removed, [
-    "November 10, 2026",
     "3. GST/HST returns",
     "We will prepare and file the Company’s GST/HST returns at the filing frequency CRA has assigned to the Company, from the information you give us. You remain responsible for paying any GST/HST owing by the due date.",
     "Our fees, billing terms and how to set up your payment details are in Appendix A, Fees and payment. Appendix A forms part of this letter.",
@@ -79,7 +78,7 @@ test("Part B: the corporate master letter, word for word, with only the recorded
     "This letter covers only the services described above. Other work is not included, for example review or audit engagements; tax planning beyond how you pay yourself, and reorganizations; CRA audits, objections and disputes; personal tax returns; and legal, valuation and investment advice. We will agree any other work with you in writing, in a Change Order, before we start.",
     "Please sign this letter below to confirm that it reflects your understanding. We will start work once we receive the signed letter and the first invoice is paid.",
     "You agree that signing this letter electronically has the same effect as signing it by hand.",
-    "Concept Accounting & Advisory Professional Corporation", "Hashim Abouelfetouh, CPA\nDirector",
+    "Concept Accounting & Advisory Professional Corporation", SIG_MARK, "Hashim Abouelfetouh, CPA\nDirector",
     "Year-end financial statements and corporate tax return / $3,699 plus GST/HST / ",
     "$1,849.50 plus GST/HST when you sign up in the portal|$1,849.50 plus GST/HST when your statements and tax return are ready for your approval",
   ]);

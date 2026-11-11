@@ -2,8 +2,9 @@
 // Part A: Appendix C, word for word, as editable pieces.
 // Part B: the corporate master letter, built by Studio's own engine with the published wording, word
 //   for word, except the changes recorded in docs/BRIEF.md ("Corporate quote: changes from the
-//   corporate master letter"). The letter's date, address block and signature block are left out
-//   (Parts A and C replace them).
+//   corporate master letter"). The letter keeps its letterhead, date and subject line, the address
+//   block names the company, its signer and email (the form collects no street address), and the
+//   firm signs with the signature image. The client's half of the signature block is Part C.
 // Part C: the same signing section as the T1 quote.
 import { createStudioEngine } from "../studio/engine.generated.js";
 import { CorporateLetter } from "../studio/controllers.ts";
@@ -27,8 +28,9 @@ export type CorpQuoteData = {
   validUntil: string;
   signer: { name: string; title: string };
   letterDate?: string;
+  email?: string; // the client signer's email, for the address block
 };
-type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string };
+type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string; signature?: string | null };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const NAVY = "#1A3C7C";
@@ -138,7 +140,12 @@ const FEE_KEY = "w84832f505f";
 const FEE_TEXT = "Our fees, billing terms and how to set up your payment details are in Appendix A, Fees and payment. Appendix A forms part of this letter.";
 const YOURS_KEY = "wd9e359fb71";
 
-// The master letter's blocks with the two changes, for the PDF.
+// The address block: company, attention line, email (no street address is collected).
+const addrLines = (d: CorpQuoteData) => [d.company, `Attention: ${`${d.client.first} ${d.client.last}`.trim()}`, ...(d.email ? [d.email] : [])];
+// Where the signature image goes in the PDF (replaced after the engine lays out the page).
+export const SIG_MARK = "\u0001SIGNATURE";
+
+// The master letter's blocks with the recorded changes, for the PDF.
 export function corpPartBBlocks(texts: Record<string, string>, d: CorpQuoteData): { e: any; s: any; blocks: any[] } {
   const { e, s } = letter(texts, d);
   const fee = texts[FEE_KEY] ?? FEE_TEXT;
@@ -146,12 +153,10 @@ export function corpPartBBlocks(texts: Record<string, string>, d: CorpQuoteData)
   const taxdome = texts[TAXDOME_KEY] ?? TAXDOME_TEXT;
   const runsText = (b: any) => (b.r ?? []).map((r: any) => (typeof r === "string" ? r : r.t)).join("");
   const out: any[] = [];
-  let skippedDate = false;
   for (const b of e.build(s)) {
-    if (b.k === "lh" || b.k === "addr") continue;
-    // The firm's half of the signature block stays; the client's half is Part C.
-    if (b.k === "sig") { out.push({ k: "p", r: [{ t: e.FIRM, b: 1 }] }, { k: "p", r: [[d.signer.name, d.signer.title].filter(Boolean).join("\n")] }); continue; }
-    if (b.k === "p" && !skippedDate) { skippedDate = true; continue; } // the letter's date: Part A carries the date
+    if (b.k === "addr") { out.push({ k: "addr", lines: addrLines(d), boldN: 1 }); continue; }
+    // The firm's half of the signature block, signed; the client's half is Part C.
+    if (b.k === "sig") { out.push({ k: "p", r: [{ t: e.FIRM, b: 1 }] }, { k: "p", r: [SIG_MARK] }, { k: "p", r: [[d.signer.name, d.signer.title].filter(Boolean).join("\n")] }); continue; }
     if (b.k === "p" && runsText(b) === taxdome) continue;
     if (b.k === "table") { out.push({ ...b, rows: b.rows.map((r: any[]) => r.map((c: any) => (typeof c === "string" ? plusTax(c) : c))) }); continue; }
     if (b.k === "p" && runsText(b) === fee) { out.push({ k: "p", r: [plain(texts, CORP.feePointer)] }); continue; }
@@ -161,14 +166,30 @@ export function corpPartBBlocks(texts: Record<string, string>, d: CorpQuoteData)
   return { e, s, blocks: out };
 }
 
+// The PDF of Part B: the engine's layout, with the signature image put in place (or left out when
+// no signature is uploaded).
+export function corpPartBPdf(texts: Record<string, string>, d: CorpQuoteData, letterhead: string, signature?: string | null): { content: unknown[]; images: Record<string, string> } {
+  const { e, s, blocks } = corpPartBBlocks(texts, d);
+  const dd = e.pdfDoc(s, blocks, letterhead);
+  const swap = (n: any): any => {
+    if (n && typeof n === "object" && !Array.isArray(n)) {
+      const t = Array.isArray(n.text) ? n.text.map((r: any) => (typeof r === "string" ? r : r?.text ?? "")).join("") : n.text;
+      if (t === SIG_MARK) return signature ? { image: "corpsig", width: 130, margin: [0, 0, 0, 2] } : { text: "" };
+      for (const k of ["stack", "columns", "content"]) if (Array.isArray(n[k])) n[k] = n[k].map(swap);
+    }
+    return n;
+  };
+  return { content: (dd.content as any[]).map(swap), images: { ...dd.images, ...(signature ? { corpsig: signature } : {}) } };
+}
+
 // The same, as HTML for the page (the engine's own letter HTML with the same changes).
-export function corpPartB(texts: Record<string, string>, d: CorpQuoteData): string {
+export function corpPartB(texts: Record<string, string>, d: CorpQuoteData, o: Opts = {}): string {
   const { e, s, paper } = letter(texts, d);
   e.render(s);
   let h = paper.innerHTML as string;
-  h = h.replace(/^<img class="lh"[^>]*>/, "");
-  h = h.replace(/^<p>[^<]*<\/p>/, ""); // the letter's date
-  h = h.replace(/<p style="margin-bottom:14px">[\s\S]*?<\/p>/, ""); // the address block
+  const firmLine = `${plain(texts, T1A.firm)}, ${plain(texts, T1A.address)}`;
+  h = h.replace(/^<img class="lh"[^>]*>/, o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(firmLine)}" style="${S.lh}">` : "");
+  h = h.replace(/<p style="margin-bottom:14px">[\s\S]*?<\/p>/, `<p style="margin-bottom:14px">${addrLines(d).map((l, i) => (i === 0 ? `<strong>${esc(l)}</strong>` : esc(l))).join("<br>")}</p>`);
   const fee = esc(texts[FEE_KEY] ?? FEE_TEXT).replace(/&#39;/g, "’");
   h = h.replace(new RegExp(`<p>${fee.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</p>`), `<p>${esc(plain(texts, CORP.feePointer))}</p>`);
   const taxdome = esc(texts[TAXDOME_KEY] ?? TAXDOME_TEXT).replace(/&#39;/g, "’");
@@ -177,7 +198,7 @@ export function corpPartB(texts: Record<string, string>, d: CorpQuoteData): stri
   const yours = `<p>${esc(texts[YOURS_KEY] ?? "Yours truly,")}</p>`;
   h = h.replace(yours, `<p>${esc(plain(texts, CORP.esign))}</p>${yours}`);
   const sig = h.indexOf('<div class="sig">');
-  const firmSig = `<p><strong>${esc(e.FIRM)}</strong><br>${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>`;
+  const firmSig = `<p><strong>${esc(e.FIRM)}</strong></p>${o.signature ? `<img data-sig="1" src="${esc(o.signature)}" alt="Signature" style="display:block;width:150px;height:auto;margin:0 0 2px">` : ""}<p>${esc(d.signer.name)}${d.signer.title ? `<br>${esc(d.signer.title)}` : ""}</p>`;
   if (sig >= 0) { const next = h.indexOf('<div class="pgb">', sig); h = h.slice(0, sig) + firmSig + (next >= 0 ? h.slice(next) : ""); }
   return `<div class="studio-preview"><div class="paper" style="width:auto;max-width:none;padding:0;box-shadow:none;margin:0">${h}</div></div>`;
 }
@@ -187,7 +208,7 @@ export function renderCorpQuote(texts: Record<string, string>, d: CorpQuoteData,
   const partC = `<div style="${S.doc}"><h2 style="${S.h2}">${t(C.partC)}</h2><p style="${S.p}">${t(C.typeName, `${d.client.first} ${d.client.last}`.trim())}</p></div>`;
   return [
     { label: "Part A: Your quote", html: corpPartA(texts, d, o) },
-    { label: "Part B: Engagement terms (the corporate master letter)", html: corpPartB(texts, d) },
+    { label: "Part B: Engagement terms (the corporate master letter)", html: corpPartB(texts, d, o) },
     { label: "Part C: Sign", html: partC },
   ];
 }

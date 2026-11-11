@@ -124,6 +124,9 @@ export const B = {
   s12b: P(160, "This agreement is governed by the laws of Ontario, and the courts of Ontario have jurisdiction over any dispute."),
   yours: P(161, "Yours truly,"),
   firmCaps: P(162, "CONCEPT ACCOUNTING & ADVISORY PROFESSIONAL CORPORATION"),
+  // The letter stands on its own (Hashim, Nov 11, 2026): letterhead, date, addressee and this line
+  // before "Dear", and the firm's signature at the end. Recorded in docs/BRIEF.md.
+  reLine: P(163, "Re: Engagement letter for your {1} personal income tax {2}", ["Tax year", "return or returns"]),
 };
 
 // ---------- Part C: Sign (the signing itself is built in Phase 2 step 8) ----------

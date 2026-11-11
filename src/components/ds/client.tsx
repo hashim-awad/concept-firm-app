@@ -3,18 +3,21 @@ import { Lock, Mail, Phone, ShieldCheck } from "lucide-react";
 import { Logo, FIRM } from "./brand";
 
 // Frame for every client-facing page: calm, centred, phone-first.
-export function ClientShell({ children, step }: { children: ReactNode; step?: string }) {
+// wide: the quote and engagement letter page (the letter beside the sign panel); every other client
+// page keeps the narrow column.
+export function ClientShell({ children, step, wide }: { children: ReactNode; step?: string; wide?: boolean }) {
+  const w = wide ? "max-w-6xl" : "max-w-2xl";
   return (
     <div className="ds flex min-h-full flex-col bg-paper">
       <header className="border-b border-sand-200 bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-5">
+        <div className={`mx-auto flex h-16 ${w} items-center justify-between px-5`}>
           <Logo height={32} priority />
           {step && <span className="text-xs font-medium text-ink-3">{step}</span>}
         </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-8 md:py-12">{children}</main>
+      <main className={`mx-auto w-full ${w} flex-1 px-5 py-8 md:py-12`}>{children}</main>
       <footer className="border-t border-sand-200 bg-surface">
-        <div className="mx-auto max-w-2xl space-y-2 px-5 py-6 text-[13px] text-ink-3">
+        <div className={`mx-auto ${w} space-y-2 px-5 py-6 text-[13px] text-ink-3`}>
           <p className="font-medium text-ink-2">{FIRM.legalName}</p>
           <p>{FIRM.address}</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1">

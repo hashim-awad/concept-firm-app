@@ -4,6 +4,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-11",
+    title: "Engagement letters stand on their own; new signing layout",
+    points: [
+      "Each quote's engagement letter now starts like a letter: letterhead, date, the client's name and email (the company, attention line and email for a company), and a Re line.",
+      "The firm signs at the end with your signature image from Settings, your name and title, and the firm name.",
+      "The client's page puts the sign form beside the letter, where it stays in view while they read. On a phone it is a bar at the bottom of the screen. After signing, the same place shows the portal and download buttons.",
+    ],
+  },
+  {
     date: "2026-11-10",
     title: "Personal tax form: what the base fee covers",
     points: [

@@ -37,6 +37,7 @@ export function toQuoteData(q: QuoteRow, signers: SignerRow[], fallback: { prepa
     preparedOn: q.sent_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(new Date(q.sent_at)) : todayToronto(),
     validUntil: q.valid_until ?? addDays(todayToronto(), 21),
     signer: q.signer?.name ? q.signer : fallback.signer,
+    emails: [s0?.email ?? "", ...(q.couple && s1 ? [s1.email] : [])].filter(Boolean),
   };
 }
 
@@ -47,7 +48,7 @@ export function toCorpData(q: QuoteRow, signers: SignerRow[], fallback: { prepar
     client: t.client, company: q.company_name ?? "", yearEnd: q.year_end ?? "", province: q.details?.province ?? "ON",
     books: q.details?.books ?? "bookkeeper", extras: { gst: !!q.details?.extras?.gst, slips: !!q.details?.extras?.slips },
     counts: q.details?.counts ?? undefined,
-    totalCents: q.total_cents, preparedBy: t.preparedBy, preparedOn: t.preparedOn, validUntil: t.validUntil, signer: t.signer,
+    totalCents: q.total_cents, preparedBy: t.preparedBy, preparedOn: t.preparedOn, validUntil: t.validUntil, signer: t.signer, email: t.emails?.[0],
     letterDate: t.preparedOn,
   };
 }
@@ -57,6 +58,14 @@ export async function loadQuoteForStaff(supabase: SupabaseClient, leadId: string
   if (!q) return null;
   const { data: s } = await supabase.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at").eq("quote_id", q.id).order("person");
   return { quote: q as QuoteRow, signers: (s ?? []) as SignerRow[] };
+}
+
+// The firm signer's signature image (Settings, Signature) as a data URL, read with the server key so
+// the client's page and the signed PDF can show it. Null when none is uploaded.
+export async function firmSignature(): Promise<string | null> {
+  const { data, error } = await createAdminClient().storage.from("brand-private").download("signature/signature.png");
+  if (error || !data) return null;
+  return "data:image/png;base64," + Buffer.from(await data.arrayBuffer()).toString("base64");
 }
 
 // The engagement-letter signer from Settings (read with the server key; not every role reads Settings).

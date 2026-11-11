@@ -14,11 +14,13 @@ const TZ = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ye
 export const auditTime = (iso: string) => (iso ? TZ.format(new Date(iso)) : "");
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function node(b: Block): any {
+function node(b: Block, hasSig = false): any {
   const runs = b.runs.map((r) => ({ text: r.text, bold: r.bold }));
   // Same look as the firm's engagement letters (pdfDoc in the Studio engine).
   switch (b.kind) {
     case "lh": return { image: "lh", width: 492, margin: [0, 0, 0, 18] };
+    case "sig": return hasSig ? { image: "sig", width: 130, margin: [0, 0, 0, 2] } : { text: "" };
+    case "addr": return { text: runs, alignment: "left", margin: [0, 0, 0, 12] };
     case "h1": return { text: runs, fontSize: 13.5, bold: true, color: NAVY, alignment: "left", margin: [0, 0, 0, 8] };
     case "h2": return { text: runs, fontSize: 11.5, bold: true, color: NAVY, alignment: "left", margin: [0, 10, 0, 6] };
     case "h3": return { text: runs, fontSize: 11, bold: true, color: NAVY, alignment: "left", margin: [0, 8, 0, 6] };
@@ -32,7 +34,8 @@ function node(b: Block): any {
 }
 
 // partB: for a corporate quote, the master letter as Studio's engine lays it out (pdfDoc content and images).
-export function signedPdfDef(parts: { label: string; html: string }[], audit: AuditInfo, partB?: { content: unknown[]; images: Record<string, string> }): any {
+// signature: the firm signer's signature image (data URL) for the letter's closing.
+export function signedPdfDef(parts: { label: string; html: string }[], audit: AuditInfo, partB?: { content: unknown[]; images: Record<string, string> }, signature?: string | null): any {
   const [a, b] = parts;
   // One signature block per signer, side by side, like the letters' "Agreed and accepted" blocks.
   const sig = (s: AuditSigner) => ({ stack: [
@@ -61,7 +64,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
   return {
     pageSize: "LETTER",
     pageMargins: [60, 48, 60, 56],
-    images: { ...(partB?.images ?? {}), lh: LETTERHEAD },
+    images: { ...(partB?.images ?? {}), lh: LETTERHEAD, ...(signature ? { sig: signature } : {}) },
     defaultStyle: { font: "Roboto", fontSize: 10, lineHeight: 1.22, color: "#1d2330", alignment: "justify" },
     info: { title: `Quote and engagement letter, ${audit.taxYear}`, author: "Concept Accounting & Advisory Professional Corporation" },
     footer: (cur: number, total: number) => ({ columns: [
@@ -69,9 +72,9 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
       { width: 70, text: `Page ${cur} of ${total}`, alignment: "right", fontSize: 7.5, color: "#7a8394" },
     ], margin: [60, 18, 60, 0] }),
     content: [
-      ...blocks(a.html).map(node),
+      ...blocks(a.html).map((x) => node(x)),
       { text: "", pageBreak: "after" },
-      ...(partB ? partB.content : blocks(b.html).map(node)),
+      ...(partB ? partB.content : blocks(b.html).map((x) => node(x, !!signature))),
       // The heading, the agreement and the first row of signatures stay on one page.
       { unbreakable: true, stack: [
         { text: "Signatures", fontSize: 11.5, bold: true, color: NAVY, margin: [0, 14, 0, 4] },

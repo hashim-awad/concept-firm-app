@@ -10,7 +10,7 @@ import { formatDate, formatDateTime, todayToronto } from "@/lib/dates";
 import { env } from "@/lib/env";
 import { LETTERHEAD_URL, money, renderEmail, renderQuote } from "@/lib/t1-quote/render";
 import { provinceName } from "@/lib/leads/provinces";
-import { letterSigner, loadQuoteForStaff, toCorpData, toQuoteData } from "@/lib/t1-quote/server";
+import { letterSigner, loadQuoteForStaff, toCorpData, toQuoteData, firmSignature } from "@/lib/t1-quote/server";
 import { depositAndBalance, renderCorpEmail, renderCorpQuote } from "@/lib/corporate/render";
 import { markQuoteSent } from "../../quote-actions";
 import { CopyButton } from "./copy-button";
@@ -49,7 +49,8 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
   const split = depositAndBalance(quote.total_cents);
   const links = signers.map((s) => `${env.siteUrl()}/q/${s.token}`);
   const email = corpData ? renderCorpEmail(texts, corpData, sender, links[0]) : renderEmail(texts, data, sender, links);
-  const parts = corpData ? renderCorpQuote(texts, corpData, { watermark: !sent, letterhead: LETTERHEAD_URL }) : renderQuote(texts, data, { watermark: !sent, letterhead: LETTERHEAD_URL });
+  const look = { watermark: !sent, letterhead: LETTERHEAD_URL, signature: await firmSignature() };
+  const parts = corpData ? renderCorpQuote(texts, corpData, look) : renderQuote(texts, data, look);
   const expired = sent && quote.valid_until !== null && quote.valid_until < todayToronto();
 
   return (
