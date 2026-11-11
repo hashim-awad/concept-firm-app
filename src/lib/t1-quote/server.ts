@@ -17,7 +17,7 @@ export type QuoteRow = {
 };
 export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };
 
-const COLS = "id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details";
+const COLS = "id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, proposal, chosen_option, title";
 
 export function addDays(iso: string, n: number) {
   const d = new Date(`${iso}T00:00:00Z`);

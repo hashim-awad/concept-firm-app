@@ -40,7 +40,7 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
     <Link key={text} href={href} aria-current={on ? "true" : undefined}
       className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
   );
-  const open = (r: Row) => r.kind === "proposal" ? (r.document_id ? `/quotes/proposal?doc=${r.document_id}` : `/quotes/proposal?quote=${r.id}`) : r.lead_id ? `/leads/${r.lead_id}/quote` : "/quotes";
+  const open = (r: Row) => r.kind === "proposal" ? (r.status === "draft" ? `/quotes/proposal?quote=${r.id}` : r.document_id && !r.sent_at ? `/quotes/proposal?doc=${r.document_id}` : `/quotes/${r.id}`) : r.lead_id ? `/leads/${r.lead_id}/quote` : "/quotes";
   const typeLabel = (r: Row) => r.kind === "proposal" && r.options > 1 ? `${QUOTE_KIND.proposal} (${r.options} options)` : QUOTE_KIND[r.kind];
 
   return (

@@ -9,6 +9,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clientParts } from "@/lib/t1-quote/sign";
 import { SignForm } from "./sign-form";
 import { SignDock } from "./sign-dock";
+import { ProposalSign } from "./proposal-sign";
+import { proposalView, type ProposalRow } from "@/lib/proposal/server";
+import { firmSignature } from "@/lib/t1-quote/server";
+
+// A signed proposal shows the proposal and the letter for the option chosen.
+function proposalSignedParts(q: ProposalRow) {
+  const v = proposalView(q, null);
+  const o = v.options[q.chosen_option ?? 0];
+  return [{ label: "Proposal", html: v.partA }, { label: o.name, html: `<p><b>Option chosen: ${o.name.replace(/[<>&]/g, "")}</b></p>${o.letter}` }, { label: "", html: "" }];
+}
 
 export const metadata: Metadata = { title: "Concept Accounting & Advisory", robots: { index: false, follow: false } };
 
@@ -33,10 +43,20 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     return say("This quote has expired", `It was valid until ${longDate(quote.valid_until ?? "")}. Please contact us at ${FIRM.phone} or ${FIRM.email} and we will send you a new one.`);
   }
   const texts = quote.wording ?? {};
-  const parts = await clientParts(quote, signers);
+  // A proposal: pick an option, read its letter, sign (front office batch, section 5).
+  if (quote.kind === "proposal" && !signed) {
+    const view = proposalView(quote as ProposalRow, await firmSignature());
+    return (
+      <ClientShell wide>
+        <ProposalSign token={token} partA={view.partA} options={view.options} recommended={view.recommended} who={`${me.first_name} ${me.last_name}`}
+          labels={{ fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton), title: pieceText(texts, CORP.signerTitle) }} />
+      </ClientShell>
+    );
+  }
+  const parts = quote.kind === "proposal" ? proposalSignedParts(quote as ProposalRow) : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
   const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
-    ...(quote.kind === "corporate" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
+    ...(quote.kind !== "t1" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   const download = { href: `/q/${token}/pdf`, label: pieceText(texts, C.download) };
   const portal = { href: PORTAL, label: pieceText(texts, C.portal), primary: true };

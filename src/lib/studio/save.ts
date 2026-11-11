@@ -42,6 +42,8 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   catch (err) { return { ok: false, error: err instanceof Error ? err.message : "Could not build the document." }; }
   if (!b.scr.ok) return { ok: false, error: b.scr.message || "Fix the items listed first." };
 
+  // Front office batch: proposals are sent for online signing from Quotes, never issued as a Final PDF.
+  if (final && input.kind === "proposal") return { ok: false, error: "Proposals are sent for online signing. Use Send for signing in the proposal builder." };
   // Decision 22: a Final proposal needs an approved GST/HST rate for the client's province.
   if (final && input.kind === "proposal") {
     const prov = String(input.snapshot?.f?.province ?? "");

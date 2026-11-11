@@ -232,9 +232,23 @@ export const CORP_EMAIL = {
   firm: P(511, "Concept Accounting & Advisory Professional Corporation", [], CE),
 };
 
+// ---------- Proposal email (front office batch, section 3): the signing link for a monthly proposal ----------
+const PE = "propemail";
+export const PROPOSAL_EMAIL = {
+  subject: P(600, "Your proposal from Concept Accounting", [], PE),
+  hi: P(601, "Hi {1},", ["First name"], PE),
+  thanks: P(602, "Thank you for your time on our call. Your proposal is ready.", [], PE),
+  howOptions: P(603, "Open it with the button below. Choose the option that suits you, read the engagement letter for it and sign online. It takes about five minutes.", [], PE),
+  howOne: P(604, "Open it with the button below. Read the proposal and the engagement letter, then sign online. It takes about five minutes.", [], PE),
+  valid: P(605, "This proposal is valid until {1}.", ["Valid until date"], PE),
+  questions: P(606, "If you have questions, reply to this email or call me.", [], PE),
+  button: P(607, "Review and sign your proposal", [], PE),
+  firm: P(608, "Concept Accounting & Advisory Professional Corporation", [], PE),
+};
+
 export const T1Q_PIECES: QPiece[] = [
   ...Object.values(A), ...Object.values(ITEM_LINES).flat().filter(Boolean) as QPiece[], ...Object.values(SELF_EMPLOYED_WITH),
-  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL), ...Object.values(CORP), ...Object.values(CORP_EMAIL),
+  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL), ...Object.values(CORP), ...Object.values(CORP_EMAIL), ...Object.values(PROPOSAL_EMAIL),
 ];
 
 // The three templates on the Templates page.
@@ -244,4 +258,5 @@ export const T1Q_TEMPLATES = [
   { k: "t1email2", name: "T1 quote email: couple, two signers", group: "Engagement letters", basis: "Phase 2 batch, section 8", status: "In use" },
   { k: "corpquote", name: "Corporate year-end quote (Part A)", group: "Engagement letters", basis: "Phase 2 batch, Appendix C; Part B is the corporate master letter", status: "In use" },
   { k: "corpemail", name: "Corporate year-end quote email", group: "Engagement letters", basis: "Phase 2 batch, Appendix C", status: "In use" },
+  { k: "propemail", name: "Proposal email", group: "Engagement letters", basis: "Front office batch, section 3: the signing link for a monthly proposal", status: "In use" },
 ];

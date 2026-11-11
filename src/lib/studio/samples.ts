@@ -6,6 +6,7 @@ import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
 import { T1Q_TEMPLATES } from "../t1-quote/wording";
+import { renderProposalEmail } from "../proposal/email";
 import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
 import { corpPartA, renderCorpEmail, CORP_SAMPLE } from "../corporate/render";
 
@@ -67,6 +68,10 @@ export function allTemplates(): TemplateInfo[] {
 
 export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
   // The T1 quote (Appendix A) and its emails, with made-up client details.
+  if (key === "propemail") {
+    const e = renderProposalEmail(wording?.texts ?? {}, { first: "Pat", validUntil: "2026-12-02", options: 3 }, SAMPLE_SENDER, "https://example.test/q/link", { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+  }
   if (key === "corpquote" || key === "corpemail") {
     const texts = wording?.texts ?? {};
     const d = { ...CORP_SAMPLE, signer: signers.letter };

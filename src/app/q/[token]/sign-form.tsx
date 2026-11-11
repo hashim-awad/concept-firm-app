@@ -4,8 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signQuote, type SignState } from "./actions";
 
-export function SignForm({ token, forOther, who, labels }: {
-  token: string; forOther: boolean; who: string;
+export function SignForm({ token, forOther, who, labels, option }: {
+  token: string; forOther: boolean; who: string; option?: number | null;
   labels: { fullName: string; typed: string; agree: string; sign: string; title?: string };
 }) {
   const router = useRouter();
@@ -14,6 +14,7 @@ export function SignForm({ token, forOther, who, labels }: {
   useEffect(() => { if (state && "done" in state) router.refresh(); }, [state, router]);
   return (
     <form action={action} className="grid gap-4">
+      {option !== undefined && <input type="hidden" name="option" value={option ?? ""} />}
       <div>
         <label htmlFor={`name-${forOther ? "o" : "m"}`} className="label">{labels.fullName}{forOther ? ` (${who})` : ""}</label>
         <input id={`name-${forOther ? "o" : "m"}`} name="name" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="input" />
