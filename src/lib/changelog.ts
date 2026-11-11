@@ -11,6 +11,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "Viewed means the client opened their link. A quote expires 21 days after it is sent. Staff mark a quote declined when the client says no.",
       "A proposal saves itself as a draft in Quotes as soon as you start. A new Letter details step collects what the engagement letter needs, and shows what is still missing for each option.",
       "Hashim sends a proposal for signing. The client opens the link, picks an option, reads the engagement letter for that option and signs once. The signed PDF holds the proposal, the chosen letter and the signing record.",
+      "Templates, Proposal: the preview also shows a one-price proposal, so its first next step can be edited. The option boxes no longer show stray style text, and their border colours are no longer listed as wording.",
       "The proposal builder is at Quotes, New proposal. The T1 pricing calculator moved to Settings, Pricing, T1 price check. My day lists quotes waiting for signature.",
     ],
   },
