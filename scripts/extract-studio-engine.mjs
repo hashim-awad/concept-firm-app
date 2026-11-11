@@ -119,7 +119,12 @@ const patched = factory.slice(0, end) + "].filter(function(t){return __plain(t).
 // without it the output is Studio's.
 const POPTS = 'B.push({k:"popts",single:s.single,';
 if (patched.split(POPTS).length !== 2) throw new Error("Expected exactly one proposal options block.");
-writeFileSync(OUT, patched.replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,'));
+// Third change, with P_LINES only: a fee line with no amount reads "Amount needed" in the preview,
+// not "Included" (a blank amount already stops the proposal from being sent).
+const LINE = 'return [l.svc,v.k==="num"?';
+if (patched.split(LINE).length !== 2) throw new Error("Expected exactly one option fee line.");
+writeFileSync(OUT, patched.replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
+  .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");
 console.log(`Wording pieces: ${pieces.size} (written to ${WORDING_OUT}).`);
 console.log(`Wrote ${OUT}: ${take.size} names, ${stmts.length} statements.`);

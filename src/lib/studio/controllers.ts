@@ -238,7 +238,8 @@ export class Proposal {
     for (const [k] of this.e.PSVC as [string, string][]) o.svc[k] = S.indexOf(k) >= 0 || (k === "pnl" && S.indexOf("cfo") >= 0);
     const lines: { svc: string; kind: string; amt: string }[] = [];
     if (m != null) lines.push({ svc: "Monthly accounting and compliance services", kind: "month", amt: String(m) });
-    if (sw != null) lines.push({ svc: "Software subscription (QuickBooks Online and Dext)", kind: "month", amt: sw ? String(sw) : "Included" });
+    // No software price in the package: the software is included, as the Letter Builder's package fill says.
+    lines.push({ svc: "Software subscription (QuickBooks Online and Dext)", kind: "month", amt: sw ? String(sw) : "Included" });
     if (y != null) lines.push({ svc: "Year-end financial statements and T2", kind: "year", amt: String(y) });
     if (lines.length) o.lines = lines;
   }

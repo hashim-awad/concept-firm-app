@@ -69,6 +69,11 @@ test("Quotes (live): one option, team ticks, package fills services and prices, 
   assert.ok(p.opts[0].svc.books && p.opts[0].svc.cfo && p.opts[0].svc.pnl && !p.opts[0].svc.payroll);
   const box = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
   assert.equal(box.opts![0].lines.length, 2, "software is its own line in the option box");
+  p.applyOffer(0, { Offer: "Team: Plus", Services: '["books"]', "Monthly fee": "2400", "Software per month": "", "Year-end fee": "" });
+  assert.deepEqual(p.opts[0].lines.map((l: { amt: string }) => l.amt), ["2400", "Included"], "no software price: software included");
+  p.setLine(0, 0, "amt", "");
+  const box2 = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
+  assert.equal(box2.opts![0].lines[0][1], "Amount needed", "a blank amount never reads Included");
   p.set("format", "options");
   assert.equal(p.opts.length, 2);
   p.removeOption(1);
