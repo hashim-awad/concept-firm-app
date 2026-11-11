@@ -14,6 +14,18 @@ async function owner(back: string) {
   if (!a?.is_owner) redirect(withMessage(back, "error", "Only an owner can change Closebook setup."));
 }
 
+// Lock or unlock a main line that has sub-lines (Hashim, Nov 11, 2026): a locked line shows with a
+// lock in the picker and nobody can match to it or post an entry to it.
+export async function setLineLocked(formData: FormData) {
+  const line = s(formData, "line");
+  const back = `${LINES}/${line}`;
+  await owner(back);
+  const lock = s(formData, "locked") === "true";
+  const { error } = await (await createClient()).rpc("cb_set_line_locked", { p_line: line, p_locked: lock, p_reason: s(formData, "reason") });
+  revalidatePath(LINES); revalidatePath(back);
+  redirect(withMessage(back, error ? "error" : "msg", error?.message ?? (lock ? "Line locked. Staff now pick one of its sub-lines." : "Line unlocked.")));
+}
+
 // A master line's name, statement line, default tax code, lead sheet and note, with a reason.
 export async function updateMasterLine(formData: FormData) {
   const line = s(formData, "line");

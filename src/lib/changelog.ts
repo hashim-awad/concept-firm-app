@@ -5,6 +5,31 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Closebook: locked GIFI lines and a shorter line list",
+    points: [
+      "A main GIFI line with sub-lines to choose from shows a lock and cannot be picked: Due to shareholders, Due from shareholders and Dividends. Pick shareholder 1 or 2, or eligible or non-eligible, instead.",
+      "An account already on a locked line goes to the card at the top, to be moved to a sub-line.",
+      "The GIFI line list shows only lines on the account's side: a credit balance sees liabilities, equity and revenue. Show all lines brings back the rest.",
+      "In lead sheets, the Explain panel has a link, Wrong GIFI line? Change it, that opens that account's matching panel.",
+      "Settings, Closebook, GIFI lines: owners can lock or unlock a main line that has sub-lines, with a reason. Locked lines show a lock in the list.",
+    ],
+  },
+  {
+    date: "2026-11-11",
+    title: "Closebook: match accounts to GIFI, lead sheets and entries",
+    points: [
+      "Importing a trial balance matches accounts to GIFI lines by itself: last year's matches first, then by account name.",
+      "A card at the top lists the accounts that need a decision, with their dollar total. The pencil on any account opens a side panel to change its GIFI line (and, for the reviewer, its tax code). Nothing changes until Save.",
+      "By GIFI line shows one row per line with its accounts and total. A line whose total is on the wrong side (for example an asset in credit) gets an amber flag.",
+      "The GIFI line list in the side panel shows each line's section in grey and an info mark with CRA's description of the code. Type a number or words; arrows and Enter work.",
+      "Only the file's reviewer changes an account's tax code. A balance that flips sign moves to its paired line, for example a bank account in overdraft.",
+      "Lead sheets are one table: a row per lead sheet, opened to show its accounts. Lines that moved by more than $5,000 and more than 20% are flagged; Flagged only shows just those.",
+      "The pencil on a flagged line opens a side panel to pick why it changed (new asset, new loan, revenue grew, one-time expense, reclassified, error found and fixed) and add a note. The reviewer judges it at sign-off.",
+      "Full files have an Entries tab for adjusting, reclassifying and tax entries. Every entry must balance and goes to the reviewer.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Closebook: start a year-end file and import the trial balance",
     points: [
       "All files, New file: pick the company, confirm the year-end, choose monthly or full and how the books are kept, and assign the preparer and reviewer. The file starts with its core documents.",

@@ -150,6 +150,15 @@ Not changed, but placed differently (decision 58, Nov 11, 2026): the letter keep
 
 T1 letter (Appendix A Part B) additions, decision 58: letterhead, date, addressee (name or names, email or emails), the line "Re: Engagement letter for your [year] personal income tax return(s)" (editable piece), and the signature image between the firm name and the signer. The wording itself is unchanged.
 
+## Screen standard (Hashim, Nov 11, 2026)
+Every screen we build is as tidy as Closebook's Trial balance tab after the QuickBooks-style rework:
+- One table where possible, with groups that open in place, so columns line up all the way down.
+- What needs action comes first (a card with the count and the dollar amount), and a filter shows only that.
+- Changes happen in a side panel opened by a pencil, with an explicit Save, so a stray click changes nothing.
+- Plain names on screen. Codes (lead sheet letters, document codes such as F3) stay in the build, not on screen.
+- Status by colour and a short word: Signed (green), Next (blue), flags (amber), notes and problems (red), Open (grey).
+- Check each screen in a browser at desktop and phone sizes before it goes to Hashim.
+
 ## Standing rules (Phase 2 batch, section 1)
 - **No price breakdown to clients.** A client never sees the price book, a line price or any per-item amount: not on the quote, engagement letter, emails, signed PDF or download page. The client sees the services included and one total fee, plus GST/HST. Applies to T1 quotes and auto-priced corporate quotes. The full breakdown is stored with the signed quote and shown only to staff with the Pricing permission.
 - **Living-system maintenance.** The brief is updated first, before the code. Every change is tested in the Test project before Live. Automatic tests grow with the app; a new feature adds its tests. The app keeps a change log in plain words Hashim can read. Backups are restored once before go-live and once a year after, to prove they work.
@@ -288,6 +297,8 @@ In short:
 - Structure: staff map client accounts to master lines only; GIFI codes, tax codes, lead sheets and statement lines come from the master line. Only the reviewer changes a tax code. Paired lines take opposite balances. Required GIFI codes (2599, 3499, 3620, 8299, 9368, 9999, and 3849 when retained earnings are reported) must be present before any GIFI export.
 - The year-end package reproduces the current package (Appendix C) exactly, with figures from the final trial balance. The MAL is signed through Studio signing. The CSRS 4200 report wording is never edited without Hashim.
 - Setup lives in Settings, Closebook (owner-only): GIFI lines, tax codes, lead sheets, firm chart matching, standard entries, vendor rules, bank CSV formats, thresholds ($5,000; $5,000 and 20%), Note 1 policy (amortization equal to CCA), GIFI version.
+- Locked lines (Hashim, Nov 11, 2026, borrowed from QuickBooks' locked parent accounts): a main line whose sub-lines are the real choice is shown in the GIFI picker with a lock and cannot be picked, matched by history or suggestion, or posted to by an entry. Locked by default: 1301.00 (shareholder 1 or 2 loans), 2781.00 (due to shareholder 1 or 2) and 3701.00 (eligible or non-eligible dividends). Main lines that are a normal answer as well as having sub-lines (meals at 50%, donations, other expenses) stay open. Owners lock or unlock a line in Settings, Closebook, GIFI lines, with a reason; it is logged. An account already on a locked line goes to the decision card.
+- GIFI picker side filter (Hashim, Nov 11, 2026): it shows only lines on the account's balance side (debit: assets, expenses, dividends, accumulated amortization excluded; credit: liabilities, equity, revenue and contra lines) with "Show all lines" for the rest. Lead sheets explain movement only; a wrong line found there is fixed through "Wrong GIFI line? Change it", which opens the account's matching panel.
 - Build order (batch section 8): 1 trial balance engine; 2 year-end package; 3 compilation shell; 4 schedules, revenue check and setup-added documents; 5 monthly file; 6 ProFile loop. Each step: tests, dummy preview on Test, Hashim's approval, then Live.
 - Acceptance test (batch section 9): each step is tested on Test with a dummy client that mirrors the shape of Hashim's real file (invented names and figures); Hashim then runs the real file on Live. Test log in `docs/phase3/TEST-LOG.md`, with no client names or figures.
 
