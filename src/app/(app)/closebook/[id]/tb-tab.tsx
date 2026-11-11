@@ -38,8 +38,13 @@ export function TbTab(p: Props) {
   const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
   const typeWord: Record<string, string> = { "1": "an asset", "2": "a liability", "3": "equity", "4": "revenue" };
-  const mismatchText = (a: CbAccount) => (typeMismatch(a.number, a.line_no ? byNo.get(a.line_no) : undefined) ? `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}` : "");
-  const attention = accounts.filter((a) => !a.line_no || a.needs_reviewer || mismatchText(a));
+  // A type mismatch needs a look, unless the reviewer matched the account: their match confirms it.
+  const isMismatch = (a: CbAccount) => typeMismatch(a.number, a.line_no ? byNo.get(a.line_no) : undefined);
+  const confirmed = (a: CbAccount) => a.mapping_source === "reviewer";
+  const mismatchText = (a: CbAccount) => (!isMismatch(a) ? "" : confirmed(a)
+    ? `The account number says ${typeWord[a.number[0]] ?? "an expense"}; reviewer confirmed`
+    : `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}`);
+  const attention = accounts.filter((a) => !a.line_no || a.needs_reviewer || (isMismatch(a) && !confirmed(a)));
   const shown = view === "attention" ? attention : accounts;
   const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}` }));
   const rows: Row[] = shown.map((a) => {

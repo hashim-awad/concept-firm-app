@@ -62,7 +62,7 @@ function AccountRow({ fileId, r, options, taxes, isReviewer }: { fileId: string;
           {!msg && r.source && <span>{r.source}</span>}
           {r.needsReviewer && <span className="font-semibold text-danger">For the reviewer: {r.reason}</span>}
           {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
-          {r.mismatch && <span className="font-semibold text-warning">{r.mismatch}</span>}
+          {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
           {r.editable && !isReviewer && !r.needsReviewer && (
             <button type="button" className="text-navy-700 underline" disabled={pending}
               onClick={() => start(async () => { const err = await askReviewerInline(fileId, r.id); setMsg(err ? { ok: false, text: err } : { ok: true, text: "Sent to the reviewer" }); })}>Not sure? Ask the reviewer</button>
