@@ -12,6 +12,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "A proposal saves itself as a draft in Quotes as soon as you start. A new Letter details step collects what the engagement letter needs, and shows what is still missing for each option.",
       "Hashim sends a proposal for signing. The client opens the link, picks an option, reads the engagement letter for that option and signs once. The signed PDF holds the proposal, the chosen letter and the signing record.",
       "Templates, Proposal: the preview also shows a one-price proposal, so its first next step can be edited. The option boxes no longer show stray style text, and their border colours are no longer listed as wording.",
+      "Templates, Proposal: a Next steps line can be left blank to remove that step. It stays in the list of lines, so it can be filled in again.",
       "The proposal builder is at Quotes, New proposal. The T1 pricing calculator moved to Settings, Pricing, T1 price check. My day lists quotes waiting for signature.",
     ],
   },

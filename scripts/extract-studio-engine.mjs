@@ -106,7 +106,15 @@ ${body.split("\n").map((l) => "  " + l).join("\n")}
   return { ${names.join(", ")}, __get, __set };
 }
 `;
-writeFileSync(OUT, factory);
+// One change to Studio's code (Hashim, Nov 11, 2026): a proposal "Next steps" line whose wording is
+// set to blank in Templates is left out, so a step can be removed without leaving an empty number.
+// With the original wording no line is blank, so the output is unchanged.
+const OL = 'B.push({k:"ol",items:[';
+const at = factory.indexOf(OL);
+if (at < 0 || factory.indexOf(OL, at + 1) >= 0) throw new Error("Expected exactly one proposal Next steps list.");
+const end = factory.indexOf("]});", at);
+const patched = factory.slice(0, end) + "].filter(function(t){return __plain(t).trim()!==\"\";})});" + factory.slice(end + 4);
+writeFileSync(OUT, patched);
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");
 console.log(`Wording pieces: ${pieces.size} (written to ${WORDING_OUT}).`);
 console.log(`Wrote ${OUT}: ${take.size} names, ${stmts.length} statements.`);

@@ -31,7 +31,10 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   // The document shows unpublished changes (in yellow) when there are any.
   const showing = state.draft ? { id: state.draft.id, label: state.draft.label, date: "", texts: state.draft.texts } : state.live;
   const sample = templateSample(key, data.signers, showing, true);
-  const keys = [...new Set((sample?.parts ?? []).flatMap((p) => [...p.html.matchAll(/data-w="(w[0-9a-f]{10})"/g)].map((m) => m[1])))];
+  // Lines from the original wording too: a "Next steps" line set to blank leaves the document but
+  // stays in the list, so it can be filled in again.
+  const base = templateSample(key, data.signers, null, true);
+  const keys = [...new Set([...(sample?.parts ?? []), ...(base?.parts ?? [])].flatMap((p) => [...p.html.matchAll(/data-w="(w[0-9a-f]{10})"/g)].map((m) => m[1])))];
   const pieces = keys.filter((k) => PIECE.has(k)).map((k) => {
     const p = PIECE.get(k)!;
     const live = state.live?.texts[k] ?? p.text;
