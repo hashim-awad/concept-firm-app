@@ -54,9 +54,12 @@ export async function importTrialBalance(formData: FormData) {
   const { data, error } = await (await createClient()).rpc("cb_import_tb", {
     p_file: id, p_target: s(formData, "target") === "last_year" ? "last_year" : "this_year", p_source: s(formData, "source"), p_file_name: f.name, p_rows: tb.rows,
   });
+  if (error) redirect(withMessage(back, "error", error.message));
+  const m = await matchFile(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message
-    : `Imported ${data} accounts. Debits and credits both ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}.${tb.skipped.length ? ` Left out: ${tb.skipped.length} total, blank or zero rows.` : ""}`));
+  const matched = m.history + m.suggested;
+  redirect(withMessage(`${back}${m.reviewer ? "&view=attention" : ""}`, "msg",
+    `Imported ${data} accounts, balanced at ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Matched ${matched} to GIFI lines${m.history ? ` (${m.history} from last year)` : ""}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
 }
 
 // ---------- Matching (batch 4.5) ----------
@@ -69,10 +72,9 @@ async function editor(back: string) {
 
 // Match every account not yet matched: the client's history first (in the database), then name
 // suggestions; anything unclear goes to the reviewer's list.
-export async function runMatching(formData: FormData) {
-  const id = s(formData, "file_id");
-  await editor(tbBack(id));
-  const supabase = await createClient();
+// Match every account not yet matched: the client's history first (in the database), then name
+// suggestions; anything unclear goes to the reviewer's list. Runs by itself after each import.
+async function matchFile(supabase: Awaited<ReturnType<typeof createClient>>, id: string) {
   const [{ data: accounts }, { data: lines }] = await Promise.all([
     supabase.from("cb_accounts").select("id, number, name").eq("file_id", id).is("line_no", null).eq("needs_reviewer", false),
     supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line"),
@@ -81,35 +83,35 @@ export async function runMatching(formData: FormData) {
     const sg = suggestLine(a, (lines ?? []) as Line[]);
     return { account: a.id, line: sg.line, reason: sg.reason };
   });
-  const { data, error } = await supabase.rpc("cb_apply_matching", { p_file: id, p_suggestions: suggestions });
-  revalidatePath(`/closebook/${id}`);
-  if (error) redirect(withMessage(tbBack(id), "error", error.message));
-  const r = data as { history: number; suggested: number; reviewer: number };
-  redirect(withMessage(tbBack(id), "msg", `Matched ${r.history} from last year and ${r.suggested} by name. ${r.reviewer ? `${r.reviewer} sent to the reviewer.` : "None left for the reviewer."}`));
+  const { data } = await supabase.rpc("cb_apply_matching", { p_file: id, p_suggestions: suggestions });
+  return (data ?? { history: 0, suggested: 0, reviewer: 0 }) as { history: number; suggested: number; reviewer: number };
 }
 
-export async function mapAccount(formData: FormData) {
-  const id = s(formData, "file_id"), acc = s(formData, "account");
-  await editor(tbBack(id, `&acc=${acc}`));
-  const { error } = await (await createClient()).rpc("cb_map_account", { p_account: acc, p_line: s(formData, "line") });
-  revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(error ? tbBack(id, `&acc=${acc}`) : tbBack(id), error ? "error" : "msg", error ? error.message : "Account matched."));
+// Row actions on the Trial balance tab: they save on the spot and return any problem as text.
+export async function matchInline(fileId: string, account: string, line: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_map_account", { p_account: account, p_line: line });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
 }
 
-export async function sendToReviewer(formData: FormData) {
-  const id = s(formData, "file_id"), acc = s(formData, "account");
-  await editor(tbBack(id));
-  const { error } = await (await createClient()).rpc("cb_send_to_reviewer", { p_account: acc, p_reason: s(formData, "reason") || "Preparer not sure" });
-  revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(tbBack(id), error ? "error" : "msg", error ? error.message : "Sent to the reviewer's list."));
+export async function askReviewerInline(fileId: string, account: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_send_to_reviewer", { p_account: account, p_reason: "Preparer not sure" });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
 }
 
-export async function setTaxCode(formData: FormData) {
-  const id = s(formData, "file_id"), acc = s(formData, "account");
-  const { error } = await (await createClient()).rpc("cb_set_tax_code", { p_account: acc, p_code: s(formData, "tax_code") || null });
-  revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(tbBack(id, `&acc=${acc}`), error ? "error" : "msg", error ? error.message : "Tax code saved for this client."));
+export async function taxCodeInline(fileId: string, account: string, code: string): Promise<string | null> {
+  const { error } = await (await createClient()).rpc("cb_set_tax_code", { p_account: account, p_code: code || null });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
 }
+
+
+
 
 // ---------- Entries (batch 5.4, full files) ----------
 const enBack = (id: string) => `/closebook/${id}?tab=entries`;
@@ -146,4 +148,13 @@ export async function deleteEntry(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_delete_entry", { p_entry: s(formData, "entry") });
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry deleted."));
+}
+
+// For files imported before matching ran by itself: match the accounts still open.
+export async function runMatching(formData: FormData) {
+  const id = s(formData, "file_id");
+  await editor(tbBack(id));
+  const m = await matchFile(await createClient(), id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(tbBack(id, m.reviewer ? "&view=attention" : ""), "msg", `Matched ${m.history + m.suggested}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
 }

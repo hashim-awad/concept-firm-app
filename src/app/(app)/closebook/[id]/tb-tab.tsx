@@ -4,7 +4,8 @@ import { formatDateTime } from "@/lib/dates";
 import { effectiveLine, leadSheets, typeMismatch, type Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
-import { importTrialBalance, mapAccount, runMatching, sendToReviewer, setTaxCode } from "../actions";
+import { importTrialBalance, runMatching } from "../actions";
+import { AccountsTable, type Row } from "./accounts-table";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
@@ -13,7 +14,7 @@ const SOURCE_LABEL: Record<string, string> = { history: "From last year", sugges
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
-  view: string; acc?: string; q?: string;
+  view: string;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -36,15 +37,28 @@ export function TbTab(p: Props) {
   );
   const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
-  const chosen = p.acc ? accounts.find((a) => a.id === p.acc) : undefined;
-  const needle = (p.q ?? "").toLowerCase();
-  const options = chosen ? lines.filter((l) => l.mappable && (!needle || `${l.line_no} ${l.name} ${l.statement_line ?? ""}`.toLowerCase().includes(needle))).slice(0, 40) : [];
+  const typeWord: Record<string, string> = { "1": "an asset", "2": "a liability", "3": "equity", "4": "revenue" };
+  const mismatchText = (a: CbAccount) => (typeMismatch(a.number, a.line_no ? byNo.get(a.line_no) : undefined) ? `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}` : "");
+  const attention = accounts.filter((a) => !a.line_no || a.needs_reviewer || mismatchText(a));
+  const shown = view === "attention" ? attention : accounts;
+  const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}` }));
+  const rows: Row[] = shown.map((a) => {
+    const fin = finalOf(a);
+    const eff = effectiveLine(a.line_no, fin, byNo);
+    return {
+      id: a.id, number: a.number, name: a.name, last: amt(a.last_year), current: amt(a.this_year),
+      change: a.last_year === 0 ? (a.this_year === 0 ? "" : "new") : `${Math.round(((a.this_year - a.last_year) / Math.abs(a.last_year)) * 100)}%`,
+      lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
+      source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: mismatchText(a),
+      tax: taxOf(a), taxOverride: !!a.tax_code, editable: editable && !locked, reviewerRow: a.needs_reviewer,
+    };
+  });
 
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         {pill("accounts", "Accounts")}
-        {pill("reviewer", `Needs reviewer decision${waiting.length ? ` (${waiting.length})` : ""}`)}
+        {pill("attention", `Needs attention (${attention.length})`)}
         {pill("lead", "Lead sheets")}
         {file.file_type === "full" && <span className="rounded-full border border-sand-200 px-3 py-1 text-ink-3" title="Arrives with bank and card imports (part 2b)">Transactions</span>}
       </div>
@@ -71,64 +85,13 @@ export function TbTab(p: Props) {
         )}
       </div>
 
-      {accounts.length > 0 && (unmatched.length > 0 || waiting.length > 0) && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
-          <p>{unmatched.length > 0 && <>{unmatched.length} account{unmatched.length === 1 ? "" : "s"} not matched to a GIFI line. </>}{waiting.length > 0 && <>{waiting.length} wait{waiting.length === 1 ? "s" : ""} for the reviewer&rsquo;s decision. </>}Lead sheets open when every account is matched.</p>
-          {editable && !locked && unmatched.length > 0 && (
-            <form action={runMatching}><input type="hidden" name="file_id" value={file.id} /><button type="submit" className="btn">Match accounts to GIFI</button></form>
-          )}
-        </div>
+      {editable && !locked && unmatched.length > 0 && (
+        <form action={runMatching} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
+          <input type="hidden" name="file_id" value={file.id} />
+          <p>{unmatched.length} account{unmatched.length === 1 ? " was" : "s were"} imported before matching ran by itself.</p>
+          <button type="submit" className="btn">Match them now</button>
+        </form>
       )}
-
-      {chosen && (
-        <section className="card mb-4 grid gap-3" id="match">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-semibold">{chosen.number && <span className="mr-2 text-ink-3">{chosen.number}</span>}{chosen.name}</h2>
-            <Link href={base} className="text-sm text-navy-700 underline">Close</Link>
-          </div>
-          <p className="text-sm text-ink-2">Now: {chosen.line_no ? lineLabel(chosen.line_no) : chosen.needs_reviewer ? `waiting for the reviewer (${chosen.reviewer_reason})` : "not matched"}. This year {amt(finalOf(chosen))}.</p>
-          {(!chosen.needs_reviewer || isReviewer) && editable && !locked && (
-            <>
-              <form action={`/closebook/${file.id}`} className="flex flex-wrap items-end gap-2">
-                <input type="hidden" name="tab" value="tb" /><input type="hidden" name="acc" value={chosen.id} />
-                <div className="min-w-64 flex-1"><label htmlFor="q" className="label">Find a GIFI line</label><input id="q" name="q" defaultValue={p.q} placeholder="Line number or words, for example 8810 or office" className="input" /></div>
-                <button type="submit" className="btn-secondary">Search</button>
-              </form>
-              <ul className="grid max-h-80 gap-1 overflow-y-auto">
-                {options.map((l) => (
-                  <li key={l.line_no}>
-                    <form action={mapAccount} className="flex items-center justify-between gap-3 rounded-md border border-sand-200 px-3 py-2 text-sm">
-                      <input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="account" value={chosen.id} /><input type="hidden" name="line" value={l.line_no} />
-                      <span><b className="tabular-nums">{l.line_no}</b> {l.name}<span className="ml-2 text-xs text-muted">{l.lead_sheet} · {l.statement_line} · {l.default_tax_code}</span></span>
-                      <button type="submit" className="btn-secondary h-8 px-3 text-sm">Use this line</button>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          {chosen.needs_reviewer && !isReviewer && <p className="text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
-          {editable && !locked && !chosen.needs_reviewer && !isReviewer && (
-            <form action={sendToReviewer} className="flex flex-wrap items-end gap-2">
-              <input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="account" value={chosen.id} />
-              <div className="min-w-64 flex-1"><label htmlFor="why" className="label">Not sure? Send it to the reviewer</label><input id="why" name="reason" placeholder="What is unclear" className="input" /></div>
-              <button type="submit" className="btn-secondary">Send to the reviewer</button>
-            </form>
-          )}
-          {isReviewer && chosen.line_no && !locked && (
-            <form action={setTaxCode} className="flex flex-wrap items-end gap-2">
-              <input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="account" value={chosen.id} />
-              <div><label htmlFor="tax_code" className="label">Tax code (reviewer only)</label>
-                <select id="tax_code" name="tax_code" defaultValue={chosen.tax_code ?? ""} className="input">
-                  <option value="">The line&rsquo;s default ({byNo.get(chosen.line_no)?.default_tax_code})</option>
-                  {taxes.map((t) => <option key={t.code} value={t.code}>{t.code}: {t.name}</option>)}
-                </select></div>
-              <button type="submit" className="btn-secondary">Save tax code</button>
-            </form>
-          )}
-        </section>
-      )}
-
       {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files build the trial balance from the Transactions view (part 2b)."}</p>
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (
@@ -153,36 +116,9 @@ export function TbTab(p: Props) {
               </section>
             ))
           )
-        ) : (
-          <section className="card overflow-x-auto p-0">
-            <table className="table min-w-[980px]">
-              <thead><tr><th>Account</th><th>GIFI line</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th></th></tr></thead>
-              <tbody>
-                {(view === "reviewer" ? waiting : accounts).map((a) => {
-                  const fin = finalOf(a);
-                  const eff = effectiveLine(a.line_no, fin, byNo);
-                  const mismatch = typeMismatch(a.number, a.line_no ? byNo.get(a.line_no) : undefined);
-                  return (
-                    <tr key={a.id}>
-                      <td>{a.number && <span className="mr-2 text-ink-3 tabular-nums">{a.number}</span>}{a.name}</td>
-                      <td>
-                        {a.line_no ? <>{lineLabel(eff)}{eff !== a.line_no && <span className="block text-xs text-muted">Opposite balance: moved from {a.line_no}</span>}<span className="block text-xs text-muted">{SOURCE_LABEL[a.mapping_source ?? ""] ?? ""}</span></>
-                          : a.needs_reviewer ? <span className="text-danger">Sent to reviewer<span className="block text-xs text-muted">{a.reviewer_reason}</span></span>
-                          : <span className="text-ink-3">Not matched yet</span>}
-                        {mismatch && <span className="mt-0.5 block text-xs font-semibold text-warning">Type mismatch: the account number says {a.number[0] === "1" ? "asset" : a.number[0] === "2" ? "liability" : a.number[0] === "3" ? "equity" : a.number[0] === "4" ? "revenue" : "expense"}</span>}
-                      </td>
-                      <td>{taxOf(a)}{a.tax_code && <span className="block text-xs text-muted">Reviewer&rsquo;s choice</span>}</td>
-                      <td className="text-right tabular-nums">{amt(a.last_year)}</td>
-                      <td className="text-right tabular-nums">{amt(a.this_year)}</td>
-                      <td className="text-right tabular-nums">{a.last_year === 0 ? (a.this_year === 0 ? "" : "new") : `${Math.round(((a.this_year - a.last_year) / Math.abs(a.last_year)) * 100)}%`}</td>
-                      <td>{editable && !locked && <Link href={`${base}&acc=${a.id}#match`} className="text-sm text-navy-700 hover:underline">{a.line_no ? "Change" : "Match"}</Link>}</td>
-                    </tr>
-                  );
-                })}
-                {view !== "reviewer" && <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td className="text-right tabular-nums">{amt(accounts.reduce((n, a) => n + a.last_year, 0))}</td><td className="text-right tabular-nums">{amt(total)}</td><td></td><td></td></tr>}
-              </tbody>
-            </table>
-          </section>
+        ) : shown.length === 0 ? <p className="card text-sm text-success">Nothing needs attention: every account is matched and checked.</p> : (
+          <AccountsTable fileId={file.id} rows={rows} options={options} taxes={taxes} isReviewer={isReviewer}
+            totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} />
         )}
       <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code. The trial balance sign-off arrives with build step 3.</p>
     </>
