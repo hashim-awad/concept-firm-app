@@ -1,3 +1,5 @@
+import { QUOTE_STATUS, QUOTE_STATUS_CLASS, WAITING } from "@/lib/quotes";
+import { declineQuote } from "../../../quotes/actions";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -75,7 +77,15 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
           <div className="rounded-lg border border-sand-200 bg-white p-4" dangerouslySetInnerHTML={{ __html: email.html }} />
           <h2 className="font-semibold">2. Mark as sent</h2>
           {sent ? (
-            <p className="text-sm">Marked as sent {formatDateTime(quote.sent_at)}.</p>
+            <div className="grid gap-2 text-sm">
+              <p>Marked as sent {formatDateTime(quote.sent_at)}. <span className={`ml-1 rounded px-2 py-0.5 text-xs font-semibold ${QUOTE_STATUS_CLASS[quote.status]}`}>{QUOTE_STATUS[quote.status]}</span></p>
+              {editable && WAITING.includes(quote.status) && (
+                <form action={declineQuote}>
+                  <input type="hidden" name="id" value={quote.id} /><input type="hidden" name="back" value={`/leads/${id}/quote`} />
+                  <button type="submit" className="text-sm text-danger underline">The client said no: mark declined</button>
+                </form>
+              )}
+            </div>
           ) : editable ? (
             <form action={markQuoteSent} className="grid gap-2 text-sm">
               <input type="hidden" name="lead_id" value={id} /><input type="hidden" name="quote_id" value={quote.id} />

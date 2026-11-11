@@ -45,10 +45,10 @@ export async function signByToken(token: string, input: { name: string; title?: 
 // The signed PDF with its audit page, stored once in the private vault bucket.
 export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const db = createAdminClient();
-  const { data: q } = await db.from("t1_quotes").select("id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, pdf_path").eq("id", quoteId).maybeSingle();
+  const { data: q } = await db.from("quotes").select("id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, pdf_path").eq("id", quoteId).maybeSingle();
   if (!q || q.status !== "signed") return null;
   if (q.pdf_path) return q.pdf_path as string;
-  const { data: s } = await db.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_name, signed_ip, signed_agent, document_hash, same_device, signed_title").eq("quote_id", quoteId).order("person");
+  const { data: s } = await db.from("quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_name, signed_ip, signed_agent, document_hash, same_device, signed_title").eq("quote_id", quoteId).order("person");
   const signers = (s ?? []) as (SignerRow & { signed_name: string; signed_ip: string; signed_agent: string; document_hash: string; same_device: boolean; signed_title: string | null })[];
   const signature = await firmSignature();
   const parts = await clientParts(q as QuoteRow, signers, signature);

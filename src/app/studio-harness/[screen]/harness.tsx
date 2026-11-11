@@ -22,7 +22,7 @@ export function Harness({ screen, signOut }: { screen: "corporate" | "t1" | "pro
   // Same frame as the app: sidebar (dummy test user) and the full-width document area.
   return (
     <div id="harness-ready" className="min-h-screen bg-paper md:flex">
-      <AppSidebar signOut={signOut} access={{ fullName: "Test User", roleName: "Owner", isOwner: true, leads: true, vault: true, pricing: true, screening: true, templates: true, documents: true, documentsEdit: true, clients: true, taxRates: true, staff: true, settings: true, closebook: true }} counts={{ proposalsAwaiting: 0, lettersAwaiting: 0, leadsNew: 0 }} />
+      <AppSidebar signOut={signOut} access={{ fullName: "Test User", roleName: "Owner", isOwner: true, leads: true, vault: true, pricing: true, screening: true, templates: true, documents: true, documentsEdit: true, clients: true, taxRates: true, staff: true, settings: true, closebook: true }} counts={{ quotesAwaiting: 2, lettersAwaiting: 0, leadsNew: 0 }} />
       <MainArea workspace>
         <WorkspaceHeader title={title} description="Test page with made-up data." />
         {screen === "corporate" && <CorporateLetterScreen {...props} />}

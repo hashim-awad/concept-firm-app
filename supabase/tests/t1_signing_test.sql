@@ -28,18 +28,18 @@ reset request.jwt.claims;
 
 select test.check('a name is needed', test.try(format($f$select public.record_t1_signature(%L, 0, ' ', '', '', %L, false)$f$, :'q', :h)) like 'Type your full name%');
 select public.record_t1_signature(:'q', 0, 'Jane Dummy', '1.2.3.4', 'Test browser', :h, false) as first_done \gset
-select test.check('one of two signed: not signed yet', :'first_done' = 'f' and (select status from public.t1_quotes where id = :'q') = 'sent');
-select test.check('the signing record', (select signed_name || '|' || signed_ip || '|' || signed_agent || '|' || same_device from public.t1_quote_signers where quote_id = :'q' and person = 0)
+select test.check('one of two signed: not signed yet', :'first_done' = 'f' and (select status from public.quotes where id = :'q') = 'sent');
+select test.check('the signing record', (select signed_name || '|' || signed_ip || '|' || signed_agent || '|' || same_device from public.quote_signers where quote_id = :'q' and person = 0)
   = 'Jane Dummy|1.2.3.4|Test browser|false');
 select test.check('cannot sign twice', test.try(format($f$select public.record_t1_signature(%L, 0, 'Jane Dummy', '', '', %L, false)$f$, :'q', :h)) like 'Already signed%');
 select public.record_t1_signature(:'q', 1, 'Sam Dummy', '1.2.3.4', 'Test browser', :h, true) as all_done \gset
-select test.check('both signed: the quote is signed', :'all_done' = 't' and (select status from public.t1_quotes where id = :'q') = 'signed');
-select test.check('same-device signing is noted', (select same_device from public.t1_quote_signers where quote_id = :'q' and person = 1));
+select test.check('both signed: the quote is signed', :'all_done' = 't' and (select status from public.quotes where id = :'q') = 'signed');
+select test.check('same-device signing is noted', (select same_device from public.quote_signers where quote_id = :'q' and person = 1));
 select test.check('the lead shows Signed', (select status from public.leads where id = :'lead') = 'signed');
 select public.store_t1_signed_pdf(:'q', 't1-quotes/x/signed.pdf', :h);
-select test.check('the signed PDF is kept', (select pdf_path from public.t1_quotes where id = :'q') = 't1-quotes/x/signed.pdf');
+select test.check('the signed PDF is kept', (select pdf_path from public.quotes where id = :'q') = 't1-quotes/x/signed.pdf');
 select public.store_t1_signed_pdf(:'q', 't1-quotes/x/other.pdf', :h);
-select test.check('the stored PDF is never replaced', (select pdf_path from public.t1_quotes where id = :'q') = 't1-quotes/x/signed.pdf');
+select test.check('the stored PDF is never replaced', (select pdf_path from public.quotes where id = :'q') = 't1-quotes/x/signed.pdf');
 
 -- An expired quote cannot be signed.
 set role anon;
@@ -52,7 +52,7 @@ select public.create_t1_quote(:'lead2') as q2 \gset
 select public.mark_t1_quote_sent(:'q2');
 reset role;
 reset request.jwt.claims;
-update public.t1_quotes set valid_until = current_date - 30 where id = :'q2';
+update public.quotes set valid_until = current_date - 30 where id = :'q2';
 select test.check('an expired quote cannot be signed', test.try(format($f$select public.record_t1_signature(%L, 0, 'Late Dummy', '', '', %L, false)$f$, :'q2', :h)) like '%expired%');
 
 -- GST/HST rate for the invoice line: approved rates, Pricing holders only.

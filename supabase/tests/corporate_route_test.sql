@@ -47,18 +47,18 @@ update public.leads set company_name = 'Example Holdings Inc.' where id = :'lead
 select test.check('no quote without the confirmed year-end', test.try(format($f$select public.create_corporate_quote(%L)$f$, :'lead')) like '%year-end%');
 update public.leads set year_end = '2026-12-31' where id = :'lead';
 select public.create_corporate_quote(:'lead') as q \gset
-select test.check('a corporate quote with the company and its answers', (select kind || '|' || company_name || '|' || year_end || '|' || tax_year || '|' || (details ->> 'books') || '|' || (details -> 'extras' ->> 'gst') from public.t1_quotes where id = :'q')
+select test.check('a corporate quote with the company and its answers', (select kind || '|' || company_name || '|' || year_end || '|' || tax_year || '|' || (details ->> 'books') || '|' || (details -> 'extras' ->> 'gst') from public.quotes where id = :'q')
   = 'corporate|Example Holdings Inc.|2026-12-31|2026|statements|true');
-select test.check('the quote keeps the account counts', (select details -> 'counts' ->> 'bank' || '/' || (details -> 'counts' ->> 'car') from public.t1_quotes where id = :'q') = '2/1');
-select test.check('one signer, with a private link', (select count(*) from public.t1_quote_signers where quote_id = :'q') = 1);
+select test.check('the quote keeps the account counts', (select details -> 'counts' ->> 'bank' || '/' || (details -> 'counts' ->> 'car') from public.quotes where id = :'q') = '2/1');
+select test.check('one signer, with a private link', (select count(*) from public.quote_signers where quote_id = :'q') = 1);
 update public.leads set company_name = 'Example Holdings Ltd.' where id = :'lead';
 select public.create_corporate_quote(:'lead');
-select test.check('a draft picks up a corrected legal name', (select company_name from public.t1_quotes where id = :'q') = 'Example Holdings Ltd.');
+select test.check('a draft picks up a corrected legal name', (select company_name from public.quotes where id = :'q') = 'Example Holdings Ltd.');
 select public.mark_t1_quote_sent(:'q');
-select test.check('sent; the lead shows Quote sent', (select status from public.t1_quotes where id = :'q') = 'sent' and (select status from public.leads where id = :'lead') = 'sent');
+select test.check('sent; the lead shows Quote sent', (select status from public.quotes where id = :'q') = 'sent' and (select status from public.leads where id = :'lead') = 'sent');
 update public.leads set company_name = 'Changed After Sending' where id = :'lead';
 select public.create_corporate_quote(:'lead');
-select test.check('a sent quote never changes', (select company_name from public.t1_quotes where id = :'q') = 'Example Holdings Ltd.');
+select test.check('a sent quote never changes', (select company_name from public.quotes where id = :'q') = 'Example Holdings Ltd.');
 update public.leads set first_year_tag_done = true where id = :'lead';
 update public.leads set client_kind = 'team' where id = :'lead';
 select test.check('staff mark the client type for the package', (select client_kind from public.leads where id = :'lead') = 'team');
@@ -74,5 +74,5 @@ select test.check('no signature without the title', :'notitle' like '%title%');
 set role service_role;
 select public.record_t1_signature(:'q', 0, 'Taylor Dummy', '', '', :hash, false, 'President');
 reset role;
-select test.check('signed, with the title kept', (select signed_title from public.t1_quote_signers where quote_id = :'q') = 'President'
-  and (select status from public.t1_quotes where id = :'q') = 'signed');
+select test.check('signed, with the title kept', (select signed_title from public.quote_signers where quote_id = :'q') = 'President'
+  and (select status from public.quotes where id = :'q') = 'signed');

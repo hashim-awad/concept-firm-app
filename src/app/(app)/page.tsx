@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { QUOTE_KIND, QUOTE_STATUS, WAITING, type QuoteKind, type QuoteStatus } from "@/lib/quotes";
 import { PageHeader, Notice } from "@/components/ui";
 import { requireAccess, canView, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -35,23 +36,23 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const seeClients = canView(access, "clients"), editClients = canEdit(access, "clients");
   const seeLeads = canView(access, "leads");
   type L = { id: string; first_name: string; last_name: string; route: string; created_at: string };
-  const pricing = canView(access, "pricing");
   const supabase = await createClient();
   // Lead alerts also run when staff open My day (the scheduler runs only on Live), at most once a minute.
   if (seeLeads) after(() => runLeadAlerts({ throttle: true }).then(() => undefined, () => undefined));
   const hours = seeLeads ? await readBusinessHours() : null;
   const leadsNew = seeLeads ? (((await supabase.from("leads").select("id, first_name, last_name, route, created_at").eq("status", "new").order("created_at")).data ?? []) as L[]) : [];
 
-  type P = { id: string; title: string; date_sent: string | null; valid_until: string | null };
+  type P = { id: string; client: string; kind: QuoteKind; status: QuoteStatus; sent_at: string | null; valid_until: string | null };
   type E = { id: string; title: string; type: string; status: string; fiscal_year_end: string | null; el_issued: string | null; client_id: string | null; clients: { legal_name: string } | null };
   let proposals: P[] = [], letters: E[] = [];
+  if (seeLeads) {
+    // Quotes sent and waiting for the client's signature, soonest to expire first.
+    await supabase.rpc("expire_quotes");
+    proposals = (((await supabase.rpc("quote_list")).data ?? []) as P[]).filter((q) => WAITING.includes(q.status))
+      .sort((a, b) => (a.valid_until ?? "").localeCompare(b.valid_until ?? ""));
+  }
   if (seeDocs) {
-    const [p, l] = await Promise.all([
-      pricing ? supabase.from("proposals").select("id, title, date_sent, valid_until").eq("status", "Sent").order("valid_until", { ascending: true, nullsFirst: false }) : Promise.resolve({ data: [] }),
-      supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").eq("status", "EL sent").order("el_issued"),
-    ]);
-    proposals = (p.data ?? []) as P[];
-    letters = (l.data ?? []) as unknown as E[];
+    letters = ((await supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").eq("status", "EL sent").order("el_issued")).data ?? []) as unknown as E[];
   }
 
   // T2 deadlines (decision 43): T2 clients from TaxDome, not excluded, active.
@@ -88,19 +89,19 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
             </Card>
           ) : <Card title="Leads to review" soon="Your role does not include leads." />}
           <Card title="Gates waiting" soon="Year-end gates arrive with Year-End & T2 (Phase 3)." />
-{pricing && (
-          <Card title="Proposals awaiting signature" count={proposals.length}>
+{seeLeads && (
+          <Card title="Quotes waiting for signature" count={proposals.length}>
             {proposals.length === 0 ? <p className="text-sm text-muted">None.</p> : (
-              <ul className="grid gap-2 text-sm">{proposals.map((r) => (
+              <ul className="grid gap-2 text-sm">{proposals.slice(0, 8).map((r) => (
                 <li key={r.id} className="flex flex-wrap items-baseline gap-x-2">
-                  <Link href="/proposals?status=Sent" className="font-medium text-navy-700 hover:underline">{r.title}</Link>
-                  <span className="text-muted">sent {formatDate(r.date_sent)}</span>
-                  {r.valid_until && (r.valid_until < today ? <span className="text-danger">past valid date {formatDate(r.valid_until)}</span> : <span className="text-muted">valid until {formatDate(r.valid_until)}</span>)}
+                  <Link href="/quotes?status=sent" className="font-medium text-navy-700 hover:underline">{r.client}</Link>
+                  <span className="text-muted">{QUOTE_KIND[r.kind]}, {QUOTE_STATUS[r.status].toLowerCase()} {formatDate(r.sent_at)}</span>
+                  {r.valid_until && <span className="text-muted">expires {formatDate(r.valid_until)}</span>}
                 </li>
               ))}</ul>
             )}
           </Card>
-          )}
+        )}
           <Card title="Engagement letters awaiting signature" count={letters.length}>
             {letters.length === 0 ? <p className="text-sm text-muted">None.</p> : (
               <ul className="grid gap-2 text-sm">{letters.map((e) => (

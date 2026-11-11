@@ -26,7 +26,7 @@ export async function updateLead(formData: FormData) {
   const { error } = await supabase.from("leads").update(patch).eq("id", id);
   // A draft year-end quote picks up a corrected legal name or year-end (a sent quote never changes).
   if (!error && formData.has("company_name")) {
-    const { data: q } = await supabase.from("t1_quotes").select("status").eq("lead_id", id).maybeSingle();
+    const { data: q } = await supabase.from("quotes").select("status").eq("lead_id", id).maybeSingle();
     if (q?.status === "draft") await supabase.rpc("create_corporate_quote", { p_lead: id });
   }
   revalidatePath("/leads"); revalidatePath(page); revalidatePath("/");

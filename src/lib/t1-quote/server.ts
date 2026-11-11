@@ -9,10 +9,10 @@ import type { CorpQuoteData } from "@/lib/corporate/render";
 
 export type QuoteRow = {
   id: string; lead_id: string; tax_year: number; couple: boolean; lines: { code: string; person: number | null; quantity: number; unit_cents: number; total_cents: number }[];
-  total_cents: number; status: "draft" | "sent" | "signed"; sent_at: string | null; valid_until: string | null;
+  total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired"; sent_at: string | null; valid_until: string | null;
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
-  kind?: "t1" | "corporate"; company_name?: string | null; year_end?: string | null;
+  kind?: "t1" | "corporate" | "proposal"; company_name?: string | null; year_end?: string | null;
   details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string; counts?: { bank: number; cc: number; loc: number; loan: number; car: number } } | null;
 };
 export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };
@@ -54,9 +54,9 @@ export function toCorpData(q: QuoteRow, signers: SignerRow[], fallback: { prepar
 }
 
 export async function loadQuoteForStaff(supabase: SupabaseClient, leadId: string) {
-  const { data: q } = await supabase.from("t1_quotes").select(COLS).eq("lead_id", leadId).maybeSingle();
+  const { data: q } = await supabase.from("quotes").select(COLS).eq("lead_id", leadId).maybeSingle();
   if (!q) return null;
-  const { data: s } = await supabase.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at").eq("quote_id", q.id).order("person");
+  const { data: s } = await supabase.from("quote_signers").select("person, first_name, last_name, email, token, signed_at").eq("quote_id", q.id).order("person");
   return { quote: q as QuoteRow, signers: (s ?? []) as SignerRow[] };
 }
 
@@ -79,11 +79,11 @@ export async function letterSigner(): Promise<{ name: string; title: string }> {
 export async function loadQuoteByToken(token: string) {
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
   const db = createAdminClient();
-  const { data: me } = await db.from("t1_quote_signers").select("quote_id, person, first_name, last_name, email, token, signed_at").eq("token", token).maybeSingle();
+  const { data: me } = await db.from("quote_signers").select("quote_id, person, first_name, last_name, email, token, signed_at").eq("token", token).maybeSingle();
   if (!me) return null;
   const [{ data: q }, { data: s }] = await Promise.all([
-    db.from("t1_quotes").select(COLS).eq("id", me.quote_id).maybeSingle(),
-    db.from("t1_quote_signers").select("person, first_name, last_name, email, token, signed_at").eq("quote_id", me.quote_id).order("person"),
+    db.from("quotes").select(COLS).eq("id", me.quote_id).maybeSingle(),
+    db.from("quote_signers").select("person, first_name, last_name, email, token, signed_at").eq("quote_id", me.quote_id).order("person"),
   ]);
   if (!q) return null;
   return { quote: q as QuoteRow, signers: (s ?? []) as SignerRow[], me: me as SignerRow & { quote_id: string } };

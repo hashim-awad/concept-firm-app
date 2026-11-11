@@ -35,6 +35,7 @@ export const SETTINGS: [string, SettingsDef[]][] = [
   ]],
   ["Pricing", [
     { label: "Price book", href: "/admin/price-book", open: ["pricing"], ownerOnly: "apply the price book clean-up" },
+    { label: "T1 price check", href: "/admin/t1-price-check", open: ["pricing"] },
     { label: "GST/HST rates", href: "/admin/tax-rates", open: ["tax_rates"], ownerOnly: "load the CRA table or approve rates" },
   ]],
   ["Letters and signing", [

@@ -5,6 +5,7 @@ import { todayToronto } from "@/lib/dates";
 import { longDate, pieceText } from "@/lib/t1-quote/render";
 import { C, CORP } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { clientParts } from "@/lib/t1-quote/sign";
 import { SignForm } from "./sign-form";
 import { SignDock } from "./sign-dock";
@@ -24,9 +25,12 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   if (!found) return say("This link does not work", `Please check the link in your email, or call us at ${FIRM.phone}.`);
   const { quote, signers, me } = found;
   if (quote.status === "draft") return say("Your quote is almost ready", "Please try the link again in a few minutes.");
+  if (quote.status === "declined") return say("This quote is closed", `Please contact us at ${FIRM.phone} or ${FIRM.email} if you would like a new one.`);
   const signed = quote.status === "signed";
-  if (!signed && quote.valid_until && quote.valid_until < todayToronto()) {
-    return say("This quote has expired", `It was valid until ${longDate(quote.valid_until)}. Please contact us at ${FIRM.phone} or ${FIRM.email} and we will send you a new one.`);
+  // Viewed: the first time the client opens the link (front office batch, section 3).
+  if (quote.status === "sent") await createAdminClient().rpc("mark_quote_viewed", { p_token: token });
+  if (!signed && (quote.status === "expired" || (quote.valid_until && quote.valid_until < todayToronto()))) {
+    return say("This quote has expired", `It was valid until ${longDate(quote.valid_until ?? "")}. Please contact us at ${FIRM.phone} or ${FIRM.email} and we will send you a new one.`);
   }
   const texts = quote.wording ?? {};
   const parts = await clientParts(quote, signers);
