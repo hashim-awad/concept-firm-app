@@ -50,7 +50,10 @@ jobs:
       - run: npx next build
 
   studio-parity:
-    runs-on: ubuntu-latest
+    # Pinned: on the new Ubuntu 26 image, Playwright's browser system packages failed to install
+    # (Nov 11, 2026). Move back to ubuntu-latest once Playwright supports it.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
