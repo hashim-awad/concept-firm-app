@@ -46,7 +46,7 @@ async function deliver(db: Admin, kind: Kind, lead: AlertLead, force = false): P
   return { sent, problem };
 }
 
-const LEAD_COLS = "id, route, province, status, answers, created_at";
+const LEAD_COLS = "id, route, province, status, answers, created_at, source";
 
 // Attach the quote total (the server's own record; the email shows the total only).
 async function withQuotes<T extends { id: string }>(db: Admin, leads: T[]): Promise<(T & { quote_cents: number | null })[]> {

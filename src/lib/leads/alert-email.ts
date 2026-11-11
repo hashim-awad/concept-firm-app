@@ -3,7 +3,7 @@
 // details, so the email holds as little client information as possible.
 import { provinceName } from "./provinces.ts";
 
-export type AlertLead = { id: string; route: string; province: string; status: string; answers: Record<string, unknown>; quote_cents?: number | null };
+export type AlertLead = { id: string; route: string; province: string; status: string; answers: Record<string, unknown>; quote_cents?: number | null; source?: string };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -25,7 +25,7 @@ export function buildLeadAlert(kind: "new" | "reminder", l: AlertLead, siteUrl: 
   const what = `${facts[0][1]}, ${facts[2][1]}`;
   const subject = kind === "new" ? `New lead: ${what}` : `Reminder: quote not sent after ${minutes} business minutes (${what})`;
   const intro = kind === "new"
-    ? "A new lead came in from the start page."
+    ? (/^phone/i.test(l.source ?? "") ? "A lead taken by phone was sent to you." : "A new lead came in from the start page.")
     : `This lead has waited ${minutes} business minutes and the quote is not marked sent yet.`;
   const rows = facts.map(([k, v]) => `<tr><td style="padding:4px 16px 4px 0;color:#5f6663">${esc(k)}</td><td style="padding:4px 0;font-weight:bold">${esc(v)}</td></tr>`).join("");
   const href = `${siteUrl}/leads/${encodeURIComponent(l.id)}`;

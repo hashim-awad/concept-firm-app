@@ -29,6 +29,7 @@ export type CorpQuoteData = {
   signer: { name: string; title: string };
   letterDate?: string;
   email?: string; // the client signer's email, for the address block
+  phoneOn?: string; // a phone quote: the date of the call (front office batch, section 3)
 };
 type Opts = { mark?: boolean; watermark?: boolean; letterhead?: string; signature?: string | null };
 
@@ -250,13 +251,13 @@ export function renderCorpEmail(texts: Record<string, string>, d: CorpQuoteData,
   const ye = longDate(d.yearEnd), valid = longDate(d.validUntil);
   const steps = [E.step1, E.step2, E.step3, E.step4];
   const html = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">
-${p(t(E.hi, d.client.first))}${p(t(E.thanks))}${p(t(E.ready, d.company, ye))}${p(t(E.after))}
+${p(t(E.hi, d.client.first))}${p(t(E.thanks))}${p(t(E.ready, d.company, ye))}${d.phoneOn ? p(t(E.phone, longDate(d.phoneOn))) : ""}${p(t(E.after))}
 <ol style="margin: 0 0 12px; padding-left: 22px; list-style-type: decimal;">${steps.map((s) => `<li style="margin: 0 0 6px;">${t(s)}</li>`).join("")}</ol>
 ${p(t(E.valid, valid))}
 <div style="margin: 16px 0;">${emailButton(link, t(E.button))}</div>
 <p style="margin: 16px 0 0;">${esc(sender.name)}<br>${t(E.firm)}<br>${esc([sender.phone, sender.email].filter(Boolean).join(" | "))}</p>
 </div>`.replace(/\n/g, "");
-  const text = [plain(texts, E.hi, d.client.first), "", plain(texts, E.thanks), "", plain(texts, E.ready, d.company, ye), "", plain(texts, E.after),
+  const text = [plain(texts, E.hi, d.client.first), "", plain(texts, E.thanks), "", plain(texts, E.ready, d.company, ye), "", ...(d.phoneOn ? [plain(texts, E.phone, longDate(d.phoneOn)), ""] : []), plain(texts, E.after),
     ...steps.map((s, i) => `${i + 1}. ${plain(texts, s)}`), "", plain(texts, E.valid, valid), "", `${plain(texts, E.button)}: ${link}`, "",
     sender.name, plain(texts, E.firm), [sender.phone, sender.email].filter(Boolean).join(" | ")].join("\n");
   return { subject: plain(texts, E.subject), subjectHtml: t(E.subject), html, text };

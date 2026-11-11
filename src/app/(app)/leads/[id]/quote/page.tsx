@@ -35,7 +35,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
     supabase.from("staff").select("full_name, phone, email").eq("id", access.staff_id).maybeSingle(),
     supabase.rpc("current_wording"),
     letterSigner(),
-    supabase.from("leads").select("province").eq("id", id).maybeSingle(),
+    supabase.from("leads").select("province, source, answers").eq("id", id).maybeSingle(),
   ]);
   const province = lead?.province ?? "";
   const { data: taxRows } = await supabase.rpc("t1_invoice_tax", { p_province: province });
@@ -46,8 +46,10 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/le
   const texts = sent ? (quote.wording ?? {}) : (((cw as { texts?: Record<string, string> } | null)?.texts) ?? {});
   const sender = quote.sender ?? { name: me?.full_name ?? access.full_name, phone: me?.phone ?? "", email: me?.email ?? "" };
   const corp = quote.kind === "corporate";
-  const data = toQuoteData(quote, signers, { preparedBy: sender.name, signer });
-  const corpData = corp ? toCorpData(quote, signers, { preparedBy: sender.name, signer }) : null;
+  // A phone quote's email adds the line about what the caller told us (front office batch, section 3).
+  const phoneOn = /^phone/i.test(lead?.source ?? "") ? ((lead?.answers as { phone?: { on?: string } } | null)?.phone?.on ?? quote.sent_at?.slice(0, 10)) : undefined;
+  const data = { ...toQuoteData(quote, signers, { preparedBy: sender.name, signer }), phoneOn };
+  const corpData = corp ? { ...toCorpData(quote, signers, { preparedBy: sender.name, signer }), phoneOn } : null;
   const split = depositAndBalance(quote.total_cents);
   const links = signers.map((s) => `${env.siteUrl()}/q/${s.token}`);
   const email = corpData ? renderCorpEmail(texts, corpData, sender, links[0]) : renderEmail(texts, data, sender, links);

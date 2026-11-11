@@ -2,10 +2,11 @@
 // The company form (Phase 2 batch, section 10), as steps. Questions exactly as written there; the
 // [bracketed] staff and pricing notes never show. "Your details" is saved first, so a lead who stops
 // partway is still captured.
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { FINISH_LABEL, PHONE_ANSWERS_NOTE, type Finish, type PhoneContact } from "@/lib/leads/phone";
 import { ProgressBar } from "@/components/ds/client";
 import { PROVINCES } from "@/lib/leads/provinces";
-import { BOOKS, COUNTS, FLAGS, MONTHS, NEED, PEOPLE, REVENUE, UPTODATE, type Books, type CorpAnswers } from "@/lib/corporate/quote";
+import { BOOKS, COUNTS, FLAGS, MONTHS, NEED, PEOPLE, REVENUE, UPTODATE, route, type Books, type CorpAnswers } from "@/lib/corporate/quote";
 import { finishCompany, startCompany } from "../actions";
 
 type Step = "details" | "need" | "books" | "company" | "apply" | "size";
@@ -13,13 +14,23 @@ const box = "rounded-xl border px-4 py-3 text-left text-sm transition-colors";
 const on = "border-navy-700 bg-navy-50 ring-1 ring-navy-700";
 const off = "border-sand-200 bg-surface hover:border-navy-300";
 
-export function CompanySteps() {
+// staff: "New lead by phone" (front office batch, section 2). Same steps and wording; the lead is saved
+// once, at the finish (Issue quote, Save as draft or Send to Hashim), with the caller's phone number and
+// the company's legal name when the caller gives it.
+export type CompanyStaff = {
+  finish: (contact: PhoneContact, company: string, answersJson: string, finish: Finish) => Promise<{ error: string } | null>;
+  onAnswers?: (json: string) => void; contact?: PhoneContact | null;
+};
+
+export function CompanySteps({ staff }: { staff?: CompanyStaff } = {}) {
   const [t] = useState(() => Date.now());
   const [pending, start] = useTransition();
   const [step, setStep] = useState<Step>("details");
   const [problem, setProblem] = useState("");
   const [lead, setLead] = useState<{ leadId: string; token: string } | null>(null);
-  const [contact, setContact] = useState({ first_name: "", last_name: "", email: "", province: "" });
+  // Staff: a picked client starts "Your details" filled in (the form remounts when the pick changes).
+  const [contact, setContact] = useState(staff?.contact ?? { first_name: "", last_name: "", email: "", phone: "", province: "" });
+  const [company, setCompany] = useState("");
   const [need, setNeed] = useState<CorpAnswers["need"] | "">("");
   const [extras, setExtras] = useState({ gst: false, slips: false });
   const [books, setBooks] = useState<Books | "">("");
@@ -42,6 +53,11 @@ export function CompanySteps() {
     ...(need === "monthly" ? { monthly: size as NonNullable<CorpAnswers["monthly"]> } : {}),
   });
 
+  // Staff: the price panel follows every change; a picked client fills "Your details".
+  const answersJson = JSON.stringify(answers());
+  useEffect(() => { staff?.onAnswers?.(answersJson); }, [answersJson]); // eslint-disable-line react-hooks/exhaustive-deps
+  const needsCall = !!need && route(answers()).path === "call";
+
   function check(): string {
     if (step === "need" && !need) return "Choose what you need.";
     if (step === "books") {
@@ -55,8 +71,22 @@ export function CompanySteps() {
     return "";
   }
 
+  const finishStaff = (f: Finish) => {
+    const p = check();
+    if (p) { setProblem(p); return; }
+    start(async () => { const r = await staff!.finish(contact, company, JSON.stringify(answers()), f); if (r?.error) setProblem(r.error); });
+  };
+
   const next = () => {
     setProblem("");
+    if (step === "details" && staff) {
+      if (!contact.first_name.trim() || !contact.last_name.trim()) { setProblem("Enter the caller's first and last name."); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact.email.trim())) { setProblem("Enter the caller's email."); return; }
+      if (!/^[0-9 ()+.-]{7,25}$/.test(contact.phone.trim())) { setProblem("Enter the caller's phone number, for example 226-789-9591."); return; }
+      if (!contact.province) { setProblem("Choose the province."); return; }
+      setStep("need");
+      return;
+    }
     if (step === "details") {
       const fd = new FormData();
       Object.entries(contact).forEach(([k, v]) => fd.set(k, v));
@@ -101,6 +131,8 @@ export function CompanySteps() {
               <div><label htmlFor="last_name" className="label">Last name *</label><input id="last_name" autoComplete="family-name" value={contact.last_name} onChange={(e) => setContact({ ...contact, last_name: e.target.value })} className="input" /></div>
             </div>
             <div><label htmlFor="email" className="label">Email *</label><input id="email" type="email" autoComplete="email" value={contact.email} onChange={(e) => setContact({ ...contact, email: e.target.value })} className="input" /></div>
+            {staff && <div><label htmlFor="phone" className="label">Phone *</label><input id="phone" type="tel" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} className="input" /></div>}
+            {staff && <div><label htmlFor="company_name" className="label">Company legal name <span className="font-normal text-muted">(if the caller knows it; the quote needs it)</span></label><input id="company_name" value={company} onChange={(e) => setCompany(e.target.value)} maxLength={200} className="input" /></div>}
             <div><label htmlFor="province" className="label">Province *</label>
               <select id="province" value={contact.province} onChange={(e) => setContact({ ...contact, province: e.target.value })} className="input">
                 <option value="" disabled>Choose one</option>{PROVINCES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}
@@ -181,10 +213,17 @@ export function CompanySteps() {
         </div>
       )}
 
+      {staff && last && <p className="text-xs text-muted">{PHONE_ANSWERS_NOTE}{needsCall ? ` This one needs Hashim: ${route(answers()).reasons.join(", ")}.` : ""}</p>}
       {problem && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{problem}</p>}
       <div className="flex items-center justify-between gap-3">
         {index > 0 ? <button type="button" onClick={() => { setProblem(""); setStep(steps[index - 1]); }} className="btn-secondary">Back</button> : <span />}
-        <button type="button" onClick={next} disabled={pending} className="btn">{pending ? "Sending..." : last ? "Get my quote" : "Next"}</button>
+        {staff && last ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {(needsCall ? ["draft", "hashim"] as Finish[] : ["draft", "hashim", "issue"] as Finish[]).map((f) => (
+              <button key={f} type="button" onClick={() => finishStaff(f)} disabled={pending} className={f === "issue" || (needsCall && f === "hashim") ? "btn" : "btn-secondary"}>{pending ? "Saving..." : FINISH_LABEL[f]}</button>
+            ))}
+          </div>
+        ) : <button type="button" onClick={next} disabled={pending} className="btn">{pending ? "Sending..." : last ? "Get my quote" : "Next"}</button>}
       </div>
     </div>
   );

@@ -6,5 +6,6 @@ export const PROVINCES: [string, string][] = [
 ];
 export const provinceName = (code: string) => PROVINCES.find(([c]) => c === code)?.[1] ?? code;
 export const LEAD_STATUS: Record<string, string> = {
-  new: "New", call_needed: "Call needed", out_of_scope: "Out of scope", quoted: "Quote ready", sent: "Quote sent", signed: "Signed", lost: "Lost",
+  // The list shows five words (front office batch, section 2); the lead page keeps the reason after a colon.
+  new: "New", quoted: "New: quote ready", sent: "Quote sent", call_needed: "With Hashim: call needed", out_of_scope: "With Hashim: out of scope", signed: "Signed", lost: "Lost",
 };

@@ -5,6 +5,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Leads: New lead by phone",
+    points: [
+      "Leads has a New lead by phone button. Pick an existing client or type the caller's details, choose personal tax or company, then ask the same questions the client sees online, in the same order.",
+      "Staff with Pricing see the price beside the questions as they enter answers. Tell the caller the one total, never line prices.",
+      "Finish with Issue quote (opens the quote with its email ready), Save as draft, or Send to Hashim. Out of scope and monthly companies go to Hashim. The caller does not redo the answers online.",
+      "The Leads list has Open, Closed and All, and Any source, Website and Phone. Columns: Name, Type, Source, Received, Status (New, Quote sent, With Hashim, Signed, Lost) and Next, the next action and who does it.",
+      "A quote taken by phone adds this line to its email: This quote is based on what you told us on [date]. If anything was missed, tell us before you sign.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Quotes: one list for every offer, and proposals signed online",
     points: [
       "Proposals is now Quotes. Personal tax quotes, company year-end quotes and monthly proposals are in one list with the statuses Draft, Sent, Viewed, Signed, Declined and Expired. Totals show only to staff with Pricing.",
