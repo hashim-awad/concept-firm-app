@@ -158,3 +158,12 @@ export async function runMatching(formData: FormData) {
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(tbBack(id, m.reviewer ? "&view=attention" : ""), "msg", `Matched ${m.history + m.suggested}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
 }
+
+// Explain a flagged lead sheet line (batch 5.5).
+export async function explainFlagInline(fileId: string, account: string, reason: string, note: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_explain_flag", { p_account: account, p_reason: reason, p_note: note });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}

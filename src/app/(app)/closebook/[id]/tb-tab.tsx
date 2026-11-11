@@ -6,6 +6,7 @@ import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
 import { importTrialBalance, runMatching } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
+import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
@@ -14,7 +15,7 @@ const SOURCE_LABEL: Record<string, string> = { history: "From last year", sugges
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
-  view: string; craText: Map<string, string>;
+  view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -111,26 +112,15 @@ export function TbTab(p: Props) {
       {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files build the trial balance from the Transactions view (part 2b)."}</p>
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (
-            leadSheets(accounts, entryTotals, byNo, sheets, flag).map((s) => (
-              <section key={s.code} className="card mb-4 overflow-x-auto p-0">
-                <h2 className="px-5 pt-4 pb-2 font-semibold">{s.code} {s.name}</h2>
-                <table className="table min-w-[900px]">
-                  <thead><tr><th>Account</th><th className="text-right">Last year</th><th className="text-right">This year before entries</th>{file.file_type === "full" && <th className="text-right">Entries</th>}<th className="text-right">This year final</th><th className="text-right">Change $</th><th className="text-right">Change %</th></tr></thead>
-                  <tbody>
-                    {s.rows.map((r) => (
-                      <tr key={r.id} className={r.flagged ? "bg-warning-soft/60" : ""}>
-                        <td>{r.number && <span className="mr-2 text-ink-3">{r.number}</span>}{r.name}<span className="block text-xs text-muted">{lineLabel(r.line)}</span></td>
-                        <td className="text-right tabular-nums">{amt(r.last)}</td><td className="text-right tabular-nums">{amt(r.before)}</td>
-                        {file.file_type === "full" && <td className="text-right tabular-nums">{r.entries ? amt(r.entries) : ""}</td>}
-                        <td className="text-right tabular-nums font-medium">{amt(r.final)}</td><td className="text-right tabular-nums">{amt(r.change)}</td>
-                        <td className="text-right tabular-nums">{r.pct === null ? (r.final ? "new" : "") : `${Math.round(r.pct)}%`}{r.flagged && <span className="ml-2 rounded bg-warning-soft px-1.5 text-xs font-semibold text-warning">Flag</span>}</td>
-                      </tr>
-                    ))}
-                    <tr className="font-semibold"><td>Total</td><td className="text-right tabular-nums">{amt(s.last)}</td><td className="text-right tabular-nums">{amt(s.before)}</td>{file.file_type === "full" && <td className="text-right tabular-nums">{amt(s.entries)}</td>}<td className="text-right tabular-nums">{amt(s.final)}</td><td className="text-right tabular-nums">{amt(s.final - s.last)}</td><td></td></tr>
-                  </tbody>
-                </table>
-              </section>
-            ))
+            <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
+              groups={leadSheets(accounts, entryTotals, byNo, sheets, flag).map((g): LeadGroup => {
+                const rows: LeadAcc[] = g.rows.map((r) => ({
+                  id: r.id, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
+                  final: amt(r.final), change: amt(r.change), pct: r.pct === null ? (r.final ? "new" : "") : `${Math.round(r.pct)}%`, flagged: r.flagged, note: p.notes.get(r.id),
+                }));
+                return { code: g.code, name: g.name, last: amt(g.last), before: amt(g.before), entries: amt(g.entries), final: amt(g.final), change: amt(g.final - g.last),
+                  flags: rows.filter((r) => r.flagged).length, open: rows.filter((r) => r.flagged && !r.note).length, rows };
+              })} />
           )
         ) : (
           <MatchWorkspace fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}

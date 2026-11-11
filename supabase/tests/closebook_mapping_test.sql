@@ -75,3 +75,14 @@ select public.cb_create_file(:'client', '2025-12-31', '2025-01-01', '', 'monthly
 select test.check('monthly files: entries are made in QuickBooks', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'X fee', false, '[{"line":"8860.00","amount":1},{"line":"2620.00","amount":-1}]')$f$, :'m')) like '%QuickBooks%');
 reset role;
 reset request.jwt.claims;
+
+-- Flag explanations (5.5).
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('an explanation needs a note', test.try(format($f$select public.cb_explain_flag(%L, 'revenue_grew', '')$f$, :'rev')) like '%note%');
+select test.check('only the listed explanations', test.try(format($f$select public.cb_explain_flag(%L, 'because', 'More listings')$f$, :'rev')) <> 'OK');
+select public.cb_explain_flag(:'rev', 'revenue_grew', 'More listings closed');
+select public.cb_explain_flag(:'rev', 'one_time', 'One large sale');
+select test.check('the latest explanation is kept', (select reason || '|' || note from public.cb_flag_notes where account_id = :'rev') = 'one_time|One large sale');
+reset role;
+reset request.jwt.claims;

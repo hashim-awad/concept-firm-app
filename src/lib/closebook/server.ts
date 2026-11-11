@@ -35,9 +35,11 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
     supabase.from("cb_imports").select("target, source, file_name, rows, debit_total, credit_total, imported_at, who:imported_by(full_name)").eq("file_id", id).order("imported_at", { ascending: false }),
     staffNames(supabase),
   ]);
+  const { data: notes } = await supabase.from("cb_flag_notes").select("account_id, reason, note").eq("file_id", id);
   const { data: entries } = await supabase.from("cb_entries").select("id, kind, number, reason, note, reverse_next_year, needs_review, reviewed_at, reviewed_by, created_by, created_at, lines:cb_entry_lines(account_id, amount, memo)")
     .eq("file_id", id).order("kind").order("number");
   return {
+    notes: new Map(((notes ?? []) as { account_id: string; reason: string; note: string }[]).map((n) => [n.account_id, { reason: n.reason, note: n.note }])),
     entries: ((entries ?? []) as unknown as CbEntry[]).map((e) => ({ ...e, lines: e.lines.map((l) => ({ ...l, amount: Number(l.amount) })) })),
     file: f as CbFileRow, client: client as CbClient | null, docs: (docs ?? []) as CbDoc[],
     accounts: ((accounts ?? []) as CbAccount[]).map((a) => ({ ...a, last_year: Number(a.last_year), this_year: Number(a.this_year) })),
