@@ -36,6 +36,8 @@ export async function phonePrice(form: "personal" | "company", json: string): Pr
       const early = earlyOutOfScope(qn, raw);
       if (early.length) return { total_cents: null, note: `Out of scope: ${early.map((e) => e.reason).join("; ")}. Send to Hashim.` };
       const r = evaluate(qn, raw, await loadPricesNow());
+      // Until the base return is priced, there is no total to tell the caller.
+      if (r.subtotal_cents === 0) return { total_cents: null, note: "Answer the questions to see the price." };
       return { total_cents: r.subtotal_cents, note: r.errors.length ? "Some answers are still missing; the total may change." : "" };
     }
     const checked = checkAnswers(JSON.parse(json));

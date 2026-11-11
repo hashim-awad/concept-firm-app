@@ -90,7 +90,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
               <>
                 <div><label htmlFor="company_name" className="label">Company legal name</label>
                   <input id="company_name" name="company_name" defaultValue={l.company_name} maxLength={200} className="input" />
-                  <span className="text-xs text-muted">The form does not ask for it. A quote cannot be issued without it.</span></div>
+                  <span className="text-xs text-muted">{/^phone/i.test(l.source) ? "Asked on the call, if the caller knew it." : "The online form does not ask for it."} A quote cannot be issued without it.</span></div>
                 {monthly && (
                   <div><label htmlFor="client_kind" className="label">Client type (for the package)</label>
                     <select id="client_kind" name="client_kind" defaultValue={kind} className="input">{CLIENT_KINDS.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
