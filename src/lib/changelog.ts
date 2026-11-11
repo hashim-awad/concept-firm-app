@@ -5,6 +5,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Closebook: locked GIFI lines and a shorter line list",
+    points: [
+      "A main GIFI line with sub-lines to choose from shows a lock and cannot be picked: Due to shareholders, Due from shareholders and Dividends. Pick shareholder 1 or 2, or eligible or non-eligible, instead.",
+      "An account already on a locked line goes to the card at the top, to be moved to a sub-line.",
+      "The GIFI line list shows only lines on the account's side: a credit balance sees liabilities, equity and revenue. Show all lines brings back the rest.",
+      "In lead sheets, the Explain panel has a link, Wrong GIFI line? Change it, that opens that account's matching panel.",
+      "Settings, Closebook, GIFI lines: owners can lock or unlock a main line that has sub-lines, with a reason. Locked lines show a lock in the list.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Closebook: match accounts to GIFI, lead sheets and entries",
     points: [
       "Importing a trial balance matches accounts to GIFI lines by itself: last year's matches first, then by account name.",

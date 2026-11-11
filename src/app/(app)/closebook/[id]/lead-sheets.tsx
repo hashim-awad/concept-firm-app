@@ -2,6 +2,7 @@
 // Lead sheets (Phase 3 batch 5.5): one table, one row per lead sheet, opened to show its accounts so
 // the columns line up all the way down. "Flagged only" shows just the lines that need an explanation.
 // A flagged line's pencil opens the side panel to pick the explanation and add a note.
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Pencil, X } from "lucide-react";
 import { explainFlagInline } from "../actions";
@@ -80,7 +81,9 @@ function ExplainPanel({ fileId, r, onClose }: { fileId: string; r: LeadAcc; onCl
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="font-semibold">Account</dt><dd>{r.number} {r.name}</dd>
-          <dt className="font-semibold">Line</dt><dd>{r.line}</dd>
+          <dt className="font-semibold">Line</dt><dd>{r.line}
+            {/* Matching fixes happen in the matching panel, not here: lead sheets explain movement. */}
+            <Link href={`/closebook/${fileId}?tab=tb&view=accounts&edit=${r.id}`} className="block text-xs text-navy-700 underline">Wrong GIFI line? Change it</Link></dd>
           <dt className="font-semibold">Last year</dt><dd className="tabular-nums">{r.last}</dd>
           <dt className="font-semibold">This year</dt><dd className="tabular-nums">{r.final}</dd>
           <dt className="font-semibold">Change</dt><dd className="tabular-nums">{r.change} ({r.pct})</dd>

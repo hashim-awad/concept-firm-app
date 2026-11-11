@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { fileInputClass } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
-import { effectiveLine, leadSheets, typeMismatch, wrongSign, type Line } from "@/lib/closebook/matching";
+import { effectiveLine, leadSheets, lockedLines, normalSide, typeMismatch, wrongSign, type Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
 import { importTrialBalance, runMatching } from "../actions";
@@ -15,7 +15,7 @@ const SOURCE_LABEL: Record<string, string> = { history: "From last year", sugges
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
-  view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>;
+  view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -45,7 +45,9 @@ export function TbTab(p: Props) {
   const mismatchText = (a: CbAccount) => (!isMismatch(a) ? "" : confirmed(a)
     ? `The account number says ${typeWord[a.number[0]] ?? "an expense"}; reviewer confirmed`
     : `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}`);
-  const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "" }));
+  const lockedSet = lockedLines(lines);
+  const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "",
+    locked: lockedSet.has(l.line_no), normal: normalSide(l) }));
   const rows: Row[] = accounts.map((a) => {
     const fin = finalOf(a);
     const eff = effectiveLine(a.line_no, fin, byNo);
@@ -53,9 +55,9 @@ export function TbTab(p: Props) {
       id: a.id, number: a.number, name: a.name, last: amt(a.last_year), current: amt(a.this_year), final: amt(fin), finalNum: fin,
       change: a.last_year === 0 ? (a.this_year === 0 ? "" : "new") : `${Math.round(((a.this_year - a.last_year) / Math.abs(a.last_year)) * 100)}%`,
       lineNo: a.line_no ?? "", lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
-      source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: mismatchText(a),
+      source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines" : mismatchText(a),
       tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
-      attention: !a.line_no || a.needs_reviewer || (isMismatch(a) && !confirmed(a)),
+      attention: !a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a)),
     };
   });
   // By GIFI line: one row per line (after opposite balances move), with its accounts and the wrong-sign flag.
@@ -124,7 +126,7 @@ export function TbTab(p: Props) {
           )
         ) : (
           <MatchWorkspace fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
-            editable={editable && !locked} totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} />
+            editable={editable && !locked} totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} edit={p.edit} />
         )}
       <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code. The trial balance sign-off arrives with build step 3.</p>
     </>

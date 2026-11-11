@@ -8,7 +8,7 @@
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertCircle, ChevronRight, Info, Pencil, X } from "lucide-react";
+import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
 import { askReviewerInline, matchInline, taxCodeInline } from "../actions";
 
 export type Row = {
@@ -17,15 +17,16 @@ export type Row = {
   tax: string; taxDefault: string; taxOverride: boolean; attention: boolean;
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
-export type Option = { no: string; label: string; section: string; hint: string };
+export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
 
 const money = (v: number) => v.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 
-export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals }: {
+export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
   fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
-  isReviewer: boolean; editable: boolean; totals: { last: string; current: string };
+  isReviewer: boolean; editable: boolean; totals: { last: string; current: string }; edit?: string;
 }) {
-  const [open, setOpen] = useState<Row | null>(null);
+  // edit: open the panel for one account on arrival (the "Wrong GIFI line? Change it" link from lead sheets).
+  const [open, setOpen] = useState<Row | null>(() => (edit && editable ? rows.find((r) => r.id === edit) ?? null : null));
   const byId = new Map(rows.map((r) => [r.id, r]));
   const attention = rows.filter((r) => r.attention);
   const attentionTotal = attention.reduce((n, r) => n + Math.abs(r.finalNum), 0);
@@ -131,7 +132,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
   const canPick = !r.needsReviewer || isReviewer;
-  const hit = options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`);
+  const hit = [options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`)].find((o) => o && !o.locked);
   const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
   const save = () => start(async () => {
     setErr("");
@@ -156,7 +157,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
         {canPick ? (
           <div className="grid gap-1">
             <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
-            <LinePicker options={options} value={to} onChange={setTo} />
+            <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} />
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
@@ -185,7 +186,10 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
 
 // The line picker (borrowed from QuickBooks): each line with its section in grey italics and an info
 // mark that shows CRA's description of the GIFI code. Type a number or words; arrows and Enter work.
-function LinePicker({ options, value, onChange }: { options: Option[]; value: string; onChange: (v: string) => void }) {
+function LinePicker({ options, value, onChange, balance }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number }) {
+  // Only lines on the account's side (a credit balance sees liability, equity and revenue lines), unless "Show all lines".
+  const [all, setAll] = useState(false);
+  const side = balance > 0 ? "debit" : balance < 0 ? "credit" : null;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const q = value.trim().toLowerCase();
@@ -194,12 +198,13 @@ function LinePicker({ options, value, onChange }: { options: Option[]; value: st
   // Numbers match the start of the line number; words match the start of words ("to" does not match "director").
   const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const res = words.map((w) => new RegExp(`(^|[^a-z0-9])${esc(w)}`, "i"));
-  const list = (chosen || !q ? options : options.filter((o) => (/^\d/.test(q) ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
-  const pick = (o: Option) => { onChange(o.label); setOpen(false); };
+  const sided = all || !side ? options : options.filter((o) => o.normal === side);
+  const list = (chosen || !q ? sided : sided.filter((o) => (/^\d/.test(q) ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
+  const pick = (o: Option) => { if (o.locked) return; onChange(o.label); setOpen(false); };
   return (
     <div className="relative">
       <input id="to" value={value} autoFocus autoComplete="off" role="combobox" aria-expanded={open} aria-controls="cb-line-list" placeholder="For example: office, rent, 8810" className="input"
-        onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((i) => Math.min(i + 1, list.length - 1)); }
@@ -207,12 +212,15 @@ function LinePicker({ options, value, onChange }: { options: Option[]; value: st
           else if (e.key === "Enter" && open && list[active]) { e.preventDefault(); pick(list[active]); }
           else if (e.key === "Escape") setOpen(false);
         }} />
+      {side && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAll(!all); setOpen(true); }} className="mt-1 text-xs text-navy-700 underline">{all ? `Show only ${side} lines` : "Show all lines"}</button>}
       {open && list.length > 0 && (
         <ul id="cb-line-list" role="listbox" className="absolute z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-sand-200 bg-white py-1 shadow-xl">
           {list.map((o, i) => (
-            <li key={o.no} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
-              className={`flex cursor-pointer items-baseline gap-2 px-3 py-2 text-sm ${i === active ? "bg-navy-50" : ""}`}>
+            <li key={o.no} role="option" aria-selected={i === active} aria-disabled={o.locked} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
+              title={o.locked ? "Locked: choose one of its sub-lines" : undefined}
+              className={`flex items-baseline gap-2 px-3 py-2 text-sm ${o.locked ? "cursor-not-allowed text-ink-3" : "cursor-pointer"} ${i === active && !o.locked ? "bg-navy-50" : ""}`}>
               <span className="flex-1"><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.slice(o.no.length + 1)}</span>
+              {o.locked && <Lock className="h-3.5 w-3.5 shrink-0 self-center text-ink-3" aria-label="Locked" />}
               <span className="text-xs text-ink-3 italic">{o.section}</span>
               {o.hint && <span title={o.hint} aria-label={`CRA: ${o.hint}`} className="ml-auto shrink-0 text-ink-3"><Info className="h-3.5 w-3.5" /></span>}
             </li>

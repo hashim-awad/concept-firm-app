@@ -4,10 +4,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
-import { effectiveLine, flagged, leadSheets, suggestLine, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
+import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, suggestLine, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
-const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair }));
+const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair, locked: ["1301.00", "2781.00", "3701.00"].includes(l.line) }));
 const byNo = new Map(lines.map((l) => [l.line_no, l]));
 
 test("common account names find their line", () => {
@@ -70,4 +70,13 @@ test("wrong-sign flag: normal side by type, contra lines reversed", () => {
   assert.ok(wrongSign(byNo.get("8520.00"), -100), "an expense in credit");
   assert.equal(wrongSign(byNo.get("8121.00"), -312400), "", "revenue is a credit");
   assert.equal(wrongSign(byNo.get("8810.00"), 0.4), "", "rounds to nothing");
+});
+
+test("locked lines come from the setting; sides include contra lines", () => {
+  const locked = lockedLines(lines);
+  assert.ok(locked.has("2781.00") && locked.has("1301.00") && locked.has("3701.00"));
+  assert.ok(!locked.has("2781.10") && !locked.has("8523.00"), "meals is a normal line with exception sub-lines");
+  assert.equal(normalSide(byNo.get("2781.10")!), "credit");
+  assert.equal(normalSide(byNo.get("1775.00")!), "credit", "accumulated amortization");
+  assert.equal(normalSide(byNo.get("8810.00")!), "debit");
 });

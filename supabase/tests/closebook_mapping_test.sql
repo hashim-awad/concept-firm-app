@@ -86,3 +86,19 @@ select public.cb_explain_flag(:'rev', 'one_time', 'One large sale');
 select test.check('the latest explanation is kept', (select reason || '|' || note from public.cb_flag_notes where account_id = :'rev') = 'one_time|One large sale');
 reset role;
 reset request.jwt.claims;
+
+-- A line with sub-lines is locked (2781.00 has 2781.10 and 2781.20).
+select test.check('split lines are locked; exception parents like meals are not', private.cb_line_locked('2781.00') and private.cb_line_locked('3701.00')
+  and not private.cb_line_locked('2781.10') and not private.cb_line_locked('8523.00') and not private.cb_line_locked('8810.00'));
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select test.check('no account can be matched to it', test.try(format($f$select public.cb_map_account(%L, '2781.00')$f$, :'rev')) like '%locked%');
+select test.check('no entry can post to it', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Test lock', false, '[{"line":"2781.00","amount":5},{"line":"2620.00","amount":-5}]')$f$, :'f')) like '%locked%');
+select public.cb_map_account(:'rev', '2781.20');
+select test.check('its sub-line can', (select line_no from public.cb_accounts where id = :'rev') = '2781.20');
+select test.check('only lines with sub-lines can be locked', test.try($$select public.cb_set_line_locked('8810.00', true, 'test')$$) like '%sub-lines%');
+select public.cb_set_line_locked('9270.00', true, 'Fines must be split out');
+select test.check('owners lock a line with a reason, logged', (select locked from public.cb_master_lines where line_no = '9270.00')
+  and exists (select 1 from public.cb_master_line_log where line_no = '9270.00' and changes ? 'locked'));
+reset role;
+reset request.jwt.claims;

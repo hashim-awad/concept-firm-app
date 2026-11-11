@@ -5,7 +5,7 @@
 // - typeMismatch: an account numbered as one type matched to a line of another type (4.5).
 // - leadSheets: grouping, entries, final balances and the year-over-year flags (5.5).
 
-export type Line = { line_no: string; name: string; gifi_code: string; line_type: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; pair_line: string | null; section?: string };
+export type Line = { line_no: string; name: string; gifi_code: string; line_type: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; pair_line: string | null; section?: string; locked?: boolean };
 
 // Common words in client account names that GIFI wording does not use. Suggestions only: the
 // preparer confirms them and the reviewer sees every new match at sign-off. Review this list with
@@ -46,7 +46,8 @@ export function typeMismatch(number: string, line: Line | undefined): boolean {
 export type Suggestion = { line: string | null; reason: string };
 
 export function suggestLine(account: { number: string; name: string }, lines: Line[]): Suggestion {
-  const mappable = lines.filter((l) => l.mappable);
+  const locked = lockedLines(lines);
+  const mappable = lines.filter((l) => l.mappable && !locked.has(l.line_no));
   const byNo = new Map(mappable.map((l) => [l.line_no, l]));
   const t = numberType(account.number);
   const ok = (l: Line | undefined) => !!l && (!t || l.line_type === t);
@@ -126,4 +127,15 @@ export function wrongSign(line: Line | undefined, total: number): string {
   const isDebit = total > 0;
   if (isDebit === debitNormal) return "";
   return `This line is normally a ${debitNormal ? "debit" : "credit"}, but its total is a ${isDebit ? "debit" : "credit"}. Check the matching, or a missing entry.`;
+}
+
+// Locked lines (Hashim, Nov 11, 2026, as QuickBooks locks parent accounts): shown with a lock; staff pick
+// one of the sub-lines instead. Set per line in Settings; the database enforces it.
+export function lockedLines(lines: Line[]): Set<string> {
+  return new Set(lines.filter((l) => l.locked).map((l) => l.line_no));
+}
+
+// The side a line normally sits on, contra lines included (accumulated amortization is a credit).
+export function normalSide(line: Line): "debit" | "credit" {
+  return debitSide(line.line_type) !== CONTRA.test(line.name) ? "debit" : "credit";
 }

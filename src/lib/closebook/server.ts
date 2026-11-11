@@ -50,7 +50,7 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
 // Closebook's reference data for a file page: the master lines, lead sheets, tax codes and thresholds.
 export async function loadReference(supabase: SupabaseClient) {
   const [{ data: lines }, { data: sheets }, { data: taxes }, { data: settings }, { data: gifi }] = await Promise.all([
-    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line, section").order("sort_order"),
+    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line, section, locked").order("sort_order"),
     supabase.from("cb_lead_sheets").select("code, name").order("sort_order"),
     supabase.from("cb_tax_codes").select("code, name").order("sort_order"),
     supabase.from("cb_settings").select("flag_amount, flag_percent, entry_review_amount").maybeSingle(),

@@ -77,7 +77,7 @@ async function editor(back: string) {
 async function matchFile(supabase: Awaited<ReturnType<typeof createClient>>, id: string) {
   const [{ data: accounts }, { data: lines }] = await Promise.all([
     supabase.from("cb_accounts").select("id, number, name").eq("file_id", id).is("line_no", null).eq("needs_reviewer", false),
-    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line"),
+    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line, locked"),
   ]);
   const suggestions = ((accounts ?? []) as { id: string; number: string; name: string }[]).map((a) => {
     const sg = suggestLine(a, (lines ?? []) as Line[]);
