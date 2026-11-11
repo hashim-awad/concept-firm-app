@@ -238,8 +238,9 @@ export class Proposal {
     for (const [k] of this.e.PSVC as [string, string][]) o.svc[k] = S.indexOf(k) >= 0 || (k === "pnl" && S.indexOf("cfo") >= 0);
     const lines: { svc: string; kind: string; amt: string }[] = [];
     if (m != null) lines.push({ svc: "Monthly accounting and compliance services", kind: "month", amt: String(m) });
-    // No software price in the package: the software is included, as the Letter Builder's package fill says.
-    lines.push({ svc: "Software subscription (QuickBooks Online and Dext)", kind: "month", amt: sw ? String(sw) : "Included" });
+    // Software is a top-up, never part of the base fee (Hashim, Nov 12, 2026). A package with no software
+    // price keeps the line with a blank amount: it reads "Amount needed" and blocks sending until filled.
+    lines.push({ svc: "Software subscription (QuickBooks Online and Dext)", kind: "month", amt: sw ? String(sw) : "" });
     if (y != null) lines.push({ svc: "Year-end financial statements and T2", kind: "year", amt: String(y) });
     if (lines.length) o.lines = lines;
   }

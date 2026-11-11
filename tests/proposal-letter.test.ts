@@ -70,7 +70,8 @@ test("Quotes (live): one option, team ticks, package fills services and prices, 
   const box = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
   assert.equal(box.opts![0].lines.length, 2, "software is its own line in the option box");
   p.applyOffer(0, { Offer: "Team: Plus", Services: '["books"]', "Monthly fee": "2400", "Software per month": "", "Year-end fee": "" });
-  assert.deepEqual(p.opts[0].lines.map((l: { amt: string }) => l.amt), ["2400", "Included"], "no software price: software included");
+  assert.deepEqual(p.opts[0].lines.map((l: { amt: string }) => l.amt), ["2400", ""], "no software price: the top-up line stays, amount needed");
+  assert.ok((e.pChecks(p.state()) as { lvl: string; msg: string }[]).some((c) => c.lvl === "err" && /Software subscription/.test(c.msg)), "cannot send until the software amount is entered");
   p.setLine(0, 0, "amt", "");
   const box2 = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
   assert.equal(box2.opts![0].lines[0][1], "Amount needed", "a blank amount never reads Included");
