@@ -7,6 +7,7 @@ import { C, CORP } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { clientParts } from "@/lib/t1-quote/sign";
 import { SignForm } from "./sign-form";
+import { SignDock } from "./sign-dock";
 
 export const metadata: Metadata = { title: "Concept Accounting & Advisory", robots: { index: false, follow: false } };
 
@@ -33,57 +34,59 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
     ...(quote.kind === "corporate" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
-  // After signing: the download and the portal (section 9). Couples: only when both have signed.
-  const done = signed && (
-    <section className="card border-success/30 bg-success-soft">
-      <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, me.first_name)}</h2>
-      <p className="mt-2 text-ink-2">{pieceText(texts, C.afterSign)}</p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <a href={`/q/${token}/pdf`} className="btn-secondary">{pieceText(texts, C.download)}</a>
-        <a href={PORTAL} className="btn">{pieceText(texts, C.portal)}</a>
+  const download = { href: `/q/${token}/pdf`, label: pieceText(texts, C.download) };
+  const portal = { href: PORTAL, label: pieceText(texts, C.portal), primary: true };
+
+  // The panel: sign, wait for the spouse, or done (download and portal). Couples: done only when both signed.
+  let panel: React.ReactNode, bar: { text: string; button?: string; links?: typeof download[] };
+  if (signed) {
+    panel = (
+      <div className="grid gap-4">
+        <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, me.first_name)}</h2>
+        <p className="text-ink-2">{pieceText(texts, C.afterSign)}</p>
+        <div className="grid gap-2">
+          <a href={portal.href} className="btn">{portal.label}</a>
+          <a href={download.href} className="btn-secondary">{download.label}</a>
+        </div>
       </div>
-    </section>
-  );
-  // One spouse signed, the other has not (section 7).
-  const waiting = !signed && me.signed_at && other && !other.signed_at && (
-    <section className="card grid gap-4">
-      <p className="font-medium">{pieceText(texts, C.waiting, me.first_name, other.first_name)}</p>
-      <details className="rounded-lg border border-sand-200 p-4">
-        <summary className="cursor-pointer font-medium">{pieceText(texts, C.sameDevice, other.first_name)}</summary>
-        <div className="mt-4"><SignForm token={token} forOther who={`${other.first_name} ${other.last_name}`} labels={labels} /></div>
-      </details>
-    </section>
-  );
+    );
+    bar = { text: "Signed", links: [download, portal] };
+  } else if (me.signed_at) {
+    // One spouse signed, the other has not (section 7).
+    panel = (
+      <div className="grid gap-4">
+        <p className="font-medium">{other ? pieceText(texts, C.waiting, me.first_name, other.first_name) : `Signed by ${me.first_name}.`}</p>
+        {other && !other.signed_at && (
+          <details className="rounded-lg border border-sand-200 p-4">
+            <summary className="cursor-pointer font-medium">{pieceText(texts, C.sameDevice, other.first_name)}</summary>
+            <div className="mt-4"><SignForm token={token} forOther who={`${other.first_name} ${other.last_name}`} labels={labels} /></div>
+          </details>
+        )}
+      </div>
+    );
+    bar = { text: other ? `Waiting for ${other.first_name}` : "Signed", button: "Open" };
+  } else {
+    panel = (
+      <div className="grid gap-4">
+        <div className="[&_h2]:mt-0" dangerouslySetInnerHTML={{ __html: parts[2].html }} />
+        {signers.length > 1 && <p className="text-sm text-ink-2">{signers.map((s) => `${s.first_name}: ${s.signed_at ? "signed" : "not signed yet"}`).join(" · ")}</p>}
+        <SignForm token={token} forOther={false} who={`${me.first_name} ${me.last_name}`} labels={labels} />
+      </div>
+    );
+    bar = { text: "Ready to sign?", button: pieceText(texts, C.signButton) };
+  }
 
   return (
-    <ClientShell>
-      <div className="mx-auto grid max-w-5xl gap-6">
-        {done}
-        {/* Not signed yet: a shortcut to the signature at the end of the letter. */}
-        {!me.signed_at && !signed && (
-          <div className="card flex flex-wrap items-center justify-between gap-3">
-            <p className="text-ink-2">Read your quote below. The place to sign is at the end.</p>
-            <a href="#sign" className="btn">Go to signing</a>
-          </div>
-        )}
+    <ClientShell wide>
+      {/* Phone: room at the bottom for the sign bar. Computer: the letter and the sign panel side by side. */}
+      <div className="mx-auto grid max-w-6xl gap-6 pb-24 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:pb-0">
         {/* The quote and the terms as one letter page, on the firm's letterhead. */}
         <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-5 py-7 shadow-sm sm:px-12 sm:py-12">
           <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
           <hr className="my-8 border-sand-200" />
           <div dangerouslySetInnerHTML={{ __html: parts[1].html }} />
         </article>
-        <section className="card grid gap-4" id="sign">
-          <div dangerouslySetInnerHTML={{ __html: parts[2].html }} />
-          {signers.length > 1 && !signed && (
-            <p className="text-sm text-ink-2">{signers.map((s) => `${s.first_name}: ${s.signed_at ? "signed" : "not signed yet"}`).join(" · ")}</p>
-          )}
-          {me.signed_at
-            ? <p className="text-sm text-success">{`Signed by ${me.first_name}.`}</p>
-            : <SignForm token={token} forOther={false} who={`${me.first_name} ${me.last_name}`} labels={labels} />}
-        </section>
-        {/* After signing, the same buttons right here, so nobody scrolls back to the top. */}
-        {done && <div id="done">{done}</div>}
-        {waiting}
+        <SignDock barText={bar.text} barButton={bar.button} barLinks={bar.links}>{panel}</SignDock>
       </div>
     </ClientShell>
   );
