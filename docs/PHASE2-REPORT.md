@@ -8,7 +8,7 @@ Prepared Nov 10, 2026, for the review before Phase 3. Sources: docs/STATUS.md, d
 - All 29 database changes are applied on Live. No Live database deploy has failed.
 - 16 pull requests merged (Nov 9 to Nov 10, 2026), each tested on Test first and approved by Hashim.
 - Checks passing on the last merge: 135 app tests, 18 database test files (329 checks), 11 screen parity cases, production build.
-- Open before Phase 3: a short smoke test on Live (section 6), three parked items, a few housekeeping items and one Phase 3 input (section 7).
+- Open before Phase 3: three parked items, a few housekeeping items and one Phase 3 input (section 7). The Live smoke test passed Nov 10, 2026 (section 6).
 
 ## 2. Where things run
 
@@ -72,21 +72,11 @@ Decisions 38 to 56 in docs/BRIEF.md. Key ones for Phase 3 readers:
 - The personal start form loads (after the server key fix, Nov 10).
 - All 29 database changes applied.
 
-**Tested end to end on Test only (not yet on Live)**
-- A personal lead through to a signed quote and PDF.
-- A company lead through to a signed corporate quote.
-- The new-lead email and 45-minute reminder.
-- The full export download.
-
-**Why it matters**
-- The wrong server key on Live (fixed Nov 10) would have blocked company leads, lead emails and signing. The fix should cover them, but none has been run on Live since.
-
-**Suggested Live smoke test** (dummy names, throwaway email, about 20 minutes)
-1. Personal lead at https://studio.conceptaccounting.ca/start/personal: confirm the alert email arrives.
-2. Company lead at https://studio.conceptaccounting.ca/start/company: confirm it reaches "Get my quote".
-3. Prepare, mark sent and sign one of them; download the signed PDF.
-4. Mark both leads lost (deleted automatically after the retention period).
-5. Download one full export at https://studio.conceptaccounting.ca/admin/export and save it in the firm's secure storage.
+**Live smoke test: passed Nov 10, 2026**
+- Personal lead, alert email, quote email, signing on the new layout, signed PDF with the complete letter and signing record.
+- Company lead with alert ($3,199.00).
+- Full export: 30 tables, 1,269 rows, 4 files.
+- Found and fixed during the test: the base-fee line on the T1 form (decision 57), and the engagement letter standing on its own plus the sign panel (decision 58).
 
 ## 7. Open items
 
@@ -126,8 +116,6 @@ Decisions 38 to 56 in docs/BRIEF.md. Key ones for Phase 3 readers:
 
 ## 9. Ready for Phase 3?
 
-Yes, once:
-1. The Live smoke test in section 6 passes.
-2. The Phase 3 input (the Compilation Workpaper) is in hand.
+Yes, once the Phase 3 input (the Compilation Workpaper) is in hand. The Live smoke test passed on Nov 10, 2026.
 
 Phase 3 (Year-End) is defined in docs/BRIEF.md (Appendix B text): gates, ledger, schedules, binder, GIFI export, T2 package.
