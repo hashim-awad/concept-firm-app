@@ -115,3 +115,15 @@ export function leadSheets(
   }
   return [...out.values()].filter((s) => s.rows.length);
 }
+
+// Wrong-sign check (borrowed from QuickBooks' tax mapping screen): a GIFI line whose total sits on the
+// side it normally does not. Assets and expenses are normally debits; liabilities, equity and revenue
+// credits. Contra lines (accumulated amortization, allowances, dividends) normally sit on the other side.
+const CONTRA = /^(accumulated|allowance|less\b)|dividends|draws?\b/i;
+export function wrongSign(line: Line | undefined, total: number): string {
+  if (!line || Math.round(total) === 0) return "";
+  const debitNormal = debitSide(line.line_type) !== CONTRA.test(line.name);
+  const isDebit = total > 0;
+  if (isDebit === debitNormal) return "";
+  return `This line is normally a ${debitNormal ? "debit" : "credit"}, but its total is a ${isDebit ? "debit" : "credit"}. Check the matching, or a missing entry.`;
+}

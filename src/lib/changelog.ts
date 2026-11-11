@@ -7,8 +7,9 @@ export const CHANGELOG: ChangeEntry[] = [
     date: "2026-11-11",
     title: "Closebook: match accounts to GIFI, lead sheets and entries",
     points: [
-      "Importing a trial balance matches accounts to GIFI lines by itself: last year's matches first, then by account name. To change one, type a word or line number in the account's row and pick; it saves on the spot.",
-      "Needs attention shows only the accounts left: not matched, waiting for the reviewer, or worth a second look. The reviewer decides those in the same table, and the decision is kept for the client's future years.",
+      "Importing a trial balance matches accounts to GIFI lines by itself: last year's matches first, then by account name.",
+      "A card at the top lists the accounts that need a decision, with their dollar total. The pencil on any account opens a side panel to change its GIFI line (and, for the reviewer, its tax code). Nothing changes until Save.",
+      "By GIFI line shows one row per line with its accounts and total. A line whose total is on the wrong side (for example an asset in credit) gets an amber flag.",
       "Only the file's reviewer changes an account's tax code. A balance that flips sign moves to its paired line, for example a bank account in overdraft.",
       "Lead sheets show last year, this year, entries and the change, and flag lines that moved by more than $5,000 and more than 20%.",
       "Full files have an Entries tab for adjusting, reclassifying and tax entries. Every entry must balance and goes to the reviewer.",

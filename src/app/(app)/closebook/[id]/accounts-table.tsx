@@ -1,86 +1,184 @@
 "use client";
-// The Accounts table (Phase 3 batch 4.5; mockup FileTrialBalance): every account in one table. Each
-// row's GIFI line is a type-to-find box: type a word or a line number, pick, and it saves on the spot.
-// The reviewer decides the reviewer's rows here too, and sets tax codes in the row.
+// Trial balance tab, matching (Phase 3 batch 4.5; layout borrowed from QuickBooks' tax mapping screen,
+// Hashim Nov 11, 2026):
+// 1. A card at the top: the accounts that need a decision, with their dollar total.
+// 2. Accounts, or By GIFI line: one row per GIFI line with its account count and total, opened to
+//    show its accounts.
+// 3. An amber flag on a GIFI line whose total sits on the wrong side.
+// 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
+import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AlertCircle, ChevronRight, Pencil, X } from "lucide-react";
 import { askReviewerInline, matchInline, taxCodeInline } from "../actions";
 
 export type Row = {
-  id: string; number: string; name: string; last: string; current: string; change: string;
-  lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
-  tax: string; taxOverride: boolean; editable: boolean; reviewerRow: boolean;
+  id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
+  lineNo: string; lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
+  tax: string; taxDefault: string; taxOverride: boolean; attention: boolean;
 };
+export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
 
-export function AccountsTable({ fileId, rows, options, taxes, isReviewer, totals }: {
-  fileId: string; rows: Row[]; options: { no: string; label: string }[]; taxes: { code: string; name: string }[]; isReviewer: boolean;
-  totals: { last: string; current: string };
+const money = (v: number) => v.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+
+export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals }: {
+  fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: { no: string; label: string }[]; taxes: { code: string; name: string }[];
+  isReviewer: boolean; editable: boolean; totals: { last: string; current: string };
 }) {
+  const [open, setOpen] = useState<Row | null>(null);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const attention = rows.filter((r) => r.attention);
+  const attentionTotal = attention.reduce((n, r) => n + Math.abs(r.finalNum), 0);
+  const pencil = (r: Row, label = "Change") => editable && (
+    <button type="button" onClick={() => setOpen(r)} title={label} aria-label={`${label}: ${r.name}`} className="rounded p-1.5 text-ink-3 hover:bg-sand-100 hover:text-navy-700"><Pencil className="h-4 w-4" /></button>
+  );
+  const accountCell = (r: Row) => <>{r.number && <span className="mr-2 text-ink-3 tabular-nums">{r.number}</span>}{r.name}</>;
+  const lineCell = (r: Row) => (
+    <>
+      {r.lineLabel || <span className={r.needsReviewer ? "text-danger" : "text-ink-3"}>{r.needsReviewer ? "Waiting for the reviewer" : "Not matched yet"}</span>}
+      <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted">
+        {r.source && <span>{r.source}</span>}
+        {r.needsReviewer && <span className="font-semibold text-danger">For the reviewer: {r.reason}</span>}
+        {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
+        {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
+      </span>
+    </>
+  );
+
   return (
-    <section className="card overflow-x-auto p-0">
-      <datalist id="cb-lines">{options.map((o) => <option key={o.no} value={o.label} />)}</datalist>
-      <table className="table min-w-[1000px]">
-        <thead><tr><th>Account</th><th className="w-[38%]">GIFI line</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th></tr></thead>
-        <tbody>
-          {rows.map((r) => <AccountRow key={r.id} fileId={fileId} r={r} options={options} taxes={taxes} isReviewer={isReviewer} />)}
-          <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td className="text-right tabular-nums">{totals.last}</td><td className="text-right tabular-nums">{totals.current}</td><td></td></tr>
-        </tbody>
-      </table>
-    </section>
+    <>
+      {attention.length > 0 && (
+        <section className="card mb-4 overflow-x-auto p-0">
+          <p className="flex items-center gap-2 px-5 pt-4 pb-2 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
+            {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision, totalling {money(attentionTotal)}</p>
+          <table className="table">
+            <thead><tr><th>Account</th><th>Why</th><th className="text-right">This year</th><th className="w-10"></th></tr></thead>
+            <tbody>{attention.slice(0, view === "attention" ? attention.length : 5).map((r) => (
+              <tr key={r.id}>
+                <td>{accountCell(r)}</td>
+                <td className="text-sm">{r.needsReviewer ? <span className="text-danger">For the reviewer: {r.reason}</span> : !r.lineLabel ? "Not matched" : r.mismatch}</td>
+                <td className="text-right tabular-nums">{r.final}</td>
+                <td>{pencil(r, "Assign GIFI line")}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          {view !== "attention" && attention.length > 5 && <p className="px-5 pb-3"><Link href={`${base}&view=attention`} className="text-sm text-navy-700 underline">See all {attention.length}</Link></p>}
+        </section>
+      )}
+
+      {view === "lines" ? (
+        <section className="card overflow-x-auto p-0">
+          <table className="table min-w-[900px]">
+            <thead><tr><th>GIFI line</th><th>Accounts</th><th className="w-8"></th><th className="text-right">This year</th></tr></thead>
+            <tbody>{groups.map((g) => <GroupRows key={g.lineNo} g={g} byId={byId} accountCell={accountCell} pencil={pencil} />)}</tbody>
+          </table>
+        </section>
+      ) : view !== "attention" && (
+        <section className="card overflow-x-auto p-0">
+          <table className="table min-w-[1000px]">
+            <thead><tr><th>Account</th><th className="w-[36%]">GIFI line</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>
+                  <td>{accountCell(r)}</td>
+                  <td>{lineCell(r)}</td>
+                  <td>{r.tax}{r.taxOverride && <span className="block text-xs text-muted">Reviewer&rsquo;s choice</span>}</td>
+                  <td className="text-right tabular-nums">{r.last}</td>
+                  <td className="text-right tabular-nums">{r.current}</td>
+                  <td className="text-right tabular-nums">{r.change}</td>
+                  <td>{pencil(r)}</td>
+                </tr>
+              ))}
+              <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td className="text-right tabular-nums">{totals.last}</td><td className="text-right tabular-nums">{totals.current}</td><td></td><td></td></tr>
+            </tbody>
+          </table>
+        </section>
+      )}
+      {view === "attention" && attention.length === 0 && <p className="card text-sm text-success">Nothing needs a decision: every account is matched and checked.</p>}
+
+      {open && <Panel key={open.id} fileId={fileId} r={open} options={options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} />}
+    </>
   );
 }
 
-function AccountRow({ fileId, r, options, taxes, isReviewer }: { fileId: string; r: Row; options: { no: string; label: string }[]; taxes: { code: string; name: string }[]; isReviewer: boolean }) {
-  const [value, setValue] = useState(r.lineLabel);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pending, start] = useTransition();
-  const canPick = r.editable && (!r.needsReviewer || isReviewer);
-
-  // Save when the text is exactly one of the lines (picked from the list, or typed in full).
-  const pick = (text: string) => {
-    setValue(text);
-    const hit = options.find((o) => o.label === text) ?? options.find((o) => o.no === text.trim() || o.no === `${text.trim()}.00`);
-    if (!hit || hit.label === r.lineLabel) return;
-    setValue(hit.label);
-    start(async () => {
-      const err = await matchInline(fileId, r.id, hit.no);
-      setMsg(err ? { ok: false, text: err } : { ok: true, text: "Saved" });
-    });
-  };
-
+function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<string, Row>; accountCell: (r: Row) => React.ReactNode; pencil: (r: Row, label?: string) => React.ReactNode }) {
+  const [shown, setShown] = useState(false);
   return (
-    <tr className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>
-      <td>{r.number && <span className="mr-2 text-ink-3 tabular-nums">{r.number}</span>}{r.name}</td>
-      <td>
+    <>
+      <tr className="cursor-pointer hover:bg-sand-50" onClick={() => setShown(!shown)}>
+        <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${shown ? "rotate-90" : ""}`} aria-hidden /><b className="tabular-nums">{g.lineNo.replace(/\.00$/, "")}</b> {g.label}</td>
+        <td className="text-ink-2">{g.count === 1 && !shown ? accountCell(byId.get(g.ids[0])!) : `(${g.count})`}</td>
+        <td>{g.warn && <span title={g.warn} aria-label={g.warn}><AlertCircle className="h-5 w-5 text-warning" /></span>}</td>
+        <td className={`text-right tabular-nums ${g.warn ? "font-semibold text-danger" : ""}`}>{g.total}</td>
+      </tr>
+      {shown && g.ids.map((id) => {
+        const r = byId.get(id)!;
+        return (
+          <tr key={id} className="bg-sand-50/60 text-sm">
+            <td className="pl-10">{accountCell(r)}</td><td className="text-xs text-muted">{r.source}</td><td>{pencil(r)}</td><td className="text-right tabular-nums">{r.final}</td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+// The side panel (borrowed from QuickBooks' "Change tax line"): the account's facts, From, To, and
+// for the reviewer the tax code. Nothing changes until Save.
+function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: string; r: Row; options: { no: string; label: string }[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [tax, setTax] = useState(r.taxOverride ? r.tax : "");
+  const [err, setErr] = useState("");
+  const [pending, start] = useTransition();
+  const canPick = !r.needsReviewer || isReviewer;
+  const hit = options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`);
+  const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
+  const save = () => start(async () => {
+    setErr("");
+    if (hit && hit.no !== r.lineNo) { const e = await matchInline(fileId, r.id, hit.no); if (e) { setErr(e); return; } }
+    if (taxChanged) { const e = await taxCodeInline(fileId, r.id, tax); if (e) { setErr(e); return; } }
+    onClose();
+  });
+  return (
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Change GIFI line">
+      <div className="absolute inset-0 bg-navy-950/30" onClick={onClose} />
+      <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-white p-6 shadow-2xl">
+        <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Change GIFI line</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          <dt className="font-semibold">Account</dt><dd>{r.number} {r.name}</dd>
+          <dt className="font-semibold">This year</dt><dd className="tabular-nums">{r.final}</dd>
+          <dt className="font-semibold">Last year</dt><dd className="tabular-nums">{r.last}</dd>
+          {r.mismatch && <><dt className="font-semibold">Check</dt><dd>{r.mismatch}</dd></>}
+        </dl>
+        <hr className="border-sand-200" />
+        <div className="grid gap-1 text-sm"><p className="font-semibold">From</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : "Not matched yet")}</p></div>
         {canPick ? (
-          <input list="cb-lines" value={value} onChange={(e) => pick(e.target.value)} onFocus={(e) => e.target.select()} disabled={pending}
-            placeholder={r.needsReviewer ? "Reviewer: type a word or line number" : "Type a word or line number"} aria-label={`GIFI line for ${r.name}`}
-            className={`input h-9 text-sm ${r.lineLabel ? "" : "border-warning"}`} />
-        ) : <span>{r.lineLabel || <span className="text-ink-3">Waiting for the reviewer</span>}</span>}
-        <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted">
-          {pending && <span>Saving...</span>}
-          {msg && <span className={msg.ok ? "text-success" : "text-danger"}>{msg.text}</span>}
-          {!msg && r.source && <span>{r.source}</span>}
-          {r.needsReviewer && <span className="font-semibold text-danger">For the reviewer: {r.reason}</span>}
-          {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
-          {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
-          {r.editable && !isReviewer && !r.needsReviewer && (
-            <button type="button" className="text-navy-700 underline" disabled={pending}
-              onClick={() => start(async () => { const err = await askReviewerInline(fileId, r.id); setMsg(err ? { ok: false, text: err } : { ok: true, text: "Sent to the reviewer" }); })}>Not sure? Ask the reviewer</button>
+          <div className="grid gap-1">
+            <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
+            <input id="to" list="cb-lines-panel" value={to} onChange={(e) => setTo(e.target.value)} autoFocus placeholder="For example: office, rent, 8810" className="input" />
+            <datalist id="cb-lines-panel">{options.map((o) => <option key={o.no} value={o.label} />)}</datalist>
+            {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
+          </div>
+        ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
+        {isReviewer && (r.lineLabel || hit) && (
+          <div className="grid gap-1">
+            <label htmlFor="tax" className="text-sm font-semibold">Tax code (reviewer only)</label>
+            <select id="tax" value={tax} onChange={(e) => setTax(e.target.value)} className="input">
+              <option value="">The line&rsquo;s default{r.taxDefault ? ` (${r.taxDefault})` : ""}</option>
+              {taxes.map((t) => <option key={t.code} value={t.code}>{t.code}: {t.name}</option>)}
+            </select>
+          </div>
+        )}
+        {err && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{err}</p>}
+        <div className="mt-auto flex flex-wrap items-center gap-3">
+          <button type="button" onClick={save} disabled={pending || (!(hit && hit.no !== r.lineNo) && !taxChanged)} className="btn">{pending ? "Saving..." : "Save"}</button>
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          {!isReviewer && !r.needsReviewer && (
+            <button type="button" disabled={pending} className="ml-auto text-sm text-navy-700 underline"
+              onClick={() => start(async () => { const e = await askReviewerInline(fileId, r.id); if (e) setErr(e); else onClose(); })}>Not sure? Ask the reviewer</button>
           )}
-        </span>
-      </td>
-      <td>
-        {isReviewer && r.editable && r.lineLabel ? (
-          <select defaultValue={r.taxOverride ? r.tax : ""} aria-label={`Tax code for ${r.name}`} className="input h-9 w-28 text-sm"
-            onChange={(e) => start(async () => { const err = await taxCodeInline(fileId, r.id, e.target.value); setMsg(err ? { ok: false, text: err } : { ok: true, text: "Tax code saved" }); })}>
-            <option value="">{r.taxOverride ? "Line default" : `${r.tax} (default)`}</option>
-            {taxes.map((t) => <option key={t.code} value={t.code} title={t.name}>{t.code}</option>)}
-          </select>
-        ) : <>{r.tax}{r.taxOverride && <span className="block text-xs text-muted">Reviewer&rsquo;s choice</span>}</>}
-      </td>
-      <td className="text-right tabular-nums">{r.last}</td>
-      <td className="text-right tabular-nums">{r.current}</td>
-      <td className="text-right tabular-nums">{r.change}</td>
-    </tr>
+        </div>
+      </aside>
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
-import { effectiveLine, flagged, leadSheets, suggestLine, typeMismatch, type Line } from "../src/lib/closebook/matching.ts";
+import { effectiveLine, flagged, leadSheets, suggestLine, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
 const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair }));
@@ -60,4 +60,14 @@ test("lead sheets: entries added, final balances, grouping", () => {
   assert.deepEqual(sheets.map((s) => s.code), ["A", "30"]);
   assert.equal(sheets[1].rows[0].final, 3020);
   assert.equal(sheets[0].rows[0].flagged, true, "48,210 vs 31,850: over $5,000 and 51%");
+});
+
+test("wrong-sign flag: normal side by type, contra lines reversed", () => {
+  assert.ok(wrongSign(byNo.get("1480.00"), -33516.85).startsWith("This line is normally a debit"));
+  assert.equal(wrongSign(byNo.get("1480.00"), 500), "");
+  assert.equal(wrongSign(byNo.get("1775.00"), -2880), "", "accumulated amortization is normally a credit");
+  assert.ok(wrongSign(byNo.get("1775.00"), 2880), "and flagged as a debit");
+  assert.ok(wrongSign(byNo.get("8520.00"), -100), "an expense in credit");
+  assert.equal(wrongSign(byNo.get("8121.00"), -312400), "", "revenue is a credit");
+  assert.equal(wrongSign(byNo.get("8810.00"), 0.4), "", "rounds to nothing");
 });

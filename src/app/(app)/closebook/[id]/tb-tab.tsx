@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { fileInputClass } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
-import { effectiveLine, leadSheets, typeMismatch, type Line } from "@/lib/closebook/matching";
+import { effectiveLine, leadSheets, typeMismatch, wrongSign, type Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
 import { importTrialBalance, runMatching } from "../actions";
-import { AccountsTable, type Row } from "./accounts-table";
+import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
@@ -44,26 +44,37 @@ export function TbTab(p: Props) {
   const mismatchText = (a: CbAccount) => (!isMismatch(a) ? "" : confirmed(a)
     ? `The account number says ${typeWord[a.number[0]] ?? "an expense"}; reviewer confirmed`
     : `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}`);
-  const attention = accounts.filter((a) => !a.line_no || a.needs_reviewer || (isMismatch(a) && !confirmed(a)));
-  const shown = view === "attention" ? attention : accounts;
   const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}` }));
-  const rows: Row[] = shown.map((a) => {
+  const rows: Row[] = accounts.map((a) => {
     const fin = finalOf(a);
     const eff = effectiveLine(a.line_no, fin, byNo);
     return {
-      id: a.id, number: a.number, name: a.name, last: amt(a.last_year), current: amt(a.this_year),
+      id: a.id, number: a.number, name: a.name, last: amt(a.last_year), current: amt(a.this_year), final: amt(fin), finalNum: fin,
       change: a.last_year === 0 ? (a.this_year === 0 ? "" : "new") : `${Math.round(((a.this_year - a.last_year) / Math.abs(a.last_year)) * 100)}%`,
-      lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
+      lineNo: a.line_no ?? "", lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
       source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: mismatchText(a),
-      tax: taxOf(a), taxOverride: !!a.tax_code, editable: editable && !locked, reviewerRow: a.needs_reviewer,
+      tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
+      attention: !a.line_no || a.needs_reviewer || (isMismatch(a) && !confirmed(a)),
     };
   });
+  // By GIFI line: one row per line (after opposite balances move), with its accounts and the wrong-sign flag.
+  const groupMap = new Map<string, { ids: string[]; total: number }>();
+  for (const r of rows) {
+    const eff = r.lineLabel ? r.lineLabel.split(" ")[0] : "";
+    if (!eff) continue;
+    const g = groupMap.get(eff) ?? { ids: [], total: 0 };
+    g.ids.push(r.id); g.total += r.finalNum; groupMap.set(eff, g);
+  }
+  const groups: Group[] = [...groupMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([no, g]) => ({
+    lineNo: no, label: byNo.get(no)?.name ?? "", count: g.ids.length, total: amt(g.total), warn: wrongSign(byNo.get(no), g.total), ids: g.ids,
+  }));
+  const warnCount = groups.filter((g) => g.warn).length;
 
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         {pill("accounts", "Accounts")}
-        {pill("attention", `Needs attention (${attention.length})`)}
+        {pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
         {pill("lead", "Lead sheets")}
         {file.file_type === "full" && <span className="rounded-full border border-sand-200 px-3 py-1 text-ink-3" title="Arrives with bank and card imports (part 2b)">Transactions</span>}
       </div>
@@ -121,9 +132,9 @@ export function TbTab(p: Props) {
               </section>
             ))
           )
-        ) : shown.length === 0 ? <p className="card text-sm text-success">Nothing needs attention: every account is matched and checked.</p> : (
-          <AccountsTable fileId={file.id} rows={rows} options={options} taxes={taxes} isReviewer={isReviewer}
-            totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} />
+        ) : (
+          <MatchWorkspace fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
+            editable={editable && !locked} totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} />
         )}
       <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code. The trial balance sign-off arrives with build step 3.</p>
     </>
