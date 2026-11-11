@@ -5,6 +5,16 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Closebook: match accounts to GIFI, lead sheets and entries",
+    points: [
+      "Match accounts to GIFI fills in last year's matches first, then suggests lines from account names. Anything unclear goes to the reviewer, whose decision is kept for the client's future years.",
+      "Only the file's reviewer changes an account's tax code. A balance that flips sign moves to its paired line, for example a bank account in overdraft.",
+      "Lead sheets show last year, this year, entries and the change, and flag lines that moved by more than $5,000 and more than 20%.",
+      "Full files have an Entries tab for adjusting, reclassifying and tax entries. Every entry must balance and goes to the reviewer.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Closebook: start a year-end file and import the trial balance",
     points: [
       "All files, New file: pick the company, confirm the year-end, choose monthly or full and how the books are kept, and assign the preparer and reviewer. The file starts with its core documents.",
