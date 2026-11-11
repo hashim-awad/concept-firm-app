@@ -54,3 +54,33 @@ test("the chosen option's services and fees are the letter's", () => {
   const blocks = partBBlocks({}, L);
   assert.ok(blocks.some((b: { k: string }) => b.k === "addr"));
 });
+
+test("Quotes (live): one option, team ticks, package fills services and prices, software on its own line", () => {
+  const e = createStudioEngine({ P_LINES: true } as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const p = new Proposal(e, "2026-11-11", { live: true });
+  assert.equal(p.opts.length, 1, "a team opens as one option");
+  assert.equal(p.f.format, "single");
+  assert.ok(p.opts[0].svc.pnl && p.opts[0].svc.cfo, "P&L and quarterly review ticked for a team");
+  assert.equal(p.opts[0].lines[0].amt, "", "the main fee starts empty");
+  assert.ok(!(e.pChecks(p.state()) as { msg: string }[]).some((c) => /second option/.test(c.msg)), "no second-option warning");
+  assert.ok((e.pChecks(p.state()) as { lvl: string; msg: string }[]).some((c) => c.lvl === "err" && /needs a dollar amount/.test(c.msg)), "cannot send with the main fee empty");
+  p.applyOffer(0, { Offer: "Team: Core", Services: '["books","gst","comp","t2","cfo"]', "Monthly fee": "950", "Software per month": "69", "Year-end fee": "" });
+  assert.deepEqual(p.opts[0].lines.map((l: { amt: string }) => l.amt), ["950", "69"]);
+  assert.ok(p.opts[0].svc.books && p.opts[0].svc.cfo && p.opts[0].svc.pnl && !p.opts[0].svc.payroll);
+  const box = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
+  assert.equal(box.opts![0].lines.length, 2, "software is its own line in the option box");
+  p.applyOffer(0, { Offer: "Team: Plus", Services: '["books"]', "Monthly fee": "2400", "Software per month": "", "Year-end fee": "" });
+  assert.deepEqual(p.opts[0].lines.map((l: { amt: string }) => l.amt), ["2400", "Included"], "no software price: software included");
+  p.setLine(0, 0, "amt", "");
+  const box2 = (e.pBuild(p.state()) as { k: string; opts?: { lines: string[][] }[] }[]).find((b) => b.k === "popts")!;
+  assert.equal(box2.opts![0].lines[0][1], "Amount needed", "a blank amount never reads Included");
+  p.set("format", "options");
+  assert.equal(p.opts.length, 2);
+  p.removeOption(1);
+  assert.ok((e.pChecks(p.state()) as { msg: string }[]).some((c) => /second option/.test(c.msg)), "the warning shows only for Options with one option");
+});
+test("Studio's screen (not live) is unchanged: a team opens on the Options format", () => {
+  const p = new Proposal(createStudioEngine({} as never) as any, "2026-11-11"); // eslint-disable-line @typescript-eslint/no-explicit-any
+  assert.equal(p.f.format, "options");
+  assert.ok(!p.opts[0].svc.pnl, "no extra ticks");
+});

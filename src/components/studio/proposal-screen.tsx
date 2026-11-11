@@ -25,16 +25,17 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
   initial?: { f: Record<string, string>; opts: any[]; rec: number; clientId?: string; documentId?: string }; today?: string; startClientId?: string; approvedTax?: Record<string, string>; recent?: ReactNode;
   prefill?: { f: Record<string, string>; offer: string }; live?: ProposalLive;
 }) {
-  const [box] = useState(() => makeEngine(env));
+  const [box] = useState(() => makeEngine(env, live ? { P_LINES: true } : {}));
   const [ctl, act] = useController(() => {
-    const c = new Proposal(box.e, today);
+    const c = new Proposal(box.e, today, { live: !!live });
     if (initial) { Object.assign(c.f, initial.f); c.e.__set("POPTS", JSON.parse(JSON.stringify(initial.opts))); c.e.__set("pRec", initial.rec); }
     else if (startClientId) c.applyClient(clients.find((x) => x.url === startClientId) ?? null);
     else if (prefill) {
       // The client type first: it sets the format (agents one price, teams options).
       if (prefill.f.segment) c.set("segment", prefill.f.segment);
       for (const [k, v] of Object.entries(prefill.f)) if (k !== "segment") c.set(k, v);
-      if (prefill.offer) c.setOption(0, "offer", prefill.offer);
+      if (prefill.offer && live) c.applyOffer(0, (env.floors as any[]).find((r) => r["Offer"] === prefill.offer));
+      else if (prefill.offer) c.setOption(0, "offer", prefill.offer);
     }
     // In Quotes, a proposal is dated the day it is sent and is valid 21 days (section 3).
     if (live) { c.f.date = today ?? c.f.date; c.f.valid = "21"; }
@@ -159,9 +160,9 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
           </div>
           {seg !== "Other" && (
             <div className="mt-3">
-              <Labelled id={"po_offer" + i} label="Price book">
-                <SelectIn id={"po_offer" + i} data-o={i} data-f="offer" value={o.offer} disabled={!env.floorsOk} onValue={(x) => act((c) => c.setOption(i, "offer", x))}>
-                  <option value="">{env.floorsOk ? "Price book offer (for the floor check)" : "Price book (Hashim only)"}</option>
+              <Labelled id={"po_offer" + i} label={live ? "Package" : "Price book"}>
+                <SelectIn id={"po_offer" + i} data-o={i} data-f="offer" value={o.offer} disabled={!env.floorsOk} onValue={(x) => act((c) => (live ? c.applyOffer(i, floorsFor.find((r) => r["Offer"] === x) ?? (x ? { Offer: x } : undefined)) : c.setOption(i, "offer", x)))}>
+                  <option value="">{!env.floorsOk ? "Price book (Hashim only)" : live ? "Choose a package: fills its services and prices" : "Price book offer (for the floor check)"}</option>
                   {floorsFor.map((r) => <option key={r["Offer"]} value={r["Offer"]}>{r["Offer"]}</option>)}
                 </SelectIn>
               </Labelled>

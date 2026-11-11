@@ -15,9 +15,9 @@ const DUMMY = { company: "Example Holdings Inc.", signer: "Taylor Sample", signe
 
 let WORDING: Wording | null = null;
 let MARK = false;
-function engine(signer: { name: string; title: string }) {
+function engine(signer: { name: string; title: string }, extra: { P_LINES?: boolean } = {}) {
   const paper = { innerHTML: "", classList: { toggle() {} } };
-  const e = createStudioEngine({ LH, ILLUS, SIGNER: signer.name, SIGNER_TITLE: signer.title, ...wordingEnv(WORDING), WORDING_MARK: MARK, $: ((id: string) => (id === "paper" ? paper : null)) as StudioEnv["$"] });
+  const e = createStudioEngine({ LH, ILLUS, SIGNER: signer.name, SIGNER_TITLE: signer.title, ...wordingEnv(WORDING), WORDING_MARK: MARK, ...extra, $: ((id: string) => (id === "paper" ? paper : null)) as StudioEnv["$"] });
   return { e, paper };
 }
 
@@ -124,7 +124,8 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   }
   if (key === "t1td") { const { e } = engine(L); return { parts: [{ label: "Standalone T1 master wording (sent from TaxDome)", html: e.t1TdHtml() }] }; }
   if (key === "prop") {
-    const { e } = engine(signers.proposal);
+    // As clients get it from Quotes: each option box lists its fee lines (software on its own line).
+    const { e } = engine(signers.proposal, { P_LINES: true });
     const p = new Proposal(e, "2026-11-08");
     for (const [k, v] of Object.entries({ name: "Example Team Inc.", contact: "Alex Sample", salutation: "Alex", h0: "Books are behind by several months.", h1: "They want a monthly view of profit." })) p.set(k, v);
     p.addOption();

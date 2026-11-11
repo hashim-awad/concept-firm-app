@@ -114,7 +114,17 @@ const at = factory.indexOf(OL);
 if (at < 0 || factory.indexOf(OL, at + 1) >= 0) throw new Error("Expected exactly one proposal Next steps list.");
 const end = factory.indexOf("]});", at);
 const patched = factory.slice(0, end) + "].filter(function(t){return __plain(t).trim()!==\"\";})});" + factory.slice(end + 4);
-writeFileSync(OUT, patched);
+// Second change (front office batch, section 5, item 4): in Quotes, each option box lists its fee
+// lines, so software is never folded into the monthly fee. Only when the app asks for it (P_LINES);
+// without it the output is Studio's.
+const POPTS = 'B.push({k:"popts",single:s.single,';
+if (patched.split(POPTS).length !== 2) throw new Error("Expected exactly one proposal options block.");
+// Third change, with P_LINES only: a fee line with no amount reads "Amount needed" in the preview,
+// not "Included" (a blank amount already stops the proposal from being sent).
+const LINE = 'return [l.svc,v.k==="num"?';
+if (patched.split(LINE).length !== 2) throw new Error("Expected exactly one option fee line.");
+writeFileSync(OUT, patched.replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
+  .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");
 console.log(`Wording pieces: ${pieces.size} (written to ${WORDING_OUT}).`);
 console.log(`Wrote ${OUT}: ${take.size} names, ${stmts.length} statements.`);
