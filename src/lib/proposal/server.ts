@@ -19,7 +19,7 @@ const signerOf = (q: ProposalRow) => (q.signer?.name ? q.signer : { name: "", ti
 
 // The proposal engine's input, as it was sent: dated the day it was sent, valid 21 days.
 function proposalState(q: ProposalRow, lh: string) {
-  const e: any = createStudioEngine({ LH: lh, SIGNER: signerOf(q).name, SIGNER_TITLE: signerOf(q).title, WORDING: q.wording ?? {} } as any);
+  const e: any = createStudioEngine({ LH: lh, SIGNER: signerOf(q).name, SIGNER_TITLE: signerOf(q).title, WORDING: q.wording ?? {}, P_LINES: true } as any);
   const p = new Proposal(e, sentDay(q));
   const data = q.proposal!;
   Object.assign(p.f, data.f, { date: sentDay(q), valid: "21" });

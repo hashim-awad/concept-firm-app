@@ -206,13 +206,41 @@ export class Proposal {
   f: Record<string, string> = {};
   mode: "draft" | "final" = "draft";
 
-  constructor(engine: StudioEngine, today = todayISO()) {
+  // live: the proposal builder in Quotes (front office batch, section 5, items 3 to 6). Without it,
+  // the screen is Studio's, unchanged (the screen parity test checks that).
+  live: boolean;
+
+  constructor(engine: StudioEngine, today = todayISO(), opts: { live?: boolean } = {}) {
     this.e = engine;
+    this.live = !!opts.live;
     Object.assign(this.f, { name: "", contact: "", salutation: "", province: "ON", segment: "Team or brokerage", date: today, valid: "30", h0: "", h1: "", h2: "" });
     const first = this.e.pNewOption(0); first.name = "Your package";
     this.e.__set("POPTS", [first]); this.e.__set("pRec", 0);
     // Studio sets the format from the client type when the screen opens (without reshaping options).
-    this.f.format = this.f.segment === "Team or brokerage" ? "options" : "single";
+    // In Quotes every proposal opens as one option, with no warning (item 5).
+    this.f.format = this.live ? "single" : this.f.segment === "Team or brokerage" ? "options" : "single";
+    if (this.live) this.teamTicks();
+  }
+
+  // Item 6: what sells to a team is ticked: the monthly P&L report and the quarterly review.
+  private teamTicks() {
+    if (this.f.segment !== "Team or brokerage") return;
+    for (const o of this.opts) { o.svc.pnl = true; o.svc.cfo = true; }
+  }
+
+  // Item 3: choosing a package fills its services and prices from the price book (the floor check
+  // still runs). r: the price book row ({Services, Monthly fee, Software per month, Year-end fee}).
+  applyOffer(i: number, r: Record<string, unknown> | undefined) {
+    const o = this.opts[i];
+    o.offer = r ? String(r["Offer"] ?? "") : "";
+    if (!r) return;
+    const S: string[] = this.e.pbServices(r), m = this.e.pbNum(r["Monthly fee"]), sw = this.e.pbNum(r["Software per month"]), y = this.e.pbNum(r["Year-end fee"]);
+    for (const [k] of this.e.PSVC as [string, string][]) o.svc[k] = S.indexOf(k) >= 0 || (k === "pnl" && S.indexOf("cfo") >= 0);
+    const lines: { svc: string; kind: string; amt: string }[] = [];
+    if (m != null) lines.push({ svc: "Monthly accounting and compliance services", kind: "month", amt: String(m) });
+    if (sw != null) lines.push({ svc: "Software subscription (QuickBooks Online and Dext)", kind: "month", amt: sw ? String(sw) : "Included" });
+    if (y != null) lines.push({ svc: "Year-end financial statements and T2", kind: "year", amt: String(y) });
+    if (lines.length) o.lines = lines;
   }
 
   get opts(): any[] { return this.e.__get("POPTS"); }
@@ -220,6 +248,7 @@ export class Proposal {
 
   set(id: string, v: string) {
     this.f[id] = v;
+    if (id === "segment" && this.live) { this.teamTicks(); return; }
     if (id === "segment") { this.f.format = v !== "Team or brokerage" ? "single" : "options"; this.formatChanged(); }
     if (id === "format") this.formatChanged();
   }

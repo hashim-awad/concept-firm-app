@@ -51,7 +51,7 @@ export async function sendProposalAction(quoteId: string): Promise<{ ok: true; h
 
   // The same checks the screen shows, with the wording in use today.
   const studio = await loadStudioData(supabase, access);
-  const make = () => createStudioEngine({ DB: { floors: studio.floors, floorsOk: studio.floorsOk, loaded: true, cat: studio.cat }, ...wordingEnv(studio.wording) } as any) as any;
+  const make = () => createStudioEngine({ DB: { floors: studio.floors, floorsOk: studio.floorsOk, loaded: true, cat: studio.cat }, ...wordingEnv(studio.wording), P_LINES: true } as any) as any;
   const pe = make();
   const p = new Proposal(pe, todayToronto());
   Object.assign(p.f, data.f, { date: todayToronto(), valid: "21" });

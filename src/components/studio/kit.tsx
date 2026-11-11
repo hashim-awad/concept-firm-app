@@ -23,13 +23,15 @@ export type ScreenEnv = {
 };
 
 // Studio's render() writes into a "paper" element; the app gives it a stand-in and reads the HTML.
-export function makeEngine(env: ScreenEnv): { e: StudioEngine; paper: { innerHTML: string; classList: { toggle(): void } } } {
+// extra: app-only engine options (P_LINES: each proposal option box lists its fee lines).
+export function makeEngine(env: ScreenEnv, extra: { P_LINES?: boolean } = {}): { e: StudioEngine; paper: { innerHTML: string; classList: { toggle(): void } } } {
   const paper = { innerHTML: "", classList: { toggle() {} } };
   const e = createStudioEngine({
     DB: { floors: env.floors, floorsOk: env.floorsOk, loaded: env.loaded, cat: env.cat },
     LH: env.images.LH, SIG: env.images.SIG, ILLUS: env.images.ILLUS,
     SIGNER: env.signer.name, SIGNER_TITLE: env.signer.title,
     ...wordingEnv(env.wording),
+    ...extra,
     $: ((id: string) => (id === "paper" ? paper : null)) as unknown as StudioEnv["$"],
   } as StudioEnv);
   return { e, paper };

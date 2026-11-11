@@ -4,6 +4,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-12",
+    title: "Proposal builder: package fill and safe defaults",
+    points: [
+      "Choosing a package fills its services and prices from the price book. The price floor check still runs.",
+      "The main fee starts empty, and a proposal cannot be sent until it is filled.",
+      "Each option box lists its fee lines, so software always shows on its own line, never inside the monthly fee.",
+      "A team or brokerage opens as one option with no warning. The add-a-second-option warning shows only when you choose Options and have one option.",
+      "For a team, Monthly profit and loss report and Quarterly production and financial review are ticked from the start.",
+    ],
+  },
+  {
     date: "2026-11-11",
     title: "Leads: New lead by phone",
     points: [
