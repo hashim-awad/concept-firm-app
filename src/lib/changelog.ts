@@ -5,6 +5,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Closebook: start a year-end file and import the trial balance",
+    points: [
+      "All files, New file: pick the company, confirm the year-end, choose monthly or full and how the books are kept, and assign the preparer and reviewer. The file starts with its core documents.",
+      "My files shows your files, oldest deadline first, with what to do next and the file-by date.",
+      "On a file, the Trial balance tab imports QuickBooks, Xero or bookkeeper trial balances (CSV or Excel). It must balance. Import last year's balances into their own column.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Closebook: setup and menu",
     points: [
       "New menu section Closebook with My files, All files and Review notes. Year-end files arrive in the next update.",

@@ -24,7 +24,8 @@ export async function updateMasterLine(formData: FormData) {
     p_lead_sheet: orNull(s(formData, "lead_sheet")), p_note: s(formData, "note"), p_reason: s(formData, "reason"),
   });
   revalidatePath(LINES); revalidatePath(back);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Line saved. The change is logged with your reason."));
+  const msg = error?.message === "Nothing changed." ? "No field was changed. To add a sub-line, use the box on the right." : error?.message;
+  redirect(withMessage(back, error ? "error" : "msg", msg ?? "Line saved. The change is logged with your reason."));
 }
 
 // A sub-line under a line staff can map to.

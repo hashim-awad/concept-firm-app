@@ -66,7 +66,7 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
 
         {m.mappable && (
           <form action={addSubLine} className="card grid content-start gap-4">
-            <h2 className="font-semibold">Add a sub-line under {m.line_no}</h2>
+            <h2 className="font-semibold">{m.line_no.endsWith(".00") ? `Add a sub-line under ${m.line_no}` : `Add another sub-line to GIFI ${m.gifi_code}`}</h2>
             <p className="text-sm text-ink-2">Same GIFI code ({m.gifi_code}) and lead sheet, with its own name and tax treatment. It takes the next number (.10, .20 and so on).</p>
             <input type="hidden" name="parent" value={m.line_no} />
             {field("sub_name", "Name *", <input id="sub_name" name="name" required minLength={2} maxLength={200} className="input" />)}
