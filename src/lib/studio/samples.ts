@@ -81,8 +81,8 @@ export function templateSample(key: string, signers: { letter: { name: string; t
     const texts = wording?.texts ?? {};
     const d = { ...CORP_SAMPLE, signer: signers.letter };
     if (key === "corpquote") return { parts: [{ label: "Part A: Your quote (bank statements, GST/HST and tax slips ticked)", html: corpPartA(texts, d, { mark }) }], note: "Part B of the corporate quote is the corporate master letter (the Master template), word for word, with two recorded changes: the fee sentence points to the amount in the quote, and the electronic-signature sentence is added. Both changes are the last two pieces here." };
-    const e = renderCorpEmail(texts, d, SAMPLE_SENDER, "https://example.test/q/link", { mark });
-    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+    const e = renderCorpEmail(texts, { ...d, phoneOn: "2026-11-10" }, SAMPLE_SENDER, "https://example.test/q/link", { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email (a quote taken by phone; a website quote has no line about the call)", html: e.html }] };
   }
   if (key === "t1quote" || key === "t1email1" || key === "t1email2") {
     const texts = wording?.texts ?? {};
@@ -91,8 +91,8 @@ export function templateSample(key: string, signers: { letter: { name: string; t
       ...renderQuote(texts, d, { mark }).map((p) => ({ ...p, label: `Couple: ${p.label}` })),
       { label: "Single filer: Part A", html: renderQuote(texts, { ...d, spouse: null, lines: [{ code: "PTX-110", person: null, quantity: 1 }, { code: "PTX-120", person: null, quantity: 2 }], totalCents: 79700 }, { mark })[0].html },
     ] };
-    const e = renderEmail(texts, key === "t1email2" ? d : { ...d, spouse: null }, SAMPLE_SENDER, ["https://example.test/q/link-1", "https://example.test/q/link-2"], { mark });
-    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+    const e = renderEmail(texts, { ...(key === "t1email2" ? d : { ...d, spouse: null }), phoneOn: "2026-11-10" }, SAMPLE_SENDER, ["https://example.test/q/link-1", "https://example.test/q/link-2"], { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email (a quote taken by phone; a website quote has no line about the call)", html: e.html }] };
   }
   if (mark) {
     const prev = MARK; MARK = true;

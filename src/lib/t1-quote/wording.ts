@@ -160,6 +160,8 @@ export const EMAIL = {
   valid1: P(308, "Your quote is valid until {1}.", ["Valid until date"], E1),
   button1: P(309, "Review and sign your quote", [], E1),
   firm1: P(310, "Concept Accounting & Advisory Professional Corporation", [], E1),
+  // Front office batch, section 3: phone quotes only.
+  phone1: P(311, "This quote is based on what you told us on {1}. If anything was missed, tell us before you sign.", ["Call date"], E1),
 
   subject2: P(320, "Your {1} personal tax quote", ["Tax year"], E2),
   hi2: P(321, "Hi {1} and {2},", ["First name", "Spouse first name"], E2),
@@ -172,6 +174,7 @@ export const EMAIL = {
   valid2: P(328, "Your quote is valid until {1}.", ["Valid until date"], E2),
   button2: P(329, "{1}, review and sign", ["First name"], E2),
   firm2: P(330, "Concept Accounting & Advisory Professional Corporation", [], E2),
+  phone2: P(331, "This quote is based on what you told us on {1}. If anything was missed, tell us before you sign.", ["Call date"], E2),
 };
 
 // ---------- Corporate year-end quote, Part A (Appendix C) ----------
@@ -230,6 +233,7 @@ export const CORP_EMAIL = {
   valid: P(509, "Your quote is valid until {1}.", ["Valid until date"], CE),
   button: P(510, "Review and sign your quote", [], CE),
   firm: P(511, "Concept Accounting & Advisory Professional Corporation", [], CE),
+  phone: P(512, "This quote is based on what you told us on {1}. If anything was missed, tell us before you sign.", ["Call date"], CE),
 };
 
 // ---------- Proposal email (front office batch, section 3): the signing link for a monthly proposal ----------

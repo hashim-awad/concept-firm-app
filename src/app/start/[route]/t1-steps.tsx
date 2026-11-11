@@ -1,7 +1,9 @@
 "use client";
 // The public personal tax form as steps (Hashim, Nov 10; layout only). How the steps map onto the
 // published questions' answer keys: src/lib/screening/t1-steps.ts.
-import { startTransition, useActionState, useMemo, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
+import type { FormResult } from "@/components/screening-form";
+import { FINISH_LABEL, PHONE_ANSWERS_NOTE, type Finish, type PhoneContact } from "@/lib/leads/phone";
 import { ProgressBar } from "@/components/ds/client";
 import { Field, type FormQuestionnaire } from "@/components/screening-form";
 import { QUICK, TILES, buildT1Answers, type Who } from "@/lib/screening/t1-steps";
@@ -14,12 +16,17 @@ type StepId = "about" | "who" | "quick" | "happened" | "details" | "last";
 const PERSON = ["You", "Your spouse or partner"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire; sources: string[]; rules: T1Rules; taxYear: number }) {
+// staff: "New lead by phone" (front office batch, section 2). Same steps, wording and order; staff
+// finish with Issue quote, Save as draft or Send to Hashim, and the answers feed the price panel.
+export type T1Staff = { action: (prev: FormResult | null, fd: FormData) => Promise<FormResult | null>; onAnswers?: (json: string) => void; contact?: PhoneContact | null };
+
+export function T1Steps({ qn, sources, rules, taxYear, staff }: { qn: FormQuestionnaire; sources: string[]; rules: T1Rules; taxYear: number; staff?: T1Staff }) {
   const byKey = useMemo(() => new Map(qn.questions.map((q) => [q.key, q])), [qn.questions]);
-  const [result, formAction, pending] = useActionState(submitPersonal, null);
+  const [result, formAction, pending] = useActionState(staff?.action ?? submitPersonal, null);
   const [t] = useState(() => Date.now());
   const [step, setStep] = useState<StepId>("about");
-  const [contact, setContact] = useState({ first_name: "", last_name: "", email: "", phone: "", province: "" });
+  // Staff: a picked client starts "Your details" filled in (the form remounts when the pick changes).
+  const [contact, setContact] = useState(staff?.contact ?? { first_name: "", last_name: "", email: "", phone: "", province: "" });
   const [filing, setFiling] = useState<"" | "single" | "couple">("");
   const [spouse, setSpouse] = useState({ spouse_first_name: "", spouse_last_name: "", spouse_email: "" });
   const [quick, setQuick] = useState<Set<string> | "none" | null>(null);
@@ -40,6 +47,10 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
   const answers: Answers = useMemo(() => buildT1Answers({ filing, spouse, quick, tiles, details, personDetails, note }, perPerson),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filing, spouse, quick, tiles, details, personDetails, note]);
+
+  // Staff: the price panel follows every change.
+  const answersJson = JSON.stringify(answers);
+  useEffect(() => { staff?.onAnswers?.(answersJson); }, [answersJson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const followUps = TILES.filter((tile) => ticked.has(tile.key)).flatMap((tile) => tile.follow.map((k) => byKey.get(k)).filter(Boolean) as Question[]);
   const visibleFollowUps = followUps.filter((q) => q.per_person ? answers.people.some((p) => isVisible(q, { ...answers.household, ...p })) : isVisible(q, answers.household));
@@ -74,7 +85,7 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
       if (couple && [...ticked].some(([k, v]) => perPerson(k) && v === "yes")) return "For each ticked item, choose Me, Spouse or Both.";
     }
     if (step === "details" && detailErrors.length > 0) return "Please answer the questions marked in red.";
-    if (step === "last" && !source) return "Tell us how you heard about us.";
+    if (step === "last" && !source && !staff) return "Tell us how you heard about us.";
     return "";
   }
   const go = (d: 1 | -1) => {
@@ -83,9 +94,10 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
     setStep(steps[Math.max(0, Math.min(steps.length - 1, index + d))]);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const send = () => {
+  const send = (finish?: Finish) => {
     if (!oos.length) { const p = check(); setProblem(p); setShowErrors(!!p); if (p) return; }
     const fd = new FormData();
+    if (finish) fd.set("finish", finish);
     Object.entries(contact).forEach(([k, v]) => fd.set(k, v));
     fd.set("answers", JSON.stringify(answers)); fd.set("source", source); fd.set("t", String(t)); fd.set("website", "");
     startTransition(() => formAction(fd));
@@ -220,18 +232,18 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
 
       {step === "last" && (
         <div className="card grid gap-4">
-          <div>
+          {!staff && <div>
             <label htmlFor="source" className="label">How did you hear about us?</label>
             <select id="source" value={source} onChange={(e) => setSource(e.target.value)} className="input">
               <option value="">Choose one</option>
               {sources.map((s) => <option key={s}>{s}</option>)}
             </select>
-          </div>
+          </div>}
           <div>
             <label htmlFor="anything_else" className="label">{byKey.get("anything_else")?.prompt ?? "Anything else we should know?"} <span className="font-normal text-muted">(optional)</span></label>
             <textarea id="anything_else" rows={3} value={note} onChange={(e) => setNote(e.target.value)} className="input" />
           </div>
-          <p className="text-xs text-muted">By clicking Get my quote, you agree that Concept Accounting can use your answers to prepare your quote.</p>
+          <p className="text-xs text-muted">{staff ? PHONE_ANSWERS_NOTE : "By clicking Get my quote, you agree that Concept Accounting can use your answers to prepare your quote."}</p>
         </div>
       )}
 
@@ -249,8 +261,14 @@ export function T1Steps({ qn, sources, rules, taxYear }: { qn: FormQuestionnaire
 
       <div className="flex items-center justify-between gap-3">
         {index > 0 ? <button type="button" onClick={() => go(-1)} className="btn-secondary">Back</button> : <span />}
-        {stopHere ? <button type="button" onClick={send} disabled={pending} className="btn">{pending ? "Sending..." : "Send my details"}</button>
-          : step === "last" ? <button type="button" onClick={send} disabled={pending} className="btn">{pending ? "Sending..." : "Get my quote"}</button>
+        {staff && (stopHere || step === "last") ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {(oos.length ? ["hashim"] as Finish[] : ["draft", "hashim", "issue"] as Finish[]).map((f) => (
+              <button key={f} type="button" onClick={() => send(f)} disabled={pending} className={f === "issue" || oos.length ? "btn" : "btn-secondary"}>{pending ? "Saving..." : FINISH_LABEL[f]}</button>
+            ))}
+          </div>
+        ) : stopHere ? <button type="button" onClick={() => send()} disabled={pending} className="btn">{pending ? "Sending..." : "Send my details"}</button>
+          : step === "last" ? <button type="button" onClick={() => send()} disabled={pending} className="btn">{pending ? "Sending..." : "Get my quote"}</button>
           : <button type="button" onClick={() => go(1)} className="btn">Next</button>}
       </div>
     </div>

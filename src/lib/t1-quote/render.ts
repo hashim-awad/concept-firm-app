@@ -5,6 +5,7 @@ import { A, B, C, EMAIL, ITEM_LINES, SELF_EMPLOYED_WITH, type QPiece } from "./w
 
 export type QuoteLine = { code: string; person: number | null; quantity: number };
 export type QuoteData = {
+  phoneOn?: string; // a phone quote: the date of the call (front office batch, section 3)
   taxYear: number;
   client: { first: string; last: string };
   spouse?: { first: string; last: string } | null;
@@ -159,7 +160,7 @@ export function renderEmail(texts: Record<string, string>, d: QuoteData, sender:
     ? [d.client.first, d.spouse!.first].map((n, i) => emailButton(links[i] ?? "#", t(EMAIL.button2, n))).join("")
     : emailButton(links[0] ?? "#", t(EMAIL.button1));
   const html = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">
-${p(hi)}${p(t(k.thanks))}${p(t(k.ready, d.taxYear))}${p(t(k.after))}
+${p(hi)}${p(t(k.thanks))}${p(t(k.ready, d.taxYear))}${d.phoneOn ? p(t(couple ? EMAIL.phone2 : EMAIL.phone1, longDate(d.phoneOn))) : ""}${p(t(k.after))}
 <ol style="margin: 0 0 12px; padding-left: 22px; list-style-type: decimal;">${k.steps.map((s) => `<li style="margin: 0 0 6px;">${t(s)}</li>`).join("")}</ol>
 ${p(t(k.valid, valid))}
 <div style="margin: 16px 0;">${buttons}</div>
@@ -167,7 +168,7 @@ ${p(t(k.valid, valid))}
 </div>`.replace(/\n/g, "");
   const text = [
     couple ? plain(EMAIL.hi2, d.client.first, d.spouse!.first) : plain(EMAIL.hi1, d.client.first), "",
-    plain(k.thanks), "", plain(k.ready, d.taxYear), "", plain(k.after),
+    plain(k.thanks), "", plain(k.ready, d.taxYear), "", ...(d.phoneOn ? [plain(couple ? EMAIL.phone2 : EMAIL.phone1, longDate(d.phoneOn)), ""] : []), plain(k.after),
     ...k.steps.map((s, i) => `${i + 1}. ${plain(s)}`), "", plain(k.valid, valid), "",
     ...(couple ? [d.client.first, d.spouse!.first].map((n, i) => `${plain(EMAIL.button2, n)}: ${links[i] ?? ""}`) : [`${plain(EMAIL.button1)}: ${links[0] ?? ""}`]), "",
     sender.name, plain(k.firm), [sender.phone, sender.email].filter(Boolean).join(" | "),
