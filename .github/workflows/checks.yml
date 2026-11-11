@@ -50,9 +50,7 @@ jobs:
       - run: npx next build
 
   studio-parity:
-    # Pinned: on the new Ubuntu 26 image, Playwright's browser system packages failed to install
-    # (Nov 11, 2026). Move back to ubuntu-latest once Playwright supports it.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
@@ -63,7 +61,10 @@ jobs:
       - run: npm ci
       - name: Engine copy matches the Studio reference file
         run: npm run studio:extract && git diff --exit-code src/lib/studio/engine.generated.js src/lib/studio/wording.generated.json
-      - run: npx playwright install --with-deps chromium
+      # GitHub's machines already hold the browser's system libraries. If Ubuntu's package servers do
+      # not answer within 3 minutes (seen Nov 11, 2026), install only the browser, which comes from
+      # Playwright's own servers. The tests themselves are unchanged.
+      - run: timeout 180 npx playwright install --with-deps chromium || npx playwright install chromium
       - name: Parity with the original Studio page
         run: npm run test:parity
       - name: Build the app for the screen test (placeholders, no database)
