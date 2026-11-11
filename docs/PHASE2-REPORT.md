@@ -8,7 +8,7 @@ Prepared Nov 10, 2026, for the review before Phase 3. Sources: docs/STATUS.md, d
 - All 29 database changes are applied on Live. No Live database deploy has failed.
 - 16 pull requests merged (Nov 9 to Nov 10, 2026), each tested on Test first and approved by Hashim.
 - Checks passing on the last merge: 135 app tests, 18 database test files (329 checks), 11 screen parity cases, production build.
-- Open before Phase 3: a short smoke test on Live (section 6), three parked items, a few housekeeping items and one Phase 3 input (section 7).
+- Open before Phase 3: three parked items, a few housekeeping items and one Phase 3 input (section 7). The Live smoke test passed Nov 10, 2026 (section 6).
 
 ## 2. Where things run
 
