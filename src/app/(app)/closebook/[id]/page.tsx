@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
+import { fileInputClass } from "@/components/ds/primitives";
 import { messageFrom } from "@/lib/messages";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { BOOKS, currentPhase, fileBy, FILE_TYPE, firstName, nextLine, PHASE_NAME, PHASES, progress, type CbDoc } from "@/lib/closebook/files";
@@ -114,7 +115,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             {editable && file.phase !== "locked" && (
               <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="file_id" value={id} />
-                <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className="text-sm" /></div>
+                <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
                 <div><label htmlFor="target" className="label">Column</label>
                   <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
                 <div><label htmlFor="source" className="label">From</label>

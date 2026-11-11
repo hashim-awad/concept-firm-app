@@ -22,7 +22,7 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
               <td className="tabular-nums">{formatDate(f.year_end)}</td>
               <td className="tabular-nums">{formatDate(fileBy(f.year_end))}</td>
               <td>{PHASE_NAME[phase]}{p ? ` ${p.signed}/${p.total}` : ""}</td>
-              <td>{nextLine(f.docs, people).text.replace(/^Next: /, "")}</td>
+              <td>{(() => { const t = nextLine(f.docs, people).text.replace(/^Next: /, ""); return t.charAt(0).toUpperCase() + t.slice(1); })()}</td>
               {showPeople && <td>{people.preparer} / {people.reviewer}</td>}
             </tr>
           );
