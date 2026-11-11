@@ -1,0 +1,405 @@
+gifi_code,gifi_name,section,generic_item,required_in_every_gifi,cra_description
+1000,Cash and deposits,Current assets,Yes,No,GIFI-Short: Include all amounts under items 1001 to 1007.
+1001,Cash,Current assets,No,No,"bank drafts, bank notes, cheques, coins, currency, money orders, postal notes, and post-dated cheques"
+1002,Deposits in Canadian banks and institutions – Canadian currency,Current assets,No,No,
+1003,Deposits in Canadian banks and institutions – Foreign currency,Current assets,No,No,
+1004,Deposits in foreign banks – Canadian currency,Current assets,No,No,
+1005,Deposits in foreign banks – Foreign currency,Current assets,No,No,
+1007,Other cash-like instruments,Current assets,No,No,gold bullion and silver bullion
+1060,Accounts receivable,Current assets,Yes,No,"claims, dividends, royalties, and subsidies receivable GIFI-Short: Include all amounts here that would have otherwise been reported under items 1062, 1064, 1066, 1067, 1068, 1069 and 1071, as well as claims, dividends, royalties, and subsidies receivable."
+1061,Allowance for doubtful accounts,Current assets,Yes,No,"GIFI-Short: Include all amounts under items 1063, 1065, 1070 and 1072."
+1062,Trade accounts receivable,Current assets,No,No,
+1063,Allowance for doubtful trade accounts receivable,Current assets,No,No,
+1064,Trade accounts receivable from related parties,Current assets,No,No,
+1065,Allowance for doubtful trade accounts receivable from related parties,Current assets,No,No,
+1066,Taxes receivable,Current assets,No,No,"GST/HST, income tax refunds, and tax credits receivable"
+1067,Interest receivable,Current assets,No,No,
+1068,Holdbacks receivable,Current assets,No,No,
+1069,Leases receivable,Current assets,No,No,
+1070,Allowance for doubtful amounts contained in leases receivable,Current assets,No,No,
+1071,Accounts receivable from employees,Current assets,No,No,
+1072,Allowance for doubtful accounts receivable from employees,Current assets,No,No,
+1120,Inventories,Current assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1121 to 1127.
+1121,Inventory of goods for sale,Current assets,No,No,finished goods
+1122,Inventory parts and supplies,Current assets,No,No,
+1123,Inventory properties,Current assets,No,No,"This item is intended for companies whose primary activities are real estate, subdivision, or construction, and who have real estate held for sale."
+1125,Work in progress,Current assets,No,No,goods in process
+1126,Raw materials,Current assets,No,No,includes amounts reported under inventories as raw materials usually found in the manufacturing sector
+1180,Short-term investments,Current assets,Yes,No,"short-term marketable securities GIFI-Short: Include all amounts here that would have otherwise been reported under items 1181 to 1187, as well as short term investment in joint ventures or partnerships."
+1181,Canadian term deposits,Current assets,No,No,"short-term bearer deposit notes, collateral deposits, and guaranteed investment certificates"
+1182,Canadian shares,Current assets,No,No,
+1183,Canadian bonds,Current assets,No,No,"bond coupons, bond deposits, corporate bonds, government bonds, and debentures shown current"
+1184,Canadian treasury bills,Current assets,No,No,
+1186,Other short-term Canadian investments,Current assets,No,No,
+1187,Short-term foreign investments,Current assets,No,No,all types of foreign investment shown current
+1240,Loans and notes receivable,Current assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1241 to 1244 as well as amounts due from joint venture or partnerships.
+1241,Demand loans receivable,Current assets,No,No,"amounts such as call loans, day loans, and demand loans"
+1242,Other loans receivable,Current assets,No,No,
+1243,Notes receivable,Current assets,No,No,
+1244,Mortgages receivable,Current assets,No,No,"current amounts due from shareholders/directors, such as advances, loans, and notes"
+1300,Due from shareholder(s)/director(s),Current assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1301 to 1303.
+1301,Due from individual shareholder(s),Current assets,No,No,
+1302,Due from corporate shareholder(s),Current assets,No,No,due from parent company
+1303,Due from director(s),Current assets,No,No,current advances/loans/notes between the partners and the partnership
+1360,Investment in joint venture(s)/partnership(s),Current assets,Yes,No,"current investment or equity in joint venture(s), partnership(s), and syndicate(s)"
+1380,Due from joint venture(s)/partnership(s),Current assets,Yes,No,"current amounts due from joint venture(s)/partnership(s), or syndicate(s), such as advances, loans, and notes associated, and subsidiary corporations. Note Current investment in a parent company should be reported under item 1400; however, item 1302 should be used for current amounts due from a parent company."
+1400,Due from/investment in related parties,Current assets,Yes,No,"GIFI-Short: A current investment in a parent company should be reported at line 1400, and a current amount due from a parent company should be reported at line 1300. Include all amounts here that would have otherwise been reported under items 1401 to 1403."
+1401,Demand notes from related parties,Current assets,No,No,"amounts due from related parties such as call loans, day loans, and demand loans"
+1402,Interest receivable from related parties,Current assets,No,No,
+1403,Loans/advances due from related parties,Current assets,No,No,
+1480,Other current assets,Current assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1481 to 1486.
+1481,Future (deferred) income taxes (corporations only),Current assets,No,No,"income taxes applicable to future years, and reserve for income taxes, shown current"
+1482,Accrued investment income,Current assets,No,No,
+1483,Taxes recoverable/refundable,Current assets,No,No,
+1484,Prepaid expenses,Current assets,No,No,
+1486,Security/tender deposits,Current assets,No,No,
+1599,Total current assets,Current assets,Yes,No,"depreciation is referred to as amortization of tangible assets, depletion is referred to as amortization of natural resource assets, and amortization is referred to as amortization of intangible assets. Total tangible capital assets, represents the sum of all tangible capital assets reported, and item 2009 – Total accumulated amortization of tangible capital assets, represents the sum of all the accumulated amortization of the tangible capital assets reported, within items 1600 to 1922. When reporting this breakdown, do not show the net final amount of the tangible capital assets on the GIFI. However, if your financial statements show an amount, for example fixed assets (net), for which there is no breakdown, report it under item 2008 – Total tangible capital assets."
+1600,Land,Tangible capital assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1601 and 1602.
+1601,Land improvements,Tangible capital assets,No,No,landscaping
+1602,Accumulated amortization of land improvements,Tangible capital assets,No,No,be written off in later periods as they are used up. These items generally apply only to the resource or manufacturing industries.
+1680,Buildings,Tangible capital assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 1682 and 1684.
+1681,Accumulated amortization of buildings,Tangible capital assets,Yes,No,GIFI-Short: Include the accumulated depreciation or amortization of any of the items reported at line 1680. industries
+1684,Buildings under construction,Tangible capital assets,No,No,
+1740,"Machinery, equipment, furniture, and fixtures",Tangible capital assets,Yes,No,"GIFI-Short: Include all amounts here that would have otherwise been reported under items 1742, 1744, 1746, 1748, 1750, 1752, 1754, 1756, 1758, 1760, 1762, 1764, 1766, 1768, 1770, 1772, 1774, 1776, 1778, 1780, 1782, 1783 and 1785."
+1741,"Accumulated amortization of machinery, equipment, furniture, and fixtures",Tangible capital assets,Yes,No,GIFI-Short: Include the accumulated depreciation or amortization of any of the items reported at line 1740.
+1742,Motor vehicles,Tangible capital assets,No,No,
+1743,Accumulated amortization of motor vehicles,Tangible capital assets,No,No,
+1744,Tools and dies,Tangible capital assets,No,No,
+1745,Accumulated amortization of tools and dies,Tangible capital assets,No,No,
+1746,Construction and excavating equipment,Tangible capital assets,No,No,
+1747,Accumulated amortization of construction and excavating equipment,Tangible capital assets,No,No,
+1768,Signs,Tangible capital assets,No,No,
+1769,Accumulated amortization of signs,Tangible capital assets,No,No,
+1770,Small tools,Tangible capital assets,No,No,
+1771,Accumulated amortization of small tools,Tangible capital assets,No,No,
+1772,Radio and communication equipment,Tangible capital assets,No,No,
+1773,Accumulated amortization of radio and communication equipment,Tangible capital assets,No,No,
+1774,Computer equipment/software,Tangible capital assets,No,No,
+1775,Accumulated amortization of computer,Tangible capital assets,No,No,equipment/software recreation industry
+1783,Transportation equipment,Tangible capital assets,No,No,
+1784,Accumulated amortization of transportation equipment,Tangible capital assets,No,No,
+1785,Other machinery and equipment,Tangible capital assets,No,No,
+1786,Accumulated amortization of other machinery and equipment,Tangible capital assets,No,No,
+1787,Furniture and fixtures,Tangible capital assets,No,No,
+1788,Accumulated amortization of furniture and fixtures,Tangible capital assets,No,No,GIFI-Short: Include the accumulated depreciation or amortization of any of the items on line 1787.
+1900,Other tangible capital assets,Tangible capital assets,Yes,No,"art, books, chinaware, cutlery, utensils, uniforms, culverts, dams, golf courses, grain elevators, grandstands, swimming pools, towers, and trailer parks GIFI-Short: Include all amounts here that would have otherwise been reported under items 1902, 1904, 1906, 1908, 1910, 1912, 1914, 1916, 1918, 1920 and 1921."
+1901,Accumulated amortization of other tangible capital assets,Tangible capital assets,Yes,No,GIFI-Short: Include the accumulated depreciation or amortization of any of the items on line 1900. Note Do not reduce amounts on lines 1900 and 1901 by government grants and investment tax credits. Report the net amount on line 3320.
+1904,Asphalt and parking areas,Tangible capital assets,No,No,
+1905,Accumulated amortization of asphalt and parking areas,Tangible capital assets,No,No,
+1908,Fences,Tangible capital assets,No,No,
+1909,Accumulated amortization of fences,Tangible capital assets,No,No,
+1910,Capital leases – Buildings,Tangible capital assets,No,No,
+1911,Accumulated amortization of capital leases – Buildings,Tangible capital assets,No,No,
+1912,Capital leases – Equipment,Tangible capital assets,No,No,
+1913,Accumulated amortization of capital leases – Equipment,Tangible capital assets,No,No,
+1914,Capital leases – Vehicles,Tangible capital assets,No,No,
+1915,Accumulated amortization of capital leases – Vehicles,Tangible capital assets,No,No,
+1916,Capital leases – Others,Tangible capital assets,No,No,rented signs
+1917,Accumulated amortization of capital leases – Others,Tangible capital assets,No,No,
+1918,Leasehold improvements,Tangible capital assets,No,No,
+1919,Accumulated amortization of leasehold,Tangible capital assets,No,No,improvements
+1920,Other capital assets under construction,Tangible capital assets,No,No,
+2008,Total tangible capital assets,Tangible capital assets,Yes,No,
+2009,Total accumulated amortization of tangible,Tangible capital assets,Yes,No,"capital assets Total intangible capital assets, represents the sum of all intangible capital assets reported, and item 2179 – Total accumulated amortization of intangible capital assets, represents the sum of all the accumulated amortization of the intangible capital assets reported, within items 2010 to 2077. When reporting this breakdown, the net final amount of the intangible capital assets is not to be shown anywhere on the GIFI. However, if your financial statements show an amount for “intangibles” for which there is no breakdown, this item could be reported under Item 2178 – Total intangible capital assets."
+2010,Intangible assets,Intangible capital assets,Yes,No,"concessions, formulas, franchises, and organization costs GIFI-Short: Include all amounts here that would have otherwise been reported under items 2012, 2014, 2016, 2018, 2020, 2022, 2024 and 2026, as well as concessions, formulas, franchises and organization costs."
+2011,Accumulated amortization of intangible assets,Intangible capital assets,Yes,No,GIFI-Short: Include the accumulated amortization of any items reported at line 2010.
+2012,Goodwill,Intangible capital assets,No,No,
+2013,Accumulated amortization of goodwill,Intangible capital assets,No,No,applies to tax years before 2002
+2016,Licences,Intangible capital assets,No,No,
+2017,Accumulated amortization of licences,Intangible capital assets,No,No,
+2018,Incorporation costs (corporations only),Intangible capital assets,No,No,
+2019,Accumulated amortization of incorporation costs,Intangible capital assets,No,No,(corporations only)
+2020,Trademarks/patents,Intangible capital assets,No,No,
+2021,Accumulated amortization of trademarks/patents,Intangible capital assets,No,No,
+2022,Customer lists,Intangible capital assets,No,No,
+2023,Accumulated amortization of customer lists,Intangible capital assets,No,No,
+2024,Rights,Intangible capital assets,No,No,
+2025,Accumulated amortization of rights,Intangible capital assets,No,No,
+2026,Research and development,Intangible capital assets,No,No,
+2027,Accumulated amortization of research and development,Intangible capital assets,No,No,
+2178,Total intangible capital assets,Intangible capital assets,Yes,No,
+2179,Total accumulated amortization of intangible capital assets,Intangible capital assets,Yes,No,"long-term amounts due from shareholder(s)/director(s), such as advances, loans, and notes"
+2180,Due from shareholder(s)/director(s),Long-term assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 2181 to 2183.
+2181,Due from individual shareholder(s),Long-term assets,No,No,
+2182,Due from corporate shareholder(s),Long-term assets,No,No,due from parent company
+2183,Due from director(s),Long-term assets,No,No,
+2200,Investment in joint venture(s)/partnership(s),Long-term assets,Yes,No,"long-term investment or equity in joint venture(s), partnership(s), and syndicate(s) long-term advances/loans/notes between the partners and the partnership"
+2220,Due from joint venture(s)/partnership(s),Long-term assets,Yes,No,"long-term amounts due from joint venture(s)/partnership(s), or syndicate(s), such as advances, loans, and notes associated, and subsidiary corporations. Note Long-term investment in a parent company must be reported under the appropriate item in this block; however, item 2182 – Due from corporate shareholder(s), must be used for long-term amounts due from a parent company."
+2240,Due from/investment in related parties,Long-term assets,Yes,No,"GIFI-Short: Related parties can refer to affiliate, associated, and subsidiary corporations. Note Long term investment in a parent company must be reported on line 2240, and long term amount due from a parent company must be reported on line 2180. Include all amounts here that would have otherwise been reported under items 2241 to 2250."
+2241,Due from/investment in Canadian related parties,Long-term assets,No,No,
+2242,Shares in Canadian related corporations,Long-term assets,No,No,
+2243,Loans/advances to Canadian related corporations,Long-term assets,No,No,
+2244,Investment in Canadian related corporations at cost,Long-term assets,No,No,
+2245,Investment in Canadian related corporations at equity,Long-term assets,No,No,
+2246,Due from/investment in foreign related parties,Long-term assets,No,No,
+2247,Shares in foreign related corporations,Long-term assets,No,No,
+2248,Loans/advances to foreign related corporations,Long-term assets,No,No,
+2249,Investment in foreign related corporations at cost,Long-term assets,No,No,
+2250,Investment in foreign related corporations at equity,Long-term assets,No,No,
+2280,Investment in co-tenancy,Long-term assets,Yes,No,investment in co-ownerships
+2300,Long-term investments,Long-term assets,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 2301 to 2311.
+2301,Foreign shares,Long-term assets,No,No,
+2302,Other types of foreign investments,Long-term assets,No,No,"foreign investments in joint ventures, partnerships, bonds, and debentures"
+2303,Canadian shares,Long-term assets,No,No,
+2304,Government of Canada debt,Long-term assets,No,No,Government of Canada long-term bonds and debentures
+2305,"Canadian, provincial, and municipal government debt",Long-term assets,No,No,
+2306,Canadian corporate bonds and debentures,Long-term assets,No,No,long-term bond coupons and bond deposits management of companies industries
+2311,Other Canadian long-term investments,Long-term assets,No,No,loans such as those in the finance and insurance industries
+2420,Other long-term assets,Long-term assets,Yes,No,"investment tax credits, stock exchange seats, and utilities deposits GIFI-Short: Include all amounts here that would have otherwise been reported under items 2421 to 2427."
+2421,Future (deferred) income taxes (corporations only),Long-term assets,No,No,"income taxes applicable to future years, and reserve for income taxes, shown long-term"
+2423,Deferred unrealized exchange losses,Long-term assets,No,No,
+2424,Other deferred items/charges,Long-term assets,No,No,"debt discount and expense, deferred development costs, deferred finance charges, deferred organization expense, lease inducements, tenant inducements, and cost on incomplete contracts"
+2425,Accumulated amortization of deferred charges,Long-term assets,No,No,
+2426,Reserve fund,Long-term assets,No,No,
+2427,Cash surrender value of life insurance,Long-term assets,No,No,
+2589,Total long-term assets,Long-term assets,Yes,No,
+2590,Assets held in trust,Total assets,Yes,No,"trust fund, trust assets, or funds held in escrow – Corporations such as collection agencies, funeral homes, insurance agencies, real estate agencies, travel agencies, and travel wholesalers must use this item. An amount reported under this item must have a balancing amount reported under item 3470 – Amounts held in trust, in the liabilities section."
+2599,Total assets,Total assets,Yes,Yes,"This item represents the total of all current, capital, long-term assets, and assets held in trust and must be reported (see “Validity check items” on page 7)."
+2600,Bank overdraft,Current liabilities,Yes,No,bank indebtedness
+2620,Amounts payable and accrued liabilities,Current liabilities,Yes,No,"accrued liabilities, agreements payable, claims payable, rent payable, and utilities payable GIFI-Short: Include all amounts here that would have otherwise been reported under items 2621 to 2629, as well as agreements, claims, rent and utilities payable."
+2621,Trade payables,Current liabilities,No,No,
+2622,Trade payables to related parties,Current liabilities,No,No,
+2623,Holdbacks payable,Current liabilities,No,No,
+2624,Wages payable,Current liabilities,No,No,
+2625,Management fees payable,Current liabilities,No,No,
+2626,Bonuses payable,Current liabilities,No,No,
+2627,Employee deductions payable,Current liabilities,No,No,"payroll deductions for employee benefits such as employment insurance, Canada Pension Plan, Quebec Parental Insurance Plan, group insurance, and pension plans"
+2628,Withholding taxes payable,Current liabilities,No,No,
+2629,Interest payable,Current liabilities,No,No,accrued interest payable
+2680,Taxes payable,Current liabilities,Yes,No,"capital taxes, foreign taxes, GST/HST, current income taxes, logging taxes, sales taxes, and tax credits payable"
+2700,Short-term debt,Current liabilities,Yes,No,"corporate loans, demand loans, loans from foreign banks, and notes payable shown short-term GIFI-Short: Include all amounts here that would have otherwise been reported under items 2701 to 2706, 2840, as well as corporate or demand loans, and loans from Canadian or foreign banks."
+2701,Loans from Canadian banks,Current liabilities,No,No,management of companies industries
+2705,Cheques and other items in transit,Current liabilities,No,No,
+2706,Lien notes,Current liabilities,No,No,
+2707,Credit card loans,Current liabilities,No,No,Include purchases made on your credit card for the purpose of earning business income.
+2770,Deferred income,Current liabilities,Yes,No,"deferred capital or book gain, unearned income, unearned interest, unearned service charges, and unrealized foreign exchange gain shown current current amounts due to shareholder(s)/director(s), such as advances, loans, and notes"
+2780,Due to shareholder(s)/director(s),Current liabilities,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 2781 to 2789.
+2781,Due to individual shareholder(s),Current liabilities,No,No,
+2782,Due to corporate shareholder(s),Current liabilities,No,No,due to parent company
+2783,Due to director(s),Current liabilities,No,No,current advances/loans/notes between the partnership and the partners
+2840,Due to joint venture(s)/partnership(s),Current liabilities,Yes,No,"current amounts due to joint venture(s)/partnership(s), and syndicate(s) such as advances, loans, and notes associated, and subsidiary corporations."
+2860,Due to related parties,Current liabilities,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 2861 to 2863.
+2861,Demand notes due to related parties,Current liabilities,No,No,
+2862,Interest payable to related parties,Current liabilities,No,No,
+2863,Advances due to related parties,Current liabilities,No,No,
+2920,Current portion of long-term liability,Current liabilities,Yes,No,
+2960,Other current liabilities,Current liabilities,Yes,No,"progress payments shown current GIFI-Short: Include all amounts here that would have otherwise been reported under items 2961 to 2966, as well as deferred income and unearned income shown current."
+2961,Deposits received,Current liabilities,No,No,"bids, contract deposits, rental deposits, tenders, and security deposits"
+2962,Dividends payable,Current liabilities,No,No,
+2963,Future (deferred) income taxes (corporations only),Current liabilities,No,No,income taxes applicable to future years and reserve for income taxes shown current
+2964,"Reserves for guarantees, warranties, or indemnities",Current liabilities,No,No,
+2965,General provisions/reserves,Current liabilities,No,No,"contingent liabilities, provision for losses on loans, and pension reserves shown current"
+3139,Total current liabilities,Current liabilities,Yes,No,
+3140,Long-term debt,Long-term liabilities,Yes,No,"GIFI-Short: Include all amounts here that would have otherwise been reported under items 3141 to 3149, as well as advances; loans or notes shown long term, due to joint ventures or partnerships; liability for securities sold short, liability for securities sold under repurchase agreements, and lien notes."
+3141,Mortgages,Long-term liabilities,No,No,
+3143,Chartered bank loan,Long-term liabilities,No,No,
+3144,Credit Union/Caisse Populaire loan,Long-term liabilities,No,No,
+3145,Provincial or territorial government loan,Long-term liabilities,No,No,
+3146,Supply company loan,Long-term liabilities,No,No,
+3147,Private loan,Long-term liabilities,No,No,
+3149,Line of credit,Long-term liabilities,No,No,real-estate and management of companies industries
+3152,Lien notes,Long-term liabilities,No,No,
+3210,Bonds and debentures,Long-term liabilities,Yes,No,
+3220,Deferred income,Long-term liabilities,Yes,No,"deferred capital or book gain, unearned income, unearned interest, unearned service charges, and unrealized foreign exchange gain shown long-term"
+3240,Future (deferred) income taxes (corporations only),Long-term liabilities,Yes,No,"income taxes applicable to future years and reserve for income taxes shown long-term long-term amounts due to shareholder(s)/director(s), such as advances, loans, and notes"
+3260,Due to shareholder(s)/director(s),Long-term liabilities,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 3261 to 3263.
+3261,Due to individual shareholder(s),Long-term liabilities,No,No,
+3262,Due to corporate shareholder(s),Long-term liabilities,No,No,due to parent company
+3263,Due to director(s),Long-term liabilities,No,No,
+3280,Due to joint venture(s)/partnership(s),Long-term liabilities,Yes,No,"long-term amounts due to joint venture(s)/partnership(s), and syndicate(s) such as advances, loans, and notes long-term advances/loans/notes between the partnership and the partners"
+3300,Due to related parties,Long-term liabilities,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 3301 and 3302.
+3301,Amounts owing to related Canadian parties,Long-term liabilities,No,No,
+3302,Amounts owing to related foreign parties,Long-term liabilities,No,No,
+3320,Other long-term liabilities,Long-term liabilities,Yes,No,minority shareholder interest and other deferred credits shown long-term GIFI-Short: Include all amounts here that would have otherwise been reported under items 3321 to 3328.
+3321,Long-term obligations/commitments/capital leases,Long-term liabilities,No,No,
+3322,"Reserves for guarantees, warranties, or indemnities",Long-term liabilities,No,No,
+3325,General provisions/reserves,Long-term liabilities,No,No,"contingent liabilities, provision for losses on loans, and pension reserves shown long-term"
+3326,Preference shares restated (corporations only),Long-term liabilities,No,No,This item applies to preferred shares that have been restated as a liability and reported as a long-term liability.
+3328,Deferred revenue from incomplete contracts,Long-term liabilities,No,No,intended for contractors using the completion method of reporting revenue to report deferred revenue from incomplete contracts
+3450,Total long-term liabilities,Long-term liabilities,Yes,No,
+3460,Subordinated debt,Long-term liabilities,Yes,No,
+3470,Amounts held in trust,Long-term liabilities,Yes,No,"trust fund, trust liabilities, or funds held in escrow – Corporations such as collection agencies, funeral homes, insurance agencies, real estate agencies, travel agencies, and travel wholesalers would use this item. An amount reported under this item should have a balancing amount reported in item 2590 – Assets held in trust, in the assets section."
+3499,Total liabilities,Long-term liabilities,Yes,Yes,This item represents the total of all current and long-term liabilities and must be reported (see “Validity check items” on page 7).
+3500,Common shares,Shareholder equity,Yes,No,GIFI-Short: Include stock other than preferred stock which entitles the owner to a share of the corporation’s profits and a share of the voting power in shareholder elections.
+3520,Preferred shares,Shareholder equity,Yes,No,GIFI-Short: Include stock whose holders are guaranteed priority in the payment of dividends.
+3540,Contributed and other surplus,Shareholder equity,Yes,No,GIFI-Short: Include all amounts here that would have otherwise appeared under items 3541 to 3543.
+3541,Contributed surplus,Shareholder equity,No,No,"capital donations, capital grants, and paid-in surplus"
+3542,Appraisal surplus,Shareholder equity,No,No,"excess of appraisal value over cost, revaluation account, and revaluation surplus"
+3543,General reserve,Shareholder equity,No,No,"general reserves, inventory reserves, mortgage reserves, and security reserves"
+3600,Retained earnings/deficit,Shareholder equity,Yes,No,
+3620,Total shareholder equity,Shareholder equity,Yes,Yes,This item represents the sum of all shareholder equity amounts and must be reported (see “Validity check items” on page 7).
+3640,Total liabilities and shareholder equity,Shareholder equity,Yes,No,
+3660,Retained earnings/deficit – Start,Retained earnings,Yes,No,
+3680,Net income/loss,Retained earnings,Yes,No,"Any amount reported under this item should be equal to the amount reported under item 9999 – Net income/loss after taxes and extraordinary items. Exception: If there is an amount reported under item 9998, item 3680 should be equal to item 9999 plus or minus item 9998."
+3700,Dividends declared,Retained earnings,Yes,No,"liquidating dividends, premium paid on redemption of shares, and stock dividends declared on shares GIFI-Short: Also include all amounts here that would have otherwise been reported under items 3701 and 3702."
+3701,Cash dividends,Retained earnings,No,No,
+3720,Prior period adjustments,Retained earnings,Yes,No,
+3740,Other items affecting retained earnings,Retained earnings,Yes,No,"dividends credited to investment account – If you choose to report dividends received in retained earnings rather than on the income statement, add the dividend back on Schedule 1, Net income (loss) for income tax purposes. GIFI-Short: Include all amounts here that would have otherwise been reported under items 3741 to 3744, as well as prior period adjustments."
+3741,Share redemptions,Retained earnings,No,No,
+3743,Currency adjustments,Retained earnings,No,No,
+3744,Unusual revenue items,Retained earnings,No,No,
+3849,Retained earnings/deficit – End,Retained earnings,Yes,Yes,This item represents the sum of all retained earnings amounts and must be reported if you are reporting retained earnings (see “Validity check items” on page 7). An amount reported under this item should be the same amount reported under item 3600 – Retained earnings/deficit.
+8000,Trade sales of goods and services,Revenue,Yes,No,"For corporations or partnerships who are not involved in the resource industry (items 8040 to 8053) or the fishing industry (items 8160 to 8166), but whose main source of income is the sale of a product or service. Amounts may be reported net of discounts allowed on sales, sales rebates, volume discounts, returns, and allowances."
+8020,Sales of goods and services to related parties,Revenue,Yes,No,See the explanation for item 8000 above.
+8089,Total sales of goods and services,Revenue,Yes,No,
+8090,Investment revenue,Revenue,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8091 to 8094.
+8091,Interest from foreign sources,Revenue,No,No,This item may be reported as gross of withholding taxes; withholding taxes would then be reported under item 9283 – Withholding taxes.
+8092,Interest from Canadian bonds and debentures,Revenue,No,No,
+8093,Interest from Canadian mortgage loans,Revenue,No,No,
+8094,Interest from other Canadian sources,Revenue,No,No,"finance income, guaranteed investment certificates interest, interest on overpaid taxes, and loan interest"
+8095,Dividend income,Revenue,No,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8096 and 8097.
+8096,Dividends from Canadian sources,Revenue,No,No,
+8097,Dividends from foreign sources,Revenue,No,No,may be reported gross of withholding taxes; withholding taxes would then be reported under item 9283 – Withholding taxes
+8120,Commission revenue,Revenue,Yes,No,"commissions earned on the sale of products or services by businesses such as advertising agencies, brokers, insurance agents, lottery ticket sales, sales representatives, and travel agencies. Some corporations or partnerships may present sales and cost of sale on their income statement, with commission earned being the net amount. Report only the commission on the GIFI. Compensation could also be reported under this item (for example, compensation for collecting sales tax). Example Lottery ticket sales $40,000 Cost of lottery tickets 25,000 Commission $15,000 This would be reported as: Item 8120 – Commission revenue 15,000 GIFI-Short: Also include all amounts under item 8121."
+8121,Commission income on real estate transactions,Revenue,No,No,
+8140,Rental revenue,Revenue,Yes,No,"revenue from the rental of boats, hotel or motel rooms, machinery or equipment, and storage lockers GIFI-Short: Also include all amounts here that would have otherwise been reported under items 8141 to 8150."
+8141,Real estate rental revenue,Revenue,No,No,"amounts received as income from renting or leasing apartments, commercial buildings, land, office space, residential housing, and shopping centres. This item may also be used to report income from investments in co-tenancies and co-ownerships."
+8210,Realized gains/losses on disposal of assets,Revenue,Yes,No,"gain/loss or profit/loss on disposal/sale of capital assets GIFI-Short: Also include amounts under items 8211 and 8212, as well as book gains or losses, gain or loss on disposal of fixed assets, and recaptured depreciation."
+8211,Realized gains/losses on sale of investments,Revenue,No,No,profit/loss on disposal of investments or marketable securities
+8230,Other revenue,Revenue,Yes,No,"gains on settlement of a debt and miscellaneous revenue GIFI-Short: Also include all amounts here that would have otherwise been reported under items 8231, 8233, 8236, 8238 to 8241 and 8243 to 8250."
+8231,Foreign exchange gains/losses,Revenue,No,No,amortization of deferred exchange gains and losses and realized gains and losses on foreign currency
+8232,Income/loss of subsidiaries/affiliates,Revenue,No,No,for corporations or partnerships that report investment in subsidiary corporations on the equity basis
+8234,Income/loss of joint ventures,Revenue,No,No,for corporations or partnerships that report investments in joint ventures on the equity basis
+8235,Income/loss of partnerships,Revenue,No,No,"for corporations or partnerships that report investments in partnerships on the equity basis Note A loss on foreign exchange, subsidiaries/affiliates, other divisions, joint ventures, or partnerships shown as an expense should be reported under the appropriate item (items 8231 to 8235) as a negative."
+8236,Realization of deferred revenues,Revenue,No,No,"realization of interest income, realization of instalment payments, and realization of service charges"
+8237,Royalty income other than resource,Revenue,No,No,"royalty income or royalty fees from computer programs, copyrights, motion pictures, and patents * Corporations, including non-profit organizations, can use this item to report royalties received."
+8239,Management and administration fees,Revenue,No,No,
+8240,Telecommunications revenue,Revenue,No,No,
+8241,Consulting fees,Revenue,No,No,
+8242,Subsidies and grants,Revenue,No,No,"government assistance and subsidy payments (for non-fishing corporations), federal, provincial, territorial, or municipal grants received * Corporations, including non-profit organizations, and partnerships can use this item to report federal, provincial, territorial, or municipal grants received. If COVID-19 related assistance is received, include it under item 8242."
+8248,Insurance recoveries,Revenue,No,No,life insurance proceeds on the death of insured executives
+8249,Expense recoveries,Revenue,No,No,
+8250,Bad debt recoveries,Revenue,No,No,
+8299,Total revenue,Revenue,Yes,Yes,This item represents the sum of all revenue amounts and must be reported if there is no farming revenue (see “Validity check items” on page 7).
+8300,Opening inventory,Cost of sales,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8301 to 8303.
+8301,Opening inventory – Finished goods,Cost of sales,No,No,
+8302,Opening inventory – Raw materials,Cost of sales,No,No,
+8303,Opening inventory – Goods in process,Cost of sales,No,No,opening inventory – work in progress
+8320,Purchases/cost of materials,Cost of sales,Yes,No,"cost of merchandise sold, fuel and purchased power, manufacturing supplies used, materials and merchandise purchased. The amounts related to this item may be reported net of discounts earned on purchases."
+8340,Direct wages,Cost of sales,Yes,No,"commissions, labour, production wages, and supervision when shown in cost of sales"
+8350,Benefits on direct wages,Cost of sales,Yes,No,
+8360,Trades and sub - contracts,Cost of sales,Yes,No,"contract labour, custom work, sub-contract labour, and outside labour"
+8370,Production costs other than resource,Cost of sales,Yes,No,
+8450,Other direct costs,Cost of sales,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8451 to 8461.
+8451,Equipment hire and operation,Cost of sales,No,No,
+8456,Royalty costs,Cost of sales,No,No,"royalties paid to holders of copyrights, movies, patents, performing rights, and trademarks, found in cost of sales"
+8457,Freight-in and duty,Cost of sales,No,No,customs and excise duty
+8458,Inventory write-down,Cost of sales,No,No,revaluation of inventory and inventory adjustments
+8459,Direct cost amortization of tangible assets,Cost of sales,No,No,amortization of leasehold improvements and amounts referred to as depreciation shown in cost of sales
+8461,Overhead expenses allocated to cost of sales,Cost of sales,No,No,amounts reported under cost of sales that are normally considered operating expenses
+8500,Closing inventory,Cost of sales,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8501 to 8503.
+8501,Closing inventory – Finished goods,Cost of sales,No,No,
+8502,Closing inventory – Raw materials,Cost of sales,No,No,
+8503,Closing inventory – Goods in process,Cost of sales,No,No,closing inventory – work in progress
+8518,Cost of sales,Cost of sales,Yes,No,This item represents the sum of all cost of sales amounts.
+8519,Gross profit/loss,Cost of sales,Yes,No,"This item represents the net amount of item 8089 – Total sales of goods and services, less item 8518 – Cost of sales. It may also be referred to as gross margin."
+8520,Advertising and promotion,Operating expenses,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8521 to 8524.
+8521,Advertising,Operating expenses,No,No,"catalogues, media expenses, and publications"
+8522,Donations,Operating expenses,No,No,"charitable donations, donations to the Crown, and political donations"
+8523,Meals and entertainment,Operating expenses,No,No,"tickets (such as theatre, concert and athletic events.)"
+8524,Promotion,Operating expenses,No,No,"booths, demonstrations/presentations, displays, prospectus, samples, and seminars (given)"
+8570,Amortization of intangible assets,Operating expenses,Yes,No,"amortization of intangible assets such as deferred charges, goodwill (before 2002), patents, franchises, copyrights, trademarks, organization costs, and research and development costs"
+8571,Goodwill impairment loss,Operating expenses,Yes,No,applies to 2002 and later tax years
+8590,Bad debt expense,Operating expenses,Yes,No,"allowance for bad debts, allowance/provision for doubtful accounts, bad debt, bad debt written-off, provision for bad debts, and reserve for bad debt"
+8620,Employee benefits,Operating expenses,Yes,No,"association dues, clothing allowance, lodging, payroll deductions/levies/taxes, and room and board GIFI-Short: Include all amounts here that would have otherwise been reported under items 8621 to 8623."
+8621,Group insurance benefits,Operating expenses,No,No,"medical, dental, and life insurance plans"
+8622,Employer’s portion of employee benefits,Operating expenses,No,No,"Canada Pension Plan, company pension plan, employment insurance, Quebec Parental Insurance Plan, and Workers’ Compensation"
+8623,Contributions to deferred income plans,Operating expenses,No,No,"contributions to a registered pension plan, a deferred profit sharing plan, an employee profit sharing plan, and a registered supplementary unemployment benefit plan"
+8670,Amortization of tangible assets,Operating expenses,Yes,No,amortization of leasehold improvements and amounts referred to as depreciation
+8690,Insurance,Operating expenses,Yes,No,"bonding, fire insurance, liability insurance, premium expenses, property insurance, and vehicle insurance"
+8691,Life insurance on executives,Operating expenses,No,No,insurance policies where the beneficiary is the corporation rather than the estate of the executive
+8710,Interest and bank charges,Operating expenses,Yes,No,"finance charges, bank charges, and interest payments on capital leases GIFI-Short: Include all amounts here that would have otherwise been reported under items 8711 to 8717."
+8711,Interest on short-term debt,Operating expenses,No,No,
+8712,Interest on bonds and debentures,Operating expenses,No,No,amortization of bond discounts
+8713,Interest on mortgages,Operating expenses,No,No,amortization of mortgage discount or expense
+8714,Interest on long-term debt,Operating expenses,No,No,
+8715,Bank charges,Operating expenses,No,No,
+8716,Credit card charges,Operating expenses,No,No,interest on credit cards
+8717,Collection and credit costs,Operating expenses,No,No,
+8760,"Business taxes, licences, and memberships",Operating expenses,Yes,No,"municipal taxes and land transfer taxes, beverage licences, business charges, motor vehicle licences, motor vehicle registration permits, and trade licences GIFI-Short: Include all amounts here that would have otherwise been reported under items 8761 to 8764."
+8761,Memberships,Operating expenses,No,No,dues and subscriptions
+8762,Business taxes,Operating expenses,No,No,"business tax, provincial capital tax (excluding Nova Scotia tax on large corporations), bridge tolls, gross receipt tax, health and education tax, hospital tax, permits, road tolls, and taxes on leases"
+8763,Franchise fees,Operating expenses,No,No,
+8764,Government fees,Operating expenses,No,No,
+8810,Office expenses,Operating expenses,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 8811 to 8813.
+8811,Office stationery and supplies,Operating expenses,No,No,
+8812,Office utilities,Operating expenses,No,No,"utility expenses related to an office such as electricity, gas, heating, hydro, and telephone"
+8813,Data processing,Operating expenses,No,No,word processing
+8860,Professional fees,Operating expenses,Yes,No,"engineering fees, professional services, and surveyor fees GIFI-Short: Include all amounts here that would have otherwise been reported under items 8861 to 8877."
+8861,Legal fees,Operating expenses,No,No,lawyer and notary fees
+8862,Accounting fees,Operating expenses,No,No,bookkeeping
+8863,Consulting fees,Operating expenses,No,No,
+8864,Architect fees,Operating expenses,No,No,"architectural design and illustration fees, and landscape architect fees"
+8865,Appraisal fees,Operating expenses,No,No,"real estate and jewellery appraisal, and financial valuation services"
+8866,Laboratory fees,Operating expenses,No,No,
+8867,Medical fees,Operating expenses,No,No,
+8868,Veterinary fees,Operating expenses,No,No,breeding fees
+8869,Brokerage fees,Operating expenses,No,No,
+8870,Transfer fees,Operating expenses,No,No,land and property transfer fees
+8871,Management and administration fees,Operating expenses,No,No,
+8873,Registrar and transfer agent fees,Operating expenses,No,No,
+8874,Restructuring costs,Operating expenses,No,No,reorganization costs
+8876,Training expense,Operating expenses,No,No,"animal training, management training, and staff development"
+8910,Rental,Operating expenses,Yes,No,"rental expenses for arena, boat/vessel/ship, coal and lumberyards, railway sidings, safety deposit box/vaults, and parking charges GIFI-Short: Include all amounts here that would have otherwise been reported under items 8911 to 8918."
+8911,Real estate rental,Operating expenses,No,No,"apartment, building, land, and office rentals"
+8912,Occupancy costs,Operating expenses,No,No,
+8913,Condominium fees,Operating expenses,No,No,
+8914,Equipment rental,Operating expenses,No,No,"rental expenses for computer equipment, film, office machines, and road and construction equipment"
+8915,Motor vehicle rentals,Operating expenses,No,No,
+8917,Storage,Operating expenses,No,No,rental expense for garages and warehouses
+8960,Repairs and maintenance,Operating expenses,Yes,No,aircraft repairs and maintenance GIFI-Short: Include all amounts here that would have otherwise been reported under items 8961 to 8964.
+8961,Repairs and maintenance – Buildings,Operating expenses,No,No,premises upkeep
+8962,Repairs and maintenance – Vehicles,Operating expenses,No,No,
+8964,Repairs and maintenance – Machinery and equipment,Operating expenses,No,No,gas and power line repairs and maintenance
+9010,Other repairs and maintenance,Operating expenses,Yes,No,"janitorial services, landscaping, and yard maintenance"
+9013,Security,Operating expenses,No,No,alarm system and surveillance equipment repairs and maintenance
+9014,Garbage removal,Operating expenses,No,No,
+9060,Salaries and wages,Operating expenses,Yes,No,"amounts not found in cost of sales such as administrative salaries, casual labour, cost of living allowance, down time, fees to employees, minimum wage levies, payroll remuneration, severance pay, supervision, and vacation pay GIFI-Short: Include all amounts here that would have otherwise been reported under items 9061 to 9066."
+9061,Commissions,Operating expenses,No,No,
+9063,Bonuses,Operating expenses,No,No,incentive compensation
+9064,Directors fees,Operating expenses,No,No,
+9065,Management salaries,Operating expenses,No,No,officers’ salaries
+9066,Employee salaries,Operating expenses,No,No,office salaries
+9110,Sub - contracts,Operating expenses,Yes,No,"contract labour, contract work, custom work, and hired labour"
+9130,Supplies,Operating expenses,Yes,No,"medical supplies, veterinary drugs and supplies, wrapping and packing supplies"
+9131,Small tools,Operating expenses,No,No,
+9132,Shop expense,Operating expenses,No,No,
+9133,Uniforms,Operating expenses,No,No,
+9134,Laundry,Operating expenses,No,No,dry-cleaning
+9135,Food and catering,Operating expenses,No,No,
+9150,Computer-related expenses,Operating expenses,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 9151 and 9152.
+9151,Upgrade,Operating expenses,No,No,updates to computer software
+9152,Internet,Operating expenses,No,No,
+9180,Property taxes,Operating expenses,Yes,No,municipal and realty taxes
+9200,Travel expenses,Operating expenses,Yes,No,"airfare, hotel rooms, travel allowance, travel, and accommodations"
+9201,Meetings and conventions,Operating expenses,No,No,seminars attended
+9220,Utilities,Operating expenses,Yes,No,
+9221,Electricity,Operating expenses,No,No,hydro
+9222,Water,Operating expenses,No,No,
+9223,Heat,Operating expenses,No,No,
+9224,Fuel costs,Operating expenses,No,No,"coal, diesel, fuel, natural gas, oil, and propane for heating and cooking"
+9225,Telephone and telecommunications,Operating expenses,No,No,"cellular telephone, fax machine, and pager"
+9270,Other expenses,Operating expenses,Yes,No,GIFI-Short: Include all amounts here that would have otherwise been reported under items 9200 to 9285.
+9271,Cash over/short,Operating expenses,No,No,
+9272,Reimbursement of parent company expense,Operating expenses,No,No,(corporations only) portion of expenses owing to parent
+9273,Selling expenses,Operating expenses,No,No,
+9274,Shipping and warehouse expense,Operating expenses,No,No,
+9275,"Delivery, freight and express",Operating expenses,No,No,"courier, customs, delivery and installation, distribution, ferry charges, freight and cartage, freight and duty, shipping and transportation"
+9276,Warranty expenses,Operating expenses,No,No,guarantee costs
+9277,Royalty expenses – Resident,Operating expenses,No,No,"amounts reported as non-resource royalties paid to Canadian residents such as copyrights, movies, patents, performing rights, and trademarks"
+9278,Royalty expenses – Non-resident,Operating expenses,No,No,"amounts reported as non-resource royalties paid to non-residents such as copyrights, movies, patents, performing rights, and trademarks"
+9281,Vehicle expenses,Operating expenses,No,No,"automobile expenses, gas, motor vehicle fuel, tires, and vehicle washing"
+9282,Research and development,Operating expenses,No,No,
+9283,Withholding taxes,Operating expenses,No,No,
+9284,General and administrative expenses,Operating expenses,No,No,"marketing and administration, office and general expenses, selling and administrative expenses"
+9367,Total operating expenses,Operating expenses,Yes,No,This item represents the sum of all operating expense amounts.
+9368,Total expenses,Operating expenses,Yes,Yes,"This item must be reported if there are no farming expenses (see “Validity check items” on page 7). Any amount reported under this item should be equal to the amount reported under item 8518 – Cost of sales, plus the amount reported under item 9367 – Total operating expenses."
+9369,Net non - farming income,Operating expenses,Yes,No,"The amount reported should be equal to the amount reported under item 8299 – Total revenue, minus the amount reported under item 9368 – Total expenses. As a farming corporation or partnership, you may choose to report your income using the cash method rather than the accrual method. If you are involved in more than one business activity, only your farming business can use the cash method."
+9970,Net income/loss before taxes and extraordinary items,Extraordinary items and income taxes,Yes,No,"This item represents the sum of item 9369 – Net non-farming income, and item 9899 – Net farm income. For partnerships, this item is called Net income/loss before extraordinary items ."
+9975,Extraordinary item(s),Extraordinary items and income taxes,Yes,No,"This item includes gains/losses resulting from events that: are not expected to occur regularly over a period ■ of years do not typify normal business activities ■ do not depend primarily on decisions or ■ determinations by management Examples include the expropriation of a corporation’s or partnership’s land and buildings for a highway, the destruction of a large portion of a wheat crop by a tornado, and an explosion in a nuclear reactor resulting in high-level radioactive emission."
+9976,Legal settlements,Extraordinary items and income taxes,Yes,No,settlement of royalties
+9980,Unrealized gains/losses,Extraordinary items and income taxes,Yes,No,unrealized gains/losses resulting from the adjustment of book values on the revaluation of assets
+9985,Unusual items,Extraordinary items and income taxes,Yes,No,"asset valuation adjustments such as write-downs and write-offs to net realizable values, items to be scrapped, and gains/losses from discontinued operations or wind-up of subsidiaries/affiliates. This item represents unusual and non-recurring items that do not meet the criteria set out for extraordinary gains/losses."
+9990,Current income taxes (corporations only),Extraordinary items and income taxes,Yes,No,"Canadian income taxes, federal income/large corporation tax, previous year adjustment to federal income/large corporation tax, and provincial and territorial income taxes"
+9995,Future (deferred) income tax provision,Extraordinary items and income taxes,Yes,No,"(corporations only) Canadian income taxes deferred, provision for deferred income taxes, and provision for future income taxes"
+9999,Net income/loss after taxes and extraordinary items,Extraordinary items and income taxes,Yes,Yes,For partnerships this item is called Net income/loss after extraordinary items. This item represents the net amount of the following items: Item 9970 – Net income/loss before taxes and extraordinary items Item 9975 – Extraordinary item(s) Item 9976 – Legal settlements Item 9980 – Unrealized gains/losses Item 9985 – Unusual items Item 9990 – Current income taxes Item 9995 – Future (deferred) income tax provision Item 9998 – Total of other comprehensive income Item 9999 must be reported (see “Validity check items” on page 7).
