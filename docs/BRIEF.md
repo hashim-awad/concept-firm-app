@@ -150,6 +150,15 @@ Not changed, but placed differently (decision 58, Nov 11, 2026): the letter keep
 
 T1 letter (Appendix A Part B) additions, decision 58: letterhead, date, addressee (name or names, email or emails), the line "Re: Engagement letter for your [year] personal income tax return(s)" (editable piece), and the signature image between the firm name and the signer. The wording itself is unchanged.
 
+## Screen standard (Hashim, Nov 11, 2026)
+Every screen we build is as tidy as Closebook's Trial balance tab after the QuickBooks-style rework:
+- One table where possible, with groups that open in place, so columns line up all the way down.
+- What needs action comes first (a card with the count and the dollar amount), and a filter shows only that.
+- Changes happen in a side panel opened by a pencil, with an explicit Save, so a stray click changes nothing.
+- Plain names on screen. Codes (lead sheet letters, document codes such as F3) stay in the build, not on screen.
+- Status by colour and a short word: Signed (green), Next (blue), flags (amber), notes and problems (red), Open (grey).
+- Check each screen in a browser at desktop and phone sizes before it goes to Hashim.
+
 ## Standing rules (Phase 2 batch, section 1)
 - **No price breakdown to clients.** A client never sees the price book, a line price or any per-item amount: not on the quote, engagement letter, emails, signed PDF or download page. The client sees the services included and one total fee, plus GST/HST. Applies to T1 quotes and auto-priced corporate quotes. The full breakdown is stored with the signed quote and shown only to staff with the Pricing permission.
 - **Living-system maintenance.** The brief is updated first, before the code. Every change is tested in the Test project before Live. Automatic tests grow with the app; a new feature adds its tests. The app keeps a change log in plain words Hashim can read. Backups are restored once before go-live and once a year after, to prove they work.

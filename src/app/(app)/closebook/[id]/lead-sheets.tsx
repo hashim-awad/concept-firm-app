@@ -12,6 +12,9 @@ export const REASONS: Record<string, string> = {
 export type LeadAcc = { id: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string } };
 export type LeadGroup = { code: string; name: string; last: string; before: string; entries: string; final: string; change: string; flags: number; open: number; rows: LeadAcc[] };
 
+// Which part of the statements a lead sheet belongs to: A to H assets, AA to GG liabilities and equity, 10 to 50 the income statement.
+const part = (code: string) => (!code ? "" : /^\d/.test(code) ? "Income statement" : code.length === 2 ? "Liabilities and equity" : "Assets");
+
 export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: string; groups: LeadGroup[]; full: boolean; editable: boolean }) {
   const [onlyFlags, setOnlyFlags] = useState(false);
   const [openCodes, setOpenCodes] = useState<Set<string>>(new Set());
@@ -28,13 +31,16 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
       </div>
       <section className="card overflow-x-auto p-0">
         <table className="table min-w-[980px]">
-          <thead><tr><th>Lead sheet / account</th><th className="text-right">Last year</th><th className="text-right">Before entries</th>{full && <th className="text-right">Entries</th>}<th className="text-right">This year final</th><th className="text-right">Change $</th><th className="text-right">Change %</th><th className="w-10"></th></tr></thead>
-          <tbody>{shown.map((g) => {
+          <thead><tr><th>Group / account</th><th className="text-right">Last year</th><th className="text-right">Before entries</th>{full && <th className="text-right">Entries</th>}<th className="text-right">This year final</th><th className="text-right">Change $</th><th className="text-right">Change %</th><th className="w-10"></th></tr></thead>
+          <tbody>{shown.map((g, gi) => {
             const isOpen = onlyFlags || openCodes.has(g.code);
             const rows = onlyFlags ? g.rows.filter((r) => r.flagged) : g.rows;
+            // A plain heading where a new part starts (codes stay in the build, never on screen).
+            const heading = part(g.code) !== part(shown[gi - 1]?.code ?? "") ? part(g.code) : "";
             return [
+              ...(heading ? [<tr key={`h-${heading}`}><td colSpan={cols + 1} className="pt-5 pb-1 text-xs font-semibold tracking-wider text-ink-3 uppercase">{heading}</td></tr>] : []),
               <tr key={g.code} className="cursor-pointer bg-sand-50/70 font-semibold hover:bg-sand-100" onClick={() => toggle(g.code)}>
-                <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden />{g.code} {g.name}
+                <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden />{g.name}
                   {g.flags > 0 && <span className={`ml-2 rounded px-1.5 text-xs ${g.open ? "bg-warning-soft text-warning" : "bg-success-soft text-success"}`}>{g.open ? `${g.open} to explain` : `${g.flags} explained`}</span>}</td>
                 <td className="text-right tabular-nums">{g.last}</td><td className="text-right tabular-nums">{g.before}</td>{full && <td className="text-right tabular-nums">{g.entries}</td>}
                 <td className="text-right tabular-nums">{g.final}</td><td className="text-right tabular-nums">{g.change}</td><td></td><td></td>
