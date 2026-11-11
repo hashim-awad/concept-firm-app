@@ -14,7 +14,7 @@ const SOURCE_LABEL: Record<string, string> = { history: "From last year", sugges
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
-  view: string;
+  view: string; craText: Map<string, string>;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -44,7 +44,7 @@ export function TbTab(p: Props) {
   const mismatchText = (a: CbAccount) => (!isMismatch(a) ? "" : confirmed(a)
     ? `The account number says ${typeWord[a.number[0]] ?? "an expense"}; reviewer confirmed`
     : `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}`);
-  const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}` }));
+  const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "" }));
   const rows: Row[] = accounts.map((a) => {
     const fin = finalOf(a);
     const eff = effectiveLine(a.line_no, fin, byNo);

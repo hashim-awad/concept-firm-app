@@ -10,6 +10,7 @@ export const CHANGELOG: ChangeEntry[] = [
       "Importing a trial balance matches accounts to GIFI lines by itself: last year's matches first, then by account name.",
       "A card at the top lists the accounts that need a decision, with their dollar total. The pencil on any account opens a side panel to change its GIFI line (and, for the reviewer, its tax code). Nothing changes until Save.",
       "By GIFI line shows one row per line with its accounts and total. A line whose total is on the wrong side (for example an asset in credit) gets an amber flag.",
+      "The GIFI line list in the side panel shows each line's section in grey and an info mark with CRA's description of the code. Type a number or words; arrows and Enter work.",
       "Only the file's reviewer changes an account's tax code. A balance that flips sign moves to its paired line, for example a bank account in overdraft.",
       "Lead sheets show last year, this year, entries and the change, and flag lines that moved by more than $5,000 and more than 20%.",
       "Full files have an Entries tab for adjusting, reclassifying and tax entries. Every entry must balance and goes to the reviewer.",

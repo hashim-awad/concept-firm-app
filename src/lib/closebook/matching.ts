@@ -5,7 +5,7 @@
 // - typeMismatch: an account numbered as one type matched to a line of another type (4.5).
 // - leadSheets: grouping, entries, final balances and the year-over-year flags (5.5).
 
-export type Line = { line_no: string; name: string; gifi_code: string; line_type: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; pair_line: string | null };
+export type Line = { line_no: string; name: string; gifi_code: string; line_type: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; pair_line: string | null; section?: string };
 
 // Common words in client account names that GIFI wording does not use. Suggestions only: the
 // preparer confirms them and the reviewer sees every new match at sign-off. Review this list with

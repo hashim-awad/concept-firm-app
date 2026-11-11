@@ -8,7 +8,7 @@
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertCircle, ChevronRight, Pencil, X } from "lucide-react";
+import { AlertCircle, ChevronRight, Info, Pencil, X } from "lucide-react";
 import { askReviewerInline, matchInline, taxCodeInline } from "../actions";
 
 export type Row = {
@@ -17,11 +17,12 @@ export type Row = {
   tax: string; taxDefault: string; taxOverride: boolean; attention: boolean;
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
+export type Option = { no: string; label: string; section: string; hint: string };
 
 const money = (v: number) => v.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 
 export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals }: {
-  fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: { no: string; label: string }[]; taxes: { code: string; name: string }[];
+  fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
   isReviewer: boolean; editable: boolean; totals: { last: string; current: string };
 }) {
   const [open, setOpen] = useState<Row | null>(null);
@@ -124,7 +125,7 @@ function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<strin
 
 // The side panel (borrowed from QuickBooks' "Change tax line"): the account's facts, From, To, and
 // for the reviewer the tax code. Nothing changes until Save.
-function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: string; r: Row; options: { no: string; label: string }[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void }) {
+function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: string; r: Row; options: Option[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void }) {
   const [to, setTo] = useState("");
   const [tax, setTax] = useState(r.taxOverride ? r.tax : "");
   const [err, setErr] = useState("");
@@ -155,8 +156,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
         {canPick ? (
           <div className="grid gap-1">
             <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
-            <input id="to" list="cb-lines-panel" value={to} onChange={(e) => setTo(e.target.value)} autoFocus placeholder="For example: office, rent, 8810" className="input" />
-            <datalist id="cb-lines-panel">{options.map((o) => <option key={o.no} value={o.label} />)}</datalist>
+            <LinePicker options={options} value={to} onChange={setTo} />
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
@@ -179,6 +179,46 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
           )}
         </div>
       </aside>
+    </div>
+  );
+}
+
+// The line picker (borrowed from QuickBooks): each line with its section in grey italics and an info
+// mark that shows CRA's description of the GIFI code. Type a number or words; arrows and Enter work.
+function LinePicker({ options, value, onChange }: { options: Option[]; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const q = value.trim().toLowerCase();
+  const chosen = options.some((o) => o.label === value);
+  const words = q.split(/\s+/).filter(Boolean);
+  // Numbers match the start of the line number; words match the start of words ("to" does not match "director").
+  const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const res = words.map((w) => new RegExp(`(^|[^a-z0-9])${esc(w)}`, "i"));
+  const list = (chosen || !q ? options : options.filter((o) => (/^\d/.test(q) ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
+  const pick = (o: Option) => { onChange(o.label); setOpen(false); };
+  return (
+    <div className="relative">
+      <input id="to" value={value} autoFocus autoComplete="off" role="combobox" aria-expanded={open} aria-controls="cb-line-list" placeholder="For example: office, rent, 8810" className="input"
+        onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((i) => Math.min(i + 1, list.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
+          else if (e.key === "Enter" && open && list[active]) { e.preventDefault(); pick(list[active]); }
+          else if (e.key === "Escape") setOpen(false);
+        }} />
+      {open && list.length > 0 && (
+        <ul id="cb-line-list" role="listbox" className="absolute z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-sand-200 bg-white py-1 shadow-xl">
+          {list.map((o, i) => (
+            <li key={o.no} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
+              className={`flex cursor-pointer items-baseline gap-2 px-3 py-2 text-sm ${i === active ? "bg-navy-50" : ""}`}>
+              <span className="flex-1"><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.slice(o.no.length + 1)}</span>
+              <span className="text-xs text-ink-3 italic">{o.section}</span>
+              {o.hint && <span title={o.hint} aria-label={`CRA: ${o.hint}`} className="ml-auto shrink-0 text-ink-3"><Info className="h-3.5 w-3.5" /></span>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

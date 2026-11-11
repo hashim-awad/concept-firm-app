@@ -47,14 +47,17 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
 
 // Closebook's reference data for a file page: the master lines, lead sheets, tax codes and thresholds.
 export async function loadReference(supabase: SupabaseClient) {
-  const [{ data: lines }, { data: sheets }, { data: taxes }, { data: settings }] = await Promise.all([
-    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line").order("sort_order"),
+  const [{ data: lines }, { data: sheets }, { data: taxes }, { data: settings }, { data: gifi }] = await Promise.all([
+    supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line, section").order("sort_order"),
     supabase.from("cb_lead_sheets").select("code, name").order("sort_order"),
     supabase.from("cb_tax_codes").select("code, name").order("sort_order"),
     supabase.from("cb_settings").select("flag_amount, flag_percent, entry_review_amount").maybeSingle(),
+    supabase.from("cb_gifi_codes").select("code, description, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true),
   ]);
   return {
     lines: (lines ?? []) as import("./matching").Line[], sheets: (sheets ?? []) as { code: string; name: string }[], taxes: (taxes ?? []) as { code: string; name: string }[],
     flag: { amount: Number(settings?.flag_amount ?? 5000), percent: Number(settings?.flag_percent ?? 20) },
+    // CRA's description of each GIFI code (Appendix A), for the hint in the line picker.
+    craText: new Map(((gifi ?? []) as { code: string; description: string }[]).map((g) => [g.code, g.description])),
   };
 }
