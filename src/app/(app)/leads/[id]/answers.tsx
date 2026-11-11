@@ -55,7 +55,7 @@ export async function LeadQuote({ leadId, people, canPrepare, route = "personal"
   const supabase = await createClient();
   const [{ data }, { data: t1 }] = await Promise.all([
     supabase.from("lead_quotes").select("lines, subtotal_cents").eq("lead_id", leadId).maybeSingle(),
-    supabase.from("t1_quotes").select("status").eq("lead_id", leadId).maybeSingle(),
+    supabase.from("quotes").select("status").eq("lead_id", leadId).maybeSingle(),
   ]);
   if (!data) return null;
   const lines = data.lines as QLine[];

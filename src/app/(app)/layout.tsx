@@ -7,15 +7,13 @@ import { MainArea } from "./main-area";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();
-  // Menu badges: proposals and engagement letters sent and waiting for the client's signature.
+  // Menu badges: quotes and engagement letters sent and waiting for the client's signature.
   const supabase = await createClient();
   const seeDocs = canView(access, "documents");
   const pricing = canView(access, "pricing");
   const { count: leadsNew } = canView(access, "leads") ? await supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : { count: 0 };
-  const [{ count: proposalsAwaiting }, { count: lettersAwaiting }] = seeDocs ? await Promise.all([
-    pricing ? supabase.from("proposals").select("id", { count: "exact", head: true }).eq("status", "Sent") : Promise.resolve({ count: 0 }),
-    supabase.from("engagements").select("id", { count: "exact", head: true }).eq("status", "EL sent"),
-  ]) : [{ count: 0 }, { count: 0 }];
+  const { data: quotesWaiting } = canView(access, "leads") ? await supabase.rpc("quotes_waiting_count") : { data: 0 };
+  const { count: lettersAwaiting } = seeDocs ? await supabase.from("engagements").select("id", { count: "exact", head: true }).eq("status", "EL sent") : { count: 0 };
   return (
     <ToastProvider>
       <div className="min-h-screen bg-paper md:flex">
@@ -38,7 +36,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             settings: canView(access, "settings"),
             closebook: canView(access, "closebook"),
           }}
-          counts={{ proposalsAwaiting: proposalsAwaiting ?? 0, lettersAwaiting: lettersAwaiting ?? 0, leadsNew: leadsNew ?? 0 }}
+          counts={{ quotesAwaiting: (quotesWaiting as number | null) ?? 0, lettersAwaiting: lettersAwaiting ?? 0, leadsNew: leadsNew ?? 0 }}
         />
         <MainArea>{children}</MainArea>
       </div>

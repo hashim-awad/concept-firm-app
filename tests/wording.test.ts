@@ -63,3 +63,8 @@ test("every fill-in has a name", () => {
     assert.ok((p.fills ?? []).every((f) => f && !/^Detail( \d+)?$/.test(f)), p.text);
   }
 });
+
+test("a proposal Next steps line may be blank (it is left out); other wording may not", () => {
+  assert.equal(checkEdit("w5725499754", ""), null);
+  assert.match(checkEdit("w11fc14203d", "") ?? "", /cannot be blank/);
+});

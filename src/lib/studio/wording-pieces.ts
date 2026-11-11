@@ -24,10 +24,13 @@ export function fromFriendly(key: string, text: string): string {
 }
 
 // An edit keeps every fill-in of the original, exactly once each.
+// The proposal's "Next steps" lines: a blank one is left out of the list (Hashim, Nov 11, 2026).
+export const BLANK_REMOVES = new Set(["w047a905d6b", "wa3ab7806ed", "w5725499754", "w134c9423c8", "w7cce0d03ca"]);
+
 export function checkEdit(key: string, text: string): string | null {
   const p = PIECE.get(key);
   if (!p) return "Unknown wording.";
-  if (!text.trim()) return "The wording cannot be blank.";
+  if (!text.trim()) return BLANK_REMOVES.has(key) ? null : "The wording cannot be blank.";
   if (text.length > 5000) return "The wording is too long.";
   if (tokens(text) !== tokens(p.text)) {
     const names = (p.fills ?? []).map((n) => `[${n}]`);

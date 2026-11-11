@@ -29,29 +29,29 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('no quote without a quote from the answers', test.try($$select public.create_t1_quote('$$ || :'oos' || $$')$$) like '%has no quote from its answers%');
 select public.create_t1_quote(:'lead') as q \gset
 select test.check('preparing again returns the same quote', public.create_t1_quote(:'lead') = :'q'::uuid);
-select test.check('a draft quote', (select status || ' ' || tax_year || ' ' || couple || ' ' || total_cents from public.t1_quotes where id = :'q') = 'draft 2026 true 34900');
-select test.check('two signers, each with a private link', (select count(distinct token) from public.t1_quote_signers where quote_id = :'q') = 2
-  and (select email from public.t1_quote_signers where quote_id = :'q' and person = 1) = 'sam@example.test');
-select test.check('staff cannot change a quote directly', test.try($$update public.t1_quotes set total_cents = 1 where id = '$$ || :'q' || $$'$$) <> 'OK'
-  or (select total_cents from public.t1_quotes where id = :'q') = 34900);
+select test.check('a draft quote', (select status || ' ' || tax_year || ' ' || couple || ' ' || total_cents from public.quotes where id = :'q') = 'draft 2026 true 34900');
+select test.check('two signers, each with a private link', (select count(distinct token) from public.quote_signers where quote_id = :'q') = 2
+  and (select email from public.quote_signers where quote_id = :'q' and person = 1) = 'sam@example.test');
+select test.check('staff cannot change a quote directly', test.try($$update public.quotes set total_cents = 1 where id = '$$ || :'q' || $$'$$) <> 'OK'
+  or (select total_cents from public.quotes where id = :'q') = 34900);
 select public.mark_t1_quote_sent(:'q') as until \gset
 select test.check('valid 21 days from today', :'until'::date = (now() at time zone 'America/Toronto')::date + 21);
-select test.check('sent: sender, signer and wording kept', (select status from public.t1_quotes where id = :'q') = 'sent'
-  and (select sender ->> 'name' from public.t1_quotes where id = :'q') = 'Test Owner A'
-  and (select signer ->> 'name' from public.t1_quotes where id = :'q') = 'Hashim Abouelfetouh, CPA'
-  and (select wording is not null from public.t1_quotes where id = :'q'));
+select test.check('sent: sender, signer and wording kept', (select status from public.quotes where id = :'q') = 'sent'
+  and (select sender ->> 'name' from public.quotes where id = :'q') = 'Test Owner A'
+  and (select signer ->> 'name' from public.quotes where id = :'q') = 'Hashim Abouelfetouh, CPA'
+  and (select wording is not null from public.quotes where id = :'q'));
 select test.check('the lead shows Quote sent', (select status from public.leads where id = :'lead') = 'sent');
 select test.check('cannot mark sent twice', test.try($$select public.mark_t1_quote_sent('$$ || :'q' || $$')$$) like '%already marked sent%');
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff without Pricing see no quotes or links', (select count(*) from public.t1_quotes) = 0 and (select count(*) from public.t1_quote_signers) = 0);
+select test.check('staff without Pricing see no quotes or links', (select count(*) from public.quotes) = 0 and (select count(*) from public.quote_signers) = 0);
 reset role;
 reset request.jwt.claims;
 set role anon;
-select test.check('the public cannot read quotes or links', test.try($$select count(*) from public.t1_quote_signers$$) <> 'OK');
+select test.check('the public cannot read quotes or links', test.try($$select count(*) from public.quote_signers$$) <> 'OK');
 reset role;
 set role service_role;
-select count(*) as by_token from public.t1_quote_signers where token = (select token from public.t1_quote_signers where quote_id = :'q' and person = 0) \gset
+select count(*) as by_token from public.quote_signers where token = (select token from public.quote_signers where quote_id = :'q' and person = 0) \gset
 reset role;
 select test.check('the server finds a quote by its private link', :by_token = 1);
 

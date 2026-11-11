@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) return new NextResponse("Not found", { status: 404 });
   const supabase = await createClient();
-  const { data: q } = await supabase.from("t1_quotes").select("id, tax_year, status").eq("lead_id", id).maybeSingle();
+  const { data: q } = await supabase.from("quotes").select("id, tax_year, status").eq("lead_id", id).maybeSingle();
   if (!q || q.status !== "signed") return new NextResponse("Not found", { status: 404 });
   const file = await signedPdfBytes(q.id);
   if (!file) return new NextResponse("Not found", { status: 404 });

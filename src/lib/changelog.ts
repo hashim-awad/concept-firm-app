@@ -5,6 +5,19 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Quotes: one list for every offer, and proposals signed online",
+    points: [
+      "Proposals is now Quotes. Personal tax quotes, company year-end quotes and monthly proposals are in one list with the statuses Draft, Sent, Viewed, Signed, Declined and Expired. Totals show only to staff with Pricing.",
+      "Viewed means the client opened their link. A quote expires 21 days after it is sent. Staff mark a quote declined when the client says no.",
+      "A proposal saves itself as a draft in Quotes as soon as you start. A new Letter details step collects what the engagement letter needs, and shows what is still missing for each option.",
+      "Hashim sends a proposal for signing. The client opens the link, picks an option, reads the engagement letter for that option and signs once. The signed PDF holds the proposal, the chosen letter and the signing record.",
+      "Templates, Proposal: the preview also shows a one-price proposal, so its first next step can be edited. The option boxes no longer show stray style text, and their border colours are no longer listed as wording.",
+      "Templates, Proposal: a Next steps line can be left blank to remove that step. It stays in the list of lines, so it can be filled in again.",
+      "The proposal builder is at Quotes, New proposal. The T1 pricing calculator moved to Settings, Pricing, T1 price check. My day lists quotes waiting for signature.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Closebook: locked GIFI lines and a shorter line list",
     points: [
       "A main GIFI line with sub-lines to choose from shows a lock and cannot be picked: Due to shareholders, Due from shareholders and Dividends. Pick shareholder 1 or 2, or eligible or non-eligible, instead.",

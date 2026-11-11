@@ -6,6 +6,7 @@ import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
 import { T1Q_TEMPLATES } from "../t1-quote/wording";
+import { renderProposalEmail } from "../proposal/email";
 import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
 import { corpPartA, renderCorpEmail, CORP_SAMPLE } from "../corporate/render";
 
@@ -57,7 +58,12 @@ const SCHEDULE: Record<string, [string, string]> = {
 export type Sample = { parts: { label: string; html: string }[]; note?: string };
 
 // Markers from the engine's editor mode become clickable <span data-w="key"> elements.
-export const markToSpans = (html: string) => html.replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>");
+// Markers from the engine's editor mode become clickable <span data-w="key"> elements. A marker inside
+// a tag (the option boxes' border colours sit in a style attribute) is not wording: it is removed, so
+// it neither breaks the tag nor shows as an editable line.
+export const markToSpans = (html: string) => html
+  .replace(/<[^>]*>/g, (tag) => tag.replace(/\uE000w[0-9a-f]{10}\uE003[^\uE001]*\uE001/g, "").replace(/\uE002/g, ""))
+  .replace(/\uE000(w[0-9a-f]{10})\uE003([^\uE001]*)\uE001/g, '<span class="wmark" data-w="$1" data-wa="$2">').replace(/\uE002/g, "</span>");
 
 export type TemplateInfo = { k: string; name: string; group: string; basis: string; status: string };
 // Every template on the Templates page: the engine's letters, then the T1 quote and its emails.
@@ -67,6 +73,10 @@ export function allTemplates(): TemplateInfo[] {
 
 export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
   // The T1 quote (Appendix A) and its emails, with made-up client details.
+  if (key === "propemail") {
+    const e = renderProposalEmail(wording?.texts ?? {}, { first: "Pat", validUntil: "2026-12-02", options: 3 }, SAMPLE_SENDER, "https://example.test/q/link", { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+  }
   if (key === "corpquote" || key === "corpemail") {
     const texts = wording?.texts ?? {};
     const d = { ...CORP_SAMPLE, signer: signers.letter };
@@ -120,7 +130,12 @@ export function templateSample(key: string, signers: { letter: { name: string; t
     p.addOption();
     p.opts.forEach((o, i) => { o.name = "Option " + "AB"[i]; o.lines[0].amt = i ? "1450" : "1150"; });
     p.setRecommended(1);
-    return { parts: [{ label: "Proposal with two options (made-up prices)", html: e.pHtml(p.state()) }] };
+    const two = e.pHtml(p.state());
+    // One price (an agent): the "Next steps" first line differs ("To accept..." for one option).
+    const one = new Proposal(e, "2026-11-08");
+    for (const [k, v] of Object.entries({ segment: "Agent", name: "Example Realty PREC", contact: "Sam Sample", salutation: "Sam", h0: "Your year-end is filed late each year." })) one.set(k, v);
+    one.opts[0].lines[0].amt = "450";
+    return { parts: [{ label: "Proposal with two options (made-up prices)", html: two }, { label: "Proposal with one price (made-up price)", html: e.pHtml(one.state()) }] };
   }
   if (key === "memo") return { parts: [], note: "The compilation file memo is part of Year-End (Phase 3). Its wording will be shown here when Phase 3 is built." };
   return null;
