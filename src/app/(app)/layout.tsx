@@ -36,6 +36,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             taxRates: canView(access, "tax_rates"),
             staff: canView(access, "staff_accounts"),
             settings: canView(access, "settings"),
+            closebook: canView(access, "closebook"),
           }}
           counts={{ proposalsAwaiting: proposalsAwaiting ?? 0, lettersAwaiting: lettersAwaiting ?? 0, leadsNew: leadsNew ?? 0 }}
         />

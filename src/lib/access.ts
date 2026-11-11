@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 export type Level = "none" | "view" | "edit";
 export type Area =
   | "leads" | "clients" | "documents" | "vault" | "price_book" | "pricing" | "tax_rates"
-  | "engagement_terms" | "custom_line" | "staff_accounts" | "exports" | "settings";
+  | "engagement_terms" | "custom_line" | "staff_accounts" | "exports" | "settings" | "closebook";
 
 export type Access = {
   staff_id: string;

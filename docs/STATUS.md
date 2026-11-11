@@ -128,6 +128,12 @@ No other known bugs.
 - Step 12 live Nov 10 (PR #16; no database change) ( batch section 13): the menu fits a laptop without scrolling (groups whose pages are all "Soon" start folded and show "5 soon"; name and Sign out on one row; measured at 1280x720, 1366x768, 1440x900 and 1536x864). Dates: the letters' footer shows the template approval date as "Nov 8, 2026" (was 2026-11-08), and the activity log shows price start dates the same way. Items 1, 2, 5 and 6 of section 13 were already done. No database change.
 - **Phase 2 complete (Nov 10, 2026):** steps 1 to 12 are live. Parked: 2FA (after everything is done), the app@ vs studio@ sender, TaxDome "Refresh" once their API reaches the firm.
 - **Live smoke test passed (Nov 10, 2026, Hashim):** personal lead, alert email ($299.00), quote email with button, signing on the new layout, signed PDF with the complete letter (letterhead, date, addressee, Re line, firm signature image, Director) and signing record; company lead with alert ($3,199.00: $2,900 + $100 car loan + $199 GST/HST); full export (30 tables, 1,269 rows, 4 files). Fixes found and made during it: base-fee line on the T1 form (PR #19, decision 57); complete engagement letter and sign panel (PR #20, decision 58). Test leads to be marked Lost.
+
+## Phase 3: Closebook (from Nov 11, 2026)
+
+- Batch saved as `docs/PHASE3-BATCH.md` with appendices in `docs/phase3/`; brief updated (decisions 59 and 60). Build plan approved by Hashim Nov 11, 2026: steps 1 to 6 in the batch order; step 1 in three parts.
+- Inputs still needed (files, not decisions): a ProFile GIFI file from a dummy company or ProFile's GIFI import format; a QuickBooks Trial Balance export (Excel and CSV) from the dormant sample company; Concept's standard chart of accounts; the bank format notes (or one dummy CSV per bank); later, the Notion SOP links for "How to do this".
+- Step 1, part 1 built on Test (Nov 11): Closebook permission area, GIFI codes, tax codes, lead sheets and the 419 master lines loaded from the appendices, owner changes with reasons and a log, Settings, Closebook (GIFI lines, Tax codes, Lead sheets, Thresholds, Accounting policy), Closebook menu section (My files, All files, Review notes; empty until part 2). Migration 20261111000000_closebook_structure.sql.
 - Already in place: standing rules in the brief; Phase 3 text (matches Appendix B) with the monthly-clients note; section 12 correction (decision 41); renames 5.1; import fixes 14.1 to 14.3.
 
 ## Next steps, in order

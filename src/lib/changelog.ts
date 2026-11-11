@@ -5,6 +5,15 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-11",
+    title: "Closebook: setup and menu",
+    points: [
+      "New menu section Closebook with My files, All files and Review notes. Year-end files arrive in the next update.",
+      "Settings has a Closebook group (owners only): the 419 GIFI lines, tax codes, lead sheets, thresholds and the Note 1 accounting policy. Every change to a GIFI line needs a reason and is logged.",
+      "A new permission, Closebook, controls who sees year-end files. Owners have it; give it to other roles on Team and roles when they start year-end work.",
+    ],
+  },
+  {
+    date: "2026-11-11",
     title: "Engagement letters stand on their own; new signing layout",
     points: [
       "Each quote's engagement letter now starts like a letter: letterhead, date, the client's name and email (the company, attention line and email for a company), and a Re line.",
