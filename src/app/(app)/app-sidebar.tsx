@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   BarChart3, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, Home, Landmark,
-  LogOut, Menu, Settings, Sparkles, UserPlus, Wallet, X, Briefcase, Layers,
+  LogOut, Menu, Settings, Sparkles, UserPlus, Wallet, X, Briefcase, BookCheck, FolderOpen, MessageSquareWarning,
 } from "lucide-react";
 import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
 import { StudioLogo } from "@/components/ds/brand";
@@ -25,6 +25,7 @@ export type SidebarAccess = {
   taxRates: boolean;
   staff: boolean;
   settings: boolean;
+  closebook: boolean;
 };
 export type SidebarCounts = { proposalsAwaiting: number; lettersAwaiting: number; leadsNew: number };
 
@@ -41,7 +42,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
   const [open, setOpen] = useState(false);
   const search = useClientSearch(access.clients);
   const home = OWNER.find(([p]) => path === p || path.startsWith(p + "/"))?.[1];
-  const is = (href: string) => (home ? home === href : href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
+  // "/" and "/closebook" (My files) are active only on their own page; their sections have other items.
+  const is = (href: string) => (home ? home === href : href === "/" || href === "/closebook" ? path === href : path === href || path.startsWith(`${href}/`));
   const item = (href: string, label: string, icon: React.ReactNode, badge?: number): NavItem => ({ href, label, icon, active: is(href), badge: badge ? String(badge) : undefined });
   const soon = (label: string, icon: React.ReactNode): NavItem => ({ href: "", label, icon, soon: true });
   const group = (label: string, items: (NavItem | false)[]): NavGroup | null => {
@@ -60,9 +62,14 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
       access.clients && item("/clients", "Clients", <Building2 key="i" />),
       access.documents && item("/engagements", "Engagements", <Briefcase key="i" />),
     ]),
+    // Closebook (Phase 3): the year-end files. Replaces "Year-End & T2" under Work.
+    group("Closebook", access.closebook ? [
+      item("/closebook", "My files", <BookCheck key="i" />),
+      item("/closebook/files", "All files", <FolderOpen key="i" />),
+      item("/closebook/notes", "Review notes", <MessageSquareWarning key="i" />),
+    ] : []),
     group("Work", access.clients ? [
       soon("Personal tax (T1)", <Calculator key="i" />),
-      soon("Year-End & T2", <Layers key="i" />),
       soon("CFO reports", <BarChart3 key="i" />),
       soon("Owner pay planner", <Wallet key="i" />),
       soon("Incorporations", <Sparkles key="i" />),

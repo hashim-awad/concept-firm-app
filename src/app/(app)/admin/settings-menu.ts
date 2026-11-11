@@ -45,9 +45,17 @@ export const SETTINGS: [string, SettingsDef[]][] = [
   ["Tax rules", [
     { label: "T1 rule values", href: "/admin/settings/t1-rules", open: ["settings"], settingKeys: ["t1_rules"], ownerOnly: "change them" },
   ]],
-  ["Accounting", [
-    { label: "Chart of accounts", href: "", open: ["owner"], soon: true },
+  // Closebook setup (Phase 3 batch, section 7): owners only.
+  ["Closebook", [
+    { label: "GIFI lines", href: "/admin/closebook/gifi-lines", open: ["owner"] },
+    { label: "Tax codes", href: "/admin/closebook/tax-codes", open: ["owner"] },
+    { label: "Lead sheets", href: "/admin/closebook/lead-sheets", open: ["owner"] },
+    { label: "Firm chart matching", href: "", open: ["owner"], soon: true },
+    { label: "Standard entries", href: "", open: ["owner"], soon: true },
     { label: "Vendor rules", href: "", open: ["owner"], soon: true },
+    { label: "Bank CSV formats", href: "", open: ["owner"], soon: true },
+    { label: "Thresholds", href: "/admin/closebook/thresholds", open: ["owner"] },
+    { label: "Accounting policy (Note 1)", href: "/admin/closebook/policy", open: ["owner"] },
   ]],
   ["Connections", [
     { label: "Import from TaxDome", href: "/admin/taxdome-import", open: ["owner"] },
