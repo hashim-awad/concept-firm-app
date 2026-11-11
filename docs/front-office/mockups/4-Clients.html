@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clients</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1A3C7C}a:hover{color:#0F2A5A}
+.sb a{display:flex;justify-content:space-between;align-items:center;padding:7px 14px;margin:1px 8px;border-radius:6px;color:#E4EAF5;text-decoration:none;font-size:14px}
+.sb a.on{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 #86BC26}
+.sb .h{font-size:11px;letter-spacing:.06em;color:#A9B8D6;padding:16px 22px 4px;font-weight:600}
+.bdg{background:#86BC26;color:#1A3C7C;font-size:11px;font-weight:700;border-radius:4px;padding:0 6px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:960px}
+.tbl th{text-align:left;font-weight:600;color:#5B6475;font-size:12px;padding:11px 14px;border-bottom:1px solid #E6E4DE;letter-spacing:.03em}
+.tbl td{padding:12px 14px;border-bottom:1px solid #EFEDE8;color:#1F2937;vertical-align:middle}
+.chip{display:inline-block;padding:6px 14px;border-radius:999px;font-size:13px;border:1px solid #D9D6CF;color:#374151;background:#fff;margin-right:6px}
+.chip.on{background:#1A3C7C;color:#fff;border-color:#1A3C7C}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.tab{padding:10px 0;margin-right:26px;color:#5B6475;text-decoration:none;font-size:14px}
+.tab.on{color:#1A3C7C;font-weight:700;box-shadow:inset 0 -3px 0 #86BC26}
+</style>
+</helmet>
+<div style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;display:flex;flex-wrap:wrap;min-height:880px;background:#F7F6F2;color:#1F2937">
+<nav class="sb" aria-label="Main menu" style="flex:1 1 230px;max-width:230px;background:#1A3C7C;padding-bottom:20px">
+<div style="padding:20px 20px 10px;font-size:24px;font-weight:700;color:#fff;line-height:1">Concept<br><span style="color:#86BC26;font-style:italic">Studio</span></div>
+<div style="margin:6px 10px 4px;padding:8px 12px;border-radius:6px;background:rgba(255,255,255,.08);color:#C9D3E6;font-size:13px">Find a client</div>
+<div class="h">HOME</div><a href="#"><span>My day</span></a>
+<div class="h">SALES</div><a href="#"><span>Leads</span><span class="bdg">3</span></a><a href="#"><span>Quotes</span></a><a href="#"><span>Engagement letters</span><span class="bdg">2</span></a>
+<div class="h">CLIENTS</div><a href="#" class="on"><span>Clients</span></a><a href="#"><span>Engagements</span></a>
+<div class="h">CLOSEBOOK</div><a href="#"><span>My files</span></a><a href="#"><span>All files</span></a><a href="#"><span>Review notes</span></a>
+<div class="h">DOCUMENTS</div><a href="#"><span>Document vault</span></a>
+<div class="h">ADMIN</div><a href="#"><span>Settings</span></a>
+</nav>
+<main style="flex:999 1 560px;min-width:0;padding:32px 40px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid #E6E4DE">
+<div><h1 style="margin:0;font-size:30px;font-weight:600">Clients</h1><p style="margin:6px 0 0;font-size:14px;color:#5B6475">Client records, kept current by the TaxDome import. Clients added by a signed quote wait here until TaxDome matches them.</p></div>
+<div style="display:flex;gap:10px;flex-wrap:wrap"><button style="background:#fff;color:#1A3C7C;border:1px solid #C9C5BC;border-radius:8px;padding:10px 16px;font:inherit;font-size:14px">Import from TaxDome</button><button style="background:#1A3C7C;color:#fff;border:none;border-radius:8px;padding:11px 18px;font:inherit;font-weight:600;font-size:14px">Add client</button></div></div>
+<div style="margin-top:16px"><span class="chip on">Active (42)</span><span class="chip">Waiting for TaxDome (1)</span><span class="chip">All</span></div><div style="margin-top:16px;background:#fff;border:1px solid #E6E4DE;border-radius:12px;overflow-x:auto"><table class="tbl"><thead><tr><th>Legal name</th><th>Type</th><th>Province</th><th>Year-end</th><th>Status</th><th>Name checked</th><th></th></tr></thead><tbody><tr><td><b>Sample Consulting Inc.</b></td><td>Operating co</td><td>ON</td><td>10-31</td><td><span class="pill" style="background:#FEF3C7;color:#78350F">Waiting for TaxDome</span></td><td>Not yet</td><td><a href="#">New letter</a></td></tr><tr><td><b>Sample Dental PC</b></td><td>Professional corp</td><td>ON</td><td>08-31</td><td><span class="pill" style="background:#E9F5DA;color:#3F6212">Active</span></td><td>Yes</td><td><a href="#">New letter</a></td></tr><tr><td><b>Sample Realty Inc.</b></td><td>PREC</td><td>ON</td><td>12-31</td><td><span class="pill" style="background:#E9F5DA;color:#3F6212">Active</span></td><td>Yes</td><td><a href="#">New letter</a></td></tr><tr><td><b>Sample Holdings Inc.</b></td><td>Holding co</td><td>BC</td><td>10-31</td><td><span class="pill" style="background:#E9F5DA;color:#3F6212">Active</span></td><td>Not yet</td><td><a href="#">New letter</a></td></tr></tbody></table></div><p style="font-size:13px;color:#5B6475;margin-top:12px">Sample data. The new Status column shows where each record came from.</p>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":880}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
