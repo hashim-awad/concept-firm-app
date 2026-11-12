@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { getAccess } from "@/lib/access";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
@@ -33,6 +34,9 @@ const ENG_DATES = ["el_issued", "el_signed"] as const;
 export async function updateEngagement(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const back = `/documents/engagements/${id}`;
+  // Front office batch, section 9: Update is for owners.
+  const owner = await getAccess();
+  if (!owner?.is_owner) redirect(withMessage(back, "error", "Only an owner can update an engagement."));
   const d: Record<string, string> = {};
   for (const k of ENG_DATES) d[k] = String(formData.get(k) ?? "");
   const t = todayToronto();
@@ -44,10 +48,12 @@ export async function updateEngagement(formData: FormData) {
   const supabase = await createClient();
   const { data: cur } = await supabase.from("engagements").select("status, type").eq("id", id).maybeSingle();
   if (!cur) redirect(withMessage("/engagements", "error", "Engagement not found."));
-  const cancelled = formData.get("cancelled") === "on";
+  // Owners set On hold, Client left, Ended or Cancelled by hand; otherwise the status follows the dates.
+  const set = String(formData.get("set_status") ?? "");
+  const manual = ["On hold", "Client left", "Ended", "Cancelled"].includes(set) ? set : "";
   // Later stages (draft package, MAL, issued) belong to Phase 3; keep them if already set.
   const later = ["Draft package sent", "MAL signed", "Issued"].includes(cur!.status);
-  const status = cancelled ? "Cancelled" : later ? cur!.status : d.el_signed ? "EL signed" : d.el_issued ? "EL sent" : "EL drafted";
+  const status = manual || (later ? cur!.status : d.el_signed ? "EL signed" : d.el_issued ? "EL sent" : "EL drafted");
   const patch: Record<string, unknown> = {
     status, el_issued: d.el_issued || null, el_signed: d.el_signed || null, notes: String(formData.get("notes") ?? "").trim(),
   };

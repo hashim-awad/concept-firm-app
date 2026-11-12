@@ -16,12 +16,13 @@ export default async function EngagementPage({ params, searchParams }: PageProps
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = await createClient();
-  const { data: e } = await supabase.from("engagements").select("id, title, type, status, el_version, el_issued, el_signed, fiscal_year_end, registration_confirmed, payment_method, cra_authorization, cra_request_date, notes, created_at, clients(id, legal_name, province)").eq("id", id).maybeSingle();
+  const { data: e } = await supabase.from("engagements").select("id, title, type, status, el_version, el_issued, el_signed, fiscal_year_end, registration_confirmed, payment_method, cra_authorization, cra_request_date, notes, created_at, came_from, clients!engagements_client_id_fkey(id, legal_name, province)").eq("id", id).maybeSingle();
   if (!e) notFound();
   // Fees only with the Pricing permission (Phase 2 batch, section 2).
   const pricing = canView(access, "pricing");
   const fees = pricing ? ((await supabase.rpc("engagement_fees", { p_id: id })).data?.[0] as { fee: number | null; monthly_fee: number | null; letter_data: unknown } | undefined) : undefined;
-  const editable = canEdit(access, "documents");
+  // Front office batch, section 9: Update is for owners.
+  const editable = access.is_owner && canEdit(access, "documents");
   const client = e.clients as unknown as { id: string; legal_name: string; province: string } | null;
   const abbc = client && (client.province === "AB" || client.province === "BC");
   const { data: docs } = await supabase.from("documents").select("id, title, current_version, status").eq("engagement_id", id);
@@ -52,7 +53,11 @@ export default async function EngagementPage({ params, searchParams }: PageProps
               <div><label htmlFor="pay" className="label">Payment method</label>
                 <select id="pay" name="payment_method" defaultValue={e.payment_method ?? ""} className="input">{PAY.map((o) => <option key={o} value={o}>{o || "Not set"}</option>)}</select></div>
             )}
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="cancelled" defaultChecked={e.status === "Cancelled"} className="h-4 w-4 accent-navy-700" /> Engagement cancelled</label>
+            <div><label htmlFor="set_status" className="label">Status</label>
+              <select id="set_status" name="set_status" defaultValue={["On hold", "Client left", "Ended", "Cancelled"].includes(e.status) ? e.status : ""} className="input">
+                <option value="">Follows the letter (Waiting for signature, then Active)</option>
+                <option>On hold</option><option>Client left</option><option>Ended</option><option>Cancelled</option>
+              </select></div>
             <div><label htmlFor="notes" className="label">Notes</label><textarea id="notes" name="notes" defaultValue={e.notes} className="input min-h-28 py-2" /></div>
             {editable && <button className="btn" type="submit">Save</button>}
             <p className="text-xs text-muted">Status follows the dates: EL issued gives EL sent, EL signed gives EL signed. Year-end stages come in Phase 3.</p>
