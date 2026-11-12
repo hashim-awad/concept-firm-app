@@ -1,6 +1,7 @@
 "use client";
 // Personal Tax Letter (T1) screen. Same fields, ids and rules as Studio's T1 screen (EL v3.31).
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { NameCheck } from "./name-check";
 import { useEffect, useState } from "react";
 import { T1Letter, type StudioClientRow } from "@/lib/studio/controllers";
 import { t1Screen, type Check } from "@/lib/studio/screen";
@@ -56,6 +57,7 @@ export function T1LetterScreen({ env, clients, isOwner, handlers, initial, start
             {clients.map((c) => <option key={c.url} value={c.url}>{c["Legal name"]}{c["Name verified"] === "__YES__" ? "" : "  (name not verified)"}</option>)}
           </SelectIn>
         </Labelled>
+        <NameCheck client={client} enabled={!!handlers} person />
       </Panel>
     ) },
     { label: "People", body: (

@@ -38,7 +38,7 @@ export default async function LetterPage({ params, searchParams }: PageProps<"/e
     letter.sender ?? { name: access.full_name, phone: "", email: "" }, signers.map((x) => `${env.siteUrl()}/q/${x.token}`));
   const to = [...new Set(signers.map((x) => x.email))].join("; ");
   const editable = canEdit(access, "documents");
-  const details = letter.details as { label?: string; document_id?: string } | null;
+  const details = letter.details as { label?: string; document_id?: string; version_id?: string } | null;
 
   return (
     <>
@@ -63,7 +63,11 @@ export default async function LetterPage({ params, searchParams }: PageProps<"/e
             <li key={x.person}>{x.first_name} {x.last_name}: {x.signed_at ? <span className="text-success">signed {formatDateTime(x.signed_at)}{x.signed_title ? `, ${x.signed_title}` : ""}</span> : <span className="text-muted">not signed yet</span>}</li>
           ))}</ul>
           {letter.status === "signed" && <a href={`/engagement-letters/${id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary w-fit">Open the signed PDF (with the signing record)</a>}
-          {details?.document_id && <Link href={`/engagement-letters/new?doc=${details.document_id}`} className="text-sm text-navy-700 underline">Open the letter in the Letter Builder (Download PDF)</Link>}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link href={`/letter-preview/${id}`} className="text-navy-700 underline">Preview as client</Link>
+            {details?.version_id && <a href={`/documents/file/${details.version_id}?download=1`} className="text-navy-700 underline">Download the issued PDF</a>}
+            {details?.document_id && <Link href={`/engagement-letters/new?doc=${details.document_id}`} className="text-navy-700 underline">Open in the Letter Builder</Link>}
+          </div>
           {editable && WAITING.includes(letter.status) && (
             <form action={declineQuote}>
               <input type="hidden" name="id" value={id} /><input type="hidden" name="back" value={`/engagement-letters/${id}`} />

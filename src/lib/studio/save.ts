@@ -17,7 +17,7 @@ import { todayToronto as today, formatDate } from "@/lib/dates";
 
 export type { DocKind };
 export type SaveInput = { kind: DocKind; snapshot: any; clientId: string; documentId: string; wordingId?: string };
-export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string } | { ok: false; error: string };
+export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string; letterId?: string } | { ok: false; error: string };
 
 export async function saveDocument(supabase: SupabaseClient, access: Access, input: SaveInput): Promise<SaveResult> {
   if (!canEdit(access, "documents")) return { ok: false, error: "You do not have permission to make documents." };
@@ -104,13 +104,14 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   if (final && input.kind !== "proposal") {
     const s = b.s;
     const label = input.kind === "t1_letter" ? `Personal tax ${s.taxYear}` : `Year-end ${formatDate(s.ye)}`;
-    const { error: qErr } = await supabase.rpc("create_letter_quote", {
+    const { data: letterId, error: qErr } = await supabase.rpc("create_letter_quote", {
       p_client: input.clientId || null, p_title: b.title, p_company: input.kind === "corporate_letter" ? String(s.company ?? "") : "",
-      p_details: { doc_kind: input.kind, inputs: b.inputs, label, document_id: documentId, version: ver.version, engagement_id: engagementId },
+      p_details: { doc_kind: input.kind, inputs: b.inputs, label, document_id: documentId, version: ver.version, version_id: ver.id, engagement_id: engagementId },
       p_signers: signers,
     });
     note = qErr ? `${note ? note + " " : ""}The letter was saved, but sending it for signing failed: ${qErr.message}`
       : `${note ? note + " " : ""}Sent for online signing: open it under Engagement letters to copy the email. It moves to Signed, and the engagement to EL signed, when the client signs.`;
+    if (!qErr && letterId) return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note, letterId: String(letterId) };
   }
   return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note };
 }
