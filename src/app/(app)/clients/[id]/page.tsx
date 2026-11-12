@@ -49,12 +49,16 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const tab = TABS.some((t) => t.key === sp.tab) ? String(sp.tab) : "overview";
   const tabs = TABS.map((t) => ({ key: t.key, label: t.label, href: `/clients/${id}${t.key === "overview" ? "" : `?tab=${t.key}`}` }));
 
-  const [{ data: linkRows }, engs, docs, props] = await Promise.all([
+  // A failed read shows its error instead of an empty list (step 5 test, Nov 13, 2026).
+  const loadErrors: string[] = [];
+  const keep = <T,>(what: string) => (r: { data: T[] | null; error: { message: string } | null }) => { if (r.error) loadErrors.push(`${what} could not be read: ${r.error.message}`); return r.data ?? []; };
+  const [{ data: linkRows, error: linkError }, engs, docs, props] = await Promise.all([
     supabase.from("client_links").select("relationship, client_id, linked_id, a:clients!client_links_client_id_fkey(id, legal_name, kind), b:clients!client_links_linked_id_fkey(id, legal_name, kind)").or(`client_id.eq.${id},linked_id.eq.${id}`),
-    seeDocs ? supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, el_signed, came_from, el_version").or(`client_id.eq.${id},client2_id.eq.${id}`).order("fiscal_year_end", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
-    seeVault ? supabase.from("documents").select("id, kind, title, status, current_version, updated_at").eq("client_id", id).order("updated_at", { ascending: false }).then((r) => r.data ?? []) : Promise.resolve([]),
-    seeDocs && pricing ? supabase.from("quotes").select("id, kind, title, company_name, status, sent_at, valid_until, lead_id").eq("client_id", id).neq("status", "draft").order("sent_at", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
+    seeDocs ? supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, el_signed, came_from, el_version").or(`client_id.eq.${id},client2_id.eq.${id}`).order("fiscal_year_end", { ascending: false, nullsFirst: false }).then(keep("Engagements")) : Promise.resolve([]),
+    seeVault ? supabase.from("documents").select("id, kind, title, status, current_version, updated_at").eq("client_id", id).order("updated_at", { ascending: false }).then(keep("Documents")) : Promise.resolve([]),
+    seeDocs && pricing ? supabase.from("quotes").select("id, kind, title, company_name, status, sent_at, valid_until, lead_id").eq("client_id", id).neq("status", "draft").order("sent_at", { ascending: false, nullsFirst: false }).then(keep("Quotes and letters")) : Promise.resolve([]),
   ]);
+  if (linkError) loadErrors.push(`Linked clients could not be read: ${linkError.message}`);
   type L = { relationship: string; client_id: string; a: { id: string; legal_name: string; kind: string } | null; b: { id: string; legal_name: string; kind: string } | null };
   const links = ((linkRows ?? []) as unknown as L[]).map((l) => ({ rel: l.relationship, other: l.client_id === id ? l.b : l.a })).filter((l) => l.other);
   const tdUrl = c.taxdome_account_id ? ((await supabase.rpc("taxdome_account_url")).data as string | null) || "" : "";
@@ -106,7 +110,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   } else {
     content = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ClientEditor id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} taxdomeManaged={!!c.taxdome_account_id} />
+        <ClientEditor key={c.status} id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} taxdomeManaged={!!c.taxdome_account_id} />
         <div className="grid content-start gap-6">
           {c.kind === "corporation" && (
             <section className="card">
@@ -160,7 +164,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     <>
       <PageHeader eyebrow={c.kind === "individual" ? "Client · Individual" : "Client · Corporation"} title={c.legal_name} description={c.name_verified ? `Legal name checked ${c.name_verified_on ? formatDate(c.name_verified_on) : ""}.` : "Legal name not yet checked. Required for a Final letter."}
         actions={canEdit(access, "documents") ? <Link href={letterHref} className="btn">New letter</Link> : undefined} />
-      <Notice msg={sp.msg === "saved" ? "Client saved." : messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      <Notice msg={sp.msg === "saved" ? "Client saved." : messageFrom(sp.msg)} error={loadErrors.length ? loadErrors.join(" ") : messageFrom(sp.error)} />
       {c.status === "waiting_taxdome" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
           <p><b>Waiting for TaxDome.</b> Added when they signed in Studio. {c.kind === "corporation" ? "The next TaxDome import matches it (Business Number, then legal name) and makes it Active." : "The TaxDome import reads companies only: once the person's TaxDome account exists, mark it matched."}</p>

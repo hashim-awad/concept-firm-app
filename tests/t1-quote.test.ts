@@ -103,3 +103,12 @@ test("piece keys: right format, unique, no clash with the letters' pieces; fill-
   for (const k of keys) assert.ok(!gen.has(k), k);
   for (const p of T1Q_PIECES) assert.equal(new Set(p.text.match(/\{\d+\}/g) ?? []).size, p.fills.length, p.text);
 });
+
+test("a couple with the same first name: full names in the greeting and on each button", () => {
+  const e = renderEmail({}, { ...SAMPLE, client: { first: "Sam", last: "Lee" }, spouse: { first: "Sam", last: "Park" } }, SAMPLE_SENDER, ["https://x.test/q/a", "https://x.test/q/b"]);
+  assert.match(e.text, /Sam Lee and Sam Park/);
+  assert.match(e.text, /Sam Lee, review and sign/i);
+  assert.match(e.text, /Sam Park, review and sign/i);
+  const d = renderEmail({}, SAMPLE, SAMPLE_SENDER, ["a", "b"]);
+  assert.doesNotMatch(d.text, /Jordan Sample/);
+});

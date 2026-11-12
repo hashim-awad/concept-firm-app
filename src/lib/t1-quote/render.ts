@@ -155,9 +155,13 @@ export function renderEmail(texts: Record<string, string>, d: QuoteData, sender:
   const k = couple
     ? { subject: EMAIL.subject2, thanks: EMAIL.thanks2, ready: EMAIL.ready2, after: EMAIL.after2, steps: [EMAIL.step1b, EMAIL.step2b, EMAIL.step3b], valid: EMAIL.valid2, firm: EMAIL.firm2 }
     : { subject: EMAIL.subject, thanks: EMAIL.thanks1, ready: EMAIL.ready1, after: EMAIL.after1, steps: [EMAIL.step1, EMAIL.step2, EMAIL.step3a], valid: EMAIL.valid1, firm: EMAIL.firm1 };
-  const hi = couple ? t(EMAIL.hi2, d.client.first, d.spouse!.first) : t(EMAIL.hi1, d.client.first);
+  // Two people with the same first name: full names, so each knows which button is theirs (step 5 test).
+  const same = couple && d.client.first.trim().toLowerCase() === d.spouse!.first.trim().toLowerCase();
+  const nm = (x: { first: string; last: string }) => (same ? `${x.first} ${x.last}`.trim() : x.first);
+  const names = couple ? [nm(d.client), nm(d.spouse!)] : [d.client.first];
+  const hi = couple ? t(EMAIL.hi2, names[0], names[1]) : t(EMAIL.hi1, d.client.first);
   const buttons = couple
-    ? [d.client.first, d.spouse!.first].map((n, i) => emailButton(links[i] ?? "#", t(EMAIL.button2, n))).join("")
+    ? names.map((n, i) => emailButton(links[i] ?? "#", t(EMAIL.button2, n))).join("")
     : emailButton(links[0] ?? "#", t(EMAIL.button1));
   const html = `<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">
 ${p(hi)}${p(t(k.thanks))}${p(t(k.ready, d.taxYear))}${d.phoneOn ? p(t(couple ? EMAIL.phone2 : EMAIL.phone1, longDate(d.phoneOn))) : ""}${p(t(k.after))}
@@ -167,10 +171,10 @@ ${p(t(k.valid, valid))}
 <p style="margin: 16px 0 0;">${esc(sender.name)}<br>${t(k.firm)}<br>${esc([sender.phone, sender.email].filter(Boolean).join(" | "))}</p>
 </div>`.replace(/\n/g, "");
   const text = [
-    couple ? plain(EMAIL.hi2, d.client.first, d.spouse!.first) : plain(EMAIL.hi1, d.client.first), "",
+    couple ? plain(EMAIL.hi2, names[0], names[1]) : plain(EMAIL.hi1, d.client.first), "",
     plain(k.thanks), "", plain(k.ready, d.taxYear), "", ...(d.phoneOn ? [plain(couple ? EMAIL.phone2 : EMAIL.phone1, longDate(d.phoneOn)), ""] : []), plain(k.after),
     ...k.steps.map((s, i) => `${i + 1}. ${plain(s)}`), "", plain(k.valid, valid), "",
-    ...(couple ? [d.client.first, d.spouse!.first].map((n, i) => `${plain(EMAIL.button2, n)}: ${links[i] ?? ""}`) : [`${plain(EMAIL.button1)}: ${links[0] ?? ""}`]), "",
+    ...(couple ? names.map((n, i) => `${plain(EMAIL.button2, n)}: ${links[i] ?? ""}`) : [`${plain(EMAIL.button1)}: ${links[0] ?? ""}`]), "",
     sender.name, plain(k.firm), [sender.phone, sender.email].filter(Boolean).join(" | "),
   ].join("\n");
   return { subject: couple ? plain(k.subject, d.taxYear) : plain(k.subject, d.taxYear), subjectHtml: t(k.subject, d.taxYear), html, text };

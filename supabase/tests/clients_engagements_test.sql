@@ -23,6 +23,7 @@ select public.record_t1_signature(:'q', 1, 'Sam Dummy', '', '', :h, true) \g /de
 select test.check('one household engagement, both people linked', (select count(*) from public.engagements where quote_id = :'q') = 1
   and (select client_id is not null and client2_id is not null and client_id <> client2_id and type = 'T1 personal' and t1_fee = 349 and status = 'EL signed'
        and came_from = 'Quote (website)' and fiscal_year_end = '2026-12-31' from public.engagements where quote_id = :'q'));
+select test.check('the couple are linked as spouses', (select count(*) from public.client_links l join public.clients c on c.id = l.client_id where c.created_from_quote = :'q' and l.relationship = 'spouse') = 1);
 select test.check('two people added, waiting for TaxDome', (select count(*) from public.clients where created_from_quote = :'q' and kind = 'individual' and status = 'waiting_taxdome') = 2);
 select test.check('the lead and quote point at the client', (select client_id is not null from public.leads where id = :'lead') and (select client_id is not null from public.quotes where id = :'q'));
 
@@ -65,3 +66,6 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.mark_client_in_taxdome(:'person');
 select test.check('a person marked matched by an owner: Active', (select status from public.clients where id = :'person') = 'active');
+
+-- Staff read the engagement list with its new columns (the Engagements page; step 5 test, Nov 13, 2026).
+select test.check('staff read engagements with came_from and both clients', (select count(*) from public.engagements where quote_id is not null and came_from is not null and client_id is not null) >= 2);

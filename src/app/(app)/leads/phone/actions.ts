@@ -9,7 +9,7 @@ import { getAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withMessage } from "@/lib/messages";
-import { cleanAnswers, earlyOutOfScope, evaluate, type Answers } from "@/lib/screening/engine";
+import { cleanAnswers, earlyOutOfScope, evaluate, type Answer, type Answers } from "@/lib/screening/engine";
 import { loadPricesNow, loadPublished } from "@/lib/screening/server";
 import { taxYearFor } from "@/lib/screening/tax-year";
 import { checkAnswers, priceLines, route } from "@/lib/corporate/quote";
@@ -35,10 +35,19 @@ export async function phonePrice(form: "personal" | "company", json: string): Pr
       if (!qn || !raw) return { total_cents: null, note: "The questions are not ready." };
       const early = earlyOutOfScope(qn, raw);
       if (early.length) return { total_cents: null, note: `Out of scope: ${early.map((e) => e.reason).join("; ")}. Send to Hashim.` };
-      const r = evaluate(qn, raw, await loadPricesNow());
+      const prices = await loadPricesNow();
+      const r = evaluate(qn, raw, prices);
+      if (r.subtotal_cents > 0) return { total_cents: r.subtotal_cents, note: "" };
+      // A running total while the call goes on (step 5 test, Nov 13, 2026): the full check stops at the
+      // first missing answer, so the panel also prices the answers given so far, with nothing required and
+      // the contact details (names, email, phone) left out. They never change the price.
+      const loose = { ...qn, questions: qn.questions.map((q) => ({ ...q, required: false })) };
+      const contact = new Set(qn.questions.filter((q) => ["text", "email", "phone"].includes(q.answer_type)).map((q) => q.key));
+      const strip = (o: Record<string, Answer>) => Object.fromEntries(Object.entries(o).filter(([k]) => !contact.has(k)));
+      const so_far = evaluate(loose, { household: strip(raw.household), people: raw.people.map(strip) } as Answers, prices);
       // Until the base return is priced, there is no total to tell the caller.
-      if (r.subtotal_cents === 0) return { total_cents: null, note: "Answer the questions to see the price." };
-      return { total_cents: r.subtotal_cents, note: r.errors.length ? "Some answers are still missing; the total may change." : "" };
+      if (so_far.subtotal_cents === 0) return { total_cents: null, note: so_far.outOfScope.length ? "Out of scope. Send to Hashim." : "Answer the questions to see the price." };
+      return { total_cents: so_far.subtotal_cents, note: "Running total. Some answers are still missing, so the total may change." };
     }
     const checked = checkAnswers(JSON.parse(json));
     if (!checked.ok) return { total_cents: null, note: "Answer the questions to see the price." };
