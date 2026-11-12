@@ -8,6 +8,8 @@ import { importTrialBalance, runMatching } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 import { GifiView } from "./gifi-view";
+import { BankView } from "./bank-view";
+import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
@@ -18,6 +20,7 @@ type Props = {
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
   gifi?: Parameters<typeof GifiView>[0]["g"] | null;
+  bank?: BankData | null;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -82,7 +85,7 @@ export function TbTab(p: Props) {
         {pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
         {pill("lead", "Lead sheets")}
         {pill("gifi", "GIFI")}
-        {file.file_type === "full" && <span className="rounded-full border border-sand-200 px-3 py-1 text-ink-3" title="Arrives with bank and card imports (part 2b)">Transactions</span>}
+        {file.file_type === "full" && pill("transactions", "Bank and cards")}
       </div>
 
       <div className="card mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -114,7 +117,8 @@ export function TbTab(p: Props) {
           <button type="submit" className="btn">Match them now</button>
         </form>
       )}
-      {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files build the trial balance from the Transactions view (part 2b)."}</p>
+      {view === "transactions" && p.bank ? <BankView fileId={file.id} bank={p.bank} editable={editable} locked={locked} />
+        : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements under Bank and cards."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (

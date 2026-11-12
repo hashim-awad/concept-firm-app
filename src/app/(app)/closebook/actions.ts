@@ -8,6 +8,7 @@ import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
+import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -166,4 +167,50 @@ export async function explainFlagInline(fileId: string, account: string, reason:
   const { error } = await (await createClient()).rpc("cb_explain_flag", { p_account: account, p_reason: reason, p_note: note });
   revalidatePath(`/closebook/${fileId}`);
   return error?.message ?? null;
+}
+
+// ---------- Bank and card statements (part 2b; Hashim, Nov 13, 2026) ----------
+
+// Upload one statement in Concept's bank upload template. The file is read here (every problem named by
+// line), the balance is checked here and again in the database, which refuses anything that does not tie.
+export async function uploadBankStatement(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?tab=tb&view=transactions`;
+  await editor(back);
+  const upload = formData.get("upload");
+  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
+  const f = upload as File;
+  if (!/\.csv$/i.test(f.name)) redirect(withMessage(back, "error", "Upload a CSV file in Concept's bank upload template (Date, Description, Amount). Save Excel files as CSV first."));
+  const read = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  if (read.errors.length) {
+    const more = read.errors.length > 5 ? ` And ${read.errors.length - 5} more.` : "";
+    redirect(withMessage(back, "error", `Nothing was uploaded. ${read.errors.slice(0, 5).join(" ")}${more}`));
+  }
+  const opening = typedCents(s(formData, "opening")), closing = typedCents(s(formData, "closing"));
+  if (opening === null || closing === null) redirect(withMessage(back, "error", "Enter the statement's opening and closing balances, as shown on the statement (up to 2 decimals)."));
+  const chk = balanceCheck(opening!, closing!, read.rows);
+  if (!chk.ok) {
+    redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
+  }
+  const account = s(formData, "account");
+  const { data, error } = await (await createClient()).rpc("cb_upload_bank", {
+    p_file: id, p_account: account && account !== "new" ? account : null, p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_file_name: f.name,
+    p_opening: opening! / 100, p_closing: closing! / 100,
+    p_rows: read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })),
+  });
+  if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
+  const d = data as { statement: string; account: string; lines: number; first: string; last: string; outside_year: number };
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(`${back}&account=${encodeURIComponent(account && account !== "new" ? account : "")}`, "msg",
+    `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
+}
+
+export async function deleteBankStatement(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?tab=tb&view=transactions`;
+  await editor(back);
+  const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(formData, "statement") });
+  if (error) redirect(withMessage(back, "error", error.message));
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", "Statement removed, with its transactions."));
 }

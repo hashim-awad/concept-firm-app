@@ -10,6 +10,7 @@ import { loadFile, loadReference } from "@/lib/closebook/server";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { gifiFor } from "@/lib/closebook/gifi-server";
+import { loadBank } from "@/lib/closebook/bank-server";
 
 const TABS = [["documents", "Documents"], ["tb", "Trial balance"], ["entries", "Entries"], ["notes", "Review notes"], ["statements", "Statements"]] as const;
 
@@ -94,8 +95,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       )}
 
       {tab === "tb" && <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-        taxes={ref.taxes} flag={ref.flag} view={["lead", "attention", "lines", "gifi"].includes(String(sp.view)) ? String(sp.view) : "accounts"}
-        gifi={tab === "tb" && sp.view === "gifi" ? await gifiFor(supabase, id) : null} craText={ref.craText} notes={data.notes} edit={typeof sp.edit === "string" ? sp.edit : undefined} />}
+        taxes={ref.taxes} flag={ref.flag} view={["lead", "attention", "lines", "gifi", "transactions"].includes(String(sp.view)) ? String(sp.view) : "accounts"}
+        gifi={tab === "tb" && sp.view === "gifi" ? await gifiFor(supabase, id) : null}
+        bank={tab === "tb" && sp.view === "transactions" && file.file_type === "full" ? await loadBank(supabase, id, typeof sp.account === "string" ? sp.account : undefined) : null} craText={ref.craText} notes={data.notes} edit={typeof sp.edit === "string" ? sp.edit : undefined} />}
       {tab === "entries" && <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />}
       {tab === "notes" && <p className="card text-sm text-ink-2">No review notes. Notes attach to one document and arrive with build step 3.</p>}
       {tab === "statements" && <p className="card text-sm text-ink-2">The live preview of the year-end package arrives with build step 2.</p>}
