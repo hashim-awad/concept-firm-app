@@ -192,7 +192,8 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-4 text-[13px]">
             <button type="button" data-ladd={i} onClick={() => act((c) => c.addLine(i))} className="text-navy-700 underline">Add fee line</button>
-            <span className="text-ink-3">Annual value: <b className="text-ink">{e.money(e.pTotals(o).annual)}</b></span>
+            {live ? <span className="text-ink-3">Annual fee for the floor check, software left out (staff only): <b className="text-ink">{e.money(e.pTotals({ lines: o.lines.filter((l: any) => !/software/i.test(l.svc)) }).annual)}</b></span>
+              : <span className="text-ink-3">Annual value: <b className="text-ink">{e.money(e.pTotals(o).annual)}</b></span>}
             {opts.length > 1 && <button type="button" data-odel={i} onClick={() => act((c) => c.removeOption(i))} className="text-navy-700 underline">Remove option</button>}
           </div>
         </section>

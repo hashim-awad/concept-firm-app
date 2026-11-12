@@ -8,6 +8,7 @@ import { letterProblems, lk, packedOptions } from "../src/lib/proposal/letter.ts
 import { letterEngine, partBHtml, partBBlocks, esignWording, type LetterBuild } from "../src/lib/corporate/render.ts";
 import { CorporateLetter } from "../src/lib/studio/controllers.ts";
 import { fillLetter } from "../src/lib/proposal/letter.ts";
+import { checkEdit } from "../src/lib/studio/wording-pieces.ts";
 
 const eng = () => createStudioEngine({ LH: "", ILLUS: "", SIG: "", SIGNER: "Hashim Awad, CPA", SIGNER_TITLE: "Director" } as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -96,4 +97,21 @@ test("Letter Builder: a package with no software price leaves software blank; it
   assert.ok((e.checks(c.state()) as { lvl: string; msg: string }[]).some((x) => x.lvl === "err" && /amount must be a dollar figure/.test(x.msg)), "the checks stop Final");
   const studio = createStudioEngine({} as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
   assert.equal(studio.feeText(""), "", "Studio's own engine is unchanged");
+});
+
+test("No annual total for clients (Quotes): option boxes and PDF have no Annual value; the floor uses the fee only", () => {
+  const e = createStudioEngine({ P_LINES: true, DB: { floorsOk: true, floors: [{ Offer: "Team: Core", Segment: "Team or brokerage", "Annual floor": 27972, Services: "[]" }] } } as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const p = new Proposal(e, "2026-11-12", { live: true });
+  p.applyOffer(0, { Offer: "Team: Core", Services: '["books"]', "Monthly fee": "2331", "Software per month": "69", "Year-end fee": "" });
+  const s = p.state();
+  assert.doesNotMatch(e.pHtml(s), /<b>Annual value/, "no annual row (the fee note is reworded in Templates)");
+  assert.doesNotMatch(JSON.stringify(e.pPdf(s).content), /"text":"Annual value","bold"/);
+  assert.match(e.pHtml(s), /\$2,331 a month/);
+  assert.match(e.pHtml(s), /\$69 a month/);
+  assert.ok(!(e.pChecks(s) as { msg: string }[]).some((c) => /below the floor/.test(c.msg)), "$2,331 x 12 = $27,972 meets the floor on the fee only");
+  p.setLine(0, 0, "amt", "2300");
+  assert.ok((e.pChecks(p.state()) as { msg: string }[]).some((c) => /below the floor/.test(c.msg)), "software does not lift a fee below the floor");
+});
+test("the fee note may drop its quarterly fill-in, other pieces may not", () => {
+  assert.equal(checkEdit("wb2a19a0343", "All fees are plus {1}. One-time fees are billed once."), null);
 });

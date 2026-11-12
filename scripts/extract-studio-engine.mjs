@@ -113,7 +113,7 @@ const OL = 'B.push({k:"ol",items:[';
 const at = factory.indexOf(OL);
 if (at < 0 || factory.indexOf(OL, at + 1) >= 0) throw new Error("Expected exactly one proposal Next steps list.");
 const end = factory.indexOf("]});", at);
-const patched = factory.slice(0, end) + "].filter(function(t){return __plain(t).trim()!==\"\";})});" + factory.slice(end + 4);
+let patched = factory.slice(0, end) + "].filter(function(t){return __plain(t).trim()!==\"\";})});" + factory.slice(end + 4);
 // Second change (front office batch, section 5, item 4): in Quotes, each option box lists its fee
 // lines, so software is never folded into the monthly fee. Only when the app asks for it (P_LINES);
 // without it the output is Studio's.
@@ -127,6 +127,17 @@ if (patched.split(LINE).length !== 2) throw new Error("Expected exactly one opti
 // preview, not a blank cell. The letter's checks already stop a Final with a blank amount.
 const FEETEXT = 'function feeText(v){ var f=feeVal(v);';
 if (patched.split(FEETEXT).length !== 2) throw new Error("Expected exactly one feeText.");
+// Fifth change, with P_LINES only (Hashim, Nov 12, 2026): clients never see an annual total. The
+// option boxes drop the "Annual value" row (screen and PDF), and the price floor (on the fee only)
+// leaves software out. Staff screens still show the annual figure for the floor check.
+const ANN_HTML = '+"<tr>"+"<td>"+"<b>"+__WH("w408a27b5e4", "Annual value", [])+"</b>"+"</td>"+"<td style=\\"text-align:right\\">"+"<b>"+(esc(o.annual))+"</b>"+"</td>"+"</tr>"';
+const ANN_PDF = '.concat([[{text:__W("w408a27b5e4", "Annual value", []),bold:true},{text:o.annual,bold:true,alignment:"right"}]])';
+const FLOOR = 's.opts.forEach(function(o){ var t=pTotals(o), nm=o.name||"An option";';
+for (const x of [ANN_HTML, ANN_PDF, FLOOR]) if (patched.split(x).length !== 2) throw new Error("Expected exactly one: " + x.slice(0, 60));
+patched = patched
+  .replace(ANN_HTML, '+(env.P_LINES?"":"<tr>"+"<td>"+"<b>"+__WH("w408a27b5e4", "Annual value", [])+"</b>"+"</td>"+"<td style=\\"text-align:right\\">"+"<b>"+(esc(o.annual))+"</b>"+"</td>"+"</tr>")')
+  .replace(ANN_PDF, '.concat(env.P_LINES?[]:[[{text:__W("w408a27b5e4", "Annual value", []),bold:true},{text:o.annual,bold:true,alignment:"right"}]])')
+  .replace(FLOOR, 's.opts.forEach(function(o){ var t=pTotals(env.P_LINES?{lines:o.lines.filter(function(l){return !/software/i.test(l.svc);})}:o), nm=o.name||"An option";');
 writeFileSync(OUT, patched.replace(FEETEXT, FEETEXT + ' if(env.P_NEED&&!trim(String(v==null?"":v))) return "Amount needed";').replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
   .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");
