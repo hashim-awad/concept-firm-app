@@ -2,6 +2,7 @@
 // Corporate Letter screen. Same fields, ids, defaults and rules as Studio's Corporate Letter
 // (EL v3.31); the letter, checks and PDF come from Studio's own engine code.
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { NameCheck } from "./name-check";
 import { useEffect, useState } from "react";
 import { CorporateLetter, type StudioClientRow } from "@/lib/studio/controllers";
 import { corporateScreen } from "@/lib/studio/screen";
@@ -73,6 +74,7 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
           {clients.map((c) => <option key={c.url} value={c.url}>{c["Legal name"]}{c["Name verified"] === "__YES__" ? "" : "  (name not verified)"}</option>)}
         </SelectIn>
       </Labelled>
+      <NameCheck client={client} enabled={!!handlers} />
       <Labelled id="company" label="Company legal name (exactly as on the registry)">{txt("company")}</Labelled>
       <Row>
         <Labelled id="signer" label="Signing officer">{txt("signer", { onBlur: () => act((c) => c.signerBlur()) })}</Labelled>

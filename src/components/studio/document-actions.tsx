@@ -6,7 +6,7 @@ import { Download, UserPlus } from "lucide-react";
 import { Button } from "@/components/ds/primitives";
 
 export type DocKind = "corporate_letter" | "t1_letter" | "proposal";
-export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string } | { ok: false; error: string };
+export type SaveResult = { ok: true; documentId: string; versionId: string; version: number; fileName: string; note?: string; letterId?: string } | { ok: false; error: string };
 export type ClientResult = { ok: true; clientId: string } | { ok: false; error: string };
 export type DocumentHandlers = {
   saveDocument: (input: { kind: DocKind; snapshot: unknown; clientId: string; documentId: string; wordingId?: string }) => Promise<SaveResult>;
@@ -29,6 +29,8 @@ export function DocumentActions({ kind, handlers, ok, message, mode, showSaveCli
       const r = await handlers.saveDocument({ kind, snapshot: snapshot(), clientId, documentId, wordingId });
       if (!r.ok) { setStatus(r.error); return; }
       setDocumentId(r.documentId);
+      // A Final letter goes out for online signing: open its page (the PDF is a link there).
+      if (r.letterId) { router.push(`/engagement-letters/${r.letterId}?msg=${encodeURIComponent("Issued and sent for signing.")}`); return; }
       const a = document.createElement("a"); a.href = `/documents/file/${r.versionId}?download=1`; a.download = r.fileName;
       document.body.appendChild(a); a.click(); a.remove();
       setStatus(`Saved: ${r.fileName} (version ${r.version} in the vault).${r.note ? " " + r.note : ""}`);
@@ -58,7 +60,7 @@ export function DocumentActions({ kind, handlers, ok, message, mode, showSaveCli
   return (
     <div className="flex flex-wrap items-center gap-2.5">
       <Button id="dl" type="button" onClick={download} disabled={!ok || !handlers} loading={busy === "pdf"}>
-        <Download className="h-4 w-4" aria-hidden />{mode === "final" ? "Issue and download PDF" : "Download PDF"}
+        <Download className="h-4 w-4" aria-hidden />{mode === "final" ? (kind === "proposal" ? "Issue and download PDF" : "Issue and send for signing") : "Download PDF"}
       </Button>
       {showSaveClient && (
         <Button id="recBtn" type="button" variant="secondary" onClick={saveClient} disabled={!handlers} loading={busy === "client"}>
