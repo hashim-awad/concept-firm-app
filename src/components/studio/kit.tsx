@@ -20,6 +20,9 @@ export type ScreenEnv = {
   signer: { name: string; title: string };
   images: { LH: string; SIG: string; ILLUS: string };
   wording?: Wording | null;
+  // The app's own rules on top of Studio's screens (set by the app's pages, not the parity test page):
+  // a fee with no amount reads "Amount needed".
+  appRules?: boolean;
 };
 
 // Studio's render() writes into a "paper" element; the app gives it a stand-in and reads the HTML.
@@ -32,6 +35,7 @@ export function makeEngine(env: ScreenEnv, extra: { P_LINES?: boolean } = {}): {
     SIGNER: env.signer.name, SIGNER_TITLE: env.signer.title,
     ...wordingEnv(env.wording),
     ...extra,
+    ...(env.appRules ? { P_NEED: true } : {}),
     $: ((id: string) => (id === "paper" ? paper : null)) as unknown as StudioEnv["$"],
   } as StudioEnv);
   return { e, paper };

@@ -27,12 +27,17 @@ export function fromFriendly(key: string, text: string): string {
 // The proposal's "Next steps" lines: a blank one is left out of the list (Hashim, Nov 11, 2026).
 export const BLANK_REMOVES = new Set(["w047a905d6b", "wa3ab7806ed", "w5725499754", "w134c9423c8", "w7cce0d03ca"]);
 
+export const MAY_DROP_FILLS = new Set(["wb2a19a0343"]);
+
 export function checkEdit(key: string, text: string): string | null {
   const p = PIECE.get(key);
   if (!p) return "Unknown wording.";
   if (!text.trim()) return BLANK_REMOVES.has(key) ? null : "The wording cannot be blank.";
   if (text.length > 5000) return "The wording is too long.";
-  if (tokens(text) !== tokens(p.text)) {
+  // The proposal's fee note may drop its quarterly fill-in (Hashim, Nov 12, 2026: no annual totals for
+  // clients, so the sentence about how annual value is counted goes).
+  const dropOk = MAY_DROP_FILLS.has(key) && tokens(text).split(" ").filter(Boolean).every((t) => tokens(p.text).split(" ").includes(t));
+  if (!dropOk && tokens(text) !== tokens(p.text)) {
     const names = (p.fills ?? []).map((n) => `[${n}]`);
     return names.length ? `Keep each of these once: ${names.join(", ")}. The app fills them in for each client.` : "This text has no fill-ins. Remove anything in [square brackets].";
   }

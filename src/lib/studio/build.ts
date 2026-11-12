@@ -19,7 +19,8 @@ export function engineFor(kind: DocKind, data: Pick<StudioData, "floors" | "floo
     DB: { floors: data.floors, floorsOk: data.floorsOk, loaded: true, cat: data.cat },
     LH: LETTERHEAD, ILLUS: ILLUSTRATIVE, SIG: sig, SIGNER: signer.name, SIGNER_TITLE: signer.title,
     ...wordingEnv(data.wording),
-  });
+    P_NEED: true, // a draft PDF shows "Amount needed" for a blank fee, as the screen does
+  } as Parameters<typeof createStudioEngine>[0]);
 }
 
 export type Built = { s: any; scr: ScreenResult; def: any; fileName: string; title: string; inputs: any; e: StudioEngine };

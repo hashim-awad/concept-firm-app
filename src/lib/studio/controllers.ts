@@ -113,7 +113,9 @@ export class CorporateLetter {
     this.e.__set("FEES", []); this.feeType = null; this.refresh();
     for (const fee of this.fees) {
       if (fee.tag === "main" && m != null) { fee.amt = String(m); fee.user = true; }
-      if (fee.tag === "soft") { fee.amt = sw ? String(sw) : "Included"; fee.user = true; }
+      // Software is a top-up, never "Included" (Hashim, Nov 12, 2026): no price in the package leaves the
+      // amount blank, which the checks stop until staff enter it.
+      if (fee.tag === "soft") { fee.amt = sw ? String(sw) : ""; fee.user = true; }
       if (fee.tag === "comp" && y != null && !m) { fee.amt = String(y); fee.svc = S.indexOf("catchup") >= 0 ? "Year-end bookkeeping, financial statements and T2" : "Year-end financial statements and T2"; fee.user = true; }
       if (fee.tag === "catchup" && y != null && !m) { fee.amt = "Included"; fee.user = true; }
     }
