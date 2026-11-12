@@ -13,7 +13,7 @@ import type { Fee } from "./controllers";
 import { loadSignature, loadStudioData } from "./data";
 import { BLANK_PNG, engineFor, rebuild, type Built, type DocKind } from "./build";
 import { renderPdf } from "./pdf";
-import { todayToronto as today } from "@/lib/dates";
+import { todayToronto as today, formatDate } from "@/lib/dates";
 
 export type { DocKind };
 export type SaveInput = { kind: DocKind; snapshot: any; clientId: string; documentId: string; wordingId?: string };
@@ -49,6 +49,19 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
     const prov = String(input.snapshot?.f?.province ?? "");
     const { data: rate } = ["ON", "AB", "BC"].includes(prov) ? await supabase.rpc("approved_tax_rate", { p_province: prov }) : { data: null };
     if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An owner approves rates under GST/HST rates first." };
+  }
+
+  // Front office batch, section 7: a Final letter is sent for online signing. Its signers and the email
+  // the link goes to come from the client record; check them before anything is recorded.
+  let signers: { first_name: string; last_name: string; email: string }[] = [];
+  if (final && input.kind !== "proposal") {
+    const { data: cr } = input.clientId ? await supabase.from("clients").select("email").eq("id", input.clientId).maybeSingle() : { data: null };
+    const email = String(cr?.email ?? "").trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: "Add the client's email on the client record first: the signing link goes there." };
+    const split = (n: string) => { const p = n.trim().split(/\s+/); return { first_name: p[0] ?? "", last_name: p.slice(1).join(" ") || p[0] || "", email }; };
+    const names: string[] = input.kind === "t1_letter" ? (b.s.people as { name: string; blank?: boolean }[]).filter((p) => !p.blank && p.name).slice(0, 2).map((p) => p.name) : [String(b.s.signer ?? "")];
+    signers = names.filter((n) => n.trim()).map(split);
+    if (!signers.length) return { ok: false, error: input.kind === "t1_letter" ? "Enter the client's name." : "Enter the signing officer's name." };
   }
 
   // Final documents are recorded first, so a refusal (e.g. already signed) stops before filing.
@@ -88,6 +101,17 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
     inputs: b.inputs, file_path: path, file_name: b.fileName, file_sha256: pdf.sha256, file_size: pdf.bytes.length,
   }).select("id, version").single();
   if (vErr || !ver) return { ok: false, error: "Could not save the new version. Try again." };
+  if (final && input.kind !== "proposal") {
+    const s = b.s;
+    const label = input.kind === "t1_letter" ? `Personal tax ${s.taxYear}` : `Year-end ${formatDate(s.ye)}`;
+    const { error: qErr } = await supabase.rpc("create_letter_quote", {
+      p_client: input.clientId || null, p_title: b.title, p_company: input.kind === "corporate_letter" ? String(s.company ?? "") : "",
+      p_details: { doc_kind: input.kind, inputs: b.inputs, label, document_id: documentId, version: ver.version, engagement_id: engagementId },
+      p_signers: signers,
+    });
+    note = qErr ? `${note ? note + " " : ""}The letter was saved, but sending it for signing failed: ${qErr.message}`
+      : `${note ? note + " " : ""}Sent for online signing: open it under Engagement letters to copy the email. It moves to Signed, and the engagement to EL signed, when the client signs.`;
+  }
   return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note };
 }
 
@@ -123,12 +147,12 @@ async function recordCorporate(supabase: SupabaseClient, b: Built, access: Acces
     row.notes = [exists.notes, notes.join(" "), issued].filter((x) => x).join(" ");
     const { error } = await supabase.from("engagements").update(row).eq("id", exists.id);
     if (error) return { ok: false, error: "Could not update the engagement record." };
-    return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent. When the client signs, enter the signed date under Engagements." };
+    return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent." };
   }
   row.notes = [notes.join(" "), issued].join(" ");
   const { data: ins, error } = await supabase.from("engagements").insert({ ...row, client_id: clientId, title: e.trim(s.company) + " FYE " + fye }).select("id").single();
   if (error || !ins) return { ok: false, error: "Could not record the engagement." };
-  return { ok: true, engagementId: ins.id, note: "Engagement recorded as EL sent. When the client signs, enter the signed date under Engagements." };
+  return { ok: true, engagementId: ins.id, note: "Engagement recorded as EL sent." };
 }
 
 // Studio elSnapshot(): the letter fields kept for a revised letter (not type, reviewed, dates of issue).

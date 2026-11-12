@@ -5,6 +5,17 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-12",
+    title: "Engagement letters: one archive, and new letters signed online",
+    points: [
+      "Engagement letters lists every letter, whatever the path: Waiting for signature (opens first), Signed and All, with Came from (Quote by phone or website, Proposal with the option chosen, or New letter). The menu badge counts letters waiting for a signature.",
+      "A signed quote or proposal is filed here by itself.",
+      "New letter (owners) opens the Letter Builder, unchanged. Marking a letter Final now also sends it for online signing: its page has the email to send from Outlook, and it moves to Signed when the client signs. The signed PDF has the letter, the signatures and the signing record. Download PDF stays.",
+      "A Final letter needs the client's email on the client record: the signing link goes there.",
+      "Quotes no longer has its own menu badge; letters waiting are counted under Engagement letters.",
+    ],
+  },
+  {
+    date: "2026-11-12",
     title: "Software is always its own fee; no annual totals for clients",
     points: [
       "Software (QuickBooks Online and Dext) is a top-up on its own line, on top of the base monthly fee. It never shows as Included.",

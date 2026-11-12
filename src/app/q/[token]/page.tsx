@@ -3,7 +3,7 @@ import { ClientShell } from "@/components/ds/client";
 import { FIRM } from "@/components/ds/brand";
 import { todayToronto } from "@/lib/dates";
 import { longDate, pieceText } from "@/lib/t1-quote/render";
-import { C, CORP } from "@/lib/t1-quote/wording";
+import { C, CORP, SIGN_PAGE } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clientParts } from "@/lib/t1-quote/sign";
@@ -11,6 +11,7 @@ import { SignForm } from "./sign-form";
 import { SignDock } from "./sign-dock";
 import { ProposalSign } from "./proposal-sign";
 import { proposalView, type ProposalRow } from "@/lib/proposal/server";
+import { isCompanyLetter, letterHtml, type LetterRow } from "@/lib/letters/server";
 import { firmSignature } from "@/lib/t1-quote/server";
 
 // A signed proposal shows the proposal and the letter for the option chosen.
@@ -49,14 +50,17 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     return (
       <ClientShell wide>
         <ProposalSign token={token} partA={view.partA} options={view.options} recommended={view.recommended} who={`${me.first_name} ${me.last_name}`}
-          labels={{ fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton), title: pieceText(texts, CORP.signerTitle) }} />
+          labels={{ fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, SIGN_PAGE.agreeProposal), sign: pieceText(texts, C.signButton), title: pieceText(texts, CORP.signerTitle) }} />
       </ClientShell>
     );
   }
-  const parts = quote.kind === "proposal" ? proposalSignedParts(quote as ProposalRow) : await clientParts(quote, signers);
+  // A New letter: the letter as Hashim issued it, then sign (front office batch, section 7).
+  const parts = quote.kind === "proposal" ? proposalSignedParts(quote as ProposalRow)
+    : quote.kind === "letter" ? [{ label: "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature()) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
+    : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
-  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
-    ...(quote.kind !== "t1" ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
+  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, quote.kind === "letter" ? SIGN_PAGE.agreeLetter : C.agree), sign: pieceText(texts, C.signButton),
+    ...(quote.kind === "corporate" || quote.kind === "proposal" || isCompanyLetter(quote as LetterRow) ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   const download = { href: `/q/${token}/pdf`, label: pieceText(texts, C.download) };
   const portal = { href: PORTAL, label: pieceText(texts, C.portal), primary: true };
@@ -107,8 +111,8 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
         {/* The quote and the terms as one letter page, on the firm's letterhead. */}
         <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-5 py-7 shadow-sm sm:px-12 sm:py-12">
           <div dangerouslySetInnerHTML={{ __html: parts[0].html }} />
-          <hr className="my-8 border-sand-200" />
-          <div dangerouslySetInnerHTML={{ __html: parts[1].html }} />
+          {parts[1].html && <><hr className="my-8 border-sand-200" />
+          <div dangerouslySetInnerHTML={{ __html: parts[1].html }} /></>}
         </article>
         <SignDock barText={bar.text} barButton={bar.button} barLinks={bar.links}>{panel}</SignDock>
       </div>

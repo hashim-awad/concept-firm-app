@@ -10,6 +10,7 @@ import { firmSignature, letterSigner, loadQuoteByToken, toCorpData, toQuoteData,
 import { corpPartBPdf, renderCorpQuote } from "@/lib/corporate/render";
 import { LETTERHEAD } from "@/lib/studio/assets.generated";
 import { proposalHash, proposalPdfParts, proposalView, type ProposalRow } from "@/lib/proposal/server";
+import { letterHash, letterHtml, letterPdf, type LetterRow } from "@/lib/letters/server";
 
 // The quote exactly as the client sees it (no watermark), from what was saved when it was sent.
 // signature: pass it when already loaded (it is read from storage otherwise).
@@ -25,7 +26,8 @@ export async function signByToken(token: string, input: { name: string; title?: 
   const { quote, signers, me } = found;
   if (!input.consent) return { error: "Tick the box to agree to your quote and the engagement terms." };
   if (input.name.trim().length < 2) return { error: "Type your full name to sign." };
-  if (quote.kind !== "t1" && (input.title ?? "").trim().length < 2) return { error: "Type your title at the company to sign." };
+  const company = quote.kind === "corporate" || quote.kind === "proposal" || (quote.kind === "letter" && (quote.details as { doc_kind?: string } | null)?.doc_kind === "corporate_letter");
+  if (company && (input.title ?? "").trim().length < 2) return { error: "Type your title at the company to sign." };
   // A proposal: the client signs the option they chose, and its letter.
   const proposal = quote.kind === "proposal";
   const option = input.option ?? null;
@@ -37,10 +39,12 @@ export async function signByToken(token: string, input: { name: string; title?: 
     if (!other || !me.signed_at || other.signed_at) return { error: "Nothing to sign here." };
     person = other.person;
   }
-  const hash = proposal ? proposalHash(proposalView(quote as ProposalRow, await firmSignature()), option!) : documentHash(await clientParts(quote, signers));
+  const hash = proposal ? proposalHash(proposalView(quote as ProposalRow, await firmSignature()), option!)
+    : quote.kind === "letter" ? letterHash(letterHtml(quote as LetterRow, await firmSignature()))
+    : documentHash(await clientParts(quote, signers));
   const db = createAdminClient();
   const { data: all, error } = await db.rpc("record_t1_signature", {
-    p_quote: quote.id, p_person: person, p_name: input.name.trim(), p_ip: input.ip, p_agent: input.agent, p_hash: hash, p_same_device: input.forOther, p_title: quote.kind !== "t1" ? (input.title ?? "").trim() : null, p_option: proposal ? option : null,
+    p_quote: quote.id, p_person: person, p_name: input.name.trim(), p_ip: input.ip, p_agent: input.agent, p_hash: hash, p_same_device: input.forOther, p_title: company ? (input.title ?? "").trim() : null, p_option: proposal ? option : null,
   });
   if (error) return { error: error.message };
   if (all === true) await makeSignedPdf(quote.id).catch(() => undefined); // retried on download if it fails
@@ -58,10 +62,13 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const signature = await firmSignature();
   const proposal = q.kind === "proposal";
   const pp = proposal ? proposalPdfParts(q as ProposalRow, q.chosen_option ?? 0, signature) : null;
-  const parts = proposal ? [] : await clientParts(q as QuoteRow, signers, signature);
+  // A New letter: the letter's own PDF, then the signatures and the signing record.
+  const lp = q.kind === "letter" ? letterPdf(q as LetterRow, signature) : null;
+  const parts = proposal || lp ? [] : await clientParts(q as QuoteRow, signers, signature);
   // Corporate: Part B is the master letter, laid out by Studio's own engine (pdfDoc), word for word.
   let partB: { content: unknown[]; images: Record<string, string> } | undefined;
   if (pp) partB = pp.partB;
+  else if (lp) partB = { content: [], images: {} };
   else if (q.kind === "corporate") {
     const d = toCorpData(q as QuoteRow, signers, { preparedBy: q.sender?.name ?? "", signer: await letterSigner() });
     partB = corpPartBPdf(q.wording ?? {}, d, LETTERHEAD, signature);
@@ -71,8 +78,10 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
     clientNames: q.kind !== "t1" ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
     company: q.kind !== "t1" ? q.company_name ?? "" : undefined,
     ...(pp ? { docTitle: "Proposal and engagement letter", option: pp.optionName } : {}),
+    ...(lp ? { docTitle: "Engagement letter", company: (q.details as { doc_kind?: string } | null)?.doc_kind === "corporate_letter" ? q.company_name ?? "" : undefined,
+      clientNames: (q.details as { doc_kind?: string } | null)?.doc_kind === "corporate_letter" ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and ") } : {}),
     signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash, title: x.signed_title ?? undefined })),
-  }, partB, signature, pp?.partA));
+  }, partB, signature, pp?.partA ?? lp ?? undefined));
   const path = `t1-quotes/${q.id}/signed-${sha256.slice(0, 12)}.pdf`;
   const up = await db.storage.from("documents").upload(path, bytes, { contentType: "application/pdf", upsert: false });
   if (up.error && !/exists/i.test(up.error.message)) throw new Error(up.error.message);

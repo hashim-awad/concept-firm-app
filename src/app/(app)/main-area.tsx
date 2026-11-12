@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-export const WORKSPACE_PATHS = ["/engagement-letters", "/documents/corporate-letter", "/documents/t1-letter", "/documents/proposal"];
+export const WORKSPACE_PATHS = ["/engagement-letters/new", "/quotes/proposal", "/documents/corporate-letter", "/documents/t1-letter", "/documents/proposal"];
 
 export function MainArea({ children, workspace: force }: { children: ReactNode; workspace?: boolean }) {
   const path = usePathname();

@@ -250,9 +250,30 @@ export const PROPOSAL_EMAIL = {
   firm: P(608, "Concept Accounting & Advisory Professional Corporation", [], PE),
 };
 
+// ---------- Engagement letter email (front office batch, section 7): a New letter sent for signing ----------
+const LE = "letteremail";
+export const LETTER_EMAIL = {
+  subject: P(620, "Your engagement letter from Concept Accounting", [], LE),
+  hi: P(621, "Hi {1},", ["First names"], LE),
+  ready: P(622, "Your engagement letter is ready. Open it with the button below, read it and sign online. It takes about five minutes.", [], LE),
+  couple: P(623, "Each of you has your own button. If you are together, the second person can sign on the same device after the first.", [], LE),
+  valid: P(624, "Please sign by {1}.", ["Sign by date"], LE),
+  questions: P(625, "If you have questions, reply to this email or call me.", [], LE),
+  button: P(626, "Review and sign your letter", [], LE),
+  buttonFor: P(627, "Review and sign: {1}", ["First name"], LE),
+  firm: P(628, "Concept Accounting & Advisory Professional Corporation", [], LE),
+};
+
+// ---------- Signing page statements (front office batch): a New letter and a proposal sign under their own words ----------
+const SP = "signpage";
+export const SIGN_PAGE = {
+  agreeLetter: P(640, "I have read this engagement letter, and I agree to it.", [], SP),
+  agreeProposal: P(641, "I have read the proposal and the engagement letter for the option I chose, and I agree to them.", [], SP),
+};
+
 export const T1Q_PIECES: QPiece[] = [
   ...Object.values(A), ...Object.values(ITEM_LINES).flat().filter(Boolean) as QPiece[], ...Object.values(SELF_EMPLOYED_WITH),
-  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL), ...Object.values(CORP), ...Object.values(CORP_EMAIL), ...Object.values(PROPOSAL_EMAIL),
+  ...Object.values(B), ...Object.values(C), ...Object.values(EMAIL), ...Object.values(CORP), ...Object.values(CORP_EMAIL), ...Object.values(PROPOSAL_EMAIL), ...Object.values(LETTER_EMAIL), ...Object.values(SIGN_PAGE),
 ];
 
 // The three templates on the Templates page.
@@ -262,5 +283,7 @@ export const T1Q_TEMPLATES = [
   { k: "t1email2", name: "T1 quote email: couple, two signers", group: "Engagement letters", basis: "Phase 2 batch, section 8", status: "In use" },
   { k: "corpquote", name: "Corporate year-end quote (Part A)", group: "Engagement letters", basis: "Phase 2 batch, Appendix C; Part B is the corporate master letter", status: "In use" },
   { k: "corpemail", name: "Corporate year-end quote email", group: "Engagement letters", basis: "Phase 2 batch, Appendix C", status: "In use" },
+  { k: "signpage", name: "Signing page: statement above Sign (letters and proposals)", group: "Engagement letters", basis: "Front office batch: New letters and proposals signed online", status: "In use" },
+  { k: "letteremail", name: "Engagement letter email", group: "Engagement letters", basis: "Front office batch, section 7: the signing link for a New letter", status: "In use" },
   { k: "propemail", name: "Proposal email", group: "Engagement letters", basis: "Front office batch, section 3: the signing link for a monthly proposal", status: "In use" },
 ];

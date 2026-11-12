@@ -102,7 +102,7 @@ ${o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(firm)}"
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // A letter built by the engine, with what the e-sign changes need. corp: the year-end quote's own
 // wording changes (fee pointer, "plus GST/HST"); a proposal's letter keeps the engine's.
-export type LetterBuild = { e: any; s: any; paper: any; addr: string[]; signer: { name: string; title: string }; corp: boolean };
+export type LetterBuild = { e: any; s: any; paper: any; addr: string[]; signer: { name: string; title: string }; corp: boolean; addrBold?: number };
 
 // A headless engine for one letter, with the given wording (published texts plus any overrides).
 export function letterEngine(wording: Record<string, string>, signer: { name: string; title: string }) {
@@ -178,7 +178,7 @@ export function partBBlocks(texts: Record<string, string>, L: LetterBuild): any[
   const runsText = (b: any) => (b.r ?? []).map((r: any) => (typeof r === "string" ? r : r.t)).join("");
   const out: any[] = [];
   for (const b of e.build(s)) {
-    if (b.k === "addr") { out.push({ k: "addr", lines: L.addr, boldN: 1 }); continue; }
+    if (b.k === "addr") { out.push({ k: "addr", lines: L.addr, boldN: L.addrBold ?? 1 }); continue; }
     // The firm's half of the signature block, signed; the client's half is Part C.
     if (b.k === "sig") { out.push({ k: "p", r: [{ t: e.FIRM, b: 1 }] }, { k: "p", r: [SIG_MARK] }, { k: "p", r: [[L.signer.name, L.signer.title].filter(Boolean).join("\n")] }); continue; }
     if (b.k === "p" && runsText(b) === taxdome) continue;
@@ -219,7 +219,7 @@ export function partBHtml(texts: Record<string, string>, L: LetterBuild, o: Opts
   let h = paper.innerHTML as string;
   const firmLine = `${plain(texts, T1A.firm)}, ${plain(texts, T1A.address)}`;
   h = h.replace(/^<img class="lh"[^>]*>/, o.letterhead ? `<img data-lh="1" src="${esc(o.letterhead)}" alt="${esc(firmLine)}" style="${S.lh}">` : "");
-  h = h.replace(/<p style="margin-bottom:14px">[\s\S]*?<\/p>/, `<p style="margin-bottom:14px">${L.addr.map((l, i) => (i === 0 ? `<strong>${esc(l)}</strong>` : esc(l))).join("<br>")}</p>`);
+  h = h.replace(/<p style="margin-bottom:14px">[\s\S]*?<\/p>/, `<p style="margin-bottom:14px">${L.addr.map((l, i) => (i < (L.addrBold ?? 1) ? `<strong>${esc(l)}</strong>` : esc(l))).join("<br>")}</p>`);
   const fee = esc(texts[FEE_KEY] ?? FEE_TEXT).replace(/&#39;/g, "’");
   if (L.corp) h = h.replace(new RegExp(`<p>${fee.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</p>`), `<p>${esc(plain(texts, CORP.feePointer))}</p>`);
   const taxdome = esc(texts[TAXDOME_KEY] ?? TAXDOME_TEXT).replace(/&#39;/g, "’");
