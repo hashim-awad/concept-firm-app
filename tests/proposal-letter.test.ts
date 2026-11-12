@@ -85,3 +85,15 @@ test("Studio's screen (not live) is unchanged: a team opens on the Options forma
   assert.equal(p.f.format, "options");
   assert.ok(!p.opts[0].svc.pnl, "no extra ticks");
 });
+
+test("Letter Builder: a package with no software price leaves software blank; it reads Amount needed and stops Final", () => {
+  const e = createStudioEngine({ P_NEED: true } as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const c = new CorporateLetter(e, "2026-11-12");
+  c.applyPackage({ Offer: "Team: Core", Services: '["books","gst","comp","t2"]', "Monthly fee": "2400", "Software per month": "", "Year-end fee": "" });
+  const soft = c.fees.find((f) => f.tag === "soft")!;
+  assert.equal(soft.amt, "", "never Included");
+  assert.equal(e.feeText(soft.amt), "Amount needed");
+  assert.ok((e.checks(c.state()) as { lvl: string; msg: string }[]).some((x) => x.lvl === "err" && /amount must be a dollar figure/.test(x.msg)), "the checks stop Final");
+  const studio = createStudioEngine({} as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  assert.equal(studio.feeText(""), "", "Studio's own engine is unchanged");
+});

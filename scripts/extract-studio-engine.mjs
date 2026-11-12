@@ -123,7 +123,11 @@ if (patched.split(POPTS).length !== 2) throw new Error("Expected exactly one pro
 // not "Included" (a blank amount already stops the proposal from being sent).
 const LINE = 'return [l.svc,v.k==="num"?';
 if (patched.split(LINE).length !== 2) throw new Error("Expected exactly one option fee line.");
-writeFileSync(OUT, patched.replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
+// Fourth change, app screens only (P_NEED): a letter fee with no amount reads "Amount needed" in the
+// preview, not a blank cell. The letter's checks already stop a Final with a blank amount.
+const FEETEXT = 'function feeText(v){ var f=feeVal(v);';
+if (patched.split(FEETEXT).length !== 2) throw new Error("Expected exactly one feeText.");
+writeFileSync(OUT, patched.replace(FEETEXT, FEETEXT + ' if(env.P_NEED&&!trim(String(v==null?"":v))) return "Amount needed";').replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
   .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");
 console.log(`Wording pieces: ${pieces.size} (written to ${WORDING_OUT}).`);

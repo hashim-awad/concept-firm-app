@@ -5,6 +5,14 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-12",
+    title: "Software is always its own fee",
+    points: [
+      "Software (QuickBooks Online and Dext) is a top-up on its own line, on top of the base monthly fee. It never shows as Included.",
+      "If a package in the price book has no software amount, the proposal builder and the Letter Builder keep the software line with Amount needed, and the proposal or the Final letter cannot go out until the amount is entered.",
+    ],
+  },
+  {
+    date: "2026-11-12",
     title: "Proposal builder: package fill and safe defaults",
     points: [
       "Choosing a package fills its services and prices from the price book. The price floor check still runs.",

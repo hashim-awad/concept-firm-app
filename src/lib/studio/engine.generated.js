@@ -32,7 +32,7 @@ export function createStudioEngine(env = {}) {
   function fmtMonth(s){ if(!s) return ""; var p=s.split("-"); return MONTHS[+p[1]-1]+" "+p[0]; }
   function money(v){ var n=Number(String(v).replace(/[^0-9.]/g,"")); if(!isFinite(n)||String(v).trim()==="") return ""; return "$"+n.toLocaleString("en-CA",{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2}); }
   function feeVal(v){ v=String(v==null?"":v).trim(); if(!v) return {k:"blank"}; if(/^incl/i.test(v)) return {k:"incl"}; var n=Number(v.replace(/[$,\s]/g,"")); if(isFinite(n)&&n>0) return {k:"num",n:n}; return {k:"bad"}; }
-  function feeText(v){ var f=feeVal(v); if(f.k==="num") return __W("w147aae3425", "{1} plus GST/HST", [money(f.n)]); if(f.k==="incl") return __W("w3e2c570409", "Included", []); return ""; }
+  function feeText(v){ var f=feeVal(v); if(env.P_NEED&&!trim(String(v==null?"":v))) return "Amount needed"; if(f.k==="num") return __W("w147aae3425", "{1} plus GST/HST", [money(f.n)]); if(f.k==="incl") return __W("w3e2c570409", "Included", []); return ""; }
   function trim(v){ return (v||"").replace(/\s+/g," ").trim(); }
   var BASIS = {
     standard: __W("wffab7916ba", "The compiled financial information will be prepared on the historical cost basis. It will reflect cash transactions, with the addition of the accruals that apply to the Company, such as accounts receivable, accounts payable and accrued liabilities, amortization of capital assets, and income taxes payable. It will not apply all the recognition, measurement, presentation and disclosure requirements of Canadian accounting standards for private enterprises (ASPE).", []),
