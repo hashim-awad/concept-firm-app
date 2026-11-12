@@ -115,3 +115,14 @@ test("No annual total for clients (Quotes): option boxes and PDF have no Annual 
 test("the fee note may drop its quarterly fill-in, other pieces may not", () => {
   assert.equal(checkEdit("wb2a19a0343", "All fees are plus {1}. One-time fees are billed once."), null);
 });
+
+test("Year-end default (app): the most recent year-end until its T2 is due, then the next one", () => {
+  const app = createStudioEngine({ P_NEED: true } as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  assert.equal(app.lastYE("12-31", "2026-11-12"), "2026-12-31", "Dec 31, 2025's T2 was due Jun 30, 2026: next year-end");
+  assert.equal(app.lastYE("12-31", "2026-03-15"), "2025-12-31", "T2 not due until Jun 30, 2026: most recent year-end");
+  assert.equal(app.lastYE("12-31", "2026-06-30"), "2025-12-31", "on the due date: still the most recent year-end");
+  assert.equal(app.lastYE("08-31", "2027-02-28"), "2026-08-31", "Aug 31 year-end: T2 due Feb 28");
+  assert.equal(app.lastYE("08-31", "2027-03-01"), "2027-08-31");
+  const studio = createStudioEngine({} as never) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  assert.equal(studio.lastYE("12-31", "2026-11-12"), "2025-12-31", "Studio's own engine is unchanged");
+});

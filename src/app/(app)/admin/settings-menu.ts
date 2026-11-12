@@ -42,6 +42,7 @@ export const SETTINGS: [string, SettingsDef[]][] = [
     { label: "Signer names", href: "/admin/settings/signers", open: ["settings"], settingKeys: ["signer_engagement_letter", "signer_proposal", "signer_other"], ownerOnly: "change signer names" },
     { label: "Signature image", href: "/admin/settings/signature", open: ["owner"], settingKeys: ["signature_image"], ownerOnly: "change the signature" },
     { label: "Templates", href: "/admin/templates", open: ["engagement_terms"], ownerOnly: "approve or publish wording" },
+    { label: "Signing emails", href: "/admin/settings/signing-email", open: ["owner"] },
   ]],
   ["Tax rules", [
     { label: "T1 rule values", href: "/admin/settings/t1-rules", open: ["settings"], settingKeys: ["t1_rules"], ownerOnly: "change them" },

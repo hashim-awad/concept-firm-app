@@ -138,6 +138,11 @@ patched = patched
   .replace(ANN_HTML, '+(env.P_LINES?"":"<tr>"+"<td>"+"<b>"+__WH("w408a27b5e4", "Annual value", [])+"</b>"+"</td>"+"<td style=\\"text-align:right\\">"+"<b>"+(esc(o.annual))+"</b>"+"</td>"+"</tr>")')
   .replace(ANN_PDF, '.concat(env.P_LINES?[]:[[{text:__W("w408a27b5e4", "Annual value", []),bold:true},{text:o.annual,bold:true,alignment:"right"}]])')
   .replace(FLOOR, 's.opts.forEach(function(o){ var t=pTotals(env.P_LINES?{lines:o.lines.filter(function(l){return !/software/i.test(l.svc);})}:o), nm=o.name||"An option";');
+// Sixth change, app screens only (P_NEED; Hashim, Nov 12, 2026): the default year-end is the most
+// recent one if its T2 is not yet due (six months after year-end), otherwise the next one.
+const LASTYE = 'if(d>=letter) d=(y-1)+"-"+md; return d; }';
+if (patched.split(LASTYE).length !== 2) throw new Error("Expected exactly one lastYE.");
+patched = patched.replace(LASTYE, 'if(d>=letter) d=(y-1)+"-"+md; if(env.P_NEED){ var p=d.split("-").map(Number), mm=p[1]+6, yy=p[0]+Math.floor((mm-1)/12); mm=((mm-1)%12)+1; var dim=new Date(Date.UTC(yy,mm,0)).getUTCDate(); var due=yy+"-"+String(mm).padStart(2,"0")+"-"+String(Math.min(p[2],dim)).padStart(2,"0"); if(letter>due) d=(p[0]+1)+"-"+md; } return d; }');
 writeFileSync(OUT, patched.replace(FEETEXT, FEETEXT + ' if(env.P_NEED&&!trim(String(v==null?"":v))) return "Amount needed";').replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
   .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");

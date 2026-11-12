@@ -10,6 +10,8 @@ export const CHANGELOG: ChangeEntry[] = [
       "In the Letter Builder, Final is now Issue and send for signing. It opens the letter's page with the email ready to copy; the issued PDF is a link there.",
       "The Client step has a tick to confirm the client's legal name without leaving the letter. It is saved on the client record with your name and the date. Client changes made in another tab show when you come back to the letter.",
       "A client saved without a salutation gets the first name of the person who signs.",
+      "Studio can send the signing email for a New letter from your own Microsoft 365 mailbox (Settings, Signing emails; owners switch it on). The letter's page shows whether it was sent, with Send the email now; the Copy buttons stay as the fallback. The Test app only emails the firm's own addresses.",
+      "The default year-end in a letter is the most recent one if its T2 is not yet due (six months after year-end), otherwise the next one. You can still change it.",
       "A letter's page has Preview as client: the client's page exactly, with signing off. Opening it does not mark the letter as viewed.",
       "Templates, Proposal email: the one-price version now shows, so its sentence can be edited.",
     ],

@@ -2,7 +2,8 @@ import "server-only";
 
 // Sends email through Microsoft 365 (Microsoft Graph) using the app's own Microsoft Entra
 // registration (OAuth client credentials). No mailbox password is used or stored.
-// The app registration is limited in Exchange to the one sending mailbox (MAIL_FROM).
+// The app registration is limited in Exchange (an application access policy) to the mailboxes it may
+// send from: MAIL_FROM for alerts, and staff mailboxes for signing emails (Hashim, Nov 12, 2026).
 
 function required(name: string) {
   const v = process.env[name];
@@ -31,8 +32,9 @@ async function getToken(): Promise<string> {
   return json.access_token;
 }
 
-export async function sendMail(email: { to: string; subject: string; html: string }) {
-  const from = required("MAIL_FROM");
+// from: the mailbox to send from (a staff member's own for signing emails); MAIL_FROM when not given.
+export async function sendMail(email: { to: string | string[]; subject: string; html: string; from?: string }) {
+  const from = email.from || required("MAIL_FROM");
   const token = await getToken();
   const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(from)}/sendMail`, {
     method: "POST",
@@ -43,7 +45,7 @@ export async function sendMail(email: { to: string; subject: string; html: strin
         // Say the sender address outright, so it does not depend on how Exchange picks one.
         from: { emailAddress: { address: from } },
         body: { contentType: "HTML", content: email.html },
-        toRecipients: [{ emailAddress: { address: email.to } }],
+        toRecipients: (Array.isArray(email.to) ? email.to : [email.to]).map((address) => ({ emailAddress: { address } })),
       },
       saveToSentItems: true,
     }),

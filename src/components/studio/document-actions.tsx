@@ -30,7 +30,7 @@ export function DocumentActions({ kind, handlers, ok, message, mode, showSaveCli
       if (!r.ok) { setStatus(r.error); return; }
       setDocumentId(r.documentId);
       // A Final letter goes out for online signing: open its page (the PDF is a link there).
-      if (r.letterId) { router.push(`/engagement-letters/${r.letterId}?msg=${encodeURIComponent("Sent for signing. Copy the email below and send it from Outlook.")}`); return; }
+      if (r.letterId) { router.push(`/engagement-letters/${r.letterId}?msg=${encodeURIComponent("Issued and sent for signing.")}`); return; }
       const a = document.createElement("a"); a.href = `/documents/file/${r.versionId}?download=1`; a.download = r.fileName;
       document.body.appendChild(a); a.click(); a.remove();
       setStatus(`Saved: ${r.fileName} (version ${r.version} in the vault).${r.note ? " " + r.note : ""}`);

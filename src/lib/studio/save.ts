@@ -14,6 +14,7 @@ import { loadSignature, loadStudioData } from "./data";
 import { BLANK_PNG, engineFor, rebuild, type Built, type DocKind } from "./build";
 import { renderPdf } from "./pdf";
 import { todayToronto as today, formatDate } from "@/lib/dates";
+import { sendLetterEmail, signingEmailOn } from "@/lib/email/signing";
 
 export type { DocKind };
 export type SaveInput = { kind: DocKind; snapshot: any; clientId: string; documentId: string; wordingId?: string };
@@ -111,6 +112,11 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
     });
     note = qErr ? `${note ? note + " " : ""}The letter was saved, but sending it for signing failed: ${qErr.message}`
       : `${note ? note + " " : ""}Sent for online signing: open it under Engagement letters to copy the email. It moves to Signed, and the engagement to EL signed, when the client signs.`;
+    // Send the signing email from the issuer's mailbox when Settings has it on (New letters first).
+    if (!qErr && letterId && await signingEmailOn("letters")) {
+      const r = await sendLetterEmail(String(letterId));
+      note += r.ok ? ` The email was sent from ${r.from} to ${r.to.join(", ")}.` : ` The email was not sent (${r.error}). Copy it from the letter's page.`;
+    }
     if (!qErr && letterId) return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note, letterId: String(letterId) };
   }
   return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note };
