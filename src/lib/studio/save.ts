@@ -110,7 +110,7 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
       p_signers: signers,
     });
     note = qErr ? `${note ? note + " " : ""}The letter was saved, but sending it for signing failed: ${qErr.message}`
-      : `${note ? note + " " : ""}Sent for online signing. Open it under Engagement letters to copy the email.`;
+      : `${note ? note + " " : ""}Sent for online signing: open it under Engagement letters to copy the email. It moves to Signed, and the engagement to EL signed, when the client signs.`;
   }
   return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note };
 }
@@ -147,12 +147,12 @@ async function recordCorporate(supabase: SupabaseClient, b: Built, access: Acces
     row.notes = [exists.notes, notes.join(" "), issued].filter((x) => x).join(" ");
     const { error } = await supabase.from("engagements").update(row).eq("id", exists.id);
     if (error) return { ok: false, error: "Could not update the engagement record." };
-    return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent. When the client signs, enter the signed date under Engagements." };
+    return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent." };
   }
   row.notes = [notes.join(" "), issued].join(" ");
   const { data: ins, error } = await supabase.from("engagements").insert({ ...row, client_id: clientId, title: e.trim(s.company) + " FYE " + fye }).select("id").single();
   if (error || !ins) return { ok: false, error: "Could not record the engagement." };
-  return { ok: true, engagementId: ins.id, note: "Engagement recorded as EL sent. When the client signs, enter the signed date under Engagements." };
+  return { ok: true, engagementId: ins.id, note: "Engagement recorded as EL sent." };
 }
 
 // Studio elSnapshot(): the letter fields kept for a revised letter (not type, reviewed, dates of issue).

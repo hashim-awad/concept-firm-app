@@ -22,7 +22,9 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
   const keys = changedKeys(state.live, state.draft).filter((k) => PIECE.has(k));
   const templates = (allTemplates() as T[]).filter((t) => t.status !== "Planned");
   const where = templateKeys(data.signers, state.live, templates.map((t) => t.k));
-  const usedIn = (k: string) => templates.filter((t) => where.get(t.k)?.has(k)).map((t) => t.name);
+  // "Work not included" shows the whole Other matters section, so every sentence there would carry its
+  // name; call it by the section instead.
+  const usedIn = (k: string) => templates.filter((t) => where.get(t.k)?.has(k)).map((t) => (t.k === "sExcl" ? "Corporate master letter: Other matters" : t.name));
   const editable = canEdit(access, "engagement_terms");
 
   return (

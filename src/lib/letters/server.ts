@@ -9,6 +9,7 @@ import { createStudioEngine } from "@/lib/studio/engine.generated.js";
 import { CorporateLetter, T1Letter, type Fee } from "@/lib/studio/controllers";
 import { ILLUSTRATIVE, LETTERHEAD } from "@/lib/studio/assets.generated";
 import { LETTERHEAD_URL } from "@/lib/t1-quote/render";
+import { partBHtml, partBPdf, type LetterBuild } from "@/lib/corporate/render";
 import type { QuoteRow } from "@/lib/t1-quote/server";
 
 export type LetterDetails = { doc_kind: "corporate_letter" | "t1_letter"; inputs: { f: Record<string, unknown>; fees?: Fee[] }; label?: string; document_id?: string; engagement_id?: string };
@@ -36,8 +37,20 @@ function built(q: LetterRow, lh: string, sig: string) {
 const BLANK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const wrap = (h: string) => `<div class="studio-preview"><div class="paper" style="width:auto;max-width:none;padding:0;box-shadow:none;margin:0">${h}</div></div>`;
 
+// A company letter signed online takes the same e-sign form as the year-end quote's letter: its address
+// block, the firm's half of the signatures with the signature image (the client signs on the
+// Signatures page, so no blank lines for them), the sentence that signing online counts as signing by
+// hand, and no "sign in TaxDome" sentence. The wording is otherwise the letter Hashim issued.
+function companyBuild(q: LetterRow, lh: string, sig: string): LetterBuild {
+  const b = built(q, lh, sig);
+  const addr = (b.blocks() as { k: string; lines?: string[]; boldN?: number }[]).find((x) => x.k === "addr");
+  return { e: b.e, s: b.s, paper: b.paper, addr: addr?.lines ?? [], addrBold: addr?.boldN ?? 1, signer: q.signer?.name ? q.signer : { name: "", title: "" }, corp: false };
+}
+const company = (q: LetterRow) => q.details?.doc_kind === "corporate_letter";
+
 // The letter as the client reads it.
 export function letterHtml(q: LetterRow, signature: string | null): string {
+  if (company(q)) return partBHtml(q.wording ?? {}, companyBuild(q, LETTERHEAD_URL, signature ?? BLANK), { letterhead: LETTERHEAD_URL, signature });
   return wrap(built(q, LETTERHEAD_URL, signature ?? BLANK).html());
 }
 
@@ -49,6 +62,7 @@ export function letterHash(html: string): string {
 
 // The letter's PDF content, exactly as the Letter Builder lays it out.
 export function letterPdf(q: LetterRow, signature: string | null): { content: unknown[]; images: Record<string, string> } {
+  if (company(q)) return partBPdf(q.wording ?? {}, companyBuild(q, LETTERHEAD, signature ?? BLANK), LETTERHEAD, signature);
   const b = built(q, LETTERHEAD, signature ?? BLANK);
   const dd = b.e.pdfDoc(b.s, b.blocks(), LETTERHEAD);
   return { content: dd.content as unknown[], images: dd.images as Record<string, string> };

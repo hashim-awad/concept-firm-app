@@ -3,7 +3,7 @@ import { ClientShell } from "@/components/ds/client";
 import { FIRM } from "@/components/ds/brand";
 import { todayToronto } from "@/lib/dates";
 import { longDate, pieceText } from "@/lib/t1-quote/render";
-import { C, CORP } from "@/lib/t1-quote/wording";
+import { C, CORP, SIGN_PAGE } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clientParts } from "@/lib/t1-quote/sign";
@@ -50,7 +50,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     return (
       <ClientShell wide>
         <ProposalSign token={token} partA={view.partA} options={view.options} recommended={view.recommended} who={`${me.first_name} ${me.last_name}`}
-          labels={{ fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton), title: pieceText(texts, CORP.signerTitle) }} />
+          labels={{ fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, SIGN_PAGE.agreeProposal), sign: pieceText(texts, C.signButton), title: pieceText(texts, CORP.signerTitle) }} />
       </ClientShell>
     );
   }
@@ -59,7 +59,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     : quote.kind === "letter" ? [{ label: "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature()) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
     : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
-  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, C.agree), sign: pieceText(texts, C.signButton),
+  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, quote.kind === "letter" ? SIGN_PAGE.agreeLetter : C.agree), sign: pieceText(texts, C.signButton),
     ...(quote.kind === "corporate" || quote.kind === "proposal" || isCompanyLetter(quote as LetterRow) ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   const download = { href: `/q/${token}/pdf`, label: pieceText(texts, C.download) };
