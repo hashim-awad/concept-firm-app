@@ -86,7 +86,8 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   }
   if (key === "propemail") {
     const e = renderProposalEmail(wording?.texts ?? {}, { first: "Pat", validUntil: "2026-12-02", options: 3 }, SAMPLE_SENDER, "https://example.test/q/link", { mark });
-    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email", html: e.html }] };
+    const one = renderProposalEmail(wording?.texts ?? {}, { first: "Sam", validUntil: "2026-12-02", options: 1 }, SAMPLE_SENDER, "https://example.test/q/link", { mark });
+    return { parts: [{ label: "Subject", html: `<p>${e.subjectHtml}</p>` }, { label: "Email: a proposal with options", html: e.html }, { label: "Email: a proposal with one price", html: one.html }] };
   }
   if (key === "corpquote" || key === "corpemail") {
     const texts = wording?.texts ?? {};
