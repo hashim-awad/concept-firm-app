@@ -81,7 +81,7 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
       // The heading, the agreement and the first row of signatures stay on one page.
       { unbreakable: true, stack: [
         { text: "Signatures", fontSize: 11.5, bold: true, color: NAVY, margin: [0, 14, 0, 4] },
-        { text: audit.option ? `I have read the proposal and the engagement letter for ${audit.option}, and I agree to them.` : "I have read my quote and these engagement terms, and I agree to them.", margin: [0, 0, 0, 6] },
+        { text: audit.option ? `I have read the proposal and the engagement letter for ${audit.option}, and I agree to them.` : audit.docTitle === "Engagement letter" ? "I have read this engagement letter, and I agree to it." : "I have read my quote and these engagement terms, and I agree to them.", margin: [0, 0, 0, 6] },
         signatures[0],
       ] },
       ...signatures.slice(1),

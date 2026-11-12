@@ -12,7 +12,7 @@ export type QuoteRow = {
   total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired"; sent_at: string | null; valid_until: string | null;
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
-  kind?: "t1" | "corporate" | "proposal"; company_name?: string | null; year_end?: string | null;
+  kind?: "t1" | "corporate" | "proposal" | "letter"; company_name?: string | null; year_end?: string | null;
   details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string; counts?: { bank: number; cc: number; loc: number; loan: number; car: number } } | null;
 };
 export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };

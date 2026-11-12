@@ -57,7 +57,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const links = ((linkRows ?? []) as unknown as L[]).map((l) => ({ rel: l.relationship, other: l.client_id === id ? l.b : l.a })).filter((l) => l.other);
   const tdUrl = c.taxdome_account_id ? ((await supabase.rpc("taxdome_account_url")).data as string | null) || "" : "";
   const lastYe = /^\d{2}-\d{2}$/.test(c.year_end_md ?? "") ? lastYearEnd(c.year_end_md, todayToronto()) : "";
-  const letterHref = c.kind === "individual" ? `/engagement-letters?type=t1&client=${id}` : `/engagement-letters?type=corporate&client=${id}`;
+  const letterHref = c.kind === "individual" ? `/engagement-letters/new?type=t1&client=${id}` : `/engagement-letters/new?type=corporate&client=${id}`;
   const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Proposal" };
   const empty = (t: string) => <p className="p-5 text-sm text-muted">{t}</p>;
 

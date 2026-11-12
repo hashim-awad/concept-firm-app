@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
 
-const SCREEN: Record<string, string> = { corporate_letter: "/engagement-letters?type=corporate", t1_letter: "/engagement-letters?type=t1", proposal: "/documents/proposal" };
+const SCREEN: Record<string, string> = { corporate_letter: "/engagement-letters/new?type=corporate", t1_letter: "/engagement-letters/new?type=t1", proposal: "/documents/proposal" };
 
 export default async function VaultDocumentPage({ params }: PageProps<"/documents/vault/[id]">) {
   const access = await requireAccess();

@@ -32,7 +32,7 @@ export type SidebarCounts = { quotesAwaiting: number; lettersAwaiting: number; l
 // Which menu item a page belongs to (pages keep their addresses; only their place in the menu changed).
 const OWNER: [string, string][] = [
   ["/documents/proposal", "/quotes"], ["/proposals", "/quotes"],
-  ["/documents/corporate-letter", "/engagement-letters"], ["/documents/t1-letter", "/engagement-letters"],
+  ["/documents/corporate-letter", "/engagement-letters"], ["/documents/t1-letter", "/engagement-letters"], ["/engagement-letters/new", "/engagement-letters"],
   ["/documents/engagements", "/engagements"],
 ];
 
@@ -55,8 +55,8 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     { label: "Home", items: [item("/", "My day", <Home key="i" />)] } as NavGroup,
     group("Sales", [
       access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
-      access.leads && item("/quotes", "Quotes", <Landmark key="i" />, counts.quotesAwaiting),
-      access.documentsEdit && access.pricing && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
+      access.leads && item("/quotes", "Quotes", <Landmark key="i" />),
+      (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
     ]),
     group("Clients", [
       access.clients && item("/clients", "Clients", <Building2 key="i" />),
