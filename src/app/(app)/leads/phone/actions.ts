@@ -36,15 +36,16 @@ export async function phonePrice(form: "personal" | "company", json: string): Pr
       const early = earlyOutOfScope(qn, raw);
       if (early.length) return { total_cents: null, note: `Out of scope: ${early.map((e) => e.reason).join("; ")}. Send to Hashim.` };
       const prices = await loadPricesNow();
-      const r = evaluate(qn, raw, prices);
-      if (r.subtotal_cents > 0) return { total_cents: r.subtotal_cents, note: "" };
-      // A running total while the call goes on (step 5 test, Nov 13, 2026): the full check stops at the
-      // first missing answer, so the panel also prices the answers given so far, with nothing required and
-      // the contact details (names, email, phone) left out. They never change the price.
-      const loose = { ...qn, questions: qn.questions.map((q) => ({ ...q, required: false })) };
+      // The contact details (names, email, phone) never change the price, and on a phone lead they are
+      // entered apart from the questions, so the price leaves them out. With every other answer in, the
+      // total is final; until then the panel shows a running total (step 5 tests, Nov 12, 2026).
       const contact = new Set(qn.questions.filter((q) => ["text", "email", "phone"].includes(q.answer_type)).map((q) => q.key));
       const strip = (o: Record<string, Answer>) => Object.fromEntries(Object.entries(o).filter(([k]) => !contact.has(k)));
-      const so_far = evaluate(loose, { household: strip(raw.household), people: raw.people.map(strip) } as Answers, prices);
+      const noContact = { ...qn, questions: qn.questions.filter((q) => !contact.has(q.key)) };
+      const answers = { household: strip(raw.household), people: raw.people.map(strip) } as Answers;
+      const r = evaluate(noContact, answers, prices);
+      if (r.subtotal_cents > 0) return { total_cents: r.subtotal_cents, note: "" };
+      const so_far = evaluate({ ...noContact, questions: noContact.questions.map((q) => ({ ...q, required: false })) }, answers, prices);
       // Until the base return is priced, there is no total to tell the caller.
       if (so_far.subtotal_cents === 0) return { total_cents: null, note: so_far.outOfScope.length ? "Out of scope. Send to Hashim." : "Answer the questions to see the price." };
       return { total_cents: so_far.subtotal_cents, note: "Running total. Some answers are still missing, so the total may change." };
