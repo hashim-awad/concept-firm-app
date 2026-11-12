@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ClientShell } from "@/components/ds/client";
 import { FIRM } from "@/components/ds/brand";
 import { todayToronto } from "@/lib/dates";
-import { longDate, pieceText } from "@/lib/t1-quote/render";
+import { esc, longDate, pieceText } from "@/lib/t1-quote/render";
 import { C, CORP, SIGN_PAGE } from "@/lib/t1-quote/wording";
 import { loadQuoteByToken } from "@/lib/t1-quote/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -59,6 +59,14 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     : quote.kind === "letter" ? [{ label: "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature()) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
     : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
+  // Names on the page (step 5 retest, Nov 12, 2026): first names, or full names when a couple share one.
+  const sameFirst = !!other && other.first_name.trim().toLowerCase() === me.first_name.trim().toLowerCase();
+  const nm = (x: { first_name: string; last_name: string }) => (sameFirst ? `${x.first_name} ${x.last_name}`.trim() : x.first_name);
+  // A T1 couple: each person's own link speaks to them, not always to the first person on the quote.
+  if (quote.kind === "t1" && other) {
+    const intro = `${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)} ${pieceText(texts, C.spouseOwnLink, `${other.first_name} ${other.last_name}`)}`;
+    parts[2] = { ...parts[2], html: parts[2].html.replace(/<p([^>]*)>[\s\S]*?<\/p>/, (_m, a) => `<p${a}>${esc(intro)}</p>`) };
+  }
   const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, quote.kind === "letter" ? SIGN_PAGE.agreeLetter : C.agree), sign: pieceText(texts, C.signButton),
     ...(quote.kind === "corporate" || quote.kind === "proposal" || isCompanyLetter(quote as LetterRow) ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
@@ -70,7 +78,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   if (signed) {
     panel = (
       <div className="grid gap-4">
-        <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, me.first_name)}</h2>
+        <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, nm(me))}</h2>
         <p className="text-ink-2">{pieceText(texts, C.afterSign)}</p>
         <div className="grid gap-2">
           <a href={portal.href} className="btn">{portal.label}</a>
@@ -83,21 +91,21 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     // One spouse signed, the other has not (section 7).
     panel = (
       <div className="grid gap-4">
-        <p className="font-medium">{other ? pieceText(texts, C.waiting, me.first_name, other.first_name) : `Signed by ${me.first_name}.`}</p>
+        <p className="font-medium">{other ? pieceText(texts, C.waiting, nm(me), nm(other)) : `Signed by ${nm(me)}.`}</p>
         {other && !other.signed_at && (
           <details className="rounded-lg border border-sand-200 p-4">
-            <summary className="cursor-pointer font-medium">{pieceText(texts, C.sameDevice, other.first_name)}</summary>
+            <summary className="cursor-pointer font-medium">{pieceText(texts, C.sameDevice, nm(other))}</summary>
             <div className="mt-4"><SignForm token={token} forOther who={`${other.first_name} ${other.last_name}`} labels={labels} /></div>
           </details>
         )}
       </div>
     );
-    bar = { text: other ? `Waiting for ${other.first_name}` : "Signed", button: "Open" };
+    bar = { text: other ? `Waiting for ${nm(other)}` : "Signed", button: "Open" };
   } else {
     panel = (
       <div className="grid gap-4">
         <div className="[&_h2]:mt-0" dangerouslySetInnerHTML={{ __html: parts[2].html }} />
-        {signers.length > 1 && <p className="text-sm text-ink-2">{signers.map((s) => `${s.first_name}: ${s.signed_at ? "signed" : "not signed yet"}`).join(" · ")}</p>}
+        {signers.length > 1 && <p className="text-sm text-ink-2">{signers.map((s) => `${nm(s)}: ${s.signed_at ? "signed" : "not signed yet"}`).join(" · ")}</p>}
         <SignForm token={token} forOther={false} who={`${me.first_name} ${me.last_name}`} labels={labels} />
       </div>
     );

@@ -4,6 +4,18 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-13",
+    title: "Clients and engagements follow the signing",
+    points: [
+      "When a quote, proposal or New letter is signed, Studio adds the client if they are new and creates the engagement. A couple's personal tax quote makes one engagement for the household, linked to both people.",
+      "New clients from a signing show as Waiting for TaxDome. The TaxDome import makes a company Active when it matches it; for a person, an owner clicks Mark as matched in TaxDome on the client page.",
+      "Clients has Active, Waiting for TaxDome and All, a Status column, and Import from TaxDome next to Add client.",
+      "Engagements shows Came from (Quote by phone or website, Proposal with the option, New letter, or Before Studio) instead of the wording version, and a plain status: Waiting for signature, Active, On hold, Client left, Ended.",
+      "Update on an engagement is for owners. It can set On hold, Client left, Ended or Cancelled.",
+      "A Final letter no longer records an engagement at once; it is recorded when the client signs.",
+    ],
+  },
+  {
     date: "2026-11-12",
     title: "New letters: fewer steps to send for signing",
     points: [

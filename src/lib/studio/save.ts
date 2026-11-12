@@ -66,11 +66,11 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   }
 
   // Final documents are recorded first, so a refusal (e.g. already signed) stops before filing.
-  let engagementId: string | null = null, proposalId: string | null = null, note = "";
+  let engagementId: string | null = null, proposalId: string | null = null, note = "", pending: Record<string, unknown> | null = null;
   if (final) {
-    const r = input.kind === "proposal" ? await recordProposal(supabase, b, input.clientId) : input.kind === "t1_letter" ? await recordT1(supabase, b, access, input.clientId) : await recordCorporate(supabase, b, access, input.clientId);
+    const r = input.kind === "proposal" ? await recordProposal(supabase, b, input.clientId) : input.kind === "t1_letter" ? await recordT1(supabase, b, access, input.clientId, true) : await recordCorporate(supabase, b, access, input.clientId, true);
     if (!r.ok) return r;
-    engagementId = r.engagementId ?? null; proposalId = r.proposalId ?? null; note = r.note;
+    engagementId = r.engagementId ?? null; proposalId = r.proposalId ?? null; note = r.note; pending = r.pending ?? null;
   }
 
   // The document (one per letter or proposal) and its next version.
@@ -107,11 +107,11 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
     const label = input.kind === "t1_letter" ? `Personal tax ${s.taxYear}` : `Year-end ${formatDate(s.ye)}`;
     const { data: letterId, error: qErr } = await supabase.rpc("create_letter_quote", {
       p_client: input.clientId || null, p_title: b.title, p_company: input.kind === "corporate_letter" ? String(s.company ?? "") : "",
-      p_details: { doc_kind: input.kind, inputs: b.inputs, label, document_id: documentId, version: ver.version, version_id: ver.id, engagement_id: engagementId },
+      p_details: { doc_kind: input.kind, inputs: b.inputs, label, document_id: documentId, version: ver.version, version_id: ver.id, engagement_id: engagementId, engagement: pending },
       p_signers: signers,
     });
     note = qErr ? `${note ? note + " " : ""}The letter was saved, but sending it for signing failed: ${qErr.message}`
-      : `${note ? note + " " : ""}Sent for online signing: open it under Engagement letters to copy the email. It moves to Signed, and the engagement to EL signed, when the client signs.`;
+      : `${note ? note + " " : ""}Sent for online signing: it moves to Signed when the client signs.`;
     // Send the signing email from the issuer's mailbox when Settings has it on (New letters first).
     if (!qErr && letterId && await signingEmailOn("letters")) {
       const r = await sendLetterEmail(String(letterId));
@@ -122,10 +122,11 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   return { ok: true, documentId: documentId!, versionId: ver.id, version: ver.version, fileName: b.fileName, note };
 }
 
-type Rec = { ok: true; engagementId?: string; proposalId?: string; note: string } | { ok: false; error: string };
+// pending: the engagement a Final letter will create when the client signs (front office batch, step 5).
+type Rec = { ok: true; engagementId?: string; proposalId?: string; note: string; pending?: Record<string, unknown> } | { ok: false; error: string };
 
 // Studio onRecord(): the engagement row for a Final corporate letter, status "EL sent".
-async function recordCorporate(supabase: SupabaseClient, b: Built, access: Access, clientId: string): Promise<Rec> {
+async function recordCorporate(supabase: SupabaseClient, b: Built, access: Access, clientId: string, defer = false): Promise<Rec> {
   const { s, e } = b;
   if (!clientId) return { ok: false, error: "Final needs a client record with a verified legal name." };
   const fye = s.ye;
@@ -150,12 +151,14 @@ async function recordCorporate(supabase: SupabaseClient, b: Built, access: Acces
     registration_confirmed: (s.province === "AB" || s.province === "BC") && !!b.inputs.acks[s.province.toLowerCase()],
     issued_by: access.staff_id,
   };
-  if (exists) {
+  if (exists && !defer) {
     row.notes = [exists.notes, notes.join(" "), issued].filter((x) => x).join(" ");
     const { error } = await supabase.from("engagements").update(row).eq("id", exists.id);
     if (error) return { ok: false, error: "Could not update the engagement record." };
     return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent." };
   }
+  // Signed online: the engagement is written when the client signs, not now.
+  if (defer) return { ok: true, note: "The engagement is recorded when the client signs.", pending: { ...row, notes: [notes.join(" "), issued].join(" "), title: e.trim(s.company) + " FYE " + fye } };
   row.notes = [notes.join(" "), issued].join(" ");
   const { data: ins, error } = await supabase.from("engagements").insert({ ...row, client_id: clientId, title: e.trim(s.company) + " FYE " + fye }).select("id").single();
   if (error || !ins) return { ok: false, error: "Could not record the engagement." };
@@ -170,7 +173,7 @@ function letterFields(e: StudioEngine, f: Record<string, unknown>) {
 }
 
 // Studio t1Record().
-async function recordT1(supabase: SupabaseClient, b: Built, access: Access, clientId: string): Promise<Rec> {
+async function recordT1(supabase: SupabaseClient, b: Built, access: Access, clientId: string, defer = false): Promise<Rec> {
   const { s, e } = b;
   if (!clientId) return { ok: false, error: "Final needs a client record with a verified name." };
   const fye = s.taxYear + "-12-31";
@@ -182,13 +185,14 @@ async function recordT1(supabase: SupabaseClient, b: Built, access: Access, clie
     type: "T1 personal", el_version: e.EL_VERSION, status: "EL sent", t1_individual: e.t1Names(s), t1_tax_year: Number(s.taxYear),
     fiscal_year_end: fye, el_issued: s.letterDate, cra_authorization: "Requested", letter_data: { v: 1, t1: b.inputs.f }, issued_by: access.staff_id,
   };
-  if (exists) {
+  if (exists && !defer) {
     row.notes = [exists.notes, note].filter((x) => x).join(" ");
     const { error } = await supabase.from("engagements").update(row).eq("id", exists.id);
     if (error) return { ok: false, error: "Could not update the engagement record." };
     return { ok: true, engagementId: exists.id, note: "Engagement updated as EL sent. Enter the signed date under Engagements." };
   }
   const primary = s.people[0]?.name ?? "";
+  if (defer) return { ok: true, note: "The engagement is recorded when the client signs.", pending: { ...row, notes: note, title: primary + " T1 " + s.taxYear } };
   const { data: ins, error } = await supabase.from("engagements").insert({ ...row, client_id: clientId, title: primary + " T1 " + s.taxYear, notes: note }).select("id").single();
   if (error || !ins) return { ok: false, error: "Could not record the engagement." };
   return { ok: true, engagementId: ins.id, note: "Engagement recorded as EL sent. Enter the signed date under Engagements." };

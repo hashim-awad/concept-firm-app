@@ -34,3 +34,16 @@ select test.check('a company letter needs the signer''s title', test.try(format(
 select public.record_t1_signature(:'q', 0, 'Pat Example', '1.2.3.4', 'Test browser', :h, false, 'Director') as done \gset
 select test.check('signed: the letter is signed and its engagement too', :'done' = 't' and (select status from public.quotes where id = :'q') = 'signed'
   and (select status = 'EL signed' and el_signed is not null from public.engagements where id = '00000000-0000-0000-0000-0000000000e1'));
+
+-- From step 5: a letter issued now carries its engagement, written when the client signs.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.create_letter_quote('00000000-0000-0000-0000-0000000000c1', 'Dummy Dental PC engagement letter', 'Dummy Dental PC',
+  '{"doc_kind":"corporate_letter","label":"Year-end Aug 31, 2027","inputs":{},"engagement":{"title":"Dummy Dental PC FYE 2027-08-31","type":"Year-end compilation + T2","fiscal_year_end":"2027-08-31","fee":3400,"el_version":"EL v3.36","el_issued":"2026-11-12"}}',
+  '[{"first_name":"Pat","last_name":"Example","email":"pat@example.test"}]') as q2 \gset
+reset role;
+reset request.jwt.claims;
+select test.check('no engagement before signing', not exists (select 1 from public.engagements where fiscal_year_end = '2027-08-31'));
+select public.record_t1_signature(:'q2', 0, 'Pat Example', '', '', :h, false, 'Director') \g /dev/null
+select test.check('signed: the engagement is created, from New letter', (select status = 'EL signed' and came_from = 'New letter' and fee = 3400 and quote_id = :'q2'::uuid
+  from public.engagements where fiscal_year_end = '2027-08-31' and client_id = '00000000-0000-0000-0000-0000000000c1'));

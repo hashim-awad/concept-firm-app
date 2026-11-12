@@ -9,7 +9,7 @@ import { getAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withMessage } from "@/lib/messages";
-import { cleanAnswers, earlyOutOfScope, evaluate, type Answers } from "@/lib/screening/engine";
+import { cleanAnswers, earlyOutOfScope, evaluate, type Answer, type Answers } from "@/lib/screening/engine";
 import { loadPricesNow, loadPublished } from "@/lib/screening/server";
 import { taxYearFor } from "@/lib/screening/tax-year";
 import { checkAnswers, priceLines, route } from "@/lib/corporate/quote";
@@ -35,10 +35,20 @@ export async function phonePrice(form: "personal" | "company", json: string): Pr
       if (!qn || !raw) return { total_cents: null, note: "The questions are not ready." };
       const early = earlyOutOfScope(qn, raw);
       if (early.length) return { total_cents: null, note: `Out of scope: ${early.map((e) => e.reason).join("; ")}. Send to Hashim.` };
-      const r = evaluate(qn, raw, await loadPricesNow());
+      const prices = await loadPricesNow();
+      // The contact details (names, email, phone) never change the price, and on a phone lead they are
+      // entered apart from the questions, so the price leaves them out. With every other answer in, the
+      // total is final; until then the panel shows a running total (step 5 tests, Nov 12, 2026).
+      const contact = new Set(qn.questions.filter((q) => ["text", "email", "phone"].includes(q.answer_type)).map((q) => q.key));
+      const strip = (o: Record<string, Answer>) => Object.fromEntries(Object.entries(o).filter(([k]) => !contact.has(k)));
+      const noContact = { ...qn, questions: qn.questions.filter((q) => !contact.has(q.key)) };
+      const answers = { household: strip(raw.household), people: raw.people.map(strip) } as Answers;
+      const r = evaluate(noContact, answers, prices);
+      if (r.subtotal_cents > 0) return { total_cents: r.subtotal_cents, note: "" };
+      const so_far = evaluate({ ...noContact, questions: noContact.questions.map((q) => ({ ...q, required: false })) }, answers, prices);
       // Until the base return is priced, there is no total to tell the caller.
-      if (r.subtotal_cents === 0) return { total_cents: null, note: "Answer the questions to see the price." };
-      return { total_cents: r.subtotal_cents, note: r.errors.length ? "Some answers are still missing; the total may change." : "" };
+      if (so_far.subtotal_cents === 0) return { total_cents: null, note: so_far.outOfScope.length ? "Out of scope. Send to Hashim." : "Answer the questions to see the price." };
+      return { total_cents: so_far.subtotal_cents, note: "Running total. Some answers are still missing, so the total may change." };
     }
     const checked = checkAnswers(JSON.parse(json));
     if (!checked.ok) return { total_cents: null, note: "Answer the questions to see the price." };

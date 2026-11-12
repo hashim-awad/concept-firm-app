@@ -52,7 +52,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
       .sort((a, b) => (a.valid_until ?? "").localeCompare(b.valid_until ?? ""));
   }
   if (seeDocs) {
-    letters = ((await supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients(legal_name)").eq("status", "EL sent").order("el_issued")).data ?? []) as unknown as E[];
+    letters = ((await supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, client_id, clients!engagements_client_id_fkey(legal_name)").eq("status", "EL sent").order("el_issued")).data ?? []) as unknown as E[];
   }
 
   // T2 deadlines (decision 43): T2 clients from TaxDome, not excluded, active.

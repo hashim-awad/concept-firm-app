@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ds/primitives";
+import { cameFrom, engagementStatus } from "@/lib/engagements";
+import { markInTaxDome } from "../actions";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
@@ -47,12 +49,16 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const tab = TABS.some((t) => t.key === sp.tab) ? String(sp.tab) : "overview";
   const tabs = TABS.map((t) => ({ key: t.key, label: t.label, href: `/clients/${id}${t.key === "overview" ? "" : `?tab=${t.key}`}` }));
 
-  const [{ data: linkRows }, engs, docs, props] = await Promise.all([
+  // A failed read shows its error instead of an empty list (step 5 test, Nov 13, 2026).
+  const loadErrors: string[] = [];
+  const keep = <T,>(what: string) => (r: { data: T[] | null; error: { message: string } | null }) => { if (r.error) loadErrors.push(`${what} could not be read: ${r.error.message}`); return r.data ?? []; };
+  const [{ data: linkRows, error: linkError }, engs, docs, props] = await Promise.all([
     supabase.from("client_links").select("relationship, client_id, linked_id, a:clients!client_links_client_id_fkey(id, legal_name, kind), b:clients!client_links_linked_id_fkey(id, legal_name, kind)").or(`client_id.eq.${id},linked_id.eq.${id}`),
-    seeDocs ? supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, el_signed").eq("client_id", id).order("fiscal_year_end", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
-    seeVault ? supabase.from("documents").select("id, kind, title, status, current_version, updated_at").eq("client_id", id).order("updated_at", { ascending: false }).then((r) => r.data ?? []) : Promise.resolve([]),
-    seeDocs && pricing ? supabase.from("proposals").select("id, title, status, date_sent, valid_until, chosen_option").eq("client_id", id).order("date_sent", { ascending: false, nullsFirst: false }).then((r) => r.data ?? []) : Promise.resolve([]),
+    seeDocs ? supabase.from("engagements").select("id, title, type, status, fiscal_year_end, el_issued, el_signed, came_from, el_version").or(`client_id.eq.${id},client2_id.eq.${id}`).order("fiscal_year_end", { ascending: false, nullsFirst: false }).then(keep("Engagements")) : Promise.resolve([]),
+    seeVault ? supabase.from("documents").select("id, kind, title, status, current_version, updated_at").eq("client_id", id).order("updated_at", { ascending: false }).then(keep("Documents")) : Promise.resolve([]),
+    seeDocs && pricing ? supabase.from("quotes").select("id, kind, title, company_name, status, sent_at, valid_until, lead_id").eq("client_id", id).neq("status", "draft").order("sent_at", { ascending: false, nullsFirst: false }).then(keep("Quotes and letters")) : Promise.resolve([]),
   ]);
+  if (linkError) loadErrors.push(`Linked clients could not be read: ${linkError.message}`);
   type L = { relationship: string; client_id: string; a: { id: string; legal_name: string; kind: string } | null; b: { id: string; legal_name: string; kind: string } | null };
   const links = ((linkRows ?? []) as unknown as L[]).map((l) => ({ rel: l.relationship, other: l.client_id === id ? l.b : l.a })).filter((l) => l.other);
   const tdUrl = c.taxdome_account_id ? ((await supabase.rpc("taxdome_account_url")).data as string | null) || "" : "";
@@ -64,18 +70,20 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   let content: React.ReactNode;
   if (tab === "engagements") {
     content = <section className="card overflow-x-auto p-0">{engs.length === 0 ? empty("No engagements yet.") : (
-      <table className="table"><thead><tr><th>Engagement</th><th>Service</th><th>Year end</th><th>EL issued</th><th>EL signed</th><th>Status</th></tr></thead>
+      <table className="table"><thead><tr><th>Engagement</th><th>Service</th><th>Year-end</th><th>Came from</th><th>Letter signed</th><th>Status</th></tr></thead>
         <tbody>{engs.map((e) => (
           <tr key={e.id}><td><Link href={`/documents/engagements/${e.id}`} className="font-medium text-navy-700 hover:underline">{e.title}</Link></td><td>{e.type}</td>
-            <td>{formatDate(e.fiscal_year_end)}</td><td>{formatDate(e.el_issued)}</td><td>{formatDate(e.el_signed)}</td><td>{e.status}</td></tr>
+            <td>{formatDate(e.fiscal_year_end)}</td><td>{cameFrom(e)}</td><td>{formatDate(e.el_signed)}</td><td><span className={`rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${engagementStatus(e.status).cls}`}>{engagementStatus(e.status).label}</span></td></tr>
         ))}</tbody></table>)}</section>;
   } else if (tab === "proposals") {
     const made = docs;
     content = (
       <div className="grid gap-6">
-        {pricing && (<section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Proposals</h2>{props.length === 0 ? empty("No proposals for this client.") : (
-          <table className="table"><thead><tr><th>Proposal</th><th>Sent</th><th>Valid until</th><th>Status</th><th>Option</th></tr></thead>
-            <tbody>{props.map((p) => <tr key={p.id}><td className="font-medium">{p.title}</td><td>{formatDate(p.date_sent)}</td><td>{formatDate(p.valid_until)}</td><td>{p.status === "Sent" ? "Awaiting signature" : p.status}</td><td>{p.chosen_option}</td></tr>)}</tbody></table>)}</section>)}
+        {pricing && (<section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Quotes and letters</h2>{props.length === 0 ? empty("No quotes or letters sent to this client.") : (
+          <table className="table"><thead><tr><th>Type</th><th>Sent</th><th>Status</th></tr></thead>
+            <tbody>{(props as { id: string; kind: string; status: string; sent_at: string | null; lead_id: string | null }[]).map((p) => (
+              <tr key={p.id}><td><Link href={p.kind === "letter" ? `/engagement-letters/${p.id}` : p.kind === "proposal" ? `/quotes/${p.id}` : p.lead_id ? `/leads/${p.lead_id}/quote` : "/quotes"} className="font-medium text-navy-700 hover:underline">{({ t1: "Personal tax quote", corporate: "Company year-end quote", proposal: "Monthly proposal", letter: "New letter" } as Record<string, string>)[p.kind] ?? p.kind}</Link></td>
+                <td>{formatDate(p.sent_at)}</td><td className="capitalize">{p.status === "sent" || p.status === "viewed" ? "Waiting for signature" : p.status}</td></tr>))}</tbody></table>)}</section>)}
         <section className="card overflow-x-auto p-0"><h2 className="px-5 pt-4 pb-2 font-semibold">Letters and proposal PDFs</h2>{made.length === 0 ? empty("None yet.") : (
           <table className="table"><thead><tr><th>Document</th><th>Type</th><th>Version</th><th>Status</th><th>Last change</th></tr></thead>
             <tbody>{made.map((d) => <tr key={d.id}><td><Link href={`/documents/vault/${d.id}`} className="font-medium text-navy-700 hover:underline">{d.title}</Link></td><td>{KIND[d.kind]}</td><td>{d.current_version}</td><td className="capitalize">{d.status}</td><td>{formatDate(d.updated_at)}</td></tr>)}</tbody></table>)}</section>
@@ -102,7 +110,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   } else {
     content = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ClientEditor id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} taxdomeManaged={!!c.taxdome_account_id} />
+        <ClientEditor key={c.status} id={id} initial={initial} verifiedOn={c.name_verified_on ? formatDate(c.name_verified_on) : ""} editable={editable} taxdomeManaged={!!c.taxdome_account_id} />
         <div className="grid content-start gap-6">
           {c.kind === "corporation" && (
             <section className="card">
@@ -156,7 +164,13 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     <>
       <PageHeader eyebrow={c.kind === "individual" ? "Client · Individual" : "Client · Corporation"} title={c.legal_name} description={c.name_verified ? `Legal name checked ${c.name_verified_on ? formatDate(c.name_verified_on) : ""}.` : "Legal name not yet checked. Required for a Final letter."}
         actions={canEdit(access, "documents") ? <Link href={letterHref} className="btn">New letter</Link> : undefined} />
-      <Notice msg={sp.msg === "saved" ? "Client saved." : messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      <Notice msg={sp.msg === "saved" ? "Client saved." : messageFrom(sp.msg)} error={loadErrors.length ? loadErrors.join(" ") : messageFrom(sp.error)} />
+      {c.status === "waiting_taxdome" && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
+          <p><b>Waiting for TaxDome.</b> Added when they signed in Studio. {c.kind === "corporation" ? "The next TaxDome import matches it (Business Number, then legal name) and makes it Active." : "The TaxDome import reads companies only: once the person's TaxDome account exists, mark it matched."}</p>
+          {access.is_owner && <form action={markInTaxDome}><input type="hidden" name="id" value={id} /><button type="submit" className="btn-secondary h-8 px-3 text-sm">Mark as matched in TaxDome</button></form>}
+        </div>
+      )}
       <PageTabs label="Client" current={tab} tabs={tabs} />
       {content}
     </>

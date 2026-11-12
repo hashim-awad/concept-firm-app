@@ -64,7 +64,7 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
             </Labelled>
           ) : <span />}
           <Labelled id="cl_status" label="Status">
-            <SelectIn id="cl_status" value={f.status} onValue={(v) => set("status", v)} disabled={!editable}><option value="active">Active</option><option value="inactive">Inactive</option></SelectIn>
+            <SelectIn id="cl_status" value={f.status} onValue={(v) => set("status", v)} disabled={!editable}><option value="active">Active</option><option value="waiting_taxdome">Waiting for TaxDome</option><option value="inactive">Inactive</option></SelectIn>
           </Labelled>
         </Row>
         {!person && (

@@ -1,5 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { withMessage } from "@/lib/messages";
+import { redirect } from "next/navigation";
 import { getAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { todayToronto } from "@/lib/dates";
@@ -57,4 +59,12 @@ export async function verifyClientName(id: string): Promise<{ ok: boolean; error
   if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, error: "Client not found." };
   const { error } = await (await createClient()).from("clients").update({ name_verified: true, name_verified_by: access.staff_id, name_verified_on: todayToronto() }).eq("id", id);
   return error ? { ok: false, error: "Could not save. You need Edit on Clients." } : { ok: true };
+}
+
+// People are not in the TaxDome import (it reads T2 companies): an owner marks a waiting client matched.
+export async function markInTaxDome(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const { error } = await (await createClient()).rpc("mark_client_in_taxdome", { p_client: id });
+  revalidatePath("/clients"); revalidatePath(`/clients/${id}`);
+  redirect(withMessage(`/clients/${id}`, error ? "error" : "msg", error ? error.message : "Marked as matched in TaxDome. The client is Active."));
 }
