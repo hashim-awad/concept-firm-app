@@ -58,12 +58,29 @@ test("lines not yet coded, for the reviewer or the client sit in one holding acc
   assert.equal(rows.find((r) => r.key === UNCODED)!.line_no, null);
 });
 
-test("two cards on the same chart account stay apart", () => {
+test("two cards on the same chart account: each its own row, number and name (round 4b)", () => {
   const rows = buildTrialBalance([
-    { id: "v", name: "Visa 1234", kind: "card", chart: "22000", openingCents: 0 }, { id: "m", name: "Mastercard 9", kind: "card", chart: "22000", openingCents: 0 },
+    { id: "v", name: "Visa 1234", kind: "card", chart: "22000", number: "22000", openingCents: 0 }, { id: "m", name: "Mastercard 9", kind: "card", chart: "22000", number: "22010", openingCents: 0 },
   ], [{ account_id: "v", cents: 1000, status: "new", chart_account: null, tax_code: null }], chart, codes, ctx);
-  assert.deepEqual(rows.filter((r) => r.key.startsWith("bank:")).map((r) => r.name).sort(), ["Mastercard 9", "Visa 1234"]);
+  const cards = rows.filter((r) => r.line_no === "2707.00").map((r) => `${r.number} ${r.name}`).sort();
+  assert.deepEqual(cards, ["22000 Visa 1234", "22010 Mastercard 9"]);
   assert.equal(sum(rows), 0);
+});
+test("two bank accounts on 10000: unique numbers, and last year's 1002 on the chosen account (Birch, round 4b)", () => {
+  const opening = { lines: [
+    { code: "1002", line_no: "1002.00", name: "Cash", type: "Asset", debitCents: 4821000, bank: "td" },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: -4821000 },
+  ], reClosingCents: 4821000, reStatedCents: 4821000 };
+  const chart2 = new Map<string, BuildChart>([...chart, ["31000", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" }]]);
+  const rows = buildTrialBalance([
+    { id: "td", name: "TD chequing", kind: "bank", chart: "10000", number: "10000", openingCents: 4821000 },
+    { id: "sv", name: "TD savings 9999", kind: "bank", chart: "10000", number: "10010", openingCents: 100000 },
+  ], [{ account_id: "td", cents: 729450, status: "done", chart_account: "40200", tax_code: "OUT_OF_SCOPE" }], chart2, codes, ctx, opening);
+  const numbers = rows.filter((r) => r.number).map((r) => r.number);
+  assert.equal(new Set(numbers).size, numbers.length, "account numbers are unique in a file");
+  const td = rows.find((r) => r.name === "TD chequing")!;
+  assert.deepEqual([td.number, td.lastCents, td.cents], ["10000", 4821000, 5550450], "one line: last year 48,210.00, this year 55,504.50");
+  assert.equal(rows.find((r) => r.name === "TD savings 9999")!.number, "10010");
 });
 
 test("opening balances by GIFI code: carried, checked, and cleared when both checks pass", () => {

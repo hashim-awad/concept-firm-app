@@ -54,7 +54,7 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const province = ((f.client as { province: string } | null)?.province ?? "ON");
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const [{ data: banks }, { data: sts }, { data: lines }, { data: chart }, { data: codes }, { data: parts }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account").eq("file_id", fileId),
+    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number").eq("file_id", fileId),
     supabase.from("cb_bank_statements").select("account_id, period_start, opening").eq("file_id", fileId).order("period_start"),
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("txn_date").limit(50000),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
@@ -63,18 +63,18 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   ]);
   // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was typed.
   const { info, lines: master } = await gifiCodeInfo(supabase);
-  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId);
+  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", fileId);
   let reStated = cents(f.opening_re_stated);
   if (carry && !ob?.length && await carryFromLastYear(supabase, fileId, f.client_id, yearEnd, master)) {
-    ob = (await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId)).data;
+    ob = (await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", fileId)).data;
     const { data: again } = await supabase.from("cb_files").select("opening_re_stated").eq("id", fileId).maybeSingle();
     reStated = cents(again?.opening_re_stated);
   }
   let opening: BuildOpening | null = null;
   if (ob?.length) {
     const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, cents(f.opening_ni_typed));
-    const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null }[]).map((x) => [x.code, x.chart_account]));
-    opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code) ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
+    const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[]).map((x) => [x.code, x]));
+    opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code)?.chart_account ?? null, bank: chosen.get(l.code)?.bank_account ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
   }
   // File accounts already numbered for GIFI lines with no standard chart account keep their numbers.
   const { data: own } = await supabase.from("cb_accounts").select("account_key, number").eq("file_id", fileId).like("account_key", "gifi:%");
@@ -87,7 +87,7 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
     .filter((c) => !c.provinces || c.provinces.includes(province))
     .map((c) => [c.code, { code: c.code, name: c.name, parts: [...latest.values()].filter((p) => p.code === c.code) }]));
   return {
-    banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string }[]).map((b) => ({ id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, openingCents: firstOpening.get(b.id) ?? 0 })),
+    banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string; number: string }[]).map((b) => ({ id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, openingCents: firstOpening.get(b.id) ?? 0 })),
     lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
       .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100) })),
     chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),

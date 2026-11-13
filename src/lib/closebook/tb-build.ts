@@ -16,14 +16,16 @@
 // opening balances to accounts; a GIFI line with no chart account keeps its GIFI code.
 import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
-export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number };
+// number: the bank or card account's own number in the file (round 4b): the first on a chart account takes
+// its number, others the next free one (10010). Optional for older callers: the chart number then.
+export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string };
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string };
 export type BuildChart = { name: string; account_type: string; line_no: string | null };
 export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
 // Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
 // last year's T2 (null when it comes from last year's Closebook file, where it is the same by design).
 // account: the standard chart account chosen in step 2 when the GIFI line has more than one.
-export type BuildOpening = { lines: { code: string; line_no: string; name: string; type: string; debitCents: number; account?: string | null }[]; reClosingCents: number; reStatedCents: number | null };
+export type BuildOpening = { lines: { code: string; line_no: string; name: string; type: string; debitCents: number; account?: string | null; bank?: string | null }[]; reClosingCents: number; reStatedCents: number | null };
 
 // One amount on one account. kind: where it came from; ref: the bank line, entry, GIFI code or
 // statement it came from (for the drill-down); acct: the bank or card account of a bank line.
@@ -79,8 +81,11 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   };
   // Two accounts on the same chart account (two cards) stay apart; one alone uses the chart account,
   // so a payment coded to it from another account lands on the same line.
-  const shared = new Set(banks.map((b) => b.chart).filter((c, i, all) => all.indexOf(c) !== i));
-  const bankKey = (b: BuildBank) => (shared.has(b.chart) ? `bank:${b.id}` : `chart:${b.chart}`);
+  // Each bank or card account is its own row with its own number and name (round 4b, as QuickBooks Online).
+  // The one holding its chart account's number is that chart account's row, so a line coded to 10000 from
+  // another account lands on the same row; any other has its own row.
+  const numberOf = (b: BuildBank) => b.number ?? b.chart;
+  const bankKey = (b: BuildBank) => (numberOf(b) === b.chart ? `chart:${b.chart}` : `bank:${b.id}`);
   const byId = new Map(banks.map((b) => [b.id, b]));
   const openMeta = (ref: string, label: string): Meta => ({ date: yearStart, kind: "opening", ref, label });
 
@@ -88,7 +93,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   for (const b of banks) {
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
     const m = openMeta(`stmt:${b.id}`, `Opening balance on the first statement, ${b.name}`);
-    add(bankKey(b), b.chart, shared.has(b.chart) ? b.name : chart.get(b.chart)?.name ?? b.name, chart.get(b.chart)?.line_no ?? null, open, m);
+    add(bankKey(b), numberOf(b), b.name, chart.get(b.chart)?.line_no ?? null, open, m);
     if (!opening) {
       add(OPENING, "", "Opening balances to enter", null, -open, m, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
       if (open) causes.push({ text: `${b.name}: the first statement opens at ${(b.kind === "bank" ? open : -open) / 100 < 0 ? "-" : ""}${Math.abs(open / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}, and last year's balances are not entered yet`, cents: -open });
@@ -129,8 +134,10 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       else if (bankOpen.has(l.code)) {
         // A bank, card or line of credit line: this year starts from the statements; last year's closing must match.
         const on = banksOn.get(l.code)!;
-        if (on.length === 1) add(bankKey(on[0]), on[0].chart, "", null, 0, null, undefined, l.debitCents);
-        else add(key, number, name, line_no, 0, null, undefined, l.debitCents);
+        // Last year's balance sits on the bank account it belongs to (chosen in step 2), else the one holding
+        // the chart account's number, so the year-over-year comparison is on one line (round 4b).
+        const home = on.find((b) => b.id === l.bank) ?? on.find((b) => numberOf(b) === b.chart) ?? on[0];
+        add(bankKey(home), numberOf(home), "", null, 0, null, undefined, l.debitCents);
         const d = bankOpen.get(l.code)! - l.debitCents;
         if (d) {
           const t = `GIFI ${l.code}: the first statements open at ${inStatementTerms(l.code, bankOpen.get(l.code)!)}, last year closed at ${inStatementTerms(l.code, l.debitCents)}`;
@@ -173,7 +180,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     if (!b) continue;
     const m: Meta = { date: l.date ?? "", kind: "bank", ref: l.id ?? "", acct: b.id, label: l.description ?? "" };
     const debit = b.kind === "bank" ? l.cents : -l.cents;   // the bank or card side
-    add(bankKey(b), b.chart, "", null, debit, m);
+    add(bankKey(b), numberOf(b), "", null, debit, m);
     const c = l.status === "done" && l.chart_account ? chart.get(l.chart_account) : undefined;
     if (!c) { add(UNCODED, "", "Transactions not yet coded", null, -debit, m, "Lines still to code, or waiting for the reviewer or the client."); continue; }
     const code = l.tax_code ? codes.get(l.tax_code) ?? null : null;

@@ -148,7 +148,7 @@ test("exports: the same table as the page, and an Excel file with the stamp that
   const t = reportTable(d, { report: "tb" });
   assert.deepEqual(t.columns.slice(0, 3), ["Number", "Account", "GIFI"], "the number once, the GIFI line in its own column");
   assert.deepEqual(t.rows[0].cells.slice(0, 2), ["Cash and bank", null], "by group: the group's name first");
-  assert.deepEqual(t.rows[1].cells.slice(0, 3), ["10000", "Chequing", "1002"]);
+  assert.deepEqual(t.rows[1].cells.slice(0, 3), ["10000", "TD chequing", "1002"], "a bank account shows under its own name (round 4b)");
   assert.equal(t.rows.at(-1)!.cells[6], 0, "the final column totals zero");
   assert.equal(t.rows.at(-1)!.grand, true);
   const [sheet] = readXlsx(reportXlsx(t, ["Birch Dummy Realty Inc.", "Jan 1, 2026 to Dec 31, 2026"], "Working paper: not for the client"));

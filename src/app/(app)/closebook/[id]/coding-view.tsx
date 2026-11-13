@@ -103,7 +103,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
           <div className="overflow-x-auto">
             {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
             <table className="table table-compact min-w-[960px] table-fixed">
-              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[15.2rem]" /><col className="w-[7.4rem]" /><col className="w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
+              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
@@ -165,7 +165,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
             list opens over it (round 2 item 10). */}
         <span className="relative block">
-          <span aria-hidden title={c ? `${account} ${c.name}` : undefined} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 13 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
+          <span aria-hidden title={c ? `${account} ${c.name}` : undefined} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
             {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
           <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setAccount(e.target.value); setRowErr(""); }}>
             <option value="">Choose an account</option>
@@ -173,11 +173,17 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
           </select>
         </span>
       </td>
-      <td>
-        <select aria-label="Sales tax" value={tax} disabled={locked || !gstAnswered} className={`input input-compact w-full ${rowErr && !tax ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
-          <option value="">Choose</option>
-          {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
-        </select>
+      <td style={{ paddingLeft: 6, paddingRight: 6 }}>
+        {/* The full code name in a box, the list opening over it, as for the account (round 4b item 3). */}
+        <span className="relative block">
+          <span aria-hidden style={{ paddingLeft: 6, paddingRight: 18, fontSize: 13 }}
+            className={`input input-compact block min-h-[30px] overflow-hidden leading-snug whitespace-nowrap ${locked || !gstAnswered ? "bg-sand-50 text-ink-3" : ""} ${tax ? "" : "text-ink-3"} ${rowErr && !tax ? "border-danger" : ""}`}>
+            {tax ? codes.get(tax)?.name ?? tax : "Choose"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
+          <select aria-label="Sales tax" value={tax} disabled={locked || !gstAnswered} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
+            <option value="">Choose</option>
+            {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+          </select>
+        </span>
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
       <td className="text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
