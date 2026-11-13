@@ -46,10 +46,10 @@ test("imported trial balance: step 4 is Match accounts to GIFI, done when every 
   assert.equal(b.steps[0].state, "done");
 });
 
-test("bank files: step 3 stays current while months are missing, and says which", () => {
-  const r = fileSteps(facts({ statements: 3, bankGaps: "Chequing: Mar", ...signed }));
+test("bank files: step 3 stays current while months are missing; the banner gives the count only", () => {
+  const r = fileSteps(facts({ statements: 3, bankGaps: "1 month missing", ...signed }));
   assert.equal(r.current, "records");
-  assert.match(r.next, /Still missing: Chequing: Mar/);
+  assert.match(r.next, /^1 month missing: they show on each account below/);
   assert.equal(r.steps[2].note, "Months still missing");
 });
 

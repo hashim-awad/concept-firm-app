@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import type { BankAccount } from "@/lib/closebook/bank-server";
 import type { CodingData, CodeLine } from "@/lib/closebook/coding-server";
 import { splitLine } from "@/lib/closebook/sales-tax";
+import { suggestionLabel } from "@/lib/closebook/vendor";
 import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
@@ -127,9 +128,11 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const split = c && tax ? splitLine(Math.abs(cents), codes.get(tax) ?? null, side, ctx, c.account_type === "Asset") : null;
   const usd = USD.test(l.description);
   // Said before Confirm, so nobody is surprised where the line goes (Hashim's step 3 test).
-  const warn = l.status === "done" ? "" : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
+  // Said once, before Confirm; once the line is with the reviewer, its reason (under the description) says it.
+  const warn = l.status !== "new" ? "" : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";
-  const why = l.suggestion ? (l.suggestion.source === "rule" ? "Vendor rule" : "Same as last year") : "";
+  // The suggestion's source, always shown (layout item 4): never a guess from the vendor's name.
+  const why = l.suggestion ? `Suggested: ${suggestionLabel(l.suggestion)}` : "";
   const locked = !editable || l.status === "done";
   return (
     <tr id={`line-${l.id}`} className={`align-top ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>

@@ -53,6 +53,13 @@ export function accountCoverage(yearStart: string, yearEnd: string, statements: 
 }
 
 // The step 2 "next job" line: every account's missing months, in one sentence.
+// The banner's count (Hashim, Nov 15, 2026, layout item 8): each missing month shows once, on its
+// account's tile; the banner says only how many ("4 months missing").
+export function missingCount(rows: { gaps: string[] }[]): string {
+  const n = rows.reduce((t, r) => t + r.gaps.length, 0);
+  return n ? `${n} month${n === 1 ? "" : "s"} missing` : "";
+}
+
 export function missingText(rows: { name: string; gaps: string[] }[]): string {
   const open = rows.filter((r) => r.gaps.length);
   if (!open.length) return "";

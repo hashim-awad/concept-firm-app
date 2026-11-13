@@ -8,7 +8,8 @@ import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
-import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
+import { parseAmount } from "@/lib/closebook/amount";
+import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents } from "@/lib/closebook/bank-upload";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -123,7 +124,7 @@ export async function addEntry(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(enBack(id));
   const lines: { account?: string; line?: string; new_name?: string; new_type?: string; amount: number; memo: string }[] = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 60; i++) {
     const target = s(formData, `t${i}`);
     const dr = Number(s(formData, `dr${i}`).replace(/[$,\s]/g, "") || 0), cr = Number(s(formData, `cr${i}`).replace(/[$,\s]/g, "") || 0);
     if (!target && !dr && !cr) continue;
@@ -193,7 +194,9 @@ export async function uploadBankStatement(formData: FormData) {
   if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
   const f = upload as File;
   if (!/\.csv$/i.test(f.name)) redirect(withMessage(back, "error", "Upload a CSV file in Concept's bank upload template (Date, Description, Amount). Save Excel files as CSV first."));
-  const read = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  const read0 = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  // "Flip signs and re-check": the signs turned over; the flipped lines must still tie to the cent.
+  const read = s(formData, "flip") === "1" ? { ...read0, rows: flipRows(read0.rows) } : read0;
   if (read.errors.length) {
     const more = read.errors.length > 5 ? ` And ${read.errors.length - 5} more.` : "";
     redirect(withMessage(back, "error", `Nothing was uploaded. ${read.errors.slice(0, 5).join(" ")}${more}`));
@@ -201,6 +204,7 @@ export async function uploadBankStatement(formData: FormData) {
   const opening = typedCents(s(formData, "opening")), closing = typedCents(s(formData, "closing"));
   if (opening === null || closing === null) redirect(withMessage(back, "error", "Enter the statement's opening and closing balances, as shown on the statement (up to 2 decimals)."));
   const chk = balanceCheck(opening!, closing!, read.rows);
+  if (!chk.ok && looksReversed(opening!, closing!, read.rows)) redirect(withMessage(back, "error", `Nothing was uploaded. ${REVERSED}`));
   if (!chk.ok) {
     redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
   }
@@ -334,4 +338,17 @@ export async function uploadOpeningPdf(formData: FormData) {
   if (error) redirect(withMessage(back, "error", error.message));
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, "msg", "PDF attached."));
+}
+
+// Step 5: a standard entry with the amount only (layout item 6).
+export async function addStandardEntry(formData: FormData) {
+  const id = s(formData, "file_id");
+  await editor(enBack(id));
+  const amount = parseAmount(s(formData, "amount"));
+  if (!amount || amount <= 0) redirect(withMessage(enBack(id), "error", "Enter the amount, more than 0.00."));
+  const { data, error } = await (await createClient()).rpc("cb_add_standard_entry", { p_file: id, p_standard: s(formData, "standard"), p_amount: amount! / 100 });
+  revalidatePath(`/closebook/${id}`);
+  if (error) redirect(withMessage(enBack(id), "error", error.message));
+  const { data: e } = await (await createClient()).from("cb_entries").select("needs_review").eq("id", data as string).maybeSingle();
+  redirect(withMessage(enBack(id), "msg", e?.needs_review ? "Standard entry added. It goes to the reviewer." : "Standard entry added. It is under the review threshold, so no review is needed."));
 }

@@ -59,3 +59,14 @@ test("helpers", () => {
   assert.equal(validDate("2026-02-29"), false);
   assert.equal(csvRecords("a,\"b\nc\",d\ne,f,g").map((r) => r.line).join(), "1,3");
 });
+
+test("reversed signs: opening - lines = closing is caught, and the flipped lines tie to the cent", async () => {
+  const { looksReversed, flipRows, balanceCheck } = await import("../src/lib/closebook/bank-upload.ts");
+  // A Visa statement exported with charges negative: opening 0, two charges of 84.75 and 63.15, closing 147.90 owing.
+  const rows = [{ cents: -8475 }, { cents: -6315 }];
+  assert.equal(balanceCheck(0, 14790, rows).ok, false);
+  assert.equal(looksReversed(0, 14790, rows), true);
+  assert.equal(balanceCheck(0, 14790, flipRows(rows)).ok, true);
+  assert.equal(looksReversed(0, 14790, flipRows(rows)), false, "once flipped it ties");
+  assert.equal(looksReversed(0, 15000, rows), false, "off by another amount: not a sign problem");
+});

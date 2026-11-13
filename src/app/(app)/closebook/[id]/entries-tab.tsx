@@ -5,7 +5,8 @@ import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import { addEntry, deleteEntry, reviewEntry } from "../actions";
 import { amt } from "./tb-tab";
 import { entryNo } from "@/lib/closebook/reports";
-import { AmountInput } from "./amount-input";
+import { EntryLines } from "./entry-lines";
+import { StandardEntryPicker, type StdOption } from "./standard-entry-picker";
 
 // QuickBooks Online account types, for a new account in the client's books.
 export const QBO_TYPES = ["Bank", "Accounts receivable (A/R)", "Other Current Assets", "Fixed Assets", "Other Assets", "Accounts payable (A/P)", "Credit Card",
@@ -19,8 +20,8 @@ const KIND: Record<string, string> = { AJE: "Adjusting (AJE): changes the result
 
 // Entries tab (Phase 3 batch 5.4; mockup FileEntries). Full files only; monthly files make entries in
 // QuickBooks. Free entries go to the reviewer; standard entries arrive with Settings, Closebook.
-export function EntriesTab({ file, entries, accounts, lines, editable, isReviewer, names, clientList = false, chartOnLine = {} }: {
-  file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; lines: Line[]; editable: boolean; isReviewer: boolean; names: Map<string, string>; clientList?: boolean; chartOnLine?: Record<string, { number: string; name: string }>;
+export function EntriesTab({ file, entries, accounts, lines, editable, isReviewer, names, clientList = false, chartOnLine = {}, standard = [], threshold = 0 }: {
+  file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; lines: Line[]; editable: boolean; isReviewer: boolean; names: Map<string, string>; clientList?: boolean; chartOnLine?: Record<string, { number: string; name: string }>; standard?: StdOption[]; threshold?: number;
 }) {
   const byId = new Map(accounts.map((a) => [a.id, a]));
   if (file.file_type === "monthly") return <p className="card text-sm text-ink-2">Entries are made in QuickBooks. This tab stays read-only for monthly files; import the trial balance again after the entries are booked.</p>;
@@ -67,6 +68,7 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
                 <span><i>Memo:</i> {e.note}<span className="ml-2 text-xs text-muted">{names.get(e.created_by ?? "")?.split(" ")[0]}, {formatDate(e.created_at)}</span></span>
                 {e.reviewed_at
                   ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Approved</span>
+                  : !e.needs_review ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Standard entry, under the review threshold</span>
                   : <span className="flex flex-wrap items-center gap-2"><span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For the reviewer</span>
                     {isReviewer && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button className="btn-secondary h-7 px-2 text-xs" type="submit">Approve</button></form>}
                     {editable && !locked && <form action={deleteEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button className="h-7 px-2 text-xs text-danger underline" type="submit">Delete</button></form>}</span>}
@@ -77,6 +79,7 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
       </div>
 
       {editable && !locked && (
+        <>{standard.length > 0 && <StandardEntryPicker fileId={file.id} options={standard} threshold={threshold} />}
         <form action={addEntry} className="card grid gap-4">
           <h2 className="font-semibold">New entry</h2>
           <input type="hidden" name="file_id" value={file.id} />
@@ -90,25 +93,11 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
               <datalist id="wp-refs">{WP_REFS.map((r) => <option key={r} value={r} />)}</datalist></div>
             <div><label htmlFor="note" className="label">Memo *</label><input id="note" name="note" required minLength={3} maxLength={500} placeholder="What the entry does and why" className="input" /></div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="table min-w-[760px]">
-              <thead><tr><th>{clientList ? "Account in the client\u2019s books" : "Account or GIFI line"}</th><th className="w-32">Debit</th><th className="w-32">Credit</th><th>Memo</th></tr></thead>
-              <tbody>{Array.from({ length: 6 }, (_, i) => (
-                <tr key={i}>
-                  <td><select name={`t${i}`} aria-label={`Line ${i + 1} account`} defaultValue="" className="input">
-                    <option value="">{i < 2 ? "Choose" : "Not used"}</option>
-                    <optgroup label="This file's accounts">{matched.map((a) => <option key={a.id} value={a.id}>{accName.get(a.id)}</option>)}</optgroup>
-                    {clientList
-                      ? <optgroup label="A new account in the client's books">{[1, 2].map((n) => <option key={n} value={`new:${n}`}>New account {n} (named below)</option>)}</optgroup>
-                      : <optgroup label="A GIFI line (adds an account)">{lines.filter((l) => l.mappable).map((l) => <option key={l.line_no} value={`line:${l.line_no}`}>{l.line_no} {l.name}</option>)}</optgroup>}
-                  </select></td>
-                  <td><AmountInput name={`dr${i}`} aria-label={`Line ${i + 1} debit`} className="input text-right tabular-nums" /></td>
-                  <td><AmountInput name={`cr${i}`} aria-label={`Line ${i + 1} credit`} className="input text-right tabular-nums" /></td>
-                  <td><input name={`m${i}`} aria-label={`Line ${i + 1} memo`} maxLength={200} className="input" /></td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
+          <EntryLines accountHeading={clientList ? "Account in the client\u2019s books" : "Account or GIFI line"} groups={[
+            { label: "This file's accounts", items: matched.map((a) => [a.id, accName.get(a.id) ?? ""]) },
+            clientList ? { label: "A new account in the client's books", items: [["new:1", "New account 1 (named below)"], ["new:2", "New account 2 (named below)"]] }
+              : { label: "A GIFI line (adds an account)", items: lines.filter((l) => l.mappable).map((l) => [`line:${l.line_no}`, `${l.line_no} ${l.name}`]) },
+          ]}>
           {clientList && (
             <fieldset className="grid gap-2 rounded-lg border border-sand-200 p-3">
               <legend className="px-1 text-sm font-semibold">New accounts in the client&rsquo;s books</legend>
@@ -124,8 +113,8 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
             </fieldset>
           )}
           <p className="text-xs text-muted">Debits must equal credits. Entries never post to a total line. A reclassifying entry cannot change the result. An entry that posts to retained earnings must use the reason &ldquo;Prior period adjustment&rdquo;: it posts to GIFI 3720. Every entry made here goes to the reviewer.</p>
-          <button type="submit" className="btn w-fit">Add the entry</button>
-        </form>
+          </EntryLines>
+        </form></>
       )}
     </>
   );

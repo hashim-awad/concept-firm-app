@@ -21,7 +21,7 @@ import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
-import { accountCoverage, missingText } from "@/lib/closebook/coverage";
+import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
@@ -50,7 +50,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Bank files: the months still missing per account set step 2's note and next job.
   const bank = bankFile ? await loadBank(supabase, id, str(sp.account)) : null;
   const statements = bank?.statements.length ?? 0;
-  const bankGaps = bank ? missingText(bank.accounts.map((a) => ({ name: a.name,
+  const bankGaps = bank ? missingCount(bank.accounts.map((a) => ({ name: a.name,
     gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
   // Bank files: how far the coding has got (step 3).
   const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
@@ -172,7 +172,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
     const onLine: Record<string, { number: string; name: string }> = {};
     if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} />;
+    // Standard entries (Settings, Closebook): picked in step 5 with the amount only.
+    const [{ data: std }, { data: thr }] = await Promise.all([
+      supabase.from("cb_standard_entries").select("id, name, kind, debit_account, credit_account, memo, wp_ref, d:cb_chart_accounts!cb_standard_entries_debit_account_fkey(name), c:cb_chart_accounts!cb_standard_entries_credit_account_fkey(name)").order("sort_order"),
+      supabase.from("cb_settings").select("entry_review_amount").maybeSingle(),
+    ]);
+    const standard = ((std ?? []) as unknown as { id: string; name: string; kind: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; d: { name: string }; c: { name: string } }[])
+      .map((x) => ({ id: x.id, name: x.name, kind: x.kind, debit: `${x.debit_account} ${x.d?.name ?? ""}`, credit: `${x.credit_account} ${x.c?.name ?? ""}`, memo: x.memo, wp_ref: x.wp_ref }));
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine}
+      standard={standard} threshold={Number(thr?.entry_review_amount ?? 0)} />;
   } else if (step === "review") {
     body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
   } else if (step === "mapping") {
