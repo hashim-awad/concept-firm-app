@@ -22,7 +22,7 @@ const typedCents = (t: string) => parseAmount(t);
 // QuickBooks, an opening balance sits on an account: the row shows the choice, first one selected.
 export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, note, pdf, signed, source, bankIssue, editable, choices = {}, initialAccounts = {} }: {
   fileId: string; codes: [string, Code][]; initial: [string, number][]; reStated: number | null; niTyped: number | null; note: string;
-  choices?: Record<string, { number: string; name: string }[]>; initialAccounts?: Record<string, string>;
+  choices?: Record<string, { number: string; name: string; label?: string }[]>; initialAccounts?: Record<string, string>;
   pdf: { href: string; name: string } | null; signed: { by: string; at: string } | null; source: string | null; bankIssue: string; editable: boolean;
 }) {
   const router = useRouter();
@@ -80,9 +80,9 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
             : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
           <td className="px-2 py-1">{!rowProblem(r) && (choices[r.code]?.length > 1
             ? <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input input-compact w-full">
-                {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.number} {c.name}</option>)}
+                {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.label ?? `${c.number} ${c.name}`}</option>)}
               </select>
-            : choices[r.code]?.length === 1 ? <span className="block py-1 text-sm text-ink-2">{choices[r.code][0].number} {choices[r.code][0].name}</span> : null)}</td>
+            : choices[r.code]?.length === 1 ? <span className="block py-1 text-sm text-ink-2">{choices[r.code][0].label ?? `${choices[r.code][0].number} ${choices[r.code][0].name}`}</span> : null)}</td>
           <td className="px-2 py-1 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} onBlur={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, amount: tidyAmount(e.target.value) } : x)))} className="input input-compact w-full text-right tabular-nums" /></td>
           <td className="py-1 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
         </tr>

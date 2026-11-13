@@ -101,7 +101,7 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
 
             <section className="card overflow-x-auto p-0">
               <h3 className="px-5 pt-4 font-semibold">Statements</h3>
-              <p className="px-5 text-sm text-ink-2">The transactions are coded in step 3, account by account, like the QuickBooks bank feed.</p>
+              <p className="px-5 text-sm text-ink-2">The transactions are coded in step 4, account by account, like the QuickBooks bank feed.</p>
               <table className="table">
                 <thead><tr><th>Period</th><th>File</th><th className="text-right">Lines</th><th className="text-right">Opening</th><th className="text-right">{w.plus}</th><th className="text-right">{w.minus}</th><th className="text-right">Closing</th><th>Uploaded</th><th></th></tr></thead>
                 <tbody>{sts.map((s, i) => {

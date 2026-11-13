@@ -148,7 +148,7 @@ test("exports: the same table as the page, and an Excel file with the stamp that
   const t = reportTable(d, { report: "tb" });
   assert.deepEqual(t.columns.slice(0, 3), ["Number", "Account", "GIFI"], "the number once, the GIFI line in its own column");
   assert.deepEqual(t.rows[0].cells.slice(0, 2), ["Cash and bank", null], "by group: the group's name first");
-  assert.deepEqual(t.rows[1].cells.slice(0, 3), ["10000", "Chequing", "1002"]);
+  assert.deepEqual(t.rows[1].cells.slice(0, 3), ["10000", "TD chequing", "1002"], "a bank account shows under its own name (round 4b)");
   assert.equal(t.rows.at(-1)!.cells[6], 0, "the final column totals zero");
   assert.equal(t.rows.at(-1)!.grand, true);
   const [sheet] = readXlsx(reportXlsx(t, ["Birch Dummy Realty Inc.", "Jan 1, 2026 to Dec 31, 2026"], "Working paper: not for the client"));
@@ -241,4 +241,16 @@ test("client entry list: DRAFT FOR REVIEW and the firm's name on every page; pla
   assert.ok(text.includes("How to read this page."));
   assert.ok(!text.includes("Prelim ="), "not the working paper's note");
   for (const p of Object.values(CB_CLIENT)) assert.ok(!/[—]/.test(p.text), "no em dashes");
+});
+
+test("one % change for step 7 and the lead sheets, on the figures shown (Cedar, round 4 item 1)", () => {
+  const c = (a: number, b: number) => pctChange(Math.round(a * 100), Math.round(b * 100));
+  assert.equal(c(-2400, -1200), "100.0%", "accumulated amortization grows");
+  assert.equal(c(-3000, -3800), "-21.1%", "accounts payable shrinks");
+  assert.equal(c(-3100, -2500), "24.0%");
+  assert.equal(c(-16200, -20000), "-19.0%");
+  assert.equal(c(-37400, -20000), "87.0%");
+  assert.equal(c(-180000, -150000), "20.0%", "commission income grows");
+  assert.equal(c(6000, 2800), "114.3%");
+  assert.equal(c(-4500, 0), "n/a", "nil last year: the trial balance's word");
 });

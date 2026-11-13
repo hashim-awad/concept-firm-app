@@ -58,12 +58,29 @@ test("lines not yet coded, for the reviewer or the client sit in one holding acc
   assert.equal(rows.find((r) => r.key === UNCODED)!.line_no, null);
 });
 
-test("two cards on the same chart account stay apart", () => {
+test("two cards on the same chart account: each its own row, number and name (round 4b)", () => {
   const rows = buildTrialBalance([
-    { id: "v", name: "Visa 1234", kind: "card", chart: "22000", openingCents: 0 }, { id: "m", name: "Mastercard 9", kind: "card", chart: "22000", openingCents: 0 },
+    { id: "v", name: "Visa 1234", kind: "card", chart: "22000", number: "22000", openingCents: 0 }, { id: "m", name: "Mastercard 9", kind: "card", chart: "22000", number: "22010", openingCents: 0 },
   ], [{ account_id: "v", cents: 1000, status: "new", chart_account: null, tax_code: null }], chart, codes, ctx);
-  assert.deepEqual(rows.filter((r) => r.key.startsWith("bank:")).map((r) => r.name).sort(), ["Mastercard 9", "Visa 1234"]);
+  const cards = rows.filter((r) => r.line_no === "2707.00").map((r) => `${r.number} ${r.name}`).sort();
+  assert.deepEqual(cards, ["22000 Visa 1234", "22010 Mastercard 9"]);
   assert.equal(sum(rows), 0);
+});
+test("two bank accounts on 10000: unique numbers, and last year's 1002 on the chosen account (Birch, round 4b)", () => {
+  const opening = { lines: [
+    { code: "1002", line_no: "1002.00", name: "Cash", type: "Asset", debitCents: 4821000, bank: "td" },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: -4821000 },
+  ], reClosingCents: 4821000, reStatedCents: 4821000 };
+  const chart2 = new Map<string, BuildChart>([...chart, ["31000", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" }]]);
+  const rows = buildTrialBalance([
+    { id: "td", name: "TD chequing", kind: "bank", chart: "10000", number: "10000", openingCents: 4821000 },
+    { id: "sv", name: "TD savings 9999", kind: "bank", chart: "10000", number: "10010", openingCents: 100000 },
+  ], [{ account_id: "td", cents: 729450, status: "done", chart_account: "40200", tax_code: "OUT_OF_SCOPE" }], chart2, codes, ctx, opening);
+  const numbers = rows.filter((r) => r.number).map((r) => r.number);
+  assert.equal(new Set(numbers).size, numbers.length, "account numbers are unique in a file");
+  const td = rows.find((r) => r.name === "TD chequing")!;
+  assert.deepEqual([td.number, td.lastCents, td.cents], ["10000", 4821000, 5550450], "one line: last year 48,210.00, this year 55,504.50");
+  assert.equal(rows.find((r) => r.name === "TD savings 9999")!.number, "10010");
 });
 
 test("opening balances by GIFI code: carried, checked, and cleared when both checks pass", () => {
@@ -151,8 +168,29 @@ test("a standard entry's amount includes the tax: 1,130.00 with HST gives 1,000.
 test("entry totals count every amount typed; a missing account is flagged on its line", () => {
   const head = { kind: "AJE", reason: "correction", wpRef: "Home office schedule", memo: "Home office", reverse: false };
   const opts = new Map([["a", { value: "a", label: "26000 Shareholder loan", type: "Liability", line_no: "2781.10", group: "x" }]]);
-  const blank = { desc: "", tax: "", newName: "", newType: "", newLine: "" };
+  const blank = { desc: "", tax: "none", newName: "", newType: "", newLine: "" };
   const p = planEntry(head, [{ ...blank, acct: "", dr: "1,200.00", cr: "" }, { ...blank, acct: "a", dr: "", cr: "1,200.00" }], opts as never, new Map(), ctx);
   assert.equal(p.diff, 0);
   assert.deepEqual(p.problems, ["Line 1 needs an account."]);
+});
+test("a standard entry set to Choose on the line: the line's sales tax must be chosen (round 4 item 2)", () => {
+  const head = { kind: "AJE", reason: "correction", wpRef: "Auto log", memo: "Auto", reverse: false };
+  const opts = new Map([["a", { value: "a", label: "70600 Vehicle expenses", type: "Expense", line_no: "9281.00", group: "x" }], ["b", { value: "b", label: "23000 Due to shareholder 1", type: "Liability", line_no: "2781.10", group: "x" }]]);
+  const blank = { desc: "", newName: "", newType: "", newLine: "" };
+  const p = planEntry(head, [{ ...blank, acct: "a", dr: "500", cr: "", tax: "" }, { ...blank, acct: "b", dr: "", cr: "500", tax: "none" }], opts as never, new Map(), ctx);
+  assert.deepEqual(p.problems, ["Line 1: choose the sales tax."]);
+});
+
+test("a card payment through Clearing nets to nil; one side alone needs a decision (round 4 item 3)", () => {
+  const ch = new Map<string, BuildChart>([...chart, ["10900", { name: "Clearing", account_type: "Asset", line_no: null }]]);
+  const banks = [{ id: "b", name: "Chequing", kind: "bank" as const, chart: "10000", openingCents: 0 }, { id: "c", name: "Visa", kind: "card" as const, chart: "22000", openingCents: 0 }];
+  const out = { account_id: "b", cents: -50000, status: "done", chart_account: "10900", tax_code: "OUT_OF_SCOPE" };   // paid from the bank
+  const pay = { account_id: "c", cents: -50000, status: "done", chart_account: "10900", tax_code: "OUT_OF_SCOPE" };  // the payment on the card
+  const both = buildTrialBalance(banks, [out, pay], ch, codes, ctx);
+  assert.equal(get(both, "chart:10900"), 0);
+  assert.equal(get(both, "chart:10000"), -50000);
+  assert.equal(get(both, "chart:22000"), 50000);
+  const one = buildTrialBalance(banks, [out], ch, codes, ctx);
+  assert.equal(get(one, "chart:10900"), 50000);
+  assert.match(one.find((r) => r.key === "chart:10900")!.reviewer ?? "", /Clearing should be nil/);
 });

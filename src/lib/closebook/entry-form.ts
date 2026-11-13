@@ -18,7 +18,10 @@ export type TaxRow = { label: string; cents: number };
 export type StdSide = { value: string; chart: string; label: string; line_no: string; missing: string };
 export type StdOpt = { id: string; name: string; kind: string; reason: string; memo: string; wp_ref: string; reverse: boolean; debit: StdSide; credit: StdSide; tax: string; taxMode: string };
 
-export const blankLine = (): FormLine => ({ acct: "", dr: "", cr: "", desc: "", tax: "", newName: "", newType: "", newLine: "" });
+// Sales tax on a line: "none" (no tax), a code, or "" when it must still be chosen (a standard entry set to
+// "Choose on the line", round 4 item 2).
+export const blankLine = (): FormLine => ({ acct: "", dr: "", cr: "", desc: "", tax: "none", newName: "", newType: "", newLine: "" });
+const taxCode = (t: string) => (t && t !== "none" ? t : "");
 const isPpa = (line: string) => line.startsWith("3720") || line.startsWith("3600");
 
 export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, AcctOpt>, codes: Map<string, TaxCode>, ctx: TaxContext, lineTypes: Map<string, string> = new Map()) {
@@ -42,12 +45,13 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
     if (l.acct === "new" && (l.newName.trim().length < 3 || !l.newType || !l.newLine)) problems.push(`Line ${n}: name the new account, with its QuickBooks type and GIFI line.`);
     if (isPpa(lineNo)) ppaLine = true;
     const net = d - c;
-    const t = entryLineTax(net, l.tax ? codes.get(l.tax) ?? null : null, type, ctx);
+    if (ctx.registered && !l.tax) problems.push(`Line ${n}: choose the sales tax.`);
+    const t = entryLineTax(net, taxCode(l.tax) ? codes.get(l.tax) ?? null : null, type, ctx);
     gst += t.gstHst; pst += t.pst;
     const amount = net + t.toLine;
     const target: Partial<RpcLine> = l.acct === "new" ? { line: l.newLine, new_name: l.newName.trim(), new_type: l.newType }
       : l.acct.startsWith("chart:") ? { chart: l.acct.slice(6) } : l.acct.startsWith("line:") ? { line: l.acct.slice(5) } : { account: l.acct };
-    out.push({ ...target, amount: amount / 100, memo: l.desc.trim(), ...(l.tax ? { tax_code: l.tax } : {}) });
+    out.push({ ...target, amount: amount / 100, memo: l.desc.trim(), ...(taxCode(l.tax) ? { tax_code: l.tax } : {}) });
   });
   const taxRows: TaxRow[] = [];
   if (gst) { out.push({ chart: "21500", amount: gst / 100, memo: "Sales tax", is_tax: true }); taxRows.push({ label: "21500 GST/HST payable (sales tax)", cents: gst }); }

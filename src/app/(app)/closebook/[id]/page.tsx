@@ -33,19 +33,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = await createClient();
-  let data = await loadFile(supabase, id);
-  if (!data) notFound();
-  // Bank-statement files coded before the trial balance was built from them: build it once now.
-  if (fromStatements(data.file.books) && canEdit(access, "closebook") && data.file.phase !== "locked"
-    && !data.accounts.some((a) => a.account_key.startsWith("chart:") || a.account_key.startsWith("bank:") || a.account_key === "opening")) {
-    const { count } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
-    if (count) { await rebuildTb(supabase, id); data = (await loadFile(supabase, id))!; }
-  } else if (fromStatements(data.file.books) && canEdit(access, "closebook") && data.file.phase !== "locked" && ["mapping", "review"].includes(String(sp.step ?? ""))) {
-    // Steps 6 and 7 read the stored trial balance: build it fresh first, so a fix to the build shows at once.
-    const e = await rebuildTb(supabase, id);
-    if (e) console.error(e);
-    data = (await loadFile(supabase, id))!;
+  // Rebuild the stored trial balance BEFORE reading the file: Next.js memoizes identical reads within one
+  // render, so a read after the rebuild returned the rows from before it (round 4b, found on Birch).
+  const { data: meta } = await supabase.from("cb_files").select("books, phase").eq("id", id).maybeSingle();
+  if (meta && fromStatements(meta.books as string) && canEdit(access, "closebook") && meta.phase !== "locked") {
+    const { count: built } = await supabase.from("cb_accounts").select("id", { count: "exact", head: true }).eq("file_id", id).or("account_key.like.chart:%,account_key.like.bank:%,account_key.eq.opening");
+    const { count: stmts } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
+    // Bank-statement files coded before the trial balance was built from them: build it once now. Steps 6
+    // and 7 read the stored trial balance: build it fresh first, so a fix to the build shows at once.
+    if ((!built && stmts) || ["mapping", "review"].includes(String(sp.step ?? ""))) {
+      const e = await rebuildTb(supabase, id);
+      if (e) console.error(e);
+    }
   }
+  const data = await loadFile(supabase, id);
+  if (!data) notFound();
   const { file, client, docs, accounts, imports, names, entries } = data;
   const ref = await loadReference(supabase);
   const isReviewer = access.staff_id === file.reviewer_id;
@@ -68,7 +70,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source };
   const { steps, current, next } = fileSteps({ bankGaps, coding, opening,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
-    unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
+    unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
+      // An account with no balance either year and no entries is "not used": no decision (round 4b item 4).
+      && !(a.this_year === 0 && a.last_year === 0 && !entries.some((e) => e.lines.some((l) => l.account_id === a.id)))).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
     entries: entries.length, people,
   });
   const asked = str(sp.step) as StepKey | undefined;
@@ -96,7 +100,25 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   // What makes up "Opening balances to enter", shown when its row is opened (round 2 item 8).
   const openingCauses = bankFile && (step === "mapping" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
-  const wideStep = !!report || ["code", "entries", "mapping", "review", "t2"].includes(step);
+  // Below 1,536 px the step list folds on every step page; the step picker sits in the blue banner
+  // (round 4 item 6). On report pages, which have no banner, it sits above the report.
+  const stepPicker = (dark: boolean) => (
+    <details className="relative 2xl:hidden">
+      <summary className={`inline-flex cursor-pointer list-none items-center gap-2 text-xs font-semibold tracking-wide uppercase ${dark ? "text-white/85" : "card px-3 py-2 text-ink"}`}>
+        {report ? REPORTS.find(([k]) => k === report)?.[1] : `Step ${cur.n} of ${STEP_KEYS.length} · ${cur.name}`}<span aria-hidden>▾</span><span className="sr-only">: all steps and reports</span></summary>
+      {/* One column in step order, each with its status line, as in the full list (round 4b item 5). */}
+      <div className="card absolute z-20 mt-2 grid w-max min-w-[17rem] gap-0.5 p-2 text-sm text-ink normal-case tracking-normal">
+        {steps.map((x) => (
+          <Link key={x.key} href={href(x.key)} className={`flex items-start gap-2.5 rounded px-2 py-1.5 hover:bg-sand-100 ${!report && x.key === step ? "bg-navy-50" : ""}`}>
+            <span aria-hidden className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold ${x.state === "done" ? "bg-success-soft text-success" : x.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{x.state === "done" ? "✓" : x.n}</span>
+            <span><span className={`block whitespace-nowrap ${!report && x.key === step ? "font-semibold" : "font-normal"}`}>{x.name}</span>{x.note && <span className="block text-xs font-normal text-ink-3">{x.note}</span>}</span>
+          </Link>
+        ))}
+        <p className="mt-1 border-t border-sand-200 px-2 pt-2 text-xs font-semibold text-ink-3 uppercase">Reports</p>
+        {REPORTS.map(([k, label]) => <Link key={k} href={`/closebook/${id}?report=${k}`} className={`rounded px-2 py-1 font-normal whitespace-nowrap hover:bg-sand-100 ${report === k ? "bg-navy-50 font-semibold" : ""}`}>{label}</Link>)}
+      </div>
+    </details>
+  );
   let body: React.ReactNode;
   if (step === "opening") {
     if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
@@ -105,17 +127,28 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", id).order("code");
+      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", id).order("code");
       // GIFI lines with more than one standard chart account: the row shows the choice (QuickBooks practice).
       const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
       const onCode = new Map<string, { number: string; name: string }[]>();
-      for (const c of (ch ?? []) as { number: string; name: string; line_no: string }[]) {
+      for (const c of (ch ?? []) as { number: string; name: string; line_no: string | null }[]) {
+        if (!c.line_no) continue;
         const code = c.line_no.slice(0, 4);
         for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
       }
       // Every line's standard chart accounts: a choice in the Account column when there is more than one.
-      const choices = Object.fromEntries([...onCode]);
-      const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null }[]).filter((o) => o.chart_account).map((o) => [o.code, o.chart_account!]));
+      // A bank or card line lists the file's own bank accounts instead (round 4b), so last year's balance
+      // sits on the account the statements post to.
+      const { data: bas } = await supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number");
+      const lineOfChart = new Map(((ch ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no]));
+      const onBank = new Map<string, { number: string; name: string; label: string }[]>();
+      for (const b of (bas ?? []) as { id: string; name: string; number: string; chart_account: string }[]) {
+        const code = (lineOfChart.get(b.chart_account) ?? "").slice(0, 4);
+        if (code) onBank.set(code, [...(onBank.get(code) ?? []), { number: `bank:${b.id}`, name: b.name, label: `${b.number} ${b.name}` }]);
+      }
+      const choices = Object.fromEntries([...onCode, ...onBank]);
+      const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[])
+        .filter((o) => o.chart_account || o.bank_account).map((o) => [o.code, o.bank_account ? `bank:${o.bank_account}` : o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
       body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
         reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
@@ -216,18 +249,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       {/* The step list keeps each name on one line (round 3 item 10). On table screens narrower than
           1,536 px it folds into a step picker above the table, so the table has the width (QuickBooks Online
           keeps its bank feed full width the same way). */}
-      {wideStep && (
-        <details className="mb-3 2xl:hidden">
-          <summary className="card inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
-            <b>{report ? REPORTS.find(([k]) => k === report)?.[1] : `Step ${cur.n} of 10 · ${cur.name}`}</b><span className="text-ink-3">· all steps and reports ▾</span></summary>
-          <div className="card mt-1 grid w-fit gap-x-8 gap-y-0.5 p-3 text-sm sm:grid-cols-2">
-            {steps.map((x) => <Link key={x.key} href={href(x.key)} className={`rounded px-2 py-1 whitespace-nowrap hover:bg-sand-100 ${!report && x.key === step ? "bg-navy-50 font-semibold" : ""}`}>{x.n}. {x.name}</Link>)}
-            {REPORTS.map(([k, label]) => <Link key={k} href={`/closebook/${id}?report=${k}`} className={`rounded px-2 py-1 whitespace-nowrap hover:bg-sand-100 ${report === k ? "bg-navy-50 font-semibold" : ""}`}>{label}</Link>)}
-          </div>
-        </details>
-      )}
+      {report && <div className="mb-3">{stepPicker(false)}</div>}
       <div className="flex flex-wrap items-start gap-6 lg:flex-nowrap">
-        <nav aria-label="Year-end steps" className={`card w-full p-3 lg:w-[16rem] lg:flex-none ${wideStep ? "hidden 2xl:block" : ""}`}>
+        <nav aria-label="Year-end steps" className="card hidden w-[16rem] flex-none p-3 2xl:block">
           <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Year-end steps</p>
           <ol className="grid gap-1">
             {steps.map((s) => (
@@ -265,11 +289,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               { n: coding.reviewer, one: "with the reviewer", many: "with the reviewer", href: href("code") },
               { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
               { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
-              { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
+              { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key) && (a.account_key !== "chart:10900" || Math.round(a.this_year * 100) !== 0)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
             ].filter((t) => t.n > 0)} /> : <>
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
+              {stepPicker(true)}
+              <p className="hidden text-xs font-semibold tracking-wide text-white/75 uppercase 2xl:block">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
               <p className="mt-1 text-base">{step === current ? next : STEP_LINE[step]}</p>
             </div>
           </section>

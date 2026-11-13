@@ -102,8 +102,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
         {rows.length === 0 ? <p className="p-5 text-sm text-ink-2">Nothing here.</p> : (
           <div className="overflow-x-auto">
             {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
-            <table className="table table-compact min-w-[980px] table-fixed">
-              <colgroup><col className="w-[5.6rem]" /><col /><col className="w-[4.8rem]" /><col className="w-[4.8rem]" /><col className="w-[16.8rem]" /><col className="w-[7.8rem]" /><col className="w-[4rem]" /><col className="w-[11.4rem]" /></colgroup>
+            <table className="table table-compact min-w-[960px] table-fixed">
+              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
@@ -139,6 +139,10 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const usd = USD.test(l.description);
   // Purchases (and refunds of them) show the ITC; a refund (money in) reverses it, in brackets.
   const itc = split && side === "purchase" ? (outflow ? split.itcCents : -split.itcCents) : 0;
+  // Why a taxed purchase claims no ITC, said on the line (round 4 item 5).
+  const taxed = !!tax && (codes.get(tax)?.parts.some((x) => x.rate > 0) ?? false);
+  const noItc = split && side === "purchase" && taxed && !itc
+    ? (!ctx.registered ? "Not registered: no ITC" : ctx.quick && c?.account_type !== "Asset" ? "Quick method: no ITC" : "No ITC on this code") : "";
   // One warning, said the moment the account or tax is chosen (round 2 items 6 and 8): a money-in line on
   // an expense, a money-out line on revenue, meals at the full rate, a "Check" account.
   const moneyIn = !outflow;
@@ -157,34 +161,47 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
       <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
       <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
-      <td>
+      <td style={{ paddingLeft: 6, paddingRight: 6 }}>
         {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
             list opens over it (round 2 item 10). */}
         <span className="relative block">
-          <span aria-hidden className={`input input-compact block min-h-[30px] pr-6 leading-snug ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
-            {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-2 text-ink-3">▾</span></span>
+          <span aria-hidden title={c ? `${account} ${c.name}` : undefined} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
+            {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
           <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setAccount(e.target.value); setRowErr(""); }}>
             <option value="">Choose an account</option>
             {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
           </select>
         </span>
       </td>
-      <td>
-        <select aria-label="Sales tax" value={tax} disabled={locked || !gstAnswered} className={`input input-compact w-full ${rowErr && !tax ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
-          <option value="">Choose</option>
-          {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
-        </select>
+      <td style={{ paddingLeft: 6, paddingRight: 6 }}>
+        {/* The full code name in a box, the list opening over it, as for the account (round 4b item 3). */}
+        <span className="relative block">
+          <span aria-hidden style={{ paddingLeft: 6, paddingRight: 18, fontSize: 13 }}
+            className={`input input-compact block min-h-[30px] overflow-hidden leading-snug whitespace-nowrap ${locked || !gstAnswered ? "bg-sand-50 text-ink-3" : ""} ${tax ? "" : "text-ink-3"} ${rowErr && !tax ? "border-danger" : ""}`}>
+            {tax ? codes.get(tax)?.name ?? tax : "Choose"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
+          <select aria-label="Sales tax" value={tax} disabled={locked || !gstAnswered} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
+            <option value="">Choose</option>
+            {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
+          </select>
+        </span>
+        {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
-      <td className="text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : ""}</td>
+      <td className="text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">
-            <span className="flex gap-1 whitespace-nowrap">
-              <button type="button" className="btn btn-compact" disabled={pending}
+            {/* Like the QuickBooks Online bank feed: one action button, the others under its arrow (round 4 item 6). */}
+            <span className="flex whitespace-nowrap">
+              <button type="button" className="btn btn-compact rounded-r-none" disabled={pending}
                 onClick={() => !gstAnswered ? setRowErr("Answer the GST/HST questions in step 1 first.") : !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
                   rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
-              {l.status !== "ask_client" ? <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
-                : <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+              <details className="relative">
+                <summary aria-label="More actions" className="btn btn-compact cursor-pointer list-none rounded-l-none border-l border-white/30 px-2">▾</summary>
+                <span className="card absolute right-0 z-20 mt-1 grid w-max gap-1 p-1.5 text-left">
+                  {l.status !== "ask_client" ? <button type="button" className="rounded px-2 py-1 text-sm hover:bg-sand-100" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
+                    : <button type="button" className="rounded px-2 py-1 text-sm hover:bg-sand-100" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+                </span>
+              </details>
             </span>
             {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
           </span>

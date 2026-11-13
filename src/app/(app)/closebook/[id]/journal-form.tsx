@@ -38,7 +38,7 @@ export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, op
   const fill = (x: StdOpt, gross: string, tax: string, base: FormLine[]) => {
     const g = parseAmount(gross);
     const typeOf = (v: string) => optMap.get(v)?.type ?? "";
-    const net = g === null ? null : netOfTax(g, tax ? codeMap.get(tax) ?? null : null, typeOf(base[0]?.acct ?? x.debit.value) || "Expense", ctx);
+    const net = g === null ? null : netOfTax(g, tax && tax !== "none" ? codeMap.get(tax) ?? null : null, typeOf(base[0]?.acct ?? x.debit.value) || "Expense", ctx);
     const l1 = { ...(base[0] ?? blankLine()), tax, dr: net === null ? "" : formatAmount(net) };
     const l2 = { ...(base[1] ?? blankLine()), cr: g === null ? "" : formatAmount(g) };
     return [l1, l2, ...base.slice(2)];
@@ -52,7 +52,7 @@ export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, op
     const x = standard.find((y) => y.id === id);
     if (!x) return;
     setHead({ kind: x.kind, reason: x.reason, wpRef: x.wp_ref, memo: x.memo, reverse: x.reverse });
-    setLines(fill(x, stdAmount, ctx.registered ? x.tax : "", [{ ...blankLine(), acct: x.debit.value }, { ...blankLine(), acct: x.credit.value }]));
+    setLines(fill(x, stdAmount, ctx.registered ? x.tax : "none", [{ ...blankLine(), acct: x.debit.value }, { ...blankLine(), acct: x.credit.value }]));
   };
   const setAmount = (v: string) => {
     setStdAmount(v);
@@ -89,7 +89,7 @@ export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, op
             <select value={std} onChange={(e) => pick(e.target.value)} className="input input-compact">
               <option value="">None</option>{standard.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select></label>
-          {s && <label className="grid gap-1 text-sm font-medium">Total paid, including tax
+          {s && <label className="grid gap-1 text-sm font-medium">Total, including any tax
             <input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className="input input-compact text-right tabular-nums" /></label>}
           {/* The threshold only: a missing account shows on its own line (round 3 item 9). */}
           {s && <p className="text-xs text-ink-2">{stdCents > threshold * 100
@@ -146,7 +146,7 @@ export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, op
                   <td><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className="input input-compact text-right tabular-nums" /></td>
                   <td><input aria-label={`Line ${i + 1} description`} value={l.desc} onChange={(e) => setLine(i, { desc: e.target.value })} maxLength={200} className="input input-compact" /></td>
                   {ctx.registered && <td><select aria-label={`Line ${i + 1} sales tax`} value={l.tax} onChange={(e) => setTax(i, e.target.value)} className="input input-compact w-full">
-                    <option value="">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>}
+                    <option value="" disabled>Choose</option><option value="none">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>}
                   <td>{lines.length > 2 && <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger">×</button>}</td>
                 </tr>
               );

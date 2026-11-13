@@ -56,7 +56,8 @@ export function trialBalance(accounts: RepAccount[], postings: Posting[]): TbLin
 }
 
 // % change compares the size of the balance: a growing liability or revenue is positive. n/a when the
-// prior balance is zero; n/m when the balance changed side.
+// prior balance is zero; n/m when the balance changed side. The one calculation for every change % in
+// Closebook: the trial balance, step 7, the lead sheets (round 4 item 1). Amounts in cents.
 export function pctChange(final: number, prior: number): string {
   if (!prior) return final ? "n/a" : "–";
   if (final && (final > 0) !== (prior > 0)) return "n/m";
