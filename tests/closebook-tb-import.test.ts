@@ -59,3 +59,21 @@ test("problems are reported, never guessed", () => {
   assert.match(readTrialBalance([["Account", "Something"], ["Bank", "5"]]).error ?? "", /No Debit and Credit/);
   assert.match(readTrialBalance(parseCsv(",Debit,Credit\nBank,100,\nRevenue,,90\n")).error ?? "", /does not balance/);
 });
+
+// Round 5 (Hashim, Nov 21, 2026): a Type column (Xero "Account Type", QuickBooks Online account list "Type")
+// comes through for step 7's type check; without one, rows carry no type.
+test("a Type column comes through; the name column is still found", () => {
+  const t = parseCsv("Code,Account,Account Type,Debit,Credit\n1500,Computer gear,Fixed Assets,3000,\n,Sundry,,200,\n4000,Consulting income,Revenue,,3200\n");
+  const r = readTrialBalance(t);
+  assert.equal(r.error, undefined);
+  assert.deepEqual(r.rows, [
+    { number: "1500", name: "Computer gear", amount: 3000, type: "Fixed Assets" },
+    { number: "", name: "Sundry", amount: 200 },
+    { number: "4000", name: "Consulting income", amount: -3200, type: "Revenue" },
+  ]);
+});
+
+test("no Type column: no type on any row", () => {
+  const r = readTrialBalance(parseCsv("Account,Debit,Credit\nChequing,100,\nSales,,100\n"));
+  assert.ok(r.rows.every((x) => !("type" in x)));
+});

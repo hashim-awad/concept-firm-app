@@ -10,6 +10,16 @@ permissions:
   contents: read
 
 jobs:
+  # Every new migration must sort after the last one on main (what Live has), so the Live deploy never
+  # refuses or skips one (scripts/checks/migration-order.sh).
+  migration-order:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: bash scripts/checks/migration-order.sh
+
   database-tests:
     runs-on: ubuntu-latest
     services:

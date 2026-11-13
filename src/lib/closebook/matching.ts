@@ -32,9 +32,10 @@ const STOP = new Set(["and", "the", "of", "for", "to", "in", "on", "a", "an", "e
 const tokens = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter((w) => w.length > 1 && !STOP.has(w))
   .map((w) => (w.length > 4 && w.endsWith("ies") ? `${w.slice(0, -3)}y` : w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w)));
 
-// The account number's first digit, when the client uses a standard four-digit chart.
+// The account number's first digit, on a 4- or 5-digit number: the fallback when an account has no type
+// (the same rule as private.cb_type_from_number in the database).
 export function numberType(number: string): string | null {
-  if (!/^\d{4}(\.\d+)?$/.test(number)) return null;
+  if (!/^\d{4,5}(\.\d+)?$/.test(number)) return null;
   return ({ "1": "Asset", "2": "Liability", "3": "Equity", "4": "Revenue" } as Record<string, string>)[number[0]] ?? (/[5-9]/.test(number[0]) ? "Expense" : null);
 }
 
@@ -43,13 +44,34 @@ export function typeMismatch(number: string, line: Line | undefined): boolean {
   return !!(t && line && line.line_type !== t);
 }
 
+// Round 5 (Hashim, Nov 21, 2026): the step 7 type check works from the account's type, as CaseWare checks
+// an account's class against its map number. The database sets account_type and where it came from
+// (cb_accounts.type_source): the standard chart, the client's trial balance import, the QuickBooks Online
+// type chosen in Closebook, or the account number as a fallback. No type: no check.
+export type TypedAccount = { number: string; account_type?: string | null; type_source?: string | null; mapping_source?: string | null };
+export const TYPE_SOURCE: Record<string, string> = { chart: "standard chart", import: "client's trial balance", client: "type chosen in Closebook", number: "account number" };
+const A_TYPE: Record<string, string> = { Asset: "An asset", Liability: "A liability", Equity: "An equity", Revenue: "A revenue", Expense: "An expense" };
+
+// "open": flagged for the reviewer; "confirmed": the reviewer matched it; "": nothing to check.
+export function typeFlag(a: TypedAccount, line: Line | undefined): "" | "open" | "confirmed" {
+  if (!a.account_type || !line || line.line_type === a.account_type) return "";
+  return a.mapping_source === "reviewer" ? "confirmed" : "open";
+}
+
+export function typeFlagText(a: TypedAccount, line: Line | undefined): string {
+  const f = typeFlag(a, line);
+  if (!f) return "";
+  const what = `${A_TYPE[a.account_type!] ?? a.account_type} account (${TYPE_SOURCE[a.type_source ?? ""] ?? "type"}) on ${(A_TYPE[line!.line_type] ?? line!.line_type).toLowerCase()} line`;
+  return f === "confirmed" ? `${what}: reviewer confirmed` : `Check: ${what.charAt(0).toLowerCase()}${what.slice(1)}`;
+}
+
 export type Suggestion = { line: string | null; reason: string };
 
-export function suggestLine(account: { number: string; name: string }, lines: Line[]): Suggestion {
+export function suggestLine(account: { number: string; name: string; account_type?: string | null }, lines: Line[]): Suggestion {
   const locked = lockedLines(lines);
   const mappable = lines.filter((l) => l.mappable && !locked.has(l.line_no));
   const byNo = new Map(mappable.map((l) => [l.line_no, l]));
-  const t = numberType(account.number);
+  const t = account.account_type ?? numberType(account.number);
   const ok = (l: Line | undefined) => !!l && (!t || l.line_type === t);
   const word = WORDS.find(([re, ln]) => re.test(account.name) && ok(byNo.get(ln)));
   if (word) return { line: word[1], reason: "Common account name" };

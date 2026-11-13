@@ -2,7 +2,7 @@ import { pctChange } from "@/lib/closebook/reports";
 import Link from "next/link";
 import { fileInputClass } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
-import { effectiveLine, leadSheets, lockedLines, normalSide, typeMismatch, wrongSign, type Line } from "@/lib/closebook/matching";
+import { effectiveLine, leadSheets, lockedLines, normalSide, typeFlag, typeFlagText, wrongSign, type Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
 import { importTrialBalance } from "../actions";
@@ -51,13 +51,13 @@ export function TbTab(p: Props) {
   );
   const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
-  const typeWord: Record<string, string> = { "1": "an asset", "2": "a liability", "3": "equity", "4": "revenue" };
-  // A type mismatch needs a look, unless the reviewer matched the account: their match confirms it.
-  const isMismatch = (a: CbAccount) => typeMismatch(a.number, a.line_no ? byNo.get(a.line_no) : undefined);
+  // Round 5: the type check works from the account's type (standard chart, client's trial balance, the
+  // type chosen in Closebook, else the number). A mismatch needs the reviewer, unless the reviewer matched
+  // the account: their match confirms it.
+  const lineOf = (a: CbAccount) => (a.line_no ? byNo.get(a.line_no) : undefined);
+  const isMismatch = (a: CbAccount) => typeFlag(a, lineOf(a)) !== "";
   const confirmed = (a: CbAccount) => a.mapping_source === "reviewer";
-  const mismatchText = (a: CbAccount) => (!isMismatch(a) ? "" : confirmed(a)
-    ? `The account number says ${typeWord[a.number[0]] ?? "an expense"}; reviewer confirmed`
-    : `Check: the account number says ${typeWord[a.number[0]] ?? "an expense"}`);
+  const mismatchText = (a: CbAccount) => typeFlagText(a, lineOf(a));
   const lockedSet = lockedLines(lines);
   const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "",
     locked: lockedSet.has(l.line_no), normal: normalSide(l) }));
