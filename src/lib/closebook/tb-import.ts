@@ -66,3 +66,32 @@ export function readTrialBalance(table: Cell[][]): TbResult {
   if (!rows.length) return { rows, debit, credit, skipped, error: "No accounts with a balance were found under the header row." };
   return { rows, debit, credit, skipped, ...(debit !== credit ? { error: `The trial balance does not balance: debits ${debit.toFixed(2)}, credits ${credit.toFixed(2)}.` } : {}) };
 }
+
+// Round 6 (Hashim, Nov 22, 2026): the QuickBooks Online Account List export (Reports, Account List,
+// Export to Excel or CSV): each account's number (its own "Account #" column, or in front of the name),
+// name and Type. Detail type, description and balance are not needed. Pure: no database.
+export type ListRow = { number: string; name: string; type: string };
+export type ListResult = { rows: ListRow[]; error?: string };
+
+export function readAccountList(table: Cell[][]): ListResult {
+  let head = -1, nameCol = -1, numCol = -1, typeCol = -1;
+  for (let i = 0; i < Math.min(table.length, 30) && head < 0; i++) {
+    const r = (table[i] ?? []).map((c) => txt(c).toLowerCase());
+    const t = r.findIndex((c) => /^(account\s*)?type$/.test(c));
+    const n = r.findIndex((c) => /^(account|account name|name|full name)$/.test(c));
+    if (t >= 0 && n >= 0) { head = i; typeCol = t; nameCol = n; numCol = r.findIndex((c) => /^(account\s*)?(#|number|no\.?|code)$/.test(c)); }
+  }
+  if (head < 0) return { rows: [], error: "This is not a QuickBooks Account List: no Account and Type columns were found. In QuickBooks Online: Reports, Account List, Export to Excel." };
+  const rows: ListRow[] = [];
+  for (let i = head + 1; i < table.length; i++) {
+    const r = table[i] ?? [];
+    let name = txt(r[nameCol]);
+    let number = numCol >= 0 ? txt(r[numCol]) : "";
+    const type = txt(r[typeCol]).slice(0, 60);
+    if (!name || !type || /^total\b/i.test(name)) continue;
+    if (!number) { const m = NUMBERED.exec(name); if (m) { number = m[1]; name = m[2].trim(); } }
+    rows.push({ number, name, type });
+  }
+  if (!rows.length) return { rows, error: "No accounts with a Type were found under the header row." };
+  return { rows };
+}

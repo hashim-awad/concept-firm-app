@@ -48,22 +48,33 @@ export function typeMismatch(number: string, line: Line | undefined): boolean {
 // an account's class against its map number. The database sets account_type and where it came from
 // (cb_accounts.type_source): the standard chart, the client's trial balance import, the QuickBooks Online
 // type chosen in Closebook, or the account number as a fallback. No type: no check.
-export type TypedAccount = { number: string; account_type?: string | null; type_source?: string | null; mapping_source?: string | null };
-export const TYPE_SOURCE: Record<string, string> = { chart: "standard chart", import: "client's trial balance", client: "type chosen in Closebook", number: "account number" };
+export type TypedAccount = { number: string; account_key?: string; line_no?: string | null; account_type?: string | null; type_source?: string | null;
+  type_confirm_reason?: string | null; type_confirmed_line?: string | null; type_confirmed_by?: string | null; type_confirmed_at?: string | null };
+// "import": the client's own type, from the trial balance's Type column or the QuickBooks Account List (round 6).
+export const TYPE_SOURCE: Record<string, string> = { chart: "standard chart", import: "client's books", client: "type chosen in Closebook", number: "account number" };
 const A_TYPE: Record<string, string> = { Asset: "An asset", Liability: "A liability", Equity: "An equity", Revenue: "A revenue", Expense: "An expense" };
 
-// "open": flagged for the reviewer; "confirmed": the reviewer matched it; "": nothing to check.
+// Round 6 (Hashim, Nov 22, 2026): the reviewer confirms with a typed reason, for the line it was given on.
+// "open": flagged for the reviewer; "confirmed": the reviewer kept it there with a reason; "": nothing to check.
 export function typeFlag(a: TypedAccount, line: Line | undefined): "" | "open" | "confirmed" {
   if (!a.account_type || !line || line.line_type === a.account_type) return "";
-  return a.mapping_source === "reviewer" ? "confirmed" : "open";
+  return a.type_confirm_reason && a.type_confirmed_line === line.line_no ? "confirmed" : "open";
 }
 
-export function typeFlagText(a: TypedAccount, line: Line | undefined): string {
+// by: the confirming reviewer's name; date: their date, already formatted ("Nov 22, 2026").
+export function typeFlagText(a: TypedAccount, line: Line | undefined, by = "", date = ""): string {
   const f = typeFlag(a, line);
   if (!f) return "";
+  if (f === "confirmed") return `Reviewer confirmed: ${a.type_confirm_reason}${by || date ? ` (${[by, date].filter(Boolean).join(", ")})` : ""}`;
   const what = `${A_TYPE[a.account_type!] ?? a.account_type} account (${TYPE_SOURCE[a.type_source ?? ""] ?? "type"}) on ${(A_TYPE[line!.line_type] ?? line!.line_type).toLowerCase()} line`;
-  return f === "confirmed" ? `${what}: reviewer confirmed` : `Check: ${what.charAt(0).toLowerCase()}${what.slice(1)}`;
+  return `Check: ${what.charAt(0).toLowerCase()}${what.slice(1)}`;
 }
+
+// Round 6 item 3: a client account the check skips (no type and no usable number). Shown, never blocking.
+export const SYSTEM_KEY = (k: string) => ["opening", "uncoded"].includes(k) || k.startsWith("line:") || k.startsWith("gifi:");
+export const typeNotChecked = (a: TypedAccount) => !a.account_type && !SYSTEM_KEY(a.account_key ?? "");
+// Round 6 item 2: client accounts whose type is not from the client's own books (no type, or the number only).
+export const typeFromBooksMissing = (a: TypedAccount) => !SYSTEM_KEY(a.account_key ?? "") && !["chart", "import", "client"].includes(a.type_source ?? "");
 
 export type Suggestion = { line: string | null; reason: string };
 

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
 import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
-import { readTrialBalance } from "@/lib/closebook/tb-import";
+import { readAccountList, readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
 import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents } from "@/lib/closebook/bank-upload";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
@@ -89,6 +89,43 @@ async function matchFile(supabase: Awaited<ReturnType<typeof createClient>>, id:
   });
   const { data } = await supabase.rpc("cb_apply_matching", { p_file: id, p_suggestions: suggestions });
   return (data ?? { history: 0, suggested: 0, reviewer: 0 }) as { history: number; suggested: number; reviewer: number };
+}
+
+// Round 6 item 1: the reviewer keeps an account on a line of another type, with a reason.
+export async function confirmTypeInline(fileId: string, account: string, reason: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  if (!reason.trim()) return "Type the reason for keeping this account on a line of another type.";
+  const { error } = await (await createClient()).rpc("cb_confirm_type", { p_account: account, p_reason: reason });
+  if (error) return error.message;
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
+// Round 6 item 2: the QuickBooks Online Account List, for each account's type.
+export async function importAccountList(formData: FormData) {
+  const id = s(formData, "file_id");
+  const want = s(formData, "back");
+  const back = want.startsWith(`/closebook/${id}?`) ? want : `/closebook/${id}?step=records`;
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) redirect(withMessage(back, "error", "You need Edit on Closebook to import."));
+  const upload = formData.get("upload");
+  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the Account List file (CSV or Excel)."));
+  const f = upload as File;
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  let table;
+  try {
+    table = /\.xlsx$/i.test(f.name) ? readXlsx(bytes)[0]?.rows ?? [] : parseCsv(new TextDecoder().decode(bytes));
+  } catch {
+    redirect(withMessage(back, "error", "The file could not be read. Export it again as CSV or Excel (.xlsx)."));
+  }
+  const list = readAccountList(table);
+  if (list.error) redirect(withMessage(back, "error", list.error));
+  const { data, error } = await (await createClient()).rpc("cb_import_account_list", { p_file: id, p_file_name: f.name, p_rows: list.rows });
+  if (error) redirect(withMessage(back, "error", error.message));
+  const r = data as { rows: number; matched: number; accounts_without: number };
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", `Read ${r.rows} accounts from the Account List. ${r.matched} account${r.matched === 1 ? "" : "s"} in the trial balance took their type from it.${r.accounts_without ? ` ${r.accounts_without === 1 ? "1 account still has no type: it shows" : `${r.accounts_without} accounts still have no type: they show`} "Type not checked" in step 7.` : ""}`));
 }
 
 // Row actions on the Trial balance tab: they save on the spot and return any problem as text.

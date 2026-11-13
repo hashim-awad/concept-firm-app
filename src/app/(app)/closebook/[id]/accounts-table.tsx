@@ -8,12 +8,14 @@
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
-import { askReviewerInline, matchInline, runMatching, taxCodeInline } from "../actions";
+import { askReviewerInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
 
 export type Row = {
   id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
   lineNo: string; lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
   tax: string; taxDefault: string; taxOverride: boolean; attention: boolean; unused?: boolean;
+  // Round 6: the type check's state, and "Type not checked" for an account with no type.
+  typeFlag?: "" | "open" | "confirmed"; notChecked?: boolean;
   // "Opening balances to enter": one line per cause, adding up to the row (round 2 item 8).
   buildUp?: { text: string; amount: string }[];
 };
@@ -44,6 +46,7 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
         {r.needsReviewer && <Reason r={r} />}
         {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
         {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
+        {r.notChecked && <span>Type not checked</span>}
       </span>
     </>
   );
@@ -140,8 +143,12 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
   const [to, setTo] = useState("");
   const [tax, setTax] = useState(r.taxOverride ? r.tax : "");
   const [err, setErr] = useState("");
+  const [reason, setReason] = useState("");
+  const [reasonErr, setReasonErr] = useState("");
   const [pending, start] = useTransition();
   const canPick = !r.needsReviewer || isReviewer;
+  // Round 6: with an open type flag, the reviewer sees the confirm box first and the line list stays closed.
+  const confirmFirst = isReviewer && r.typeFlag === "open";
   const hit = [options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`)].find((o) => o && !o.locked);
   const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
   const save = () => start(async () => {
@@ -164,10 +171,20 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
         </dl>
         <hr className="border-sand-200" />
         <div className="grid gap-1 text-sm"><p className="font-semibold">From</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : "Not matched yet")}</p></div>
+        {confirmFirst && !(hit && hit.no !== r.lineNo) && (
+          // Round 6 item 1: keep the account on a line of another type only with a reason, shown on the line.
+          <div className="grid gap-1 rounded-lg border border-warning/40 bg-warning-soft/40 p-3">
+            <label htmlFor="type_reason" className="text-sm font-semibold">Keep it on this line? Type the reason (reviewer only)</label>
+            <textarea id="type_reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300} className="input" placeholder="Why this account belongs on this line" />
+            <button type="button" disabled={pending} className="btn-secondary btn-compact justify-self-start"
+              onClick={() => start(async () => { setReasonErr(""); const e = await confirmTypeInline(fileId, r.id, reason); if (e) setReasonErr(e); else onClose(); })}>Confirm the type</button>
+            {reasonErr && <p role="alert" className="text-sm text-danger">{reasonErr}</p>}
+          </div>
+        )}
         {canPick ? (
           <div className="grid gap-1">
             <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
-            <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} />
+            <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} autoFocus={!confirmFirst} />
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
@@ -196,7 +213,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
 
 // The line picker (borrowed from QuickBooks): each line with its section in grey italics and an info
 // mark that shows CRA's description of the GIFI code. Type a number or words; arrows and Enter work.
-function LinePicker({ options, value, onChange, balance }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number }) {
+function LinePicker({ options, value, onChange, balance, autoFocus = true }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number; autoFocus?: boolean }) {
   // Only lines on the account's side (a credit balance sees liability, equity and revenue lines), unless "Show all lines".
   const [all, setAll] = useState(false);
   const side = balance > 0 ? "debit" : balance < 0 ? "credit" : null;
@@ -213,7 +230,7 @@ function LinePicker({ options, value, onChange, balance }: { options: Option[]; 
   const pick = (o: Option) => { if (o.locked) return; onChange(o.label); setOpen(false); };
   return (
     <div className="relative">
-      <input id="to" value={value} autoFocus autoComplete="off" role="combobox" aria-expanded={open} aria-controls="cb-line-list" placeholder="For example: office, rent, 8810" className="input"
+      <input id="to" value={value} autoFocus={autoFocus} autoComplete="off" role="combobox" aria-expanded={open} aria-controls="cb-line-list" placeholder="For example: office, rent, 8810" className="input"
         onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onKeyDown={(e) => {

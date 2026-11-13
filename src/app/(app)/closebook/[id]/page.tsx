@@ -85,7 +85,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>> } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
-      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} causes={openingCauses} />
+      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} causes={openingCauses} names={names} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
   const planning = docs.filter((d) => d.phase === "planning");

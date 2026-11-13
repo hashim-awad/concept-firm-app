@@ -2,7 +2,7 @@
 // Trial balance exports (Phase 3 batch, F1): QuickBooks Online, Xero and a bookkeeper's single column.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { money, readTrialBalance } from "../src/lib/closebook/tb-import.ts";
+import { money, readAccountList, readTrialBalance } from "../src/lib/closebook/tb-import.ts";
 import { parseCsv } from "../src/lib/closebook/seed.ts";
 
 test("amounts: commas, brackets, dollar signs, minus, blanks", () => {
@@ -76,4 +76,21 @@ test("a Type column comes through; the name column is still found", () => {
 test("no Type column: no type on any row", () => {
   const r = readTrialBalance(parseCsv("Account,Debit,Credit\nChequing,100,\nSales,,100\n"));
   assert.ok(r.rows.every((x) => !("type" in x)));
+});
+
+// Round 6 (Hashim, Nov 22, 2026): the QuickBooks Online Account List export.
+test("Account List: title rows skipped, number column or number in the name, type kept", () => {
+  const t = parseCsv("Spruce Dummy Inc.\nAccount List\n\nAccount #,Account,Type,Detail type,Description,Total balance\n15000,Computer equipment,Fixed Assets,Machinery & Equipment,,6000\n,Office supplies:Printing,Expenses,Office/General Administrative Expenses,,\n,61500 Amortization expense,Expenses,Depreciation,,\n,Bad row,,,,\n");
+  const r = readAccountList(t);
+  assert.equal(r.error, undefined);
+  assert.deepEqual(r.rows, [
+    { number: "15000", name: "Computer equipment", type: "Fixed Assets" },
+    { number: "", name: "Office supplies:Printing", type: "Expenses" },
+    { number: "61500", name: "Amortization expense", type: "Expenses" },
+  ]);
+});
+
+test("Account List: a trial balance uploaded by mistake is refused", () => {
+  const r = readAccountList(parseCsv("Account,Debit,Credit\nChequing,100,\nSales,,100\n"));
+  assert.match(r.error ?? "", /^This is not a QuickBooks Account List/);
 });

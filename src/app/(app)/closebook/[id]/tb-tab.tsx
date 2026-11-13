@@ -2,10 +2,11 @@ import { pctChange } from "@/lib/closebook/reports";
 import Link from "next/link";
 import { fileInputClass } from "@/components/ds/primitives";
 import { formatDateTime } from "@/lib/dates";
-import { effectiveLine, leadSheets, lockedLines, normalSide, typeFlag, typeFlagText, wrongSign, type Line } from "@/lib/closebook/matching";
+import { effectiveLine, leadSheets, lockedLines, normalSide, typeFlag, typeFlagText, typeFromBooksMissing, typeNotChecked, wrongSign, type Line } from "@/lib/closebook/matching";
+import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
-import { importTrialBalance } from "../actions";
+import { importAccountList, importTrialBalance } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 import { GifiView } from "./gifi-view";
@@ -27,6 +28,8 @@ type Props = {
   base?: string; pills?: string[]; showImport?: boolean;
   // Bank-statement files: what makes up "Opening balances to enter" (round 2 item 8).
   causes?: { text: string; cents: number }[];
+  // Staff names, for "Reviewer confirmed: reason (name, date)" (round 6).
+  names?: Map<string, string>;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -40,6 +43,11 @@ export function TbTab(p: Props) {
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
   const finalOf = (a: CbAccount) => a.this_year + (entryTotals.get(a.id) ?? 0);
   const thisImport = imports.find((i) => i.target === "this_year");
+  // Round 6 item 2: the QuickBooks Online Account List, an optional second upload for files that import a
+  // trial balance. Without it, one line says how many accounts have no type from the client's books.
+  const tbFile = !["statements", "paper"].includes(file.books);
+  const listImport = imports.find((i) => i.target === "account_list");
+  const noBooksType = tbFile && thisImport && !listImport ? accounts.filter((a) => typeFromBooksMissing(a) && !(a.this_year === 0 && a.last_year === 0)).length : 0;
   const total = accounts.reduce((n, a) => n + a.this_year, 0);
   const balanced = accounts.length > 0 && Math.round(total * 100) === 0;
   // A nil Clearing (10900) is not "unmatched": it has no GIFI line by design.
@@ -51,13 +59,13 @@ export function TbTab(p: Props) {
   );
   const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
-  // Round 5: the type check works from the account's type (standard chart, client's trial balance, the
-  // type chosen in Closebook, else the number). A mismatch needs the reviewer, unless the reviewer matched
-  // the account: their match confirms it.
+  // Round 5: the type check works from the account's type (standard chart, client's books, the type chosen
+  // in Closebook, else the number). Round 6: a mismatch needs the reviewer until they keep it there with a
+  // typed reason, shown on the line.
   const lineOf = (a: CbAccount) => (a.line_no ? byNo.get(a.line_no) : undefined);
   const isMismatch = (a: CbAccount) => typeFlag(a, lineOf(a)) !== "";
-  const confirmed = (a: CbAccount) => a.mapping_source === "reviewer";
-  const mismatchText = (a: CbAccount) => typeFlagText(a, lineOf(a));
+  const confirmed = (a: CbAccount) => typeFlag(a, lineOf(a)) === "confirmed";
+  const mismatchText = (a: CbAccount) => typeFlagText(a, lineOf(a), a.type_confirmed_by ? (p.names?.get(a.type_confirmed_by) ?? "").split(" ")[0] : "", formatDate(a.type_confirmed_at));
   const lockedSet = lockedLines(lines);
   const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "",
     locked: lockedSet.has(l.line_no), normal: normalSide(l) }));
@@ -71,6 +79,7 @@ export function TbTab(p: Props) {
       change: pctChange(Math.round(fin * 100), Math.round(a.last_year * 100)),
       lineNo: a.line_no ?? "", lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
       source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines" : mismatchText(a),
+      typeFlag: typeFlag(a, lineOf(a)), notChecked: typeNotChecked(a),
       tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
       // An account with no balance either year and no entries needs no decision (round 3 item 12).
       unused: a.account_key !== "chart:10900" && unusedOf(a),
@@ -123,7 +132,26 @@ export function TbTab(p: Props) {
               <button type="submit" className="btn-secondary">{thisImport ? "Import again" : "Import"}</button>
             </form>
           )}
+          {/* Round 6 item 2: optional, for the client's own account types (QuickBooks Online: Reports, Account List, Export to Excel). */}
+          {tbFile && thisImport && (
+            <div id="account-list" className="flex w-full flex-wrap items-end justify-between gap-3 border-t border-sand-200 pt-3">
+              <p className="text-sm">{listImport ? <>Account types from {listImport.file_name || "the Account List"}, {formatDateTime(listImport.imported_at)}</> : <>Account types: <span className="text-ink-2">optional. Upload the QuickBooks Online Account List (Reports, Account List, Export to Excel).</span></>}</p>
+              {editable && !locked && (
+                <form action={importAccountList} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="file_id" value={file.id} />
+                  <input type="hidden" name="back" value={base} />
+                  <div><label htmlFor="list_upload" className="label">Account List (CSV or Excel)</label><input id="list_upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
+                  <button type="submit" className="btn-secondary">{listImport ? "Upload again" : "Upload"}</button>
+                </form>
+              )}
+            </div>
+          )}
         </div>
+      )}
+      {noBooksType > 0 && (
+        <p className="mb-4 rounded-lg border border-sand-200 bg-sand-50 px-4 py-2.5 text-sm">
+          Account types not checked for {noBooksType} account{noBooksType === 1 ? "" : "s"}: <a href={`/closebook/${file.id}?step=records#account-list`} className="text-navy-700 underline">upload the QuickBooks Account List</a>.
+        </p>
       )}
 
       {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
