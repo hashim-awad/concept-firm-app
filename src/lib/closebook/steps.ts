@@ -22,6 +22,7 @@ export type StepFacts = {
   unmatched: number;           // accounts with no GIFI line
   waiting: number;             // accounts waiting for the reviewer's decision
   entries: number;
+  bankGaps?: string;           // bank files: the months still missing, one sentence ("" when complete)
   people: { preparer: string; reviewer: string };
 };
 
@@ -31,13 +32,13 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   const bank = fromStatements(f.books);
   const planning = f.docs.filter((d) => d.phase === "planning");
   const setupDone = planning.length > 0 && planning.every((d) => d.status === "signed");
-  const records = bank ? f.statements > 0 : f.imported;
+  const records = bank ? f.statements > 0 && !f.bankGaps : f.imported;
   const matched = !bank && f.imported && f.accounts > 0 && f.unmatched === 0 && f.waiting === 0;
 
   const base: Omit<Step, "state">[] = [
     { key: "setup", n: 1, name: "Set up the file", who: f.people.preparer, note: setupDone ? "Done" : `${s(planning.filter((d) => d.status !== "signed").length, "item")} open` },
     { key: "records", n: 2, name: "Get the records", who: f.people.preparer,
-      note: bank ? (f.statements ? s(f.statements, "statement") + " in" : "Upload the statements") : f.imported ? "Trial balance imported" : "Import the trial balance" },
+      note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All months in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 3, name: bank ? "Code the transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? "Coding arrives next" : !f.imported ? "" : f.unmatched + f.waiting === 0 ? "All matched" : `${f.unmatched + f.waiting} to match` },
     { key: "entries", n: 4, name: "Adjusting entries", who: f.people.preparer, note: f.entries ? s(f.entries, "entry", "entries") : "" },
@@ -55,7 +56,8 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
 
   const next: Record<StepKey, string> = {
     setup: "Set up the file. You can start getting the records now: statements often come in before the letter is signed.",
-    records: bank ? "Upload the bank and card statements, one statement per upload, in Concept's template." : "Import this year's trial balance.",
+    records: !bank ? "Import this year's trial balance." : f.statements && f.bankGaps ? `Still missing: ${f.bankGaps}. You can start coding the lines already in.`
+      : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? "Code each transaction to an account from the standard chart. This screen arrives next; the statements are in." : `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`,
     entries: "Post the year-end entries, then explain the flagged changes on the lead sheets.",
     review: `Review by ${f.people.reviewer}.`,

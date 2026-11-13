@@ -37,6 +37,13 @@ test("imported trial balance: step 3 is Match accounts to GIFI, done when every 
   assert.equal(b.steps[0].state, "done");
 });
 
+test("bank files: step 2 stays current while months are missing, and says which", () => {
+  const r = fileSteps(facts({ statements: 3, bankGaps: "Chequing: Mar" }));
+  assert.equal(r.current, "records");
+  assert.match(r.next, /Still missing: Chequing: Mar/);
+  assert.equal(r.steps[1].note, "Months still missing");
+});
+
 test("old links land on the right step", () => {
   assert.equal(stepFromLegacy("tb", "transactions", "statements"), "records");
   assert.equal(stepFromLegacy("tb", "gifi", "statements"), "t2");

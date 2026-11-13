@@ -8,7 +8,6 @@ import { importTrialBalance, runMatching } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 import { GifiView } from "./gifi-view";
-import { BankView } from "./bank-view";
 import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
@@ -88,7 +87,6 @@ export function TbTab(p: Props) {
         {shown("lines") && pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
         {shown("lead") && pill("lead", "Lead sheets")}
         {shown("gifi") && pill("gifi", "GIFI")}
-        {!p.pills && file.file_type === "full" && pill("transactions", "Bank and cards")}
       </div>}
 
       {p.showImport !== false && (
@@ -122,8 +120,7 @@ export function TbTab(p: Props) {
           <button type="submit" className="btn">Match them now</button>
         </form>
       )}
-      {view === "transactions" && p.bank ? <BankView fileId={file.id} bank={p.bank} editable={editable} locked={locked} />
-        : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements under Bank and cards."}</p>
+      {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (

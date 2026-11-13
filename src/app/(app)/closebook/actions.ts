@@ -175,7 +175,7 @@ export async function explainFlagInline(fileId: string, account: string, reason:
 // line), the balance is checked here and again in the database, which refuses anything that does not tie.
 export async function uploadBankStatement(formData: FormData) {
   const id = s(formData, "file_id");
-  const back = `/closebook/${id}?tab=tb&view=transactions`;
+  const back = `/closebook/${id}?step=records`;
   await editor(back);
   const upload = formData.get("upload");
   if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
@@ -193,21 +193,26 @@ export async function uploadBankStatement(formData: FormData) {
     redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
   }
   const account = s(formData, "account");
+  // The statement period: as the preparer confirmed it, else the file's first and last dates.
+  const dates = read.rows.map((r) => r.date).sort();
+  const pStart = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_start")) ? s(formData, "period_start") : dates[0];
+  const pEnd = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_end")) ? s(formData, "period_end") : dates[dates.length - 1];
   const { data, error } = await (await createClient()).rpc("cb_upload_bank", {
+    p_period_start: pStart, p_period_end: pEnd,
     p_file: id, p_account: account && account !== "new" ? account : null, p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_file_name: f.name,
     p_opening: opening! / 100, p_closing: closing! / 100,
     p_rows: read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })),
   });
   if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
-  const d = data as { statement: string; account: string; lines: number; first: string; last: string; outside_year: number };
+  const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(`${back}&account=${encodeURIComponent(account && account !== "new" ? account : "")}`, "msg",
+  redirect(withMessage(`${back}&account=${encodeURIComponent(d.account_id)}`, "msg",
     `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
 }
 
 export async function deleteBankStatement(formData: FormData) {
   const id = s(formData, "file_id");
-  const back = `/closebook/${id}?tab=tb&view=transactions`;
+  const back = `/closebook/${id}?step=records`;
   await editor(back);
   const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(formData, "statement") });
   if (error) redirect(withMessage(back, "error", error.message));

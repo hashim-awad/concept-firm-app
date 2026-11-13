@@ -13,6 +13,7 @@ import { EntriesTab } from "./entries-tab";
 import { BankView } from "./bank-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
+import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page, 9 steps"; mockup
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the 9 steps down the left, the page opens on the
@@ -31,13 +32,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const editable = canEdit(access, "closebook");
   const people = { preparer: firstName(names.get(file.preparer_id) ?? ""), reviewer: firstName(names.get(file.reviewer_id) ?? "") };
   const bankFile = fromStatements(file.books);
-  const { count: statements } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
-  const { steps, current, next } = fileSteps({
-    books: file.books, docs, statements: statements ?? 0, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
+  const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+  // Bank files: the months still missing per account set step 2's note and next job.
+  const bank = bankFile ? await loadBank(supabase, id, str(sp.account)) : null;
+  const statements = bank?.statements.length ?? 0;
+  const bankGaps = bank ? missingText(bank.accounts.map((a) => ({ name: a.name,
+    gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
+  const { steps, current, next } = fileSteps({ bankGaps,
+    books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
     entries: entries.length, people,
   });
-  const str = (v: unknown) => (typeof v === "string" ? v : undefined);
   const asked = str(sp.step) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
@@ -83,7 +88,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     );
   } else if (step === "records") {
     body = bankFile
-      ? <BankView fileId={id} bank={await loadBank(supabase, id, str(sp.account))} editable={editable} locked={file.phase === "locked"} />
+      ? <BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} adding={sp.account === "new"} />
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile
