@@ -15,8 +15,7 @@ import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
-import { OpeningCard } from "./opening-card";
-import { isImportedRow } from "@/lib/closebook/opening";
+import { OpeningSchedule } from "./opening-schedule";
 import { buildReports } from "@/lib/closebook/reports";
 import { ReportsView } from "./reports-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
@@ -57,12 +56,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const sts = (st ?? []) as { status: string }[];
   const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
   const setup = (file.setup ?? {}) as Record<string, unknown>;
-  // Bank files: last year's balances and why "Opening balances to enter" has not cleared.
+  // Bank files: step 2, last year's balance sheet; after sign-off, any difference with the first statements.
   const openingRow = accounts.find((a) => a.account_key === "opening");
-  // Route 3: the prior accountant's trial balance rows, waiting to become opening balances.
-  const priorRows = bankFile ? accounts.filter((a) => isImportedRow(a.account_key) && a.last_year !== 0) : [];
-  const openingIssue = !bankFile ? "" : !file.opening_source ? "enter last year's balances (import last year's GIFI file or type it in by GIFI code)." : openingRow ? openingRow.reviewer_reason || "they do not tie." : "";
-  const { steps, current, next } = fileSteps({ bankGaps, coding, openingIssue,
+  const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source };
+  const { steps, current, next } = fileSteps({ bankGaps, coding, opening,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
     entries: entries.length, people,
@@ -95,7 +92,22 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   })() : null;
 
   let body: React.ReactNode;
-  if (step === "setup") {
+  if (step === "opening") {
+    if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
+    else {
+      const { info } = await gifiCodeInfo(supabase);
+      const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
+      const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
+      const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
+      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", id).order("code");
+      const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
+      body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
+        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
+        pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
+        signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} />;
+    }
+  } else if (step === "setup") {
     body = (
       <>
         <section className="card mb-4 overflow-x-auto p-0">
@@ -143,17 +155,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     );
   } else if (step === "records") {
     body = bankFile
-      ? <div className="grid gap-4">{await (async () => {
-          const { info } = await gifiCodeInfo(supabase);
-          const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", id).order("code");
-          const obs = (ob ?? []) as { code: string; amount: number }[];
-          return <OpeningCard fileId={id} source={file.opening_source ?? null} setAt={file.opening_set_at ?? null} codeCount={obs.length}
-            issue={file.opening_source ? openingIssue : ""} panel={str(sp.opening) ?? null} error={str(sp.opening) ? messageFrom(sp.error) ?? null : null}
-            infoList={[...info.entries()]} initial={obs.map((o) => ({ code: o.code, amount: Number(o.amount).toFixed(2) }))}
-            reStated={file.opening_re_stated === null || file.opening_re_stated === undefined ? "" : Number(file.opening_re_stated).toFixed(2)} editable={editable && file.phase !== "locked"}
-            imported={priorRows.length} unmatched={priorRows.filter((a) => !a.line_no).length} />;
-        })()}
-        {priorRows.length > 0 && priorRows.some((a) => !a.line_no) && tb("records", ["accounts"], "attention", false)}<BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+      ? <div className="grid gap-4"><BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile

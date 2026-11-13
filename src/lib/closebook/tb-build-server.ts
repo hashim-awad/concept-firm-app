@@ -39,7 +39,7 @@ async function carryFromLastYear(supabase: SupabaseClient, fileId: string, clien
 }
 
 export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promise<string | null> {
-  const { data: f } = await supabase.from("cb_files").select("id, books, setup, year_end, client_id, opening_re_stated, client:client_id(province)").eq("id", fileId).maybeSingle();
+  const { data: f } = await supabase.from("cb_files").select("id, books, setup, year_end, client_id, opening_re_stated, opening_ni_typed, client:client_id(province)").eq("id", fileId).maybeSingle();
   if (!f || !["statements", "paper"].includes(f.books as string)) return null;
   const yearEnd = f.year_end as string;
   const province = ((f.client as unknown as { province: string } | null)?.province ?? "ON");
@@ -63,7 +63,8 @@ export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promi
   }
   let opening: BuildOpening | null = null;
   if (ob?.length) {
-    const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info);
+    const ni = f.opening_ni_typed === null || f.opening_ni_typed === undefined ? null : Math.round(Number(f.opening_ni_typed) * 100);
+    const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, ni);
     opening = { lines: o.lines, reClosingCents: o.reClosingCents, reStatedCents: reStated };
   }
   const firstOpening = new Map<string, number>();

@@ -1,7 +1,6 @@
-// Opening balances for files built from bank and card CSVs (Hashim, Nov 13, 2026; BRIEF.md "Opening
-// balances"). Last year's balances arrive as GIFI codes, whatever the route: last year's Closebook file,
-// a prior-year GIFI file (Closebook layout: "code",amount lines, no total lines, 3660 and the 3700s
-// included), or typed in by GIFI code. Pure and tested.
+// Opening balances for files built from bank and card CSVs (Hashim, Nov 13 and 14, 2026; BRIEF.md "Opening
+// balances"): last year's balances by GIFI code, filled from last year's Closebook file or typed in step 2
+// from the prior T2 or the CRA assessment. A GIFI file is never an input, only the output to ProFile.
 
 export type CodeInfo = { line_no: string; name: string; type: string };   // the master line a code lands on
 export type OpeningLine = { code: string; line_no: string; name: string; type: string; debitCents: number };
@@ -11,27 +10,10 @@ const n = (c: string) => Number(c);
 export const isDeduction = (c: string) => n(c) >= 3700 && n(c) <= 3739;          // dividends and the like
 export const isReAdjustment = (c: string) => n(c) >= 3740 && n(c) <= 3848;
 
-// "GIFI01",... header (skipped), then "1002",207957.44 lines. Also accepts code,amount without quotes.
-export function parseGifiFile(text: string): { codes: [string, number][]; errors: string[] } {
-  const codes: [string, number][] = [], errors: string[] = [];
-  const seen = new Set<string>();
-  text.replace(/^﻿/, "").split(/\r?\n/).forEach((raw, i) => {
-    const line = raw.trim();
-    if (!line || /^"?GIFI01"?/i.test(line)) return;
-    const m = /^"?(\d{4})"?\s*[,;\t]\s*"?(-?\d+(?:\.\d{1,2})?)"?$/.exec(line);
-    if (!m) { errors.push(`Line ${i + 1}: expected "code",amount, found ${line.slice(0, 40)}`); return; }
-    if (seen.has(m[1])) { errors.push(`Line ${i + 1}: GIFI ${m[1]} appears twice.`); return; }
-    seen.add(m[1]);
-    codes.push([m[1], Math.round(Number(m[2]) * 100)]);
-  });
-  if (!codes.length && !errors.length) errors.push("The file has no GIFI lines.");
-  return { codes, errors };
-}
-
 // GIFI sign: assets and expenses as debits; liabilities, equity and revenue as credits; deductions
 // (3700s) positive. Turned into debit-positive balances; closing retained earnings worked out as
 // 3660 + net income − dividends + adjustments (what last year's 3849 should show).
-export function openingFrom(codes: [string, number][], info: Map<string, CodeInfo>): { opening: Opening; errors: string[] } {
+export function openingFrom(codes: [string, number][], info: Map<string, CodeInfo>, niTypedCents: number | null = null): { opening: Opening; errors: string[] } {
   const errors: string[] = [];
   const lines: OpeningLine[] = [];
   let revenue = 0, expenses = 0, deductions = 0, adjustments = 0, reStart = 0;
@@ -47,10 +29,8 @@ export function openingFrom(codes: [string, number][], info: Map<string, CodeInf
     else if (isDeduction(code)) deductions += cents;
     else if (isReAdjustment(code)) adjustments += cents;
   }
-  const netIncome = revenue - expenses;
+  // Last year's net income: from Schedule 125 when entered, else as typed (step 2, Hashim Nov 14).
+  const has125 = lines.some((l) => l.type === "Revenue" || l.type === "Expense");
+  const netIncome = has125 ? revenue - expenses : niTypedCents ?? 0;
   return { opening: { lines, netIncomeCents: netIncome, reStartCents: reStart, reClosingCents: reStart + netIncome - deductions + adjustments }, errors };
 }
-
-// A trial balance row the file builds itself (bank, chart, GIFI, holding) versus one imported from the
-// prior accountant's trial balance, which waits to become opening balances (route 3).
-export const isImportedRow = (key: string) => !/^(chart|bank|gifi):/.test(key) && key !== "uncoded" && key !== "opening";
