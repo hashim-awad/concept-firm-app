@@ -21,7 +21,7 @@ select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 
 select (public.cb_upload_bank(:'f', null, 'Visa 1234', 'card', 'v.csv', 0, 452.4,
   '[{"line":2,"date":"2026-01-02","description":"SAMPLE PIZZA","amount":113},{"line":3,"date":"2026-01-05","description":"SAMPLE SOFTWARE","amount":226},{"line":4,"date":"2026-01-09","description":"SAMPLE RENT","amount":113.4}]',
   '2026-01-01', '2026-01-31')) ->> 'account_id' as acc \gset
-select test.check('the standard chart and the tax codes are in Settings', (select count(*) from public.cb_chart_accounts) = 145
+select test.check('the standard chart and the tax codes are in Settings', (select count(*) from public.cb_chart_accounts) = 146
   and (select sum(rate) from public.cb_sales_tax_parts where code = 'MEALS_HST_50') = 0.13
   and (select count(*) from public.cb_sales_tax_codes where provinces is null) = 3);
 select test.check('the standard chart is numbered in 5 digits, apart from the GIFI codes', not exists (select 1 from public.cb_chart_accounts where number !~ '^\d{5}$')

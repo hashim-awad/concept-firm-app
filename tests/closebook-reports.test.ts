@@ -84,7 +84,7 @@ test("Birch Dummy: equity shows share capital, retained earnings at the start, n
   const tb = trialBalance(accounts, postings);
   const s = statements(tb, (l) => (l ? I[l] ?? null : null));
   assert.deepEqual(s.bs.equity.groups.map((g) => [g.name, g.now, g.last]), [
-    ["Share capital", 10000, 10000], ["Retained earnings, start of year", 4173000, 2948000], ["Net income", 954675, 2025000], ["Dividends", 0, -800000]]);
+    ["Share capital", 10000, 10000], ["Retained earnings, start of year", 4173000, 2948000], ["Prior period adjustment", 0, 0], ["Net income", 954675, 2025000], ["Dividends", 0, -800000]]);
   assert.deepEqual([s.bs.equity.now, s.bs.equity.last], [5137675, 4183000]);
   assert.equal(s.bs.totalLE.last, s.bs.assets.last);
   // The trial balance's last-year column balances with last year's net income from the T2 (20,250.00 credit).
@@ -92,8 +92,11 @@ test("Birch Dummy: equity shows share capital, retained earnings at the start, n
   // By group, in the statements' order; retained earnings holds last year's net income line.
   const g = tbByGroup(tb, (l) => (l ? I[l] ?? null : null));
   assert.deepEqual(g.groups.map((x) => x.name), ["Cash and bank", "Receivables", "Capital assets", "Payables and accruals", "Taxes payable", "Shareholder balances",
-    "Share capital", "Retained earnings", "Dividends", "Revenue", "Operating expenses", "Not yet sorted"]);
-  assert.deepEqual(g.groups.find((x) => x.code === "RE")!.rows.map((r) => r.name), ["31000", "Net income last year (from the T2)"]);
+    "Share capital", "Retained earnings", "Dividends", "Revenue", "Operating expenses", "Last year's income statement", "Not yet sorted"]);
+  // Last year's net income from the T2 has its own group after the income statement groups, so
+  // retained earnings show last year's real opening balance (29,480.00), not a balance that never existed.
+  assert.deepEqual(g.groups.find((x) => x.code === "RE")!.rows.map((r) => r.name), ["31000"]);
+  assert.equal(g.groups.find((x) => x.code === "RE")!.total.last, -2948000);
   assert.equal(g.groups[0].total.name, "Total cash and bank");
   assert.deepEqual([g.total.prelim, g.total.final, g.total.last, g.total.diff], [0, 0, 0, 0], "every column totals zero");
 });
@@ -105,7 +108,7 @@ test("statements: grouped by lead sheet, net income in equity, not yet sorted un
   assert.equal(s.pl.expenses.now, 10000);
   assert.equal(s.pl.net.now, 90000);
   assert.deepEqual(s.bs.assets.groups.map((g) => [g.name, g.now]), [["A Cash and bank", 599700]]);
-  assert.deepEqual(s.bs.equity.groups.map((g) => [g.code, g.now]), [["SC", 0], ["RE", 0], ["net-income", 90000], ["DIV", 0]]);
+  assert.deepEqual(s.bs.equity.groups.map((g) => [g.code, g.now]), [["SC", 0], ["RE", 0], ["PPA", 0], ["net-income", 90000], ["DIV", 0]]);
   // Opening balances to enter (5,000.00 credit) and the uncoded payment (20.00 debit) are not yet sorted.
   assert.equal(s.bs.unsorted!.now, 500000 - 2000);   // shown on the credit side: the uncoded payment is a debit
   assert.ok(s.bs.balanced);
@@ -197,4 +200,45 @@ test("working paper PDF: stamp, header block with the W/P box, footer with the t
   assert.equal(table.layout.fillColor(5, null, 7), "#F3F5F9");
   assert.equal(table.layout.fillColor(5, null, 8), "#F3F5F9");
   assert.equal(table.layout.fillColor(5, null, 6), null);
+});
+
+test("Birch after the entries: a prior period adjustment on 31500 has its own equity line; retained earnings in the trial balance", () => {
+  const I: Record<string, LineInfo> = { "1002.00": INFO["1002.00"], "3500.00": { type: "Equity", sheet: "FF", sheetName: "Share capital and surplus" },
+    "3600.00": { type: "Equity", sheet: "GG", sheetName: "Retained earnings and dividends" }, "3720.00": { type: "Equity", sheet: "GG", sheetName: "Retained earnings and dividends" },
+    "2620.00": { type: "Liability", sheet: "AA", sheetName: "Payables and accruals" } };
+  const accounts: RepAccount[] = [
+    { key: "chart:10000", number: "10000", name: "Chequing", line_no: "1002.00", lastCents: 2958000 },
+    { key: "chart:30000", number: "30000", name: "Common shares", line_no: "3500.00", lastCents: -10000 },
+    { key: "chart:31000", number: "31000", name: "Retained earnings", line_no: "3600.00", lastCents: -2948000 },
+    { key: "chart:31500", number: "31500", name: "Prior period adjustments", line_no: "3720.00", lastCents: 0 },
+    { key: "chart:21100", number: "21100", name: "Accrued liabilities", line_no: "2620.00", lastCents: 0 },
+  ];
+  const post = (key: string, cents: number, kind: Posting["kind"] = "opening"): Posting => ({ key, cents, date: "2026-01-01", kind, ref: "", label: "" });
+  const tb = trialBalance(accounts, [post("chart:10000", 4183000), post("chart:30000", -10000), post("chart:31000", -4173000),
+    { ...post("chart:31500", 25000, "entry"), entryKind: "AJE" }, { ...post("chart:21100", -25000, "entry"), entryKind: "AJE" }]);
+  const s = statements(tb, (l) => (l ? I[l] ?? null : null));
+  assert.deepEqual(s.bs.equity.groups.map((g) => [g.name, g.now]), [["Share capital", 10000], ["Retained earnings, start of year", 4173000], ["Prior period adjustment", -25000], ["Net income", 0], ["Dividends", 0]]);
+  const re = tbByGroup(tb, (l) => (l ? I[l] ?? null : null)).groups.find((g) => g.code === "RE")!;
+  assert.deepEqual(re.rows.map((r) => r.number), ["31000", "31500"]);
+  assert.deepEqual([re.total.final, re.total.last, re.total.diff, pctChange(re.total.final, re.total.last)], [-4148000, -2948000, -1200000, "40.7%"], "Hashim's figures: (41,480.00), (29,480.00), (12,000.00), 40.7%");
+});
+
+test("client entry list: DRAFT FOR REVIEW and the firm's name on every page; plain-words note, no em dashes", async () => {
+  const { wpDocument, tbGroupSection, FIRM_LINE } = await import("../src/lib/closebook/wp-doc.ts");
+  const { CB_CLIENT } = await import("../src/lib/closebook/client-wording.ts");
+  const { postings, accounts } = sample();
+  const g = tbByGroup(trialBalance(accounts, postings), info);
+  const ctx = { client: "Cedar Dummy Realty Inc.", yearEnd: "2026-12-31", yearStart: "2026-01-01", packageName: "Entries to record in your books",
+    stamp: "Entries to record in your books", generated: "Nov 15, 2026, 9:00 AM", preparedBy: "", reviewedBy: "", wpBox: false, client_copy: { draft: true } };
+  const doc = wpDocument(ctx, [tbGroupSection(ctx, g.groups, g.total, "TB.1", CB_CLIENT.tbNote.text)]);
+  assert.equal(doc.header.columns[0].text, "DRAFT FOR REVIEW");
+  const foot = doc.footer(2);
+  assert.equal(foot.stack[0].canvas[0].lineColor, "#86BC26", "the package's green rule");
+  assert.equal(foot.stack[1].columns[0].text, "Cedar Dummy Realty Inc. · Entries to record in your books · Generated Nov 15, 2026, 9:00 AM");
+  assert.equal(foot.stack[2].text, FIRM_LINE);
+  assert.match(FIRM_LINE, /Concept Accounting & Advisory Professional Corporation/);
+  const text = JSON.stringify(doc.content);
+  assert.ok(text.includes("How to read this page."));
+  assert.ok(!text.includes("Prelim ="), "not the working paper's note");
+  for (const p of Object.values(CB_CLIENT)) assert.ok(!/[—]/.test(p.text), "no em dashes");
 });

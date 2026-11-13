@@ -66,28 +66,34 @@ export function pctChange(final: number, prior: number): string {
 // Equity on the balance sheet (Hashim, Nov 15): Share capital; Retained earnings, start of year; Net
 // income; Dividends. Prior period adjustments and other items affecting retained earnings (3720, 3740)
 // sit with retained earnings at the start of the year, as a restatement.
-const EQUITY = { SC: "Share capital", RE: "Retained earnings, start of year", DIV: "Dividends" } as const;
+// A prior period adjustment (3720, 31500) shows on its own line under retained earnings at the start of
+// the year (Hashim, Nov 15, 2026).
+const EQUITY = { SC: "Share capital", RE: "Retained earnings, start of year", PPA: "Prior period adjustment", DIV: "Dividends" } as const;
 const equityGroup = (line_no: string | null): keyof typeof EQUITY => {
   const g = gifiOf(line_no);
-  return g >= 3700 && g <= 3702 ? "DIV" : g >= 3600 && g <= 3849 ? "RE" : "SC";
+  return g >= 3700 && g <= 3702 ? "DIV" : g === 3720 ? "PPA" : g >= 3600 && g <= 3849 ? "RE" : "SC";
 };
 
 // The groups of a trial balance or statement, in the statements' order: assets, liabilities, equity,
 // revenue, expenses, then not yet sorted.
 type Group = { order: number; code: string; name: string };
 const SECTION_ORDER: Record<string, number> = { Asset: 0, Liability: 1, Equity: 2, Revenue: 3, Expense: 4 };
+// withCode: the statements (lead sheet codes, equity in its five lines); without: the trial balance by
+// group, where a prior period adjustment stays in retained earnings and last year's net income from the
+// T2 has its own group after income taxes (it stands in for last year's income statement).
 function groupOf(r: TbLine, info: (l: string | null) => LineInfo | null, withCode: boolean): Group {
-  if (r.key === NI_LAST) return { order: 2, code: "RE", name: "Retained earnings" };
+  if (r.key === NI_LAST) return { order: 4.5, code: NI_LAST, name: "Last year's income statement" };
   const i = info(r.line_no);
   if (!i) return { order: 5, code: UNSORTED, name: "Not yet sorted" };
   if (i.type === "Equity") {
     const e = equityGroup(r.line_no);
-    return { order: 2, code: e, name: withCode ? EQUITY[e] : e === "RE" ? "Retained earnings" : EQUITY[e] };
+    if (!withCode) return e === "RE" || e === "PPA" ? { order: 2, code: "RE", name: "Retained earnings" } : { order: 2, code: e, name: EQUITY[e] };
+    return { order: 2, code: e, name: EQUITY[e] };
   }
   const name = i.sheet ? (withCode ? `${i.sheet} ${i.sheetName}` : i.sheetName) : "Other";
   return { order: SECTION_ORDER[i.type] ?? 5, code: i.sheet ?? "~", name };
 }
-const EQ_ORDER = ["SC", "RE", NET_INCOME, "DIV"];
+const EQ_ORDER = ["SC", "RE", "PPA", NET_INCOME, "DIV"];
 const groupSort = (a: Group, b: Group) => a.order - b.order
   || (a.order === 2 ? EQ_ORDER.indexOf(a.code) - EQ_ORDER.indexOf(b.code) : a.code.length - b.code.length || a.code.localeCompare(b.code, "en", { numeric: true }));
 
@@ -107,7 +113,7 @@ export function tbByGroup(tb: TbLine[], info: (l: string | null) => LineInfo | n
     map.get(k)!.rows.push(r);
   }
   const groups = [...map.values()].sort((a, b) => groupSort(a.g, b.g))
-    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, `Total ${g.name.toLowerCase()}`, rows) }));
+    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, `Total ${g.name.charAt(0).toLowerCase()}${g.name.slice(1)}`, rows) }));
   return { groups, total: sumRows("total", "Total (debits less credits)", tb) };
 }
 
@@ -147,7 +153,7 @@ export function statements(tbAll: TbLine[], info: (line_no: string | null) => Li
   const net = { now: revenue.now - expenses.now, last: revenue.last - expenses.last };
   const assets = section("Assets", typed("Asset"), 1, info);
   const liabilities = section("Liabilities", typed("Liability"), -1, info);
-  const equity = section("Equity", typed("Equity"), -1, info, ["SC", "RE", "DIV"]);
+  const equity = section("Equity", typed("Equity"), -1, info, ["SC", "RE", "PPA", "DIV"]);
   // Accounts without a GIFI line yet (not yet coded, opening balances to enter, not mapped).
   const open = section("Not yet sorted", tb.filter((r) => !info(r.line_no)), -1, info);
   const unsorted = open.groups.length && (open.now || open.last) ? open : null;

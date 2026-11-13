@@ -22,3 +22,5 @@ select public.cb_add_entry(:'f', 'AJE', 'prior_period', 'Missed accrual last yea
 select test.check('a prior period adjustment in the client''s books goes to a new "Prior period adjustments" account on 3720',
   (select name || '|' || qbo_type || '|' || line_no from public.cb_accounts where file_id = :'f' and account_key = 'new:prior period adjustments') = 'Prior period adjustments|Equity|3720.00');
 select test.check('no GIFI-line account was created in the client''s books', not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key like 'line:%'));
+select test.check('32200 Dividends declared is on GIFI 3700, after the other dividend accounts', (select name || '|' || line_no from public.cb_chart_accounts where number = '32200') = 'Dividends declared|3700.00'
+  and (select sort_order from public.cb_chart_accounts where number = '32200') = (select sort_order + 1 from public.cb_chart_accounts where number = '32100'));

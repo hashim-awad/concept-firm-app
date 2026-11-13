@@ -8,6 +8,8 @@ import { loadReportData } from "./report-data";
 import { entryNo, journal, KIND_LABEL, ledger, netIncomeBox, statements, tbByGroup, trialBalance } from "./reports";
 import { entriesSection, journalSection, ledgerSection, newAccountsSection, statementSection, tbFlatSection, tbGroupSection, wpDocument, type EntryDoc, type WpCtx } from "./wp-doc";
 import { generatedAt, renderWpPdf } from "./wp-pdf";
+import { CB_CLIENT, cbText } from "./client-wording";
+import { loadWordingState } from "../studio/wording-state";
 
 export const WP_STAMP = "Working paper: not for the client";
 export const CLIENT_STAMP = "Entries to record in your books";
@@ -23,11 +25,14 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   const tb = trialBalance(data.accounts, data.postings);
   const box = netIncomeBox(data.accounts, data.postings, data.info);
   const client = f.client?.legal_name ?? "";
-  const unapproved = f.entries.some((e) => !e.reviewed_at);
+  // "DRAFT FOR REVIEW" until the reviewer signs step 6 (Review). Step 6 has no sign-off yet, so the
+  // client's copy stays a draft until that sign-off is built.
+  const reviewSigned = false;
+  const texts = mode === "client" ? (await loadWordingState(supabase)).live?.texts ?? {} : {};
   const ctx: WpCtx = {
     client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "",
     // Nothing goes to a client before review: until every entry is approved the list says so.
-    stamp: mode === "client" ? `${CLIENT_STAMP}${unapproved ? " · Draft for review" : ""}` : WP_STAMP,
+    stamp: mode === "client" ? CLIENT_STAMP : WP_STAMP, client_copy: mode === "client" ? { draft: !reviewSigned } : undefined,
     preparedBy: f.names.get(f.file.preparer_id) ?? "", reviewedBy: "", wpBox: mode === "wp",
   };
   const name = (key: string) => { const a = data.accounts.find((x) => x.key === key); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : key; };
@@ -48,12 +53,12 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
     const g = tbByGroup(tb, data.info);
     // Plain words for the client: no GIFI wording in a group heading.
     if (mode === "client") for (const x of g.groups) if (x.code === "50") { x.name = "Income taxes"; x.total.name = "Total income taxes"; }
-    title = ctx.packageName = "Trial balance by group and journal entries";
-    sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client"), entriesSection(ctx, entries, box, "TB.2")];
+    title = ctx.packageName = mode === "client" ? CLIENT_STAMP : "Trial balance by group and journal entries";
+    sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client" ? cbText(texts, CB_CLIENT.tbNote) : undefined), entriesSection(ctx, entries, box, "TB.2")];
     if (mode === "client") {
       const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
       const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));
-      if (fresh.length) sections.unshift(newAccountsSection(ctx, fresh));
+      if (fresh.length) sections.unshift(newAccountsSection(ctx, fresh, cbText(texts, CB_CLIENT.newAccountsIntro)));
     }
   } else if (q.report === "tb") {
     title = ctx.packageName = "Trial balance";

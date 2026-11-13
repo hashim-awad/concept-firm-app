@@ -12,7 +12,11 @@ export const C = { navy: "#1A3C7C", grey: "#5B6475", red: "#B91C1C", border: "#C
 export type WpCtx = {
   client: string; yearEnd: string; yearStart: string; packageName: string; stamp: string; generated: string;
   preparedBy: string; reviewedBy: string; wpBox: boolean;
+  // The client's copy (client entry list): "DRAFT FOR REVIEW" top left and the firm's name in the footer,
+  // in the same places as on the year-end package (Year-end-package-standard, render_fs.js).
+  client_copy?: { draft: boolean };
 };
+export const FIRM_LINE = "Prepared by Concept Accounting & Advisory Professional Corporation | Registered with CPA Ontario";
 
 const n2 = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 // Debits positive, credits in brackets, "–" for zero; the grand total shows 0.00.
@@ -48,15 +52,16 @@ const head = (t: string, right = false, extra: any = {}) => ({ text: t, bold: tr
 const num = (c: number, bold = false, extra: any = {}) => ({ text: money(c), alignment: "right", bold, border: NO, ...extra });
 
 // The client entry list opens with the accounts the client needs to create before recording the entries.
-export function newAccountsSection(ctx: WpCtx, accounts: { name: string; type: string }[]): any[] {
+export function newAccountsSection(ctx: WpCtx, accounts: { name: string; type: string }[], intro: string): any[] {
   const body: any[] = [[head("Account name"), head("Account type")], ...accounts.map((a) => [{ text: a.name, border: NO }, { text: a.type, border: NO }])];
   return [headerBlock(ctx, "New accounts to create in your books", ""),
-    { text: "Create these accounts in your books first. The entries that follow use them.", fontSize: 9.5, margin: [0, 0, 0, 10] },
+    { text: intro, fontSize: 9.5, margin: [0, 0, 0, 10] },
     { table: { headerRows: 1, widths: [260, 200], body }, layout: { ...tableLayout(), hLineWidth: (i: number) => (i > 1 ? 0.4 : 0), hLineColor: () => C.border }, fontSize: 9.5 }];
 }
 
 // Trial balance by group (reference pages 1 and 2).
-export function tbGroupSection(ctx: WpCtx, groups: TbGroup[], total: TbLine, wpRef: string, client = false): any[] {
+// clientNote: the client's copy uses the plain-words note from Templates instead of the working paper's.
+export function tbGroupSection(ctx: WpCtx, groups: TbGroup[], total: TbLine, wpRef: string, clientNote?: string): any[] {
   const ye = ctx.yearEnd;
   const body: any[] = [[head("Account", false, { colSpan: 2 }), {}, head(`Prelim ${year(ye)}`, true), head("Adjust", true), head("Reclass", true), head(`Final ${year(ye)}`, true),
     head(`Prior ${priorYear(ye)}`, true), head("$ change", true), head("% change", true)]];
@@ -73,12 +78,11 @@ export function tbGroupSection(ctx: WpCtx, groups: TbGroup[], total: TbLine, wpR
   const dbl = (c: number) => ({ text: moneyTotal(c), alignment: "right", bold: true, border: TOP, decoration: "underline", decorationStyle: "double" });
   body.push([{ text: "", border: NO }, { text: total.name, bold: true, border: TOP, margin: [0, 2, 0, 0] }, dbl(total.prelim), dbl(total.adjust), dbl(total.reclass), dbl(total.final), dbl(total.last),
     dbl(total.diff), { text: "", border: TOP }]);
-  const note = client
-    ? "Debits are shown as positive and credits in brackets. % change compares the size of each balance (a growing liability or revenue shows a positive %); n/m when the balance changed side. Prelim = your balances before our entries; Adjust = adjusting and tax entries; Reclass = reclassifying entries."
-    : "Debits are shown as positive and credits in brackets. % change compares the size of each balance (a growing liability or revenue shows a positive %); n/m when the balance changed side. Prelim = balances before Closebook entries; Adjust = adjusting and tax entries; Reclass = reclassifying entries.";
+  const note = clientNote
+    ?? "Debits are shown as positive and credits in brackets. % change compares the size of each balance (a growing liability or revenue shows a positive %); n/m when the balance changed side. Prelim = balances before Closebook entries; Adjust = adjusting and tax entries; Reclass = reclassifying entries.";
   return [headerBlock(ctx, "Trial balance by group", wpRef),
     { table: { headerRows: 1, dontBreakRows: true, widths: [44, "*", 62, 58, 58, 64, 64, 64, 50], body }, layout: tableLayout([7, 8]), fontSize: 8.5 },
-    { text: note, fontSize: 7.5, color: C.grey, margin: [0, 10, 0, 0] }];
+    { text: note, fontSize: clientNote ? 9 : 7.5, color: clientNote ? C.ink : C.grey, margin: [0, 10, 0, 0] }];
 }
 
 // Trial balance, flat (no groups).
@@ -197,9 +201,17 @@ export function wpDocument(ctx: WpCtx, sections: any[][]): any {
   return {
     pageSize: "LETTER", pageOrientation: "landscape", pageMargins: [43, 50, 43, 40],
     defaultStyle: { font: "Helvetica", fontSize: 9, color: C.ink },
-    header: { text: ctx.stamp.toUpperCase(), alignment: "center", bold: true, fontSize: 7.5, color: C.red, margin: [0, 20, 0, 0], characterSpacing: 0.2 },
-    footer: (cur: number) => ({ columns: [{ text: `${ctx.client} · ${ctx.packageName} · Generated ${ctx.generated}`, fontSize: 7, color: C.grey },
-      { text: `Page ${cur}`, alignment: "right", fontSize: 7, color: C.grey, width: 60 }], margin: [36, 14, 36, 0] }),
+    header: ctx.client_copy
+      ? { columns: [{ text: ctx.client_copy.draft ? "DRAFT FOR REVIEW" : "", bold: true, fontSize: 8, color: "#C00000", width: 160 },
+          { text: ctx.stamp.toUpperCase(), alignment: "center", bold: true, fontSize: 7.5, color: C.red, characterSpacing: 0.2 }, { text: "", width: 160 }], margin: [43, 20, 43, 0] }
+      : { text: ctx.stamp.toUpperCase(), alignment: "center", bold: true, fontSize: 7.5, color: C.red, margin: [0, 20, 0, 0], characterSpacing: 0.2 },
+    footer: (cur: number) => (ctx.client_copy
+      ? { stack: [
+          { canvas: [{ type: "line", x1: 0, y1: 0, x2: 706, y2: 0, lineWidth: 0.75, lineColor: "#86BC26" }] },
+          { columns: [{ text: `${ctx.client} · ${ctx.packageName} · Generated ${ctx.generated}`, fontSize: 7, color: "#666666" }, { text: `Page ${cur}`, alignment: "right", fontSize: 7, color: "#666666", width: 60 }], margin: [0, 3, 0, 0] },
+          { text: FIRM_LINE, fontSize: 7, color: "#888888", margin: [0, 1, 0, 0] }], margin: [43, 6, 43, 0] }
+      : { columns: [{ text: `${ctx.client} · ${ctx.packageName} · Generated ${ctx.generated}`, fontSize: 7, color: C.grey },
+        { text: `Page ${cur}`, alignment: "right", fontSize: 7, color: C.grey, width: 60 }], margin: [36, 14, 36, 0] }),
     content,
   };
 }
