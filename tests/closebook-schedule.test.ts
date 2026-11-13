@@ -8,7 +8,7 @@ const TYPE: Record<string, string> = { 1002: "Asset", 1062: "Asset", 1774: "Asse
 const typeOf = (c: string) => TYPE[c];
 // The board, typed as on the T2 (dividends negative), stored in GIFI sign.
 const board: [string, number][] = [["1002", 4821000], ["1062", 650000], ["1774", 980000], ["1775", -392000], ["2620", 375000], ["2680", 211000], ["2781", 1240000],
-  ["3500", 10000], ["3660", 2948000], ["3700", toGifi("3700", -800000)]];
+  ["3500", 10000], ["3660", 2948000], ["3700", toGifi("3700", 800000)]];   // printed as 8,000.00: stored negative
 
 test("the board's totals, with 500.00 out on 3640", () => {
   const { totals, flags } = scheduleTotals(board, typeOf, 4173000, 2025000);
@@ -42,7 +42,11 @@ test("blocks and signs", () => {
   assert.equal(blockOf("3701", "Equity"), "re");
   assert.equal(blockOf("3500", "Equity"), "equity");
   assert.equal(blockOf("1775", "Asset"), "assets");
-  assert.equal(toGifi("3700", -800000), 800000);
-  assert.equal(fromGifi("3700", 800000), -800000);
+  // Lines 3700 to 3740 are deductions whatever sign is typed.
+  assert.equal(toGifi("3700", 800000), -800000);
+  assert.equal(toGifi("3700", -800000), -800000);
+  assert.equal(toGifi("3740", 500), -500);
+  assert.equal(toGifi("3741", 500), 500);
+  assert.equal(fromGifi("3700", -800000), -800000);
   assert.equal(toGifi("1002", 100), 100);
 });

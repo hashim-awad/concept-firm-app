@@ -19,6 +19,8 @@ test("closing retained earnings: 3660 + net income − dividends", () => {
   assert.equal(opening.reClosingCents, 100000 + 350000 - 200000);
   const d = Object.fromEntries(opening.lines.map((l) => [l.code, l.debitCents]));
   assert.deepEqual(d, { 1002: 270000, 2707: -10000, 3500: -10000, 3660: -100000, 3701: 200000, 8120: -500000, 8810: 150000 });
+  // The same dividend typed negative (GIFI sign) gives the same result.
+  assert.equal(openingFrom([["3660", 100000], ["3701", -200000], ["8120", 500000], ["8810", 150000]], info).opening.reClosingCents, 250000);
   // Last year's trial balance balances.
   assert.equal(Object.values(d).reduce((a, b) => a + b, 0), 0);
 });

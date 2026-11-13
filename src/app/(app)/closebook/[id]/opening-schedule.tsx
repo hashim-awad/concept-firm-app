@@ -6,7 +6,7 @@
 // highlighted yellow with one line under it. "Sign as preparer" stays off while any total is highlighted.
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { blockOf, BLOCK_TITLE, fromGifi, scheduleTotals, toGifi, type Block } from "@/lib/closebook/schedule";
+import { blockOf, BLOCK_TITLE, fromGifi, isDividend, scheduleTotals, toGifi, type Block } from "@/lib/closebook/schedule";
 import { typedCents } from "@/lib/closebook/bank-upload";
 import { fileInputClass } from "@/components/ds/primitives";
 import { saveOpeningInline, signOpeningInline, uploadOpeningPdf } from "../actions";
@@ -69,7 +69,8 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
       {rows.filter((r) => r.block === b).map((r) => (
         <tr key={r.id} className="border-b border-sand-100 align-top">
           <td className="w-28 px-4 py-1.5"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input w-[5.5rem] px-2 text-center tabular-nums" /></td>
-          <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) && <span className="block text-xs text-warning">{rowProblem(r)}</span>}</td>
+          <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
+            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
           <td className="w-44 px-2 py-1.5 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} className="input w-40 text-right tabular-nums" /></td>
           <td className="w-8 py-1.5 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
         </tr>

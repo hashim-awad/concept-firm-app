@@ -20,7 +20,7 @@ type Props = {
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
   gifi?: Parameters<typeof GifiView>[0]["g"] | null;
   bank?: BankData | null;
-  // The step page (9 steps): where links point, which views show, and whether the import card shows.
+  // The step page (10 steps): where links point, which views show, and whether the import card shows.
   base?: string; pills?: string[]; showImport?: boolean;
 };
 

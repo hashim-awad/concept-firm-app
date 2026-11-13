@@ -22,8 +22,8 @@ import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 
-// A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page, 9 steps"; mockup
-// https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the 9 steps down the left, the page opens on the
+// A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
+// https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
 // current step with one "next job" bar. Each step shows the work built so far; the rest says what comes.
 export default async function FilePage({ params, searchParams }: PageProps<"/closebook/[id]">) {
   const access = await requireAccess("closebook", "view");
@@ -213,7 +213,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         <main className="min-w-0 flex-[999_1_640px]">
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of 9 · {cur.name}</p>
+              <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
               <p className="mt-1 text-base">{step === current ? next : `The current step is ${steps.find((s) => s.key === current)!.n}: ${steps.find((s) => s.key === current)!.name}.`}</p>
             </div>
             {step !== current && <Link href={href(current)} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-navy-700">Go to step {steps.find((s) => s.key === current)!.n}</Link>}

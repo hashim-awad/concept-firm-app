@@ -87,6 +87,7 @@ select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210},{"code":"10
 select test.check('a total cannot be typed as a line', test.try(format($f$select public.cb_save_opening(%L, '[{"code":"2599","amount":1}]', 1, 1, '')$f$, :'f')) like '%is a total%');
 select test.check('sign-off refused while 3640 is out', test.try(format($f$select public.cb_sign_opening(%L)$f$, :'f')) like '%3640%does not equal total assets%');
 select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210},{"code":"1062","amount":6500},{"code":"1774","amount":9800},{"code":"1775","amount":-3920},{"code":"2620","amount":4250},{"code":"2680","amount":2110},{"code":"2781","amount":12400},{"code":"3500","amount":100},{"code":"3660","amount":29480},{"code":"3700","amount":8000}]', 41730, 20250, 'Prior T2, year ended Oct 31, 2025');
+select test.check('a dividend typed as printed (positive) is stored negative', (select amount from public.cb_opening_balances where file_id = :'f' and code = '3700') = -8000);
 select public.cb_sign_opening(:'f');
 select test.check('signed once everything ties', (select opening_signed_at is not null and opening_note like 'Prior T2%' from public.cb_files where id = :'f'));
 select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210}]', 41730, 20250, '');

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { fileBy, FILE_TYPE, firstName } from "@/lib/closebook/files";
-import { fileSteps } from "@/lib/closebook/steps";
+import { fileSteps, STEP_KEYS } from "@/lib/closebook/steps";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 import type { ListedFile } from "@/lib/closebook/server";
 
-// The work queue table: client, year-end, file by, the step (of 9) with its bar, and the next job.
+// The work queue table: client, year-end, file by, the step (of 10) with its bar, and the next job.
 // Oldest deadline first. Clicking a file opens it on its current step (Nov 13, 2026).
 export function FileList({ files, names, showPeople }: { files: ListedFile[]; names: Map<string, string>; showPeople?: boolean }) {
   const rows = [...files].sort((a, b) => fileBy(a.year_end).localeCompare(fileBy(b.year_end)));
@@ -31,8 +31,8 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
               <td className="tabular-nums whitespace-nowrap">{formatDate(f.year_end)}</td>
               <td className="tabular-nums whitespace-nowrap">{formatDate(fileBy(f.year_end))}</td>
               <td className="min-w-[180px]">
-                <span className="block text-sm">{cur.n} of 9 · {cur.name}</span>
-                <span className="mt-1.5 grid grid-cols-9 gap-0.5" aria-hidden>
+                <span className="block text-sm">{cur.n} of {STEP_KEYS.length} · {cur.name}</span>
+                <span className="mt-1.5 grid grid-cols-10 gap-0.5" aria-hidden>
                   {steps.map((s) => <span key={s.key} className={`h-1.5 rounded-full ${s.state === "done" ? "bg-success" : s.key === current ? "bg-navy-700" : "bg-sand-200"}`} />)}
                 </span>
               </td>

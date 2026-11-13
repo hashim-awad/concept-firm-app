@@ -2,15 +2,15 @@
 // last year's closing balance sheet laid out like ProFile's Schedule 101, and last year's income statement
 // (Schedule 125) when available. Pure and tested. Amounts in cents.
 //
-// Amounts are typed as they show on the T2: assets, liabilities and equity positive, contra and deficit
-// negative; in the retained earnings block, dividends (3700s) are typed as negative, as they reduce it.
-// Stored in GIFI sign (the 3700s positive), so the GIFI output and the build read them unchanged.
+// Every amount is typed exactly as printed on the T2; staff never change signs (Hashim, Nov 14). Stored in
+// GIFI sign. Lines 3700 to 3740 are always deductions: stored negative whatever sign is typed (rule 3;
+// benchmark: the QuickBooks GIFI files ProFile imports carry equity debits as negative).
 
 export type Block = "assets" | "liabilities" | "equity" | "re" | "revenue" | "expenses";
 export const BLOCK_TITLE: Record<Block, string> = { assets: "Assets", liabilities: "Liabilities", equity: "Equity", re: "Retained earnings", revenue: "Revenue", expenses: "Expenses" };
 
 const num = (c: string) => Number(c);
-export const isDividend = (c: string) => num(c) >= 3700 && num(c) <= 3739;
+export const isDividend = (c: string) => num(c) >= 3700 && num(c) <= 3740;
 const isReCode = (c: string) => c === "3660" || (num(c) >= 3700 && num(c) <= 3848);
 
 // The block a GIFI code belongs in, from its master line type.
@@ -18,9 +18,9 @@ export function blockOf(code: string, type: string | undefined): Block | null {
   if (isReCode(code)) return "re";
   return type === "Asset" ? "assets" : type === "Liability" ? "liabilities" : type === "Equity" ? "equity" : type === "Revenue" ? "revenue" : type === "Expense" ? "expenses" : null;
 }
-// Typed (as on the T2) to GIFI sign and back: only the dividends differ.
-export const toGifi = (code: string, typed: number) => (isDividend(code) ? -typed : typed);
-export const fromGifi = (code: string, gifi: number) => (isDividend(code) ? -gifi : gifi);
+// Typed (as printed on the T2) to GIFI sign: only the deductions change, always negative.
+export const toGifi = (code: string, typed: number) => (isDividend(code) ? -Math.abs(typed) : typed);
+export const fromGifi = (_code: string, gifi: number) => gifi;
 
 export type Totals = {
   t2599: number; t3499: number; equityLines: number; t3600: number; t3620: number; t3640: number;
@@ -38,8 +38,8 @@ export function scheduleTotals(lines: [string, number][], typeOf: (code: string)
   const has125 = lines.some(([c]) => { const b = blockOf(c, typeOf(c)); return b === "revenue" || b === "expenses"; });
   const t9999 = has125 ? t8299 - tExpenses : typed9999 ?? 0;
   const reLines = lines.filter(([c]) => isReCode(c));
-  // 3660 + 9999 + the 3700s as typed (dividends negative) + other adjustments.
-  const t3849calc = reLines.reduce((n, [c, v]) => n + fromGifi(c, v), 0) + t9999;
+  // 3660 + 9999 + the 3700s (always negative) + other adjustments.
+  const t3849calc = reLines.reduce((n, [c, v]) => n + (isDividend(c) ? -Math.abs(v) : v), 0) + t9999;
   const t3600 = typed3849 ?? t3849calc;          // 3600 equals 3849
   const t3620 = equityLines + t3600, t3640 = t3499 + t3620;
   const flags: Flag[] = [];
