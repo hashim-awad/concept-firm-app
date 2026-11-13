@@ -8,7 +8,8 @@
 #   5. If the change fails or the check is not 0: RESTORE from the backup in this same run, prove every
 #      table matches the backup, and stop with a failure. Nothing else runs.
 #   6. If all is well: FILES CHANGED, a count and a Studio link to each file, by comparing with the backup.
-#   The backup is kept until Hashim confirms; then the "drop_backup" run of the workflow removes it.
+#   7. BACKUPS: backups older than 7 days are removed in the same run, and the run summary lists them.
+#   This deploy's backup is kept for 7 days. "drop_backup" still removes one backup by hand if needed.
 #
 # Needs: DB_URL, DEPLOY_ENV (test or live), STUDIO_URL. Test only: REHEARSE=true adds a deliberate bad
 # change after the real one, to prove the restore. File ids and counts only in the log, never names.
@@ -86,5 +87,9 @@ trap - ERR
 say "FILES CHANGED"
 "${PSQL[@]}" -v bk="$BK" -v studio="$STUDIO_URL" -f scripts/deploy/changed-files.sql
 
+say "BACKUPS"
+# Backups older than 7 days go as part of this run; this deploy's own backup stays (Hashim, Nov 23, 2026).
+KEEP="$BK" DB_URL="$DB_URL" bash scripts/deploy/prune-backups.sh
+
 echo
-echo "DONE. Backup $BK is kept until Hashim confirms. To remove it: run this workflow by hand with drop_backup = $BK."
+echo "DONE. Backup $BK is kept for 7 days; a later deploy removes it after that."
