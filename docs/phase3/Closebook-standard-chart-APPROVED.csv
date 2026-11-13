@@ -11,7 +11,8 @@ Account no,Account name,Type,Master line,Master line name,Income tax code,Sales 
 1210,Deposits paid,Asset,1486.00,Security/tender deposits,BS,None,None,
 1220,Income taxes recoverable,Asset,1483.00,Taxes recoverable/refundable,BS,None,None,
 1250,Term deposits and GICs,Asset,1181.00,Canadian term deposits,BS,None,None,
-1300,Due from shareholder,Asset,1301.10,Due from shareholder 1,BS,None,None,Moves to 2300 Due to shareholder when negative
+1300,Due from shareholder 1,Asset,1301.10,Due from shareholder 1,BS,None,None,Moves to 2300 Due to shareholder 1 when negative
+1305,Due from shareholder 2,Asset,1301.20,Due from shareholder 2,BS,None,None,Moves to 2305 Due to shareholder 2 when negative
 1500,Computer equipment,Asset,1774.00,Computer equipment/software,BS,GST/HST,GST/HST,Capital: ITC claimed under both methods
 1505,Accumulated amortization – computer equipment,Asset,1775.00,Accumulated amortization of computer,BS,None,None,
 1510,Furniture and fixtures,Asset,1787.00,Furniture and fixtures,BS,GST/HST,GST/HST,Capital
@@ -45,7 +46,8 @@ Account no,Account name,Type,Master line,Master line name,Income tax code,Sales 
 2180,Deferred revenue,Liability,2770.00,Deferred income,BS,None,None,
 2200,Credit card,Liability,2707.00,Credit card loans,BS,None,None,One account per card in the file
 2210,Line of credit,Liability,2701.00,Loans from Canadian banks,BS,None,None,
-2300,Due to shareholder,Liability,2781.10,Due to shareholder 1,BS,None,None,Moves to 1300 Due from shareholder when negative
+2300,Due to shareholder 1,Liability,2781.10,Due to shareholder 1,BS,None,None,Moves to 1300 Due from shareholder 1 when negative
+2305,Due to shareholder 2,Liability,2781.20,Due to shareholder 2,BS,None,None,Moves to 1305 Due from shareholder 2 when negative
 2310,Due to related company,Liability,2863.00,Advances due to related parties,BS,None,None,
 2400,Current portion of long-term debt,Liability,2920.00,Current portion of long-term liability,BS,None,None,
 2500,Bank loan,Liability,3143.00,Chartered bank loan,BS,None,None,
@@ -60,6 +62,7 @@ Account no,Account name,Type,Master line,Master line name,Income tax code,Sales 
 4000,Sales,Revenue,8000.00,Trade sales of goods and services,FULL,GST/HST,GST/HST collected,Quick method: year-end entry moves the quick method difference to 4230
 4010,Service revenue,Revenue,8000.00,Trade sales of goods and services,FULL,GST/HST,GST/HST collected,
 4020,Commission income,Revenue,8120.00,Commission revenue,FULL,GST/HST,GST/HST collected,
+4025,Real estate commission,Revenue,8121.00,Commission income on real estate transactions,FULL,GST/HST,GST/HST collected,
 4030,Consulting income,Revenue,8241.00,Consulting fees,FULL,GST/HST,GST/HST collected,
 4040,Management fee income,Revenue,8239.00,Management and administration fees,FULL,GST/HST,GST/HST collected,
 4050,Rental income,Revenue,8141.00,Real estate rental revenue,FULL,Check,Check,Commercial rent is taxable; residential is exempt
