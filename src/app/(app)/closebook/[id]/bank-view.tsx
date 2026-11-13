@@ -1,6 +1,6 @@
 // Transactions view, first piece (part 2b; Hashim, Nov 13, 2026): bank and card statements uploaded in
 // Concept's bank upload template, each checked opening + transactions = closing, and their lines.
-// Coding each line to a GIFI line, with vendor rules, comes next.
+// Coding each line to an account from the standard chart, with its sales tax, is step 3.
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import type { BankData } from "@/lib/closebook/bank-server";
@@ -61,7 +61,7 @@ export function BankView({ fileId, bank, editable, locked }: { fileId: string; b
         <section className="card overflow-x-auto p-0">
           <div className="px-5 pt-4">
             <h3 className="font-semibold">Transactions: {acc.name}</h3>
-            <p className="text-sm text-ink-2">{lines.length} line{lines.length === 1 ? "" : "s"}. Coding each line to a GIFI line, with vendor rules, comes next.</p>
+            <p className="text-sm text-ink-2">{lines.length} line{lines.length === 1 ? "" : "s"}. Coding each line to an account from the standard chart, with its sales tax, is step 3.</p>
           </div>
           <table className="table">
             <thead><tr><th>Date</th><th>Description</th><th className="text-right">{words(acc.kind).plus}</th><th className="text-right">{words(acc.kind).minus}</th></tr></thead>
