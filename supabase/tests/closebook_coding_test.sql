@@ -46,5 +46,8 @@ select test.check('a line can go on the client question list', (select status fr
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_code_lines(:'f', format('[{"id":"%s","account":"6020","tax":"MEALS_HST_50"},{"id":"%s","account":"6710","tax":"HST_ON"}]', :'pizza', :'rent')::jsonb);
 select test.check('the reviewer decides', (select string_agg(status, ',' order by description) from public.cb_bank_lines where file_id = :'f') = 'done,done,done');
+select (public.cb_upload_bank(:'f', :'acc', '', '', 'v2.csv', 452.4, 565.4, '[{"line":2,"date":"2026-02-02","description":"SAMPLE DINER","amount":113}]', '2026-02-01', '2026-02-28')) is not null;
+select public.cb_code_lines(:'f', format('[{"id":"%s","account":"6020","tax":"HST_ON"}]', (select id from public.cb_bank_lines where description = 'SAMPLE DINER'))::jsonb);
+select test.check('even the reviewer coding meals at the full rate sends it to the reviewer list first', (select status from public.cb_bank_lines where description = 'SAMPLE DINER') = 'reviewer');
 select test.check('only the six bank chart accounts', test.try(format($f$select public.cb_set_bank_chart_account(%L, '6510')$f$, :'acc')) like '%Choose chequing%');
 reset role;
