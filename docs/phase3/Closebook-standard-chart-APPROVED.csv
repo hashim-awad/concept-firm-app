@@ -1,0 +1,145 @@
+Account no,Account name,Type,Master line,Master line name,Income tax code,Sales tax (regular method),Sales tax (quick method),Note
+1000,Chequing,Asset,1002.00,Deposits in Canadian banks and institutions – Canadian currency,BS,None,None,Moves to 2000 Bank overdraft when negative
+1010,Savings,Asset,1002.00,Deposits in Canadian banks and institutions – Canadian currency,BS,None,None,
+1020,US dollar account,Asset,1003.00,Deposits in Canadian banks and institutions – Foreign currency,BS,None,None,
+1050,Petty cash,Asset,1001.00,Cash,BS,None,None,
+1100,Accounts receivable,Asset,1062.00,Trade accounts receivable,BS,None,None,
+1105,Allowance for doubtful accounts,Asset,1063.00,Allowance for doubtful trade accounts receivable,BS,None,None,
+1110,Due from related company (current),Asset,1403.00,Loans/advances due from related parties,BS,None,None,
+1150,Inventory,Asset,1121.00,Inventory of goods for sale,BS,None,None,
+1200,Prepaid expenses,Asset,1484.00,Prepaid expenses,BS,None,None,
+1210,Deposits paid,Asset,1486.00,Security/tender deposits,BS,None,None,
+1220,Income taxes recoverable,Asset,1483.00,Taxes recoverable/refundable,BS,None,None,
+1250,Term deposits and GICs,Asset,1181.00,Canadian term deposits,BS,None,None,
+1300,Due from shareholder 1,Asset,1301.10,Due from shareholder 1,BS,None,None,Moves to 2300 Due to shareholder 1 when negative
+1305,Due from shareholder 2,Asset,1301.20,Due from shareholder 2,BS,None,None,Moves to 2305 Due to shareholder 2 when negative
+1500,Computer equipment,Asset,1774.00,Computer equipment/software,BS,GST/HST,GST/HST,Capital: ITC claimed under both methods
+1505,Accumulated amortization – computer equipment,Asset,1775.00,Accumulated amortization of computer,BS,None,None,
+1510,Furniture and fixtures,Asset,1787.00,Furniture and fixtures,BS,GST/HST,GST/HST,Capital
+1515,Accumulated amortization – furniture and fixtures,Asset,1788.00,Accumulated amortization of furniture and fixtures,BS,None,None,
+1520,Equipment,Asset,1740.00,"Machinery, equipment, furniture, and fixtures",BS,GST/HST,GST/HST,Capital
+1525,Accumulated amortization – equipment,Asset,1741.00,"Accumulated amortization of machinery, equipment, furniture, and fixtures",BS,None,None,
+1530,Vehicles,Asset,1742.00,Motor vehicles,BS,GST/HST,GST/HST,Capital: passenger vehicle ITC limits apply
+1535,Accumulated amortization – vehicles,Asset,1743.00,Accumulated amortization of motor vehicles,BS,None,None,
+1540,Leasehold improvements,Asset,1918.00,Leasehold improvements,BS,GST/HST,GST/HST,Capital
+1545,Accumulated amortization – leasehold improvements,Asset,1919.00,Accumulated amortization of leasehold,BS,None,None,
+1550,Land,Asset,1600.00,Land,BS,Check,Check,Real property: reviewer decides
+1560,Building,Asset,1680.00,Buildings,BS,Check,Check,Real property: reviewer decides
+1565,Accumulated amortization – building,Asset,1681.00,Accumulated amortization of buildings,BS,None,None,
+1600,Intangible assets,Asset,2010.00,Intangible assets,BS,GST/HST,GST/HST,
+1605,Accumulated amortization – intangible assets,Asset,2011.00,Accumulated amortization of intangible assets,BS,None,None,
+1610,Goodwill,Asset,2012.00,Goodwill,BS,None,None,
+1620,Incorporation costs,Asset,2018.00,Incorporation costs (corporations only),BS,Check,Check,
+1700,Shares in related company,Asset,2242.00,Shares in Canadian related corporations,BS,None,None,
+1710,Loan to related company (long-term),Asset,2243.00,Loans/advances to Canadian related corporations,BS,None,None,
+1720,Investments – Canadian shares,Asset,2303.00,Canadian shares,BS,None,None,
+1730,Investments – other,Asset,2311.00,Other Canadian long-term investments,BS,None,None,
+2000,Bank overdraft,Liability,2600.00,Bank overdraft,BS,None,None,
+2100,Accounts payable,Liability,2621.00,Trade payables,BS,None,None,
+2110,Accrued liabilities,Liability,2620.00,Amounts payable and accrued liabilities,BS,None,None,
+2120,Wages payable,Liability,2624.00,Wages payable,BS,None,None,
+2130,Payroll deductions payable,Liability,2627.00,Employee deductions payable,BS,None,None,
+2140,Income taxes payable,Liability,2680.00,Taxes payable,BS,None,None,
+2150,GST/HST payable,Liability,2680.00,Taxes payable,BS,None,None,The tax column posts here
+2155,PST payable,Liability,2680.00,Taxes payable,BS,None,None,PST that BC clients collect on their sales
+2160,Dividends payable,Liability,2962.00,Dividends payable,BS,None,None,
+2170,Customer deposits,Liability,2961.00,Deposits received,BS,None,None,
+2180,Deferred revenue,Liability,2770.00,Deferred income,BS,None,None,
+2200,Credit card,Liability,2707.00,Credit card loans,BS,None,None,One account per card in the file
+2210,Line of credit,Liability,2701.00,Loans from Canadian banks,BS,None,None,
+2300,Due to shareholder 1,Liability,2781.10,Due to shareholder 1,BS,None,None,Moves to 1300 Due from shareholder 1 when negative
+2305,Due to shareholder 2,Liability,2781.20,Due to shareholder 2,BS,None,None,Moves to 1305 Due from shareholder 2 when negative
+2310,Due to related company,Liability,2863.00,Advances due to related parties,BS,None,None,
+2400,Current portion of long-term debt,Liability,2920.00,Current portion of long-term liability,BS,None,None,
+2500,Bank loan,Liability,3143.00,Chartered bank loan,BS,None,None,
+2510,Mortgage,Liability,3141.00,Mortgages,BS,None,None,
+2520,Other long-term loan,Liability,3140.00,Long-term debt,BS,None,None,
+2540,Loan from shareholder (long-term),Liability,3261.00,Due to individual shareholder(s),BS,None,None,
+3000,Common shares,Equity,3500.00,Common shares,BS,None,None,
+3010,Preferred shares,Equity,3520.00,Preferred shares,BS,None,None,
+3100,Retained earnings,Equity,3600.00,Retained earnings/deficit,BS,None,None,
+3200,Dividends – non-eligible,Equity,3701.10,Non-eligible dividends declared,BS,None,None,
+3210,Dividends – eligible,Equity,3701.20,Eligible dividends declared,BS,None,None,
+4000,Sales,Revenue,8000.00,Trade sales of goods and services,FULL,GST/HST,GST/HST collected,Quick method: year-end entry moves the quick method difference to 4230
+4010,Service revenue,Revenue,8000.00,Trade sales of goods and services,FULL,GST/HST,GST/HST collected,
+4020,Commission income,Revenue,8120.00,Commission revenue,FULL,GST/HST,GST/HST collected,
+4025,Real estate commission,Revenue,8121.00,Commission income on real estate transactions,FULL,GST/HST,GST/HST collected,
+4030,Consulting income,Revenue,8241.00,Consulting fees,FULL,GST/HST,GST/HST collected,
+4040,Management fee income,Revenue,8239.00,Management and administration fees,FULL,GST/HST,GST/HST collected,
+4050,Rental income,Revenue,8141.00,Real estate rental revenue,FULL,Check,Check,Commercial rent is taxable; residential is exempt
+4100,Interest income,Revenue,8094.00,Interest from other Canadian sources,FULL,None,None,
+4110,Dividend income,Revenue,8096.00,Dividends from Canadian sources,DIV112,None,None,
+4200,Gain or loss on sale of assets,Revenue,8210.00,Realized gains/losses on disposal of assets,CAPGAIN,None,None,
+4210,Foreign exchange gain or loss,Revenue,8231.00,Foreign exchange gains/losses,REVIEW,None,None,
+4220,Government grants and subsidies,Revenue,8242.00,Subsidies and grants,FULL,None,None,
+4230,Other income,Revenue,8230.00,Other revenue,FULL,Check,Check,
+5000,Purchases and materials,Expense,8320.00,Purchases/cost of materials,FULL,GST/HST,No ITC,
+5010,Subcontractors – cost of sales,Expense,8360.00,Trades and sub - contracts,FULL,GST/HST,No ITC,
+5020,Direct wages,Expense,8340.00,Direct wages,FULL,None,None,
+5030,Freight-in and duty,Expense,8457.00,Freight-in and duty,FULL,GST/HST,No ITC,
+5040,Opening inventory,Expense,8300.00,Opening inventory,FULL,None,None,Year-end entry
+5050,Closing inventory,Expense,8500.00,Closing inventory,FULL,None,None,Year-end entry
+6000,Advertising,Expense,8521.00,Advertising,FULL,GST/HST,No ITC,
+6010,Promotion and client gifts,Expense,8524.00,Promotion,FULL,GST/HST,No ITC,
+6020,Meals and entertainment,Expense,8523.00,Meals and entertainment,M50,GST/HST,No ITC,ITC limited to 50% under regular method
+6025,Staff events (all employees),Expense,8523.10,Staff events open to all employees (up to 6 a year),FULL,GST/HST,No ITC,
+6030,Club dues and golf,Expense,8761.10,Recreational club dues,NONDED,None,None,
+6040,Donations,Expense,8522.00,Donations,DON,None,None,
+6045,Political contributions,Expense,8522.10,Political contributions,NONDED,None,None,
+6050,Bad debts,Expense,8590.00,Bad debt expense,FULL,None,None,
+6100,Employee benefits,Expense,8622.00,Employer’s portion of employee benefits,FULL,None,None,
+6110,Group insurance,Expense,8621.00,Group insurance benefits,FULL,None,None,
+6150,Amortization,Expense,8670.00,Amortization of tangible assets,AMORT,None,None,Year-end entry
+6160,Amortization of intangible assets,Expense,8570.00,Amortization of intangible assets,AMORT,None,None,Year-end entry
+6200,Insurance,Expense,8690.00,Insurance,FULL,None,None,
+6210,Life insurance on executives,Expense,8691.00,Life insurance on executives,NONDED,None,None,
+6300,Bank charges,Expense,8715.00,Bank charges,FULL,None,None,
+6310,Credit card and merchant fees,Expense,8716.00,Credit card charges,FULL,None,None,
+6320,Interest on loans,Expense,8714.00,Interest on long-term debt,FULL,None,None,
+6325,Interest on line of credit,Expense,8711.00,Interest on short-term debt,FULL,None,None,
+6330,Mortgage interest,Expense,8713.00,Interest on mortgages,FULL,None,None,
+6340,CRA interest and penalties,Expense,8710.10,Interest and penalties on income tax and CRA arrears,NONDED,None,None,
+6400,Licences and permits,Expense,8764.00,Government fees,FULL,None,None,
+6410,Memberships and dues,Expense,8761.00,Memberships,FULL,GST/HST,No ITC,
+6420,Business taxes,Expense,8762.00,Business taxes,FULL,None,None,
+6500,Office supplies,Expense,8811.00,Office stationery and supplies,FULL,GST/HST,No ITC,
+6510,Office expenses,Expense,8810.00,Office expenses,FULL,GST/HST,No ITC,
+6520,Software and subscriptions,Expense,9150.00,Computer-related expenses,FULL,GST/HST,No ITC,Foreign vendors: check
+6530,"Postage, courier and freight",Expense,9275.00,"Delivery, freight and express",FULL,GST/HST,No ITC,
+6600,Accounting fees,Expense,8862.00,Accounting fees,FULL,GST/HST,No ITC,
+6610,Legal fees,Expense,8861.00,Legal fees,FULL,GST/HST,No ITC,
+6620,Consulting fees,Expense,8863.00,Consulting fees,FULL,GST/HST,No ITC,
+6630,Brokerage fees,Expense,8869.00,Brokerage fees,FULL,GST/HST,No ITC,
+6640,Management fees,Expense,8871.00,Management and administration fees,FULL,GST/HST,No ITC,
+6645,Management fees – related parties,Expense,8871.10,Management fees paid to related parties,FULL,GST/HST,No ITC,
+6650,Training and education,Expense,8876.00,Training expense,FULL,GST/HST,No ITC,
+6700,Rent,Expense,8911.00,Real estate rental,FULL,GST/HST,No ITC,Residential rent is exempt
+6705,Rent – related party,Expense,8911.10,Rent paid to related parties,FULL,GST/HST,No ITC,
+6710,Condominium fees,Expense,8913.00,Condominium fees,FULL,Check,Check,
+6720,Equipment rental,Expense,8914.00,Equipment rental,FULL,GST/HST,No ITC,
+6730,Vehicle lease,Expense,8915.00,Motor vehicle rentals,FULL,GST/HST,No ITC,Lease limits apply
+6740,Storage,Expense,8917.00,Storage,FULL,GST/HST,No ITC,
+6800,Repairs and maintenance,Expense,8960.00,Repairs and maintenance,FULL,GST/HST,No ITC,
+6810,Repairs – building,Expense,8961.00,Repairs and maintenance – Buildings,FULL,GST/HST,No ITC,
+6820,Cleaning and janitorial,Expense,9010.00,Other repairs and maintenance,FULL,GST/HST,No ITC,
+6830,Security,Expense,9013.00,Security,FULL,GST/HST,No ITC,
+6900,Salaries and wages,Expense,9066.00,Employee salaries,FULL,None,None,
+6905,Shareholder salary (T4),Expense,9065.10,Salary to shareholders (T4),FULL,None,None,
+6910,Commissions paid,Expense,9061.00,Commissions,FULL,Check,Check,Paid to a registrant: GST/HST
+6915,Bonuses,Expense,9063.00,Bonuses,FULL,None,None,
+6920,Subcontractors,Expense,9110.00,Sub - contracts,FULL,GST/HST,No ITC,Small suppliers may not charge tax
+6930,Supplies,Expense,9130.00,Supplies,FULL,GST/HST,No ITC,
+6940,Small tools,Expense,9131.00,Small tools,FULL,GST/HST,No ITC,
+7000,Internet,Expense,9152.00,Internet,FULL,GST/HST,No ITC,
+7010,Property taxes,Expense,9180.00,Property taxes,FULL,None,None,
+7020,Travel,Expense,9200.00,Travel expenses,FULL,GST/HST,No ITC,Foreign travel: check
+7030,Conferences and meetings,Expense,9201.00,Meetings and conventions,FULL,GST/HST,No ITC,
+7040,Utilities,Expense,9220.00,Utilities,FULL,GST/HST,No ITC,
+7050,Telephone,Expense,9225.00,Telephone and telecommunications,FULL,GST/HST,No ITC,
+7060,Vehicle expenses,Expense,9281.00,Vehicle expenses,FULL,GST/HST,No ITC,Fuel and parking
+7065,Vehicle repairs,Expense,8962.00,Repairs and maintenance – Vehicles,FULL,GST/HST,No ITC,
+7100,Other expenses,Expense,9270.00,Other expenses,FULL,Check,Check,
+7110,Fines and penalties,Expense,9270.10,Fines and penalties,NONDED,None,None,
+7120,Cash over and short,Expense,9271.00,Cash over/short,FULL,None,None,
+7200,Current income taxes,Expense,9990.00,Current income taxes (corporations only),INCTAX,None,None,Year-end entry from ProFile
+7210,Deferred income taxes,Expense,9995.00,Future (deferred) income tax provision,INCTAX,None,None,

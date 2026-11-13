@@ -8,23 +8,28 @@ import { importTrialBalance, runMatching } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 import { GifiView } from "./gifi-view";
+import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
-const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer" };
+const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer", chart: "Standard chart" };
 
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
   gifi?: Parameters<typeof GifiView>[0]["g"] | null;
+  bank?: BankData | null;
+  // The step page (10 steps): where links point, which views show, and whether the import card shows.
+  base?: string; pills?: string[]; showImport?: boolean;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
 // GIFI line and tax code, the reviewer's list, and Lead sheets. Transactions arrive with part 2b.
 export function TbTab(p: Props) {
   const { file, accounts, imports, entries, editable, isReviewer, lines, sheets, taxes, flag, view } = p;
-  const base = `/closebook/${file.id}?tab=tb`;
+  const base = p.base ?? `/closebook/${file.id}?tab=tb`;
+  const shown = (k: string) => !p.pills || p.pills.includes(k);
   const byNo = new Map(lines.map((l) => [l.line_no, l]));
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
@@ -77,35 +82,36 @@ export function TbTab(p: Props) {
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-        {pill("accounts", "Accounts")}
-        {pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
-        {pill("lead", "Lead sheets")}
-        {pill("gifi", "GIFI")}
-        {file.file_type === "full" && <span className="rounded-full border border-sand-200 px-3 py-1 text-ink-3" title="Arrives with bank and card imports (part 2b)">Transactions</span>}
-      </div>
+      {(!p.pills || p.pills.length > 1) && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        {shown("accounts") && pill("accounts", "By account")}
+        {shown("lines") && pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
+        {shown("lead") && pill("lead", "Lead sheets")}
+        {shown("gifi") && pill("gifi", "GIFI")}
+      </div>}
 
+      {p.showImport !== false && (
       <div className="card mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm">
-          {thisImport ? <>Imported from {SOURCES[thisImport.source] ?? thisImport.source}, {formatDateTime(thisImport.imported_at)}{file.file_type === "monthly" ? " · read-only" : ""}</> : "No trial balance yet."}
-          {accounts.length > 0 && (balanced
-            ? <span className="ml-2 rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Balanced</span>
-            : <span className="ml-2 rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">Out by {amt(total)}</span>)}
-        </p>
-        {editable && !locked && (
-          <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="file_id" value={file.id} />
-            <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
-            <div><label htmlFor="target" className="label">Column</label>
-              <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
-            <div><label htmlFor="source" className="label">From</label>
-              <select id="source" name="source" defaultValue={file.file_type === "monthly" ? "quickbooks" : file.books === "bookkeeper" ? "bookkeeper" : "client_software"} className="input">
-                {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.replace(/^the /, "The ")}</option>)}
-              </select></div>
-            <button type="submit" className="btn-secondary">{thisImport ? "Import again" : "Import"}</button>
-          </form>
-        )}
-      </div>
+          <p className="text-sm">
+            {thisImport ? <>Imported from {SOURCES[thisImport.source] ?? thisImport.source}, {formatDateTime(thisImport.imported_at)}{file.file_type === "monthly" ? " · read-only" : ""}</> : "No trial balance yet."}
+            {accounts.length > 0 && (balanced
+              ? <span className="ml-2 rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Balanced</span>
+              : <span className="ml-2 rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">Out by {amt(total)}</span>)}
+          </p>
+          {editable && !locked && (
+            <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="file_id" value={file.id} />
+              <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
+              <div><label htmlFor="target" className="label">Column</label>
+                <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
+              <div><label htmlFor="source" className="label">From</label>
+                <select id="source" name="source" defaultValue={file.file_type === "monthly" ? "quickbooks" : file.books === "bookkeeper" ? "bookkeeper" : "client_software"} className="input">
+                  {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.replace(/^the /, "The ")}</option>)}
+                </select></div>
+              <button type="submit" className="btn-secondary">{thisImport ? "Import again" : "Import"}</button>
+            </form>
+          )}
+        </div>
+      )}
 
       {editable && !locked && unmatched.length > 0 && (
         <form action={runMatching} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
@@ -114,7 +120,7 @@ export function TbTab(p: Props) {
           <button type="submit" className="btn">Match them now</button>
         </form>
       )}
-      {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files build the trial balance from the Transactions view (part 2b)."}</p>
+      {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (

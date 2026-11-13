@@ -8,6 +8,9 @@ import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
+import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
+import { rebuildTb } from "@/lib/closebook/tb-build-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -166,4 +169,161 @@ export async function explainFlagInline(fileId: string, account: string, reason:
   const { error } = await (await createClient()).rpc("cb_explain_flag", { p_account: account, p_reason: reason, p_note: note });
   revalidatePath(`/closebook/${fileId}`);
   return error?.message ?? null;
+}
+
+// ---------- Bank and card statements (part 2b; Hashim, Nov 13, 2026) ----------
+
+// Upload one statement in Concept's bank upload template. The file is read here (every problem named by
+// line), the balance is checked here and again in the database, which refuses anything that does not tie.
+export async function uploadBankStatement(formData: FormData) {
+  const id = s(formData, "file_id");
+  // A problem keeps the side panel open on the same account (or on "Add an account").
+  const acct = s(formData, "account") || "new";
+  const back = `/closebook/${id}?step=records${acct !== "new" ? `&account=${acct}` : ""}&upload=${acct}`;
+  const done = `/closebook/${id}?step=records`;
+  await editor(back);
+  const upload = formData.get("upload");
+  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
+  const f = upload as File;
+  if (!/\.csv$/i.test(f.name)) redirect(withMessage(back, "error", "Upload a CSV file in Concept's bank upload template (Date, Description, Amount). Save Excel files as CSV first."));
+  const read = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  if (read.errors.length) {
+    const more = read.errors.length > 5 ? ` And ${read.errors.length - 5} more.` : "";
+    redirect(withMessage(back, "error", `Nothing was uploaded. ${read.errors.slice(0, 5).join(" ")}${more}`));
+  }
+  const opening = typedCents(s(formData, "opening")), closing = typedCents(s(formData, "closing"));
+  if (opening === null || closing === null) redirect(withMessage(back, "error", "Enter the statement's opening and closing balances, as shown on the statement (up to 2 decimals)."));
+  const chk = balanceCheck(opening!, closing!, read.rows);
+  if (!chk.ok) {
+    redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
+  }
+  const account = s(formData, "account");
+  // The statement period: as the preparer confirmed it, else the file's first and last dates.
+  const dates = read.rows.map((r) => r.date).sort();
+  const pStart = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_start")) ? s(formData, "period_start") : dates[0];
+  const pEnd = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_end")) ? s(formData, "period_end") : dates[dates.length - 1];
+  const { data, error } = await (await createClient()).rpc("cb_upload_bank", {
+    p_period_start: pStart, p_period_end: pEnd,
+    p_file: id, p_account: account && account !== "new" ? account : null, p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_file_name: f.name,
+    p_opening: opening! / 100, p_closing: closing! / 100,
+    p_rows: read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })),
+  });
+  if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
+  const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
+  await rebuildTb(await createClient(), id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(`${done}&account=${encodeURIComponent(d.account_id)}`, "msg",
+    `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
+}
+
+export async function deleteBankStatement(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=records`;
+  await editor(back);
+  const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(formData, "statement") });
+  if (error) redirect(withMessage(back, "error", error.message));
+  await rebuildTb(await createClient(), id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", "Statement removed, with its transactions."));
+}
+
+// ---------- Step 3, coding (Hashim, Nov 13, 2026) ----------
+
+// Code lines on the spot; each may also save a vendor rule for the client. Returns a problem as text.
+export async function codeLinesInline(fileId: string, items: { id: string; account: string; tax: string | null; source?: string }[],
+  rules: { key: string; account: string; tax: string | null }[]): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook to code transactions.";
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_code_lines", { p_file: fileId, p_items: items });
+  if (error) return error.message;
+  for (const r of rules) {
+    const { error: re } = await supabase.rpc("cb_save_vendor_rule", { p_file: fileId, p_vendor_key: r.key, p_account: r.account, p_tax: r.tax ?? "" });
+    if (re) return `Coded, but the rule was not saved: ${re.message}`;
+  }
+  const tb = await rebuildTb(supabase, fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  if (tb) return tb;
+  return null;
+}
+
+export async function undoLinesInline(fileId: string, ids: string[]): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_uncode_lines", { p_file: fileId, p_ids: ids });
+  if (error) return error.message;
+  await rebuildTb(await createClient(), fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
+export async function askClientInline(fileId: string, ids: string[]): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_ask_client", { p_file: fileId, p_ids: ids });
+  if (error) return error.message;
+  await rebuildTb(await createClient(), fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
+// Step 1: the setup questions. Yes/No answers come as "yes"/"no"; blank leaves an answer as it was.
+export async function saveSetup(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=setup`;
+  await editor(back);
+  const answers: Record<string, boolean | string> = {};
+  for (const k of ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered", "quick_method"]) {
+    const v = s(formData, k);
+    if (v === "yes" || v === "no") answers[k] = v === "yes";
+  }
+  const f = s(formData, "gst_frequency");
+  if (f) answers.gst_frequency = f;
+  const { error } = await (await createClient()).rpc("cb_save_setup", { p_file: id, p_setup: answers });
+  if (error) redirect(withMessage(back, "error", error.message));
+  await rebuildTb(await createClient(), id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", "Setup answers saved."));
+}
+
+// ---------- Step 2, Opening balances (Hashim, Nov 14, 2026) ----------
+// Last year's balance sheet (and income statement when available) typed by GIFI code from the prior T2 or
+// the CRA assessment, or filled from last year's Closebook file. A GIFI file is never an input.
+
+export async function saveOpeningInline(fileId: string, lines: [string, number][], reStatedCents: number | null, niTypedCents: number | null, note: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_save_opening", { p_file: fileId, p_codes: lines.map(([code, c]) => ({ code, amount: c / 100 })),
+    p_re_stated: reStatedCents === null ? null : reStatedCents / 100, p_ni_typed: niTypedCents === null ? null : niTypedCents / 100, p_note: note });
+  if (error) return `Nothing was saved. ${error.message}`;
+  const tb = await rebuildTb(supabase, fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  return tb;
+}
+
+export async function signOpeningInline(fileId: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_sign_opening", { p_file: fileId });
+  if (error) return error.message;
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
+// The source PDF: the prior T2 or the CRA assessment, kept in the private documents store.
+export async function uploadOpeningPdf(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=opening`;
+  await editor(back);
+  const upload = formData.get("pdf");
+  if (!(upload instanceof File) || upload.size === 0 || !/\.pdf$/i.test(upload.name)) redirect(withMessage(back, "error", "Choose the PDF of the prior T2 or the CRA assessment."));
+  if ((upload as File).size > 20 * 1024 * 1024) redirect(withMessage(back, "error", "The PDF is over 20 MB."));
+  const path = `closebook/${id}/opening-${Date.now()}.pdf`;
+  const up = await createAdminClient().storage.from("documents").upload(path, new Uint8Array(await (upload as File).arrayBuffer()), { contentType: "application/pdf", upsert: false });
+  if (up.error) redirect(withMessage(back, "error", `The PDF was not saved: ${up.error.message}`));
+  const { error } = await (await createClient()).rpc("cb_set_opening_pdf", { p_file: id, p_path: path });
+  if (error) redirect(withMessage(back, "error", error.message));
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", "PDF attached."));
 }

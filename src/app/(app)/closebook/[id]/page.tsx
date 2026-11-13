@@ -5,40 +5,176 @@ import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
-import { BOOKS, currentPhase, fileBy, FILE_TYPE, firstName, nextLine, PHASE_NAME, PHASES, progress, type CbDoc } from "@/lib/closebook/files";
+import { BOOKS, fileBy, FILE_TYPE, firstName, type CbDoc } from "@/lib/closebook/files";
+import { fileSteps, fromStatements, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
+import { BankView } from "./bank-view";
+import { CodingView } from "./coding-view";
+import { saveSetup } from "../actions";
+import { loadCoding } from "@/lib/closebook/coding-server";
+import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
+import { OpeningSchedule } from "./opening-schedule";
+import { buildReports } from "@/lib/closebook/reports";
+import { ReportsView } from "./reports-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
+import { loadBank } from "@/lib/closebook/bank-server";
+import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 
-const TABS = [["documents", "Documents"], ["tb", "Trial balance"], ["entries", "Entries"], ["notes", "Review notes"], ["statements", "Statements"]] as const;
-
-// A Closebook file (Phase 3 batch, section 2; mockups FileDocuments and FileTrialBalance): header,
-// the "Next:" bar with Open next, five fixed tabs.
+// A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
+// https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
+// current step with one "next job" bar. Each step shows the work built so far; the rest says what comes.
 export default async function FilePage({ params, searchParams }: PageProps<"/closebook/[id]">) {
   const access = await requireAccess("closebook", "view");
   const { id } = await params;
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = await createClient();
-  const data = await loadFile(supabase, id);
+  let data = await loadFile(supabase, id);
   if (!data) notFound();
+  // Bank-statement files coded before the trial balance was built from them: build it once now.
+  if (fromStatements(data.file.books) && canEdit(access, "closebook") && data.file.phase !== "locked"
+    && !data.accounts.some((a) => a.account_key.startsWith("chart:") || a.account_key.startsWith("bank:") || a.account_key === "opening")) {
+    const { count } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
+    if (count) { await rebuildTb(supabase, id); data = (await loadFile(supabase, id))!; }
+  }
   const { file, client, docs, accounts, imports, names, entries } = data;
   const ref = await loadReference(supabase);
   const isReviewer = access.staff_id === file.reviewer_id;
-  const tab = TABS.some(([k]) => k === sp.tab) ? String(sp.tab) : "documents";
-  const people = { preparer: firstName(names.get(file.preparer_id) ?? ""), reviewer: firstName(names.get(file.reviewer_id) ?? "") };
-  const next = nextLine(docs, people);
-  const phase = currentPhase(docs);
   const editable = canEdit(access, "closebook");
-  const nextHref = next.code === "F1" ? `/closebook/${id}?tab=tb` : `/closebook/${id}?tab=documents#${next.code ?? ""}`;
-
-  const statusCell = (d: CbDoc, isNext: boolean) => d.status === "signed"
-    ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Signed</span>
-    : isNext ? <span className="rounded bg-navy-50 px-2 py-0.5 text-xs font-semibold text-navy-700">Next</span>
+  const people = { preparer: firstName(names.get(file.preparer_id) ?? ""), reviewer: firstName(names.get(file.reviewer_id) ?? "") };
+  const bankFile = fromStatements(file.books);
+  const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+  // Bank files: the months still missing per account set step 2's note and next job.
+  const bank = bankFile ? await loadBank(supabase, id, str(sp.account)) : null;
+  const statements = bank?.statements.length ?? 0;
+  const bankGaps = bank ? missingText(bank.accounts.map((a) => ({ name: a.name,
+    gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
+  // Bank files: how far the coding has got (step 3).
+  const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
+  const sts = (st ?? []) as { status: string }[];
+  const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
+  const setup = (file.setup ?? {}) as Record<string, unknown>;
+  // Bank files: step 2, last year's balance sheet; after sign-off, any difference with the first statements.
+  const openingRow = accounts.find((a) => a.account_key === "opening");
+  const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source };
+  const { steps, current, next } = fileSteps({ bankGaps, coding, opening,
+    books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
+    unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
+    entries: entries.length, people,
+  });
+  const asked = str(sp.step) as StepKey | undefined;
+  const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
+  const view = str(sp.view);
+  const cur = steps.find((s) => s.key === step)!;
+  const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
+  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>> } = {}) => (
+    <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
+      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
+      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} />
+  );
+  const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
+  const planning = docs.filter((d) => d.phase === "planning");
+  const who = (uid: string | null, at: string | null) => (uid ? `${firstName(names.get(uid) ?? "")}${at ? `, ${formatDate(at)}` : ""}` : "");
+  const docStatus = (d: CbDoc) => d.status === "signed" ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Signed</span>
     : d.status === "prepared" ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For review</span>
     : <span className="rounded bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">Open</span>;
-  const who = (uid: string | null, at: string | null) => (uid ? `${firstName(names.get(uid) ?? "")}${at ? `, ${formatDate(at)}` : ""}` : "");
+
+  // The Reports panel: balances after Closebook entries, typed by their GIFI line (or not yet sorted).
+  const reportsOpen = sp.reports === "bs" || sp.reports === "pl";
+  const reports = reportsOpen ? (() => {
+    const typeOf = new Map(ref.lines.map((l) => [l.line_no, l.line_type]));
+    const ent = new Map<string, number>();
+    for (const e of entries) for (const l of e.lines) ent.set(l.account_id, (ent.get(l.account_id) ?? 0) + l.amount);
+    return buildReports(accounts.map((a) => ({ key: a.id, number: a.number, name: a.name, type: a.line_no ? typeOf.get(a.line_no) ?? null : null,
+      final: a.this_year + (ent.get(a.id) ?? 0), last: a.last_year })));
+  })() : null;
+
+  let body: React.ReactNode;
+  if (step === "opening") {
+    if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
+    else {
+      const { info } = await gifiCodeInfo(supabase);
+      const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
+      const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
+      const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
+      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", id).order("code");
+      const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
+      body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
+        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
+        pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
+        signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} />;
+    }
+  } else if (step === "setup") {
+    body = (
+      <>
+        <section className="card mb-4 overflow-x-auto p-0">
+          <h2 className="px-5 pt-4 pb-2 font-semibold">Set up the file</h2>
+          <table className="table">
+            <thead><tr><th>Item</th><th>Prepared by</th><th>Reviewed by</th><th>Status</th></tr></thead>
+            <tbody>{planning.map((d) => (
+              <tr key={d.code}><td><span className="font-medium">{d.title}</span>{d.detail && <span className="block text-xs text-muted">{d.detail}</span>}</td>
+                <td>{who(d.prepared_by, d.prepared_at)}</td><td>{who(d.reviewed_by, d.reviewed_at)}</td><td>{docStatus(d)}</td></tr>
+            ))}</tbody>
+          </table>
+        </section>
+        <section className="card text-sm">
+          <h2 className="mb-2 font-semibold">File settings</h2>
+          <dl className="grid gap-3 sm:grid-cols-4">
+            <div><dt className="text-xs text-muted">Year</dt><dd>{formatDate(file.year_start)} to {formatDate(file.year_end)}</dd></div>
+            <div><dt className="text-xs text-muted">Books</dt><dd>{BOOKS[file.books]}</dd></div>
+            <div><dt className="text-xs text-muted">Preparer</dt><dd>{people.preparer}</dd></div>
+            <div><dt className="text-xs text-muted">Reviewer</dt><dd>{people.reviewer}</dd></div>
+          </dl>
+          <p className="mt-3 text-xs text-muted">Sign-offs, editing and deleting the file arrive with the next pieces.</p>
+        </section>
+        <section className="card mt-4">
+          <h2 className="font-semibold">Setup questions</h2>
+          <p className="mb-2 text-sm text-ink-2">They decide which extra work the file needs, and the GST/HST answers set the sales tax on every line.</p>
+          <form action={saveSetup} className="grid gap-1">
+            <input type="hidden" name="file_id" value={id} />
+              <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
+              <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
+              <SetupQ name="dividends" q="Were dividends paid this year?" adds="Yes adds: T5 slips and summary" value={setup.dividends as boolean | undefined} />
+              <SetupQ name="payroll" q="Does the company run payroll?" adds="Yes adds: T4 reconciliation" value={setup.payroll as boolean | undefined} />
+              <SetupQ name="holdco" q="Does it own, or is it owned by, another company?" adds="Yes adds: investments and intercompany balances" value={setup.holdco as boolean | undefined} />
+              <SetupQ name="gst_registered" q="Is it registered for GST/HST?" adds="No: the tax stays in the expense; nothing is split out" value={setup.gst_registered as boolean | undefined} />
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+              <label htmlFor="gst_frequency" className="text-sm">GST/HST filing frequency<span className="block text-xs text-ink-3">Annual adds: the annual GST/HST return</span></label>
+              <select id="gst_frequency" name="gst_frequency" defaultValue={(setup.gst_frequency as string) ?? ""} className="input max-w-[180px]">
+                <option value="">Choose</option><option value="annual">Annual</option><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option>
+              </select>
+            </div>
+              <SetupQ name="quick_method" q="Does it use the quick method?" adds="Yes: no ITCs on operating expenses, meals included; capital purchases still claim them" value={setup.quick_method as boolean | undefined} />
+            {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
+          </form>
+        </section>
+      </>
+    );
+  } else if (step === "records") {
+    body = bankFile
+      ? <div className="grid gap-4"><BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+      : tb("records", [], "accounts", true);
+  } else if (step === "code") {
+    body = bankFile
+      ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
+          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} />
+      : tb("code", ["accounts", "lines"], "accounts", true);
+  } else if (step === "entries") {
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />;
+  } else if (step === "review") {
+    body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
+  } else if (step === "mapping") {
+    body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
+  } else if (step === "t2") {
+    body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
+  } else if (step === "statements") {
+    body = soon("The statements, the management acknowledgement (MAL) and the compilation report arrive with a later piece.");
+  } else {
+    body = soon("Delivering the package and locking the file arrive with a later piece.");
+  }
 
   return (
     <>
@@ -46,59 +182,63 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{client?.legal_name}</h1>
-          <p className="mt-1 text-sm text-ink-2">{FILE_TYPE[file.file_type]} file · Year-end {formatDate(file.year_end)}{file.year_change_reason ? ` (from ${formatDate(file.year_start)}: ${file.year_change_reason})` : ""} · File by {formatDate(fileBy(file.year_end))} · Preparer {people.preparer} · Reviewer {people.reviewer}</p>
+          <p className="mt-1 text-sm text-ink-2">{FILE_TYPE[file.file_type]} file · Year-end {formatDate(file.year_end)}{file.year_change_reason ? ` (from ${formatDate(file.year_start)}: ${file.year_change_reason})` : ""} · {BOOKS[file.books]} · Preparer {people.preparer} · Reviewer {people.reviewer}</p>
         </div>
-        {/* P3: owners set signed or waiting in step 3; staff only ever see this one line. */}
-        <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">Engagement letter: waiting</span>
+        <span className="flex flex-wrap items-center gap-2">
+          {accounts.length > 0 && <Link href={`${href(step)}&reports=bs`} scroll={false} className="btn-secondary">Reports</Link>}
+          <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
+        </span>
       </header>
-      <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      <Notice msg={messageFrom(sp.msg)} error={sp.upload || sp.opening ? undefined : messageFrom(sp.error)} />
 
-      <nav className="mb-4 flex gap-1 overflow-x-auto border-b border-sand-200" aria-label="File">
-        {TABS.map(([k, label]) => (
-          <Link key={k} href={`/closebook/${id}?tab=${k}`} aria-current={tab === k ? "page" : undefined}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap ${tab === k ? "border-navy-700 text-navy-700" : "border-transparent text-ink-2 hover:text-ink"}`}>{label}</Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-start gap-6">
+        <nav aria-label="Year-end steps" className="card flex-[1_1_240px] p-3 lg:max-w-[280px]">
+          <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Year-end steps</p>
+          <ol className="grid gap-1">
+            {steps.map((s) => (
+              <li key={s.key}>
+                <Link href={href(s.key)} aria-current={s.key === step ? "step" : undefined}
+                  className={`flex items-start gap-3 rounded-lg px-2 py-2 ${s.key === step ? "bg-navy-50" : "hover:bg-sand-100"}`}>
+                  <span aria-hidden className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${s.state === "done" ? "bg-success-soft text-success" : s.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{s.state === "done" ? "✓" : s.n}</span>
+                  <span className="min-w-0">
+                    <span className={`block text-sm ${s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
+                    {s.note && <span className="block text-xs text-ink-3">{s.note}</span>}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </nav>
 
-      {tab === "documents" && (
-        <>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-navy-200 bg-navy-50 px-4 py-3">
-            <p className="text-sm"><b>{next.text.startsWith("Next:") ? "Next:" : ""}</b> {next.text.replace(/^Next: /, "")}</p>
-            {next.code && <Link href={nextHref} className="btn">Open next</Link>}
-          </div>
-          {PHASES.map((p, i) => {
-            const pr = progress(docs, p);
-            const open = PHASES.indexOf(phase as (typeof PHASES)[number]) >= i || phase === "locked";
-            const list = docs.filter((d) => d.phase === p);
-            return open ? (
-              <section key={p} className="card mb-4 overflow-x-auto p-0">
-                <h2 className="px-5 pt-4 pb-2 font-semibold">{PHASE_NAME[p]} · {pr.signed} of {pr.total} signed</h2>
-                <table className="table">
-                  <thead><tr><th>Document</th><th>Prepared by</th><th>Reviewed by</th><th>Status</th></tr></thead>
-                  <tbody>{list.map((d) => (
-                    <tr key={d.code} id={d.code}>
-                      <td><span className="font-medium">{d.title}</span>{d.detail && <span className="block text-xs text-muted">{d.detail}</span>}</td>
-                      <td>{who(d.prepared_by, d.prepared_at)}</td>
-                      <td>{who(d.reviewed_by, d.reviewed_at)}</td>
-                      <td>{statusCell(d, d.code === next.code)}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </section>
-            ) : (
-              <p key={p} className="card mb-4 text-sm text-ink-2"><b>{PHASE_NAME[p]}</b> · opens when {PHASE_NAME[PHASES[i - 1]]} is signed ({pr.total} documents)</p>
-            );
-          })}
-          <p className="text-xs text-muted">Sign-offs, review notes and each document&rsquo;s own page arrive with build step 3. Books: {BOOKS[file.books]}.</p>
-        </>
-      )}
-
-      {tab === "tb" && <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-        taxes={ref.taxes} flag={ref.flag} view={["lead", "attention", "lines", "gifi"].includes(String(sp.view)) ? String(sp.view) : "accounts"}
-        gifi={tab === "tb" && sp.view === "gifi" ? await gifiFor(supabase, id) : null} craText={ref.craText} notes={data.notes} edit={typeof sp.edit === "string" ? sp.edit : undefined} />}
-      {tab === "entries" && <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />}
-      {tab === "notes" && <p className="card text-sm text-ink-2">No review notes. Notes attach to one document and arrive with build step 3.</p>}
-      {tab === "statements" && <p className="card text-sm text-ink-2">The live preview of the year-end package arrives with build step 2.</p>}
+        <main className="min-w-0 flex-[999_1_640px]">
+          <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
+              <p className="mt-1 text-base">{step === current ? next : `The current step is ${steps.find((s) => s.key === current)!.n}: ${steps.find((s) => s.key === current)!.name}.`}</p>
+            </div>
+            {step !== current && <Link href={href(current)} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-navy-700">Go to step {steps.find((s) => s.key === current)!.n}</Link>}
+          </section>
+          {body}
+        </main>
+      </div>
+      {reports && <ReportsView r={reports} which={sp.reports as "bs" | "pl"} base={href(step)} closeHref={href(step)} yearEnd={formatDate(file.year_end)} />}
     </>
+  );
+}
+
+// One Yes/No setup question (step 1). Blank until answered.
+function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {
+  return (
+    <fieldset className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+      <legend className="sr-only">{q}</legend>
+      <span className="text-sm">{q}<span className="block text-xs text-ink-3">{adds}</span></span>
+      <span className="flex gap-2">
+        {(["yes", "no"] as const).map((v) => (
+          <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sand-200 px-3 py-1.5 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-50">
+            <input type="radio" name={name} value={v} defaultChecked={value === (v === "yes")} className="h-4 w-4 accent-accent" />{v === "yes" ? "Yes" : "No"}
+          </label>
+        ))}
+      </span>
+    </fieldset>
   );
 }

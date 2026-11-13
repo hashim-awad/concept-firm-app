@@ -10,13 +10,13 @@ export type GifiResult = { codes: [string, number][]; totals: GifiTotals; proble
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 const num = (code: string) => Number(code);
-// Schedule 125 deductions (dividends and the like): reported as positive amounts.
-const deduction = (code: string) => num(code) >= 3700 && num(code) <= 3739;
+// Benchmark (Hashim's rule 1, Nov 14, 2026): QuickBooks Online's GIFI export, which ProFile imports, carries
+// equity debits as negative amounts, dividends (3700 to 3740) included. No special case for deductions.
 
 // The GIFI amount for a line, from a balance kept debit-positive: assets and expenses as debits,
 // liabilities, equity and revenue as credits. A contra or deficit balance comes out negative.
 export function gifiAmount(line: Pick<Line, "line_type" | "gifi_code">, debitPositive: number): number {
-  if (line.line_type === "Asset" || line.line_type === "Expense" || deduction(line.gifi_code)) return cents(debitPositive);
+  if (line.line_type === "Asset" || line.line_type === "Expense") return cents(debitPositive);
   return cents(-debitPositive);
 }
 
@@ -43,7 +43,7 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
   if (Math.abs(cents(tb)) >= 0.01) problems.push(`The trial balance is out by ${cents(tb).toFixed(2)}.`);
 
   const typeOf = (code: string) => [...lines.values()].find((l) => l.gifi_code === code)?.line_type ?? "";
-  let assets = 0, liabilities = 0, shareEquity = 0, revenue = 0, opExpenses = 0, allExpenses = 0, deductions = 0, otherRe = 0;
+  let assets = 0, liabilities = 0, shareEquity = 0, revenue = 0, opExpenses = 0, allExpenses = 0, reMoves = 0;
   for (const [code, amt] of byCode) {
     const t = code === "3660" ? "Equity" : typeOf(code), n = num(code);
     if (t === "Asset") assets += amt;
@@ -52,13 +52,12 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     else if (t === "Expense") { allExpenses += amt; if (n < 9369) opExpenses += amt; }
     else if (t === "Equity") {
       if (code === "3660") continue;
-      if (deduction(code)) deductions += amt;
-      else if (n >= 3740 && n < 3849) otherRe += amt;
+      if (n >= 3700 && n < 3849) reMoves += amt;   // dividends (negative) and other retained earnings items
       else shareEquity += amt;
     }
   }
   const netIncome = cents(revenue - allExpenses);
-  const reEnd = cents((byCode.get("3660") ?? 0) + netIncome - deductions + otherRe);
+  const reEnd = cents((byCode.get("3660") ?? 0) + netIncome + reMoves);
   const totals: GifiTotals = {
     "2599": cents(assets), "3499": cents(liabilities), "3620": cents(shareEquity + reEnd), "3640": cents(liabilities + shareEquity + reEnd),
     "8299": cents(revenue), "9368": cents(opExpenses), "9999": netIncome, "3660": cents(byCode.get("3660") ?? 0), "3849": reEnd,
