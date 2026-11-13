@@ -5,7 +5,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AcctOpt, StdOpt, StdSide } from "./entry-form";
-import type { TaxCode, TaxContext, TaxPart } from "./sales-tax";
+import { defaultTaxCode, type TaxCode, type TaxContext, type TaxPart } from "./sales-tax";
 import type { CbFileRow } from "./files";
 
 export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; nextNo: string };
@@ -28,7 +28,7 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
     supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new").eq("file_id", file.id).order("number").order("name"),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_master_lines").select("line_no, name, line_type, mappable, locked").order("sort_order"),
-    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year").order("sort_order"),
+    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").order("sort_order"),
     supabase.from("cb_settings").select("entry_review_amount").maybeSingle(),
     supabase.from("cb_entries").select("seq").eq("file_id", file.id).order("seq", { ascending: false }).limit(1).maybeSingle(),
     loadTaxCodes(supabase, province, file.year_end),
@@ -68,9 +68,12 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
     return { value: a?.id ?? "", chart: number, label: `${number} ${c.name}`, line_no: c.line_no,
       missing: a ? "" : `${clientName} has no account on GIFI ${g} (${c.name}): choose one of their accounts, or a new account.` };
   };
-  const standard = ((std ?? []) as { id: string; name: string; kind: string; reason: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; reverse_next_year: boolean }[])
+  // The debit's sales tax, for this client's province (round 3 item 1): never a code set at firm level.
+  const taxFor = (mode: string, account: string) => (mode === "taxable" ? defaultTaxCode("GST/HST", province, account) ?? "" : "");
+  const standard = ((std ?? []) as { id: string; name: string; kind: string; reason: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; reverse_next_year: boolean; tax_mode: string }[])
     .filter((x) => chartOf.has(x.debit_account) && chartOf.has(x.credit_account))
-    .map((x) => ({ id: x.id, name: x.name, kind: x.kind, reason: x.reason, memo: x.memo, wp_ref: x.wp_ref, reverse: x.reverse_next_year, debit: side(x.debit_account), credit: side(x.credit_account) }));
+    .map((x) => ({ id: x.id, name: x.name, kind: x.kind, reason: x.reason, memo: x.memo, wp_ref: x.wp_ref, reverse: x.reverse_next_year, debit: side(x.debit_account), credit: side(x.credit_account),
+      tax: taxFor(x.tax_mode, x.debit_account), taxMode: x.tax_mode }));
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const seq = ((last as { seq: number } | null)?.seq ?? 0) + 1;
   return {

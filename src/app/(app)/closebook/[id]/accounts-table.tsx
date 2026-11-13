@@ -8,12 +8,12 @@
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
-import { askReviewerInline, matchInline, taxCodeInline } from "../actions";
+import { askReviewerInline, matchInline, runMatching, taxCodeInline } from "../actions";
 
 export type Row = {
   id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
   lineNo: string; lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
-  tax: string; taxDefault: string; taxOverride: boolean; attention: boolean;
+  tax: string; taxDefault: string; taxOverride: boolean; attention: boolean; unused?: boolean;
   // "Opening balances to enter": one line per cause, adding up to the row (round 2 item 8).
   buildUp?: { text: string; amount: string }[];
 };
@@ -21,10 +21,12 @@ export type Group = { lineNo: string; label: string; count: number; total: strin
 export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
 
 
-export function MatchWorkspace({ fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
+export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
   fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
-  isReviewer: boolean; editable: boolean; totals: { last: string; current: string }; edit?: string;
+  isReviewer: boolean; editable: boolean; totals: { last: string; current: string; niLast?: string }; edit?: string; matchNow?: boolean;
 }) {
+  const [showUnused, setShowUnused] = useState(false);
+  const unused = rows.filter((r) => r.unused);
   // edit: open the panel for one account on arrival (the "Wrong GIFI line? Change it" link from lead sheets).
   const [open, setOpen] = useState<Row | null>(() => (edit && editable ? rows.find((r) => r.id === edit) ?? null : null));
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -51,8 +53,11 @@ export function MatchWorkspace({ fileId, view, rows, groups, options, taxes, isR
       {attention.length > 0 && (
         <section className="card mb-4 overflow-x-auto p-0">
           {/* The count only: adding debits and credits together gives no useful total (round 2 item 12). */}
-          <p className="flex items-center gap-2 px-4 pt-3 pb-1.5 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
-            {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1.5">
+            <p className="flex items-center gap-2 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
+              {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision</p>
+            {matchNow && <form action={runMatching}><input type="hidden" name="file_id" value={fileId} /><button type="submit" className="btn-secondary btn-compact">Match them now</button></form>}
+          </div>
           <table className="table table-compact">
             <thead><tr><th>Account</th><th>Why</th><th className="w-36 text-right">This year</th><th className="w-10"></th></tr></thead>
             <tbody>{attention.slice(0, all ? attention.length : 5).map((r) => (
@@ -80,18 +85,22 @@ export function MatchWorkspace({ fileId, view, rows, groups, options, taxes, isR
           <table className="table table-compact min-w-[1000px]">
             <thead><tr><th>Account</th><th className="w-[36%]">GIFI line</th><th className="w-24">Source</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.filter((r) => !r.unused).map((r) => (
                 <tr key={r.id} className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>
                   <td>{accountCell(r)}</td>
                   <td>{lineCell(r)}</td>
                   <td className="text-xs text-ink-2">{r.source}</td>
                   <td>{r.tax}{r.taxOverride && <span className="block text-xs text-muted">Reviewer&rsquo;s choice</span>}</td>
                   <td className="text-right tabular-nums">{r.last}</td>
-                  <td className="text-right tabular-nums">{r.current}</td>
+                  <td className="text-right tabular-nums">{r.final}</td>
                   <td className="text-right tabular-nums">{r.change}</td>
                   <td>{pencil(r)}</td>
                 </tr>
               ))}
+              {unused.length > 0 && <tr className="text-ink-2"><td colSpan={8}>
+                <button type="button" onClick={() => setShowUnused(!showUnused)} className="inline-flex items-center gap-1 text-sm"><ChevronRight className={`h-4 w-4 transition-transform ${showUnused ? "rotate-90" : ""}`} aria-hidden />{unused.length} account{unused.length === 1 ? "" : "s"} not used</button>
+                {showUnused && <span className="mt-1 block pl-5 text-sm">{unused.map((r) => `${r.number ? `${r.number} ` : ""}${r.name}`).join(" · ")}</span>}</td></tr>}
+              {totals.niLast && <tr className="text-ink-2"><td>Net income last year (from the T2)</td><td></td><td></td><td></td><td className="text-right tabular-nums">{totals.niLast}</td><td></td><td></td><td></td></tr>}
               <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td></td><td className="text-right tabular-nums">{totals.last}</td><td className="text-right tabular-nums">{totals.current}</td><td></td><td></td></tr>
             </tbody>
           </table>

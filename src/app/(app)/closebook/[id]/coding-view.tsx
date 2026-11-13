@@ -40,6 +40,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   const effFilter = count(filter) === 0 && filter === "suggested" && count("needs") > 0 ? "needs" : filter;
   const rows = mine.filter((l) => inFilter(l, effFilter));
   const ctx = { registered: data.setup.gst_registered !== false, quick: data.setup.quick_method === true };
+  // No GST/HST answers yet: no tax is assumed, and nothing is confirmed until step 1 is answered (round 3 item 5).
+  const gstAnswered = data.setup.gst_registered !== undefined;
   const byType = useMemo(() => {
     const g = new Map<string, CodingData["chart"]>();
     for (const c of data.chart) { if (!g.has(c.account_type)) g.set(c.account_type, []); g.get(c.account_type)!.push(c); }
@@ -57,7 +59,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
     <div className="grid gap-4">
       {data.error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{data.error}</p>}
       {data.setup.gst_registered === undefined && (
-        <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">The GST/HST setup questions are not answered yet, so the tax column assumes a registrant on the regular method. <Link href={`/closebook/${fileId}?step=setup`} className="font-semibold text-navy-700 underline">Answer them in step 1</Link>.</p>
+        <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">The GST/HST questions are not answered yet, so no sales tax is worked out and no line can be confirmed. <Link href={`/closebook/${fileId}?step=setup`} className="font-semibold text-navy-700 underline">Answer them in step 1</Link>.</p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -93,20 +95,20 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
             ))}
           </div>
           {editable && effFilter === "suggested" && rows.length > 0 && (
-            <button type="button" disabled={pending || !rows.some(bulkable)} onClick={confirmSuggested} className="btn">Confirm {rows.filter(bulkable).length} suggestion{rows.filter(bulkable).length === 1 ? "" : "s"}</button>
+            <button type="button" disabled={pending || !gstAnswered || !rows.some(bulkable)} onClick={confirmSuggested} className="btn">Confirm {rows.filter(bulkable).length} suggestion{rows.filter(bulkable).length === 1 ? "" : "s"}</button>
           )}
         </div>
         {err && <p role="alert" className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">{err}</p>}
         {rows.length === 0 ? <p className="p-5 text-sm text-ink-2">Nothing here.</p> : (
           <div className="overflow-x-auto">
             {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
-            <table className="table table-compact min-w-[1040px] table-fixed">
-              <colgroup><col className="w-[6.2rem]" /><col /><col className="w-[5.6rem]" /><col className="w-[5.6rem]" /><col className="w-[15.5rem]" /><col className="w-[9rem]" /><col className="w-[5rem]" /><col className="w-[12.2rem]" /></colgroup>
+            <table className="table table-compact min-w-[980px] table-fixed">
+              <colgroup><col className="w-[5.6rem]" /><col /><col className="w-[4.8rem]" /><col className="w-[4.8rem]" /><col className="w-[16.8rem]" /><col className="w-[7.8rem]" /><col className="w-[4rem]" /><col className="w-[11.4rem]" /></colgroup>
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
                 <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
-                  editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} />
+                  editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} gstAnswered={gstAnswered} />
               ))}</tbody>
             </table>
             {rows.length > 300 && <p className="px-4 py-3 text-sm text-ink-2">Showing the first 300 of {rows.length}. Confirm these to see the rest.</p>}
@@ -117,15 +119,15 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   );
 }
 
-function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused }: {
+function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused, gstAnswered }: {
   l: CodeLine; kind: string; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
   byType: [string, CodingData["chart"]][]; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
-  run: (f: () => Promise<string | null>) => void; focused: boolean;
+  run: (f: () => Promise<string | null>) => void; focused: boolean; gstAnswered: boolean;
 }) {
   const start = l.chart_account ?? l.suggestion?.account ?? "";
   const [account, setAccount] = useState(start);
   // Sales tax starts blank, as in QuickBooks, so an uncoded line stands out; a saved rule fills its own.
-  const [tax, setTax] = useState<string>(l.tax_code ?? l.suggestion?.tax ?? "");
+  const [tax, setTax] = useState<string>(gstAnswered ? l.tax_code ?? l.suggestion?.tax ?? "" : "");
   const [rowErr, setRowErr] = useState("");
   const [rule, setRule] = useState(false);
   const c = chart.get(account);
@@ -168,7 +170,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         </span>
       </td>
       <td>
-        <select aria-label="Sales tax" value={tax} disabled={locked} className={`input input-compact w-full ${rowErr && !tax ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
+        <select aria-label="Sales tax" value={tax} disabled={locked || !gstAnswered} className={`input input-compact w-full ${rowErr && !tax ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
           <option value="">Choose</option>
           {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
@@ -179,7 +181,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
           <span className="inline-flex flex-col items-end gap-1">
             <span className="flex gap-1 whitespace-nowrap">
               <button type="button" className="btn btn-compact" disabled={pending}
-                onClick={() => !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
+                onClick={() => !gstAnswered ? setRowErr("Answer the GST/HST questions in step 1 first.") : !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
                   rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
               {l.status !== "ask_client" ? <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
                 : <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}

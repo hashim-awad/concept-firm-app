@@ -96,7 +96,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   // What makes up "Opening balances to enter", shown when its row is opened (round 2 item 8).
   const openingCauses = bankFile && (step === "mapping" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
-  const wideStep = !!report || ["code", "mapping", "review", "t2"].includes(step);
+  const wideStep = !!report || ["code", "entries", "mapping", "review", "t2"].includes(step);
   let body: React.ReactNode;
   if (step === "opening") {
     if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
@@ -171,7 +171,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     );
   } else if (step === "records") {
     body = bankFile
-      ? <div className="grid gap-4"><BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+      ? <div className="grid gap-4"><BankView dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile
@@ -213,8 +213,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       <Notice msg={messageFrom(sp.msg)} error={sp.upload || sp.opening ? undefined : messageFrom(sp.error)} />
 
       {/* Tables use the full width (round 2 item 9): on table screens the step list is narrower. */}
-      <div className={`flex flex-wrap items-start ${wideStep ? "gap-4" : "gap-6"}`}>
-        <nav aria-label="Year-end steps" className={`card p-3 ${wideStep ? "flex-[1_1_200px] lg:max-w-[210px]" : "flex-[1_1_240px] lg:max-w-[280px]"}`}>
+      {/* The step list keeps each name on one line (round 3 item 10). On table screens narrower than
+          1,536 px it folds into a step picker above the table, so the table has the width (QuickBooks Online
+          keeps its bank feed full width the same way). */}
+      {wideStep && (
+        <details className="mb-3 2xl:hidden">
+          <summary className="card inline-flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
+            <b>{report ? REPORTS.find(([k]) => k === report)?.[1] : `Step ${cur.n} of 10 · ${cur.name}`}</b><span className="text-ink-3">· all steps and reports ▾</span></summary>
+          <div className="card mt-1 grid w-fit gap-x-8 gap-y-0.5 p-3 text-sm sm:grid-cols-2">
+            {steps.map((x) => <Link key={x.key} href={href(x.key)} className={`rounded px-2 py-1 whitespace-nowrap hover:bg-sand-100 ${!report && x.key === step ? "bg-navy-50 font-semibold" : ""}`}>{x.n}. {x.name}</Link>)}
+            {REPORTS.map(([k, label]) => <Link key={k} href={`/closebook/${id}?report=${k}`} className={`rounded px-2 py-1 whitespace-nowrap hover:bg-sand-100 ${report === k ? "bg-navy-50 font-semibold" : ""}`}>{label}</Link>)}
+          </div>
+        </details>
+      )}
+      <div className="flex flex-wrap items-start gap-6 lg:flex-nowrap">
+        <nav aria-label="Year-end steps" className={`card w-full p-3 lg:w-[16rem] lg:flex-none ${wideStep ? "hidden 2xl:block" : ""}`}>
           <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Year-end steps</p>
           <ol className="grid gap-1">
             {steps.map((s) => (
@@ -223,7 +236,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
                   className={`flex items-start gap-3 rounded-lg px-2 py-2 ${!report && s.key === step ? "bg-navy-50" : "hover:bg-sand-100"}`}>
                   <span aria-hidden className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${s.state === "done" ? "bg-success-soft text-success" : s.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{s.state === "done" ? "✓" : s.n}</span>
                   <span className="min-w-0">
-                    <span className={`block text-sm ${!report && s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
+                    <span className={`block text-sm whitespace-nowrap ${!report && s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
                     {s.note && <span className="block text-xs text-ink-3">{s.note}</span>}
                   </span>
                 </Link>
@@ -241,14 +254,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           </ul>
         </nav>
 
-        <main className="min-w-0 flex-[999_1_640px]">
+        <main className="min-w-0 flex-1">
           {backHref && <Link href={backHref} className="mb-3 inline-block text-sm font-semibold text-navy-700 hover:underline">← Back</Link>}
           {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
             data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start}
             todo={[
               // What the preparer acts on, by cause, each linked (round 2 item 15). Zero counts are left out.
-              { n: coding.open + coding.reviewer, one: "line to code", many: "lines to code", href: href("code") },
-              { n: coding.ask, one: "line waiting on the client", many: "lines waiting on the client", href: href("code") },
+              // Step 4's own words and numbers (round 3 item 13).
+              { n: coding.open, one: "to code", many: "to code", href: href("code") },
+              { n: coding.reviewer, one: "with the reviewer", many: "with the reviewer", href: href("code") },
+              { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
               { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
               { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
             ].filter((t) => t.n > 0)} /> : <>

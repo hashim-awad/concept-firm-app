@@ -344,6 +344,15 @@ In short:
   - Forms and checklists sit in a column about 1,100 px wide; tables use the full width with compact rows. Step 2 is one row per line: GIFI | Name | Account | Amount.
   - The balance sheet banner counts what is left by cause: lines to code, lines waiting on the client, opening balances to enter, accounts without a GIFI line.
   - Nothing not built yet is mentioned on a screen.
+- Round 3 follow-ups (Hashim, Nov 17, 2026):
+  - Standard entries carry a tax choice, never a provincial code: "Taxable at the client's rate", "No sales tax" or "Choose on the line" (Home office: no sales tax; Accounting fee accrual: taxable). The amount is "Total paid, including tax", split the QuickBooks Online "inclusive of tax" way, so the entry opens balanced (1,130.00 with HST: Dr 1,000.00 and 130.00, Cr 1,130.00).
+  - Lines already in a file twice are listed in step 3. Lines uploaded with "These are real transactions" go to the reviewer: "Uploaded although already in the file."
+  - Nothing is confirmed in step 4 before the GST/HST questions are saved; no tax is assumed. When the answers change, confirmed lines with tax and entries with a tax line go back to the reviewer.
+  - Last year's net income shows as net income on the balance sheet, retained earnings at the start of last year as they were (0.00 with no 3660).
+  - Card balances in the opening checks read as on the statement: "$1,000.00 owing".
+  - Entry totals count every amount typed; a missing account shows on its own line only.
+  - Table screens (step 4, step 5, step 7, lead sheets, reports) fold the step list into a step picker below 1,536 px so nothing is cut off on a 1,366 px laptop.
+  - Step 7: accounts with no balance either year and no entries show as one collapsed "N accounts not used" line; "This year" is the final balance.
 - Client entry list, round 2 (Hashim, Nov 15, 2026): "DRAFT FOR REVIEW" top left on every page until the reviewer signs step 6 (Review); step 6 has no sign-off yet, so the client's copy is always a draft for now. The firm's name in the footer, as on the year-end package (green rule, then "Prepared by Concept Accounting & Advisory Professional Corporation | Registered with CPA Ontario"); the footer names the document "Entries to record in your books". The note under the trial balance and the line under "New accounts to create in your books" are wording pieces on the Templates page ("Closebook client entry list", a Trial until an owner approves it).
 - Balance sheet equity (Hashim, Nov 15, 2026): Share capital; Retained earnings, start of year; Prior period adjustment (31500, GIFI 3720); Net income; Dividends; Total equity. In the trial balance by group, 31500 stays in Retained earnings, and "Net income last year (from the T2)" has its own group, "Last year's income statement", after income taxes, so retained earnings show last year's real balance.
 - Standard chart: 32200 Dividends declared (Equity, GIFI 3700) added on Nov 15, 2026, after 32000 and 32100; last year's 3700 posts there.

@@ -16,7 +16,7 @@ export type TaxRow = { label: string; cents: number };
 // A standard entry's side, resolved to this file: value is the account the form picks ("" when the preparer
 // must choose, with the reason in missing).
 export type StdSide = { value: string; chart: string; label: string; line_no: string; missing: string };
-export type StdOpt = { id: string; name: string; kind: string; reason: string; memo: string; wp_ref: string; reverse: boolean; debit: StdSide; credit: StdSide };
+export type StdOpt = { id: string; name: string; kind: string; reason: string; memo: string; wp_ref: string; reverse: boolean; debit: StdSide; credit: StdSide; tax: string; taxMode: string };
 
 export const blankLine = (): FormLine => ({ acct: "", dr: "", cr: "", desc: "", tax: "", newName: "", newType: "", newLine: "" });
 const isPpa = (line: string) => line.startsWith("3720") || line.startsWith("3600");
@@ -26,11 +26,14 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
   let gst = 0, pst = 0, dr = 0, cr = 0;
   const problems: string[] = [];
   let ppaLine = false;
+  // Every amount typed counts in the totals, account chosen or not (round 3 item 8): a missing account is
+  // flagged on its own line, never as a difference.
+  let typedDr = 0, typedCr = 0;
   lines.forEach((l, i) => {
     const d = parseAmount(l.dr) ?? 0, c = parseAmount(l.cr) ?? 0;
     if (!l.acct && !d && !c) return;
     const n = i + 1;
-    if (!l.acct) { problems.push(`Line ${n}: choose an account.`); return; }
+    if (!l.acct) { typedDr += d; typedCr += c; problems.push(`Line ${n} needs an account.`); return; }
     if (d && c) { problems.push(`Line ${n}: a debit or a credit, not both.`); return; }
     if (!d && !c) { problems.push(`Line ${n}: enter the amount.`); return; }
     const o = opts.get(l.acct);
@@ -50,14 +53,27 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
   if (gst) { out.push({ chart: "21500", amount: gst / 100, memo: "Sales tax", is_tax: true }); taxRows.push({ label: "21500 GST/HST payable (sales tax)", cents: gst }); }
   if (pst) { out.push({ chart: "21550", amount: pst / 100, memo: "Sales tax", is_tax: true }); taxRows.push({ label: "21550 PST payable (sales tax)", cents: pst }); }
   for (const r of out) { const c = Math.round(r.amount * 100); if (c > 0) dr += c; else cr -= c; }
+  dr += typedDr; cr += typedCr;
   const diff = dr - cr;
   // Each rule shows only when it is broken (item 11), in the order a preparer fills the form.
   if (out.filter((r) => !r.is_tax).length < 2 && !problems.length) problems.push("Enter at least two lines.");
-  if (diff) problems.push(`Debits and credits differ by ${formatAmount(Math.abs(diff))}.`);
+  if (diff && !problems.length) problems.push(`Debits and credits differ by ${formatAmount(Math.abs(diff))}.`);
   if (ppaLine && head.reason !== "prior_period") problems.push("A line on 31500 Prior period adjustments needs the reason “Prior period adjustment”.");
   if (!ppaLine && head.reason === "prior_period") problems.push("The reason “Prior period adjustment” needs a line on 31500 Prior period adjustments.");
   if (head.reverse && head.reason !== "accrual") problems.push("Only an accrual reverses next year.");
   if (head.wpRef.trim().length < 3) problems.push("Add the W/P reference.");
   if (head.memo.trim().length < 3) problems.push("Add the memo.");
   return { rpc: out, taxRows, dr, cr, diff, problems };
+}
+
+// A standard entry's amount is the total paid, including tax (round 3 item 2; QuickBooks Online's "amounts
+// are inclusive of tax"): the line before tax is the amount that, with its tax added, gives the total to
+// the cent. 1,130.00 with HST ON gives 1,000.00 and 130.00.
+export function netOfTax(grossCents: number, code: TaxCode | null, accountType: string, ctx: TaxContext): number {
+  if (!code || !ctx.registered) return grossCents;
+  const rate = code.parts.reduce((n, p) => n + p.rate, 0);
+  const guess = Math.round(grossCents / (1 + rate));
+  const total = (net: number) => { const t = entryLineTax(net, code, accountType, ctx); return net + t.gstHst + t.pst + t.toLine; };
+  for (const net of [guess, guess - 1, guess + 1, guess - 2, guess + 2]) if (total(net) === grossCents) return net;
+  return guess;
 }

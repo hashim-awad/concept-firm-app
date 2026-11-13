@@ -106,6 +106,12 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     const diffs: string[] = [];
     const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
     const taken = new Set<string>([...chart.keys(), ...fileNumbers.values()]);
+    // A card or line of credit in the statement's own terms (round 3 item 7): a balance owing is positive.
+    const inStatementTerms = (g: string, debitCents: number) => {
+      const cards = (banksOn.get(g) ?? []).every((b) => b.kind === "card") && (banksOn.get(g) ?? []).length > 0;
+      if (!cards) return dollars(debitCents);
+      return debitCents <= 0 ? `${dollars(-debitCents)} owing` : `${dollars(debitCents)} in credit`;
+    };
     const hasRe = opening.lines.some((l) => l.code === "3660");
     for (const l of opening.lines) {
       const n = Number(l.code);
@@ -127,14 +133,14 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
         else add(key, number, name, line_no, 0, null, undefined, l.debitCents);
         const d = bankOpen.get(l.code)! - l.debitCents;
         if (d) {
-          const t = `GIFI ${l.code}: the first statements open at ${dollars(bankOpen.get(l.code)!)}, last year closed at ${dollars(l.debitCents)}`;
+          const t = `GIFI ${l.code}: the first statements open at ${inStatementTerms(l.code, bankOpen.get(l.code)!)}, last year closed at ${inStatementTerms(l.code, l.debitCents)}`;
           diffs.push(t); causes.push({ text: t, cents: -d });
         }
         bankOpen.delete(l.code);
       } else add(key, number, name, line_no, l.debitCents, m, undefined, l.debitCents);
     }
     for (const [g, c] of bankOpen) if (c) {
-      const t = `GIFI ${g}: the first statements open at ${dollars(c)}, but last year has no balance on this line`;
+      const t = `GIFI ${g}: the first statements open at ${inStatementTerms(g, c)}, but last year has no balance on this line`;
       diffs.push(t); causes.push({ text: t, cents: -c });
     }
     // Retained earnings at the start of the year post even when last year had no 3660 line (a company in
@@ -142,11 +148,10 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     // no 3660 sat unexplained in "Opening balances to enter".
     if (!hasRe && opening.reClosingCents) {
       const ch = chartForLine(chart, "3600.00", "3600");
-      // Last year's column: retained earnings at the start of last year (none), unless last year's income
-      // statement is not entered, when the column carries the closing balance so it still adds to zero.
-      const has125 = opening.lines.some((l) => l.type === "Revenue" || l.type === "Expense");
+      // Last year's column: retained earnings at the start of last year, 0.00 (no 3660). Last year's net
+      // income shows as its own line, as the balance sheet shows it (round 3 item 6).
       add(ch ? `chart:${ch}` : "gifi:3660", ch ?? fileAccountNumber("Equity", taken), ch ? chart.get(ch)!.name : "Retained earnings", ch ? chart.get(ch)!.line_no : "3600.00", -opening.reClosingCents,
-        openMeta("gifi:3849", "Retained earnings at the start of the year (last year's 3849)"), undefined, has125 ? 0 : -opening.reClosingCents);
+        openMeta("gifi:3849", "Retained earnings at the start of the year (last year's 3849)"));
     }
     const reOff = opening.reStatedCents !== null && opening.reStatedCents !== opening.reClosingCents;
     if (reOff) {

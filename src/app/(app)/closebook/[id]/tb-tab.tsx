@@ -4,7 +4,7 @@ import { formatDateTime } from "@/lib/dates";
 import { effectiveLine, leadSheets, lockedLines, normalSide, typeMismatch, wrongSign, type Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
-import { importTrialBalance, runMatching } from "../actions";
+import { importTrialBalance } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
 import { GifiView } from "./gifi-view";
@@ -59,6 +59,7 @@ export function TbTab(p: Props) {
   const lockedSet = lockedLines(lines);
   const options = lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: p.craText.get(l.gifi_code) ?? "",
     locked: lockedSet.has(l.line_no), normal: normalSide(l) }));
+  const unusedOf = (a: CbAccount) => a.this_year === 0 && a.last_year === 0 && !entryTotals.has(a.id) && !["opening", "uncoded"].includes(a.account_key);
   const rows: Row[] = accounts.map((a) => {
     const fin = finalOf(a);
     const eff = effectiveLine(a.line_no, fin, byNo);
@@ -68,7 +69,9 @@ export function TbTab(p: Props) {
       lineNo: a.line_no ?? "", lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
       source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines" : mismatchText(a),
       tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
-      attention: !a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a)),
+      // An account with no balance either year and no entries needs no decision (round 3 item 12).
+      unused: unusedOf(a),
+      attention: !unusedOf(a) && (!a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a))),
       buildUp: a.account_key === "opening" && p.causes?.length ? p.causes.map((c) => ({ text: c.text, amount: amt(c.cents / 100) })) : undefined,
     };
   });
@@ -118,13 +121,6 @@ export function TbTab(p: Props) {
         </div>
       )}
 
-      {editable && !locked && unmatched.length > 0 && (
-        <form action={runMatching} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
-          <input type="hidden" name="file_id" value={file.id} />
-          <p>{unmatched.length} account{unmatched.length === 1 ? " was" : "s were"} imported before matching ran by itself.</p>
-          <button type="submit" className="btn">Match them now</button>
-        </form>
-      )}
       {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
@@ -140,8 +136,13 @@ export function TbTab(p: Props) {
               })} />
           )
         ) : (
-          <MatchWorkspace fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
-            editable={editable && !locked} totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} edit={p.edit} />
+          <MatchWorkspace matchNow={editable && !locked && unmatched.some((a) => !unusedOf(a))} fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
+            editable={editable && !locked} totals={(() => {
+              // Last year's net income is not an account: when last year's income statement was not entered,
+              // it shows as its own line so the last-year column adds to zero, as on the balance sheet.
+              const lastSum = accounts.reduce((n, a) => n + a.last_year, 0);
+              return Math.round(lastSum * 100) ? { last: "–", current: amt(total), niLast: amt(-lastSum) } : { last: amt(lastSum), current: amt(total) };
+            })()} edit={p.edit} />
         )}
       <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code.</p>
     </>
