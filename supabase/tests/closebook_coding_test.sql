@@ -54,4 +54,17 @@ select test.check('even the reviewer coding meals at the full rate sends it to t
 select public.cb_uncode_lines(:'f', array[:'soft']::uuid[]);
 select test.check('Undo puts a coded line back in Needs you, cleared', (select status || '|' || coalesce(chart_account, '-') || '|' || coalesce(tax_code, '-') from public.cb_bank_lines where id = :'soft') = 'new|-|-');
 select test.check('only the six bank chart accounts', test.try(format($f$select public.cb_set_bank_chart_account(%L, '6510')$f$, :'acc')) like '%Choose chequing%');
+-- The built trial balance (step 3 to step 4).
+select test.check('an unbalanced build is refused', test.try(format($f$select public.cb_build_tb(%L, '[{"key":"chart:6510","number":"6510","name":"Office","line_no":"8810.00","amount":5}]')$f$, :'f')) like '%does not balance%');
+select public.cb_build_tb(:'f', '[{"key":"chart:1000","number":"1000","name":"Chequing","line_no":"1002.00","amount":100},{"key":"chart:6510","number":"6510","name":"Office","line_no":"8810.00","amount":20},{"key":"opening","number":"","name":"Opening balances to enter","line_no":"","amount":-120,"reviewer":"Enter last year."}]');
+select test.check('built rows saved with their GIFI line; the holding account waits for the reviewer',
+  (select line_no || '|' || mapping_source || '|' || this_year from public.cb_accounts where file_id = :'f' and account_key = 'chart:6510') = '8810.00|chart|20.00'
+  and (select needs_reviewer from public.cb_accounts where file_id = :'f' and account_key = 'opening'));
+reset role;
+update public.cb_accounts set line_no = '8811.00', mapping_source = 'reviewer' where file_id = :'f' and account_key = 'chart:6510';
+set role authenticated;
+select public.cb_build_tb(:'f', '[{"key":"chart:1000","number":"1000","name":"Chequing","line_no":"1002.00","amount":100},{"key":"opening","number":"","name":"Opening balances to enter","line_no":"","amount":-100,"reviewer":"Enter last year."}]');
+select test.check('a rebuild keeps the reviewer''s GIFI line and removes empty built rows',
+  not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'chart:6510')
+  and (select this_year from public.cb_accounts where file_id = :'f' and account_key = 'chart:1000') = 100);
 reset role;

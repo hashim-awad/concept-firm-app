@@ -12,7 +12,7 @@ import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
 export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
-const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer" };
+const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer", chart: "Standard chart" };
 
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;

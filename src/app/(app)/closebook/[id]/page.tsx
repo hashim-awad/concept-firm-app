@@ -14,6 +14,9 @@ import { BankView } from "./bank-view";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
+import { rebuildTb } from "@/lib/closebook/tb-build-server";
+import { buildReports } from "@/lib/closebook/reports";
+import { ReportsView } from "./reports-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
@@ -27,8 +30,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const supabase = await createClient();
-  const data = await loadFile(supabase, id);
+  let data = await loadFile(supabase, id);
   if (!data) notFound();
+  // Bank-statement files coded before the trial balance was built from them: build it once now.
+  if (fromStatements(data.file.books) && canEdit(access, "closebook") && data.file.phase !== "locked"
+    && !data.accounts.some((a) => a.account_key.startsWith("chart:") || a.account_key.startsWith("bank:") || a.account_key === "opening")) {
+    const { count } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
+    if (count) { await rebuildTb(supabase, id); data = (await loadFile(supabase, id))!; }
+  }
   const { file, client, docs, accounts, imports, names, entries } = data;
   const ref = await loadReference(supabase);
   const isReviewer = access.staff_id === file.reviewer_id;
@@ -67,6 +76,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const docStatus = (d: CbDoc) => d.status === "signed" ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Signed</span>
     : d.status === "prepared" ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For review</span>
     : <span className="rounded bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">Open</span>;
+
+  // The Reports panel: balances after Closebook entries, typed by their GIFI line (or not yet sorted).
+  const reportsOpen = sp.reports === "bs" || sp.reports === "pl";
+  const reports = reportsOpen ? (() => {
+    const typeOf = new Map(ref.lines.map((l) => [l.line_no, l.line_type]));
+    const ent = new Map<string, number>();
+    for (const e of entries) for (const l of e.lines) ent.set(l.account_id, (ent.get(l.account_id) ?? 0) + l.amount);
+    return buildReports(accounts.map((a) => ({ key: a.id, number: a.number, name: a.name, type: a.line_no ? typeOf.get(a.line_no) ?? null : null,
+      final: a.this_year + (ent.get(a.id) ?? 0), last: a.last_year })));
+  })() : null;
 
   let body: React.ReactNode;
   if (step === "setup") {
@@ -146,7 +165,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <h1 className="text-2xl font-semibold tracking-tight">{client?.legal_name}</h1>
           <p className="mt-1 text-sm text-ink-2">{FILE_TYPE[file.file_type]} file · Year-end {formatDate(file.year_end)}{file.year_change_reason ? ` (from ${formatDate(file.year_start)}: ${file.year_change_reason})` : ""} · {BOOKS[file.books]} · Preparer {people.preparer} · Reviewer {people.reviewer}</p>
         </div>
-        <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
+        <span className="flex flex-wrap items-center gap-2">
+          {accounts.length > 0 && <Link href={`${href(step)}&reports=bs`} scroll={false} className="btn-secondary">Reports</Link>}
+          <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
+        </span>
       </header>
       <Notice msg={messageFrom(sp.msg)} error={sp.upload ? undefined : messageFrom(sp.error)} />
 
@@ -180,6 +202,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           {body}
         </main>
       </div>
+      {reports && <ReportsView r={reports} which={sp.reports as "bs" | "pl"} base={href(step)} closeHref={href(step)} yearEnd={formatDate(file.year_end)} />}
     </>
   );
 }

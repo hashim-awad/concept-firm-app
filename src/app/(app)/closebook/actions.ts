@@ -9,6 +9,7 @@ import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
 import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
+import { rebuildTb } from "@/lib/closebook/tb-build-server";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -208,6 +209,7 @@ export async function uploadBankStatement(formData: FormData) {
   });
   if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
   const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
+  await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(`${done}&account=${encodeURIComponent(d.account_id)}`, "msg",
     `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
@@ -219,6 +221,7 @@ export async function deleteBankStatement(formData: FormData) {
   await editor(back);
   const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(formData, "statement") });
   if (error) redirect(withMessage(back, "error", error.message));
+  await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, "msg", "Statement removed, with its transactions."));
 }
@@ -237,7 +240,9 @@ export async function codeLinesInline(fileId: string, items: { id: string; accou
     const { error: re } = await supabase.rpc("cb_save_vendor_rule", { p_file: fileId, p_vendor_key: r.key, p_account: r.account, p_tax: r.tax ?? "" });
     if (re) return `Coded, but the rule was not saved: ${re.message}`;
   }
+  const tb = await rebuildTb(supabase, fileId);
   revalidatePath(`/closebook/${fileId}`);
+  if (tb) return tb;
   return null;
 }
 
@@ -246,6 +251,7 @@ export async function undoLinesInline(fileId: string, ids: string[]): Promise<st
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
   const { error } = await (await createClient()).rpc("cb_uncode_lines", { p_file: fileId, p_ids: ids });
   if (error) return error.message;
+  await rebuildTb(await createClient(), fileId);
   revalidatePath(`/closebook/${fileId}`);
   return null;
 }
@@ -255,6 +261,7 @@ export async function askClientInline(fileId: string, ids: string[]): Promise<st
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
   const { error } = await (await createClient()).rpc("cb_ask_client", { p_file: fileId, p_ids: ids });
   if (error) return error.message;
+  await rebuildTb(await createClient(), fileId);
   revalidatePath(`/closebook/${fileId}`);
   return null;
 }
@@ -273,6 +280,7 @@ export async function saveSetup(formData: FormData) {
   if (f) answers.gst_frequency = f;
   const { error } = await (await createClient()).rpc("cb_save_setup", { p_file: id, p_setup: answers });
   if (error) redirect(withMessage(back, "error", error.message));
+  await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, "msg", "Setup answers saved."));
 }

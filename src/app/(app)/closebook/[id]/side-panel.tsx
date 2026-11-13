@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
-export function SidePanel({ title, closeHref, children }: { title: string; closeHref: string; children: ReactNode }) {
+export function SidePanel({ title, closeHref, children, wide }: { title: string; closeHref: string; children: ReactNode; wide?: boolean }) {
   const router = useRouter();
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -19,7 +19,7 @@ export function SidePanel({ title, closeHref, children }: { title: string; close
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="side-panel-title">
       <Link href={closeHref} scroll={false} aria-label="Close" tabIndex={-1} className="absolute inset-0 bg-navy-950/30" />
-      <aside className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col gap-5 overflow-y-auto bg-white p-6 shadow-2xl">
+      <aside className={`absolute inset-y-0 right-0 flex w-full ${wide ? "max-w-3xl" : "max-w-xl"} flex-col gap-5 overflow-y-auto bg-white p-6 shadow-2xl`}>
         <div className="flex items-center justify-between gap-3">
           <h2 id="side-panel-title" ref={heading} tabIndex={-1} className="text-lg font-semibold outline-none">{title}</h2>
           <Link href={closeHref} scroll={false} aria-label="Close" className="rounded p-1.5 hover:bg-sand-100"><X className="h-5 w-5" /></Link>
