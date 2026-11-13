@@ -45,8 +45,8 @@ test("not registered: no split; sales split GST and PST to their own accounts", 
 });
 
 test("defaults by province: meals to the group code; Check has none", () => {
-  assert.equal(defaultTaxCode("GST/HST", "ON", "6020"), "MEALS_HST_50");
-  assert.equal(defaultTaxCode("GST/HST", "BC", "6020"), "MEALS_GST_50");
+  assert.equal(defaultTaxCode("GST/HST", "ON", "60200"), "MEALS_HST_50");
+  assert.equal(defaultTaxCode("GST/HST", "BC", "60200"), "MEALS_GST_50");
   assert.equal(defaultTaxCode("GST/HST", "ON", "6510"), "HST_ON");
   assert.equal(defaultTaxCode("GST/HST", "AB", "6510"), "GST");
   assert.equal(defaultTaxCode("Check", "ON", "4050"), null);

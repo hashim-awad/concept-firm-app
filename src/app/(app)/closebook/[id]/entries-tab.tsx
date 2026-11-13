@@ -27,7 +27,7 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
             <thead><tr><th>Entry</th><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th><th>Status</th></tr></thead>
             <tbody>{entries.map((e) => (
               e.lines.map((l, i) => (
-                <tr key={`${e.id}-${i}`} className={i === 0 ? "border-t-2 border-sand-200" : ""}>
+                <tr key={`${e.id}-${i}`} id={i === 0 ? `entry-${e.id}` : undefined} className={`${i === 0 ? "border-t-2 border-sand-200" : ""} target:bg-navy-50`}>
                   <td>{i === 0 && <><b>{e.kind}-{e.number}</b> {REASONS[e.reason]}<span className="block text-xs text-muted">{e.note}{e.reverse_next_year ? " · reverses next year" : ""} · {names.get(e.created_by ?? "")?.split(" ")[0]}, {formatDate(e.created_at)}</span></>}</td>
                   <td>{accName.get(l.account_id)}{l.memo && <span className="block text-xs text-muted">{l.memo}</span>}</td>
                   <td className="text-right tabular-nums">{l.amount > 0 ? amt(l.amount) : ""}</td>

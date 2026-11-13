@@ -67,7 +67,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const lineRows = (b: Block) => (
     <>
       {rows.filter((r) => r.block === b).map((r) => (
-        <tr key={r.id} className="border-b border-sand-100 align-top">
+        <tr key={r.id} id={r.code ? `gifi-${r.code}` : undefined} className="border-b border-sand-100 align-top target:bg-navy-50">
           <td className="w-28 px-4 py-1.5"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input w-[5.5rem] px-2 text-center tabular-nums" /></td>
           <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
             : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
@@ -82,7 +82,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
     const f = flag(code);
     return (
       <>
-        <tr className="font-bold">
+        <tr id={`gifi-${code}`} className="font-bold target:bg-navy-50">
           <td className="px-4 py-2 text-ink-3">{code}</td><td className="px-2 py-2">{label}</td>
           <td className="px-2 py-2 text-right tabular-nums">
             {input ? <input aria-label={`${code} ${label}`} inputMode="decimal" value={input.v} disabled={!editable} onChange={(e) => { input.set(e.target.value); touch(); }}
