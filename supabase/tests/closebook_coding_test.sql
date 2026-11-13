@@ -67,4 +67,13 @@ select public.cb_build_tb(:'f', '[{"key":"chart:1000","number":"1000","name":"Ch
 select test.check('a rebuild keeps the reviewer''s GIFI line and removes empty built rows',
   not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'chart:6510')
   and (select this_year from public.cb_accounts where file_id = :'f' and account_key = 'chart:1000') = 100);
+-- Opening balances by GIFI code.
+select test.check('a typed or imported route needs last year''s 3849', test.try(format($f$select public.cb_set_opening(%L, 'manual', '[{"code":"1002","amount":100}]', null)$f$, :'f')) like '%3849%');
+select test.check('3849 itself is refused as a line', test.try(format($f$select public.cb_set_opening(%L, 'manual', '[{"code":"3849","amount":100}]', 100)$f$, :'f')) like '%cannot be used%');
+select public.cb_set_opening(:'f', 'gifi_file', '[{"code":"1002","amount":100},{"code":"3660","amount":100}]', 100);
+select test.check('opening balances saved with their source', (select count(*) from public.cb_opening_balances where file_id = :'f') = 2
+  and (select opening_source || '|' || opening_re_stated from public.cb_files where id = :'f') = 'gifi_file|100.00');
+select public.cb_build_tb(:'f', '[{"key":"chart:1000","number":"1000","name":"Chequing","line_no":"1002.00","amount":100,"last":100},{"key":"gifi:3660","number":"3660","name":"Retained earnings","line_no":"3600.00","amount":-100,"last":-100}]');
+select test.check('the build writes last year too; a cleared opening row goes', (select last_year from public.cb_accounts where file_id = :'f' and account_key = 'gifi:3660') = -100
+  and not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'opening'));
 reset role;

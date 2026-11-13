@@ -9,7 +9,8 @@ import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
 import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
-import { rebuildTb } from "@/lib/closebook/tb-build-server";
+import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
+import { openingFrom, parseGifiFile } from "@/lib/closebook/opening";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -283,4 +284,41 @@ export async function saveSetup(formData: FormData) {
   await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, "msg", "Setup answers saved."));
+}
+
+// ---------- Opening balances, bank-statement files (Hashim, Nov 13, 2026) ----------
+
+async function setOpening(fileId: string, source: "gifi_file" | "manual", codes: [string, number][], reStatedCents: number | null): Promise<string | null> {
+  const supabase = await createClient();
+  const { info } = await gifiCodeInfo(supabase);
+  const { errors } = openingFrom(codes, info);
+  if (errors.length) return `Nothing was saved. ${errors.slice(0, 5).join(" ")}`;
+  if (reStatedCents === null) return "Nothing was saved. Enter last year's retained earnings at the end of the year (GIFI 3849, from last year's T2).";
+  const { error } = await supabase.rpc("cb_set_opening", { p_file: fileId, p_source: source, p_codes: codes.map(([code, c]) => ({ code, amount: c / 100 })), p_re_stated: reStatedCents / 100 });
+  if (error) return `Nothing was saved. ${error.message}`;
+  const tb = await rebuildTb(supabase, fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  return tb;
+}
+
+// Typed in by GIFI code: code, amount, next line, as on the CRA T2 extract. Works without any Claude tool.
+export async function saveOpeningManualInline(fileId: string, codes: [string, number][], reStatedCents: number | null): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  return setOpening(fileId, "manual", codes, reStatedCents);
+}
+
+// A prior-year GIFI file in the Closebook layout (the takeover skill's output, or a prior accountant's .gfi).
+export async function importOpeningGifi(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=records&opening=import`;
+  await editor(back);
+  const upload = formData.get("upload");
+  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose last year's GIFI file (.gfi or .csv)."));
+  const parsed = parseGifiFile(new TextDecoder().decode(new Uint8Array(await (upload as File).arrayBuffer())));
+  if (parsed.errors.length) redirect(withMessage(back, "error", `Nothing was saved. ${parsed.errors.slice(0, 5).join(" ")}`));
+  const re = typedCents(s(formData, "re_stated"));
+  const err = await setOpening(id, "gifi_file", parsed.codes, re);
+  if (err) redirect(withMessage(back, "error", err));
+  redirect(withMessage(`/closebook/${id}?step=records`, "msg", `Imported ${parsed.codes.length} GIFI lines as last year's balances.`));
 }

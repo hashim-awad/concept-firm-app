@@ -14,16 +14,19 @@ import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number };
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null };
 export type BuildChart = { name: string; account_type: string; line_no: string };
-export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; reviewer?: string };
+export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
+// Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
+// last year's T2 (null when it comes from last year's Closebook file, where it is the same by design).
+export type BuildOpening = { lines: { code: string; line_no: string; name: string; type: string; debitCents: number }[]; reClosingCents: number; reStatedCents: number | null };
 
 export const UNCODED = "uncoded";
 export const OPENING = "opening";
 
-export function buildTrialBalance(banks: BuildBank[], lines: BuildLine[], chart: Map<string, BuildChart>, codes: Map<string, TaxCode>, ctx: TaxContext): TbRow[] {
+export function buildTrialBalance(banks: BuildBank[], lines: BuildLine[], chart: Map<string, BuildChart>, codes: Map<string, TaxCode>, ctx: TaxContext, opening?: BuildOpening | null): TbRow[] {
   const rows = new Map<string, TbRow>();
-  const add = (key: string, number: string, name: string, line_no: string | null, cents: number, reviewer?: string) => {
-    const r = rows.get(key) ?? { key, number, name, line_no, cents: 0, reviewer };
-    r.cents += cents; rows.set(key, r);
+  const add = (key: string, number: string, name: string, line_no: string | null, cents: number, reviewer?: string, lastCents = 0) => {
+    const r = rows.get(key) ?? { key, number, name, line_no, cents: 0, lastCents: 0, reviewer };
+    r.cents += cents; r.lastCents += lastCents; rows.set(key, r);
   };
   const post = (number: string, cents: number) => {
     const c = chart.get(number);
@@ -35,10 +38,44 @@ export function buildTrialBalance(banks: BuildBank[], lines: BuildLine[], chart:
   const bankKey = (b: BuildBank) => (shared.has(b.chart) ? `bank:${b.id}` : `chart:${b.chart}`);
   const byId = new Map(banks.map((b) => [b.id, b]));
 
+  const gifiOf = (b: BuildBank) => (chart.get(b.chart)?.line_no ?? "").slice(0, 4);
   for (const b of banks) {
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
     add(bankKey(b), b.chart, shared.has(b.chart) ? b.name : chart.get(b.chart)?.name ?? b.name, chart.get(b.chart)?.line_no ?? null, open);
-    add(OPENING, "", "Opening balances to enter", null, -open, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
+    if (!opening) add(OPENING, "", "Opening balances to enter", null, -open, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
+  }
+  if (opening) {
+    // Last year's balances carry into this year: balance sheet lines carry, the income statement
+    // closes to retained earnings (closing = 3660 + net income − dividends + adjustments).
+    const bankOpen = new Map<string, number>(), banksOn = new Map<string, BuildBank[]>();
+    for (const b of banks) {
+      const g = gifiOf(b);
+      bankOpen.set(g, (bankOpen.get(g) ?? 0) + (b.kind === "bank" ? b.openingCents : -b.openingCents));
+      banksOn.set(g, [...(banksOn.get(g) ?? []), b]);
+    }
+    const diffs: string[] = [];
+    const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+    for (const l of opening.lines) {
+      const key = `gifi:${l.code}`, label = `${l.code} ${l.name}`;
+      const n = Number(l.code);
+      if (l.type === "Revenue" || l.type === "Expense" || (n >= 3700 && n <= 3848)) add(key, l.code, label, l.line_no, 0, undefined, l.debitCents);
+      else if (l.code === "3660") add(key, "3660", "Retained earnings", l.line_no, -opening.reClosingCents, undefined, l.debitCents);
+      else if (bankOpen.has(l.code)) {
+        // A bank, card or line of credit line: this year starts from the statements; last year's closing must match.
+        const on = banksOn.get(l.code)!;
+        if (on.length === 1) add(bankKey(on[0]), on[0].chart, "", null, 0, undefined, l.debitCents);
+        else add(key, l.code, label, l.line_no, 0, undefined, l.debitCents);
+        const d = bankOpen.get(l.code)! - l.debitCents;
+        if (d) diffs.push(`GIFI ${l.code}: the first statements open at ${dollars(bankOpen.get(l.code)!)}, last year closed at ${dollars(l.debitCents)}`);
+        bankOpen.delete(l.code);
+      } else add(key, l.code, label, l.line_no, l.debitCents, undefined, l.debitCents);
+    }
+    for (const [g, c] of bankOpen) if (c) diffs.push(`GIFI ${g}: the first statements open at ${dollars(c)}, but last year has no balance on this line`);
+    const reOff = opening.reStatedCents !== null && opening.reStatedCents !== opening.reClosingCents;
+    if (reOff) diffs.push(`Opening retained earnings ${dollars(opening.reClosingCents)} (3660 + net income − dividends + adjustments) does not equal last year's 3849 of ${dollars(opening.reStatedCents!)}`);
+    // Whatever does not tie sits here for the reviewer; with both checks passing there is nothing.
+    const others = [...rows.values()].reduce((t, r) => t + r.cents, 0);
+    if (diffs.length || others) add(OPENING, "", "Opening balances to enter", null, -others, diffs.join(". ") || "Last year's balances do not balance.");
   }
   for (const l of lines) {
     const b = byId.get(l.account_id);
@@ -59,5 +96,7 @@ export function buildTrialBalance(banks: BuildBank[], lines: BuildLine[], chart:
       if (s.itcCents) post("2150", s.itcCents);
     }
   }
-  return [...rows.values()].filter((r) => r.cents !== 0 || r.key.startsWith("chart:") || r.key.startsWith("bank:"));
+  // Fix the bank rows' names (lines added with a blank name) and drop empty rows; the opening row stays
+  // while it has a reason, even at zero (retained earnings off).
+  return [...rows.values()].filter((r) => r.cents !== 0 || r.lastCents !== 0 || r.key.startsWith("chart:") || r.key.startsWith("bank:") || (r.key === OPENING && !!r.reviewer));
 }

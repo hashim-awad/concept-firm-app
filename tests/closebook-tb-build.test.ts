@@ -65,3 +65,31 @@ test("two cards on the same chart account stay apart", () => {
   assert.deepEqual(rows.filter((r) => r.key.startsWith("bank:")).map((r) => r.name).sort(), ["Mastercard 9", "Visa 1234"]);
   assert.equal(sum(rows), 0);
 });
+
+test("opening balances by GIFI code: carried, checked, and cleared when both checks pass", () => {
+  const ch = new Map(chart); ch.set("3100", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" });
+  const opening = { reClosingCents: 250000, reStatedCents: 250000, lines: [
+    { code: "1002", line_no: "1002.00", name: "Deposits", type: "Asset", debitCents: 270000 },
+    { code: "2707", line_no: "2707.00", name: "Credit card loans", type: "Liability", debitCents: -10000 },
+    { code: "3500", line_no: "3500.00", name: "Common shares", type: "Equity", debitCents: -10000 },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: -100000 },
+    { code: "3701", line_no: "3701.10", name: "Dividends", type: "Equity", debitCents: 200000 },
+    { code: "8120", line_no: "8120.00", name: "Commission revenue", type: "Revenue", debitCents: -500000 },
+    { code: "8810", line_no: "8810.00", name: "Office expenses", type: "Expense", debitCents: 150000 },
+  ] };
+  const banks = [{ id: "b", name: "Chequing", kind: "bank" as const, chart: "1000", openingCents: 270000 }, { id: "c", name: "Visa", kind: "card" as const, chart: "2200", openingCents: 10000 }];
+  const ok = buildTrialBalance(banks, [], ch, codes, ctx, opening);
+  assert.equal(sum(ok), 0);
+  assert.equal(ok.find((r) => r.key === OPENING), undefined);                    // cleared
+  assert.equal(get(ok, "gifi:3660"), -250000);                                   // closing RE carried
+  assert.equal(get(ok, "gifi:8120"), 0);                                         // income statement closes
+  assert.equal(ok.find((r) => r.key === "gifi:8120")!.lastCents, -500000);       // but shows last year
+  assert.equal(ok.find((r) => r.key === "chart:1000")!.lastCents, 270000);       // last year on the bank row
+  // The statements open $50 off, and last year's 3849 was typed differently: both go to the reviewer.
+  const off = buildTrialBalance([{ ...banks[0], openingCents: 275000 }, banks[1]], [], ch, codes, ctx, { ...opening, reStatedCents: 240000 });
+  assert.equal(sum(off), 0);
+  const o = off.find((r) => r.key === OPENING)!;
+  assert.equal(o.cents, -5000);
+  assert.match(o.reviewer!, /GIFI 1002: the first statements open at \$2,750\.00, last year closed at \$2,700\.00/);
+  assert.match(o.reviewer!, /does not equal last year's 3849/);
+});

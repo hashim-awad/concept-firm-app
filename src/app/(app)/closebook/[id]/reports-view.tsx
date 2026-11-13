@@ -27,10 +27,10 @@ export function ReportsView({ r, which, base, closeHref, yearEnd }: { r: Reports
   );
   const unsorted = r.bs.sections.find((s) => s.title === "Not yet sorted");
   return (
-    <SidePanel title="Reports" closeHref={closeHref} wide>
+    <SidePanel title={`Reports · year-end ${yearEnd}`} closeHref={closeHref} wide>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-2">{tab("bs", "Balance sheet")}{tab("pl", "Income statement")}</div>
-        <span className="text-xs text-ink-3">Working view for {yearEnd}. Not the client package.</span>
+        <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning">Working view: not for the client</span>
       </div>
       {unsorted && unsorted.now !== 0 && (
         <p className="rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-sm">Some amounts are not sorted yet: lines still to code, opening balances to enter, or accounts without a GIFI line. They show under &ldquo;Not yet sorted&rdquo;.</p>

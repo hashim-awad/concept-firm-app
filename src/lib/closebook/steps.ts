@@ -24,6 +24,7 @@ export type StepFacts = {
   entries: number;
   bankGaps?: string;           // bank files: the months still missing, one sentence ("" when complete)
   coding?: { lines: number; open: number; reviewer: number; ask: number };   // bank files: step 3
+  openingIssue?: string;       // bank files: why "Opening balances to enter" has not cleared ("" when it has)
   people: { preparer: string; reviewer: string };
 };
 
@@ -33,14 +34,14 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   const bank = fromStatements(f.books);
   const planning = f.docs.filter((d) => d.phase === "planning");
   const setupDone = planning.length > 0 && planning.every((d) => d.status === "signed");
-  const records = bank ? f.statements > 0 && !f.bankGaps : f.imported;
+  const records = bank ? f.statements > 0 && !f.bankGaps && !f.openingIssue : f.imported;
   const cd = f.coding ?? { lines: 0, open: 0, reviewer: 0, ask: 0 };
   const matched = bank ? cd.lines > 0 && cd.open + cd.reviewer + cd.ask === 0 : f.imported && f.accounts > 0 && f.unmatched === 0 && f.waiting === 0;
 
   const base: Omit<Step, "state">[] = [
     { key: "setup", n: 1, name: "Set up the file", who: f.people.preparer, note: setupDone ? "Done" : `${s(planning.filter((d) => d.status !== "signed").length, "item")} open` },
     { key: "records", n: 2, name: "Get the records", who: f.people.preparer,
-      note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All months in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
+      note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : f.openingIssue ? "Opening balances to settle" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 3, name: bank ? "Code the transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting === 0 ? "All matched" : `${f.unmatched + f.waiting} to match` },
     { key: "entries", n: 4, name: "Adjusting entries", who: f.people.preparer, note: f.entries ? s(f.entries, "entry", "entries") : "" },
@@ -59,6 +60,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   const next: Record<StepKey, string> = {
     setup: "Set up the file. You can start getting the records now: statements often come in before the letter is signed.",
     records: !bank ? "Import this year's trial balance." : f.statements && f.bankGaps ? `Still missing: ${f.bankGaps}. You can start coding the lines already in.`
+      : f.statements && f.openingIssue ? `Opening balances: ${f.openingIssue}`
       : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? (cd.open ? `Code ${s(cd.open, "line")} to accounts from the standard chart, with the sales tax.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`,

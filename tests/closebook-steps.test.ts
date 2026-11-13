@@ -54,6 +54,12 @@ test("bank files: step 3 counts the lines to code, then the reviewer's and the c
   assert.equal(c.current, "entries");
 });
 
+test("bank files: step 2 waits for the opening balances to clear", () => {
+  const r = fileSteps(facts({ statements: 2, bankGaps: "", openingIssue: "enter last year's balances." }));
+  assert.equal(r.current, "records");
+  assert.match(r.next, /^Opening balances: enter last year/);
+});
+
 test("old links land on the right step", () => {
   assert.equal(stepFromLegacy("tb", "transactions", "statements"), "records");
   assert.equal(stepFromLegacy("tb", "gifi", "statements"), "t2");

@@ -28,7 +28,7 @@ export async function loadFileList(supabase: SupabaseClient, mine?: string): Pro
 }
 
 export async function loadFile(supabase: SupabaseClient, id: string) {
-  const { data: f } = await supabase.from("cb_files").select("id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, setup").eq("id", id).maybeSingle();
+  const { data: f } = await supabase.from("cb_files").select("id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, setup, opening_source, opening_re_stated, opening_set_at").eq("id", id).maybeSingle();
   if (!f) return null;
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags, province, signing_officer, street_address, city, postal_code").eq("id", f.client_id).maybeSingle(),
