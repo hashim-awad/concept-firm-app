@@ -41,6 +41,7 @@ Account no,Account name,Type,Master line,Master line name,Income tax code,Sales 
 2130,Payroll deductions payable,Liability,2627.00,Employee deductions payable,BS,None,None,
 2140,Income taxes payable,Liability,2680.00,Taxes payable,BS,None,None,
 2150,GST/HST payable,Liability,2680.00,Taxes payable,BS,None,None,The tax column posts here
+2155,PST payable,Liability,2680.00,Taxes payable,BS,None,None,PST that BC clients collect on their sales
 2160,Dividends payable,Liability,2962.00,Dividends payable,BS,None,None,
 2170,Customer deposits,Liability,2961.00,Deposits received,BS,None,None,
 2180,Deferred revenue,Liability,2770.00,Deferred income,BS,None,None,
