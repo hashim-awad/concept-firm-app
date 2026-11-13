@@ -46,7 +46,7 @@ export function splitLine(amountCents: number, code: TaxCode | null, side: "purc
 // "Check" or "Meals"; the province turns that into a code. "Check" has no default: the reviewer decides.
 export function defaultTaxCode(chartDefault: string, province: string, accountNo: string): string | null {
   if (chartDefault === "Check") return null;
-  if (accountNo === "6020") return province === "ON" ? "MEALS_HST_50" : "MEALS_GST_50";
+  if (accountNo === "60200") return province === "ON" ? "MEALS_HST_50" : "MEALS_GST_50";
   if (chartDefault === "GST/HST") return province === "ON" ? "HST_ON" : "GST";
   if (chartDefault === "Exempt") return "EXEMPT";
   return "OUT_OF_SCOPE";

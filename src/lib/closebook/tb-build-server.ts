@@ -1,8 +1,9 @@
 // Rebuilds the trial balance of a bank-statement file from its coded lines (src/lib/closebook/tb-build.ts)
-// and saves it. Called after every upload, removal, coding, undo and "Ask client".
+// and saves it. Called after every upload, removal, coding, undo and "Ask client". The reports read the
+// same inputs live (livePostings), so they never depend on a stored copy.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildTrialBalance, type BuildChart, type BuildOpening } from "./tb-build";
-import type { TaxCode, TaxPart } from "./sales-tax";
+import { buildLedger, type BuildBank, type BuildChart, type BuildLine, type BuildOpening } from "./tb-build";
+import type { TaxCode, TaxContext, TaxPart } from "./sales-tax";
 import { openingFrom, type CodeInfo } from "./opening";
 import { gifiCodes } from "./gifi";
 import { loadFile } from "./server";
@@ -38,34 +39,42 @@ async function carryFromLastYear(supabase: SupabaseClient, fileId: string, clien
   return !error;
 }
 
-export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promise<string | null> {
-  const { data: f } = await supabase.from("cb_files").select("id, books, setup, year_end, client_id, opening_re_stated, opening_ni_typed, client:client_id(province)").eq("id", fileId).maybeSingle();
-  if (!f || !["statements", "paper"].includes(f.books as string)) return null;
-  const yearEnd = f.year_end as string;
-  const province = ((f.client as unknown as { province: string } | null)?.province ?? "ON");
+type FileRow = { id: string; books: string; setup: unknown; year_start: string; year_end: string; client_id: string; opening_re_stated: unknown; opening_ni_typed: unknown; client: unknown };
+type Inputs = { banks: BuildBank[]; lines: BuildLine[]; chart: Map<string, BuildChart>; codes: Map<string, TaxCode>; ctx: TaxContext; opening: BuildOpening | null; yearStart: string };
+const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
+
+async function loadFileRow(supabase: SupabaseClient, fileId: string): Promise<FileRow | null> {
+  const { data } = await supabase.from("cb_files").select("id, books, setup, year_start, year_end, client_id, opening_re_stated, opening_ni_typed, client:client_id(province)").eq("id", fileId).maybeSingle();
+  return data as FileRow | null;
+}
+
+// Everything the build needs, read from the bank lines, statements, chart, tax codes and opening balances.
+async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean): Promise<Inputs> {
+  const fileId = f.id, yearEnd = f.year_end;
+  const province = ((f.client as { province: string } | null)?.province ?? "ON");
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const [{ data: banks }, { data: sts }, { data: lines }, { data: chart }, { data: codes }, { data: parts }] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, kind, chart_account").eq("file_id", fileId),
     supabase.from("cb_bank_statements").select("account_id, period_start, opening").eq("file_id", fileId).order("period_start"),
-    supabase.from("cb_bank_lines").select("account_id, amount, status, chart_account, tax_code").eq("file_id", fileId).limit(50000),
-    supabase.from("cb_chart_accounts").select("number, name, account_type, line_no"),
+    supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("txn_date").limit(50000),
+    supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", yearEnd).order("effective_from"),
   ]);
-  // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was imported or typed.
+  // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was typed.
   const { info, lines: master } = await gifiCodeInfo(supabase);
-  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId);
-  let reStated = f.opening_re_stated === null || f.opening_re_stated === undefined ? null : Math.round(Number(f.opening_re_stated) * 100);
-  if (!ob?.length && await carryFromLastYear(supabase, fileId, f.client_id as string, yearEnd, master)) {
-    ob = (await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId)).data;
+  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId);
+  let reStated = cents(f.opening_re_stated);
+  if (carry && !ob?.length && await carryFromLastYear(supabase, fileId, f.client_id, yearEnd, master)) {
+    ob = (await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId)).data;
     const { data: again } = await supabase.from("cb_files").select("opening_re_stated").eq("id", fileId).maybeSingle();
-    reStated = again?.opening_re_stated === null || again?.opening_re_stated === undefined ? null : Math.round(Number(again.opening_re_stated) * 100);
+    reStated = cents(again?.opening_re_stated);
   }
   let opening: BuildOpening | null = null;
   if (ob?.length) {
-    const ni = f.opening_ni_typed === null || f.opening_ni_typed === undefined ? null : Math.round(Number(f.opening_ni_typed) * 100);
-    const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, ni);
-    opening = { lines: o.lines, reClosingCents: o.reClosingCents, reStatedCents: reStated };
+    const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, cents(f.opening_ni_typed));
+    const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null }[]).map((x) => [x.code, x.chart_account]));
+    opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code) ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
   }
   const firstOpening = new Map<string, number>();
   for (const s of (sts ?? []) as { account_id: string; opening: number }[]) if (!firstOpening.has(s.account_id)) firstOpening.set(s.account_id, Math.round(Number(s.opening) * 100));
@@ -74,13 +83,29 @@ export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promi
   const codeMap = new Map<string, TaxCode>(((codes ?? []) as { code: string; name: string; provinces: string[] | null }[])
     .filter((c) => !c.provinces || c.provinces.includes(province))
     .map((c) => [c.code, { code: c.code, name: c.name, parts: [...latest.values()].filter((p) => p.code === c.code) }]));
-  const chartMap = new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c]));
-  const rows = buildTrialBalance(
-    ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string }[]).map((b) => ({ id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, openingCents: firstOpening.get(b.id) ?? 0 })),
-    ((lines ?? []) as { account_id: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[]).map((l) => ({ ...l, cents: Math.round(Number(l.amount) * 100) })),
-    chartMap, codeMap, { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening,
-  );
+  return {
+    banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string }[]).map((b) => ({ id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, openingCents: firstOpening.get(b.id) ?? 0 })),
+    lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
+      .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100) })),
+    chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),
+    codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start,
+  };
+}
+
+const build = (i: Inputs) => buildLedger(i.banks, i.lines, i.chart, i.codes, i.ctx, i.opening, i.yearStart);
+
+export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promise<string | null> {
+  const f = await loadFileRow(supabase, fileId);
+  if (!f || !["statements", "paper"].includes(f.books)) return null;
+  const { rows } = build(await loadInputs(supabase, f, true));
   const { error } = await supabase.rpc("cb_build_tb", { p_file: fileId,
     p_rows: rows.map((r) => ({ key: r.key, number: r.number, name: r.name, line_no: r.line_no ?? "", amount: r.cents / 100, last: r.lastCents / 100, reviewer: r.reviewer ?? "" })) });
   return error ? `The trial balance could not be rebuilt: ${error.message}` : null;
+}
+
+// The postings of a bank-statement file, built live (no carry-over, no write).
+export async function livePostings(supabase: SupabaseClient, fileId: string) {
+  const f = await loadFileRow(supabase, fileId);
+  if (!f || !["statements", "paper"].includes(f.books)) return null;
+  return build(await loadInputs(supabase, f, false));
 }

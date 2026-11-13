@@ -11,7 +11,9 @@ import { GifiView } from "./gifi-view";
 import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
-export const amt = (v: number) => (Math.round(v) === 0 ? "0" : v < 0 ? `(${Math.round(-v).toLocaleString("en-CA")})` : Math.round(v).toLocaleString("en-CA"));
+// Dollars with thousands separators and two decimals everywhere (layout item 11); credits in brackets.
+const two = (v: number) => v.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const amt = (v: number) => (Math.round(v * 100) === 0 ? "–" : v < 0 ? `(${two(-v)})` : two(v));
 const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer", chart: "Standard chart" };
 
 type Props = {

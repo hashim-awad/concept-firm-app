@@ -4,7 +4,7 @@
 // sales tax code (only the codes for the company's province; meals only as the group code), Confirm and
 // Ask the client. Suggestions come from the client's vendor rules and earlier files. Lines on a "Check"
 // account, and meals at the full rate, go to the reviewer.
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { BankAccount } from "@/lib/closebook/bank-server";
@@ -20,11 +20,15 @@ const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currenc
 const inFilter = (l: CodeLine, f: Filter) => f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : l.status === "done";
 
-export function CodingView({ fileId, data, accounts, selected, editable, isReviewer }: {
-  fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean;
+export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null }: {
+  fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean; focusLine?: string | null;
 }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>(isReviewer && data.lines.some((l) => l.status === "reviewer") ? "reviewer" : "suggested");
+  // Opened from a report's ledger: the list shows the line's own filter, with the line highlighted.
+  const focus = focusLine ? data.lines.find((l) => l.id === focusLine) : undefined;
+  const [filter, setFilter] = useState<Filter>(focus ? FILTERS.map(([k]) => k).find((k) => inFilter(focus, k)) ?? "done"
+    : isReviewer && data.lines.some((l) => l.status === "reviewer") ? "reviewer" : "suggested");
+  useEffect(() => { if (focus) document.getElementById(`line-${focus.id}`)?.scrollIntoView({ block: "center" }); }, [focus]);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const chart = useMemo(() => new Map(data.chart.map((c) => [c.number, c])), [data.chart]);
@@ -93,7 +97,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
               <thead><tr><th>Date and description</th><th className="text-right">{acc.kind === "card" ? "Charge" : "Amount"}</th><th>Account and sales tax</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
                 <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
-                  editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} />
+                  editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} />
               ))}</tbody>
             </table>
             {rows.length > 300 && <p className="px-4 py-3 text-sm text-ink-2">Showing the first 300 of {rows.length}. Confirm these to see the rest.</p>}
@@ -104,10 +108,10 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   );
 }
 
-function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run }: {
+function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused }: {
   l: CodeLine; kind: string; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
   byType: [string, CodingData["chart"]][]; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
-  run: (f: () => Promise<string | null>) => void;
+  run: (f: () => Promise<string | null>) => void; focused: boolean;
 }) {
   const start = l.chart_account ?? l.suggestion?.account ?? "";
   const [account, setAccount] = useState(start);
@@ -123,12 +127,12 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const split = c && tax ? splitLine(Math.abs(cents), codes.get(tax) ?? null, side, ctx, c.account_type === "Asset") : null;
   const usd = USD.test(l.description);
   // Said before Confirm, so nobody is surprised where the line goes (Hashim's step 3 test).
-  const warn = l.status === "done" ? "" : account === "6020" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
+  const warn = l.status === "done" ? "" : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";
   const why = l.suggestion ? (l.suggestion.source === "rule" ? "Vendor rule" : "Same as last year") : "";
   const locked = !editable || l.status === "done";
   return (
-    <tr className="align-top">
+    <tr id={`line-${l.id}`} className={`align-top ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
       <td className="min-w-[200px]"><span className="block text-xs text-ink-3">{l.txn_date}</span>{l.description}
         {usd && <span className="block text-xs text-warning">Charged in US dollars: check the amount and the tax.</span>}
         {l.reviewer_reason && <span className="block text-xs text-warning">{l.reviewer_reason}</span>}</td>

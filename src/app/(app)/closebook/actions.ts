@@ -122,18 +122,25 @@ const enBack = (id: string) => `/closebook/${id}?tab=entries`;
 export async function addEntry(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(enBack(id));
-  const lines: { account?: string; line?: string; amount: number; memo: string }[] = [];
+  const lines: { account?: string; line?: string; new_name?: string; new_type?: string; amount: number; memo: string }[] = [];
   for (let i = 0; i < 8; i++) {
     const target = s(formData, `t${i}`);
     const dr = Number(s(formData, `dr${i}`).replace(/[$,\s]/g, "") || 0), cr = Number(s(formData, `cr${i}`).replace(/[$,\s]/g, "") || 0);
     if (!target && !dr && !cr) continue;
-    if (!target) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: choose an account or a GIFI line.`));
+    if (!target) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: choose an account.`));
     if (!Number.isFinite(dr) || !Number.isFinite(cr) || (dr && cr) || (!dr && !cr)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: enter a debit or a credit, not both.`));
     const amount = Math.round((dr - cr) * 100) / 100;
+    if (target.startsWith("new:")) {
+      // A new account in the client's books: its plain name, QuickBooks type and GIFI line (working papers).
+      const n = target.slice(4);
+      if (!s(formData, `n${n}_name`) || !s(formData, `n${n}_line`)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: name new account ${n} and choose its GIFI line.`));
+      lines.push({ line: s(formData, `n${n}_line`), new_name: s(formData, `n${n}_name`), new_type: s(formData, `n${n}_type`), amount, memo: s(formData, `m${i}`) });
+      continue;
+    }
     lines.push({ ...(target.startsWith("line:") ? { line: target.slice(5) } : { account: target }), amount, memo: s(formData, `m${i}`) });
   }
   const { error } = await (await createClient()).rpc("cb_add_entry", {
-    p_file: id, p_kind: s(formData, "kind"), p_reason: s(formData, "reason"), p_note: s(formData, "note"), p_reverse: formData.get("reverse") === "on", p_lines: lines,
+    p_file: id, p_kind: s(formData, "kind"), p_reason: s(formData, "reason"), p_note: s(formData, "note"), p_reverse: formData.get("reverse") === "on", p_lines: lines, p_wp_ref: s(formData, "wp_ref"),
   });
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry added. It goes to the reviewer."));
@@ -290,11 +297,12 @@ export async function saveSetup(formData: FormData) {
 // Last year's balance sheet (and income statement when available) typed by GIFI code from the prior T2 or
 // the CRA assessment, or filled from last year's Closebook file. A GIFI file is never an input.
 
-export async function saveOpeningInline(fileId: string, lines: [string, number][], reStatedCents: number | null, niTypedCents: number | null, note: string): Promise<string | null> {
+// accounts: the standard chart account chosen on a row whose GIFI line has more than one (step 2).
+export async function saveOpeningInline(fileId: string, lines: [string, number][], reStatedCents: number | null, niTypedCents: number | null, note: string, accounts: Record<string, string> = {}): Promise<string | null> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
   const supabase = await createClient();
-  const { error } = await supabase.rpc("cb_save_opening", { p_file: fileId, p_codes: lines.map(([code, c]) => ({ code, amount: c / 100 })),
+  const { error } = await supabase.rpc("cb_save_opening", { p_file: fileId, p_codes: lines.map(([code, c]) => ({ code, amount: c / 100, account: accounts[code] ?? null })),
     p_re_stated: reStatedCents === null ? null : reStatedCents / 100, p_ni_typed: niTypedCents === null ? null : niTypedCents / 100, p_note: note });
   if (error) return `Nothing was saved. ${error.message}`;
   const tb = await rebuildTb(supabase, fileId);

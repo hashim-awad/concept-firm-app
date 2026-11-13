@@ -46,8 +46,10 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
   const is = (href: string) => (home ? home === href : href === "/" || href === "/closebook" ? path === href : path === href || path.startsWith(`${href}/`));
   const item = (href: string, label: string, icon: React.ReactNode, badge?: number): NavItem => ({ href, label, icon, active: is(href), badge: badge ? String(badge) : undefined });
   const soon = (label: string, icon: React.ReactNode): NavItem => ({ href: "", label, icon, soon: true });
+  // Pages not built yet stay out of the menu (Hashim, Nov 15, 2026, layout item 5): a group of only
+  // "Soon" pages (Work, Quality) does not show at all.
   const group = (label: string, items: (NavItem | false)[]): NavGroup | null => {
-    const kept = items.filter(Boolean) as NavItem[];
+    const kept = (items.filter(Boolean) as NavItem[]).filter((i) => !i.soon);
     return kept.length ? { label, items: kept, collapsible: true } : null;
   };
 

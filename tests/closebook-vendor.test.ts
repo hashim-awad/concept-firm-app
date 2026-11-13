@@ -12,9 +12,9 @@ test("the vendor key drops the foreign amount, numbers and card masks", () => {
 });
 
 test("a vendor rule beats the earlier files; nothing known means no suggestion", () => {
-  const rules = new Map([["SAMPLE PIZZA WATERLOO ON", { account: "6020", tax: "MEALS_HST_50" }]]);
-  const history = new Map([["SAMPLE PIZZA WATERLOO ON", { account: "6510", tax: "HST_ON" }], ["SAMPLE RENT", { account: "6700", tax: "HST_ON" }]]);
-  assert.deepEqual(suggest("SAMPLE PIZZA WATERLOO ON", rules, history), { account: "6020", tax: "MEALS_HST_50", source: "rule" });
-  assert.deepEqual(suggest("Sample rent 04", rules, history), { account: "6700", tax: "HST_ON", source: "last_year" });
+  const rules = new Map([["SAMPLE PIZZA WATERLOO ON", { account: "60200", tax: "MEALS_HST_50" }]]);
+  const history = new Map([["SAMPLE PIZZA WATERLOO ON", { account: "65100", tax: "HST_ON" }], ["SAMPLE RENT", { account: "67000", tax: "HST_ON" }]]);
+  assert.deepEqual(suggest("SAMPLE PIZZA WATERLOO ON", rules, history), { account: "60200", tax: "MEALS_HST_50", source: "rule" });
+  assert.deepEqual(suggest("Sample rent 04", rules, history), { account: "67000", tax: "HST_ON", source: "last_year" });
   assert.equal(suggest("SAMPLE MUSIC STOCKHOLM", rules, history), null);
 });

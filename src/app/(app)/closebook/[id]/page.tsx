@@ -16,8 +16,9 @@ import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
-import { buildReports } from "@/lib/closebook/reports";
-import { ReportsView } from "./reports-view";
+import { loadReportData } from "@/lib/closebook/report-data";
+import { keepsOwnBooks } from "@/lib/closebook/books";
+import { ReportView, REPORTS, type ReportKey } from "./report-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
@@ -81,15 +82,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     : d.status === "prepared" ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For review</span>
     : <span className="rounded bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">Open</span>;
 
-  // The Reports panel: balances after Closebook entries, typed by their GIFI line (or not yet sorted).
-  const reportsOpen = sp.reports === "bs" || sp.reports === "pl";
-  const reports = reportsOpen ? (() => {
-    const typeOf = new Map(ref.lines.map((l) => [l.line_no, l.line_type]));
-    const ent = new Map<string, number>();
-    for (const e of entries) for (const l of e.lines) ent.set(l.account_id, (ent.get(l.account_id) ?? 0) + l.amount);
-    return buildReports(accounts.map((a) => ({ key: a.id, number: a.number, name: a.name, type: a.line_no ? typeOf.get(a.line_no) ?? null : null,
-      final: a.this_year + (ent.get(a.id) ?? 0), last: a.last_year })));
-  })() : null;
+  // Reports (Hashim, Nov 15, 2026): full pages under "Reports" in the step list, built live every time.
+  const report = REPORTS.find(([k]) => k === str(sp.report))?.[0] as ReportKey | undefined;
+  // Back from a drill-down: only to a page of this file.
+  const back = str(sp.back);
+  const backHref = back && back.startsWith(`/closebook/${id}?`) ? back : null;
 
   let body: React.ReactNode;
   if (step === "opening") {
@@ -99,13 +96,22 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", id).order("code");
+      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", id).order("code");
+      // GIFI lines with more than one standard chart account: the row shows the choice (QuickBooks practice).
+      const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
+      const onCode = new Map<string, { number: string; name: string }[]>();
+      for (const c of (ch ?? []) as { number: string; name: string; line_no: string }[]) {
+        const code = c.line_no.slice(0, 4);
+        for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
+      }
+      const choices = Object.fromEntries([...onCode].filter(([, v]) => v.length > 1));
+      const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null }[]).filter((o) => o.chart_account).map((o) => [o.code, o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
       body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
         reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
         pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
         signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
-        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} />;
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
     }
   } else if (step === "setup") {
     body = (
@@ -160,10 +166,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "code") {
     body = bankFile
       ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
-          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} />
+          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null} />
       : tb("code", ["accounts", "lines"], "accounts", true);
   } else if (step === "entries") {
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />;
+    // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
+    const onLine: Record<string, { number: string; name: string }> = {};
+    if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} />;
   } else if (step === "review") {
     body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
   } else if (step === "mapping") {
@@ -185,7 +194,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <p className="mt-1 text-sm text-ink-2">{FILE_TYPE[file.file_type]} file · Year-end {formatDate(file.year_end)}{file.year_change_reason ? ` (from ${formatDate(file.year_start)}: ${file.year_change_reason})` : ""} · {BOOKS[file.books]} · Preparer {people.preparer} · Reviewer {people.reviewer}</p>
         </div>
         <span className="flex flex-wrap items-center gap-2">
-          {accounts.length > 0 && <Link href={`${href(step)}&reports=bs`} scroll={false} className="btn-secondary">Reports</Link>}
           <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
         </span>
       </header>
@@ -197,34 +205,59 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <ol className="grid gap-1">
             {steps.map((s) => (
               <li key={s.key}>
-                <Link href={href(s.key)} aria-current={s.key === step ? "step" : undefined}
-                  className={`flex items-start gap-3 rounded-lg px-2 py-2 ${s.key === step ? "bg-navy-50" : "hover:bg-sand-100"}`}>
+                <Link href={href(s.key)} aria-current={!report && s.key === step ? "step" : undefined}
+                  className={`flex items-start gap-3 rounded-lg px-2 py-2 ${!report && s.key === step ? "bg-navy-50" : "hover:bg-sand-100"}`}>
                   <span aria-hidden className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${s.state === "done" ? "bg-success-soft text-success" : s.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{s.state === "done" ? "✓" : s.n}</span>
                   <span className="min-w-0">
-                    <span className={`block text-sm ${s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
+                    <span className={`block text-sm ${!report && s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
                     {s.note && <span className="block text-xs text-ink-3">{s.note}</span>}
                   </span>
                 </Link>
               </li>
             ))}
           </ol>
+          <p className="mt-3 border-t border-sand-200 px-2 pt-3 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Reports</p>
+          <ul className="grid gap-0.5">
+            {REPORTS.map(([k, label]) => (
+              <li key={k}>
+                <Link href={`/closebook/${id}?report=${k}`} aria-current={report === k ? "page" : undefined}
+                  className={`block rounded-lg px-2 py-1.5 text-sm ${report === k ? "bg-navy-50 font-semibold" : "hover:bg-sand-100"}`}>{label}</Link>
+              </li>
+            ))}
+          </ul>
         </nav>
 
         <main className="min-w-0 flex-[999_1_640px]">
+          {backHref && <Link href={backHref} className="mb-3 inline-block text-sm font-semibold text-navy-700 hover:underline">← Back</Link>}
+          {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
+            data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start} /> : <>
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
-              <p className="mt-1 text-base">{step === current ? next : `The current step is ${steps.find((s) => s.key === current)!.n}: ${steps.find((s) => s.key === current)!.name}.`}</p>
+              <p className="mt-1 text-base">{step === current ? next : STEP_LINE[step]}</p>
             </div>
-            {step !== current && <Link href={href(current)} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-navy-700">Go to step {steps.find((s) => s.key === current)!.n}</Link>}
           </section>
-          {body}
+          {body}</>}
         </main>
       </div>
-      {reports && <ReportsView r={reports} which={sp.reports as "bs" | "pl"} base={href(step)} closeHref={href(step)} yearEnd={formatDate(file.year_end)} />}
     </>
   );
 }
+
+// Each step's one-line description, shown on a step that is not the next job (Hashim, Nov 15, 2026,
+// layout item 7): no "current step is X / Go to step X" on a step that can already be worked.
+const STEP_LINE: Record<StepKey, string> = {
+  setup: "Answer the setup questions and confirm the planning items.",
+  opening: "Last year's closing balances by GIFI code, checked and signed.",
+  records: "Every bank and card statement for the year, uploaded and balanced.",
+  code: "Each bank and card line gets an account and a sales tax code.",
+  entries: "Adjusting, reclassifying and tax entries, each with its working paper reference.",
+  review: "The reviewer works through the lead sheets and the items to look at.",
+  mapping: "Every account on its GIFI line.",
+  t2: "The GIFI goes to ProFile; net income and total assets tie out.",
+  statements: "The statements, the management acknowledgement and the compilation report.",
+  lock: "Deliver the package and lock the file.",
+};
 
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {

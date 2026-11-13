@@ -6,6 +6,7 @@ import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
 import { SIGN_PAGE, T1Q_TEMPLATES } from "../t1-quote/wording";
+import { CB_CLIENT, CB_TEMPLATES } from "../closebook/client-wording";
 import { renderProposalEmail } from "../proposal/email";
 import { renderLetterEmail } from "../letters/email";
 import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
@@ -69,11 +70,16 @@ export const markToSpans = (html: string) => html
 export type TemplateInfo = { k: string; name: string; group: string; basis: string; status: string };
 // Every template on the Templates page: the engine's letters, then the T1 quote and its emails.
 export function allTemplates(): TemplateInfo[] {
-  return [...(createStudioEngine({}).TEMPLATES as TemplateInfo[]), ...T1Q_TEMPLATES];
+  return [...(createStudioEngine({}).TEMPLATES as TemplateInfo[]), ...T1Q_TEMPLATES, ...CB_TEMPLATES];
 }
 
 export function templateSample(key: string, signers: { letter: { name: string; title: string }; proposal: { name: string; title: string } }, wording: Wording | null = null, mark = false): Sample | null {
   // The T1 quote (Appendix A) and its emails, with made-up client details.
+  if (key === "cbclientlist") {
+    const t = (p: { key: string; text: string }) => (mark ? `<p><span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span></p>` : `<p>${(wording?.texts ?? {})[p.key] ?? p.text}</p>`);
+    return { parts: [{ label: "First page: under \u201cNew accounts to create in your books\u201d", html: t(CB_CLIENT.newAccountsIntro) },
+      { label: "Under the trial balance by group", html: t(CB_CLIENT.tbNote) }] };
+  }
   if (key === "signpage") {
     const t = (p: { key: string; text: string }) => `<p><span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span></p>`;
     return { parts: [{ label: "A New letter, above the Sign button", html: mark ? t(SIGN_PAGE.agreeLetter) : `<p>${(wording?.texts ?? {})[SIGN_PAGE.agreeLetter.key] ?? SIGN_PAGE.agreeLetter.text}</p>` },
