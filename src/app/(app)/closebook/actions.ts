@@ -10,7 +10,9 @@ import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
 import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
 import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
-import { openingFrom, parseGifiFile } from "@/lib/closebook/opening";
+import { isImportedRow, openingFrom, parseGifiFile } from "@/lib/closebook/opening";
+import { gifiCodes } from "@/lib/closebook/gifi";
+import { loadFile } from "@/lib/closebook/server";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -288,7 +290,7 @@ export async function saveSetup(formData: FormData) {
 
 // ---------- Opening balances, bank-statement files (Hashim, Nov 13, 2026) ----------
 
-async function setOpening(fileId: string, source: "gifi_file" | "manual", codes: [string, number][], reStatedCents: number | null): Promise<string | null> {
+async function setOpening(fileId: string, source: "gifi_file" | "manual" | "trial_balance", codes: [string, number][], reStatedCents: number | null): Promise<string | null> {
   const supabase = await createClient();
   const { info } = await gifiCodeInfo(supabase);
   const { errors } = openingFrom(codes, info);
@@ -321,4 +323,55 @@ export async function importOpeningGifi(formData: FormData) {
   const err = await setOpening(id, "gifi_file", parsed.codes, re);
   if (err) redirect(withMessage(back, "error", err));
   redirect(withMessage(`/closebook/${id}?step=records`, "msg", `Imported ${parsed.codes.length} GIFI lines as last year's balances.`));
+}
+
+// Route 3: the prior accountant's trial balance (CSV or Excel) into last year's column, matched to GIFI.
+export async function importOpeningTb(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=records&opening=tb`;
+  await editor(back);
+  const upload = formData.get("upload");
+  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose last year's trial balance (CSV or Excel)."));
+  const f = upload as File;
+  const bytes = new Uint8Array(await f.arrayBuffer());
+  let table;
+  try {
+    table = /\.xlsx$/i.test(f.name) ? readXlsx(bytes)[0]?.rows ?? [] : parseCsv(new TextDecoder().decode(bytes));
+  } catch {
+    redirect(withMessage(back, "error", "The file could not be read. Save it again as CSV or Excel (.xlsx)."));
+  }
+  const tb = readTrialBalance(table);
+  if (tb.error) redirect(withMessage(back, "error", tb.error));
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_import_tb", { p_file: id, p_target: "last_year", p_source: "prior_accountant", p_file_name: f.name, p_rows: tb.rows });
+  if (error) redirect(withMessage(back, "error", error.message));
+  const m = await matchFile(supabase, id);
+  await rebuildTb(supabase, id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, "msg", `Imported last year's trial balance: ${tb.rows.length} accounts, ${m.history + m.suggested} matched to GIFI lines.`));
+}
+
+// Once every imported account has a GIFI line: turn them into opening balances by GIFI code, run the
+// checks (with last year's 3849), and remove the imported rows.
+export async function useTbAsOpening(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = `/closebook/${id}?step=records&opening=tb`;
+  await editor(back);
+  const supabase = await createClient();
+  const data = await loadFile(supabase, id);
+  if (!data) redirect(withMessage(back, "error", "File not found."));
+  const prior = data!.accounts.filter((a) => isImportedRow(a.account_key) && a.last_year !== 0);
+  if (!prior.length) redirect(withMessage(back, "error", "Import last year's trial balance first."));
+  const open = prior.filter((a) => !a.line_no);
+  if (open.length) redirect(withMessage(back, "error", `Match every account to a GIFI line first: ${open.length} left.`));
+  const { lines } = await gifiCodeInfo(supabase);
+  const r = gifiCodes(prior.map((a) => ({ ...a, this_year: a.last_year, needs_reviewer: false })), new Map(), new Map(lines.map((l) => [l.line_no, l])));
+  if (!r.codes.length) redirect(withMessage(back, "error", "Nothing to carry over."));
+  const re = typedCents(s(formData, "re_stated"));
+  const err = await setOpening(id, "trial_balance", r.codes.map(([c, v]) => [c, Math.round(v * 100)]), re);
+  if (err) redirect(withMessage(back, "error", err));
+  await supabase.rpc("cb_drop_imported_rows", { p_file: id });
+  await rebuildTb(supabase, id);
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(`/closebook/${id}?step=records`, "msg", `Last year's trial balance is now the opening balances: ${r.codes.length} GIFI lines.`));
 }

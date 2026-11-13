@@ -76,4 +76,10 @@ select test.check('opening balances saved with their source', (select count(*) f
 select public.cb_build_tb(:'f', '[{"key":"chart:1000","number":"1000","name":"Chequing","line_no":"1002.00","amount":100,"last":100},{"key":"gifi:3660","number":"3660","name":"Retained earnings","line_no":"3600.00","amount":-100,"last":-100}]');
 select test.check('the build writes last year too; a cleared opening row goes', (select last_year from public.cb_accounts where file_id = :'f' and account_key = 'gifi:3660') = -100
   and not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'opening'));
+-- Route 3: the prior accountant's trial balance in last year's column, then dropped once converted.
+select public.cb_import_tb(:'f', 'last_year', 'prior_accountant', 'prior.csv', '[{"number":"1000","name":"Bank","amount":500},{"number":"3000","name":"Equity","amount":-500}]');
+select test.check('the prior trial balance lands in last year''s column', (select count(*) from public.cb_accounts where file_id = :'f' and account_key in ('1000', '3000')) = 2);
+select public.cb_drop_imported_rows(:'f');
+select test.check('once converted, the imported rows go; built rows stay', not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key in ('1000', '3000'))
+  and exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'chart:1000'));
 reset role;

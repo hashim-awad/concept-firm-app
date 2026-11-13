@@ -16,6 +16,7 @@ import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningCard } from "./opening-card";
+import { isImportedRow } from "@/lib/closebook/opening";
 import { buildReports } from "@/lib/closebook/reports";
 import { ReportsView } from "./reports-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
@@ -58,6 +59,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const setup = (file.setup ?? {}) as Record<string, unknown>;
   // Bank files: last year's balances and why "Opening balances to enter" has not cleared.
   const openingRow = accounts.find((a) => a.account_key === "opening");
+  // Route 3: the prior accountant's trial balance rows, waiting to become opening balances.
+  const priorRows = bankFile ? accounts.filter((a) => isImportedRow(a.account_key) && a.last_year !== 0) : [];
   const openingIssue = !bankFile ? "" : !file.opening_source ? "enter last year's balances (import last year's GIFI file or type it in by GIFI code)." : openingRow ? openingRow.reviewer_reason || "they do not tie." : "";
   const { steps, current, next } = fileSteps({ bankGaps, coding, openingIssue,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
@@ -147,8 +150,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           return <OpeningCard fileId={id} source={file.opening_source ?? null} setAt={file.opening_set_at ?? null} codeCount={obs.length}
             issue={file.opening_source ? openingIssue : ""} panel={str(sp.opening) ?? null} error={str(sp.opening) ? messageFrom(sp.error) ?? null : null}
             infoList={[...info.entries()]} initial={obs.map((o) => ({ code: o.code, amount: Number(o.amount).toFixed(2) }))}
-            reStated={file.opening_re_stated === null || file.opening_re_stated === undefined ? "" : Number(file.opening_re_stated).toFixed(2)} editable={editable && file.phase !== "locked"} />;
-        })()}<BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+            reStated={file.opening_re_stated === null || file.opening_re_stated === undefined ? "" : Number(file.opening_re_stated).toFixed(2)} editable={editable && file.phase !== "locked"}
+            imported={priorRows.length} unmatched={priorRows.filter((a) => !a.line_no).length} />;
+        })()}
+        {priorRows.length > 0 && priorRows.some((a) => !a.line_no) && tb("records", ["accounts"], "attention", false)}<BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile

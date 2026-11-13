@@ -50,3 +50,7 @@ export function openingFrom(codes: [string, number][], info: Map<string, CodeInf
   const netIncome = revenue - expenses;
   return { opening: { lines, netIncomeCents: netIncome, reStartCents: reStart, reClosingCents: reStart + netIncome - deductions + adjustments }, errors };
 }
+
+// A trial balance row the file builds itself (bank, chart, GIFI, holding) versus one imported from the
+// prior accountant's trial balance, which waits to become opening balances (route 3).
+export const isImportedRow = (key: string) => !/^(chart|bank|gifi):/.test(key) && key !== "uncoded" && key !== "opening";
