@@ -122,14 +122,21 @@ const enBack = (id: string) => `/closebook/${id}?tab=entries`;
 export async function addEntry(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(enBack(id));
-  const lines: { account?: string; line?: string; amount: number; memo: string }[] = [];
+  const lines: { account?: string; line?: string; new_name?: string; new_type?: string; amount: number; memo: string }[] = [];
   for (let i = 0; i < 8; i++) {
     const target = s(formData, `t${i}`);
     const dr = Number(s(formData, `dr${i}`).replace(/[$,\s]/g, "") || 0), cr = Number(s(formData, `cr${i}`).replace(/[$,\s]/g, "") || 0);
     if (!target && !dr && !cr) continue;
-    if (!target) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: choose an account or a GIFI line.`));
+    if (!target) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: choose an account.`));
     if (!Number.isFinite(dr) || !Number.isFinite(cr) || (dr && cr) || (!dr && !cr)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: enter a debit or a credit, not both.`));
     const amount = Math.round((dr - cr) * 100) / 100;
+    if (target.startsWith("new:")) {
+      // A new account in the client's books: its plain name, QuickBooks type and GIFI line (working papers).
+      const n = target.slice(4);
+      if (!s(formData, `n${n}_name`) || !s(formData, `n${n}_line`)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: name new account ${n} and choose its GIFI line.`));
+      lines.push({ line: s(formData, `n${n}_line`), new_name: s(formData, `n${n}_name`), new_type: s(formData, `n${n}_type`), amount, memo: s(formData, `m${i}`) });
+      continue;
+    }
     lines.push({ ...(target.startsWith("line:") ? { line: target.slice(5) } : { account: target }), amount, memo: s(formData, `m${i}`) });
   }
   const { error } = await (await createClient()).rpc("cb_add_entry", {

@@ -234,9 +234,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
-              <p className="mt-1 text-base">{step === current ? next : `The current step is ${steps.find((s) => s.key === current)!.n}: ${steps.find((s) => s.key === current)!.name}.`}</p>
+              <p className="mt-1 text-base">{step === current ? next : STEP_LINE[step]}</p>
             </div>
-            {step !== current && <Link href={href(current)} className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-navy-700">Go to step {steps.find((s) => s.key === current)!.n}</Link>}
           </section>
           {body}</>}
         </main>
@@ -244,6 +243,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     </>
   );
 }
+
+// Each step's one-line description, shown on a step that is not the next job (Hashim, Nov 15, 2026,
+// layout item 7): no "current step is X / Go to step X" on a step that can already be worked.
+const STEP_LINE: Record<StepKey, string> = {
+  setup: "Answer the setup questions and confirm the planning items.",
+  opening: "Last year's closing balances by GIFI code, checked and signed.",
+  records: "Every bank and card statement for the year, uploaded and balanced.",
+  code: "Each bank and card line gets an account and a sales tax code.",
+  entries: "Adjusting, reclassifying and tax entries, each with its working paper reference.",
+  review: "The reviewer works through the lead sheets and the items to look at.",
+  mapping: "Every account on its GIFI line.",
+  t2: "The GIFI goes to ProFile; net income and total assets tie out.",
+  statements: "The statements, the management acknowledgement and the compilation report.",
+  lock: "Deliver the package and lock the file.",
+};
 
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {

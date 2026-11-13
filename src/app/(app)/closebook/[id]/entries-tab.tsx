@@ -5,6 +5,11 @@ import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import { addEntry, deleteEntry, reviewEntry } from "../actions";
 import { amt } from "./tb-tab";
 import { entryNo } from "@/lib/closebook/reports";
+import { AmountInput } from "./amount-input";
+
+// QuickBooks Online account types, for a new account in the client's books.
+export const QBO_TYPES = ["Bank", "Accounts receivable (A/R)", "Other Current Assets", "Fixed Assets", "Other Assets", "Accounts payable (A/P)", "Credit Card",
+  "Other Current Liabilities", "Long Term Liabilities", "Equity", "Income", "Other Income", "Cost of Goods Sold", "Expenses", "Other Expense"];
 
 const REASONS: Record<string, string> = { accrual: "Accrual", reclassification: "Reclassification", correction: "Correction", tax: "Tax", prior_period: "Prior period adjustment" };
 // Working paper references staff pick from; any other step or schedule can be typed.
@@ -87,21 +92,37 @@ export function EntriesTab({ file, entries, accounts, lines, editable, isReviewe
           </div>
           <div className="overflow-x-auto">
             <table className="table min-w-[760px]">
-              <thead><tr><th>Account or GIFI line</th><th className="w-32">Debit</th><th className="w-32">Credit</th><th>Memo</th></tr></thead>
+              <thead><tr><th>{clientList ? "Account in the client\u2019s books" : "Account or GIFI line"}</th><th className="w-32">Debit</th><th className="w-32">Credit</th><th>Memo</th></tr></thead>
               <tbody>{Array.from({ length: 6 }, (_, i) => (
                 <tr key={i}>
                   <td><select name={`t${i}`} aria-label={`Line ${i + 1} account`} defaultValue="" className="input">
                     <option value="">{i < 2 ? "Choose" : "Not used"}</option>
                     <optgroup label="This file's accounts">{matched.map((a) => <option key={a.id} value={a.id}>{accName.get(a.id)}</option>)}</optgroup>
-                    <optgroup label="A GIFI line (adds an account)">{lines.filter((l) => l.mappable).map((l) => <option key={l.line_no} value={`line:${l.line_no}`}>{l.line_no} {l.name}</option>)}</optgroup>
+                    {clientList
+                      ? <optgroup label="A new account in the client's books">{[1, 2].map((n) => <option key={n} value={`new:${n}`}>New account {n} (named below)</option>)}</optgroup>
+                      : <optgroup label="A GIFI line (adds an account)">{lines.filter((l) => l.mappable).map((l) => <option key={l.line_no} value={`line:${l.line_no}`}>{l.line_no} {l.name}</option>)}</optgroup>}
                   </select></td>
-                  <td><input name={`dr${i}`} inputMode="decimal" aria-label={`Line ${i + 1} debit`} className="input text-right tabular-nums" /></td>
-                  <td><input name={`cr${i}`} inputMode="decimal" aria-label={`Line ${i + 1} credit`} className="input text-right tabular-nums" /></td>
+                  <td><AmountInput name={`dr${i}`} aria-label={`Line ${i + 1} debit`} className="input text-right tabular-nums" /></td>
+                  <td><AmountInput name={`cr${i}`} aria-label={`Line ${i + 1} credit`} className="input text-right tabular-nums" /></td>
                   <td><input name={`m${i}`} aria-label={`Line ${i + 1} memo`} maxLength={200} className="input" /></td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
+          {clientList && (
+            <fieldset className="grid gap-2 rounded-lg border border-sand-200 p-3">
+              <legend className="px-1 text-sm font-semibold">New accounts in the client&rsquo;s books</legend>
+              <p className="text-xs text-ink-2">Only when none of the client&rsquo;s accounts fits. Name it in plain words, as the client will see it (for example &ldquo;Amortization expense&rdquo;). The GIFI line stays in our working papers.</p>
+              {[1, 2].map((n) => (
+                <div key={n} className="grid gap-2 sm:grid-cols-[2rem_1fr_14rem_1fr] sm:items-center">
+                  <span className="text-sm text-ink-3">{n}</span>
+                  <input name={`n${n}_name`} aria-label={`New account ${n} name`} maxLength={80} placeholder="Account name" className="input" />
+                  <select name={`n${n}_type`} aria-label={`New account ${n} type`} defaultValue="" className="input"><option value="">QuickBooks account type</option>{QBO_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+                  <select name={`n${n}_line`} aria-label={`New account ${n} GIFI line`} defaultValue="" className="input"><option value="">GIFI line (working papers)</option>{lines.filter((l) => l.mappable && !l.locked).map((l) => <option key={l.line_no} value={l.line_no}>{l.line_no} {l.name}</option>)}</select>
+                </div>
+              ))}
+            </fieldset>
+          )}
           <p className="text-xs text-muted">Debits must equal credits. Entries never post to a total line. A reclassifying entry cannot change the result. An entry that posts to retained earnings must use the reason &ldquo;Prior period adjustment&rdquo;: it posts to GIFI 3720. Every entry made here goes to the reviewer.</p>
           <button type="submit" className="btn w-fit">Add the entry</button>
         </form>

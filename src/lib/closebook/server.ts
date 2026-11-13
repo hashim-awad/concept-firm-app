@@ -4,6 +4,7 @@ import type { CbDoc, CbFileRow } from "./files";
 
 export type CbClient = { id: string; legal_name: string; business_number: string; year_end_md: string; taxdome_tags: string[]; province: string; signing_officer: string; street_address?: string; city?: string; postal_code?: string };
 export type CbAccount = { id: string; account_key: string; number: string; name: string; last_year: number; this_year: number; line_no: string | null; tax_code: string | null;
+  client_new?: boolean; qbo_type?: string | null;
   mapping_source: string | null; needs_reviewer: boolean; reviewer_reason: string };
 export type CbEntry = { id: string; kind: string; number: number; seq: number; wp_ref: string; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
   reviewed_by: string | null; created_by: string | null; created_at: string; lines: { account_id: string; amount: number; memo: string }[] };
@@ -33,7 +34,7 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags, province, signing_officer, street_address, city, postal_code").eq("id", f.client_id).maybeSingle(),
     supabase.from("cb_documents").select(DOC_COLS).eq("file_id", id).order("sort_order"),
-    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason").eq("file_id", id).order("number").order("name"),
+    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type").eq("file_id", id).order("number").order("name"),
     supabase.from("cb_imports").select("target, source, file_name, rows, debit_total, credit_total, imported_at, who:imported_by(full_name)").eq("file_id", id).order("imported_at", { ascending: false }),
     staffNames(supabase),
   ]);

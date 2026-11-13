@@ -4,18 +4,19 @@
 // last year's income statement (Schedule 125) when available. Each row: GIFI code, name (from the code),
 // amount as it shows on the T2. Totals calculate live with their codes; a total that does not tie is
 // highlighted yellow with one line under it. "Sign as preparer" stays off while any total is highlighted.
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { blockOf, BLOCK_TITLE, fromGifi, isDividend, scheduleTotals, toGifi, type Block } from "@/lib/closebook/schedule";
-import { typedCents } from "@/lib/closebook/bank-upload";
-import { fileInputClass } from "@/components/ds/primitives";
+import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { saveOpeningInline, signOpeningInline, uploadOpeningPdf } from "../actions";
 
 type Row = { id: number; block: Block; code: string; amount: string; account: string };
 type Code = { name: string; type: string };
 const TOTALS = new Set(["2599", "3499", "3600", "3620", "3640", "3849", "8299", "9368", "9999"]);
 const fmt = (c: number) => (c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 }));
-const typedText = (c: number) => (c / 100).toFixed(2);
+// Amounts show 48,210.00 in the boxes too, once typed (layout item 11).
+const typedText = (c: number) => formatAmount(c);
+const typedCents = (t: string) => parseAmount(t);
 
 // choices: the standard chart accounts on a GIFI line that has more than one, in chart order. As in
 // QuickBooks, an opening balance sits on an account: the row shows the choice, first one selected.
@@ -38,6 +39,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const [dirty, setDirty] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, run] = useTransition();
+  const pdfForm = useRef<HTMLFormElement>(null);
   const touch = () => setDirty(true);
 
   const valid = rows.filter((r) => /^\d{4}$/.test(r.code) && info.has(r.code) && !TOTALS.has(r.code) && typedCents(r.amount) !== null);
@@ -46,7 +48,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const { totals: t, flags } = scheduleTotals(lines, typeOf, reC, niC);
   const flag = (code: string) => flags.find((f) => f.code === code);
   const rowProblem = (r: Row) => !r.code ? "" : r.code.length < 4 ? "" : TOTALS.has(r.code) ? "This is a total: it calculates by itself." : !info.has(r.code) ? "Not a GIFI code Closebook can use."
-    : blockOf(r.code, typeOf(r.code)) !== r.block ? `This is a ${BLOCK_TITLE[blockOf(r.code, typeOf(r.code))!].toLowerCase()} code: it counts there.` : r.amount && typedCents(r.amount) === null ? "Type an amount, for example 1250.00." : "";
+    : blockOf(r.code, typeOf(r.code)) !== r.block ? `This is a ${BLOCK_TITLE[blockOf(r.code, typeOf(r.code))!].toLowerCase()} code: it counts there.` : r.amount && typedCents(r.amount) === null ? "Type an amount, for example 1,250.00." : "";
   const badRows = rows.filter((r) => rowProblem(r)).length;
 
   const save = async () => {
@@ -76,12 +78,12 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
           <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
             : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}
             {!rowProblem(r) && choices[r.code] && (
-              <label className="mt-1 flex items-center gap-2 text-xs text-ink-2">Account
-                <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input h-8 max-w-xs py-0 text-xs">
+              <label className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-2">Account
+                <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input w-auto max-w-none py-1.5 pr-9 text-sm">
                   {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.number} {c.name}</option>)}
                 </select></label>
             )}</td>
-          <td className="w-44 px-2 py-1.5 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} className="input w-40 text-right tabular-nums" /></td>
+          <td className="w-44 px-2 py-1.5 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} onBlur={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, amount: tidyAmount(e.target.value) } : x)))} className="input w-40 text-right tabular-nums" /></td>
           <td className="w-8 py-1.5 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
         </tr>
       ))}
@@ -95,7 +97,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
         <tr id={`gifi-${code}`} className="font-bold target:bg-navy-50">
           <td className="px-4 py-2 text-ink-3">{code}</td><td className="px-2 py-2">{label}</td>
           <td className="px-2 py-2 text-right tabular-nums">
-            {input ? <input aria-label={`${code} ${label}`} inputMode="decimal" value={input.v} disabled={!editable} onChange={(e) => { input.set(e.target.value); touch(); }}
+            {input ? <input aria-label={`${code} ${label}`} inputMode="decimal" value={input.v} disabled={!editable} onChange={(e) => { input.set(e.target.value); touch(); }} onBlur={(e) => input.set(tidyAmount(e.target.value))}
               className={`input w-40 text-right font-bold tabular-nums ${f ? "bg-[#FFF35C]" : ""}`} />
               : <span className={`inline-block rounded px-3 py-1 ${f ? "bg-[#FFF35C]" : ""}`}>{fmt(value)}</span>}
           </td><td />
@@ -118,10 +120,11 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
             <input value={src} disabled={!editable} onChange={(e) => { setSrc(e.target.value); touch(); }} placeholder="For example: Prior T2, year ended Oct 31, 2025" className="input" /></label>
           {pdf ? <a href={pdf.href} className="pb-2 text-sm text-navy-700 underline">{pdf.name}</a>
             : editable && (
-              <form action={uploadOpeningPdf} className="flex items-end gap-2">
+              // One control (layout clean-up): "Attach PDF" opens the file picker and attaches on choosing.
+              <form ref={pdfForm} action={uploadOpeningPdf} className="flex items-end">
                 <input type="hidden" name="file_id" value={fileId} />
-                <input name="pdf" type="file" accept=".pdf,application/pdf" required aria-label="The T2 or assessment PDF" className={fileInputClass} />
-                <button type="submit" className="btn-secondary">Attach PDF</button>
+                <label className="btn-secondary cursor-pointer">Attach PDF
+                  <input name="pdf" type="file" accept=".pdf,application/pdf" aria-label="Attach the T2 or assessment PDF" className="sr-only" onChange={() => pdfForm.current?.requestSubmit()} /></label>
               </form>
             )}
         </div>

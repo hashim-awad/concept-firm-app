@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFile, loadReference } from "./server";
 import { loadReportData } from "./report-data";
 import { entryNo, journal, KIND_LABEL, ledger, netIncomeBox, statements, tbByGroup, trialBalance } from "./reports";
-import { entriesSection, journalSection, ledgerSection, statementSection, tbFlatSection, tbGroupSection, wpDocument, type EntryDoc, type WpCtx } from "./wp-doc";
+import { entriesSection, journalSection, ledgerSection, newAccountsSection, statementSection, tbFlatSection, tbGroupSection, wpDocument, type EntryDoc, type WpCtx } from "./wp-doc";
 import { generatedAt, renderWpPdf } from "./wp-pdf";
 
 export const WP_STAMP = "Working paper: not for the client";
@@ -35,9 +35,10 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
     const [no, kind] = entryNo(f.file.year_end, e).split(" ");
     return { no, kind, wpRef: e.wp_ref || "–", memo: e.note, lines: e.lines.map((l) => {
       const a = data.acctOf(l.account_id);
-      // An entry on a GIFI line with no account of its own: no number (it is not an account number), and
-      // the name says so: a new account for the client to set up, or the GIFI line on the working paper.
-      const name = !a ? "" : a.number ? a.name : `${a.name} ${mode === "client" ? "(new account)" : `(GIFI ${a.gifi})`}`;
+      // On the working paper, an entry on a GIFI line with no account of its own says so. The client's copy
+      // only ever shows the client's accounts (new ones are listed first), never a GIFI line.
+      const raw = f.accounts.find((x) => x.id === l.account_id);
+      const name = !a ? "" : a.number || mode === "client" || raw?.client_new ? a.name : `${a.name} (GIFI ${a.gifi})`;
       return { number: a?.number ?? "", name, cents: Math.round(l.amount * 100) };
     }) };
   });
@@ -45,8 +46,15 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   let title: string;
   if (mode === "client" || (q.report === "tb" && q.view !== "flat")) {
     const g = tbByGroup(tb, data.info);
+    // Plain words for the client: no GIFI wording in a group heading.
+    if (mode === "client") for (const x of g.groups) if (x.code === "50") { x.name = "Income taxes"; x.total.name = "Total income taxes"; }
     title = ctx.packageName = "Trial balance by group and journal entries";
     sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client"), entriesSection(ctx, entries, box, "TB.2")];
+    if (mode === "client") {
+      const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
+      const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));
+      if (fresh.length) sections.unshift(newAccountsSection(ctx, fresh));
+    }
   } else if (q.report === "tb") {
     title = ctx.packageName = "Trial balance";
     sections = [tbFlatSection(ctx, tb, tbByGroup(tb, data.info).total, "TB.1")];

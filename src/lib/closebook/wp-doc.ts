@@ -47,6 +47,14 @@ const TOP = [false, true, false, false];
 const head = (t: string, right = false, extra: any = {}) => ({ text: t, bold: true, color: "#FFFFFF", fillColor: C.navy, alignment: right ? "right" : "left", border: NO, fontSize: 8.5, ...extra });
 const num = (c: number, bold = false, extra: any = {}) => ({ text: money(c), alignment: "right", bold, border: NO, ...extra });
 
+// The client entry list opens with the accounts the client needs to create before recording the entries.
+export function newAccountsSection(ctx: WpCtx, accounts: { name: string; type: string }[]): any[] {
+  const body: any[] = [[head("Account name"), head("Account type")], ...accounts.map((a) => [{ text: a.name, border: NO }, { text: a.type, border: NO }])];
+  return [headerBlock(ctx, "New accounts to create in your books", ""),
+    { text: "Create these accounts in your books first. The entries that follow use them.", fontSize: 9.5, margin: [0, 0, 0, 10] },
+    { table: { headerRows: 1, widths: [260, 200], body }, layout: { ...tableLayout(), hLineWidth: (i: number) => (i > 1 ? 0.4 : 0), hLineColor: () => C.border }, fontSize: 9.5 }];
+}
+
 // Trial balance by group (reference pages 1 and 2).
 export function tbGroupSection(ctx: WpCtx, groups: TbGroup[], total: TbLine, wpRef: string, client = false): any[] {
   const ye = ctx.yearEnd;
