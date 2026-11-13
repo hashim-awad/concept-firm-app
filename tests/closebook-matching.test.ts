@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
-import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, numberType, suggestLine, typeFlag, typeFlagText, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
+import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, numberType, suggestLine, typeFlag, typeFlagText, typeFromBooksMissing, typeMismatch, typeNotChecked, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
 const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair, locked: ["1301.00", "2781.00", "3701.00"].includes(l.line) }));
@@ -103,16 +103,19 @@ test("type check: a standard chart account, a client account with a type, a clie
   assert.equal(typeFlagText(chart, office), "Check: an asset account (standard chart) on an expense line");
   const client = { number: "", account_type: "Asset", type_source: "import", mapping_source: "preparer" };
   assert.equal(typeFlag(client, office), "open");
-  assert.equal(typeFlagText(client, office), "Check: an asset account (client's trial balance) on an expense line");
+  assert.equal(typeFlagText(client, office), "Check: an asset account (client's books) on an expense line");
   const none = { number: "", account_type: null, type_source: null, mapping_source: "preparer" };
   assert.equal(typeFlag(none, office), "");
   assert.equal(typeFlagText(none, office), "");
   // The reverse: an expense account on an asset line.
   const exp = { number: "", account_type: "Expense", type_source: "client", mapping_source: "suggested" };
   assert.equal(typeFlagText(exp, byNo.get("1774.00")), "Check: an expense account (type chosen in Closebook) on an asset line");
-  // The reviewer's match confirms it; a matching type is never flagged.
-  assert.equal(typeFlag({ ...chart, mapping_source: "reviewer" }, office), "confirmed");
-  assert.equal(typeFlagText({ ...chart, mapping_source: "reviewer" }, office), "An asset account (standard chart) on an expense line: reviewer confirmed");
+  // Round 6: the reviewer's match alone does not confirm it; a reason given on this line does.
+  assert.equal(typeFlag({ ...chart, mapping_source: "reviewer" }, office), "open");
+  const kept = { ...chart, type_confirm_reason: "Small tools, expensed by policy", type_confirmed_line: "8810.00" };
+  assert.equal(typeFlag(kept, office), "confirmed");
+  assert.equal(typeFlagText(kept, office, "Dummy", "Nov 22, 2026"), "Reviewer confirmed: Small tools, expensed by policy (Dummy, Nov 22, 2026)");
+  assert.equal(typeFlag(kept, byNo.get("8811.00")), "open", "moved to another line: checked again");
   assert.equal(typeFlag({ ...chart, account_type: "Expense" }, office), "");
   assert.equal(typeFlag(chart, undefined), "", "no line yet: nothing to check");
 });
@@ -122,4 +125,17 @@ test("the number fallback reads 4- and 5-digit numbers", () => {
   assert.equal(numberType("61500"), "Expense");
   assert.equal(numberType("150"), null);
   assert.equal(numberType("150000"), null);
+});
+
+// Round 6 (Hashim, Nov 22, 2026): what the check skips, and what the Account List would fill.
+test("type not checked, and accounts with no type from the client's books", () => {
+  const none = { number: "", account_key: "sundry", account_type: null, type_source: null };
+  assert.equal(typeNotChecked(none), true);
+  assert.equal(typeNotChecked({ ...none, account_key: "opening" }), false, "system rows are not accounts");
+  assert.equal(typeNotChecked({ ...none, account_key: "line:8810.00" }), false);
+  assert.equal(typeNotChecked({ ...none, account_type: "Asset", type_source: "number" }), false);
+  assert.equal(typeFromBooksMissing(none), true);
+  assert.equal(typeFromBooksMissing({ ...none, account_type: "Asset", type_source: "number" }), true, "the number alone is not the client's type");
+  assert.equal(typeFromBooksMissing({ ...none, account_type: "Asset", type_source: "import" }), false);
+  assert.equal(typeFromBooksMissing({ ...none, account_key: "chart:15000", account_type: "Asset", type_source: "chart" }), false);
 });

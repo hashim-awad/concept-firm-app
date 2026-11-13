@@ -61,7 +61,30 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_map_account(id, '8810.00') from public.cb_accounts where file_id = :'f' and name = 'Computer gear';
 reset role;
 reset request.jwt.claims;
-select test.check('the reviewer''s match confirms it: two flags left', private.cb_open_type_flags(:'f') = 2);
+select test.check('round 6: the reviewer''s match alone no longer confirms it', private.cb_open_type_flags(:'f') = 3);
+-- Round 6 item 1: the reviewer confirms with a reason.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select id as gear from public.cb_accounts where file_id = :'f' and name = 'Computer gear' \gset
+select id as inc from public.cb_accounts where file_id = :'f' and name = 'Consulting income' \gset
+select test.check('no reason, no confirm', test.try(format($q$select public.cb_confirm_type(%L, '   ')$q$, :'gear')) like 'Type the reason%');
+select test.check('a reason over 300 characters is refused', test.try(format($q$select public.cb_confirm_type(%L, %L)$q$, :'gear', repeat('x', 301))) like '%300 characters%');
+select test.check('an account whose type matches its line has nothing to confirm', test.try(format($q$select public.cb_confirm_type(%L, 'Fine')$q$, :'inc')) like '%nothing to confirm%');
+select public.cb_confirm_type(:'gear', 'Small tools under the capitalization limit: expensed by policy.');
+reset role;
+reset request.jwt.claims;
+select test.check('confirmed with a reason: two flags left', private.cb_open_type_flags(:'f') = 2);
+select test.check('the reason, who and when are kept, for the line it was given on',
+  (select type_confirm_reason || '|' || type_confirmed_by || '|' || type_confirmed_line || '|' || (type_confirmed_at is not null) from public.cb_accounts where id = :'gear')
+  = 'Small tools under the capitalization limit: expensed by policy.|00000000-0000-0000-0000-00000000000a|8810.00|true');
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('the preparer cannot confirm', test.try(format($q$select public.cb_confirm_type(%L, 'Because')$q$, :'gear')) like 'Only the file''s reviewer%');
+-- Moved to another expense line: checked again.
+select public.cb_map_account(:'gear', '8811.00');
+reset role;
+reset request.jwt.claims;
+select test.check('moved to another line, the confirmation no longer counts: three flags', private.cb_open_type_flags(:'f') = 3);
 -- A new import with no Type column keeps the type it had.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -73,3 +96,35 @@ select test.check('the number rule matches step 7''s: 1 asset, 2 liability, 3 eq
   private.cb_type_from_number('1500') = 'Asset' and private.cb_type_from_number('21000') = 'Liability' and private.cb_type_from_number('3600') = 'Equity'
   and private.cb_type_from_number('40000') = 'Revenue' and private.cb_type_from_number('61500') = 'Expense' and private.cb_type_from_number('9100.10') = 'Expense'
   and private.cb_type_from_number('150') is null and private.cb_type_from_number('150000') is null and private.cb_type_from_number('A100') is null);
+
+-- Round 6 item 2: the QuickBooks Online Account List gives each account its type.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_create_file(:'client', '2025-12-31', '2025-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000c'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) as g \gset
+select test.check('the Account List needs the trial balance first',
+  test.try(format($q$select public.cb_import_account_list(%L, 'list.csv', '[{"number":"","name":"Sundry","type":"Expenses"}]')$q$, :'g')) like 'Import the trial balance first%');
+select public.cb_import_tb(:'g', 'this_year', 'quickbooks', 'tb.csv', '[
+  {"number":"","name":"Office  Supplies","amount":250},
+  {"number":"60100","name":"Rent","amount":1000},
+  {"number":"","name":"Mystery","amount":-1250}]');
+select public.cb_import_account_list(:'g', 'list.xlsx', '[
+  {"number":"","name":"office supplies","type":"Expenses"},
+  {"number":"60100","name":"Rent or lease","type":"Fixed Assets"},
+  {"number":"","name":"Rent","type":"Income"}]') as res \gset
+reset role;
+reset request.jwt.claims;
+select test.check('matched by name, ignoring case and spacing', (select account_type || '|' || type_source from public.cb_accounts where file_id = :'g' and name = 'Office  Supplies') = 'Expense|import');
+select test.check('matched by number first, even when the name differs', (select account_type from public.cb_accounts where file_id = :'g' and number = '60100') = 'Asset');
+select test.check('an account not on the list keeps no type', (select account_type is null from public.cb_accounts where file_id = :'g' and name = 'Mystery'));
+select test.check('the result counts rows read, accounts matched and accounts still without a type',
+  :'res'::jsonb = '{"rows": 3, "matched": 2, "accounts_without": 1}'::jsonb);
+select test.check('the upload is recorded once as the account list', (select count(*) from public.cb_imports where file_id = :'g' and target = 'account_list') = 1);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_import_account_list(:'g', 'list2.xlsx', '[{"number":"","name":"Mystery","type":"Other Current Liabilities"}]');
+reset role;
+reset request.jwt.claims;
+select test.check('uploading again replaces the record and adds types; earlier types stay',
+  (select count(*) from public.cb_imports where file_id = :'g' and target = 'account_list') = 1
+  and (select account_type from public.cb_accounts where file_id = :'g' and name = 'Mystery') = 'Liability'
+  and (select account_type from public.cb_accounts where file_id = :'g' and number = '60100') = 'Asset');
