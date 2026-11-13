@@ -14,6 +14,8 @@ import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
 const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"]];
+// Lines charged in US dollars are never confirmed in bulk: each one is checked by hand.
+const USD = /\bAMT\s+[\d,.]+\s+USD\b/i;
 const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 const inFilter = (l: CodeLine, f: Filter) => f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : l.status === "done";
@@ -41,7 +43,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
 
   const run = (f: () => Promise<string | null>) => start(async () => { setErr(null); const e = await f(); if (e) setErr(e); else router.refresh(); });
   // Only suggestions that carry a sales tax code can be confirmed in bulk; the rest stay for one by one.
-  const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter((l) => l.suggestion?.tax).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
+  const bulkable = (l: CodeLine) => !!l.suggestion?.tax && !USD.test(l.description);
+  const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter(bulkable).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
 
   if (!acc) return <p className="card text-sm text-ink-2">Upload a statement in step 2 first: the lines to code come from the statements.</p>;
 
@@ -80,7 +83,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
             ))}
           </div>
           {editable && effFilter === "suggested" && rows.length > 0 && (
-            <button type="button" disabled={pending || !rows.some((l) => l.suggestion?.tax)} onClick={confirmSuggested} className="btn">Confirm the {rows.filter((l) => l.suggestion?.tax).length} suggestion{rows.filter((l) => l.suggestion?.tax).length === 1 ? "" : "s"} with a sales tax code</button>
+            <button type="button" disabled={pending || !rows.some(bulkable)} onClick={confirmSuggested} className="btn">Confirm {rows.filter(bulkable).length} suggestion{rows.filter(bulkable).length === 1 ? "" : "s"}</button>
           )}
         </div>
         {err && <p role="alert" className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">{err}</p>}
@@ -118,7 +121,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const outflow = kind === "card" ? cents > 0 : cents < 0;
   const side = c?.account_type === "Revenue" ? "sale" : "purchase";
   const split = c && tax ? splitLine(Math.abs(cents), codes.get(tax) ?? null, side, ctx, c.account_type === "Asset") : null;
-  const usd = /\bAMT\s+[\d,.]+\s+USD\b/i.test(l.description);
+  const usd = USD.test(l.description);
   // Said before Confirm, so nobody is surprised where the line goes (Hashim's step 3 test).
   const warn = l.status === "done" ? "" : account === "6020" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";

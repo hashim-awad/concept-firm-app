@@ -58,6 +58,11 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
         <label htmlFor="upload" className="label">Statement file (CSV): one month or the whole year</label>
         <input id="upload" name="upload" type="file" accept=".csv" required className={fileInputClass} onChange={(e) => onFile(e.target.files?.[0])} />
         {rows && <p className="mt-1 text-sm text-ink-2">{rows.length} transactions read, {period.start} to {period.end}.</p>}
+        {/* A card file uploaded as a bank account reads backwards: purchases as money in (Hashim's test). */}
+        {rows && k === "bank" && rows.filter((r) => r.cents > 0).length > rows.length * 0.7 && (
+          <p className="mt-1 text-sm text-warning">Most lines are positive. On a bank account that means money in. If this is a credit card statement, choose Credit card or line of credit.</p>)}
+        {rows && k === "card" && rows.filter((r) => r.cents < 0).length > rows.length * 0.7 && (
+          <p className="mt-1 text-sm text-warning">Most lines are negative. On a card that means payments. If this is a bank statement, choose Bank account.</p>)}
         {errors.length > 0 && <ul className="mt-1 list-disc pl-5 text-sm text-danger">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
