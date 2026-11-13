@@ -88,7 +88,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     );
   } else if (step === "records") {
     body = bankFile
-      ? <BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} adding={sp.account === "new"} />
+      ? <BankView fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} />
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile
@@ -118,7 +118,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </div>
         <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
       </header>
-      <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      <Notice msg={messageFrom(sp.msg)} error={sp.upload ? undefined : messageFrom(sp.error)} />
 
       <div className="flex flex-wrap items-start gap-6">
         <nav aria-label="Year-end steps" className="card flex-[1_1_240px] p-3 lg:max-w-[280px]">

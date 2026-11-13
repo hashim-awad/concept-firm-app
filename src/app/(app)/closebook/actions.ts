@@ -175,7 +175,10 @@ export async function explainFlagInline(fileId: string, account: string, reason:
 // line), the balance is checked here and again in the database, which refuses anything that does not tie.
 export async function uploadBankStatement(formData: FormData) {
   const id = s(formData, "file_id");
-  const back = `/closebook/${id}?step=records`;
+  // A problem keeps the side panel open on the same account (or on "Add an account").
+  const acct = s(formData, "account") || "new";
+  const back = `/closebook/${id}?step=records${acct !== "new" ? `&account=${acct}` : ""}&upload=${acct}`;
+  const done = `/closebook/${id}?step=records`;
   await editor(back);
   const upload = formData.get("upload");
   if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
@@ -206,7 +209,7 @@ export async function uploadBankStatement(formData: FormData) {
   if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
   const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(`${back}&account=${encodeURIComponent(d.account_id)}`, "msg",
+  redirect(withMessage(`${done}&account=${encodeURIComponent(d.account_id)}`, "msg",
     `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
 }
 

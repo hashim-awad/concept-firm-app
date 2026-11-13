@@ -60,7 +60,7 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
         {rows && <p className="mt-1 text-sm text-ink-2">{rows.length} transactions read, {period.start} to {period.end}.</p>}
         {errors.length > 0 && <ul className="mt-1 list-disc pl-5 text-sm text-danger">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div><label htmlFor="period_start" className="label">Statement period from</label>
           <input id="period_start" name="period_start" type="date" required value={period.start} onChange={(e) => setPeriod({ ...period, start: e.target.value })} className="input" /></div>
         <div><label htmlFor="period_end" className="label">to</label>
