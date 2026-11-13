@@ -1,6 +1,6 @@
 // Step 3, coding: everything the coding screen needs for one file (Hashim, Nov 13, 2026).
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { TaxCode, TaxPart } from "./sales-tax";
+import { defaultTaxCode, type TaxCode, type TaxPart } from "./sales-tax";
 import { codingHistory, suggest, vendorKey, type Coding, type Suggestion } from "./vendor";
 
 export type ChartAccount = { number: string; name: string; account_type: string; tax_default: string; note: string };
@@ -26,7 +26,7 @@ export async function loadCoding(supabase: SupabaseClient, fileId: string, clien
     // How this client's file coded each vendor: this year's file and last year's.
     supabase.from("cb_bank_lines").select("description, chart_account, tax_code, coded_at, file:file_id!inner(client_id, year_end)").eq("status", "done").eq("file.client_id", clientId)
       .lte("file.year_end", yearEnd).gte("file.year_end", lastYear).limit(20000),
-    supabase.from("cb_firm_vendor_rules").select("vendor_key, chart_account, tax_code"),
+    supabase.from("cb_firm_vendor_rules").select("vendor_key, chart_account, tax_mode"),
   ]);
   // The latest rate for each part as at the year-end (a rate change is a new row with its start date).
   const latest = new Map<string, TaxPart & { code: string }>();
@@ -36,7 +36,12 @@ export async function loadCoding(supabase: SupabaseClient, fileId: string, clien
     .map((c) => ({ code: c.code, name: c.name, parts: [...latest.values()].filter((p) => p.code === c.code).map(({ name, rate, recoverable, liability }) => ({ name, rate, recoverable, liability })) }));
   const ruleMap = new Map<string, Coding>(((rules ?? []) as { vendor_key: string; chart_account: string; tax_code: string | null }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: r.tax_code }]));
   const history = codingHistory((older ?? []) as unknown as { description: string; chart_account: string; tax_code: string | null; coded_at: string | null }[]);
-  const firmMap = new Map<string, Coding>(((firm ?? []) as { vendor_key: string; chart_account: string; tax_code: string | null }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: r.tax_code }]));
+  // A firm rule's tax: the client's provincial rate, no tax (the account's own default when it is Exempt), or none
+  // chosen. Worked out here, for this client's province (round 2 item 3).
+  const chartOf = new Map(((chart ?? []) as ChartAccount[]).map((c) => [c.number, c]));
+  const firmTax = (mode: string, account: string) => mode === "taxable" ? defaultTaxCode("GST/HST", province, account)
+    : mode === "none" ? (chartOf.get(account)?.tax_default === "Exempt" ? "EXEMPT" : "OUT_OF_SCOPE") : null;
+  const firmMap = new Map<string, Coding>(((firm ?? []) as { vendor_key: string; chart_account: string; tax_mode: string }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: firmTax(r.tax_mode, r.chart_account) }]));
   const out = ((lines ?? []) as Omit<CodeLine, "suggestion" | "key">[]).map((l) => ({
     ...l, amount: Number(l.amount), key: vendorKey(l.description),
     suggestion: l.status === "new" ? suggest(l.description, ruleMap, history, firmMap) : null,

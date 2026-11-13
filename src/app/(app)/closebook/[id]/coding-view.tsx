@@ -64,15 +64,20 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
         {accounts.map((a) => {
           const left = data.lines.filter((l) => l.account_id === a.id && l.status === "new").length;
           const total = data.lines.filter((l) => l.account_id === a.id).length;
-          // Coded means done: a line waiting for the reviewer or the client is not coded yet.
+          // Coded means done: a line waiting for the reviewer or the client is not coded yet (round 2 item 16).
           const coded = data.lines.filter((l) => l.account_id === a.id && l.status === "done").length;
+          const withClient = data.lines.filter((l) => l.account_id === a.id && l.status === "ask_client").length;
+          const withReviewer = data.lines.filter((l) => l.account_id === a.id && l.status === "reviewer").length;
           return (
             <Link key={a.id} href={`/closebook/${fileId}?step=code&account=${a.id}`} aria-current={a.id === acc.id ? "true" : undefined}
               className={`card grid gap-1 p-4 ${a.id === acc.id ? "ring-2 ring-navy-700" : "hover:border-navy-300"}`}>
               <span className="flex justify-between gap-2"><span className="font-semibold">{a.name}</span>
                 {total === 0 ? <span className="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">No lines yet</span>
-                  : left === 0 ? <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">✓ Coded</span>
-                  : <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">{left} to code</span>}</span>
+                  : coded === total ? <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">✓ Coded</span>
+                  : <span className="flex flex-wrap justify-end gap-1">
+                    {left > 0 && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">{left} to code</span>}
+                    {withReviewer > 0 && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">{withReviewer} with the reviewer</span>}
+                    {withClient > 0 && <span className="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-2">{withClient} with the client</span>}</span>}</span>
               <span className="text-xs text-ink-2">{coded} of {total} lines coded</span>
             </Link>
           );
@@ -94,8 +99,11 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
         {err && <p role="alert" className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">{err}</p>}
         {rows.length === 0 ? <p className="p-5 text-sm text-ink-2">Nothing here.</p> : (
           <div className="overflow-x-auto">
-            <table className="table min-w-[680px]">
-              <thead><tr><th>Date and description</th><th className="text-right">{acc.kind === "card" ? "Charge" : "Amount"}</th><th>Account and sales tax</th><th className="text-right">Action</th></tr></thead>
+            {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
+            <table className="table table-compact min-w-[1040px] table-fixed">
+              <colgroup><col className="w-[6.2rem]" /><col /><col className="w-[5.6rem]" /><col className="w-[5.6rem]" /><col className="w-[15.5rem]" /><col className="w-[9rem]" /><col className="w-[5rem]" /><col className="w-[12.2rem]" /></colgroup>
+              <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
+                <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
                 <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
                   editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} />
@@ -127,54 +135,62 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const side = c?.account_type === "Revenue" ? "sale" : "purchase";
   const split = c && tax ? splitLine(Math.abs(cents), codes.get(tax) ?? null, side, ctx, c.account_type === "Asset") : null;
   const usd = USD.test(l.description);
-  // Said before Confirm, so nobody is surprised where the line goes (Hashim's step 3 test).
-  // Said once, before Confirm; once the line is with the reviewer, its reason (under the description) says it.
-  const warn = l.status !== "new" ? "" : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. This line goes to the reviewer."
+  // Purchases (and refunds of them) show the ITC; a refund (money in) reverses it, in brackets.
+  const itc = split && side === "purchase" ? (outflow ? split.itcCents : -split.itcCents) : 0;
+  // One warning, said the moment the account or tax is chosen (round 2 items 6 and 8): a money-in line on
+  // an expense, a money-out line on revenue, meals at the full rate, a "Check" account.
+  const moneyIn = !outflow;
+  const live = l.status !== "new" ? ""
+    : c?.account_type === "Expense" && moneyIn ? "An expense on money in: check it is a refund. Confirm sends it to the reviewer."
+    : c?.account_type === "Revenue" && !moneyIn ? "Revenue on money out: check it is a refund to a customer. Confirm sends it to the reviewer."
+    : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. Confirm sends it to the reviewer."
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";
-  // The suggestion's source, always shown (layout item 4): never a guess from the vendor's name.
-  const why = l.suggestion ? `Suggested: ${suggestionLabel(l.suggestion)}` : "";
+  const warning = rowErr || live || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
   const locked = !editable || l.status === "done";
+  const amount = money(Math.abs(cents)).replace("$", "");
   return (
     <tr id={`line-${l.id}`} className={`align-top ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
-      <td className="min-w-[200px]"><span className="block text-xs text-ink-3">{l.txn_date}</span>{l.description}
-        {usd && <span className="block text-xs text-warning">Charged in US dollars: check the amount and the tax.</span>}
-        {l.reviewer_reason && <span className="block text-xs text-warning">{l.reviewer_reason}</span>}</td>
-      <td className="text-right tabular-nums whitespace-nowrap">{money(Math.abs(cents))}<span className="block text-xs text-ink-3">{outflow ? (kind === "card" ? "charge" : "money out") : (kind === "card" ? "payment" : "money in")}</span></td>
-      <td className="w-[260px]">
-        <select aria-label="Account" value={account} disabled={locked} className="input" onChange={(e) => {
-          setAccount(e.target.value); setRowErr("");
-        }}>
-          <option value="">Choose an account</option>
-          {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
-        </select>
-        <span className="block text-xs text-ink-3">{why}</span>
-        <select aria-label="Sales tax" value={tax} disabled={locked} className={`input mt-1.5 ${rowErr ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
+      <td className="whitespace-nowrap tabular-nums text-ink-2">{l.txn_date}</td>
+      <td>{l.description}{l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
+        {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
+      <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
+      <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
+      <td>
+        {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
+            list opens over it (round 2 item 10). */}
+        <span className="relative block">
+          <span aria-hidden className={`input input-compact block min-h-[30px] pr-6 leading-snug ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
+            {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-2 text-ink-3">▾</span></span>
+          <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setAccount(e.target.value); setRowErr(""); }}>
+            <option value="">Choose an account</option>
+            {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
+          </select>
+        </span>
+      </td>
+      <td>
+        <select aria-label="Sales tax" value={tax} disabled={locked} className={`input input-compact w-full ${rowErr && !tax ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
           <option value="">Choose</option>
           {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
-        {split && (split.itcCents || split.expenseTaxCents || split.gstCollectedCents || split.pstCollectedCents) ? (
-          <span className="block text-xs text-ink-3">{side === "sale" ? `Tax collected ${money(split.gstCollectedCents + split.pstCollectedCents)}`
-            : `ITC ${money(split.itcCents)}${split.expenseTaxCents ? ` · to expense ${money(split.expenseTaxCents)}` : ""}`}</span>) : null}
-        {warn && <span className="block text-xs font-medium text-warning">{warn}</span>}
-        {rowErr && <span role="alert" className="block text-xs font-semibold text-danger">{rowErr}</span>}
       </td>
-      <td className="text-right whitespace-nowrap">
+      <td className="text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : ""}</td>
+      <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">
-            <span className="flex flex-col items-stretch gap-1">
-              <button type="button" className="btn" disabled={pending}
+            <span className="flex gap-1 whitespace-nowrap">
+              <button type="button" className="btn btn-compact" disabled={pending}
                 onClick={() => !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
                   rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
-              {l.status !== "ask_client" ? <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
-                : <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+              {l.status !== "ask_client" ? <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
+                : <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
             </span>
-            {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3.5 w-3.5" />Save as a rule</label>}
+            {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
           </span>
         )}
         {l.status === "done" && (
-          <span className="inline-flex flex-col items-end gap-1">
+          <span className="inline-flex items-center gap-2">
             <span className="text-xs text-success">Coded</span>
-            {editable && <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+            {editable && <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
           </span>
         )}
       </td>

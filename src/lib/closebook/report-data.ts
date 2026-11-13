@@ -66,7 +66,7 @@ export async function loadReportData(supabase: SupabaseClient, file: CbFileRow, 
     for (const l of e.lines) {
       const a = byId.get(l.account_id);
       const c = Math.round(l.amount * 100);
-      if (a && c) postings.push({ key: keyOf.get(a.account_key) ?? a.account_key, cents: c, date: file.year_end, kind: "entry", ref: e.id, entryKind: e.kind as "AJE" | "RJE" | "TJE", label: l.memo ? `${label} (${l.memo})` : label });
+      if (a && c) postings.push({ key: keyOf.get(a.account_key) ?? a.account_key, cents: c, date: e.entry_date ?? file.year_end, kind: "entry", ref: e.id, entryKind: e.kind as "AJE" | "RJE" | "TJE", label: l.memo ? `${label} (${l.memo})` : label });
     }
   }
   const acctOf = (id: string) => {

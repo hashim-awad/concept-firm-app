@@ -115,6 +115,14 @@ body {
 .table tbody tr:last-child td { border-bottom: 0; }
 .table tbody tr:hover { background: var(--color-sand-50); }
 input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700); }
+/* Compact rows for working tables (round 2 item 9; like the QuickBooks Online bank feed and reports). */
+.table-compact th { @apply px-2.5 py-2; }
+.table-compact td { @apply px-2.5 py-1.5 align-top; }
+.input-compact { @apply rounded-md px-2 py-1 text-sm; }
+.btn-compact { @apply h-8 px-3 text-sm; }
+/* Forms and checklists sit in a column about 1,100 px wide, so answers stay beside their labels. */
+.form-col { @apply w-full max-w-[1100px]; }
+
 
 /* Design system base (approved 2026-11-08). The body carries the .ds class. */
 .ds {

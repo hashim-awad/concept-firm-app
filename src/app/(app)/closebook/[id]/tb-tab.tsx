@@ -14,7 +14,7 @@ const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_softw
 // Dollars with thousands separators and two decimals everywhere (layout item 11); credits in brackets.
 const two = (v: number) => v.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const amt = (v: number) => (Math.round(v * 100) === 0 ? "–" : v < 0 ? `(${two(-v)})` : two(v));
-const SOURCE_LABEL: Record<string, string> = { history: "From last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer", chart: "Standard chart" };
+const SOURCE_LABEL: Record<string, string> = { history: "Last year", suggested: "Suggested", preparer: "Preparer", reviewer: "Reviewer", chart: "Chart" };
 
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
@@ -24,6 +24,8 @@ type Props = {
   bank?: BankData | null;
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
   base?: string; pills?: string[]; showImport?: boolean;
+  // Bank-statement files: what makes up "Opening balances to enter" (round 2 item 8).
+  causes?: { text: string; cents: number }[];
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
@@ -67,6 +69,7 @@ export function TbTab(p: Props) {
       source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines" : mismatchText(a),
       tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
       attention: !a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a)),
+      buildUp: a.account_key === "opening" && p.causes?.length ? p.causes.map((c) => ({ text: c.text, amount: amt(c.cents / 100) })) : undefined,
     };
   });
   // By GIFI line: one row per line (after opposite balances move), with its accounts and the wrong-sign flag.
@@ -140,7 +143,7 @@ export function TbTab(p: Props) {
           <MatchWorkspace fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
             editable={editable && !locked} totals={{ last: amt(accounts.reduce((n, a) => n + a.last_year, 0)), current: amt(total) }} edit={p.edit} />
         )}
-      <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code. The trial balance sign-off arrives with build step 3.</p>
+      <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code.</p>
     </>
   );
 }

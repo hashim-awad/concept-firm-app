@@ -94,3 +94,49 @@ test("opening balances by GIFI code: carried, checked, and cleared when both che
   assert.match(o.reviewer!, /GIFI 1002: the first statements open at \$2,750\.00, last year closed at \$2,700\.00/);
   assert.match(o.reviewer!, /does not equal last year's 3849/);
 });
+
+// Round 2 items 7 and 8 (Hashim, Nov 16, 2026).
+import { buildLedger } from "../src/lib/closebook/tb-build.ts";
+const chart2 = new Map<string, BuildChart>([...chart, ["31000", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" }]]);
+test("no 3660 line last year: retained earnings still post, so nothing sits unexplained in Opening balances to enter", () => {
+  // A second-year company: 3660 blank, last year's 3849 = 345.73 (the net income). Cash 5,000 and a loan 4,654.27.
+  const opening = { lines: [
+    { code: "1002", line_no: "1002.00", name: "Cash", type: "Asset", debitCents: 500000 },
+    { code: "2780", line_no: "2780.00", name: "Due to shareholder", type: "Liability", debitCents: -465427 },
+  ], reClosingCents: 34573, reStatedCents: 34573 };
+  const r = buildLedger([{ id: "b", name: "Chequing", kind: "bank", chart: "10000", openingCents: 500000 }], [], chart2, codes, ctx, opening, "2026-01-01");
+  assert.equal(r.rows.reduce((n, x) => n + x.cents, 0), 0);
+  assert.equal(get(r.rows, "chart:31000"), -34573);
+  assert.equal(get(r.rows, OPENING), 0);
+  assert.deepEqual(r.causes, []);
+});
+test("Opening balances to enter opens to its causes, which add up to the row", () => {
+  const opening = { lines: [
+    { code: "1002", line_no: "1002.00", name: "Cash", type: "Asset", debitCents: 500000 },
+    { code: "1062", line_no: "1062.00", name: "Trade accounts receivable", type: "Asset", debitCents: 10000 },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: -500000 },
+  ], reClosingCents: 500000, reStatedCents: 500000 };
+  const r = buildLedger([{ id: "b", name: "Chequing", kind: "bank", chart: "10000", openingCents: 20795744 }, { id: "c", name: "Visa", kind: "card", chart: "22000", openingCents: 100000 }],
+    [], chart2, codes, ctx, opening, "2026-01-01");
+  const row = get(r.rows, OPENING);
+  assert.equal(r.causes.reduce((n, c) => n + c.cents, 0), row);
+  assert.equal(r.causes.length, 3);   // GIFI 1002, GIFI 2707 and last year's balances out by 100.00
+  assert.match(r.causes[2].text, /do not balance/);
+  // GIFI 1062 has no standard chart account here: a 5-digit file account, never the GIFI code.
+  const ar = r.rows.find((x) => x.key === "gifi:1062")!;
+  assert.equal(ar.number, "19000");
+  assert.equal(ar.name, "Trade accounts receivable");
+});
+
+import { entryLineTax } from "../src/lib/closebook/sales-tax.ts";
+test("sales tax on an entry line: before tax, the ITC on top to GST/HST payable", () => {
+  const hst = codes.get("HST_ON")!;
+  // Home office 1,000.00 + HST: Dr 65100 1,000.00, Dr 21500 130.00, Cr 23000 1,130.00.
+  assert.deepEqual(entryLineTax(100000, hst, "Expense", ctx), { toLine: 0, gstHst: 13000, pst: 0 });
+  // Quick method: no ITC on an expense; the tax stays on the expense.
+  assert.deepEqual(entryLineTax(100000, hst, "Expense", { registered: true, quick: true }), { toLine: 13000, gstHst: 0, pst: 0 });
+  // A credit on revenue: tax collected, credit.
+  assert.deepEqual(entryLineTax(-100000, hst, "Revenue", ctx), { toLine: 0, gstHst: -13000, pst: 0 });
+  // Not registered: nothing.
+  assert.deepEqual(entryLineTax(100000, hst, "Expense", { registered: false, quick: false }), { toLine: 0, gstHst: 0, pst: 0 });
+});

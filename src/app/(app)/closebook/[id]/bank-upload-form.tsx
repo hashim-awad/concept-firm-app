@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { fileInputClass } from "@/components/ds/primitives";
 import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents, type BankRow } from "@/lib/closebook/bank-upload";
-import { uploadBankStatement } from "../actions";
+import { findDuplicatesInline, uploadBankStatement } from "../actions";
 import type { BankAccount } from "@/lib/closebook/bank-server";
 
 export function BankUploadForm({ fileId, account, nextOpening }: { fileId: string; account: BankAccount | null; nextOpening: number | null }) {
@@ -17,15 +17,19 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
   const [closing, setClosing] = useState("");
   // The signs turned over by "Flip signs and re-check"; the flipped lines must still tie to the cent.
   const [flip, setFlip] = useState(false);
+  // Lines already in the file on any account (round 2 item 5), and the preparer's "they are real".
+  const [dups, setDups] = useState<Awaited<ReturnType<typeof findDuplicatesInline>>>([]);
+  const [dupOk, setDupOk] = useState(false);
   const k = account?.kind ?? kind;
 
   const onFile = async (f: File | undefined) => {
-    setRows(null); setErrors([]); setFlip(false);
+    setRows(null); setErrors([]); setFlip(false); setDups([]); setDupOk(false);
     if (!f) return;
     const r = readBankUpload(await f.text());
     setErrors(r.errors.slice(0, 5));
     if (!r.errors.length) {
       setRows(r.rows);
+      setDups(await findDuplicatesInline(fileId, r.rows));
       const d = r.rows.map((x) => x.date).sort();
       setPeriod({ start: d[0], end: d[d.length - 1] });
     }
@@ -40,6 +44,7 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
       <input type="hidden" name="file_id" value={fileId} />
       <input type="hidden" name="account" value={account?.id ?? "new"} />
       <input type="hidden" name="flip" value={flip ? "1" : ""} />
+      <input type="hidden" name="dup_ok" value={dupOk ? "1" : ""} />
       {!account && (
         <>
           <div className="max-w-md">
@@ -69,6 +74,18 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
         {!reversed && !flip && rows && k === "card" && rows.filter((r) => r.cents < 0).length > rows.length * 0.7 && (
           <p className="mt-1 text-sm text-warning">Most lines are negative. On a card that means payments. If this is a bank statement, choose Bank account.</p>)}
         {errors.length > 0 && <ul className="mt-1 list-disc pl-5 text-sm text-danger">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
+        {dups.length > 0 && (
+          <div role="alert" className="mt-2 grid gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm">
+            <p className="font-semibold text-danger">{dups.length} of {rows?.length} lines are already in this file. Uploading them again counts them twice.</p>
+            <div className="max-h-48 overflow-y-auto"><table className="w-full text-xs">
+              <thead><tr className="text-left text-ink-3"><th className="pr-2">Row</th><th className="pr-2">Date</th><th className="pr-2">Description</th><th className="pr-2 text-right">Amount</th><th>Already on</th></tr></thead>
+              <tbody>{dups.map((d, i) => <tr key={i}><td className="pr-2 tabular-nums">{d.row_no}</td><td className="pr-2 tabular-nums">{d.txn_date}</td><td className="pr-2">{d.description}</td>
+                <td className="pr-2 text-right tabular-nums">{Number(d.amount).toLocaleString("en-CA", { minimumFractionDigits: 2 })}</td><td>{d.account_name}</td></tr>)}</tbody>
+            </table></div>
+            <p className="text-ink-2">Most often the same file was uploaded twice, or to the wrong account. Remove it by choosing another file, or if these are real (two equal charges on the same day), confirm:</p>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={dupOk} onChange={(e) => setDupOk(e.target.checked)} className="h-4 w-4" />These are real transactions: upload them</label>
+          </div>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><label htmlFor="period_start" className="label">Statement period from</label>
@@ -92,7 +109,7 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
               <button type="button" className="btn-secondary" onClick={() => setFlip(true)}>Flip signs and re-check</button>
             </div>
           : <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">Does not balance: {dollars(o!)} {chk.totalCents < 0 ? "−" : "+"} {dollars(Math.abs(chk.totalCents))} = {dollars(chk.expectedCents)}, but the closing is {dollars(c!)}. Difference {dollars(chk.differenceCents)}.</p>)}
-      <div className="flex items-center gap-3"><button type="submit" className="btn" disabled={!!chk && !chk.ok}>Upload statement</button>
+      <div className="flex items-center gap-3"><button type="submit" className="btn" disabled={(!!chk && !chk.ok) || (dups.length > 0 && !dupOk)}>Upload statement</button>
         {flip && <button type="button" className="text-sm text-navy-700 underline" onClick={() => setFlip(false)}>Undo the flip</button>}</div>
     </form>
   );

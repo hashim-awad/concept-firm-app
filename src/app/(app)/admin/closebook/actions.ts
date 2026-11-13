@@ -92,7 +92,7 @@ const VR = "/admin/closebook/vendor-rules";
 export async function saveFirmVendorRule(formData: FormData) {
   await owner(VR);
   const { vendorKey } = await import("@/lib/closebook/vendor");
-  const { error } = await (await createClient()).rpc("cb_save_firm_vendor_rule", { p_vendor_key: vendorKey(s(formData, "vendor")), p_account: s(formData, "account"), p_tax: s(formData, "tax") });
+  const { error } = await (await createClient()).rpc("cb_save_firm_vendor_rule", { p_vendor_key: vendorKey(s(formData, "vendor")), p_account: s(formData, "account"), p_tax_mode: s(formData, "tax_mode") || "line" });
   revalidatePath(VR);
   redirect(withMessage(VR, error ? "error" : "msg", error ? error.message : "Rule saved."));
 }

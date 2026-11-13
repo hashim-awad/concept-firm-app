@@ -88,7 +88,6 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
               )}
             </Card>
           ) : <Card title="Leads to review" soon="Your role does not include leads." />}
-          <Card title="Gates waiting" soon="Year-end gates arrive with Year-End & T2 (Phase 3)." />
 {seeLeads && (
           <Card title="Quotes waiting for signature" count={proposals.length}>
             {proposals.length === 0 ? <p className="text-sm text-muted">None.</p> : (

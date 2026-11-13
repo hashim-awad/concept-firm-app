@@ -49,7 +49,22 @@ export function buildTrialBalance(banks: BuildBank[], lines: BuildLine[], chart:
   return buildLedger(banks, lines, chart, codes, ctx, opening).rows;
 }
 
-export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<string, BuildChart>, codes: Map<string, TaxCode>, ctx: TaxContext, opening?: BuildOpening | null, yearStart = ""): { rows: TbRow[]; postings: Posting[] } {
+// One cause of "Opening balances to enter", with its share of the row (debit positive), so the row can be
+// opened to its build-up: the causes always add up to the row (Hashim, Nov 16, 2026, round 2 item 8).
+export type OpeningCause = { text: string; cents: number };
+
+// A GIFI line with no standard chart account gets a file account: a 5-digit number in its type's range
+// (never the GIFI code) and the line's plain name (round 2 item 7; QuickBooks numbers its own accounts).
+export const FILE_ACCOUNT_BASE: Record<string, number> = { Asset: 19000, Liability: 29000, Equity: 39000, Revenue: 49000, Expense: 79000 };
+export function fileAccountNumber(type: string, taken: Set<string>): string {
+  let n = FILE_ACCOUNT_BASE[type] ?? 79000;
+  while (taken.has(String(n))) n += 10;
+  return String(n);
+}
+
+export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<string, BuildChart>, codes: Map<string, TaxCode>, ctx: TaxContext, opening?: BuildOpening | null, yearStart = "",
+  fileNumbers: Map<string, string> = new Map()): { rows: TbRow[]; postings: Posting[]; causes: OpeningCause[] } {
+  const causes: OpeningCause[] = [];
   const rows = new Map<string, TbRow>();
   const postings: Posting[] = [];
   type Meta = Omit<Posting, "key" | "cents">;
@@ -74,7 +89,10 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
     const m = openMeta(`stmt:${b.id}`, `Opening balance on the first statement, ${b.name}`);
     add(bankKey(b), b.chart, shared.has(b.chart) ? b.name : chart.get(b.chart)?.name ?? b.name, chart.get(b.chart)?.line_no ?? null, open, m);
-    if (!opening) add(OPENING, "", "Opening balances to enter", null, -open, m, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
+    if (!opening) {
+      add(OPENING, "", "Opening balances to enter", null, -open, m, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
+      if (open) causes.push({ text: `${b.name}: the first statement opens at ${(b.kind === "bank" ? open : -open) / 100 < 0 ? "-" : ""}${Math.abs(open / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}, and last year's balances are not entered yet`, cents: -open });
+    }
   }
   if (opening) {
     // Last year's balances carry into this year: balance sheet lines carry, the income statement
@@ -87,11 +105,15 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     }
     const diffs: string[] = [];
     const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+    const taken = new Set<string>([...chart.keys(), ...fileNumbers.values()]);
+    const hasRe = opening.lines.some((l) => l.code === "3660");
     for (const l of opening.lines) {
       const n = Number(l.code);
       const ch = l.account && chart.has(l.account) ? l.account : chartForLine(chart, l.line_no, l.code);
       const key = ch ? `chart:${ch}` : `gifi:${l.code}`;
-      const number = ch ?? "";
+      // No standard chart account on the line: a file account with its own 5-digit number, never the GIFI code.
+      let number = ch ?? fileNumbers.get(l.code) ?? "";
+      if (!number) { number = fileAccountNumber(l.type, taken); taken.add(number); fileNumbers.set(l.code, number); }
       const name = ch ? chart.get(ch)!.name : l.name;
       const line_no = ch ? chart.get(ch)!.line_no : l.line_no;
       const m = openMeta(`gifi:${l.code}`, `Last year's closing balance, GIFI ${l.code}`);
@@ -104,15 +126,41 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
         if (on.length === 1) add(bankKey(on[0]), on[0].chart, "", null, 0, null, undefined, l.debitCents);
         else add(key, number, name, line_no, 0, null, undefined, l.debitCents);
         const d = bankOpen.get(l.code)! - l.debitCents;
-        if (d) diffs.push(`GIFI ${l.code}: the first statements open at ${dollars(bankOpen.get(l.code)!)}, last year closed at ${dollars(l.debitCents)}`);
+        if (d) {
+          const t = `GIFI ${l.code}: the first statements open at ${dollars(bankOpen.get(l.code)!)}, last year closed at ${dollars(l.debitCents)}`;
+          diffs.push(t); causes.push({ text: t, cents: -d });
+        }
         bankOpen.delete(l.code);
       } else add(key, number, name, line_no, l.debitCents, m, undefined, l.debitCents);
     }
-    for (const [g, c] of bankOpen) if (c) diffs.push(`GIFI ${g}: the first statements open at ${dollars(c)}, but last year has no balance on this line`);
+    for (const [g, c] of bankOpen) if (c) {
+      const t = `GIFI ${g}: the first statements open at ${dollars(c)}, but last year has no balance on this line`;
+      diffs.push(t); causes.push({ text: t, cents: -c });
+    }
+    // Retained earnings at the start of the year post even when last year had no 3660 line (a company in
+    // its second year): before Nov 16 the build only posted them from a 3660 line, so a 3849 typed with
+    // no 3660 sat unexplained in "Opening balances to enter".
+    if (!hasRe && opening.reClosingCents) {
+      const ch = chartForLine(chart, "3600.00", "3600");
+      // Last year's column: retained earnings at the start of last year (none), unless last year's income
+      // statement is not entered, when the column carries the closing balance so it still adds to zero.
+      const has125 = opening.lines.some((l) => l.type === "Revenue" || l.type === "Expense");
+      add(ch ? `chart:${ch}` : "gifi:3660", ch ?? fileAccountNumber("Equity", taken), ch ? chart.get(ch)!.name : "Retained earnings", ch ? chart.get(ch)!.line_no : "3600.00", -opening.reClosingCents,
+        openMeta("gifi:3849", "Retained earnings at the start of the year (last year's 3849)"), undefined, has125 ? 0 : -opening.reClosingCents);
+    }
     const reOff = opening.reStatedCents !== null && opening.reStatedCents !== opening.reClosingCents;
-    if (reOff) diffs.push(`Opening retained earnings ${dollars(opening.reClosingCents)} (3660 + net income − dividends + adjustments) does not equal last year's 3849 of ${dollars(opening.reStatedCents!)}`);
+    if (reOff) {
+      const t = `Opening retained earnings ${dollars(opening.reClosingCents)} (3660 + net income − dividends + adjustments) does not equal last year's 3849 of ${dollars(opening.reStatedCents!)}`;
+      diffs.push(t); causes.push({ text: t, cents: opening.reClosingCents - opening.reStatedCents! });
+    }
     // Whatever does not tie sits here for the reviewer; with both checks passing there is nothing.
     const others = [...rows.values()].reduce((t, r) => t + r.cents, 0);
+    // Anything the causes above do not explain: last year's balances themselves do not balance.
+    const rest = -others - causes.reduce((t, c) => t + c.cents, 0);
+    if (rest) {
+      const t = `Last year's balances as entered in step 2 do not balance: debits and credits differ by ${dollars(Math.abs(rest))}`;
+      diffs.push(t); causes.push({ text: t, cents: rest });
+    }
     if (diffs.length || others) add(OPENING, "", "Opening balances to enter", null, -others, openMeta("", "Difference with last year's closing balances"), diffs.join(". ") || "Last year's balances do not balance.");
   }
   for (const l of lines) {
@@ -137,5 +185,5 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   }
   // Drop empty rows; the opening row stays while it has a reason, even at zero (retained earnings off).
   const out = [...rows.values()].filter((r) => r.cents !== 0 || r.lastCents !== 0 || r.key.startsWith("chart:") || r.key.startsWith("bank:") || (r.key === OPENING && !!r.reviewer));
-  return { rows: out, postings };
+  return { rows: out, postings, causes };
 }

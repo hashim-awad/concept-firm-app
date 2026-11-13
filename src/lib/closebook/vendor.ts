@@ -4,6 +4,9 @@
 
 // The vendor part of a bank description: no foreign-amount second line, no numbers or card masks.
 // "SAMPLE PRINT SHOP GUELPH ON AMT 589.82 USD" -> "SAMPLE PRINT SHOP GUELPH ON".
+// Firm vendor rules carry a tax choice, never a provincial code (round 2 item 3).
+export const FIRM_TAX_MODE = { taxable: "Taxable at the client's rate", none: "No sales tax", line: "Choose on the line" } as const;
+
 export function vendorKey(description: string): string {
   return description.toUpperCase()
     .replace(/\s+AMT\s+[\d,.]+\s+[A-Z]{3}\b.*$/, "")
