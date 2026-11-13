@@ -11,6 +11,9 @@ import { loadFile, loadReference } from "@/lib/closebook/server";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { BankView } from "./bank-view";
+import { CodingView } from "./coding-view";
+import { saveSetup } from "../actions";
+import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
@@ -38,7 +41,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const statements = bank?.statements.length ?? 0;
   const bankGaps = bank ? missingText(bank.accounts.map((a) => ({ name: a.name,
     gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
-  const { steps, current, next } = fileSteps({ bankGaps,
+  // Bank files: how far the coding has got (step 3).
+  const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
+  const sts = (st ?? []) as { status: string }[];
+  const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
+  const setup = (file.setup ?? {}) as Record<string, unknown>;
+  const { steps, current, next } = fileSteps({ bankGaps, coding,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
     entries: entries.length, people,
@@ -82,7 +90,28 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             <div><dt className="text-xs text-muted">Preparer</dt><dd>{people.preparer}</dd></div>
             <div><dt className="text-xs text-muted">Reviewer</dt><dd>{people.reviewer}</dd></div>
           </dl>
-          <p className="mt-3 text-xs text-muted">The setup questions (including GST/HST), sign-offs, editing and deleting the file arrive with the next pieces.</p>
+          <p className="mt-3 text-xs text-muted">Sign-offs, editing and deleting the file arrive with the next pieces.</p>
+        </section>
+        <section className="card mt-4">
+          <h2 className="font-semibold">Setup questions</h2>
+          <p className="mb-2 text-sm text-ink-2">They decide which extra work the file needs, and the GST/HST answers set the sales tax on every line.</p>
+          <form action={saveSetup} className="grid gap-1">
+            <input type="hidden" name="file_id" value={id} />
+              <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
+              <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
+              <SetupQ name="dividends" q="Were dividends paid this year?" adds="Yes adds: T5 slips and summary" value={setup.dividends as boolean | undefined} />
+              <SetupQ name="payroll" q="Does the company run payroll?" adds="Yes adds: T4 reconciliation" value={setup.payroll as boolean | undefined} />
+              <SetupQ name="holdco" q="Does it own, or is it owned by, another company?" adds="Yes adds: investments and intercompany balances" value={setup.holdco as boolean | undefined} />
+              <SetupQ name="gst_registered" q="Is it registered for GST/HST?" adds="No: the tax stays in the expense; nothing is split out" value={setup.gst_registered as boolean | undefined} />
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+              <label htmlFor="gst_frequency" className="text-sm">GST/HST filing frequency<span className="block text-xs text-ink-3">Annual adds: the annual GST/HST return</span></label>
+              <select id="gst_frequency" name="gst_frequency" defaultValue={(setup.gst_frequency as string) ?? ""} className="input max-w-[180px]">
+                <option value="">Choose</option><option value="annual">Annual</option><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option>
+              </select>
+            </div>
+              <SetupQ name="quick_method" q="Does it use the quick method?" adds="Yes: no ITCs on operating expenses, meals included; capital purchases still claim them" value={setup.quick_method as boolean | undefined} />
+            {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
+          </form>
         </section>
       </>
     );
@@ -92,7 +121,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       : tb("records", [], "accounts", true);
   } else if (step === "code") {
     body = bankFile
-      ? soon("Coding each transaction to the standard chart, with its sales tax, is the next piece. The statements you uploaded in step 2 are kept and will appear here.")
+      ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
+          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} />
       : tb("code", ["accounts", "lines"], "accounts", true);
   } else if (step === "entries") {
     body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />;
@@ -151,5 +181,22 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </main>
       </div>
     </>
+  );
+}
+
+// One Yes/No setup question (step 1). Blank until answered.
+function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {
+  return (
+    <fieldset className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+      <legend className="sr-only">{q}</legend>
+      <span className="text-sm">{q}<span className="block text-xs text-ink-3">{adds}</span></span>
+      <span className="flex gap-2">
+        {(["yes", "no"] as const).map((v) => (
+          <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sand-200 px-3 py-1.5 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-50">
+            <input type="radio" name={name} value={v} defaultChecked={value === (v === "yes")} className="h-4 w-4 accent-accent" />{v === "yes" ? "Yes" : "No"}
+          </label>
+        ))}
+      </span>
+    </fieldset>
   );
 }

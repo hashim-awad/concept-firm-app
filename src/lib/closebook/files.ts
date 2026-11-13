@@ -4,7 +4,7 @@
 export type CbDoc = { code: string; phase: "planning" | "fieldwork" | "conclusion"; title: string; detail: string; sort_order: number; status: "open" | "prepared" | "signed";
   prepared_by: string | null; prepared_at: string | null; reviewed_by: string | null; reviewed_at: string | null };
 export type CbFileRow = { id: string; client_id: string; year_start: string; year_end: string; year_change_reason: string; file_type: "monthly" | "full"; books: string;
-  preparer_id: string; reviewer_id: string; phase: string; created_at: string };
+  preparer_id: string; reviewer_id: string; phase: string; created_at: string; setup?: Record<string, unknown> };
 
 export const FILE_TYPE: Record<string, string> = { monthly: "Monthly", full: "Full" };
 export const BOOKS: Record<string, string> = {

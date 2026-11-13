@@ -44,6 +44,16 @@ test("bank files: step 2 stays current while months are missing, and says which"
   assert.equal(r.steps[1].note, "Months still missing");
 });
 
+test("bank files: step 3 counts the lines to code, then the reviewer's and the client's", () => {
+  const a = fileSteps(facts({ statements: 1, bankGaps: "", coding: { lines: 36, open: 30, reviewer: 2, ask: 1 } }));
+  assert.equal(a.current, "code");
+  assert.match(a.next, /Code 30 lines/);
+  const b = fileSteps(facts({ statements: 1, bankGaps: "", coding: { lines: 36, open: 0, reviewer: 2, ask: 0 } }));
+  assert.match(b.next, /2 lines waiting for the reviewer/);
+  const c = fileSteps(facts({ statements: 1, bankGaps: "", coding: { lines: 36, open: 0, reviewer: 0, ask: 0 } }));
+  assert.equal(c.current, "entries");
+});
+
 test("old links land on the right step", () => {
   assert.equal(stepFromLegacy("tb", "transactions", "statements"), "records");
   assert.equal(stepFromLegacy("tb", "gifi", "statements"), "t2");
