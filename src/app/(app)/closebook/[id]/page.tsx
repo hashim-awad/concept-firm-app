@@ -17,6 +17,7 @@ import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
 import { loadReportData } from "@/lib/closebook/report-data";
+import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
@@ -95,13 +96,22 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", id).order("code");
+      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", id).order("code");
+      // GIFI lines with more than one standard chart account: the row shows the choice (QuickBooks practice).
+      const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
+      const onCode = new Map<string, { number: string; name: string }[]>();
+      for (const c of (ch ?? []) as { number: string; name: string; line_no: string }[]) {
+        const code = c.line_no.slice(0, 4);
+        for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
+      }
+      const choices = Object.fromEntries([...onCode].filter(([, v]) => v.length > 1));
+      const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null }[]).filter((o) => o.chart_account).map((o) => [o.code, o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
       body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
         reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
         pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
         signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
-        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} />;
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
     }
   } else if (step === "setup") {
     body = (
@@ -159,7 +169,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null} />
       : tb("code", ["accounts", "lines"], "accounts", true);
   } else if (step === "entries") {
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} />;
+    // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
+    const onLine: Record<string, { number: string; name: string }> = {};
+    if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} />;
   } else if (step === "review") {
     body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
   } else if (step === "mapping") {
@@ -216,7 +229,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
         <main className="min-w-0 flex-[999_1_640px]">
           {backHref && <Link href={backHref} className="mb-3 inline-block text-sm font-semibold text-navy-700 hover:underline">← Back</Link>}
-          {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined }}
+          {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
             data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start} /> : <>
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">

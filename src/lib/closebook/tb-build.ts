@@ -22,12 +22,14 @@ export type BuildChart = { name: string; account_type: string; line_no: string }
 export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
 // Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
 // last year's T2 (null when it comes from last year's Closebook file, where it is the same by design).
-export type BuildOpening = { lines: { code: string; line_no: string; name: string; type: string; debitCents: number }[]; reClosingCents: number; reStatedCents: number | null };
+// account: the standard chart account chosen in step 2 when the GIFI line has more than one.
+export type BuildOpening = { lines: { code: string; line_no: string; name: string; type: string; debitCents: number; account?: string | null }[]; reClosingCents: number; reStatedCents: number | null };
 
 // One amount on one account. kind: where it came from; ref: the bank line, entry, GIFI code or
 // statement it came from (for the drill-down); acct: the bank or card account of a bank line.
 export type PostingKind = "opening" | "bank" | "entry" | "import";
-export type Posting = { key: string; cents: number; date: string; kind: PostingKind; ref: string; acct?: string; label: string };
+// entryKind: AJE, RJE or TJE for an adjusting entry (Adjust = AJE and TJE, Reclass = RJE).
+export type Posting = { key: string; cents: number; date: string; kind: PostingKind; ref: string; acct?: string; label: string; entryKind?: "AJE" | "RJE" | "TJE" };
 
 export const UNCODED = "uncoded";
 export const OPENING = "opening";
@@ -87,7 +89,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
     for (const l of opening.lines) {
       const n = Number(l.code);
-      const ch = chartForLine(chart, l.line_no, l.code);
+      const ch = l.account && chart.has(l.account) ? l.account : chartForLine(chart, l.line_no, l.code);
       const key = ch ? `chart:${ch}` : `gifi:${l.code}`;
       const number = ch ?? "";
       const name = ch ? chart.get(ch)!.name : l.name;

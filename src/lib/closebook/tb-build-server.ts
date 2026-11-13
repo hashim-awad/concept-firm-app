@@ -63,17 +63,18 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   ]);
   // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was typed.
   const { info, lines: master } = await gifiCodeInfo(supabase);
-  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId);
+  let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId);
   let reStated = cents(f.opening_re_stated);
   if (carry && !ob?.length && await carryFromLastYear(supabase, fileId, f.client_id, yearEnd, master)) {
-    ob = (await supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId)).data;
+    ob = (await supabase.from("cb_opening_balances").select("code, amount, chart_account").eq("file_id", fileId)).data;
     const { data: again } = await supabase.from("cb_files").select("opening_re_stated").eq("id", fileId).maybeSingle();
     reStated = cents(again?.opening_re_stated);
   }
   let opening: BuildOpening | null = null;
   if (ob?.length) {
     const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, cents(f.opening_ni_typed));
-    opening = { lines: o.lines, reClosingCents: o.reClosingCents, reStatedCents: reStated };
+    const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null }[]).map((x) => [x.code, x.chart_account]));
+    opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code) ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
   }
   const firstOpening = new Map<string, number>();
   for (const s of (sts ?? []) as { account_id: string; opening: number }[]) if (!firstOpening.has(s.account_id)) firstOpening.set(s.account_id, Math.round(Number(s.opening) * 100));

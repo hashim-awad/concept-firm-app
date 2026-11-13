@@ -7,15 +7,15 @@ import type { ReportTable } from "./report-table.ts";
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const col = (i: number) => { let s = ""; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; };
 
-// Styles: 0 plain, 1 bold, 2 amount, 3 bold amount, 4 red bold (the stamp), 5 indented, 6 indented twice, 7 title.
+// Styles: 0 plain, 1 bold, 2 amount, 3 bold amount, 4 red bold (the stamp), 5 indented, 6 indented twice, 7 title, 8 grand total amount.
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.00;(#,##0.00);&quot;–&quot;"/></numFmts>
+<numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0.00;(#,##0.00);&quot;–&quot;"/><numFmt numFmtId="165" formatCode="#,##0.00;(#,##0.00);0.00"/></numFmts>
 <fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFB3261E"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts>
 <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
 <borders count="1"><border/></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="8">
+<cellXfs count="9">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
 <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
@@ -24,6 +24,7 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment indent="1"/></xf>
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment indent="2"/></xf>
 <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="165" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>
 </cellXfs>
 </styleSheet>`;
 
@@ -40,7 +41,7 @@ export function reportXlsx(t: ReportTable, head: string[], stamp: string): Buffe
   r++; row(t.columns.map((c, i) => text(i, c, 1)));
   for (const x of t.rows) {
     r++;
-    row(x.cells.map((v, i) => v === null || v === "" ? "" : typeof v === "number" && t.numeric[i] ? num(i, v, x.bold ? 3 : 2)
+    row(x.cells.map((v, i) => v === null || v === "" ? "" : typeof v === "number" && t.numeric[i] ? num(i, v, x.grand ? 8 : x.bold ? 3 : 2)
       : text(i, String(v), x.bold ? 1 : i === 0 && x.indent ? 4 + x.indent : 0)));
   }
   const widths = t.columns.map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="${t.numeric[i] ? 16 : i === 0 && t.columns.length <= 3 ? 56 : t.columns[i] === "Description" || t.columns[i] === "Account" ? 44 : 14}" customWidth="1"/>`).join("");

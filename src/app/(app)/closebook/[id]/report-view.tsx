@@ -5,7 +5,7 @@
 // the row it came from.
 import Link from "next/link";
 import type { PostingKind } from "@/lib/closebook/tb-build";
-import { journal, KIND_LABEL, ledger, NET_INCOME, statements, trialBalance, type StmtGroup, type StmtSection } from "@/lib/closebook/reports";
+import { journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type StmtGroup, type StmtSection, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { formatDate } from "@/lib/dates";
 
@@ -15,20 +15,21 @@ export const STAMP = "Working paper: not for the client";
 
 export const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
   : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const moneyTotal = (c: number) => (c === 0 ? "0.00" : money(c));
 const dateText = (d: string) => (d ? formatDate(d) : "");
 const gifi = (line_no: string | null) => (line_no ? line_no.replace(/\.00$/, "") : "");
 
 // back: where this view itself returns to, kept in every link out of it so Back works at every level.
-type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; open?: string; back?: string };
+type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; open?: string; back?: string; view?: string };
 
 export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: string; data: ReportData; p: Params; yearEnd: string; yearStart: string }) {
   const base = `/closebook/${fileId}`;
   const qs = (o: Record<string, string | undefined>) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join("&");
-  const here = (extra: Record<string, string | undefined> = {}) => `${base}?${qs({ report: p.report, account: p.account, from: p.from, to: p.to, source: p.source, open: p.open, back: p.back, ...extra })}`;
+  const here = (extra: Record<string, string | undefined> = {}) => `${base}?${qs({ report: p.report, view: p.view, account: p.account, from: p.from, to: p.to, source: p.source, open: p.open, back: p.back, ...extra })}`;
   const withBack = (href: string, back: string) => `${href}${href.includes("?") ? "&" : "?"}back=${encodeURIComponent(back)}`;
   const toLedger = (key: string, back: string) => withBack(`${base}?report=gl&account=${encodeURIComponent(key)}`, back);
   const name = (key: string) => { const a = data.accounts.find((x) => x.key === key); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : key; };
-  const exportHref = (format: "xlsx" | "pdf") => `${base}/report-export?${qs({ report: p.report, account: p.account, from: p.from, to: p.to, source: p.source, format })}`;
+  const exportHref = (format: "xlsx" | "pdf") => `${base}/report-export?${qs({ report: p.report, view: p.view, account: p.account, from: p.from, to: p.to, source: p.source, format })}`;
   const title = REPORTS.find(([k]) => k === p.report)![1];
   const tb = trialBalance(data.accounts, data.postings);
 
@@ -59,30 +60,52 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: st
 
   let body: React.ReactNode;
   if (p.report === "tb") {
-    const cols: [keyof (typeof tb)[number], string][] = [["last", "Last year"], ["opening", "Opening"], ["activity", data.bankFile ? "Coded activity" : "Imported"], ["adjustments", "Adjusting entries"], ["final", "Final"], ["diff", "Change from last year"]];
-    const total = (k: (typeof cols)[number][0]) => tb.reduce((n, t) => n + (t[k] as number), 0);
+    // Trial balance by group (the default) or flat, in the columns of the reference package.
+    const flat = p.view === "flat";
+    const y = Number(yearEnd.slice(0, 4));
+    const cols: [keyof TbLine, string][] = [["prelim", `Prelim ${y}`], ["adjust", "Adjust"], ["reclass", "Reclass"], ["final", `Final ${y}`], ["last", `Prior ${y - 1}`], ["diff", "$ change"]];
+    const { groups, total } = tbByGroup(tb, data.info);
+    const SHADE = "bg-[#F3F5F9]";
+    const amounts = (t: TbLine, link: boolean, bold = false) => (
+      <>
+        {cols.map(([k]) => (
+          <td key={k} className={`px-2 py-1 text-right whitespace-nowrap tabular-nums ${k === "diff" ? SHADE : ""} ${bold ? "font-bold" : ""}`}>
+            {link && (t[k] as number) && t.key !== NI_LAST ? <Link href={toLedger(t.key, here() + `#a-${t.key}`)} className="hover:text-navy-700 hover:underline">{money(t[k] as number)}</Link> : money(t[k] as number)}
+          </td>
+        ))}
+        <td className={`px-2 py-1 text-right whitespace-nowrap tabular-nums ${SHADE} ${bold ? "font-bold" : ""}`}>{pctChange(t.final, t.last)}</td>
+      </>
+    );
+    const accountRow = (t: TbLine) => (
+      <tr key={t.key} id={`a-${t.key}`} className="target:bg-navy-50">
+        <td className="py-1 pr-1 pl-2 tabular-nums text-[#5B6475]">{t.number}</td>
+        <td className="px-2 py-1">{t.name}{flat && t.line_no && <span className="ml-2 text-xs text-[#5B6475]">GIFI {gifi(t.line_no)}</span>}</td>
+        {amounts(t, true)}
+      </tr>
+    );
     body = (
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[760px] table-fixed text-[13px]">
-          <colgroup><col /><col className="w-14" />{cols.map(([k]) => <col key={k} className="w-[5.75rem]" />)}</colgroup>
-          <thead><tr className="border-b border-sand-200 text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">Account</th><th className="px-2 py-2 font-semibold">GIFI</th>
-            {cols.map(([, l]) => <th key={l} className="px-2 py-2 text-right font-semibold">{l}</th>)}</tr></thead>
+        <div className="flex justify-end px-4 pt-3"><Link href={here({ view: flat ? undefined : "flat" })} className="text-sm text-navy-700 underline">{flat ? "Show by group" : "Show flat"}</Link></div>
+        <table className="m-3 w-[calc(100%-1.5rem)] min-w-[760px] table-fixed border-collapse text-[12px]">
+          <colgroup><col className="w-[3.4rem]" /><col />{cols.map(([k]) => <col key={k} className="w-[5.05rem]" />)}<col className="w-[3.9rem]" /></colgroup>
+          <thead><tr className="bg-[#1A3C7C] text-white">
+            <th colSpan={2} className="px-2 py-1.5 text-left font-bold">Account</th>
+            {cols.map(([, l]) => <th key={l} className="px-2 py-1.5 text-right font-bold">{l}</th>)}<th className="px-2 py-1.5 text-right font-bold">% change</th>
+          </tr></thead>
           <tbody>
-            {tb.map((t) => (
-              <tr key={t.key} id={`a-${t.key}`} className="border-b border-sand-100 target:bg-navy-50">
-                <td className="px-4 py-1.5">{t.number && <span className="mr-2 tabular-nums text-ink-3">{t.number}</span>}{t.name}</td>
-                <td className="px-2 py-1.5 tabular-nums text-ink-3">{gifi(t.line_no)}</td>
-                {cols.map(([k]) => (
-                  <td key={k} className={`px-2 py-1.5 text-right whitespace-nowrap tabular-nums ${k === "final" ? "font-semibold" : ""}`}>
-                    {(t[k] as number) ? <Link href={toLedger(t.key, here() + `#a-${t.key}`)} className="hover:text-navy-700 hover:underline">{money(t[k] as number)}</Link> : "–"}
-                  </td>
-                ))}
-              </tr>
-            ))}
-            <tr className="border-t-2 border-ink font-semibold"><td className="px-4 py-2">Total</td><td />{cols.map(([k]) => <td key={k} className="px-2 py-2 text-right tabular-nums">{k === "diff" || k === "last" ? "" : money(total(k))}</td>)}</tr>
+            {flat ? tb.map(accountRow) : groups.map((g) => [
+              <tr key={`h-${g.code}`}><td colSpan={2} className="px-2 pt-3 pb-1 font-bold text-[#1A3C7C]">{g.name}</td>{cols.map(([k]) => <td key={k} className={k === "diff" ? SHADE : ""} />)}<td className={SHADE} /></tr>,
+              ...g.rows.map(accountRow),
+              <tr key={`t-${g.code}`}><td /><td className="border-t border-ink px-2 py-1 font-bold">{g.total.name}</td>
+                {cols.map(([k]) => <td key={k} className={`border-t border-ink px-2 py-1 text-right whitespace-nowrap tabular-nums font-bold ${k === "diff" ? SHADE : ""}`}>{money(g.total[k] as number)}</td>)}
+                <td className={`border-t border-ink px-2 py-1 text-right font-bold tabular-nums ${SHADE}`}>{pctChange(g.total.final, g.total.last)}</td></tr>,
+            ])}
+            <tr><td /><td className="border-t border-ink px-2 pt-2 pb-1 font-bold">{total.name}</td>
+              {cols.map(([k]) => <td key={k} className={`border-t border-ink px-2 pt-2 pb-1 text-right font-bold tabular-nums ${k === "diff" ? SHADE : ""}`}><span className="border-b-[3px] border-double border-ink">{moneyTotal(total[k] as number)}</span></td>)}
+              <td className={`border-t border-ink ${SHADE}`} /></tr>
           </tbody>
         </table>
-        <p className="px-4 py-2 text-xs text-ink-3">Debits positive, credits in brackets. Click an amount to open the account&rsquo;s ledger.</p>
+        <p className="px-4 pb-3 text-xs text-[#5B6475]">Debits are shown as positive and credits in brackets. % change compares the size of each balance (a growing liability or revenue shows a positive %); n/m when the balance changed side. Prelim = balances before Closebook entries; Adjust = adjusting and tax entries; Reclass = reclassifying entries. Click an amount to open the account&rsquo;s ledger.</p>
       </div>
     );
   } else if (p.report === "bs" || p.report === "pl") {
@@ -91,9 +114,14 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: st
     const all = open.has("all");
     const group = (g: StmtGroup) => {
       if (g.code === NET_INCOME) return (
-        <tr key={g.code} className="border-b border-sand-100"><td className="px-4 py-1.5 pl-8">Net income for the year</td>
+        <tr key={g.code} className="border-b border-sand-100"><td className="px-4 py-1.5 pl-8">{g.name}</td>
           <td className="px-3 py-1.5 text-right tabular-nums"><Link href={withBack(`${base}?report=pl`, here())} className="hover:text-navy-700 hover:underline">{money(g.now)}</Link></td>
           <td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(g.last)}</td></tr>
+      );
+      // An equity line with nothing on it this year or last (no dividends): shown, at "–".
+      if (!g.accounts.length) return (
+        <tr key={g.code} className="border-b border-sand-100"><td className="px-4 py-1.5 pl-8">{g.name}</td>
+          <td className="px-3 py-1.5 text-right tabular-nums">{money(g.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(g.last)}</td></tr>
       );
       const backOpen = [...new Set([...open, g.code])].join(",");
       return (
@@ -239,8 +267,24 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: st
             </tbody>
           </table>
         </div>
+        <NetIncomeBoxView b={netIncomeBox(data.accounts, data.postings, data.info)} />
       </div>
     );
   }
   return <div>{header}{body}</div>;
+}
+
+// The box at the end of the journal (reference page 3).
+function NetIncomeBoxView({ b }: { b: { before: number; adjust: number; reclass: number; after: number } }) {
+  const row = (label: string, v: number) => <tr className="border-b border-[#C9CED8] last:border-0"><td className="px-3 py-1.5">{label}</td><td className="px-3 py-1.5 text-right tabular-nums">{money(v)}</td></tr>;
+  return (
+    <div className="flex justify-end">
+      <table className="w-full max-w-md border border-[#C9CED8] bg-surface text-sm">
+        <tbody>
+          {row("Net income before entries", b.before)}{row("Adjusting and tax entries (AJE, TJE)", b.adjust)}{row("Reclassifying entries (RJE)", b.reclass)}
+          <tr className="bg-[#EEF1F6] font-bold"><td className="px-3 py-2">Adjusted net income</td><td className="px-3 py-2 text-right tabular-nums"><span className="border-t border-ink border-b-[3px] border-b-double pt-0.5">{money(b.after)}</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  );
 }

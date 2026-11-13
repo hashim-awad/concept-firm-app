@@ -133,7 +133,7 @@ export async function addEntry(formData: FormData) {
     lines.push({ ...(target.startsWith("line:") ? { line: target.slice(5) } : { account: target }), amount, memo: s(formData, `m${i}`) });
   }
   const { error } = await (await createClient()).rpc("cb_add_entry", {
-    p_file: id, p_kind: s(formData, "kind"), p_reason: s(formData, "reason"), p_note: s(formData, "note"), p_reverse: formData.get("reverse") === "on", p_lines: lines,
+    p_file: id, p_kind: s(formData, "kind"), p_reason: s(formData, "reason"), p_note: s(formData, "note"), p_reverse: formData.get("reverse") === "on", p_lines: lines, p_wp_ref: s(formData, "wp_ref"),
   });
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry added. It goes to the reviewer."));
@@ -290,11 +290,12 @@ export async function saveSetup(formData: FormData) {
 // Last year's balance sheet (and income statement when available) typed by GIFI code from the prior T2 or
 // the CRA assessment, or filled from last year's Closebook file. A GIFI file is never an input.
 
-export async function saveOpeningInline(fileId: string, lines: [string, number][], reStatedCents: number | null, niTypedCents: number | null, note: string): Promise<string | null> {
+// accounts: the standard chart account chosen on a row whose GIFI line has more than one (step 2).
+export async function saveOpeningInline(fileId: string, lines: [string, number][], reStatedCents: number | null, niTypedCents: number | null, note: string, accounts: Record<string, string> = {}): Promise<string | null> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
   const supabase = await createClient();
-  const { error } = await supabase.rpc("cb_save_opening", { p_file: fileId, p_codes: lines.map(([code, c]) => ({ code, amount: c / 100 })),
+  const { error } = await supabase.rpc("cb_save_opening", { p_file: fileId, p_codes: lines.map(([code, c]) => ({ code, amount: c / 100, account: accounts[code] ?? null })),
     p_re_stated: reStatedCents === null ? null : reStatedCents / 100, p_ni_typed: niTypedCents === null ? null : niTypedCents / 100, p_note: note });
   if (error) return `Nothing was saved. ${error.message}`;
   const tb = await rebuildTb(supabase, fileId);

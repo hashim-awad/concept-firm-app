@@ -11,22 +11,25 @@ import { typedCents } from "@/lib/closebook/bank-upload";
 import { fileInputClass } from "@/components/ds/primitives";
 import { saveOpeningInline, signOpeningInline, uploadOpeningPdf } from "../actions";
 
-type Row = { id: number; block: Block; code: string; amount: string };
+type Row = { id: number; block: Block; code: string; amount: string; account: string };
 type Code = { name: string; type: string };
 const TOTALS = new Set(["2599", "3499", "3600", "3620", "3640", "3849", "8299", "9368", "9999"]);
 const fmt = (c: number) => (c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 }));
 const typedText = (c: number) => (c / 100).toFixed(2);
 
-export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, note, pdf, signed, source, bankIssue, editable }: {
+// choices: the standard chart accounts on a GIFI line that has more than one, in chart order. As in
+// QuickBooks, an opening balance sits on an account: the row shows the choice, first one selected.
+export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, note, pdf, signed, source, bankIssue, editable, choices = {}, initialAccounts = {} }: {
   fileId: string; codes: [string, Code][]; initial: [string, number][]; reStated: number | null; niTyped: number | null; note: string;
+  choices?: Record<string, { number: string; name: string }[]>; initialAccounts?: Record<string, string>;
   pdf: { href: string; name: string } | null; signed: { by: string; at: string } | null; source: string | null; bankIssue: string; editable: boolean;
 }) {
   const router = useRouter();
   const info = useMemo(() => new Map(codes), [codes]);
   const typeOf = (c: string) => info.get(c)?.type;
   let next = 1;
-  const start: Row[] = initial.map(([code, gifi]) => ({ id: next++, block: blockOf(code, typeOf(code)) ?? "assets", code, amount: typedText(fromGifi(code, gifi)) }));
-  for (const b of ["assets", "liabilities", "equity", "re", "revenue", "expenses"] as Block[]) if (!start.some((r) => r.block === b)) start.push({ id: next++, block: b, code: "", amount: "" });
+  const start: Row[] = initial.map(([code, gifi]) => ({ id: next++, block: blockOf(code, typeOf(code)) ?? "assets", code, amount: typedText(fromGifi(code, gifi)), account: initialAccounts[code] ?? "" }));
+  for (const b of ["assets", "liabilities", "equity", "re", "revenue", "expenses"] as Block[]) if (!start.some((r) => r.block === b)) start.push({ id: next++, block: b, code: "", amount: "", account: "" });
   const [rows, setRows] = useState<Row[]>(start);
   const [tab, setTab] = useState<"bs" | "is">("bs");
   const [re, setRe] = useState(reStated === null ? "" : typedText(reStated));
@@ -47,7 +50,8 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const badRows = rows.filter((r) => rowProblem(r)).length;
 
   const save = async () => {
-    const e = await saveOpeningInline(fileId, lines, reC, t.ni9999From125 ? null : niC, src);
+    const accounts = Object.fromEntries(valid.filter((r) => choices[r.code]).map((r) => [r.code, r.account || choices[r.code][0].number]));
+    const e = await saveOpeningInline(fileId, lines, reC, t.ni9999From125 ? null : niC, src, accounts);
     if (e) { setErr(e); return false; }
     setDirty(false); return true;
   };
@@ -59,8 +63,8 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
     if (e) setErr(e); else router.refresh();
   });
 
-  const setRow = (id: number, k: "code" | "amount", v: string) => { setRows(rows.map((r) => (r.id === id ? { ...r, [k]: k === "code" ? v.replace(/\D/g, "").slice(0, 4) : v } : r))); touch(); };
-  const add = (b: Block) => { setRows([...rows, { id: Math.max(0, ...rows.map((r) => r.id)) + 1, block: b, code: "", amount: "" }]); touch(); };
+  const setRow = (id: number, k: "code" | "amount" | "account", v: string) => { setRows(rows.map((r) => (r.id === id ? { ...r, [k]: k === "code" ? v.replace(/\D/g, "").slice(0, 4) : v } : r))); touch(); };
+  const add = (b: Block) => { setRows([...rows, { id: Math.max(0, ...rows.map((r) => r.id)) + 1, block: b, code: "", amount: "", account: "" }]); touch(); };
   const remove = (id: number) => { setRows(rows.filter((r) => r.id !== id)); touch(); };
 
   const head = (b: Block) => <tr><td colSpan={4} className="bg-sand-100 px-4 py-2 text-xs font-bold tracking-wide text-navy-700 uppercase">{BLOCK_TITLE[b]}</td></tr>;
@@ -70,7 +74,13 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
         <tr key={r.id} id={r.code ? `gifi-${r.code}` : undefined} className="border-b border-sand-100 align-top target:bg-navy-50">
           <td className="w-28 px-4 py-1.5"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input w-[5.5rem] px-2 text-center tabular-nums" /></td>
           <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
-            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
+            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}
+            {!rowProblem(r) && choices[r.code] && (
+              <label className="mt-1 flex items-center gap-2 text-xs text-ink-2">Account
+                <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input h-8 max-w-xs py-0 text-xs">
+                  {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.number} {c.name}</option>)}
+                </select></label>
+            )}</td>
           <td className="w-44 px-2 py-1.5 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} className="input w-40 text-right tabular-nums" /></td>
           <td className="w-8 py-1.5 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
         </tr>
