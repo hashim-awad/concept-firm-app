@@ -32,3 +32,30 @@ select test.check('the line moves to the chart account on that line (61500), and
     like 'chart:61500:61500,line:1004.00:%' and not exists (select 1 from public.cb_accounts where id = :'l1'));
 select test.check('a line with no chart account keeps its account, with a 5-digit number in its type''s range',
   (select number from public.cb_accounts where id = :'l2') ~ '^19\d{3}$');
+
+-- Round 4c: the stored trial balance of a file from before round 4b is put right in SQL, with no visit.
+-- The old layout: both bank accounts on rows of their own numbered 10000, last year's 1002 on "Chequing".
+delete from public.cb_accounts where file_id = :'f' and (account_key like 'bank:%' or account_key = 'chart:10000');
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, last_year) values
+  (:'f', 'bank:' || :'td', '10000', 'TD chequing', '1002.00', 110, 0),
+  (:'f', 'bank:' || :'sv', '10000', 'TD savings 9999', '1002.00', 5, 0),
+  (:'f', 'chart:10000', '10000', 'Chequing', '1002.00', 0, 48210);
+select test.check('the old layout: three rows numbered 10000', (select count(*) from public.cb_accounts where file_id = :'f' and number = '10000') = 3);
+select private.cb_restore_bank_rows(:'f');
+select test.check('TD chequing is one line on 10000: last year 48,210.00 and this year 110.00',
+  (select string_agg(number || ' ' || name || ' ' || last_year || ' ' || this_year, ',') from public.cb_accounts where file_id = :'f' and number = '10000') = '10000 TD chequing 48210.00 110.00');
+select test.check('TD savings is on its own number', (select number from public.cb_accounts where file_id = :'f' and account_key = 'bank:' || :'sv') = '10010');
+select test.check('running it again changes nothing', private.cb_restore_bank_rows(:'f') = 0);
+
+-- Round 4c: the code paths. An entry naming a GIFI line posts to the standard chart account on it; a line
+-- with no chart account gets a 5-digit number at once.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Amortization for the year', false, '[{"line":"8670.00","amount":300},{"line":"1775.00","amount":-300}]', 'Capital assets schedule') as e2 \gset
+select test.check('an entry naming GIFI 8670 posts to 61500, not to a bare line',
+  (select string_agg(a.account_key, ',' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e2') = 'chart:61500,chart:15050');
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Foreign deposit', false, '[{"line":"1004.00","amount":50},{"line":"8670.00","amount":-50}]', 'Bank statements') as e3 \gset
+select test.check('a line with no chart account gets a 5-digit number in its type''s range, never a blank or a GIFI code',
+  (select a.number from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e3' and l.amount > 0) ~ '^19\d{3}$');
+reset role;
+reset request.jwt.claims;

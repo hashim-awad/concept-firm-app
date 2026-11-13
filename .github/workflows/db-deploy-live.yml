@@ -47,7 +47,13 @@ jobs:
           DB_URL="postgresql://postgres.${PROJECT_ID}:${ENCODED}@${POOLER_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+      # Read-only account links check (scripts/checks/account-links-check.sql): file ids and counts only.
+      # Clean = "(0 rows)". Run before and after the change, so each deploy reports what it fixed.
+      - name: Account links check, before
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -f scripts/checks/account-links-check.sql
       - name: Show changes that will be applied
         run: supabase db push --remote="$DB_URL" --dry-run
       - name: Apply changes
         run: supabase db push --remote="$DB_URL" --yes
+      - name: Account links check, after
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -P pager=off -f scripts/checks/account-links-check.sql

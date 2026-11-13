@@ -1,23 +1,27 @@
--- READ-ONLY. Run in the Supabase SQL editor of Test or Live (Hashim, Nov 18, 2026, round 4b).
--- Lists every Closebook file with (1) two bank or card accounts on the same standard chart account (they
--- showed as two accounts with one number), (2) two accounts in the file with the same number, and (3) entry
--- lines on a bare GIFI line in a file on the standard chart. Changes nothing. Shows file ids and account
--- names only. Run it before approving "Database deploy - Live" to see which files were affected; after the
--- deploy, (3) is empty, (1) only lists files whose bank accounts now carry their own numbers (shown in
--- cb_bank_accounts.number), and (2) is empty once each listed file's trial balance is rebuilt (opening step 7
--- rebuilds it).
-
--- 1. Bank or card accounts sharing a chart account.
-select 'shared chart account' as problem, b.file_id, b.chart_account as number, string_agg(b.name, ' | ' order by b.created_at) as accounts
-  from public.cb_bank_accounts b group by b.file_id, b.chart_account having count(*) > 1
-union all
+-- READ-ONLY account links check (Hashim, Nov 18 and 19, 2026, rounds 4b and 4c). Changes nothing.
+-- Run by the database deploy workflows before and after every change, on Test and on Live; the result is
+-- in the workflow's log. Shows file ids and counts only, never a client, account or bank name.
+-- Clean = no rows.
+--
+-- 1. A bank or card account shown under a number other than its own (or on a second row of its own).
 -- 2. Two accounts with the same number in one file.
-select 'same number twice', a.file_id, a.number, string_agg(a.name, ' | ' order by a.account_key)
-  from public.cb_accounts a where a.number <> '' group by a.file_id, a.number having count(*) > 1
+-- 3. Entry lines on a bare GIFI line in a file on the standard chart, where the chart has an account on
+--    that line.
+select 'bank account not on its own number' as problem, b.file_id, count(*) as how_many
+  from public.cb_bank_accounts b
+  join public.cb_files f on f.id = b.file_id and f.books in ('statements', 'paper')
+ where exists (select 1 from public.cb_accounts a where a.file_id = b.file_id and a.account_key = 'bank:' || b.id
+                 and (b.number = b.chart_account or a.number is distinct from b.number))
+ group by b.file_id
 union all
--- 3. Entry lines on a bare GIFI line in a file on the standard chart.
-select 'posting on a bare GIFI line', a.file_id, a.line_no, string_agg(distinct a.name, ' | ') || ' (' || count(l.id) || ' entry lines)'
-  from public.cb_accounts a join public.cb_files f on f.id = a.file_id join public.cb_entry_lines l on l.account_id = a.id
- where a.account_key like 'line:%' and f.books in ('statements', 'paper')
- group by a.file_id, a.line_no
+select 'same number twice', a.file_id, count(*)
+  from (select file_id, number from public.cb_accounts where number <> '' group by file_id, number having count(*) > 1) a
+ group by a.file_id
+union all
+select 'posting on a bare GIFI line', a.file_id, count(l.id)
+  from public.cb_accounts a
+  join public.cb_files f on f.id = a.file_id and f.books in ('statements', 'paper')
+  join public.cb_entry_lines l on l.account_id = a.id
+ where a.account_key like 'line:%' and exists (select 1 from public.cb_chart_accounts c where c.line_no = a.line_no)
+ group by a.file_id
 order by 1, 2;
