@@ -240,6 +240,8 @@ export async function uploadBankStatement(formData: FormData) {
   });
   if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
   const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
+  // Uploaded although already in the file (the preparer confirmed): those lines go to the reviewer (round 3 item 4).
+  if (s(formData, "dup_ok") === "1") await (await createClient()).rpc("cb_flag_uploaded_duplicates", { p_file: id, p_statement: d.statement });
   await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(`${done}&account=${encodeURIComponent(d.account_id)}`, "msg",

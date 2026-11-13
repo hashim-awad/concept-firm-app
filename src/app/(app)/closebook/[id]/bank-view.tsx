@@ -19,8 +19,9 @@ const MONTH: Record<MonthState, { cls: string; word: string }> = {
   missing: { cls: "border-dashed border-sand-300 bg-surface text-ink-3", word: "" },
 };
 
-export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, upload, error }: {
+export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, upload, error, dups = [] }: {
   fileId: string; bank: BankData; editable: boolean; locked: boolean; yearStart: string; yearEnd: string;
+  dups?: { txn_date: string; description: string; amount: number; times: number; accounts: string }[];
   upload: string | null; error: string | null;   // the side panel: "new", an account id, or closed
 }) {
   const { accounts, statements, selected } = bank;
@@ -36,6 +37,20 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
   return (
     <div className="grid gap-4">
       {bank.error && <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{bank.error}</p>}
+      {/* Lines already in the file more than once (round 3 item 3): the same check as at upload. */}
+      {dups.length > 0 && (
+        <section role="alert" className="card grid gap-2 border-danger/30 p-0">
+          <p className="px-4 pt-3 text-sm"><b className="text-danger">{dups.reduce((n, d) => n + d.times - 1, 0)} lines are in this file twice</b> (same date, description and amount). Each one counts twice until a copy is removed.
+            If a statement went to the wrong account, remove it in that account&rsquo;s statement list below.</p>
+          <div className="max-h-64 overflow-y-auto">
+            <table className="table table-compact">
+              <thead><tr><th>Date</th><th>Description</th><th className="text-right">Amount</th><th className="text-right">Times</th><th>On</th></tr></thead>
+              <tbody>{dups.map((d, i) => <tr key={i}><td className="tabular-nums">{d.txn_date}</td><td>{d.description}</td>
+                <td className="text-right tabular-nums">{Number(d.amount).toLocaleString("en-CA", { minimumFractionDigits: 2 })}</td><td className="text-right">{d.times}</td><td>{d.accounts}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accounts.map((a) => {

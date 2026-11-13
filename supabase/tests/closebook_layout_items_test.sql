@@ -31,6 +31,9 @@ select id as refund from public.cb_bank_lines where description = 'SAMPLE REFUND
 select id as comm from public.cb_bank_lines where description = 'SAMPLE COMMISSION' \gset
 select id as back from public.cb_bank_lines where description = 'SAMPLE CHARGEBACK' \gset
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+-- Round 3 item 5: nothing is confirmed before the GST/HST questions are answered.
+select test.check('no coding before the GST/HST answers', test.try(format($f$select public.cb_code_lines(%L, '[{"id":"%s","account":"65200","tax":"HST_ON"}]')$f$, :'f', :'soft')) like '%GST/HST questions in step 1%');
+select public.cb_save_setup(:'f', '{"gst_registered": true, "quick_method": false}');
 select public.cb_code_lines(:'f', format('[{"id":"%s","account":"65200","tax":"HST_ON"},{"id":"%s","account":"65200","tax":"HST_ON"},{"id":"%s","account":"40000","tax":"HST_ON"},{"id":"%s","account":"40000","tax":"HST_ON"}]',
   :'soft', :'refund', :'comm', :'back')::jsonb);
 select test.check('an expense on a card charge is done', (select status from public.cb_bank_lines where id = :'soft') = 'done');
@@ -65,6 +68,22 @@ select test.check('owners delete a firm rule', (select count(*) from public.cb_f
 select test.check('an upload''s lines already in the file are listed, with the account they are on',
   (select count(*) || '|' || max(account_name) from public.cb_duplicate_lines(:'f', '[{"line":2,"date":"2026-01-02","description":"sample software","amount":226},{"line":3,"date":"2026-01-03","description":"NEW LINE","amount":5}]')) = '1|Visa 1234');
 
+-- Round 3 items 3 and 4: duplicates already in the file, and lines uploaded although already in it.
+select (public.cb_upload_bank(:'f', null, 'Visa again', 'card', 'v2.csv', 0, 113,
+  '[{"line":2,"date":"2026-01-02","description":"SAMPLE SOFTWARE","amount":226},{"line":3,"date":"2026-01-05","description":"SAMPLE REFUND","amount":-113}]',
+  '2026-01-01', '2026-01-31')) ->> 'statement' as st2 \gset
+select test.check('the file lists lines that are in it twice', (select count(*) || '|' || min(times) from public.cb_file_duplicates(:'f')) = '2|2');
+select public.cb_flag_uploaded_duplicates(:'f', :'st2');
+select test.check('confirmed as real: the new copies go to the reviewer with the reason, and leave the list',
+  (select count(*) from public.cb_bank_lines where statement_id = :'st2' and status = 'reviewer' and reviewer_reason = 'Uploaded although already in the file.') = 2
+  and not exists (select 1 from public.cb_file_duplicates(:'f')));
+-- Round 3 item 5: a change to the GST/HST answers sends taxed lines back to the reviewer.
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_save_setup(:'f', '{"quick_method": true}');
+select test.check('quick method switched on: confirmed lines with tax go back to the reviewer', (select status || '|' || reviewer_reason from public.cb_bank_lines where id = :'soft') like 'reviewer|The GST/HST answers changed%');
+select public.cb_save_setup(:'f', '{"realtor": true}');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+
 -- Round 2 item 1: memo, W/P reference, prior period adjustments.
 \set L '[{"chart":"66000","amount":100},{"chart":"21100","amount":-100}]'
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -90,7 +109,9 @@ select test.check('the date must fall in the year', test.try(format($f$select pu
 select test.check('four standard entries to start', (select string_agg(name, ',' order by sort_order) from public.cb_standard_entries) = 'Home office,Auto expenses,Accounting fee accrual,Tax provision');
 select id as accrual from public.cb_standard_entries where name = 'Accounting fee accrual' \gset
 select id as taxp from public.cb_standard_entries where name = 'Tax provision' \gset
-select test.check('staff cannot change a standard entry', test.try(format($f$select public.cb_save_standard_entry(%L, 'X', 'AJE', 'accrual', '66000', '21100', '', '', false)$f$, :'accrual')) like '%owner%');
+select test.check('staff cannot change a standard entry', test.try(format($f$select public.cb_save_standard_entry(%L, 'X', 'AJE', 'accrual', '66000', '21100', '', '', false, 'none')$f$, :'accrual')) like '%owner%');
+select test.check('standard entries carry a tax choice, never a code: home office no tax, the accounting fee taxable', (select string_agg(name || '=' || tax_mode, ',' order by sort_order) from public.cb_standard_entries)
+  = 'Home office=none,Auto expenses=line,Accounting fee accrual=taxable,Tax provision=none');
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"66000","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1 \gset
 select test.check('a standard entry as set, under the threshold: no review needed', (select not needs_review and standard_id = :'accrual' from public.cb_entries where id = :'e1'));
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"65100","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1b \gset

@@ -89,6 +89,7 @@ export function lockFor(d: SettingsDef): string | undefined {
 export function settingsMenu(a: Access): SettingsGroup[] {
   return SETTINGS.map(([label, defs]) => ({
     label,
-    items: defs.filter((d) => canOpen(a, d.open)).map((d) => ({ label: d.label, href: d.href, soon: d.soon, also: d.also, lock: lockFor(d) })),
+    // Anything not built yet is not shown (round 2 item 18, round 3 item 14).
+    items: defs.filter((d) => !d.soon && canOpen(a, d.open)).map((d) => ({ label: d.label, href: d.href, soon: d.soon, also: d.also, lock: lockFor(d) })),
   })).filter((g) => g.items.length);
 }

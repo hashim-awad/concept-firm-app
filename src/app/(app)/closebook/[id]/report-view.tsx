@@ -159,7 +159,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
         {/* What is left to do, by cause, each linked to where it is done (round 2 item 15). */}
         {p.report === "bs" && s.bs.unsorted && todo.length > 0 && (
           <p className="m-4 flex flex-wrap gap-x-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-2 text-sm">
-            {todo.map((t, i) => <span key={t.one}>{i > 0 && <span className="mr-2 text-ink-3">·</span>}<a href={t.href} className="font-semibold text-navy-700 underline">{t.n} {t.n === 1 ? t.one : t.many}</a></span>)}
+            {todo.map((t, i) => <span key={t.one}>{i > 0 && <span className="mx-2 text-ink-3">·</span>}<a href={t.href} className="font-semibold text-navy-700 underline">{t.n} {t.n === 1 ? t.one : t.many}</a></span>)}
           </p>)}
         <div className="flex justify-end px-4 pt-3"><Link href={here({ open: all ? undefined : "all" })} className="text-sm text-navy-700 underline">{all ? "Collapse all" : "Expand all"}</Link></div>
         <table className="w-full min-w-[640px] text-sm">

@@ -74,7 +74,7 @@ export async function saveStandardEntry(formData: FormData) {
   await owner(STD);
   const { error } = await (await createClient()).rpc("cb_save_standard_entry", {
     p_id: orNull(s(formData, "id")), p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_reason: s(formData, "reason"),
-    p_debit: s(formData, "debit_account"), p_credit: s(formData, "credit_account"), p_memo: s(formData, "memo"), p_wp_ref: s(formData, "wp_ref"), p_reverse: formData.get("reverse") === "on",
+    p_debit: s(formData, "debit_account"), p_credit: s(formData, "credit_account"), p_memo: s(formData, "memo"), p_wp_ref: s(formData, "wp_ref"), p_reverse: formData.get("reverse") === "on", p_tax_mode: s(formData, "tax_mode") || "line",
   });
   revalidatePath(STD);
   redirect(withMessage(STD, error ? "error" : "msg", error ? error.message : "Saved."));

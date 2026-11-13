@@ -140,3 +140,19 @@ test("sales tax on an entry line: before tax, the ITC on top to GST/HST payable"
   // Not registered: nothing.
   assert.deepEqual(entryLineTax(100000, hst, "Expense", { registered: false, quick: false }), { toLine: 0, gstHst: 0, pst: 0 });
 });
+
+import { netOfTax, planEntry } from "../src/lib/closebook/entry-form.ts";
+test("a standard entry's amount includes the tax: 1,130.00 with HST gives 1,000.00 and 130.00", () => {
+  const hst = codes.get("HST_ON")!;
+  assert.equal(netOfTax(113000, hst, "Expense", ctx), 100000);
+  for (const g of [1, 99, 5651, 123457, 999999]) { const n = netOfTax(g, hst, "Expense", ctx); assert.equal(n + Math.round(n * 0.13), g); }
+  assert.equal(netOfTax(113000, null, "Expense", ctx), 113000);
+});
+test("entry totals count every amount typed; a missing account is flagged on its line", () => {
+  const head = { kind: "AJE", reason: "correction", wpRef: "Home office schedule", memo: "Home office", reverse: false };
+  const opts = new Map([["a", { value: "a", label: "26000 Shareholder loan", type: "Liability", line_no: "2781.10", group: "x" }]]);
+  const blank = { desc: "", tax: "", newName: "", newType: "", newLine: "" };
+  const p = planEntry(head, [{ ...blank, acct: "", dr: "1,200.00", cr: "" }, { ...blank, acct: "a", dr: "", cr: "1,200.00" }], opts as never, new Map(), ctx);
+  assert.equal(p.diff, 0);
+  assert.deepEqual(p.problems, ["Line 1 needs an account."]);
+});
