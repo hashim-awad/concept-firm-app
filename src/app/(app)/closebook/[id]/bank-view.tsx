@@ -32,7 +32,7 @@ export function BankView({ fileId, bank, editable, locked }: { fileId: string; b
           <section key={a.id} className="card overflow-x-auto p-0">
             <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 pt-4">
               <h3 className="font-semibold">{a.name} <span className="text-sm font-normal text-ink-2">· {a.kind === "bank" ? "Bank account" : "Credit card or line of credit"}</span></h3>
-              {a.id !== selected && <Link href={`/closebook/${fileId}?tab=tb&view=transactions&account=${a.id}`} className="text-sm text-navy-700 underline">Show transactions</Link>}
+              {a.id !== selected && <Link href={`/closebook/${fileId}?step=records&account=${a.id}`} className="text-sm text-navy-700 underline">Show transactions</Link>}
             </div>
             <table className="table">
               <thead><tr><th>Dates</th><th>File</th><th className="text-right">Lines</th><th className="text-right">Opening</th><th className="text-right">{w.plus}</th><th className="text-right">{w.minus}</th><th className="text-right">Closing</th><th>Uploaded</th><th></th></tr></thead>

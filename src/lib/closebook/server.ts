@@ -8,7 +8,9 @@ export type CbAccount = { id: string; account_key: string; number: string; name:
 export type CbEntry = { id: string; kind: string; number: number; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
   reviewed_by: string | null; created_by: string | null; created_at: string; lines: { account_id: string; amount: number; memo: string }[] };
 export type CbImport = { target: string; source: string; file_name: string; rows: number; debit_total: number; credit_total: number; imported_at: string; who: { full_name: string } | null };
-export type ListedFile = CbFileRow & { client: { legal_name: string } | null; docs: CbDoc[] };
+export type ListedFile = CbFileRow & { client: { legal_name: string } | null; docs: CbDoc[];
+  // For the 9-step "Step" and "Next job" columns (Nov 13, 2026).
+  stmts?: { id: string }[]; imps?: { target: string }[]; accts?: { line_no: string | null; needs_reviewer: boolean }[]; ents?: { id: string }[] };
 
 const DOC_COLS = "code, phase, title, detail, sort_order, status, prepared_by, prepared_at, reviewed_by, reviewed_at";
 
@@ -19,7 +21,7 @@ export async function staffNames(supabase: SupabaseClient): Promise<Map<string, 
 
 // Files for the lists; mine: only files where this person is the preparer or the reviewer.
 export async function loadFileList(supabase: SupabaseClient, mine?: string): Promise<ListedFile[]> {
-  let q = supabase.from("cb_files").select(`id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, client:client_id(legal_name), docs:cb_documents(${DOC_COLS})`).order("year_end");
+  let q = supabase.from("cb_files").select(`id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, client:client_id(legal_name), docs:cb_documents(${DOC_COLS}), stmts:cb_bank_statements(id), imps:cb_imports(target), accts:cb_accounts(line_no, needs_reviewer), ents:cb_entries(id)`).order("year_end");
   if (mine) q = q.or(`preparer_id.eq.${mine},reviewer_id.eq.${mine}`);
   const { data } = await q;
   return (data ?? []) as unknown as ListedFile[];

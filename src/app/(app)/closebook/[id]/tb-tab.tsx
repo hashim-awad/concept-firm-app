@@ -21,13 +21,16 @@ type Props = {
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
   gifi?: Parameters<typeof GifiView>[0]["g"] | null;
   bank?: BankData | null;
+  // The step page (9 steps): where links point, which views show, and whether the import card shows.
+  base?: string; pills?: string[]; showImport?: boolean;
 };
 
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
 // GIFI line and tax code, the reviewer's list, and Lead sheets. Transactions arrive with part 2b.
 export function TbTab(p: Props) {
   const { file, accounts, imports, entries, editable, isReviewer, lines, sheets, taxes, flag, view } = p;
-  const base = `/closebook/${file.id}?tab=tb`;
+  const base = p.base ?? `/closebook/${file.id}?tab=tb`;
+  const shown = (k: string) => !p.pills || p.pills.includes(k);
   const byNo = new Map(lines.map((l) => [l.line_no, l]));
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
@@ -80,35 +83,37 @@ export function TbTab(p: Props) {
 
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-        {pill("accounts", "Accounts")}
-        {pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
-        {pill("lead", "Lead sheets")}
-        {pill("gifi", "GIFI")}
-        {file.file_type === "full" && pill("transactions", "Bank and cards")}
-      </div>
+      {(!p.pills || p.pills.length > 1) && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+        {shown("accounts") && pill("accounts", "By account")}
+        {shown("lines") && pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
+        {shown("lead") && pill("lead", "Lead sheets")}
+        {shown("gifi") && pill("gifi", "GIFI")}
+        {!p.pills && file.file_type === "full" && pill("transactions", "Bank and cards")}
+      </div>}
 
+      {p.showImport !== false && (
       <div className="card mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm">
-          {thisImport ? <>Imported from {SOURCES[thisImport.source] ?? thisImport.source}, {formatDateTime(thisImport.imported_at)}{file.file_type === "monthly" ? " · read-only" : ""}</> : "No trial balance yet."}
-          {accounts.length > 0 && (balanced
-            ? <span className="ml-2 rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Balanced</span>
-            : <span className="ml-2 rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">Out by {amt(total)}</span>)}
-        </p>
-        {editable && !locked && (
-          <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="file_id" value={file.id} />
-            <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
-            <div><label htmlFor="target" className="label">Column</label>
-              <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
-            <div><label htmlFor="source" className="label">From</label>
-              <select id="source" name="source" defaultValue={file.file_type === "monthly" ? "quickbooks" : file.books === "bookkeeper" ? "bookkeeper" : "client_software"} className="input">
-                {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.replace(/^the /, "The ")}</option>)}
-              </select></div>
-            <button type="submit" className="btn-secondary">{thisImport ? "Import again" : "Import"}</button>
-          </form>
-        )}
-      </div>
+          <p className="text-sm">
+            {thisImport ? <>Imported from {SOURCES[thisImport.source] ?? thisImport.source}, {formatDateTime(thisImport.imported_at)}{file.file_type === "monthly" ? " · read-only" : ""}</> : "No trial balance yet."}
+            {accounts.length > 0 && (balanced
+              ? <span className="ml-2 rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Balanced</span>
+              : <span className="ml-2 rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">Out by {amt(total)}</span>)}
+          </p>
+          {editable && !locked && (
+            <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
+              <input type="hidden" name="file_id" value={file.id} />
+              <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
+              <div><label htmlFor="target" className="label">Column</label>
+                <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
+              <div><label htmlFor="source" className="label">From</label>
+                <select id="source" name="source" defaultValue={file.file_type === "monthly" ? "quickbooks" : file.books === "bookkeeper" ? "bookkeeper" : "client_software"} className="input">
+                  {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.replace(/^the /, "The ")}</option>)}
+                </select></div>
+              <button type="submit" className="btn-secondary">{thisImport ? "Import again" : "Import"}</button>
+            </form>
+          )}
+        </div>
+      )}
 
       {editable && !locked && unmatched.length > 0 && (
         <form action={runMatching} className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
