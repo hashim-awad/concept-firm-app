@@ -43,6 +43,18 @@ test("type mismatch from a standard account number", () => {
   assert.equal(typeMismatch("", byNo.get("8810.00")), false);
 });
 
+// Hashim, Nov 20: a GIFI line with no chart account gets a number in its type's range in the database
+// (19000 asset, 29000 liability, 39000 equity, 49000 revenue, 79000 expense). Step 7 never flags it.
+test("a number from a type's range is never flagged on a line of that type", () => {
+  const cases: [string, string][] = [["19000", "1004.00"], ["29000", "2600.00"], ["39000", "3500.00"], ["49000", "8299.00"], ["79000", "8370.00"]];
+  for (const [no, line] of cases) {
+    const l = byNo.get(line) ?? lines.find((x) => x.line_type === { "1": "Asset", "2": "Liability", "3": "Equity", "4": "Revenue", "7": "Expense" }[no[0]]);
+    assert.ok(l, `a line for ${no}`);
+    assert.equal(typeMismatch(no, l), false, `${no} on ${l!.line_no}`);
+    assert.equal(typeMismatch(no.slice(0, 4), l), false, `${no.slice(0, 4)} (first digit) on ${l!.line_no}`);
+  }
+});
+
 test("flag rule: more than $5,000 AND more than 20%", () => {
   assert.equal(flagged(10000, 15000, 5000, 20), false, "exactly $5,000 is not more than");
   assert.equal(flagged(10000, 15001, 5000, 20), true);

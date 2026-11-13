@@ -57,5 +57,13 @@ select test.check('an entry naming GIFI 8670 posts to 61500, not to a bare line'
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Foreign deposit', false, '[{"line":"1004.00","amount":50},{"line":"8670.00","amount":-50}]', 'Bank statements') as e3 \gset
 select test.check('a line with no chart account gets a 5-digit number in its type''s range, never a blank or a GIFI code',
   (select a.number from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e3' and l.amount > 0) ~ '^19\d{3}$');
+-- Hashim, Nov 20: an expense line with no chart account (GIFI 8370) gets an expense number (79000 up), so
+-- step 7 never says "the account number says ..." on it (numberType: first digit 5 to 9 is an expense).
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Production costs', false, '[{"line":"8370.00","amount":75},{"line":"8670.00","amount":-75}]', 'Bank statements') as e4 \gset
+select test.check('an expense line with no chart account gets a 5-digit number in the expense range (79000 up)',
+  (select a.number from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e4' and l.amount > 0) ~ '^79\d{3}$');
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Production costs', false, '[{"line":"8370.00","amount":25},{"line":"8670.00","amount":-25}]', 'Bank statements') as e5 \gset
+select test.check('a second entry on the same expense line uses the same account, not a new number',
+  (select count(distinct a.id) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id in (:'e4', :'e5') and l.amount > 0) = 1);
 reset role;
 reset request.jwt.claims;

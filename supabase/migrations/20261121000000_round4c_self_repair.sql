@@ -70,4 +70,6 @@ begin
 end;
 $$;
 revoke all on function private.cb_number_line_account() from public, anon, authenticated;
+-- Safe to run twice (round 4d): the reversible deploy may run this file again after a restore.
+drop trigger if exists cb_number_line_account on public.cb_accounts;
 create trigger cb_number_line_account before insert on public.cb_accounts for each row execute function private.cb_number_line_account();
