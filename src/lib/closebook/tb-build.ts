@@ -18,7 +18,7 @@ import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
 export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number };
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string };
-export type BuildChart = { name: string; account_type: string; line_no: string };
+export type BuildChart = { name: string; account_type: string; line_no: string | null };
 export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
 // Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
 // last year's T2 (null when it comes from last year's Closebook file, where it is the same by design).
@@ -40,7 +40,7 @@ export function chartForLine(chart: Map<string, BuildChart>, line_no: string, co
   let sub: string | null = null;
   for (const [n, c] of chart) {
     if (c.line_no === line_no) return n;
-    if (!sub && c.line_no.startsWith(`${code}.`)) sub = n;
+    if (!sub && c.line_no?.startsWith(`${code}.`)) sub = n;
   }
   return sub;
 }
@@ -188,6 +188,9 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       if (s.itcCents) post("21500", s.itcCents, m);
     }
   }
+  // Clearing (10900) nets to nil: a balance left at year-end needs a decision (round 4 item 3).
+  const clearing = rows.get("chart:10900");
+  if (clearing && clearing.cents) clearing.reviewer = "Clearing should be nil at year-end: one side of a transfer is coded and the other is not. Clear it with an entry.";
   // Drop empty rows; the opening row stays while it has a reason, even at zero (retained earnings off).
   const out = [...rows.values()].filter((r) => r.cents !== 0 || r.lastCents !== 0 || r.key.startsWith("chart:") || r.key.startsWith("bank:") || (r.key === OPENING && !!r.reviewer));
   return { rows: out, postings, causes };

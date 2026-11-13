@@ -105,6 +105,13 @@ select test.check('the tax posts as its own line to 21500, the date and attachme
   from public.cb_entries e where e.id = :'hom') = '2026-06-30|1|65100:1000.00:false,21500:130.00:true,23000:-1130.00:false');
 select test.check('the date must fall in the year', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Out of year', false, %L, 'Payables listing', '2027-01-01')$f$, :'f', :'L')) like '%year%');
 
+-- Round 4 item 3: Clearing (10900) has no GIFI line, and an entry may post to it to clear a balance.
+select test.check('Clearing is in the standard chart, an asset with no GIFI line', (select account_type || '|' || coalesce(line_no, 'none') from public.cb_chart_accounts where number = '10900') = 'Asset|none');
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Clear the card payment', false, '[{"chart":"22000","amount":500},{"chart":"10900","amount":-500}]', 'Bank statements') as clr \gset
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Clear it again from the file account', false,
+  format('[{"account":"%s","amount":10},{"chart":"22000","amount":-10}]', (select id from public.cb_accounts where file_id = :'f' and account_key = 'chart:10900'))::jsonb, 'Bank statements') is not null;
+select test.check('entries post to Clearing', (select count(*) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where a.account_key = 'chart:10900') = 2);
+
 -- Item 6: standard entries, now picked in the entry form.
 select test.check('four standard entries to start', (select string_agg(name, ',' order by sort_order) from public.cb_standard_entries) = 'Home office,Auto expenses,Accounting fee accrual,Tax provision');
 select id as accrual from public.cb_standard_entries where name = 'Accounting fee accrual' \gset

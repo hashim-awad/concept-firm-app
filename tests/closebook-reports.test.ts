@@ -242,3 +242,15 @@ test("client entry list: DRAFT FOR REVIEW and the firm's name on every page; pla
   assert.ok(!text.includes("Prelim ="), "not the working paper's note");
   for (const p of Object.values(CB_CLIENT)) assert.ok(!/[—]/.test(p.text), "no em dashes");
 });
+
+test("one % change for step 7 and the lead sheets, on the figures shown (Cedar, round 4 item 1)", () => {
+  const c = (a: number, b: number) => pctChange(Math.round(a * 100), Math.round(b * 100));
+  assert.equal(c(-2400, -1200), "100.0%", "accumulated amortization grows");
+  assert.equal(c(-3000, -3800), "-21.1%", "accounts payable shrinks");
+  assert.equal(c(-3100, -2500), "24.0%");
+  assert.equal(c(-16200, -20000), "-19.0%");
+  assert.equal(c(-37400, -20000), "87.0%");
+  assert.equal(c(-180000, -150000), "20.0%", "commission income grows");
+  assert.equal(c(6000, 2800), "114.3%");
+  assert.equal(c(-4500, 0), "n/a", "nil last year: the trial balance's word");
+});
