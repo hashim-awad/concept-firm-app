@@ -147,7 +147,8 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
   const [reasonErr, setReasonErr] = useState("");
   const [pending, start] = useTransition();
   const canPick = !r.needsReviewer || isReviewer;
-  // Round 6: with an open type flag, the reviewer sees the confirm box first and the line list stays closed.
+  // With an open type flag the reviewer sees "To" first, then "Or keep it on this line"; the line list
+  // stays closed until clicked, so it does not cover the reason box (rounds 6 and 7).
   const confirmFirst = isReviewer && r.typeFlag === "open";
   const hit = [options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`)].find((o) => o && !o.locked);
   const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
@@ -171,16 +172,6 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
         </dl>
         <hr className="border-sand-200" />
         <div className="grid gap-1 text-sm"><p className="font-semibold">From</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : "Not matched yet")}</p></div>
-        {confirmFirst && !(hit && hit.no !== r.lineNo) && (
-          // Round 6 item 1: keep the account on a line of another type only with a reason, shown on the line.
-          <div className="grid gap-1 rounded-lg border border-warning/40 bg-warning-soft/40 p-3">
-            <label htmlFor="type_reason" className="text-sm font-semibold">Keep it on this line? Type the reason (reviewer only)</label>
-            <textarea id="type_reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300} className="input" placeholder="Why this account belongs on this line" />
-            <button type="button" disabled={pending} className="btn-secondary btn-compact justify-self-start"
-              onClick={() => start(async () => { setReasonErr(""); const e = await confirmTypeInline(fileId, r.id, reason); if (e) setReasonErr(e); else onClose(); })}>Confirm the type</button>
-            {reasonErr && <p role="alert" className="text-sm text-danger">{reasonErr}</p>}
-          </div>
-        )}
         {canPick ? (
           <div className="grid gap-1">
             <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
@@ -188,6 +179,18 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
+        {confirmFirst && !(hit && hit.no !== r.lineNo) && (
+          // Round 6 item 1: keep the account on a line of another type only with a reason, shown on the line.
+          // Round 7 item 1: below "To", since moving the account is the usual fix.
+          <div className="grid gap-1 rounded-lg border border-warning/40 bg-warning-soft/40 p-3">
+            <p className="text-sm font-semibold">Or keep it on this line</p>
+            <label htmlFor="type_reason" className="text-sm">The reason (reviewer only)</label>
+            <textarea id="type_reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300} className="input" placeholder="Why this account belongs on this line" />
+            <button type="button" disabled={pending} className="btn-secondary btn-compact justify-self-start"
+              onClick={() => start(async () => { setReasonErr(""); const e = await confirmTypeInline(fileId, r.id, reason); if (e) setReasonErr(e); else onClose(); })}>Keep it on this line</button>
+            {reasonErr && <p role="alert" className="text-sm text-danger">{reasonErr}</p>}
+          </div>
+        )}
         {isReviewer && (r.lineLabel || hit) && (
           <div className="grid gap-1">
             <label htmlFor="tax" className="text-sm font-semibold">Tax code (reviewer only)</label>

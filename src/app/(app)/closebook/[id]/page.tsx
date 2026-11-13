@@ -82,10 +82,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const view = str(sp.view);
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
-  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>> } = {}) => (
+  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>>; importOnly?: boolean } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
-      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} causes={openingCauses} names={names} />
+      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
   const planning = docs.filter((d) => d.phase === "planning");
@@ -207,7 +207,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "records") {
     body = bankFile
       ? <div className="grid gap-4"><BankView dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
-      : tb("records", [], "accounts", true);
+      : tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
       ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
@@ -297,7 +297,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             <div className="max-w-2xl">
               {stepPicker(true)}
               <p className="hidden text-xs font-semibold tracking-wide text-white/75 uppercase 2xl:block">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
-              <p className="mt-1 text-base">{step === current ? next : STEP_LINE[step]}</p>
+              <p className="mt-1 text-base">{step === current ? next : step === "records" && !bankFile ? RECORDS_TB : STEP_LINE[step]}</p>
             </div>
           </section>
           {body}</>}
@@ -321,6 +321,9 @@ const STEP_LINE: Record<StepKey, string> = {
   statements: "The statements, the management acknowledgement and the compilation report.",
   lock: "Deliver the package and lock the file.",
 };
+
+// Step 3 for a file that imports a trial balance (round 7 item 2).
+const RECORDS_TB = "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks.";
 
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {

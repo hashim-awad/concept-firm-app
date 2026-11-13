@@ -1,6 +1,6 @@
 import { pctChange } from "@/lib/closebook/reports";
 import Link from "next/link";
-import { fileInputClass } from "@/components/ds/primitives";
+import { FilePick } from "./file-pick";
 import { formatDateTime } from "@/lib/dates";
 import { effectiveLine, leadSheets, lockedLines, normalSide, typeFlag, typeFlagText, typeFromBooksMissing, typeNotChecked, wrongSign, type Line } from "@/lib/closebook/matching";
 import { formatDate } from "@/lib/dates";
@@ -25,7 +25,8 @@ type Props = {
   gifi?: Parameters<typeof GifiView>[0]["g"] | null;
   bank?: BankData | null;
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
-  base?: string; pills?: string[]; showImport?: boolean;
+  // importOnly: step 3 of a trial balance file shows the import and nothing else (round 7 item 3).
+  base?: string; pills?: string[]; showImport?: boolean; importOnly?: boolean;
   // Bank-statement files: what makes up "Opening balances to enter" (round 2 item 8).
   causes?: { text: string; cents: number }[];
   // Staff names, for "Reviewer confirmed: reason (name, date)" (round 6).
@@ -122,7 +123,7 @@ export function TbTab(p: Props) {
           {editable && !locked && (
             <form action={importTrialBalance} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="file_id" value={file.id} />
-              <div><label htmlFor="upload" className="label">Trial balance (CSV or Excel)</label><input id="upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
+              <FilePick id="upload" name="upload" label="Trial balance" add="Add trial balance" accept=".csv,.xlsx" hint="CSV or Excel (.xlsx)." />
               <div><label htmlFor="target" className="label">Column</label>
                 <select id="target" name="target" className="input"><option value="this_year">This year</option><option value="last_year">Last year (opening balances)</option></select></div>
               <div><label htmlFor="source" className="label">From</label>
@@ -140,7 +141,7 @@ export function TbTab(p: Props) {
                 <form action={importAccountList} className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="file_id" value={file.id} />
                   <input type="hidden" name="back" value={base} />
-                  <div><label htmlFor="list_upload" className="label">Account List (CSV or Excel)</label><input id="list_upload" name="upload" type="file" accept=".csv,.xlsx" required className={fileInputClass} /></div>
+                  <FilePick id="list_upload" name="upload" label="Account List" add="Add Account List" accept=".csv,.xlsx" hint="CSV or Excel (.xlsx)." />
                   <button type="submit" className="btn-secondary">{listImport ? "Upload again" : "Upload"}</button>
                 </form>
               )}
@@ -154,7 +155,9 @@ export function TbTab(p: Props) {
         </p>
       )}
 
-      {accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
+      {p.importOnly ? (accounts.length > 0 && (
+        <p className="card text-sm">{accounts.length} accounts imported. Match them to GIFI lines in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=mapping`} className="text-navy-700 underline">step 7</a>.</p>
+      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
           unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (
@@ -177,7 +180,7 @@ export function TbTab(p: Props) {
               return Math.round(lastSum * 100) ? { last: "–", current: amt(total), niLast: amt(-lastSum) } : { last: amt(lastSum), current: amt(total) };
             })()} edit={p.edit} />
         )}
-      <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code.</p>
+      {!p.importOnly && <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code.</p>}
     </>
   );
 }

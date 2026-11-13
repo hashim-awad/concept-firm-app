@@ -69,7 +69,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     opening: !bank ? "Import this year's trial balance; last year's column comes with it." : op.entered
       ? "Check last year's balance sheet: sign as preparer when no total is highlighted."
       : "Enter last year's closing balance sheet from the prior T2 or the CRA assessment. Sign off when no total is highlighted.",
-    records: !bank ? "Import this year's trial balance." : f.statements && f.bankGaps ? `${f.bankGaps}: they show on each account below. You can start coding the lines already in.`
+    records: !bank ? "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks." : f.statements && f.bankGaps ? `${f.bankGaps}: they show on each account below. You can start coding the lines already in.`
       : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? (cd.open ? `Code ${s(cd.open, "line")} to accounts from the standard chart, with the sales tax.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : f.unmatched + f.waiting ? `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`
