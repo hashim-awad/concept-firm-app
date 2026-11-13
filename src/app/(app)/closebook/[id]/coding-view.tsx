@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { BankAccount } from "@/lib/closebook/bank-server";
 import type { CodingData, CodeLine } from "@/lib/closebook/coding-server";
-import { defaultTaxCode, splitLine } from "@/lib/closebook/sales-tax";
+import { splitLine } from "@/lib/closebook/sales-tax";
 import { askClientInline, codeLinesInline } from "../actions";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
@@ -40,7 +40,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   }, [data.chart]);
 
   const run = (f: () => Promise<string | null>) => start(async () => { setErr(null); const e = await f(); if (e) setErr(e); else router.refresh(); });
-  const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter((l) => l.suggestion).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
+  // Only suggestions that carry a sales tax code can be confirmed in bulk; the rest stay for one by one.
+  const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter((l) => l.suggestion?.tax).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
 
   if (!acc) return <p className="card text-sm text-ink-2">Upload a statement in step 2 first: the lines to code come from the statements.</p>;
 
@@ -79,7 +80,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
             ))}
           </div>
           {editable && effFilter === "suggested" && rows.length > 0 && (
-            <button type="button" disabled={pending} onClick={confirmSuggested} className="btn">Confirm the {rows.length} suggestion{rows.length === 1 ? "" : "s"}</button>
+            <button type="button" disabled={pending || !rows.some((l) => l.suggestion?.tax)} onClick={confirmSuggested} className="btn">Confirm the {rows.filter((l) => l.suggestion?.tax).length} suggestion{rows.filter((l) => l.suggestion?.tax).length === 1 ? "" : "s"} with a sales tax code</button>
           )}
         </div>
         {err && <p role="alert" className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">{err}</p>}
@@ -88,7 +89,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
             <table className="table min-w-[680px]">
               <thead><tr><th>Date and description</th><th className="text-right">{acc.kind === "card" ? "Charge" : "Amount"}</th><th>Account and sales tax</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
-                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} province={data.province} ctx={ctx}
+                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
                   editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} />
               ))}</tbody>
             </table>
@@ -100,14 +101,16 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   );
 }
 
-function Row({ l, kind, fileId, chart, codes, byType, province, ctx, editable, pending, hasRule, run }: {
+function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run }: {
   l: CodeLine; kind: string; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
-  byType: [string, CodingData["chart"]][]; province: string; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
+  byType: [string, CodingData["chart"]][]; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
   run: (f: () => Promise<string | null>) => void;
 }) {
   const start = l.chart_account ?? l.suggestion?.account ?? "";
   const [account, setAccount] = useState(start);
-  const [tax, setTax] = useState<string>(l.tax_code ?? l.suggestion?.tax ?? (start && chart.get(start) ? defaultTaxCode(chart.get(start)!.tax_default, province, start) ?? "" : ""));
+  // Sales tax starts blank, as in QuickBooks, so an uncoded line stands out; a saved rule fills its own.
+  const [tax, setTax] = useState<string>(l.tax_code ?? l.suggestion?.tax ?? "");
+  const [rowErr, setRowErr] = useState("");
   const [rule, setRule] = useState(false);
   const c = chart.get(account);
   // Money out of a bank account, or a charge on a card, is a purchase.
@@ -129,14 +132,13 @@ function Row({ l, kind, fileId, chart, codes, byType, province, ctx, editable, p
       <td className="text-right tabular-nums whitespace-nowrap">{money(Math.abs(cents))}<span className="block text-xs text-ink-3">{outflow ? (kind === "card" ? "charge" : "money out") : (kind === "card" ? "payment" : "money in")}</span></td>
       <td className="w-[260px]">
         <select aria-label="Account" value={account} disabled={locked} className="input" onChange={(e) => {
-          const v = e.target.value; setAccount(v);
-          const cc = chart.get(v); setTax(cc ? defaultTaxCode(cc.tax_default, province, v) ?? "" : "");
+          setAccount(e.target.value); setRowErr("");
         }}>
           <option value="">Choose an account</option>
           {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
         </select>
         <span className="block text-xs text-ink-3">{why}</span>
-        <select aria-label="Sales tax" value={tax} disabled={locked} className="input mt-1.5" onChange={(e) => setTax(e.target.value)}>
+        <select aria-label="Sales tax" value={tax} disabled={locked} className={`input mt-1.5 ${rowErr ? "border-danger" : ""}`} onChange={(e) => { setTax(e.target.value); setRowErr(""); }}>
           <option value="">Choose</option>
           {[...codes.values()].map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
@@ -144,13 +146,14 @@ function Row({ l, kind, fileId, chart, codes, byType, province, ctx, editable, p
           <span className="block text-xs text-ink-3">{side === "sale" ? `Tax collected ${money(split.gstCollectedCents + split.pstCollectedCents)}`
             : `ITC ${money(split.itcCents)}${split.expenseTaxCents ? ` · to expense ${money(split.expenseTaxCents)}` : ""}`}</span>) : null}
         {warn && <span className="block text-xs font-medium text-warning">{warn}</span>}
+        {rowErr && <span role="alert" className="block text-xs font-semibold text-danger">{rowErr}</span>}
       </td>
       <td className="text-right whitespace-nowrap">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">
             <span className="flex flex-col items-stretch gap-1">
-              <button type="button" className="btn" disabled={pending || !account}
-                onClick={() => run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
+              <button type="button" className="btn" disabled={pending}
+                onClick={() => !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
                   rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
               {l.status !== "ask_client" && <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>}
             </span>
