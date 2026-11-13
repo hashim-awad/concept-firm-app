@@ -51,5 +51,7 @@ select public.cb_code_lines(:'f', format('[{"id":"%s","account":"6020","tax":"HS
 select test.check('no sales tax code: refused, nothing saved', test.try(format($f$select public.cb_code_lines(%L, '[{"id":"%s","account":"6510","tax":""}]')$f$, :'f', (select id from public.cb_bank_lines where description = 'SAMPLE DINER'))) like '%Choose a sales tax code%'
   and (select status from public.cb_bank_lines where description = 'SAMPLE DINER') = 'reviewer');
 select test.check('even the reviewer coding meals at the full rate sends it to the reviewer list first', (select status from public.cb_bank_lines where description = 'SAMPLE DINER') = 'reviewer');
+select public.cb_uncode_lines(:'f', array[:'soft']::uuid[]);
+select test.check('Undo puts a coded line back in Needs you, cleared', (select status || '|' || coalesce(chart_account, '-') || '|' || coalesce(tax_code, '-') from public.cb_bank_lines where id = :'soft') = 'new|-|-');
 select test.check('only the six bank chart accounts', test.try(format($f$select public.cb_set_bank_chart_account(%L, '6510')$f$, :'acc')) like '%Choose chequing%');
 reset role;

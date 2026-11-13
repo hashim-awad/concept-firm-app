@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import type { BankAccount } from "@/lib/closebook/bank-server";
 import type { CodingData, CodeLine } from "@/lib/closebook/coding-server";
 import { splitLine } from "@/lib/closebook/sales-tax";
-import { askClientInline, codeLinesInline } from "../actions";
+import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
 const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"]];
@@ -155,12 +155,18 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
               <button type="button" className="btn" disabled={pending}
                 onClick={() => !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
                   rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
-              {l.status !== "ask_client" && <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>}
+              {l.status !== "ask_client" ? <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => askClientInline(fileId, [l.id]))}>Ask client</button>
+                : <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
             </span>
             {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3.5 w-3.5" />Save as a rule</label>}
           </span>
         )}
-        {l.status === "done" && <span className="text-xs text-success">Coded</span>}
+        {l.status === "done" && (
+          <span className="inline-flex flex-col items-end gap-1">
+            <span className="text-xs text-success">Coded</span>
+            {editable && <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+          </span>
+        )}
       </td>
     </tr>
   );

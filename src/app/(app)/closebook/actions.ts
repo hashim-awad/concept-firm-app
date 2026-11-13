@@ -241,6 +241,15 @@ export async function codeLinesInline(fileId: string, items: { id: string; accou
   return null;
 }
 
+export async function undoLinesInline(fileId: string, ids: string[]): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_uncode_lines", { p_file: fileId, p_ids: ids });
+  if (error) return error.message;
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
 export async function askClientInline(fileId: string, ids: string[]): Promise<string | null> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
