@@ -8,9 +8,12 @@ import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
 import { readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
-import { balanceCheck, dollars, readBankUpload, typedCents } from "@/lib/closebook/bank-upload";
+import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents } from "@/lib/closebook/bank-upload";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadFile } from "@/lib/closebook/server";
+import { loadEntryForm } from "@/lib/closebook/entry-form-server";
+import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -122,28 +125,36 @@ const enBack = (id: string) => `/closebook/${id}?tab=entries`;
 export async function addEntry(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(enBack(id));
-  const lines: { account?: string; line?: string; new_name?: string; new_type?: string; amount: number; memo: string }[] = [];
-  for (let i = 0; i < 8; i++) {
-    const target = s(formData, `t${i}`);
-    const dr = Number(s(formData, `dr${i}`).replace(/[$,\s]/g, "") || 0), cr = Number(s(formData, `cr${i}`).replace(/[$,\s]/g, "") || 0);
-    if (!target && !dr && !cr) continue;
-    if (!target) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: choose an account.`));
-    if (!Number.isFinite(dr) || !Number.isFinite(cr) || (dr && cr) || (!dr && !cr)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: enter a debit or a credit, not both.`));
-    const amount = Math.round((dr - cr) * 100) / 100;
-    if (target.startsWith("new:")) {
-      // A new account in the client's books: its plain name, QuickBooks type and GIFI line (working papers).
-      const n = target.slice(4);
-      if (!s(formData, `n${n}_name`) || !s(formData, `n${n}_line`)) redirect(withMessage(enBack(id), "error", `Line ${i + 1}: name new account ${n} and choose its GIFI line.`));
-      lines.push({ line: s(formData, `n${n}_line`), new_name: s(formData, `n${n}_name`), new_type: s(formData, `n${n}_type`), amount, memo: s(formData, `m${i}`) });
-      continue;
-    }
-    lines.push({ ...(target.startsWith("line:") ? { line: target.slice(5) } : { account: target }), amount, memo: s(formData, `m${i}`) });
+  // The form sends what the preparer typed; the lines and the sales tax are worked out again here, from
+  // the database's own rates (round 2 item 11), and the database checks every rule again.
+  let form: { head: FormHead; date: string; lines: FormLine[]; standard: string | null };
+  try { form = JSON.parse(s(formData, "form")); } catch { redirect(withMessage(enBack(id), "error", "The entry could not be read. Nothing was saved.")); }
+  const supabase = await createClient();
+  const f = await loadFile(supabase, id);
+  if (!f) redirect(withMessage(enBack(id), "error", "File not found."));
+  const data = await loadEntryForm(supabase, f!.file, f!.client?.province ?? "ON", f!.client?.legal_name ?? "The client");
+  const plan = planEntry(form!.head, form!.lines, new Map(data.opts.map((o) => [o.value, o])), new Map(data.codes.map((c) => [c.code, c])), data.ctx,
+    new Map(data.gifiLines.map(([no, , type]) => [no, type])));
+  if (plan.problems.length) redirect(withMessage(enBack(id), "error", `Nothing was saved. ${plan.problems[0]}`));
+  // Attachments: kept in the private documents store, listed on the entry.
+  const paths: string[] = [];
+  const files = formData.getAll("attachments").filter((x): x is File => x instanceof File && x.size > 0);
+  if (files.length > 10) redirect(withMessage(enBack(id), "error", "Up to 10 attachments. Nothing was saved."));
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) redirect(withMessage(enBack(id), "error", `${file.name} is over 20 MB. Nothing was saved.`));
+    const path = `closebook/${id}/entries/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
+    const up = await createAdminClient().storage.from("documents").upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type || "application/octet-stream", upsert: false });
+    if (up.error) redirect(withMessage(enBack(id), "error", `${file.name} was not saved: ${up.error.message}. Nothing was saved.`));
+    paths.push(path);
   }
-  const { error } = await (await createClient()).rpc("cb_add_entry", {
-    p_file: id, p_kind: s(formData, "kind"), p_reason: s(formData, "reason"), p_note: s(formData, "note"), p_reverse: formData.get("reverse") === "on", p_lines: lines, p_wp_ref: s(formData, "wp_ref"),
+  const { data: entryId, error } = await supabase.rpc("cb_add_entry", {
+    p_file: id, p_kind: form!.head.kind, p_reason: form!.head.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
+    p_date: /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null, p_standard: form!.standard, p_attachments: paths,
   });
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry added. It goes to the reviewer."));
+  if (error) redirect(withMessage(enBack(id), "error", `Nothing was saved. ${error.message}`));
+  const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", entryId as string).maybeSingle();
+  redirect(withMessage(enBack(id), "msg", e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer."));
 }
 
 export async function reviewEntry(formData: FormData) {
@@ -193,7 +204,9 @@ export async function uploadBankStatement(formData: FormData) {
   if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
   const f = upload as File;
   if (!/\.csv$/i.test(f.name)) redirect(withMessage(back, "error", "Upload a CSV file in Concept's bank upload template (Date, Description, Amount). Save Excel files as CSV first."));
-  const read = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  const read0 = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
+  // "Flip signs and re-check": the signs turned over; the flipped lines must still tie to the cent.
+  const read = s(formData, "flip") === "1" ? { ...read0, rows: flipRows(read0.rows) } : read0;
   if (read.errors.length) {
     const more = read.errors.length > 5 ? ` And ${read.errors.length - 5} more.` : "";
     redirect(withMessage(back, "error", `Nothing was uploaded. ${read.errors.slice(0, 5).join(" ")}${more}`));
@@ -201,10 +214,20 @@ export async function uploadBankStatement(formData: FormData) {
   const opening = typedCents(s(formData, "opening")), closing = typedCents(s(formData, "closing"));
   if (opening === null || closing === null) redirect(withMessage(back, "error", "Enter the statement's opening and closing balances, as shown on the statement (up to 2 decimals)."));
   const chk = balanceCheck(opening!, closing!, read.rows);
+  if (!chk.ok && looksReversed(opening!, closing!, read.rows)) redirect(withMessage(back, "error", `Nothing was uploaded. ${REVERSED}`));
   if (!chk.ok) {
     redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
   }
   const account = s(formData, "account");
+  // The same lines already in the file, on any account (round 2 item 5): stop before saving, unless the
+  // preparer confirmed they are real (two equal charges on one day happen).
+  const rowsJson = read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 }));
+  if (s(formData, "dup_ok") !== "1") {
+    const { data: dups } = await (await createClient()).rpc("cb_duplicate_lines", { p_file: id, p_rows: rowsJson });
+    const list = (dups ?? []) as { row_no: number; account_name: string }[];
+    const rowsHit = new Set(list.map((d) => d.row_no)).size;
+    if (list.length) redirect(withMessage(back, "error", `Nothing was uploaded: ${rowsHit} of ${read.rows.length} lines are already in this file (${[...new Set(list.map((d) => d.account_name))].join(", ")}). Choose the file again to see them.`));
+  }
   // The statement period: as the preparer confirmed it, else the file's first and last dates.
   const dates = read.rows.map((r) => r.date).sort();
   const pStart = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_start")) ? s(formData, "period_start") : dates[0];
@@ -213,7 +236,7 @@ export async function uploadBankStatement(formData: FormData) {
     p_period_start: pStart, p_period_end: pEnd,
     p_file: id, p_account: account && account !== "new" ? account : null, p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_file_name: f.name,
     p_opening: opening! / 100, p_closing: closing! / 100,
-    p_rows: read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })),
+    p_rows: rowsJson,
   });
   if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
   const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
@@ -334,4 +357,18 @@ export async function uploadOpeningPdf(formData: FormData) {
   if (error) redirect(withMessage(back, "error", error.message));
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, "msg", "PDF attached."));
+}
+
+
+// The lines of an upload already in the file (round 2 item 5), shown before Upload.
+export async function findDuplicatesInline(fileId: string, rows: { line: number; date: string; description: string; cents: number }[]) {
+  const { data } = await (await createClient()).rpc("cb_duplicate_lines", { p_file: fileId, p_rows: rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })) });
+  // One row per statement line, with every account it is already on (the same line can sit on two).
+  const byRow = new Map<number, { row_no: number; txn_date: string; description: string; amount: number; account_name: string }>();
+  for (const d of (data ?? []) as { row_no: number; txn_date: string; description: string; amount: number; account_name: string }[]) {
+    const cur = byRow.get(d.row_no);
+    if (!cur) byRow.set(d.row_no, { ...d });
+    else if (!cur.account_name.split(", ").includes(d.account_name)) cur.account_name += `, ${d.account_name}`;
+  }
+  return [...byRow.values()];
 }

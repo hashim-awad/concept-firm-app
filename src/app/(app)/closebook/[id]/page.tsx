@@ -1,3 +1,4 @@
+import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
@@ -14,14 +15,14 @@ import { BankView } from "./bank-view";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
-import { gifiCodeInfo, rebuildTb } from "@/lib/closebook/tb-build-server";
+import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
 import { loadReportData } from "@/lib/closebook/report-data";
 import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
-import { accountCoverage, missingText } from "@/lib/closebook/coverage";
+import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
@@ -39,6 +40,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     && !data.accounts.some((a) => a.account_key.startsWith("chart:") || a.account_key.startsWith("bank:") || a.account_key === "opening")) {
     const { count } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
     if (count) { await rebuildTb(supabase, id); data = (await loadFile(supabase, id))!; }
+  } else if (fromStatements(data.file.books) && canEdit(access, "closebook") && data.file.phase !== "locked" && ["mapping", "review"].includes(String(sp.step ?? ""))) {
+    // Steps 6 and 7 read the stored trial balance: build it fresh first, so a fix to the build shows at once.
+    const e = await rebuildTb(supabase, id);
+    if (e) console.error(e);
+    data = (await loadFile(supabase, id))!;
   }
   const { file, client, docs, accounts, imports, names, entries } = data;
   const ref = await loadReference(supabase);
@@ -50,7 +56,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Bank files: the months still missing per account set step 2's note and next job.
   const bank = bankFile ? await loadBank(supabase, id, str(sp.account)) : null;
   const statements = bank?.statements.length ?? 0;
-  const bankGaps = bank ? missingText(bank.accounts.map((a) => ({ name: a.name,
+  const bankGaps = bank ? missingCount(bank.accounts.map((a) => ({ name: a.name,
     gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
   // Bank files: how far the coding has got (step 3).
   const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
@@ -73,7 +79,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>> } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
-      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} />
+      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} causes={openingCauses} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
   const planning = docs.filter((d) => d.phase === "planning");
@@ -88,6 +94,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const back = str(sp.back);
   const backHref = back && back.startsWith(`/closebook/${id}?`) ? back : null;
 
+  // What makes up "Opening balances to enter", shown when its row is opened (round 2 item 8).
+  const openingCauses = bankFile && (step === "mapping" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
+  const wideStep = !!report || ["code", "mapping", "review", "t2"].includes(step);
   let body: React.ReactNode;
   if (step === "opening") {
     if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
@@ -104,7 +113,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         const code = c.line_no.slice(0, 4);
         for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
       }
-      const choices = Object.fromEntries([...onCode].filter(([, v]) => v.length > 1));
+      // Every line's standard chart accounts: a choice in the Account column when there is more than one.
+      const choices = Object.fromEntries([...onCode]);
       const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null }[]).filter((o) => o.chart_account).map((o) => [o.code, o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
       body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
@@ -114,8 +124,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
     }
   } else if (step === "setup") {
+    // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (
-      <>
+      <div className="form-col">
         <section className="card mb-4 overflow-x-auto p-0">
           <h2 className="px-5 pt-4 pb-2 font-semibold">Set up the file</h2>
           <table className="table">
@@ -134,7 +145,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             <div><dt className="text-xs text-muted">Preparer</dt><dd>{people.preparer}</dd></div>
             <div><dt className="text-xs text-muted">Reviewer</dt><dd>{people.reviewer}</dd></div>
           </dl>
-          <p className="mt-3 text-xs text-muted">Sign-offs, editing and deleting the file arrive with the next pieces.</p>
         </section>
         <section className="card mt-4">
           <h2 className="font-semibold">Setup questions</h2>
@@ -147,9 +157,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <SetupQ name="payroll" q="Does the company run payroll?" adds="Yes adds: T4 reconciliation" value={setup.payroll as boolean | undefined} />
               <SetupQ name="holdco" q="Does it own, or is it owned by, another company?" adds="Yes adds: investments and intercompany balances" value={setup.holdco as boolean | undefined} />
               <SetupQ name="gst_registered" q="Is it registered for GST/HST?" adds="No: the tax stays in the expense; nothing is split out" value={setup.gst_registered as boolean | undefined} />
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+            <div className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
               <label htmlFor="gst_frequency" className="text-sm">GST/HST filing frequency<span className="block text-xs text-ink-3">Annual adds: the annual GST/HST return</span></label>
-              <select id="gst_frequency" name="gst_frequency" defaultValue={(setup.gst_frequency as string) ?? ""} className="input max-w-[180px]">
+              <select id="gst_frequency" name="gst_frequency" defaultValue={(setup.gst_frequency as string) ?? ""} className="input input-compact max-w-[9rem]">
                 <option value="">Choose</option><option value="annual">Annual</option><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option>
               </select>
             </div>
@@ -157,7 +167,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
           </form>
         </section>
-      </>
+      </div>
     );
   } else if (step === "records") {
     body = bankFile
@@ -172,7 +182,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
     const onLine: Record<string, { number: string; name: string }> = {};
     if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} lines={ref.lines} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} />;
+    // The entry form's choices: accounts, sales tax, standard entries resolved to this file (round 2 item 11).
+    const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form} />;
   } else if (step === "review") {
     body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
   } else if (step === "mapping") {
@@ -180,9 +192,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "t2") {
     body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
-    body = soon("The statements, the management acknowledgement (MAL) and the compilation report arrive with a later piece.");
+    // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
+    body = null;
   } else {
-    body = soon("Delivering the package and locking the file arrive with a later piece.");
+    body = null;
   }
 
   return (
@@ -199,8 +212,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       </header>
       <Notice msg={messageFrom(sp.msg)} error={sp.upload || sp.opening ? undefined : messageFrom(sp.error)} />
 
-      <div className="flex flex-wrap items-start gap-6">
-        <nav aria-label="Year-end steps" className="card flex-[1_1_240px] p-3 lg:max-w-[280px]">
+      {/* Tables use the full width (round 2 item 9): on table screens the step list is narrower. */}
+      <div className={`flex flex-wrap items-start ${wideStep ? "gap-4" : "gap-6"}`}>
+        <nav aria-label="Year-end steps" className={`card p-3 ${wideStep ? "flex-[1_1_200px] lg:max-w-[210px]" : "flex-[1_1_240px] lg:max-w-[280px]"}`}>
           <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Year-end steps</p>
           <ol className="grid gap-1">
             {steps.map((s) => (
@@ -230,7 +244,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         <main className="min-w-0 flex-[999_1_640px]">
           {backHref && <Link href={backHref} className="mb-3 inline-block text-sm font-semibold text-navy-700 hover:underline">← Back</Link>}
           {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
-            data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start} /> : <>
+            data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start}
+            todo={[
+              // What the preparer acts on, by cause, each linked (round 2 item 15). Zero counts are left out.
+              { n: coding.open + coding.reviewer, one: "line to code", many: "lines to code", href: href("code") },
+              { n: coding.ask, one: "line waiting on the client", many: "lines waiting on the client", href: href("code") },
+              { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
+              { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
+            ].filter((t) => t.n > 0)} /> : <>
           <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
             <div className="max-w-2xl">
               <p className="text-xs font-semibold tracking-wide text-white/75 uppercase">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
@@ -262,13 +283,14 @@ const STEP_LINE: Record<StepKey, string> = {
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {
   return (
-    <fieldset className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-3">
+    <fieldset className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
       <legend className="sr-only">{q}</legend>
       <span className="text-sm">{q}<span className="block text-xs text-ink-3">{adds}</span></span>
-      <span className="flex gap-2">
+      {/* A small two-button control right after the question, like QuickBooks Online's settings toggles. */}
+      <span className="inline-flex w-fit overflow-hidden rounded-md border border-sand-300">
         {(["yes", "no"] as const).map((v) => (
-          <label key={v} className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-sand-200 px-3 py-1.5 text-sm has-[:checked]:border-navy-700 has-[:checked]:bg-navy-50">
-            <input type="radio" name={name} value={v} defaultChecked={value === (v === "yes")} className="h-4 w-4 accent-accent" />{v === "yes" ? "Yes" : "No"}
+          <label key={v} className="cursor-pointer px-3 py-1 text-sm has-[:checked]:bg-navy-700 has-[:checked]:text-white [&:not(:first-child)]:border-l [&:not(:first-child)]:border-sand-300">
+            <input type="radio" name={name} value={v} defaultChecked={value === (v === "yes")} className="sr-only" />{v === "yes" ? "Yes" : "No"}
           </label>
         ))}
       </span>

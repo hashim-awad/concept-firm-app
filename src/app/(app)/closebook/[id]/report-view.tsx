@@ -22,7 +22,7 @@ const gifi = (line_no: string | null) => (line_no ? line_no.replace(/\.00$/, "")
 // back: where this view itself returns to, kept in every link out of it so Back works at every level.
 type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; open?: string; back?: string; view?: string };
 
-export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: string; data: ReportData; p: Params; yearEnd: string; yearStart: string }) {
+export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: { fileId: string; data: ReportData; p: Params; yearEnd: string; yearStart: string; todo?: { n: number; one: string; many: string; href: string }[] }) {
   const base = `/closebook/${fileId}`;
   const qs = (o: Record<string, string | undefined>) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join("&");
   const here = (extra: Record<string, string | undefined> = {}) => `${base}?${qs({ report: p.report, view: p.view, account: p.account, from: p.from, to: p.to, source: p.source, open: p.open, back: p.back, ...extra })}`;
@@ -146,7 +146,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: st
     };
     const sec = (x: StmtSection, total: string, warn = false) => (
       <>
-        <tr><th colSpan={3} className={`px-4 pt-4 pb-1 text-left text-xs font-bold tracking-wide uppercase ${warn ? "text-warning" : "text-navy-700"}`}>{x.title}</th></tr>
+        <tr id={warn ? "unsorted" : undefined}><th colSpan={3} className={`px-4 pt-4 pb-1 text-left text-xs font-bold tracking-wide uppercase ${warn ? "text-warning" : "text-navy-700"}`}>{x.title}</th></tr>
         {x.groups.map(group)}
         <tr className="border-b border-sand-300 font-semibold"><td className="px-4 py-1.5">{total}</td><td className="px-3 py-1.5 text-right tabular-nums">{money(x.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(x.last)}</td></tr>
       </>
@@ -156,7 +156,11 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart }: { fileId: st
     );
     body = (
       <div className="card overflow-x-auto p-0">
-        {p.report === "bs" && s.bs.unsorted && <p className="m-4 rounded-lg border border-warning/40 bg-warning-soft px-4 py-2 text-sm">{money(s.bs.unsorted.now)} is not yet sorted: lines still to code, opening balances to enter, or accounts without a GIFI line. It shows under &ldquo;Not yet sorted&rdquo; until it is zero.</p>}
+        {/* What is left to do, by cause, each linked to where it is done (round 2 item 15). */}
+        {p.report === "bs" && s.bs.unsorted && todo.length > 0 && (
+          <p className="m-4 flex flex-wrap gap-x-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-2 text-sm">
+            {todo.map((t, i) => <span key={t.one}>{i > 0 && <span className="mr-2 text-ink-3">·</span>}<a href={t.href} className="font-semibold text-navy-700 underline">{t.n} {t.n === 1 ? t.one : t.many}</a></span>)}
+          </p>)}
         <div className="flex justify-end px-4 pt-3"><Link href={here({ open: all ? undefined : "all" })} className="text-sm text-navy-700 underline">{all ? "Collapse all" : "Expand all"}</Link></div>
         <table className="w-full min-w-[640px] text-sm">
           <thead><tr className="text-xs text-ink-3"><th /><th className="w-36 px-3 py-1 text-right font-semibold">This year</th><th className="w-36 px-3 py-1 text-right font-semibold">Last year</th></tr></thead>

@@ -82,6 +82,15 @@ export function readBankUpload(text: string): BankRead {
   return { rows, errors };
 }
 
+// The amounts with their signs turned over (a card read as a bank account, or the other way round).
+export const flipRows = <T extends { cents: number }>(rows: T[]): T[] => rows.map((r) => ({ ...r, cents: -r.cents }));
+// Layout item 3 (Hashim, Nov 15, 2026): when the check fails but opening - amounts = closing to the cent,
+// the signs look reversed: the wrong account type, or a file exported the other way round.
+export const REVERSED = "These amounts look like the opposite sign. Check you picked the right account, or flip the signs.";
+export function looksReversed(openingCents: number, closingCents: number, rows: { cents: number }[]): boolean {
+  return !balanceCheck(openingCents, closingCents, rows).ok && balanceCheck(openingCents, closingCents, flipRows(rows)).ok;
+}
+
 // Opening + amounts = closing, to the cent. difference = closing - (opening + amounts).
 export function balanceCheck(openingCents: number, closingCents: number, rows: { cents: number }[]) {
   const total = rows.reduce((n, r) => n + r.cents, 0);

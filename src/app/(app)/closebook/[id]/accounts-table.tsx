@@ -6,7 +6,6 @@
 //    show its accounts.
 // 3. An amber flag on a GIFI line whose total sits on the wrong side.
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
 import { askReviewerInline, matchInline, taxCodeInline } from "../actions";
@@ -15,13 +14,14 @@ export type Row = {
   id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
   lineNo: string; lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
   tax: string; taxDefault: string; taxOverride: boolean; attention: boolean;
+  // "Opening balances to enter": one line per cause, adding up to the row (round 2 item 8).
+  buildUp?: { text: string; amount: string }[];
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
 export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
 
-const money = (v: number) => v.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 
-export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
+export function MatchWorkspace({ fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
   fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
   isReviewer: boolean; editable: boolean; totals: { last: string; current: string }; edit?: string;
 }) {
@@ -29,7 +29,8 @@ export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxe
   const [open, setOpen] = useState<Row | null>(() => (edit && editable ? rows.find((r) => r.id === edit) ?? null : null));
   const byId = new Map(rows.map((r) => [r.id, r]));
   const attention = rows.filter((r) => r.attention);
-  const attentionTotal = attention.reduce((n, r) => n + Math.abs(r.finalNum), 0);
+  // "See all" opens the list in place (round 2 item 12); the accounts table below stays on the page.
+  const [all, setAll] = useState(view === "attention");
   const pencil = (r: Row, label = "Change") => editable && (
     <button type="button" onClick={() => setOpen(r)} title={label} aria-label={`${label}: ${r.name}`} className="rounded p-1.5 text-ink-3 hover:bg-sand-100 hover:text-navy-700"><Pencil className="h-4 w-4" /></button>
   );
@@ -38,8 +39,7 @@ export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxe
     <>
       {r.lineLabel || <span className={r.needsReviewer ? "text-danger" : "text-ink-3"}>{r.needsReviewer ? "Waiting for the reviewer" : "Not matched yet"}</span>}
       <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted">
-        {r.source && <span>{r.source}</span>}
-        {r.needsReviewer && <span className="font-semibold text-danger">For the reviewer: {r.reason}</span>}
+        {r.needsReviewer && <Reason r={r} />}
         {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
         {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
       </span>
@@ -50,39 +50,41 @@ export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxe
     <>
       {attention.length > 0 && (
         <section className="card mb-4 overflow-x-auto p-0">
-          <p className="flex items-center gap-2 px-5 pt-4 pb-2 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
-            {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision, totalling {money(attentionTotal)}</p>
-          <table className="table">
-            <thead><tr><th>Account</th><th>Why</th><th className="text-right">This year</th><th className="w-10"></th></tr></thead>
-            <tbody>{attention.slice(0, view === "attention" ? attention.length : 5).map((r) => (
+          {/* The count only: adding debits and credits together gives no useful total (round 2 item 12). */}
+          <p className="flex items-center gap-2 px-4 pt-3 pb-1.5 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
+            {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision</p>
+          <table className="table table-compact">
+            <thead><tr><th>Account</th><th>Why</th><th className="w-36 text-right">This year</th><th className="w-10"></th></tr></thead>
+            <tbody>{attention.slice(0, all ? attention.length : 5).map((r) => (
               <tr key={r.id}>
-                <td>{accountCell(r)}</td>
-                <td className="text-sm">{r.needsReviewer ? <span className="text-danger">For the reviewer: {r.reason}</span> : !r.lineLabel ? "Not matched" : r.mismatch}</td>
+                <td className="whitespace-nowrap">{accountCell(r)}</td>
+                <td className="text-sm">{r.needsReviewer ? <Reason r={r} /> : !r.lineLabel ? "Not matched" : r.mismatch}</td>
                 <td className="text-right tabular-nums">{r.final}</td>
                 <td>{pencil(r, "Assign GIFI line")}</td>
               </tr>
             ))}</tbody>
           </table>
-          {view !== "attention" && attention.length > 5 && <p className="px-5 pb-3"><Link href={`${base}&view=attention`} className="text-sm text-navy-700 underline">See all {attention.length}</Link></p>}
+          {attention.length > 5 && <p className="px-4 pb-2.5"><button type="button" onClick={() => setAll(!all)} className="text-sm text-navy-700 underline">{all ? "Show less" : `See all ${attention.length}`}</button></p>}
         </section>
       )}
 
       {view === "lines" ? (
         <section className="card overflow-x-auto p-0">
-          <table className="table min-w-[900px]">
+          <table className="table table-compact min-w-[900px]">
             <thead><tr><th>GIFI line</th><th>Accounts</th><th className="w-8"></th><th className="text-right">This year</th></tr></thead>
             <tbody>{groups.map((g) => <GroupRows key={g.lineNo} g={g} byId={byId} accountCell={accountCell} pencil={pencil} />)}</tbody>
           </table>
         </section>
-      ) : view !== "attention" && (
+      ) : (
         <section className="card overflow-x-auto p-0">
-          <table className="table min-w-[1000px]">
-            <thead><tr><th>Account</th><th className="w-[36%]">GIFI line</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
+          <table className="table table-compact min-w-[1000px]">
+            <thead><tr><th>Account</th><th className="w-[36%]">GIFI line</th><th className="w-24">Source</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>
                   <td>{accountCell(r)}</td>
                   <td>{lineCell(r)}</td>
+                  <td className="text-xs text-ink-2">{r.source}</td>
                   <td>{r.tax}{r.taxOverride && <span className="block text-xs text-muted">Reviewer&rsquo;s choice</span>}</td>
                   <td className="text-right tabular-nums">{r.last}</td>
                   <td className="text-right tabular-nums">{r.current}</td>
@@ -90,12 +92,11 @@ export function MatchWorkspace({ fileId, view, base, rows, groups, options, taxe
                   <td>{pencil(r)}</td>
                 </tr>
               ))}
-              <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td className="text-right tabular-nums">{totals.last}</td><td className="text-right tabular-nums">{totals.current}</td><td></td><td></td></tr>
+              <tr className="font-semibold"><td>Total (must be 0)</td><td></td><td></td><td></td><td className="text-right tabular-nums">{totals.last}</td><td className="text-right tabular-nums">{totals.current}</td><td></td><td></td></tr>
             </tbody>
           </table>
         </section>
       )}
-      {view === "attention" && attention.length === 0 && <p className="card text-sm text-success">Nothing needs a decision: every account is matched and checked.</p>}
 
       {open && <Panel key={open.id} fileId={fileId} r={open} options={options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} />}
     </>
@@ -228,5 +229,26 @@ function LinePicker({ options, value, onChange, balance }: { options: Option[]; 
         </ul>
       )}
     </div>
+  );
+}
+
+// A reviewer's reason on one line, with "more" for the rest; "Opening balances to enter" opens to its
+// build-up, one line per cause, adding to the row (round 2 items 8 and 12).
+function Reason({ r }: { r: Row }) {
+  const [open, setOpen] = useState(false);
+  const long = !!r.buildUp || r.reason.length > 90;
+  return (
+    <span className="text-danger">
+      <span className={open ? "" : "line-clamp-1"}>For the reviewer: {r.buildUp ? `${r.buildUp.length} ${r.buildUp.length === 1 ? "difference" : "differences"} with last year's closing balances` : r.reason}</span>
+      {long && <button type="button" onClick={() => setOpen(!open)} className="ml-1 text-xs text-navy-700 underline">{open ? "less" : "more"}</button>}
+      {open && r.buildUp && (
+        <table className="mt-1 w-full text-xs text-ink">
+          <tbody>
+            {r.buildUp.map((c, i) => <tr key={i}><td className="py-0.5 pr-3">{c.text}</td><td className="py-0.5 text-right tabular-nums whitespace-nowrap">{c.amount}</td></tr>)}
+            <tr className="border-t border-sand-300 font-semibold"><td className="py-0.5 pr-3">Opening balances to enter</td><td className="py-0.5 text-right tabular-nums">{r.final}</td></tr>
+          </tbody>
+        </table>
+      )}
+    </span>
   );
 }

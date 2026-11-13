@@ -81,7 +81,6 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
             <div><label htmlFor="reviewer" className="label">Reviewer</label>
               <select id="reviewer" name="reviewer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
           </div>
-          <p className="text-sm text-ink-2">The file starts fresh. Roll forward from last year&rsquo;s file arrives with a later update.</p>
           <button type="submit" className="btn w-fit">Start the file</button>
         </form>
       )}

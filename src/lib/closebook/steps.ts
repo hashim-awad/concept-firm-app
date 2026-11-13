@@ -22,7 +22,7 @@ export type StepFacts = {
   unmatched: number;           // accounts with no GIFI line
   waiting: number;             // accounts waiting for the reviewer's decision
   entries: number;
-  bankGaps?: string;           // bank files: the months still missing, one sentence ("" when complete)
+  bankGaps?: string;           // bank files: how many months are still missing ("4 months missing"; "" when complete)
   coding?: { lines: number; open: number; reviewer: number; ask: number };   // bank files: step 3
   opening?: { signed: boolean; entered: boolean };   // bank files: step 2, last year's balance sheet
   people: { preparer: string; reviewer: string };
@@ -67,7 +67,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     opening: !bank ? "Import this year's trial balance; last year's column comes with it." : op.entered
       ? "Check last year's balance sheet: sign as preparer when no total is highlighted."
       : "Enter last year's closing balance sheet from the prior T2 or the CRA assessment. Sign off when no total is highlighted.",
-    records: !bank ? "Import this year's trial balance." : f.statements && f.bankGaps ? `Still missing: ${f.bankGaps}. You can start coding the lines already in.`
+    records: !bank ? "Import this year's trial balance." : f.statements && f.bankGaps ? `${f.bankGaps}: they show on each account below. You can start coding the lines already in.`
       : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? (cd.open ? `Code ${s(cd.open, "line")} to accounts from the standard chart, with the sales tax.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`,

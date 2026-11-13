@@ -40,7 +40,7 @@ async function carryFromLastYear(supabase: SupabaseClient, fileId: string, clien
 }
 
 type FileRow = { id: string; books: string; setup: unknown; year_start: string; year_end: string; client_id: string; opening_re_stated: unknown; opening_ni_typed: unknown; client: unknown };
-type Inputs = { banks: BuildBank[]; lines: BuildLine[]; chart: Map<string, BuildChart>; codes: Map<string, TaxCode>; ctx: TaxContext; opening: BuildOpening | null; yearStart: string };
+type Inputs = { banks: BuildBank[]; lines: BuildLine[]; chart: Map<string, BuildChart>; codes: Map<string, TaxCode>; ctx: TaxContext; opening: BuildOpening | null; yearStart: string; fileNumbers: Map<string, string> };
 const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
 
 async function loadFileRow(supabase: SupabaseClient, fileId: string): Promise<FileRow | null> {
@@ -76,6 +76,9 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
     const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null }[]).map((x) => [x.code, x.chart_account]));
     opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code) ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
   }
+  // File accounts already numbered for GIFI lines with no standard chart account keep their numbers.
+  const { data: own } = await supabase.from("cb_accounts").select("account_key, number").eq("file_id", fileId).like("account_key", "gifi:%");
+  const fileNumbers = new Map<string, string>(((own ?? []) as { account_key: string; number: string }[]).filter((a) => /^\d{5}$/.test(a.number)).map((a) => [a.account_key.slice(5), a.number]));
   const firstOpening = new Map<string, number>();
   for (const s of (sts ?? []) as { account_id: string; opening: number }[]) if (!firstOpening.has(s.account_id)) firstOpening.set(s.account_id, Math.round(Number(s.opening) * 100));
   const latest = new Map<string, TaxPart & { code: string }>();
@@ -88,11 +91,11 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
     lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
       .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100) })),
     chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),
-    codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start,
+    codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start, fileNumbers,
   };
 }
 
-const build = (i: Inputs) => buildLedger(i.banks, i.lines, i.chart, i.codes, i.ctx, i.opening, i.yearStart);
+const build = (i: Inputs) => buildLedger(i.banks, i.lines, i.chart, i.codes, i.ctx, i.opening, i.yearStart, i.fileNumbers);
 
 export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promise<string | null> {
   const f = await loadFileRow(supabase, fileId);

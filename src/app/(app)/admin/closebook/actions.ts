@@ -67,3 +67,38 @@ export async function updateCbSettings(formData: FormData) {
   revalidatePath(back);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
 }
+
+// Standard entries (Hashim, Nov 15, 2026, layout item 6). Owners only.
+const STD = "/admin/closebook/standard-entries";
+export async function saveStandardEntry(formData: FormData) {
+  await owner(STD);
+  const { error } = await (await createClient()).rpc("cb_save_standard_entry", {
+    p_id: orNull(s(formData, "id")), p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_reason: s(formData, "reason"),
+    p_debit: s(formData, "debit_account"), p_credit: s(formData, "credit_account"), p_memo: s(formData, "memo"), p_wp_ref: s(formData, "wp_ref"), p_reverse: formData.get("reverse") === "on",
+  });
+  revalidatePath(STD);
+  redirect(withMessage(STD, error ? "error" : "msg", error ? error.message : "Saved."));
+}
+export async function deleteStandardEntry(formData: FormData) {
+  await owner(STD);
+  const { error } = await (await createClient()).rpc("cb_delete_standard_entry", { p_id: s(formData, "id") });
+  revalidatePath(STD);
+  redirect(withMessage(STD, error ? "error" : "msg", error ? error.message : "Deleted. Entries already made keep their lines."));
+}
+
+// Firm vendor rules (layout item 4). The vendor is stored as the vendor part of a bank description, the
+// same way lines are matched, so a match is exact.
+const VR = "/admin/closebook/vendor-rules";
+export async function saveFirmVendorRule(formData: FormData) {
+  await owner(VR);
+  const { vendorKey } = await import("@/lib/closebook/vendor");
+  const { error } = await (await createClient()).rpc("cb_save_firm_vendor_rule", { p_vendor_key: vendorKey(s(formData, "vendor")), p_account: s(formData, "account"), p_tax_mode: s(formData, "tax_mode") || "line" });
+  revalidatePath(VR);
+  redirect(withMessage(VR, error ? "error" : "msg", error ? error.message : "Rule saved."));
+}
+export async function deleteFirmVendorRule(formData: FormData) {
+  await owner(VR);
+  const { error } = await (await createClient()).rpc("cb_delete_firm_vendor_rule", { p_id: s(formData, "id") });
+  revalidatePath(VR);
+  redirect(withMessage(VR, error ? "error" : "msg", error ? error.message : "Rule deleted."));
+}

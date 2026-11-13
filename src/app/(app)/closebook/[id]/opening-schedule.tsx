@@ -52,7 +52,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const badRows = rows.filter((r) => rowProblem(r)).length;
 
   const save = async () => {
-    const accounts = Object.fromEntries(valid.filter((r) => choices[r.code]).map((r) => [r.code, r.account || choices[r.code][0].number]));
+    const accounts = Object.fromEntries(valid.filter((r) => choices[r.code]?.length > 1).map((r) => [r.code, r.account || choices[r.code][0].number]));
     const e = await saveOpeningInline(fileId, lines, reC, t.ni9999From125 ? null : niC, src, accounts);
     if (e) { setErr(e); return false; }
     setDirty(false); return true;
@@ -69,25 +69,25 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
   const add = (b: Block) => { setRows([...rows, { id: Math.max(0, ...rows.map((r) => r.id)) + 1, block: b, code: "", amount: "", account: "" }]); touch(); };
   const remove = (id: number) => { setRows(rows.filter((r) => r.id !== id)); touch(); };
 
-  const head = (b: Block) => <tr><td colSpan={4} className="bg-sand-100 px-4 py-2 text-xs font-bold tracking-wide text-navy-700 uppercase">{BLOCK_TITLE[b]}</td></tr>;
+  const head = (b: Block) => <tr><td colSpan={5} className="bg-sand-100 px-4 py-1.5 text-xs font-bold tracking-wide text-navy-700 uppercase">{BLOCK_TITLE[b]}</td></tr>;
   const lineRows = (b: Block) => (
     <>
+      {/* One row per line, like ProFile's GIFI entry (round 2 item 14): GIFI | Name | Account | Amount. */}
       {rows.filter((r) => r.block === b).map((r) => (
         <tr key={r.id} id={r.code ? `gifi-${r.code}` : undefined} className="border-b border-sand-100 align-top target:bg-navy-50">
-          <td className="w-28 px-4 py-1.5"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input w-[5.5rem] px-2 text-center tabular-nums" /></td>
+          <td className="px-4 py-1"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input input-compact w-[4.5rem] text-center tabular-nums" /></td>
           <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
-            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}
-            {!rowProblem(r) && choices[r.code] && (
-              <label className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-2">Account
-                <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input w-auto max-w-none py-1.5 pr-9 text-sm">
-                  {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.number} {c.name}</option>)}
-                </select></label>
-            )}</td>
-          <td className="w-44 px-2 py-1.5 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} onBlur={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, amount: tidyAmount(e.target.value) } : x)))} className="input w-40 text-right tabular-nums" /></td>
-          <td className="w-8 py-1.5 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
+            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
+          <td className="px-2 py-1">{!rowProblem(r) && (choices[r.code]?.length > 1
+            ? <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input input-compact w-full">
+                {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.number} {c.name}</option>)}
+              </select>
+            : choices[r.code]?.length === 1 ? <span className="block py-1 text-sm text-ink-2">{choices[r.code][0].number} {choices[r.code][0].name}</span> : null)}</td>
+          <td className="px-2 py-1 text-right"><input aria-label={`Amount ${r.code}`} inputMode="decimal" value={r.amount} disabled={!editable} onChange={(e) => setRow(r.id, "amount", e.target.value)} onBlur={(e) => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, amount: tidyAmount(e.target.value) } : x)))} className="input input-compact w-full text-right tabular-nums" /></td>
+          <td className="py-1 text-right">{editable && <button type="button" aria-label="Remove the line" onClick={() => remove(r.id)} className="px-2 text-ink-3 hover:text-danger">×</button>}</td>
         </tr>
       ))}
-      {editable && <tr><td colSpan={4} className="px-4 py-1.5"><button type="button" onClick={() => add(b)} className="text-sm text-navy-700 underline">+ Add a line</button></td></tr>}
+      {editable && <tr><td colSpan={5} className="px-4 py-1"><button type="button" onClick={() => add(b)} className="text-sm text-navy-700 underline">+ Add a line</button></td></tr>}
     </>
   );
   const total = (code: string, label: string, value: number, input?: { v: string; set: (v: string) => void }) => {
@@ -95,21 +95,21 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
     return (
       <>
         <tr id={`gifi-${code}`} className="font-bold target:bg-navy-50">
-          <td className="px-4 py-2 text-ink-3">{code}</td><td className="px-2 py-2">{label}</td>
-          <td className="px-2 py-2 text-right tabular-nums">
+          <td className="px-4 py-1.5 text-ink-3">{code}</td><td colSpan={2} className="px-2 py-1.5">{label}</td>
+          <td className="px-2 py-1.5 text-right tabular-nums">
             {input ? <input aria-label={`${code} ${label}`} inputMode="decimal" value={input.v} disabled={!editable} onChange={(e) => { input.set(e.target.value); touch(); }} onBlur={(e) => input.set(tidyAmount(e.target.value))}
-              className={`input w-40 text-right font-bold tabular-nums ${f ? "bg-[#FFF35C]" : ""}`} />
-              : <span className={`inline-block rounded px-3 py-1 ${f ? "bg-[#FFF35C]" : ""}`}>{fmt(value)}</span>}
+              className={`input input-compact w-full text-right font-bold tabular-nums ${f ? "bg-[#FFF35C]" : ""}`} />
+              : <span className={`inline-block rounded px-2 py-0.5 ${f ? "bg-[#FFF35C]" : ""}`}>{fmt(value)}</span>}
           </td><td />
         </tr>
-        {f && <tr><td /><td colSpan={2} className="px-2 pb-2 text-right text-sm font-normal text-warning">{f.text}</td><td /></tr>}
+        {f && <tr><td /><td colSpan={3} className="px-2 pb-1.5 text-right text-sm font-normal text-warning">{f.text}</td><td /></tr>}
       </>
     );
   };
   const blocking = flags.length > 0 || badRows > 0;
 
   return (
-    <div className="grid gap-4">
+    <div className="form-col grid gap-4">
       <section className="card grid gap-3">
         <div>
           <h2 className="font-semibold">Last year&rsquo;s closing balances</h2>
@@ -140,8 +140,9 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
       {err && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{err}</p>}
 
       <section className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[620px] border-collapse text-sm">
-          <thead><tr className="text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">GIFI</th><th className="px-2 py-2 font-semibold">Name (fills in from the code)</th><th className="px-2 py-2 text-right font-semibold">Amount</th><th /></tr></thead>
+        <table className="w-full min-w-[760px] table-fixed border-collapse text-sm">
+          <colgroup><col className="w-24" /><col /><col className="w-[17rem]" /><col className="w-40" /><col className="w-8" /></colgroup>
+          <thead><tr className="text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">GIFI</th><th className="px-2 py-2 font-semibold">Name (fills in from the code)</th><th className="px-2 py-2 font-semibold">Account</th><th className="px-2 py-2 text-right font-semibold">Amount</th><th /></tr></thead>
           {tab === "bs" ? (
             <tbody>
               {head("assets")}{lineRows("assets")}{total("2599", "Total assets", t.t2599)}
@@ -161,8 +162,12 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
           )}
         </table>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 bg-sand-50 px-4 py-3">
-          <span className="text-sm text-ink-2">{signed ? `Signed by ${signed.by}, ${signed.at}.${dirty ? " Saving a change clears the sign-off." : ""}`
-            : blocking ? "A highlighted total does not tie. Sign-off opens when no total is highlighted." : "Everything ties."}</span>
+          <span className="text-sm text-ink-2">{signed && `Signed by ${signed.by}, ${signed.at}.${dirty ? " Saving a change clears the sign-off." : ""} `}
+            {blocking ? <>{/* A count only: each problem shows once, on its own row (layout item 8). */}
+              {flags.length > 0 && <a href={`#gifi-${flags[0].code}`} className="font-semibold text-navy-700 underline">{flags.length} {flags.length === 1 ? "total does" : "totals do"} not tie</a>}
+              {flags.length > 0 && badRows > 0 && " · "}
+              {badRows > 0 && <a href={`#gifi-${rows.find((r) => rowProblem(r))?.code ?? ""}`} className="font-semibold text-navy-700 underline">{badRows} {badRows === 1 ? "line needs" : "lines need"} you</a>}
+              <span className="text-ink-3"> · sign-off opens when none is left</span></> : !signed && "Everything ties."}</span>
           {editable && (
             <span className="flex gap-2">
               <button type="button" className="btn-secondary" disabled={pending || !dirty} onClick={onSave}>Save</button>

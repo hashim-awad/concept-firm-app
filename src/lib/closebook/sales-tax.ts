@@ -51,3 +51,26 @@ export function defaultTaxCode(chartDefault: string, province: string, accountNo
   if (chartDefault === "Exempt") return "EXEMPT";
   return "OUT_OF_SCOPE";
 }
+
+// Sales tax on a journal entry line, like QuickBooks Online (round 2 item 11): the line amount is before
+// tax (debit positive, credit negative); the tax is added on top and keeps the line's sign. On a revenue
+// account it is tax collected (GST/HST to 21500, PST to 21550). On any other account a recoverable GST/HST
+// part is an ITC to 21500 (none on the quick method, except capital); every other part stays on the line's
+// own account. The entry balances with the tax included.
+export type EntryTax = { toLine: number; gstHst: number; pst: number };
+export function entryLineTax(netCents: number, code: TaxCode | null, accountType: string, ctx: TaxContext): EntryTax {
+  const out: EntryTax = { toLine: 0, gstHst: 0, pst: 0 };
+  if (!code || !ctx.registered || !netCents) return out;
+  const rate = code.parts.reduce((n, p) => n + p.rate, 0);
+  if (!rate) return out;
+  const tax = Math.round(netCents * rate);
+  let given = 0;
+  code.parts.forEach((p, i) => {
+    const c = i === code.parts.length - 1 ? tax - given : Math.round((tax * p.rate) / rate);
+    given += c;
+    if (accountType === "Revenue") { if (p.liability === "pst") out.pst += c; else out.gstHst += c; return; }
+    const claim = p.recoverable && p.liability === "gst_hst" && (!ctx.quick || accountType === "Asset");
+    if (claim) out.gstHst += c; else out.toLine += c;
+  });
+  return out;
+}
