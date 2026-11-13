@@ -136,7 +136,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
         </div>
       </section>
 
-      {signed && bankIssue && <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">{bankIssue} The difference sits in &ldquo;Opening balances to enter&rdquo; for the reviewer.</p>}
+      {signed && bankIssue && <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">{/\.\s*$/.test(bankIssue) ? bankIssue : `${bankIssue}.`} The difference sits in &ldquo;Opening balances to enter&rdquo; for the reviewer.</p>}
       {err && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{err}</p>}
 
       <section className="card overflow-x-auto p-0">

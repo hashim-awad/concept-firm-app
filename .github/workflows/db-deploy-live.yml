@@ -17,6 +17,11 @@ on:
       - "supabase/migrations/**"
       - ".github/workflows/db-deploy-live.yml"
   workflow_dispatch:
+    inputs:
+      drop_backup:
+        description: "Only remove this backup (deploy_backup_YYYYMMDD_HHMMSS), after Hashim confirms. Leave blank to deploy."
+        required: false
+        default: ""
 
 concurrency:
   group: db-deploy-live
@@ -33,6 +38,7 @@ jobs:
     env:
       PROJECT_ID: owysxewnrnvrcpjutxcw # Concept Firm App (Live, ca-central-1)
       POOLER_HOST: aws-1-ca-central-1.pooler.supabase.com
+      STUDIO_URL: https://studio.conceptaccounting.ca
     steps:
       - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
@@ -47,7 +53,19 @@ jobs:
           DB_URL="postgresql://postgres.${PROJECT_ID}:${ENCODED}@${POOLER_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
-      - name: Show changes that will be applied
-        run: supabase db push --remote="$DB_URL" --dry-run
-      - name: Apply changes
-        run: supabase db push --remote="$DB_URL" --yes
+      # Reversible deploy (scripts/deploy/db-deploy.sh), rehearsed on Test before every merge:
+      #   BACKUP  a dated copy of every table (deploy_backup_YYYYMMDD_HHMMSS), before any change
+      #   CHANGE  the migrations, shown first
+      #   CHECK   the account links check; must be 0 rows
+      #   RESTORE if the check is not 0 or anything fails: every changed table put back from the backup in
+      #           this run, proved row for row, and the run stops red
+      #   FILES CHANGED  a count and a Studio link to each file the change touched (file ids, no names)
+      # The backup is kept until Hashim confirms; then run this workflow by hand with drop_backup.
+      - name: Deploy (backup, change, check, restore if needed, files changed)
+        if: inputs.drop_backup == ''
+        env: { DEPLOY_ENV: live }
+        run: bash scripts/deploy/db-deploy.sh
+      - name: Remove one backup
+        if: inputs.drop_backup != ''
+        env: { BK: "${{ inputs.drop_backup }}" }
+        run: bash scripts/deploy/drop-backup.sh

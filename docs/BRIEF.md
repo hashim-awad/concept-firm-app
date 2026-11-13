@@ -365,6 +365,15 @@ In short:
   - Last year's balance on a bank or card line sits on one of the file's bank accounts (step 2 lists them), so the comparison is on one line.
   - A file on the standard chart never posts to a bare GIFI line; older entries moved to the chart account on that line by migration. scripts/checks/account-links-check.sql lists any file still affected (read-only).
   - Pages rebuild the stored trial balance before reading the file (Next.js memoizes identical reads in one render).
+  - A GIFI line with no chart account gets a 5-digit number in its type's range at once: 19000 asset, 29000 liability, 39000 equity, 49000 revenue, 79000 expense, up by 10 past numbers in use (round 4c, tested for an expense line).
+- Reversible database deploy (Hashim, Nov 20, 2026), scripts/deploy/db-deploy.sh, used by both deploy workflows:
+  - BACKUP: before any change, a dated copy of every table in its own schema (deploy_backup_YYYYMMDD_HHMMSS), which the app and the API cannot see.
+  - CHANGE: the migrations. CHECK: the account links check, which must be 0 rows.
+  - RESTORE: if the check is not 0 or any step fails, every changed table is put back from the backup in the same run, in one transaction, proved row for row, and the run stops red. The migrations of that deploy come off the list, so the next deploy runs them again: every migration must be safe to run twice (create or replace, if not exists, drop trigger if exists).
+  - FILES CHANGED: a count and a Studio link to each file the change touched. File ids only, never a name.
+  - The backup is kept until Hashim confirms; then the workflow is run by hand with drop_backup. Test keeps its 3 newest.
+  - Every Test run first rehearses the restore: a deliberate bad change after the real one must be caught and put back.
+  - Live point-in-time recovery is not relied on: it depends on the Supabase plan, and the restore here needs no support ticket.
 - Client entry list, round 2 (Hashim, Nov 15, 2026): "DRAFT FOR REVIEW" top left on every page until the reviewer signs step 6 (Review); step 6 has no sign-off yet, so the client's copy is always a draft for now. The firm's name in the footer, as on the year-end package (green rule, then "Prepared by Concept Accounting & Advisory Professional Corporation | Registered with CPA Ontario"); the footer names the document "Entries to record in your books". The note under the trial balance and the line under "New accounts to create in your books" are wording pieces on the Templates page ("Closebook client entry list", a Trial until an owner approves it).
 - Balance sheet equity (Hashim, Nov 15, 2026): Share capital; Retained earnings, start of year; Prior period adjustment (31500, GIFI 3720); Net income; Dividends; Total equity. In the trial balance by group, 31500 stays in Retained earnings, and "Net income last year (from the T2)" has its own group, "Last year's income statement", after income taxes, so retained earnings show last year's real balance.
 - Standard chart: 32200 Dividends declared (Equity, GIFI 3700) added on Nov 15, 2026, after 32000 and 32100; last year's 3700 posts there.

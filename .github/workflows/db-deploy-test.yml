@@ -14,8 +14,15 @@ on:
     branches-ignore: [main]
     paths:
       - "supabase/migrations/**"
+      - "scripts/checks/**"
+      - "scripts/deploy/**"
       - ".github/workflows/db-deploy-test.yml"
   workflow_dispatch:
+    inputs:
+      drop_backup:
+        description: "Only remove this backup (deploy_backup_YYYYMMDD_HHMMSS). Leave blank to deploy."
+        required: false
+        default: ""
 
 concurrency:
   group: db-deploy-test
@@ -31,6 +38,7 @@ jobs:
     env:
       PROJECT_ID: wtivdpwyoarpcbgohgnr # Concept Firm App - Test (ca-central-1)
       POOLER_HOST: aws-1-ca-central-1.pooler.supabase.com
+      STUDIO_URL: https://concept-firm-app-git-claude-affection-694391-concept-accounting.vercel.app # the Test app
     steps:
       - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
@@ -45,7 +53,34 @@ jobs:
           DB_URL="postgresql://postgres.${PROJECT_ID}:${ENCODED}@${POOLER_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
-      - name: Show changes that will be applied
-        run: supabase db push --remote="$DB_URL" --dry-run
-      - name: Apply changes
-        run: supabase db push --remote="$DB_URL" --yes
+      # Reversible deploy (scripts/deploy/db-deploy.sh): backup, change, check, and restore if the check is
+      # not 0 or anything fails. File ids and counts only in the log, never a client name.
+      # On Test, every run first proves the restore: a deliberate bad change after the real one must be
+      # caught by the check and put back from the backup. Then the real deploy runs.
+      - name: Restore rehearsal (a deliberate bad change; must be caught and restored)
+        if: inputs.drop_backup == ''
+        env: { DEPLOY_ENV: test, REHEARSE: "true" }
+        run: |
+          set +e
+          bash scripts/deploy/db-deploy.sh 2>&1 | tee rehearsal.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" = 1 ] && grep -q "RESTORE CHECK: all" rehearsal.log && grep -q "STOPPED: the database is back" rehearsal.log; then
+            echo "REHEARSAL PASSED: the bad change was caught and the backup restored."
+          else
+            echo "REHEARSAL FAILED: the restore did not complete."; exit 1
+          fi
+      - name: Deploy (backup, change, check, files changed)
+        if: inputs.drop_backup == ''
+        env: { DEPLOY_ENV: test }
+        run: bash scripts/deploy/db-deploy.sh
+      - name: Keep only the 3 newest backups on Test
+        if: inputs.drop_backup == ''
+        run: |
+          for b in $(psql "$DB_URL" -X -At -c "select nspname from pg_namespace where nspname ~ '^deploy_backup_[0-9]{8}_[0-9]{6}$' order by nspname desc offset 3"); do
+            BK="$b" bash scripts/deploy/drop-backup.sh
+          done
+      - name: Remove one backup
+        if: inputs.drop_backup != ''
+        env: { BK: "${{ inputs.drop_backup }}" }
+        run: bash scripts/deploy/drop-backup.sh
