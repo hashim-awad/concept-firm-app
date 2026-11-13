@@ -23,7 +23,7 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
   fileId: string; bank: BankData; editable: boolean; locked: boolean; yearStart: string; yearEnd: string;
   upload: string | null; error: string | null;   // the side panel: "new", an account id, or closed
 }) {
-  const { accounts, statements, lines, selected } = bank;
+  const { accounts, statements, selected } = bank;
   const cov = new Map(accounts.map((a) => [a.id, accountCoverage(yearStart, yearEnd, statements.filter((s) => s.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set())]));
   const acc = accounts.find((a) => a.id === selected);
   const words = (kind: string) => (kind === "card" ? { plus: "Charges", minus: "Payments" } : { plus: "Money in", minus: "Money out" });
@@ -86,6 +86,7 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
 
             <section className="card overflow-x-auto p-0">
               <h3 className="px-5 pt-4 font-semibold">Statements</h3>
+              <p className="px-5 text-sm text-ink-2">The transactions are coded in step 3, account by account, like the QuickBooks bank feed.</p>
               <table className="table">
                 <thead><tr><th>Period</th><th>File</th><th className="text-right">Lines</th><th className="text-right">Opening</th><th className="text-right">{w.plus}</th><th className="text-right">{w.minus}</th><th className="text-right">Closing</th><th>Uploaded</th><th></th></tr></thead>
                 <tbody>{sts.map((s, i) => {
@@ -108,19 +109,6 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
               </table>
             </section>
 
-            <section className="card overflow-x-auto p-0">
-              <div className="px-5 pt-4">
-                <h3 className="font-semibold">Transactions: {acc.name}</h3>
-                <p className="text-sm text-ink-2">{lines.length} line{lines.length === 1 ? "" : "s"}. Coding each line to an account from the standard chart, with its sales tax, is step 3.</p>
-              </div>
-              <table className="table">
-                <thead><tr><th>Date</th><th>Description</th><th className="text-right">{w.plus}</th><th className="text-right">{w.minus}</th></tr></thead>
-                <tbody>{lines.map((l) => (
-                  <tr key={l.id}><td className="whitespace-nowrap">{formatDate(l.txn_date)}</td><td>{l.description}</td>
-                    <td className="text-right tabular-nums">{l.amount > 0 ? money(l.amount) : ""}</td><td className="text-right tabular-nums">{l.amount < 0 ? money(-l.amount) : ""}</td></tr>
-                ))}</tbody>
-              </table>
-            </section>
           </>
         );
       })()}
