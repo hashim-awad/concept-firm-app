@@ -72,3 +72,15 @@ test("old links land on the right step", () => {
   assert.equal(stepFromLegacy("entries", undefined, "statements"), "entries");
   assert.equal(stepFromLegacy(undefined, undefined, "statements"), null);
 });
+
+// Round 5 (Hashim, Nov 21, 2026): an account whose type differs from its GIFI line holds step 4 open and
+// shows on step 7 until the reviewer decides.
+test("open type flags hold the matching step and show on step 7", () => {
+  const r = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 2 }));
+  assert.equal(r.current, "code");
+  assert.equal(r.steps.find((s) => s.key === "code")!.note, "2 type checks for the reviewer");
+  assert.equal(r.steps.find((s) => s.key === "mapping")!.note, "2 type checks for the reviewer");
+  assert.match(r.next, /^2 accounts on a GIFI line of another type: for the reviewer/);
+  const ok = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 0 }));
+  assert.equal(ok.steps.find((s) => s.key === "code")!.state, "done");
+});

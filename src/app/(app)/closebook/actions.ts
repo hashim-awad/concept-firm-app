@@ -77,15 +77,13 @@ async function editor(back: string) {
 }
 
 // Match every account not yet matched: the client's history first (in the database), then name
-// suggestions; anything unclear goes to the reviewer's list.
-// Match every account not yet matched: the client's history first (in the database), then name
 // suggestions; anything unclear goes to the reviewer's list. Runs by itself after each import.
 async function matchFile(supabase: Awaited<ReturnType<typeof createClient>>, id: string) {
   const [{ data: accounts }, { data: lines }] = await Promise.all([
-    supabase.from("cb_accounts").select("id, number, name").eq("file_id", id).is("line_no", null).eq("needs_reviewer", false),
+    supabase.from("cb_accounts").select("id, number, name, account_type").eq("file_id", id).is("line_no", null).eq("needs_reviewer", false),
     supabase.from("cb_master_lines").select("line_no, name, gifi_code, line_type, lead_sheet, statement_line, default_tax_code, mappable, pair_line, locked"),
   ]);
-  const suggestions = ((accounts ?? []) as { id: string; number: string; name: string }[]).map((a) => {
+  const suggestions = ((accounts ?? []) as { id: string; number: string; name: string; account_type: string | null }[]).map((a) => {
     const sg = suggestLine(a, (lines ?? []) as Line[]);
     return { account: a.id, line: sg.line, reason: sg.reason };
   });

@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/dates";
 import { BOOKS, fileBy, FILE_TYPE, firstName, type CbDoc } from "@/lib/closebook/files";
 import { fileSteps, fromStatements, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
 import { loadFile, loadReference } from "@/lib/closebook/server";
+import { typeFlag } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { BankView } from "./bank-view";
@@ -73,6 +74,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
       // An account with no balance either year and no entries is "not used": no decision (round 4b item 4).
       && !(a.this_year === 0 && a.last_year === 0 && !entries.some((e) => e.lines.some((l) => l.account_id === a.id)))).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
+    typeFlags: accounts.filter((a) => typeFlag(a, ref.lines.find((l) => l.line_no === a.line_no)) === "open").length,
     entries: entries.length, people,
   });
   const asked = str(sp.step) as StepKey | undefined;

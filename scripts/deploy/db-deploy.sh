@@ -42,6 +42,21 @@ restore_and_stop() {
   exit 1
 }
 
+say "Migration order"
+# Every migration this deploy will apply must sort after the last one the database has recorded; one that
+# sorts before would be refused (or skipped). Stop before the backup, with nothing changed.
+REMOTE_LAST=$("${PSQL[@]}" -At -c "select coalesce(max(version), '') from supabase_migrations.schema_migrations")
+APPLIED=$("${PSQL[@]}" -At -c "select version from supabase_migrations.schema_migrations")
+ORDER_BAD=0
+for f in supabase/migrations/*.sql; do
+  v=$(basename "$f" | cut -c1-14)
+  grep -qx "$v" <<<"$APPLIED" && continue
+  if [[ "$v" < "$REMOTE_LAST" ]]; then echo "OUT OF ORDER: $(basename "$f") sorts before $REMOTE_LAST, the last migration on this database."; ORDER_BAD=1
+  else echo "to apply: $(basename "$f")"; fi
+done
+echo "Last migration on this database: $REMOTE_LAST"
+[[ $ORDER_BAD -eq 0 ]] || { echo "STOPPED before any change: renumber the migration(s) above after $REMOTE_LAST."; exit 1; }
+
 say "Account links check, before"
 "${PSQL[@]}" -f "$CHECK"
 

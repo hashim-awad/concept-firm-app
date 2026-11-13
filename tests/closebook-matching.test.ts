@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
-import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, suggestLine, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
+import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, numberType, suggestLine, typeFlag, typeFlagText, typeMismatch, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
 const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair, locked: ["1301.00", "2781.00", "3701.00"].includes(l.line) }));
@@ -91,4 +91,35 @@ test("locked lines come from the setting; sides include contra lines", () => {
   assert.equal(normalSide(byNo.get("2781.10")!), "credit");
   assert.equal(normalSide(byNo.get("1775.00")!), "credit", "accumulated amortization");
   assert.equal(normalSide(byNo.get("8810.00")!), "debit");
+});
+
+// Round 5 (Hashim, Nov 21, 2026): the type check works from the account's type, with the number only as
+// the database's fallback. The three cases Hashim named, on an expense line (8810 Office expenses).
+test("type check: a standard chart account, a client account with a type, a client account with no type", () => {
+  const office = byNo.get("8810.00");
+  assert.ok(office);
+  const chart = { number: "15000", account_type: "Asset", type_source: "chart", mapping_source: "preparer" };
+  assert.equal(typeFlag(chart, office), "open");
+  assert.equal(typeFlagText(chart, office), "Check: an asset account (standard chart) on an expense line");
+  const client = { number: "", account_type: "Asset", type_source: "import", mapping_source: "preparer" };
+  assert.equal(typeFlag(client, office), "open");
+  assert.equal(typeFlagText(client, office), "Check: an asset account (client's trial balance) on an expense line");
+  const none = { number: "", account_type: null, type_source: null, mapping_source: "preparer" };
+  assert.equal(typeFlag(none, office), "");
+  assert.equal(typeFlagText(none, office), "");
+  // The reverse: an expense account on an asset line.
+  const exp = { number: "", account_type: "Expense", type_source: "client", mapping_source: "suggested" };
+  assert.equal(typeFlagText(exp, byNo.get("1774.00")), "Check: an expense account (type chosen in Closebook) on an asset line");
+  // The reviewer's match confirms it; a matching type is never flagged.
+  assert.equal(typeFlag({ ...chart, mapping_source: "reviewer" }, office), "confirmed");
+  assert.equal(typeFlagText({ ...chart, mapping_source: "reviewer" }, office), "An asset account (standard chart) on an expense line: reviewer confirmed");
+  assert.equal(typeFlag({ ...chart, account_type: "Expense" }, office), "");
+  assert.equal(typeFlag(chart, undefined), "", "no line yet: nothing to check");
+});
+
+test("the number fallback reads 4- and 5-digit numbers", () => {
+  assert.equal(numberType("15500"), "Asset");
+  assert.equal(numberType("61500"), "Expense");
+  assert.equal(numberType("150"), null);
+  assert.equal(numberType("150000"), null);
 });
