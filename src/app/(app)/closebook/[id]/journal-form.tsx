@@ -17,13 +17,15 @@ const KIND: Record<string, string> = { AJE: "AJE (adjusting)", RJE: "RJE (reclas
 const WP_REFS = ["Opening balances", "Bank statements", "Code the transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
   "Prepaid expenses schedule", "Shareholder account", "GST/HST reconciliation", "Payroll reconciliation", "Income tax schedule", "Home office schedule", "Prior year file"];
 
-export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes }: {
+export function JournalForm({ fileId, nextNo, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes, prefill }: {
   fileId: string; nextNo: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string][];
   codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
+  // Round 15: "+" on a trial balance row opens the form with that account on the first line.
+  prefill?: string;
 }) {
   const [head, setHead] = useState({ kind: "AJE", reason: "accrual", wpRef: "", memo: "", reverse: false });
   const [date, setDate] = useState(yearEnd);
-  const [lines, setLines] = useState<FormLine[]>([blankLine(), blankLine()]);
+  const [lines, setLines] = useState<FormLine[]>([prefill && opts.some((o) => o.value === prefill) ? { ...blankLine(), acct: prefill } : blankLine(), blankLine()]);
   const [std, setStd] = useState("");
   const [stdAmount, setStdAmount] = useState("");
   const optMap = useMemo(() => new Map(opts.map((o) => [o.value, o])), [opts]);

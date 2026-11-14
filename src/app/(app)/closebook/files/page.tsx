@@ -16,11 +16,11 @@ export default async function AllFilesPage({ searchParams }: PageProps<"/closebo
   const [files, names] = await Promise.all([loadFileList(supabase), staffNames(supabase)]);
   return (
     <>
-      <PageHeader title="All files" description="Every year-end file in the firm: who has it, what is next, and the deadline."
+      <PageHeader title="All files"
         actions={canEdit(access, "closebook") ? <Link href="/closebook/new" className={buttonClass("primary")}><FilePlus2 className="h-4 w-4" aria-hidden />New file</Link> : undefined} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {files.length === 0
-        ? <section className="card"><EmptyState icon={<FolderOpen />} title="No files yet" description="Start the first one with New file." /></section>
+        ? <section className="card"><EmptyState icon={<FolderOpen />} title="No files yet" /></section>
         : <FileList files={files} names={names} showPeople />}
     </>
   );

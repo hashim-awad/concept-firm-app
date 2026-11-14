@@ -97,13 +97,13 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
       {g.quick && c.diffCents > 0 && editable && allPrepared && (
         <div aria-label="Quick method gain" className="rounded-lg border border-navy-200 bg-navy-50/40 p-3 text-sm">
           <p className="font-medium">Quick method gain: {m(c.diffCents)}</p>
-          <p className="text-xs text-ink-2">The GST/HST collected less the tax remitted and the credit stays with the company. It is income. The entry:</p>
+          
           <table className="table table-compact mt-2 max-w-xl"><thead><tr><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
             <tbody><tr><td>21500 GST/HST payable</td><td className="text-right tabular-nums">{plain(c.diffCents)}</td><td /></tr>
               <tr><td>{g.gainAccount} GST/HST quick method gain (GIFI 8230)</td><td /><td className="text-right tabular-nums">{plain(c.diffCents)}</td></tr></tbody></table>
           <form action={bookQuickGain} className="mt-2 flex flex-wrap items-center gap-3">
             <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="amount" value={(c.diffCents / 100).toFixed(2)} />
-            <button className="btn-secondary btn-compact">Book the entry</button><span className="text-xs text-ink-2">AJE, W/P ref &ldquo;GST/HST return&rdquo;. Then prepare the return again.</span>
+            <button className="btn-secondary btn-compact">Book the entry</button><span className="text-xs text-ink-2">Then prepare the return again.</span>
           </form>
         </div>
       )}
@@ -119,8 +119,7 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
           count as an instalment or leave out. */}
       {g.candidates.length > 0 && (
         <div aria-label="Instalment candidates" className="rounded-lg border border-sand-200 p-3 text-sm">
-          <p className="font-medium">Entries that move an amount into GST/HST payable (21500) without a tax code</p>
-          <p className="text-xs text-ink-2">An instalment first recorded elsewhere goes on line 110 once confirmed. Leave out anything that is not an instalment.</p>
+          <p className="font-medium">Possible instalments</p>
           <table className="table table-compact mt-2"><thead><tr><th>Date</th><th>Entry</th><th className="text-right">Into 21500</th><th>Instalment?</th><th /></tr></thead>
             <tbody>{g.candidates.map((x) => (
               <tr key={x.ref}><td className="whitespace-nowrap">{formatDate(x.date)}</td><td>{x.label}</td><td className="text-right tabular-nums">{m(x.cents)}</td>

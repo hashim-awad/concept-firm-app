@@ -77,7 +77,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
         <tr key={r.id} id={r.code ? `gifi-${r.code}` : undefined} className="border-b border-sand-100 align-top target:bg-navy-50">
           <td className="px-4 py-1"><input aria-label="GIFI code" inputMode="numeric" value={r.code} disabled={!editable} onChange={(e) => setRow(r.id, "code", e.target.value)} className="input input-compact w-[4.5rem] text-center tabular-nums" /></td>
           <td className="px-2 py-1.5 text-sm">{info.get(r.code)?.name ?? ""}{rowProblem(r) ? <span className="block text-xs text-warning">{rowProblem(r)}</span>
-            : isDividend(r.code) && <span className="block text-xs text-ink-3">A deduction: kept negative, whatever sign is typed.</span>}</td>
+            : isDividend(r.code) && <span className="block text-xs text-ink-3">Kept negative</span>}</td>
           <td className="px-2 py-1">{!rowProblem(r) && (choices[r.code]?.length > 1
             ? <select aria-label={`Account for GIFI ${r.code}`} value={r.account || choices[r.code][0].number} disabled={!editable} onChange={(e) => setRow(r.id, "account", e.target.value)} className="input input-compact w-full">
                 {choices[r.code].map((c) => <option key={c.number} value={c.number}>{c.label ?? `${c.number} ${c.name}`}</option>)}
@@ -113,7 +113,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
       <section className="card grid gap-3">
         <div>
           <h2 className="font-semibold">Last year&rsquo;s closing balances</h2>
-          {source === "closebook" && <p className="text-sm text-ink-2">Filled from last year&rsquo;s Closebook file, for checking and sign-off.</p>}
+          {source === "closebook" && <p className="text-sm text-ink-2">From last year&rsquo;s file</p>}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="grid flex-1 gap-1 text-sm">Source
@@ -142,7 +142,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
       <section className="card overflow-x-auto p-0">
         <table className="w-full min-w-[760px] table-fixed border-collapse text-sm">
           <colgroup><col className="w-24" /><col /><col className="w-[17rem]" /><col className="w-40" /><col className="w-8" /></colgroup>
-          <thead><tr className="text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">GIFI</th><th className="px-2 py-2 font-semibold">Name (fills in from the code)</th><th className="px-2 py-2 font-semibold">Account</th><th className="px-2 py-2 text-right font-semibold">Amount</th><th /></tr></thead>
+          <thead><tr className="text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">GIFI</th><th className="px-2 py-2 font-semibold">Name</th><th className="px-2 py-2 font-semibold">Account</th><th className="px-2 py-2 text-right font-semibold">Amount</th><th /></tr></thead>
           {tab === "bs" ? (
             <tbody>
               {head("assets")}{lineRows("assets")}{total("2599", "Total assets", t.t2599)}

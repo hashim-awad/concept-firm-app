@@ -6,12 +6,14 @@ import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 import type { ListedFile } from "@/lib/closebook/server";
 
 // The work queue table: client, year-end, file by, the step (of 10) with its bar, and the next job.
-// Oldest deadline first. Clicking a file opens it on its current step (Nov 13, 2026).
+// Oldest deadline first. The Next line is its first sentence only (round 15); the full text is on hover.
+const short = (s: string) => s.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+// Clicking a file opens it on its current step (Nov 13, 2026).
 export function FileList({ files, names, showPeople }: { files: ListedFile[]; names: Map<string, string>; showPeople?: boolean }) {
   const rows = [...files].sort((a, b) => fileBy(a.year_end).localeCompare(fileBy(b.year_end)));
   return (
     <section className="card overflow-x-auto p-0">
-      <table className="table min-w-[900px]">
+      <table className="table table-compact min-w-[900px]">
         <thead><tr><th>Client</th><th>Year-end</th><th>File by</th><th>Step</th><th>Next job</th>{showPeople && <th>Preparer / reviewer</th>}</tr></thead>
         <tbody>{rows.map((f) => {
           const people = { preparer: names.get(f.preparer_id) ?? "", reviewer: names.get(f.reviewer_id) ?? "" };
@@ -30,7 +32,7 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
           return (
             <tr key={f.id}>
               <td><Link href={`/closebook/${f.id}`} className="font-medium text-navy-700 hover:underline">{f.client?.legal_name ?? "Client"}</Link>
-                <span className="block text-xs text-muted">{FILE_TYPE[f.file_type]} file</span></td>
+                <span className="block text-[11px] text-ink-3">{FILE_TYPE[f.file_type]}</span></td>
               <td className="tabular-nums whitespace-nowrap">{formatDate(f.year_end)}</td>
               <td className="tabular-nums whitespace-nowrap">{formatDate(fileBy(f.year_end))}</td>
               <td className="min-w-[180px]">
@@ -39,7 +41,7 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
                   {steps.map((s) => <span key={s.key} className={`h-1.5 rounded-full ${s.state === "done" ? "bg-success" : s.key === current ? "bg-navy-700" : "bg-sand-200"}`} />)}
                 </span>
               </td>
-              <td className="text-sm">{next.replace(/ You can start coding.*$/, "").replace(/\. You can start getting.*$/, "")}
+              <td className="max-w-[320px] truncate text-sm" title={next}>{short(next)}
                 {openNotes > 0 && <span className="ml-1 rounded-full bg-danger px-1.5 text-xs font-semibold text-white" title="Review notes open">{openNotes}<span className="sr-only"> review notes open</span></span>}</td>
               {showPeople && <td className="whitespace-nowrap">{people.preparer} / {people.reviewer}</td>}
             </tr>

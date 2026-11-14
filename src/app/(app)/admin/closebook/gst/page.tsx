@@ -2,6 +2,7 @@ import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
+import { SettingsHelp, fieldHelp } from "../settings-help";
 import { updateGstSettings } from "../actions";
 
 // Settings, Closebook, GST/HST (round 13, Hashim, Nov 14, 2026): CRA's due-date rule for each filing
@@ -20,15 +21,13 @@ export default async function GstSettingsPage({ searchParams }: { searchParams: 
   ]);
   const st = (s ?? {}) as { gst_due_months_annual?: number; gst_due_months_period?: number; quick_credit_rate?: number | null; quick_credit_limit?: number | null };
   const rate = new Map(((rates ?? []) as { province: string; rate: number }[]).map((r) => [r.province, Number(r.rate)]));
-  const row = (label: string, hint: string, input: React.ReactNode) => (
+  const hints: { label: string; hint: string }[] = [];
+  const row = (label: string, hint: string, input: React.ReactNode) => { hints.push({ label, hint }); return (
     <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_200px] sm:items-center sm:gap-6">
-      <div><p className="font-medium">{label}</p><p className="text-sm text-ink-2">{hint}</p></div>{input}
+      <p className="font-medium">{label}</p>{input}
     </div>
-  );
-  return (
-    <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="GST/HST" description="The due dates and the quick method rates the GST/HST return uses (step 8). Check them against CRA's pages." />
-      <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+  ); };
+  const form = (
       <form action={updateGstSettings} className="card grid gap-5">
         <h2 className="font-semibold">Due dates</h2>
         {row("Annual filers: months after the fiscal year end", "CRA: an annual filer that is a corporation files and pays within three months of its year end.",
@@ -42,8 +41,7 @@ export default async function GstSettingsPage({ searchParams }: { searchParams: 
           <div className="flex items-center gap-2"><span className="text-ink-3">$</span><input name="credit_limit" className="input text-right" defaultValue={st.quick_credit_limit != null ? Number(st.quick_credit_limit).toLocaleString("en-US") : ""} inputMode="decimal" /></div>)}
         <div>
           <p className="font-medium">Remittance rates by province</p>
-          <p className="text-sm text-ink-2">The rate line 101 is multiplied by, for a business providing services, by the province of the supply. Blank: not set.</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              <div className="mt-2 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {PROVINCES.map((p) => (
               <label key={p} className="flex items-center gap-2"><span className="w-8 text-sm font-medium">{p}</span>
                 <input name={`rate_${p}`} className="input input-compact text-right" style={{ width: "6rem" }} defaultValue={pct(rate.get(p))} inputMode="decimal" /><span className="text-ink-3 text-sm">%</span></label>
@@ -52,6 +50,12 @@ export default async function GstSettingsPage({ searchParams }: { searchParams: 
         </div>
         <div><button className="btn">Save</button></div>
       </form>
+  );
+  return (
+    <>
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="GST/HST" actions={<SettingsHelp title="GST/HST"><p>The due dates and the quick method rates the GST/HST return uses (step 8). Check them against CRA&rsquo;s pages.</p>{fieldHelp([...hints, { label: "Remittance rates by province", hint: "The rate line 101 is multiplied by, for a business providing services, by the province of the supply. Blank: not set." }])}</SettingsHelp>} />
+      <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      {form}
     </>
   );
 }

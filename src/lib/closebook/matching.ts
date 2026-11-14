@@ -143,7 +143,8 @@ export function leadSheets(
     if (!line || !sheet) continue;
     const change = Math.round((final - a.last_year) * 100) / 100;
     const row: LeadRow = { id: a.id, number: a.number, name: a.name, line, last: a.last_year, before: a.this_year, entries, final, change,
-      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, flagged: flagged(a.last_year, final, flag.amount, flag.percent) };
+      // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
+      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, flagged: !/^36(00|60)/.test(line) && flagged(a.last_year, final, flag.amount, flag.percent) };
     const s = out.get(sheet)!;
     s.rows.push(row); s.last += a.last_year; s.before += a.this_year; s.entries += entries; s.final += final;
   }

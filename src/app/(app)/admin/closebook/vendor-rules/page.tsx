@@ -4,6 +4,7 @@ import { PageHeader, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { deleteFirmVendorRule, saveFirmVendorRule } from "../actions";
 import { FIRM_TAX_MODE } from "@/lib/closebook/vendor";
+import { SettingsHelp } from "../settings-help";
 
 // Settings, Closebook, Vendor rules (Hashim, Nov 15, 2026, layout item 4): the firm's own codings for
 // common vendors. A line uses one only when the client has no vendor rule and no coding history for the
@@ -21,8 +22,7 @@ export default async function FirmVendorRulesPage({ searchParams }: PageProps<"/
   const name = new Map(accounts.map((a) => [a.number, `${a.number} ${a.name}`]));
   return (
     <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="Vendor rules"
-        description="Firm rules for common vendors. A bank or card line is suggested from the client's own vendor rule first, then from how the client's file coded the vendor before, then from a rule here. A line with no match gets no suggestion." />
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="Vendor rules" actions={<SettingsHelp title="Vendor rules"><p>Firm rules for common vendors. A bank or card line is suggested from the client&rsquo;s own vendor rule first, then from how the client&rsquo;s file coded the vendor before, then from a rule here. A line with no match gets no suggestion.</p></SettingsHelp>} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card mb-4 overflow-x-auto p-0">
         <table className="table">

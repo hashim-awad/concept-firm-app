@@ -26,8 +26,8 @@ export default async function ReviewNotesPage() {
   const days = (at: string) => Math.max(0, Math.round((today - Date.parse(at.slice(0, 10))) / 86400000));
   return (
     <>
-      <PageHeader title="Review notes" description="Every review note not yet cleared, across all files, oldest first. Open notes wait for the preparer; fixed notes wait for the reviewer to clear them." />
-      {!rows.length ? <section className="card"><EmptyState icon={<MessageSquareWarning />} title="No review notes open" description="Notes appear here when the reviewer adds one to a step, an account, an entry or a bank line." /></section> : (
+      <PageHeader title="Review notes" />
+      {!rows.length ? <section className="card"><EmptyState icon={<MessageSquareWarning />} title="No review notes open" /></section> : (
         <section className="card overflow-x-auto p-0">
           <table className="table">
             <thead><tr><th>Added</th><th>File</th><th>Step</th><th>On</th><th>Note</th><th>Status</th></tr></thead>

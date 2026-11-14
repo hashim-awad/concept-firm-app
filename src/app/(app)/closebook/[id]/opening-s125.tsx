@@ -16,7 +16,7 @@ export function OpeningS125({ fileId, rows, editable, needed }: { fileId: string
         <h2 className="font-semibold">Last year&apos;s Schedule 125 (income statement)</h2>
         {needed && <span className="rounded bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">Enter last year&apos;s Schedule 125 in step 2</span>}
       </div>
-      <p className="text-sm text-ink-2">From last year&apos;s T2. It gives the statement of earnings its prior-year column in step 9. Type each amount as a positive number, as on the schedule. Not needed in the company&apos;s first year.</p>
+      <p className="text-sm text-ink-2">Type each amount as a positive number.</p>
       <table className="table table-compact max-w-3xl">
         <thead><tr><th style={{ width: "6rem" }}>GIFI</th><th>Line</th><th className="text-right" style={{ width: "11rem" }}>Last year</th></tr></thead>
         <tbody>

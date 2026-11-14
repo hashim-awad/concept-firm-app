@@ -13,19 +13,16 @@ export type ChecklistRow = { key: string; text: string; answer: "" | "yes" | "no
 
 export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: ReviewItem[] }) {
   const waiting = groups.reduce((n, g) => n + g.items.length, 0);
-  const tile = (n: number | string, label: string, tone: string) => (
-    <div className={`rounded-lg border px-4 py-3 ${tone}`}><p className="text-2xl font-semibold tabular-nums">{n}</p><p className="text-sm">{label}</p></div>
-  );
   return (
     <div className="grid gap-4">
-      <section aria-label="Counts" className="grid gap-3 sm:grid-cols-2">
-        {tile(waiting, waiting === 1 ? "item waiting for the reviewer" : "items waiting for the reviewer", waiting ? "border-warning/40 bg-warning-soft/40" : "border-sand-200 bg-surface")}
-        {tile(notes.length, notes.length === 1 ? "review note open" : "review notes open", notes.length ? "border-danger/40 bg-danger/5 text-danger" : "border-sand-200 bg-surface")}
+      <section aria-label="Counts" className="flex flex-wrap gap-2 text-[12px] font-semibold">
+        <span className={`rounded-full px-2.5 py-0.5 ${waiting ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>{waiting} with the reviewer</span>
+        <span className={`rounded-full px-2.5 py-0.5 ${notes.length ? "bg-danger-soft text-danger" : "bg-sand-100 text-ink-2"}`}>{notes.length} note{notes.length === 1 ? "" : "s"} open</span>
       </section>
 
       <section aria-label="Waiting for the reviewer" className="card grid gap-3">
         <h2 className="font-semibold">Waiting for the reviewer</h2>
-        {waiting === 0 && <p className="text-sm text-ink-2">Nothing waits for the reviewer.</p>}
+        {waiting === 0 && <p className="text-[12.5px] text-ink-3">Nothing.</p>}
         {groups.filter((g) => g.items.length).map((g) => (
           <div key={g.key}>
             <h3 className="mb-1 text-sm font-semibold">{g.title} <span className="font-normal text-ink-3">({g.step}, {g.items.length})</span></h3>
@@ -68,12 +65,10 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
 }) {
   return (
     <div className="grid gap-3">
-      {problems.length > 0 && <p className="rounded-lg border border-warning/40 bg-warning-soft/40 px-4 py-2.5 text-sm">Before the file is locked: {problems.join(" ")}</p>}
+      {problems.length > 0 && <p className="text-[12.5px] text-danger">Not yet: {problems.join(" ")}</p>}
       <section aria-label="Completion checklist" className="card">
         <h2 className="font-semibold">Completion checklist</h2>
-        <p className="mb-3 text-sm text-ink-2">CSRS 4200, compilation engagements. Answer every question before the file is locked and the compilation report is released.
-          Questions 1, 10 and 11 must be Yes. Only questions 8 and 9 can be Not applicable. A &ldquo;No&rdquo; needs a note: say why, and what was done.
-          {trial && <span className="ml-1 rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning">Questions are a draft: approve them on the Templates page</span>}</p>
+        {trial && <p className="mb-2"><span className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning">Draft questions: approve them in Templates</span></p>}
         <form action={saveChecklist} className="grid gap-0">
           <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
           {checklist.map((c, i) => (

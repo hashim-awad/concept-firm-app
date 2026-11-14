@@ -8,12 +8,17 @@ import { saveGstFiling } from "../gst-actions";
 import { CopyButton } from "@/app/(app)/leads/[id]/quote/copy-button";
 import { Checklist, type ChecklistRow } from "./review-step";
 
-const TO_FILL = <span className="ml-2 rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning">To fill</span>;
+const TO_FILL = <span className="ml-2 inline-block whitespace-nowrap rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning">To fill</span>;
 const label = (text: string, empty: boolean) => <span className="label flex items-center">{text}{empty && TO_FILL}</span>;
 const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
 const money = (v: number | null) => (v === null ? "" : Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const kind = (v: number | null) => (v === null ? "" : v > 0 ? "owing" : v < 0 ? "refund" : "nil");
 const INST_ROWS = 12;
+
+// Round 15: one card per section, small capitals headings (CaseWare Cloud).
+const CARD = "overflow-hidden rounded-[10px] border border-sand-200 bg-white";
+const HEAD = "flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5";
+const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 
 export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOwner, names }: {
   fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>;
@@ -26,10 +31,9 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
     <select className="input" name={name} defaultValue={value} style={{ width }}><option value="">Choose</option>{opts.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>);
   const taxSum = c.fed_tax !== null && c.prov_tax !== null ? c.fed_tax + c.prov_tax : null;
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3.5">
       {locked && (
-        <p role="status" className="rounded-lg border border-navy-300 bg-navy-50 px-4 py-3 text-sm text-navy-800">
-          <b>Locked</b> on {c.locked_at ? when(c.locked_at) : ""} by {names.get(c.locked_by ?? "") ?? ""}. The file is read-only, and its documents are kept as delivered.</p>
+        <p role="status" className="text-[12.5px] text-navy-800"><b>Locked</b> {c.locked_at ? when(c.locked_at) : ""}, {names.get(c.locked_by ?? "") ?? ""}</p>
       )}
 
       {/* 7. The completion checklist: open once the MAL is signed; 10 and 11 filled by Closebook. */}
@@ -37,20 +41,16 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         <Checklist fileId={fileId} checklist={checklist} problems={s.lock.filter((x) => x.startsWith("Checklist: ")).map((x) => x.slice(11))} editable={can}
           back={`/closebook/${fileId}?step=lock`} trial={checklistTrial} auto={[10, 11]} />
       ) : (
-        <section aria-label="Completion checklist" className="card">
-          <h2 className="font-semibold">Completion checklist</h2>
-          <p className="mt-1 text-sm text-ink-2">The checklist opens once the signing officer signs the MAL (step 9). Questions 10 and 11 are then filled from the signing record.</p>
+        <section aria-label="Completion checklist" className={CARD}>
+          <div className={HEAD}><h3 className={H}>Completion checklist</h3><span className="text-[12.5px] text-ink-3">Opens when the MAL is signed</span></div>
         </section>
       )}
 
       {/* 8. The email's figures, typed from ProFile. */}
-      <form action={saveCloseFields} className="card grid gap-4" aria-label="Email figures">
+      <form action={saveCloseFields} className={CARD} aria-label="Email figures">
         <input type="hidden" name="file_id" value={fileId} />
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold">Figures for the client email</h2>
-          <span className="text-xs text-ink-2">Typed from ProFile.{delivered && " Kept as sent."}</span>
-        </div>
-        <fieldset disabled={fieldsLocked} className="grid gap-4">
+        <div className={HEAD}><h3 className={H}>Email figures</h3><span className="text-[12.5px] text-ink-3">From ProFile{delivered && " · as sent"}</span></div>
+        <fieldset disabled={fieldsLocked} className="grid gap-4 px-3.5 py-3">
           <div className="grid gap-3">
             <p className="font-medium">A. Corporate tax</p>
             <div className="flex flex-wrap items-end gap-3">
@@ -65,14 +65,14 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
           </div>
           {d.gst.fromReturn ? (
             <div className="grid gap-1">
-              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-2">From the GST/HST return in step 8 (the year&apos;s last return, filed with this package).</span></p>
+              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-3">From step 8</span></p>
               {(() => { const r = d.gst.returns.at(-1); if (!r) return <p className="text-sm text-danger">Prepare the GST/HST return in step 8 first.</p>;
                 const v = Number(r.lines["113"]) / 100;
                 return <p className="text-sm">{r.label}: {v > 0 ? "owing" : v < 0 ? "refund" : "nil"} {money(v)} · due {formatDate(r.due_on)} · {d.pk.data.file.setup && String((d.pk.data.file.setup as Record<string, unknown>).gst_rt ?? "RT0001").replace(/^RT/, "RT ")}</p>; })()}
             </div>
           ) : (
           <div className="grid gap-3">
-              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-2">Only if a return was filed with this package. Typed for now; the GST/HST return round will fill these.</span></p>
+              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-3">If filed with this package</span></p>
               <div className="flex flex-wrap items-end gap-3">
                 <label><span className="label">Return filed</span>{sel("hst_filed", c.hst_filed ? "yes" : "no", [["no", "No"], ["yes", "Yes"]], "7rem")}</label>
                 <label><span className="label">Balance</span>{sel("hst_kind", kind(c.hst_balance), [["owing", "Owing"], ["refund", "Refund"], ["nil", "Nil"]])}</label>
@@ -91,10 +91,9 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
               <label><span className="label">Provincial tax, year before</span><input className="input text-right tabular-nums" style={{ width: "10rem" }} name="prov_tax_prior" defaultValue={money(c.prov_tax_prior)} /></label>
             </div>
             {taxSum !== null && d.step8Tax !== null && Math.abs(taxSum - d.step8Tax) > 0.005 && (
-              <p className="text-sm text-danger">Federal plus provincial ({money(taxSum)}) does not equal the income tax entered in step 8 ({money(d.step8Tax)}). Check the figures from ProFile.</p>)}
+              <p className="text-[12.5px] text-danger">Federal plus provincial ({money(taxSum)}) is not step 8&rsquo;s income tax ({money(d.step8Tax)}).</p>)}
             <details open={c.instalments.length > 0}>
-              <summary className="cursor-pointer text-sm text-navy-700 underline">Instalment schedule for next year, from ProFile ({c.instalments.length} {c.instalments.length === 1 ? "date" : "dates"})</summary>
-              <p className="mt-1 text-xs text-ink-2">Each due date and the amount required. A date already passed is caught up in the first payment still to come. Threshold in the email: ${d.threshold.toLocaleString("en-US")} (Settings, Closebook, Thresholds).</p>
+              <summary className="cursor-pointer text-[12.5px] text-navy-700 underline">Instalment schedule ({c.instalments.length} {c.instalments.length === 1 ? "date" : "dates"})</summary>
               <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from({ length: INST_ROWS }, (_, i) => (
                   <div key={i} className="flex items-center gap-2"><span className="w-5 text-right text-xs text-ink-3">{i + 1}</span>
@@ -104,19 +103,20 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
               </div>
             </details>
           </div>
-          {!fieldsLocked && <div><button className="btn">Save figures</button><span className="ml-3 text-xs text-ink-2">A change after step 10 is signed reopens it.</span></div>}
+          {!fieldsLocked && <div><button className="btn btn-compact">Save figures</button></div>}
         </fieldset>
       </form>
 
       {/* The email: Appendix C's, with copy buttons and the .html for Outlook. */}
-      <section aria-label="Client email" className="card grid gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold">Client email</h2>
+      <section aria-label="Client email" className={CARD}>
+        <div className={HEAD}>
+          <h3 className={H}>Client email</h3>
           {d.email && (delivered ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">As sent</span>
             : d.reviewed ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Final: reviewer signed step 10</span>
-            : <span className="rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">DRAFT FOR REVIEW until the reviewer signs step 10</span>)}
+            : <span className="rounded bg-danger/10 px-2 py-0.5 text-xs font-semibold text-danger">DRAFT FOR REVIEW</span>)}
         </div>
-        {!d.email ? <p className="text-sm text-ink-2">The email appears once the figures above are filled.</p> : (<>
+        <div className="grid gap-3 px-3.5 py-3">
+        {!d.email ? <p className="text-[12.5px] text-ink-3">Fill the figures first.</p> : (<>
           {d.email.review.length > 0 && <ul className="ml-4 list-disc text-sm text-warning">{d.email.review.map((r) => <li key={r}>For the reviewer: {r}</li>)}</ul>}
           <div className="flex flex-wrap items-center gap-2">
             <span className="label m-0">Subject</span>
@@ -128,19 +128,20 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
             <CopyButton html={d.email.html} text={d.email.text} label="Copy body" />
             <a className="text-sm text-navy-700 underline" href={`/closebook/${fileId}/close?doc=html`}>Download .html for Outlook</a>
             <a className="text-sm text-navy-700 underline" href={`/closebook/${fileId}/close?doc=txt`}>Download .txt</a>
-            <span className="text-xs text-ink-2">Nothing is sent from Closebook. Signed Hashim Awad, CPA.</span>
           </div>
         </>)}
+        </div>
       </section>
 
       {/* 9. The documents for TaxDome. */}
-      <section aria-label="Documents for TaxDome" className="card grid gap-3">
-        <h2 className="font-semibold">Documents for TaxDome</h2>
+      <section aria-label="Documents for TaxDome" className={CARD}>
+        <div className={HEAD}><h3 className={H}>Documents for TaxDome</h3></div>
+        <div className="grid gap-3 px-3.5 py-3">
         <ul className="ml-4 list-disc text-sm">{d.docs.map((x) => <li key={x}><code className="text-[13px]">{x}</code></li>)}</ul>
-        {!d.pk.signed ? <p className="text-sm text-ink-2">The documents are final once the MAL is signed.</p> : (
+        {!d.pk.signed ? <p className="text-[12.5px] text-ink-3">Final once the MAL is signed.</p> : (
           <div className="flex flex-wrap items-center gap-3">
             <a className="btn-secondary" href={`/closebook/${fileId}/close?doc=zip`}>Download {d.zipName}</a>
-            {delivered && <span className="text-xs text-ink-2">The documents as delivered.</span>}
+            {delivered && <span className="text-xs text-ink-3">As delivered</span>}
           </div>)}
         {delivered ? (
           <p className="text-sm"><span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Done</span> Uploaded to TaxDome and email sent: {names.get(c.delivered_by ?? "") ?? ""}, {when(c.delivered_at!)}</p>
@@ -149,29 +150,29 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
             <input type="hidden" name="file_id" value={fileId} />
             <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="confirm" value="yes" className="h-4 w-4" disabled={!d.reviewed} /> Uploaded to TaxDome and email sent</label>
             <button className="btn-secondary btn-compact" disabled={!d.reviewed}>Record</button>
-            {!d.reviewed && <span className="text-xs text-ink-2">After the reviewer signs step 10: until then the email is a draft.</span>}
+            {!d.reviewed && <span className="text-xs text-ink-3">After the reviewer signs step 10.</span>}
           </form>
         ) : null}
+        </div>
       </section>
 
       {/* 10. Filing record. */}
-      <form action={saveFilingRecord} className="card grid gap-3" aria-label="Filing record">
+      <form action={saveFilingRecord} className={CARD} aria-label="Filing record">
         <input type="hidden" name="file_id" value={fileId} />
-        <h2 className="font-semibold">Filing record</h2>
-        <fieldset disabled={!can} className="flex flex-wrap items-end gap-3">
+        <div className={HEAD}><h3 className={H}>Filing record</h3></div>
+        <fieldset disabled={!can} className="flex flex-wrap items-end gap-3 px-3.5 py-3">
           <label><span className="label">T183CORP signed</span><input className="input" style={{ width: "10rem" }} type="date" name="t183" defaultValue={c.t183_signed_on ?? ""} /></label>
           <label><span className="label">EFILE confirmation number</span><input className="input" style={{ width: "14rem" }} name="efile" defaultValue={c.efile_number} /></label>
           {can && <button className="btn-secondary">Save</button>}
-          <span className="text-xs text-ink-2">The T183CORP is signed in TaxDome or Adobe; record the date here.</span>
         </fieldset>
       </form>
 
       {/* Round 13: each GST/HST return's filing date and CRA confirmation number (the lock needs them). */}
       {d.gst.fromReturn && d.gst.returns.length > 0 && (
-        <section aria-label="GST/HST filing record" className="card grid gap-2">
-          <h2 className="font-semibold">GST/HST filing record</h2>
+        <section aria-label="GST/HST filing record" className={CARD}>
+          <div className={HEAD}><h3 className={H}>GST/HST filing record</h3></div>
           {d.gst.returns.map((r) => (
-            <form key={r.period_no} action={saveGstFiling} className="flex flex-wrap items-end gap-3 border-t border-sand-100 pt-2">
+            <form key={r.period_no} action={saveGstFiling} className="flex flex-wrap items-end gap-3 border-t border-sand-100 px-3.5 py-2">
               <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="period" value={r.period_no} />
               <span className="w-72 text-sm">{r.label}<span className="block text-xs text-ink-3">Due {formatDate(r.due_on)}</span></span>
               <fieldset disabled={!can} className="flex flex-wrap items-end gap-3">
@@ -186,32 +187,29 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
       )}
 
       {/* 11. Lock. */}
-      <section aria-label="Lock" className="card grid gap-3">
-        <h2 className="font-semibold">Lock the file</h2>
+      <section aria-label="Lock" className={CARD}>
+        <div className={HEAD}><h3 className={H}>Lock</h3></div>
+        <div className="grid gap-3 px-3.5 py-3">
         {locked ? (
           isOwner ? (
             <form action={reopenFile} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="file_id" value={fileId} />
               <input name="why" required minLength={5} maxLength={300} placeholder="Why the file is reopened" aria-label="Reason to reopen" className="input" style={{ width: "28rem", maxWidth: "100%" }} />
               <button className="btn-secondary">Reopen the file</button>
-              <span className="text-xs text-ink-2">Owners only. The reopen goes in the file history, and the file goes back to step 10.</span>
             </form>
-          ) : <p className="text-sm text-ink-2">Only an owner can reopen a locked file.</p>
+          ) : <p className="text-[12.5px] text-ink-3">Owners reopen.</p>
         ) : (<>
           {s.lock.length > 0 ? (
-            <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 px-4 py-3 text-sm">
-              <p className="font-semibold text-danger">Not ready to lock</p>
-              <ul className="ml-4 list-disc text-danger">{s.lock.map((x) => <li key={x}>{x}</li>)}</ul>
-            </div>
-          ) : <p className="text-sm text-success">Everything is in place. An owner can lock the file.</p>}
+            <ul role="alert" className="text-[12.5px] text-danger">{s.lock.map((x) => <li key={x}>Not yet: {x}</li>)}</ul>
+          ) : <p className="text-[12.5px] text-success">Ready to lock.</p>}
           {isOwner && editable && (
             <form action={lockFile} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="file_id" value={fileId} />
-              <button className="btn">Lock the file</button>
-              <span className="text-xs text-ink-2">Owners only. A locked file is read-only everywhere; its documents are kept as delivered.</span>
+              <button className="btn btn-compact">Lock the file</button>
             </form>
           )}
         </>)}
+        </div>
       </section>
     </div>
   );

@@ -156,11 +156,11 @@ export function TbTab(p: Props) {
 
       {p.importOnly ? (accounts.length > 0 && (
         <p className="card text-sm">{accounts.length} accounts imported. Match them to GIFI lines in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=mapping`} className="text-navy-700 underline">step 7</a>.</p>
-      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
+      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{file.file_type === "monthly" ? "Import the trial balance." : "Upload the statements in step 2."}</p>
         : view === "lead" ? (
           // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
-          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
+          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Match every account to a GIFI line: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({

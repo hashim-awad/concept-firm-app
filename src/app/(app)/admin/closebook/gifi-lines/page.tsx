@@ -4,6 +4,7 @@ import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
+import { SettingsHelp } from "../settings-help";
 
 type Line = { line_no: string; name: string; gifi_code: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; locked: boolean };
 
@@ -25,14 +26,12 @@ export default async function GifiLinesPage({ searchParams }: PageProps<"/admin/
   const shown = needle ? all.filter((l) => [l.line_no, l.name, l.statement_line ?? "", l.default_tax_code ?? ""].some((v) => v.toLowerCase().includes(needle))) : all;
   return (
     <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="GIFI lines"
-        description={`${all.length} lines from CRA ${version?.label ?? "RC4088"}. Every client account matches to one line. Changes apply to every open file and are logged.`} />
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="GIFI lines" actions={<SettingsHelp title="GIFI lines"><p>{`${all.length} lines from CRA ${version?.label ?? "RC4088"}. Every client account matches to one line. Changes apply to every open file and are logged.`}</p><p>Sub-lines in bold share a GIFI code with their main line. Grey lines are totals the system calculates; nobody maps to them. A lock means staff must pick one of the sub-lines. To add a sub-line, open the line it sits under.</p></SettingsHelp>} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form className="mb-4 flex flex-wrap items-end gap-3" action="/admin/closebook/gifi-lines">
         <div><label htmlFor="q" className="label">Search lines</label><input id="q" name="q" defaultValue={q} placeholder="Line, name, statement line or tax code" className="input w-80 max-w-full" /></div>
         <button className="btn-secondary" type="submit">Search</button>
         {q && <Link href="/admin/closebook/gifi-lines" className="text-sm text-navy-700 underline">Clear</Link>}
-        <p className="ml-auto text-xs text-muted">To add a sub-line, open the line it sits under.</p>
       </form>
       <section className="card overflow-x-auto p-0">
         <table className="table min-w-[900px]">
@@ -52,7 +51,7 @@ export default async function GifiLinesPage({ searchParams }: PageProps<"/admin/
           })}</tbody>
         </table>
       </section>
-      <p className="mt-2 text-xs text-muted">Sub-lines in bold share a GIFI code with their main line. Grey lines are totals the system calculates; nobody maps to them. A lock means staff must pick one of the sub-lines.{q ? ` ${shown.length} of ${all.length} lines shown.` : ""}</p>
+      <p className="mt-2 text-xs text-muted">{q ? `${shown.length} of ${all.length} lines shown.` : ""}</p>
     </>
   );
 }

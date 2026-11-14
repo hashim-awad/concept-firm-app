@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui";
+import { SettingsHelp } from "../settings-help";
 
 // Settings, Closebook, Lead sheets (Phase 3 batch 4.4): 20 groups, CaseWare-style letters.
 export default async function LeadSheetsPage() {
@@ -15,8 +16,7 @@ export default async function LeadSheetsPage() {
   const group = (c: string) => (/^\d/.test(c) ? "Income statement" : c.length === 2 ? "Liabilities and equity" : "Assets");
   return (
     <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="Lead sheets"
-        description="Lead sheets group the trial balance for review: A to H for assets, AA to GG for liabilities and equity, 10 to 50 for the income statement. Each GIFI line belongs to one." />
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="Lead sheets" actions={<SettingsHelp title="Lead sheets"><p>Lead sheets group the trial balance for review: A to H for assets, AA to GG for liabilities and equity, 10 to 50 for the income statement. Each GIFI line belongs to one.</p></SettingsHelp>} />
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead><tr><th>Lead sheet</th><th>Name</th><th>Part</th><th className="text-right">GIFI lines</th></tr></thead>
