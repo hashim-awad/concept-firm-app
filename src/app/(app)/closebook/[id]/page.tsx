@@ -23,7 +23,7 @@ import { EntriesTab } from "./entries-tab";
 import { RevenueCheck } from "./revenue-check";
 import { ShSchedule } from "./sh-schedule";
 import { loadShLoans } from "@/lib/closebook/sh-server";
-import { FLAG_TEXT, type ShFlag } from "@/lib/closebook/sh-loans";
+import { flagText, type ShFlag } from "@/lib/closebook/sh-loans";
 import { T2Step } from "./t2-step";
 import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
@@ -304,18 +304,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
         })() },
         { key: "sh", title: "Shareholder loans", step: "step 5", items: await (async () => {
-          // Round 14: flags answered by the preparer, and loans not repaid by last year's s.15(2) date.
-          const [{ data: fl }, { data: rp }, { data: sc }] = await Promise.all([
-            supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null),
-            supabase.from("cb_sh_repaid").select("account_key, due_on, note").eq("file_id", id).eq("answer", "no").is("accepted_at", null),
-            supabase.from("cb_sh_schedules").select("account_key, number, name, opening").eq("file_id", id),
-          ]);
-          const nm = (k: string) => { const x = ((sc ?? []) as { account_key: string; number: string; name: string }[]).find((y) => y.account_key === k); return x ? `${x.number} ${x.name}` : k; };
-          return [
-            ...((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: `${href("entries")}#sh-loans`, label: `${nm(f.account_key)}: ${FLAG_TEXT[f.flag]}`, detail: f.note, amount: amt(Number(f.closing)) })),
-            ...((rp ?? []) as { account_key: string; due_on: string; note: string }[]).map((r) => ({ href: `${href("entries")}#sh-loans`, label: `${nm(r.account_key)}: not repaid by ${formatDate(r.due_on)}`, detail: r.note,
-              amount: amt(Number(((sc ?? []) as { account_key: string; opening: number }[]).find((y) => y.account_key === r.account_key)?.opening ?? 0)) })),
-          ];
+          // Round 14: flags the preparer answered, per shareholder (last year's part not repaid; repaid near year end).
+          const { data: fl } = await supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null);
+          return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: `${href("entries")}#sh-loans`,
+            label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: f.note, amount: amt(Number(f.closing)) }));
         })() },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (

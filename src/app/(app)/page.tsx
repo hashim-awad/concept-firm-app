@@ -69,7 +69,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   // Round 14: each s.15(2) repayment date not yet confirmed in the client's next file. Owners see every
   // file; other staff the files they prepare.
   const seeCb = canView(access, "closebook");
-  type S = { file_id: string; client_name: string; year_end: string; account_key: string; number: string; name: string; closing: number; due_on: string; next_file: string | null; answer: string | null };
+  type S = { file_id: string; client_name: string; year_end: string; shareholder: number; accounts: string; amount: number; due_on: string; next_file: string | null; unpaid: number | null };
   const s152 = seeCb ? (((await supabase.rpc("cb_sh_due_list")).data ?? []) as S[]) : [];
   const noYearEnd = t2.filter((c) => !/^\d{2}-\d{2}$/.test(c.year_end_md));
 
@@ -120,15 +120,15 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
             <Card title="Shareholder loans: s.15(2) repayment dates" count={s152.length}>
               {s152.length === 0 ? <p className="text-sm text-muted">None.</p> : (
                 <ul className="grid gap-2 text-sm">{s152.map((x) => (
-                  <li key={`${x.file_id}|${x.account_key}`} className="flex flex-wrap items-baseline gap-x-2">
+                  <li key={`${x.file_id}|${x.shareholder}`} className="flex flex-wrap items-baseline gap-x-2">
                     <span className={`font-semibold ${x.due_on < today ? "text-danger" : ""}`}>Repay by {formatDate(x.due_on)}</span>
                     <Link href={`/closebook/${x.file_id}?step=entries#sh-loans`} className="font-medium text-navy-700 hover:underline">{x.client_name}</Link>
-                    <span className="text-muted">{x.number} {x.name}, {Number(x.closing).toLocaleString("en-CA", { style: "currency", currency: "CAD" })} owed at {formatDate(x.year_end)}</span>
-                    <span className="text-muted">{x.answer === "no" ? "· next year's file: not repaid, with the reviewer" : x.next_file ? "· next year's file: not answered yet" : "· next year's file not started"}</span>
+                    <span className="text-muted">Shareholder {x.shareholder}: {Number(x.amount).toLocaleString("en-CA", { style: "currency", currency: "CAD" })} owed from loans made in the year to {formatDate(x.year_end)} ({x.accounts})</span>
+                    <span className="text-muted">{x.unpaid !== null ? `· next year's file: ${Number(x.unpaid).toLocaleString("en-CA", { style: "currency", currency: "CAD" })} not repaid, with the reviewer` : x.next_file ? "· next year's file: not confirmed yet" : "· next year's file not started"}</span>
                   </li>
                 ))}</ul>
               )}
-              <p className="mt-3 text-xs text-muted">A shareholder who owes the company at year end must repay it within one year after that year end (s.15(2.6)), or it is income to them. Each date stays here until the client&rsquo;s next Closebook file answers &ldquo;Repaid by&rdquo; with Yes and the evidence.</p>
+              <p className="mt-3 text-xs text-muted">A shareholder who owes the company at year end must repay it within one year after that year end (s.15(2.6)), or it is income to them. Only this year&rsquo;s part of the balance is listed: a balance left from the year before has passed its date and is with the reviewer. Each date stays here until the client&rsquo;s next Closebook file confirms it was repaid in full.</p>
             </Card>
           )}
           <div className="lg:col-span-2">

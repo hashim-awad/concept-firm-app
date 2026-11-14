@@ -30,11 +30,17 @@ const SHAREHOLDER_TO = new Set(["2780", "2781", "2782", "2783", "3260", "3261", 
 // matching due from shareholder line, a current asset (CaseWare's sign-based reclassification).
 const DUE_FROM: Record<string, string> = { "2780": "1300", "3260": "1300", "2781": "1301", "3261": "1301", "2782": "1302", "3262": "1302", "2783": "1303", "3263": "1303" };
 const SHAREHOLDER_FROM = new Set(["1300", "1301", "1302", "1303"]);
+// Round 14 fix 3: the reverse, a credit on a due from shareholder line (the company owes the shareholder)
+// prints on the matching due to shareholder line, a current liability.
+const DUE_TO: Record<string, string> = { "1300": "2780", "1301": "2781", "1302": "2782", "1303": "2783" };
 export function reclassDueTo(m: Map<string, number>): Map<string, number> {
   const out = new Map(m);
-  for (const [code, v] of m) if (DUE_FROM[code] && v < 0) {
-    out.set(code, 0);
-    out.set(DUE_FROM[code], (out.get(DUE_FROM[code]) ?? 0) - v);
+  for (const [code, v] of m) {
+    // GIFI-signed: a debit on a liability line and a credit on an asset line are both negative.
+    const to = v < 0 ? DUE_FROM[code] ?? DUE_TO[code] : undefined;
+    if (!to) continue;
+    out.set(code, (out.get(code) ?? 0) - v);
+    out.set(to, (out.get(to) ?? 0) - v);
   }
   return out;
 }
