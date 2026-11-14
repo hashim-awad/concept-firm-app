@@ -116,6 +116,10 @@ select test.check('the history has every note action',
 -- Step 5: a flagged change must be explained on the lead sheets first.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+-- Round 9: the revenue check ties out (commission statement, GST/HST returns, the brokerage's T4A).
+select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Tax worksheet', 20000, 'files/statement.pdf');
+select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return', 20000, 'files/gst.pdf');
+select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A', 20000, 'files/t4a.pdf');
 select test.check('step 5: flagged changes to explain', test.try(format($q$select public.cb_sign_step(%L, 'entries', 'prepared')$q$, :'f')) = 'Not yet: 3 flagged changes to explain on the lead sheets.');
 select public.cb_explain_flag(id, 'revenue_grew', 'First full year of trading.') from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'entries', 'prepared');

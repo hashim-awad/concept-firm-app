@@ -5,16 +5,16 @@
 // as before; the action itself refuses a form sent with no file.
 import { useRef, useState } from "react";
 
-export function FilePick({ id, name, label, add, accept, hint }: { id: string; name: string; label: string; add: string; accept: string; hint: string }) {
+export function FilePick({ id, name, label, add, accept, hint, onPick, narrow = false }: { id: string; name: string; label: string; add: string; accept: string; hint: string; onPick?: (name: string) => void; narrow?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const clear = () => { if (input.current) input.current.value = ""; setFile(null); };
+  const clear = () => { if (input.current) input.current.value = ""; setFile(null); onPick?.(""); };
   return (
     <div className="grid content-start gap-1 text-sm font-medium">
       <span id={`${id}-label`}>{label}</span>
       <input ref={input} id={id} type="file" name={name} accept={accept} className="sr-only" aria-labelledby={`${id}-label`}
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      <div className="flex min-w-[16rem] flex-col gap-1.5 rounded-lg border border-dashed border-sand-300 p-2.5">
+        onChange={(e) => { setFile(e.target.files?.[0] ?? null); onPick?.(e.target.files?.[0]?.name ?? ""); }} />
+      <div className={`flex ${narrow ? "w-44" : "min-w-[16rem]"} flex-col gap-1.5 rounded-lg border border-dashed border-sand-300 p-2.5`}>
         {file ? (
           <span className="flex items-center justify-between gap-2 rounded bg-sand-50 px-2 py-1 text-sm font-normal">
             <span className="truncate">{file.name}</span>

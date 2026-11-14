@@ -20,6 +20,9 @@ import { loadFile, loadReference } from "@/lib/closebook/server";
 import { typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
+import { RevenueCheck } from "./revenue-check";
+import { ExpensesForm } from "./expenses-form";
+import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankView } from "./bank-view";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
@@ -221,8 +224,27 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
     // The entry form's choices: accounts, sales tax, standard entries resolved to this file (round 2 item 11).
     const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form}
-      noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} />;
+    // Round 9: the revenue check (CaseWare's tie-out working paper) and, when the setup says the owner paid
+    // business costs personally, the "Expenses paid personally" entry (QuickBooks Online's journal entry).
+    const rev = file.file_type === "full" ? await loadRevenue(supabase, id) : null;
+    const exp = file.file_type === "full" && setup.owner_paid === true ? await loadExpenses(supabase, file) : null;
+    const open = editable && file.phase !== "locked";
+    const booked = entries.filter((e) => e.origin === "expenses_personal").length;
+    body = <>
+      {rev && <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
+        isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} />}
+      {exp && (
+        <details id="expenses-personal" className="card mb-4" open={open && !booked}>
+          <summary className="cursor-pointer font-semibold">Expenses paid personally <span className="ml-1 text-sm font-normal text-ink-3">
+            {booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked, marked below` : "Setup: the owner paid business costs personally. Book one entry from the client's sheet."}</span></summary>
+          {open ? <div className="mt-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
+            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} /></div>
+            : <p className="mt-2 text-sm text-ink-2">The file is locked, or you have view access only.</p>}
+        </details>
+      )}
+      <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form}
+        noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} />
+    </>;
   } else if (step === "review") {
     // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
     // are one click away, where the preparer explains the flagged changes for step 5.
@@ -238,6 +260,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
         { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
           { href: `${href("entries")}#entry-${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
+        { key: "revenue", title: "Revenue check", step: "step 5", items: await (async () => {
+          const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
+          return r && revenueWaiting(r) ? [{ href: `${href("entries")}#revenue-check`, label: "Revenue difference over the review threshold", detail: r.explained ? r.explanation : r.explanation ? `Explained for another amount: ${r.explanation}` : "Not explained yet.", amount: amt(r.diff) }] : [];
+        })() },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`, detail: a.needs_reviewer ? a.reviewer_reason : typeFlagText(a, lineOf(a.line_no)), amount: amt(a.this_year) })) },
       ];

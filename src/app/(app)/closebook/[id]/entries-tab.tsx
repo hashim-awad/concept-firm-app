@@ -42,7 +42,8 @@ export function EntriesTab({ file, entries, accounts, editable, isReviewer, name
             <section key={e.id} id={`entry-${e.id}`} className="overflow-x-auto border border-[#C9CED8] bg-surface text-sm target:ring-2 target:ring-navy-700">
               <div className="flex flex-wrap items-center justify-between gap-2 bg-[#EEF1F6] px-3 py-1.5">
                 <span className="font-bold text-[#1A3C7C]">{entryNo(file.year_end, e).replace(" ", "\u2003")}<span className="ml-3 font-normal text-[#5B6475]">{REASONS[e.reason]}{e.reverse_next_year ? " · reverses next year" : ""}</span></span>
-                <span className="text-[#5B6475]">W/P ref: {e.wp_ref || "–"}</span>
+                <span className="flex flex-wrap items-center gap-2 text-[#5B6475]">{e.origin === "expenses_personal" && <span className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800">Expenses paid personally</span>}
+                  {e.origin === "revenue_check" && <a href="#revenue-check" className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800 underline">From the revenue check</a>}W/P ref: {e.wp_ref || "–"}</span>
               </div>
               <table className="w-full min-w-[640px]">
                 <thead><tr className="border-b border-[#C9CED8] text-left text-xs text-[#5B6475]"><th className="px-3 py-1 font-bold">Date</th><th className="px-3 py-1 font-bold">Account</th><th className="px-3 py-1 font-bold">Account name</th><th className="px-3 py-1 text-right font-bold">Debit</th><th className="px-3 py-1 text-right font-bold">Credit</th></tr></thead>
@@ -67,7 +68,7 @@ export function EntriesTab({ file, entries, accounts, editable, isReviewer, name
                 {noteBy && <NoteOnItem fileId={file.id} step="entries" targetType="entry" targetId={e.id} back={noteBy.back} />}
                 {e.reviewed_at
                   ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Approved</span>
-                  : !e.needs_review ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Standard entry, under the review threshold</span>
+                  : !e.needs_review ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">{e.origin === "expenses_personal" ? "Under the review threshold" : "Standard entry, under the review threshold"}</span>
                   : <span className="flex flex-wrap items-center gap-2"><span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For the reviewer</span>
                     {isReviewer && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button className="btn-secondary h-7 px-2 text-xs" type="submit">Approve</button></form>}
                     {editable && !locked && <form action={deleteEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button className="h-7 px-2 text-xs text-danger underline" type="submit">Delete</button></form>}</span>}
