@@ -14,6 +14,7 @@ import { keepsOwnBooks } from "./books";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signedPdfBytes } from "@/lib/t1-quote/sign";
 import { todayToronto } from "@/lib/dates";
+import { gstReason, rtLabel } from "./gst-server";
 
 export type CloseRow = {
   tax_balance: number | null; tax_due: string | null; filed_on: string | null; noa_issued: boolean | null; noa_penalty: number; noa_interest: number;
@@ -52,14 +53,23 @@ export async function loadClose(supabase: SupabaseClient, fileId: string) {
   const threshold = Number((set as { instalment_threshold?: number } | null)?.instalment_threshold ?? 3000);
   const bn9 = ((cl as { business_number?: string } | null)?.business_number ?? "").replace(/\s+/g, "").slice(0, 9);
   const reviewed = !!(signs as { reviewed_at?: string } | null)?.reviewed_at;
-  const ready = c.tax_balance !== null && !!c.tax_due && c.noa_issued !== null && c.fed_tax !== null && c.prov_tax !== null && (!c.hst_filed || (c.hst_balance !== null && !!c.hst_due));
+  // Round 13: a file whose GST/HST return is built in Closebook takes block B from the year's last return
+  // (the one filed with this package): owing or refund, amount, due date, RT account.
+  const gstWhy = gstReason({ file_type: file.file_type, books: file.books, setup: (file.setup ?? {}) as Record<string, unknown> });
+  const { data: gr } = gstWhy ? { data: [] } : await supabase.from("cb_gst_returns").select("period_no, label, period_start, period_end, due_on, lines, filed_on, confirmation").eq("file_id", fileId).order("period_no");
+  const gstReturns = ((gr ?? []) as { period_no: number; label: string; period_start: string; period_end: string; due_on: string; lines: Record<string, number>; filed_on: string | null; confirmation: string }[]);
+  const lastReturn = gstReturns.at(-1) ?? null;
+  const fromReturn = !gstWhy;
+  const hstBlock = fromReturn ? (lastReturn ? { balance: Number(lastReturn.lines["113"]) / 100, due: lastReturn.due_on, rt: rtLabel((file.setup as Record<string, unknown> | null)?.gst_rt) } : null)
+    : c.hst_filed ? { balance: c.hst_balance!, due: c.hst_due, rt: c.hst_rt } : null;
+  const ready = c.tax_balance !== null && !!c.tax_due && c.noa_issued !== null && c.fed_tax !== null && c.prov_tax !== null && (fromReturn ? !!lastReturn : !c.hst_filed || (c.hst_balance !== null && !!c.hst_due));
   // The email: as sent once delivered; otherwise built now, a draft until the reviewer signs step 10.
   const email: Email | null = c.delivered_email ?? (ready ? buildEmail({
     name: pk.m.name, yearEnd: file.year_end, days: pk.m.days, officerFirst: (pk.fields.officer_name.trim().split(/\s+/)[0] ?? ""), bn9, today: todayToronto(),
     tax: { balance: c.tax_balance!, due: c.tax_due!, filed: c.filed_on ?? "", noaIssued: !!c.noa_issued, noaPenalty: c.noa_penalty, noaInterest: c.noa_interest },
-    hst: c.hst_filed ? { balance: c.hst_balance!, due: c.hst_due, rt: c.hst_rt } : null,
+    hst: hstBlock,
     inst: { fedTax: c.fed_tax!, provTax: c.prov_tax!, fedTaxPrior: c.fed_tax_prior ?? 0, provTaxPrior: c.prov_tax_prior ?? 0, threshold, schedule: c.instalments },
-    minuteLetter: true, draft: !reviewed,
+    minuteLetter: true, draft: !reviewed, ownBooks: keepsOwnBooks(file),
   }) : null);
   const legal = (cl as { legal_name?: string } | null)?.legal_name ?? pk.m.name;
   const own = keepsOwnBooks(file);
@@ -67,7 +77,7 @@ export async function loadClose(supabase: SupabaseClient, fileId: string) {
   // Step 8's total income tax, to check the federal and provincial figures typed here.
   const { data: tie } = await supabase.from("cb_t2_tieouts").select("income_tax").eq("file_id", fileId).maybeSingle();
   const step8Tax = (tie as { income_tax?: number } | null)?.income_tax ?? null;
-  return { pk, close: c, status, threshold, bn9, reviewed, email, docs, zipName: zipFile(legal, file.year_end), legal, own, locked: file.phase === "locked", step8Tax: step8Tax === null ? null : Number(step8Tax) };
+  return { gst: { fromReturn, why: gstWhy, returns: gstReturns }, pk, close: c, status, threshold, bn9, reviewed, email, docs, zipName: zipFile(legal, file.year_end), legal, own, locked: file.phase === "locked", step8Tax: step8Tax === null ? null : Number(step8Tax) };
 }
 export type CloseData = NonNullable<Awaited<ReturnType<typeof loadClose>>>;
 

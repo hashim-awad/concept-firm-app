@@ -112,3 +112,12 @@ export async function livePostings(supabase: SupabaseClient, fileId: string) {
   if (!f || !["statements", "paper"].includes(f.books)) return null;
   return build(await loadInputs(supabase, f, false));
 }
+
+// Round 13: the same inputs the build uses (bank lines, chart, tax codes, the GST/HST context), for the
+// GST/HST return, so the return and the trial balance split the sales tax the same way.
+export async function gstInputs(supabase: SupabaseClient, fileId: string) {
+  const f = await loadFileRow(supabase, fileId);
+  if (!f || !["statements", "paper"].includes(f.books)) return null;
+  const i = await loadInputs(supabase, f, false);
+  return { ...i, province: ((f.client as { province: string } | null)?.province ?? "ON"), postings: build(i).postings };
+}

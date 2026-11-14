@@ -351,12 +351,15 @@ export async function saveSetup(formData: FormData) {
   const back = `/closebook/${id}?step=setup`;
   await editor(back);
   const answers: Record<string, boolean | string> = {};
-  for (const k of ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered", "quick_method"]) {
+  for (const k of ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered", "quick_method", "gst_year_same"]) {
     const v = s(formData, k);
     if (v === "yes" || v === "no") answers[k] = v === "yes";
   }
   const f = s(formData, "gst_frequency");
   if (f) answers.gst_frequency = f;
+  // Round 13: the GST/HST account, written RT0001.
+  const rt = s(formData, "gst_rt").replace(/\s+/g, "").toUpperCase();
+  if (rt) answers.gst_rt = rt;
   const { error } = await (await createClient()).rpc("cb_save_setup", { p_file: id, p_setup: answers });
   if (error) redirect(withMessage(back, "error", error.message));
   await rebuildTb(await createClient(), id);

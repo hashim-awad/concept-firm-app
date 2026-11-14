@@ -13,6 +13,7 @@ export type EmailInput = {
   // C. Instalments: federal and provincial tax for the year filed and the year before, the schedule, the threshold.
   inst: { fedTax: number; provTax: number; fedTaxPrior: number; provTaxPrior: number; threshold: number; schedule: InstalmentRow[] };
   fs?: boolean; minuteLetter: boolean; draft: boolean;
+  ownBooks?: boolean;   // round 13: the client keeps their own books; the documents include the entries to record
 };
 export type Email = { subject: string; text: string; html: string; review: string[] };
 
@@ -97,7 +98,9 @@ export function buildEmail(E: EmailInput): Email {
     const nxt = addMonths(ye, 12);
     const req = all.filter((x) => (x.required || 0) > 0);
     const pays = inst.map((x) => x.payable);
-    const regular = [...new Set(pays)].reduce((a, b) => (pays.filter((v) => v === b).length > pays.filter((v) => v === a).length ? b : a));
+    // The regular payment: the most frequent amount; on a tie the smaller one (the catch-up is the larger).
+    const count = (v: number) => pays.filter((x) => x === v).length;
+    const regular = [...new Set(pays)].reduce((a, b) => (count(b) > count(a) || (count(b) === count(a) && b < a) ? b : a));
     const gaps = inst.slice(1).map((b, i) => (D(b.date).getTime() - D(inst[i].date).getTime()) / 86400000);
     const quarterly = gaps.length > 0 && Math.min(...gaps) > 60;
     const per = quarterly ? "every three months" : "each month", unit = quarterly ? "quarter" : "month";
@@ -119,7 +122,12 @@ export function buildEmail(E: EmailInput): Email {
     if (f.payable > regular && req.length) {
       const missed = req.filter((x) => D(x.date) <= D(f.date));
       const n = missed.length;
-      C.push(`The payments are ${money(regular)} a ${unit} starting in ${monthName(D(req[0].date))}. ${monthName(D(req[0].date))} to ${monthName(D(f.date))} have passed, so the first payment catches up ${n} ${unit}s: ${n} x ${money(regular)} = ${money(f.payable)}. The CRA may still charge a small amount of interest on those late ${unit}s.`);
+      // Round 13 (Hashim, Nov 14, 2026): Appendix C's "January to March have passed" was wrong when the first
+      // payment is still to come. The payments that have passed are named; the catch-up payment is named.
+      const gone = req.filter((x) => D(x.date) < D(f.date)).map((x) => monthName(D(x.date)));
+      const names = gone.length > 1 ? `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}` : gone[0];
+      const passed = gone.length > 1 ? `The payments due in ${names} have passed` : `The payment due in ${names} has passed`;
+      C.push(`The payments are ${money(regular)} a ${unit} starting in ${monthName(D(req[0].date))}. ${passed}, so the ${monthName(D(f.date))} payment catches up ${n} ${unit}s: ${n} x ${money(regular)} = ${money(f.payable)}. The CRA may still charge a small amount of interest on those late ${unit}s.`);
       if (n * regular !== f.payable) REVIEW.push(`Catch-up math check: ${n} x ${money(regular)} != ${money(f.payable)}. Fix section C.`);
     }
     S.push([`Tax instalments for the year ending ${fd(nxt)}`, C, "para"]);
@@ -128,6 +136,7 @@ export function buildEmail(E: EmailInput): Email {
   }
   if (payAny) S.push(["How to pay", ["Pay through your online banking or through CRA My Payment on the CRA website. Each amount above is its own payment."], "para"]);
   const docs = E.fs === false ? [] : ["compiled financial statements"];
+  if (E.ownBooks) docs.push("entries to record in your books");
   docs.push("full T2 return", "signed T183CORP", "CRA e-file confirmation");
   if (H) docs.push("GST/HST return");
   if (E.minuteLetter) docs.push("minute book letter (please forward it to your lawyer)");
