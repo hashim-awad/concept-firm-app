@@ -115,3 +115,19 @@ export async function deleteFirmVendorRule(formData: FormData) {
   revalidatePath(VR);
   redirect(withMessage(VR, error ? "error" : "msg", error ? error.message : "Rule deleted."));
 }
+
+// Settings, Closebook, GST/HST (round 13): the due-date rule and the quick method's rates.
+export async function updateGstSettings(formData: FormData) {
+  const back = "/admin/closebook/gst";
+  await owner(back);
+  const num = (k: string) => { const v = s(formData, k).replace(/[$,%\s]/g, ""); return v === "" ? null : Number(v); };
+  const due = [num("due_annual"), num("due_period")];
+  if (due.some((v) => v === null || !Number.isInteger(v))) redirect(withMessage(back, "error", "Due dates: a whole number of months."));
+  const cr = num("credit_rate"), lim = num("credit_limit");
+  if ((cr !== null && !Number.isFinite(cr)) || (lim !== null && !Number.isFinite(lim))) redirect(withMessage(back, "error", "The quick method credit and limit are numbers."));
+  const rates = [...formData.keys()].filter((k) => k.startsWith("rate_")).map((k) => { const v = num(k); return { province: k.slice(5), rate: v === null ? "" : v / 100 }; });
+  if (rates.some((r) => r.rate !== "" && !Number.isFinite(r.rate))) redirect(withMessage(back, "error", "A remittance rate is a percentage, for example 8.8."));
+  const { error } = await (await createClient()).rpc("cb_update_gst_settings", { p_due_annual: due[0], p_due_period: due[1], p_credit_rate: cr === null ? null : cr / 100, p_credit_limit: lim, p_rates: rates });
+  revalidatePath(back);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
+}

@@ -57,6 +57,7 @@ export const SETTINGS: [string, SettingsDef[]][] = [
     { label: "Vendor rules", href: "/admin/closebook/vendor-rules", open: ["owner"] },
     { label: "Bank CSV formats", href: "", open: ["owner"], soon: true },
     { label: "Thresholds", href: "/admin/closebook/thresholds", open: ["owner"] },
+    { label: "GST/HST", href: "/admin/closebook/gst", open: ["owner"] },
     { label: "Accounting policy (Note 1)", href: "/admin/closebook/policy", open: ["owner"] },
   ]],
   ["Connections", [

@@ -19,8 +19,10 @@ const input = (c: Case, over: Partial<EmailInput> = {}): EmailInput => ({
   hst: c.E.hst ? { balance: c.E.hst.balance, due: c.E.hst.due ?? null, rt: c.E.hst.rt ?? "RT 0001" } : null,
   inst: { fedTax: c.m.fed_tax, provTax: c.m.prov_tax, fedTaxPrior: 0, provTaxPrior: 0, threshold: 3000, schedule: c.m.instalments.map((x) => ({ date: x.date, amount: x.required })) },
   minuteLetter: !!c.E.minute_letter, draft: false, ...over });
+// Two approved changes from Appendix C: the signature (round 12) and the catch-up sentence (round 13).
 const fixture = (id: string, ext: string) => readFileSync(new URL(`${id}.${ext}`, dir), "utf8")
-  .replace("Hashim Awad, CPA (ON), CPA (US), MFin", "Hashim Awad, CPA").replace("<b>Hashim Awad</b>, CPA (ON), CPA (US), MFin", "<b>Hashim Awad</b>, CPA");
+  .replace("Hashim Awad, CPA (ON), CPA (US), MFin", "Hashim Awad, CPA").replace("<b>Hashim Awad</b>, CPA (ON), CPA (US), MFin", "<b>Hashim Awad</b>, CPA")
+  .replace("January to March have passed, so the first payment catches up", "The payments due in January and February have passed, so the March payment catches up");
 
 for (const c of cases) {
   test(`Appendix C's email, word for word: ${c.id}`, () => {
@@ -66,6 +68,18 @@ test("instalments: a short first year stretched to a full year; the threshold is
   const e = buildEmail(input(c, { inst: { ...input(c).inst, threshold: 5000 } }));
   assert.match(e.text, /expected to be more than \$5,000/);
   assert.equal(e.review.length, 1);
+});
+test("the catch-up sentence names the payments that have passed and the payment that catches up (round 13)", () => {
+  const c = byId("short_inst_q");
+  const two = { ...input(c), today: "2027-01-10", inst: { ...input(c).inst, schedule: [{ date: "2026-11-30", amount: 915 }, { date: "2026-12-31", amount: 915 }, { date: "2027-01-31", amount: 915 }, { date: "2027-02-28", amount: 915 }] } };
+  assert.match(buildEmail(two).text, /The payments due in November and December have passed, so the January payment catches up 3 months: 3 x \$915 = \$2,745\./);
+  const one = { ...two, today: "2026-12-10" };
+  assert.match(buildEmail(one).text, /The payment due in November has passed, so the December payment catches up 2 months: 2 x \$915 = \$1,830\./);
+});
+test("a client who keeps their own books: the documents include the entries to record (round 13)", () => {
+  assert.match(buildEmail(input(byId("nil"), { ownBooks: true })).text,
+    /Your compiled financial statements, entries to record in your books, full T2 return, signed T183CORP, CRA e-file confirmation and minute book letter \(please forward it to your lawyer\) are in your TaxDome portal\./);
+  assert.match(buildEmail(input(byId("nil"))).text, /Your compiled financial statements, full T2 return, signed T183CORP/);
 });
 test("draft for review until the reviewer signs step 10", () => {
   const e = buildEmail(input(byId("nil"), { draft: true }));

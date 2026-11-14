@@ -25,6 +25,9 @@ import { T2Step } from "./t2-step";
 import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
 import { CloseStep } from "./close-step";
+import { GstSection } from "./gst-section";
+import { gstFor } from "@/lib/closebook/gst-server";
+import type { Line } from "@/lib/closebook/gst-return";
 import { loadClose } from "@/lib/closebook/close-server";
 import { OpeningS125 } from "./opening-s125";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
@@ -225,6 +228,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               </select>
             </div>
               <SetupQ name="quick_method" q="Does it use the quick method?" adds="Yes: no ITCs on operating expenses, meals included; capital purchases still claim them" value={setup.quick_method as boolean | undefined} />
+            <div className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
+              <label htmlFor="gst_rt" className="text-sm">GST/HST account<span className="block text-xs text-ink-3">The RT account the return is filed under</span></label>
+              <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
+            </div>
+              <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
             {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
           </form>
         </section>
@@ -310,7 +318,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const fsm = g ? (await loadPackage(supabase, id))?.m : null;
     const curFail = fsm?.failed.find((t) => t.column === "current");
     const rounding = fsm ? (curFail ? { stopped: `Not worked out: a tie-out fails in step 9 (${curFail.name}).` } : { fix: fsm.profileFix }) : undefined;
-    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} />
+    // Round 13: the GST/HST return beside the T2.
+    const gst = await gstFor(supabase, id);
+    const dl = /^\d+$/.test(str(sp.gst) ?? "") && /^1\d\d$/.test(str(sp.line) ?? "") ? { period: Number(str(sp.gst)), line: str(sp.line) as Line } : null;
+    body = g ? <><T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} />
+      {gst && <div className="mt-4"><GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} /></div>}</>
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Step 9 (round 11): the year-end package, its fields and the MAL's signing.

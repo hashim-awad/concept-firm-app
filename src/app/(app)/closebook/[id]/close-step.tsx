@@ -4,6 +4,7 @@
 import { formatDate } from "@/lib/dates";
 import type { CloseData } from "@/lib/closebook/close-server";
 import { lockFile, recordDelivery, reopenFile, saveCloseFields, saveFilingRecord } from "../close-actions";
+import { saveGstFiling } from "../gst-actions";
 import { CopyButton } from "@/app/(app)/leads/[id]/quote/copy-button";
 import { Checklist, type ChecklistRow } from "./review-step";
 
@@ -62,16 +63,25 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
               <label><span className="label">NOA interest</span><input className="input text-right tabular-nums" style={{ width: "8rem" }} name="noa_interest" defaultValue={c.noa_interest ? money(c.noa_interest) : ""} /></label>
             </div>
           </div>
-          <div className="grid gap-3">
-            <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-2">Only if a return was filed with this package. Typed for now; the GST/HST return round will fill these.</span></p>
-            <div className="flex flex-wrap items-end gap-3">
-              <label><span className="label">Return filed</span>{sel("hst_filed", c.hst_filed ? "yes" : "no", [["no", "No"], ["yes", "Yes"]], "7rem")}</label>
-              <label><span className="label">Balance</span>{sel("hst_kind", kind(c.hst_balance), [["owing", "Owing"], ["refund", "Refund"], ["nil", "Nil"]])}</label>
-              <label><span className="label">Amount</span><input className="input text-right tabular-nums" style={{ width: "9rem" }} name="hst_amount" defaultValue={money(c.hst_balance)} /></label>
-              <label><span className="label">Due date</span><input className="input" style={{ width: "10rem" }} type="date" name="hst_due" defaultValue={c.hst_due ?? ""} /></label>
-              <label><span className="label">RT account</span><input className="input" style={{ width: "7rem" }} name="hst_rt" defaultValue={c.hst_rt} /></label>
+          {d.gst.fromReturn ? (
+            <div className="grid gap-1">
+              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-2">From the GST/HST return in step 8 (the year&apos;s last return, filed with this package).</span></p>
+              {(() => { const r = d.gst.returns.at(-1); if (!r) return <p className="text-sm text-danger">Prepare the GST/HST return in step 8 first.</p>;
+                const v = Number(r.lines["113"]) / 100;
+                return <p className="text-sm">{r.label}: {v > 0 ? "owing" : v < 0 ? "refund" : "nil"} {money(v)} · due {formatDate(r.due_on)} · {d.pk.data.file.setup && String((d.pk.data.file.setup as Record<string, unknown>).gst_rt ?? "RT0001").replace(/^RT/, "RT ")}</p>; })()}
             </div>
-          </div>
+          ) : (
+          <div className="grid gap-3">
+              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-2">Only if a return was filed with this package. Typed for now; the GST/HST return round will fill these.</span></p>
+              <div className="flex flex-wrap items-end gap-3">
+                <label><span className="label">Return filed</span>{sel("hst_filed", c.hst_filed ? "yes" : "no", [["no", "No"], ["yes", "Yes"]], "7rem")}</label>
+                <label><span className="label">Balance</span>{sel("hst_kind", kind(c.hst_balance), [["owing", "Owing"], ["refund", "Refund"], ["nil", "Nil"]])}</label>
+                <label><span className="label">Amount</span><input className="input text-right tabular-nums" style={{ width: "9rem" }} name="hst_amount" defaultValue={money(c.hst_balance)} /></label>
+                <label><span className="label">Due date</span><input className="input" style={{ width: "10rem" }} type="date" name="hst_due" defaultValue={c.hst_due ?? ""} /></label>
+                <label><span className="label">RT account</span><input className="input" style={{ width: "7rem" }} name="hst_rt" defaultValue={c.hst_rt} /></label>
+              </div>
+            </div>
+          )}
           <div className="grid gap-3">
             <p className="font-medium">C. Instalments</p>
             <div className="flex flex-wrap items-end gap-3">
@@ -133,7 +143,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
             {delivered && <span className="text-xs text-ink-2">The documents as delivered.</span>}
           </div>)}
         {delivered ? (
-          <p className="text-sm"><span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Done</span> Uploaded to TaxDome and email sent: {names.get(c.delivered_by ?? "") ?? ""}, {when(c.delivered_at!)}.</p>
+          <p className="text-sm"><span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Done</span> Uploaded to TaxDome and email sent: {names.get(c.delivered_by ?? "") ?? ""}, {when(c.delivered_at!)}</p>
         ) : can && d.pk.signed ? (
           <form action={recordDelivery} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-3">
             <input type="hidden" name="file_id" value={fileId} />
@@ -155,6 +165,25 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
           <span className="text-xs text-ink-2">The T183CORP is signed in TaxDome or Adobe; record the date here.</span>
         </fieldset>
       </form>
+
+      {/* Round 13: each GST/HST return's filing date and CRA confirmation number (the lock needs them). */}
+      {d.gst.fromReturn && d.gst.returns.length > 0 && (
+        <section aria-label="GST/HST filing record" className="card grid gap-2">
+          <h2 className="font-semibold">GST/HST filing record</h2>
+          {d.gst.returns.map((r) => (
+            <form key={r.period_no} action={saveGstFiling} className="flex flex-wrap items-end gap-3 border-t border-sand-100 pt-2">
+              <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="period" value={r.period_no} />
+              <span className="w-72 text-sm">{r.label}<span className="block text-xs text-ink-3">Due {formatDate(r.due_on)}</span></span>
+              <fieldset disabled={!can} className="flex flex-wrap items-end gap-3">
+                <label><span className="label">Filed</span><input className="input" style={{ width: "10rem" }} type="date" name="filed" defaultValue={r.filed_on ?? ""} /></label>
+                <label><span className="label">CRA confirmation number</span><input className="input" style={{ width: "14rem" }} name="confirmation" defaultValue={r.confirmation} /></label>
+                {can && <button className="btn-secondary btn-compact">Save</button>}
+              </fieldset>
+              {r.filed_on && r.confirmation ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Recorded</span> : <span className="rounded bg-warning/15 px-2 py-0.5 text-xs font-semibold text-warning">To fill</span>}
+            </form>
+          ))}
+        </section>
+      )}
 
       {/* 11. Lock. */}
       <section aria-label="Lock" className="card grid gap-3">
