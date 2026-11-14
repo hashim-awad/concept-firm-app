@@ -68,7 +68,7 @@ export async function saveRevenueCheck(formData: FormData) {
 
 export async function acceptRevenueDifference(formData: FormData) {
   const id = s(formData, "file_id");
-  const { error } = await (await createClient()).rpc("cb_accept_revenue_difference", { p_file: id });
+  const { error } = await (await createClient()).rpc("cb_accept_revenue_difference", { p_file: id, p_check: s(formData, "check") || "revenue" });
   done(id, error, "Difference accepted.");
 }
 
@@ -100,6 +100,7 @@ export async function addPersonalExpenses(formData: FormData) {
   if (!f) redirect(withMessage(back(id), "error", "File not found."));
   const data = await loadExpenses(supabase, f!.file);
   if (!data) redirect(withMessage(back(id), "error", "The \"Expenses paid personally\" standard entry is missing. Ask an owner."));
+  if (!data!.shareholders.some((h) => h.value === form!.head.shareholder)) redirect(withMessage(back(id), "error", "Choose the shareholder from the list. Nothing was saved."));
   const sheet = fileOf(formData, "sheet");
   const receipts = new Map(form!.inputs.map((i) => [i.key, formData.getAll(`receipts_${i.key}`).filter((x): x is File => x instanceof File && x.size > 0)]));
   const inputs = form!.inputs.map((i) => ({ ...i, receipts: receipts.get(i.key)?.length ?? 0 }));
@@ -116,6 +117,7 @@ export async function addPersonalExpenses(formData: FormData) {
     const chart = new Map(data!.chart.map((c) => [c.number, c]));
     const has = new Set(f!.accounts.filter((a) => a.line_no && a.number && !a.client_new && !a.account_key.startsWith("line:") && !a.account_key.startsWith("gifi:")).map((a) => a.line_no));
     lines = plan.rpc.map((l) => {
+      if (!l.chart) return l;   // already the client's own account (the shareholder)
       const c = chart.get(l.chart);
       if (l.is_tax || !c || has.has(c.line_no)) return l;
       const { chart: _drop, ...rest } = l;

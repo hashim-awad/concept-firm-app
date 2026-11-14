@@ -32,6 +32,8 @@ select test.check('A1: a realtor starts with the brokerage''s commission stateme
   private.cb_step5_problems(:'f') @> array['Revenue check: enter the brokerage''s commission statement.']);
 select test.check('A2: a registrant also enters the GST/HST returns', private.cb_step5_problems(:'f') @> array['Revenue check: enter the revenue on the year''s GST/HST returns.']);
 select test.check('A6: a realtor enters the brokerage''s T4A, or says there is none', private.cb_step5_problems(:'f') @> array['Revenue check: enter the brokerage''s T4A, or say there is none.']);
+select test.check('a check with no source is open work for the preparer, not a difference: nothing waits for the reviewer',
+  private.cb_step5_waiting(:'f') = '{}' and not (private.cb_revenue_state(:'f') ->> 'waiting')::boolean);
 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -40,8 +42,8 @@ select test.check('step 5 cannot be signed as prepared before the revenue check'
 select test.check('A1: a source needs its report attached', test.try(format($q$select public.cb_add_revenue_source(%L, 'commission_statement', '', 'Brokerage', 19000, '')$q$, :'f')) = 'Attach the report.');
 select test.check('A1: a T4A says who paid it', test.try(format($q$select public.cb_add_revenue_source(%L, 't4a', '', 'Slip', 19000, 'x.pdf')$q$, :'f')) = 'Say who paid the T4A: the brokerage or another payer.');
 select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Brokerage tax worksheet', 19000, 'files/statement.pdf') as src \gset
-select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return', 20000, 'files/gst.pdf');
-select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A box 048', 18500, 'files/t4a.pdf');
+select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return', 20000, 'files/gst.pdf') as gst \gset
+select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A box 048', 18500, 'files/t4a.pdf') as t4a \gset
 reset role;
 reset request.jwt.claims;
 select test.check('A3: the difference to the cent', (private.cb_revenue_state(:'f') ->> 'diff')::numeric = 1000.00);
@@ -78,29 +80,51 @@ select public.cb_remove_revenue_source(:'src');
 select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Brokerage tax worksheet', 10000, 'files/statement.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('A5: over the threshold, it waits for the reviewer', private.cb_step5_waiting(:'f') = array['Revenue difference of 9,000.00, over the review threshold.']);
-select test.check('A5: and step 6 waits for it', private.cb_step_waiting(:'f', 'entries') @> array['Revenue difference of 9,000.00, over the review threshold.']);
+select test.check('A5: over the threshold, each check waits for the reviewer (revenue and T4A here)', private.cb_step5_waiting(:'f')
+  = array['Revenue difference of 9,000.00, over the review threshold.', 'T4A difference of (8,500.00), over the review threshold.']);
+select test.check('A5: and step 6 waits for them', private.cb_step_waiting(:'f', 'entries') @> array['T4A difference of (8,500.00), over the review threshold.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('A5: the preparer cannot accept it', test.try(format($q$select public.cb_accept_revenue_difference(%L)$q$, :'f')) like 'Only the reviewer accepts%');
+select test.check('A5: the preparer cannot accept it', test.try(format($q$select public.cb_accept_revenue_difference(%L, 'revenue')$q$, :'f')) like 'Only the reviewer accepts%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('A5: the reviewer accepts only an explained difference', test.try(format($q$select public.cb_accept_revenue_difference(%L)$q$, :'f')) = 'The preparer explains this difference first.');
+select test.check('A5: an explanation written for another difference does not count', test.try(format($q$select public.cb_accept_revenue_difference(%L, 't4a')$q$, :'f')) = 'The preparer explains this difference first.');
+select test.check('A5: nothing to accept on a check within the threshold', test.try(format($q$select public.cb_accept_revenue_difference(%L, 'gst')$q$, :'f')) like 'Nothing to accept%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_save_revenue_check(:'f', 'Second statement from the old brokerage still to come.', 'The return was filed before the duplicate was found.', 'Slip left out a deal.', false);
+select public.cb_save_revenue_check(:'f', 'Second statement from the old brokerage still to come.', 'The return was filed before the duplicate was found.', 'The slip covers both brokerages.', false);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_accept_revenue_difference(:'f');
+select public.cb_accept_revenue_difference(:'f', 'revenue');
+select public.cb_accept_revenue_difference(:'f', 't4a');
 reset role;
 reset request.jwt.claims;
 select test.check('A5: accepted, nothing waits', private.cb_step5_waiting(:'f') = '{}');
-select test.check('A5: the history has the acceptance', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'revenue_accepted' and detail = 'Revenue difference 9,000.00 accepted'));
+select test.check('A5: the history has each acceptance, signed', (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action = 'revenue_accepted')
+  = 'Revenue difference 9,000.00 accepted | T4A difference (8,500.00) accepted');
+
+-- A sign flip is a different difference: the explanation and the acceptance open again.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_remove_revenue_source(:'t4a');
+select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A corrected', 1500, 'files/t4a.pdf');
+select public.cb_remove_revenue_source(:'gst');
+select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return, amended', 18000, 'files/gst.pdf');
+reset role;
+reset request.jwt.claims;
+select test.check('A4: T4A (8,500.00) became 8,500.00: its explanation is open again',
+  (private.cb_revenue_state(:'f') ->> 't4a_diff')::numeric = 8500 and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference between the T4A and the commission statement.']);
+select test.check('A5: and its acceptance too: it waits again', private.cb_step5_waiting(:'f') = array['T4A difference of 8,500.00, over the review threshold.']);
+select test.check('A4: GST/HST (1,000.00) became 1,000.00: its explanation is open again',
+  (private.cb_revenue_state(:'f') ->> 'gst_diff')::numeric = 1000 and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference with the GST/HST returns.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_remove_revenue_source(id) from public.cb_revenue_sources where file_id = :'f' and kind = 'gst_returns';
+select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return, amended', 12000, 'files/gst.pdf');
 select public.cb_add_revenue_source(:'f', 'slips', '', 'T5018', 100, 'files/t5018.pdf');
 reset role;
 reset request.jwt.claims;
+select test.check('A5: the GST/HST check over the threshold waits for the reviewer', private.cb_step5_waiting(:'f') @> array['GST/HST returns difference of 7,000.00, over the review threshold.']);
 select test.check('A4: an explanation written for another difference is open again',
   private.cb_step5_problems(:'f') @> array['Revenue check: the difference changed since it was explained. Check the explanation and save it again.']);
-select test.check('A5: a new difference waits again', private.cb_step5_waiting(:'f') = array['Revenue difference of 8,900.00, over the review threshold.']);
+select test.check('A5: a new revenue difference waits again', private.cb_step5_waiting(:'f') @> array['Revenue difference of 8,900.00, over the review threshold.']);
 
 -- B. Expenses paid personally: the standard entry.
 select (select id from public.cb_standard_entries where name = 'Expenses paid personally') as std \gset

@@ -75,6 +75,8 @@ test("not registered, or the quick method: the tax adds to the cost; a capital p
 test("the save is refused when the lines do not add up to the Summary total", () => {
   const p = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 1300 }], head({ summaryTotal: 12000 }), REG);
   assert.ok(p.problems.some((x) => x.startsWith("The lines add up to 113.00, not the Summary total of 120.00")));
+  assert.ok(!p.balanced && !p.complete && !p.tieOut);
+  assert.equal(p.summaryDiff, 700, "Summary total less the lines typed");
 });
 
 test("GST/HST on a 'No tax normally' line is flagged until checked, then adds to the cost", () => {
@@ -89,6 +91,10 @@ test("GST/HST on a 'No tax normally' line is flagged until checked, then adds to
 test("a vehicle amount with no km is refused; a lease goes to the reviewer", () => {
   const p = planExpenses(DEFS, [{ key: "vehicle_lease", before: 600000, tax: 78000, receipts: 1 }], head({ summaryTotal: 678000 }), REG);
   assert.ok(p.problems.some((x) => x.startsWith("Vehicle lines: type the total km")));
+  assert.equal(p.rows[0].needs, "km", "the line shows it needs km");
+  assert.equal(p.rows[0].cost, 0, "never 100% of the cost and tax");
+  assert.ok(!p.complete && !p.tieOut);
+  assert.ok(!p.rpc.some((l) => l.chart === "70600"));
   const bad = planExpenses(DEFS, [{ key: "vehicle_fuel", before: 1000, tax: 0 }], head({ summaryTotal: 1000, kmTotal: 100, kmBusiness: 200 }), REG);
   assert.ok(bad.problems.some((x) => x.startsWith("Vehicle lines")));
   assert.ok(p.reviewer.some((x) => x.includes("passenger vehicle limits")));
@@ -116,4 +122,10 @@ test("blank lines are dropped and the sheet must be attached", () => {
   assert.ok(p.problems.includes("Type the amounts from the Summary for the lines that apply."));
   assert.ok(p.problems.includes("Attach the client's sheet as the source."));
   assert.equal(p.rows.length, 0);
+});
+
+test("own books: the credit goes to the client's own shareholder account", () => {
+  const p = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 1300 }], head({ summaryTotal: 11300, shareholder: "acct:abc" }), REG);
+  assert.deepEqual(p.problems, []);
+  assert.deepEqual(p.rpc.at(-1), { account: "abc", amount: -113, memo: "Paid personally by the shareholder" });
 });

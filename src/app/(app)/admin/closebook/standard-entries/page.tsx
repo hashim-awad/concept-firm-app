@@ -7,7 +7,7 @@ import { FIRM_TAX_MODE } from "@/lib/closebook/vendor";
 import { saveStandardEntryLine } from "../../../closebook/round9-actions";
 
 type Ln = { key: string; name: string; sort_order: number; account: string | null; tax: string; share: string; capital: boolean; to_reviewer: boolean; pick: boolean; note_required: boolean; choices: string[] };
-const LINE_TAX: [string, string][] = [["taxable", "GST/HST at the client's rate"], ["meals", "Meals: 50% of the GST/HST claimable"], ["none", "No tax normally"], ["auto", "As the Auto expenses entry"]];
+const LINE_TAX: [string, string][] = [["taxable", "GST/HST, client's rate"], ["meals", "Meals: 50% ITC"], ["none", "No tax normally"], ["auto", "As Auto expenses"]];
 const SHARE: Record<string, string> = { km: "Business km", phone: "Business share", none: "" };
 
 type Std = { id: string; name: string; kind: string; reason: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; reverse_next_year: boolean; tax_mode: string };
@@ -72,19 +72,20 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
                 Each line debits its account, the claimable GST/HST goes to 21500 and the shareholder loan (23000 or 23050) is credited. Change a line&rsquo;s default here; the lines and their order follow the client&rsquo;s sheet.</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="table table-compact min-w-[880px]">
+              <table className="table table-compact">
                 <thead><tr><th>#</th><th>Line on the sheet</th><th>Account</th><th>Sales tax</th><th>Share</th><th>Reviewer</th><th /></tr></thead>
                 <tbody>{[...x.lines].sort((a, b) => a.sort_order - b.sort_order).map((l) => {
                   const fid = `ln-${l.key}`;
                   return (
                     <tr key={l.key}>
                       <td className="tabular-nums text-ink-3">{l.sort_order}</td>
-                      <td>{l.name}{l.capital && <span className="ml-1 text-xs text-ink-3">(capital)</span>}{l.note_required && <span className="block text-xs text-ink-3">The preparer adds a note saying what it is.</span>}</td>
+                      <td>{l.name}{l.capital && <span className="ml-1 text-xs text-ink-3">(capital)</span>}{l.note_required && <span className="block text-xs text-ink-3">The preparer adds a note saying what it is.</span>}
+                        {l.pick && l.choices.length > 0 && <span className="block text-xs text-ink-3">Only {l.choices.join(", ")}.</span>}</td>
                       <td><form id={fid} action={saveStandardEntryLine}><input type="hidden" name="standard" value={x.id} /><input type="hidden" name="key" value={l.key} /></form>
-                        <select form={fid} name="account" defaultValue={l.account ?? ""} className="input input-compact w-60" aria-label={`${l.name}: account`}>
-                          {l.pick && <option value="">The preparer picks{l.choices.length ? `: ${l.choices.join(", ")}` : ""}</option>}
+                        <select form={fid} name="account" defaultValue={l.account ?? ""} className="input input-compact pr-8" style={{ width: "17.5rem" }} aria-label={`${l.name}: account`}>
+                          {l.pick && <option value="">Preparer picks</option>}
                           {accounts.filter((a) => !l.choices.length || l.choices.includes(a.number)).map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</select></td>
-                      <td><select form={fid} name="tax" defaultValue={l.tax} className="input input-compact w-64" aria-label={`${l.name}: sales tax`}>{LINE_TAX.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+                      <td><select form={fid} name="tax" defaultValue={l.tax} className="input input-compact pr-8" style={{ width: "12.5rem" }} aria-label={`${l.name}: sales tax`}>{LINE_TAX.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
                       <td className="text-sm">{SHARE[l.share]}</td>
                       <td><label className="inline-flex items-center gap-1.5 text-sm"><input form={fid} type="checkbox" name="to_reviewer" defaultChecked={l.to_reviewer} disabled={l.capital} className="h-4 w-4 accent-navy-700" />
                         {l.capital ? "Always (capital)" : "Send"}</label>{l.capital && <input form={fid} type="hidden" name="to_reviewer" value="on" />}</td>

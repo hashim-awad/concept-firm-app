@@ -63,7 +63,7 @@ export function EntriesTab({ file, entries, accounts, editable, isReviewer, name
                 </tbody>
               </table>
               <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-1 pb-2">
-                <span><i>Memo:</i> {e.note}<span className="ml-2 text-xs text-muted">{names.get(e.created_by ?? "")?.split(" ")[0]}, {formatDate(e.created_at)}</span>
+                <span><i>Memo:</i> {e.note}<span className="ml-2 text-xs text-muted">{names.get(e.created_by ?? "")}, {formatDate(e.created_at)}</span>
                   {!!e.attachments?.length && <span className="block text-xs text-muted">Attachments: {e.attachments.map((p) => p.split("/").pop()!.replace(/^\d+-/, "")).join(", ")}</span>}</span>
                 {noteBy && <NoteOnItem fileId={file.id} step="entries" targetType="entry" targetId={e.id} back={noteBy.back} />}
                 {e.reviewed_at

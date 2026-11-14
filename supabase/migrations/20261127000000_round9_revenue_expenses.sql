@@ -49,12 +49,31 @@ create table if not exists public.cb_revenue_checks (
   accepted_by      uuid references public.staff (id),
   accepted_at      timestamptz,
   accepted_diff    numeric(14, 2),
+  -- The GST/HST and T4A checks follow the same review rule as revenue to its source.
+  gst_accepted_by    uuid references public.staff (id),
+  gst_accepted_at    timestamptz,
+  gst_accepted_diff  numeric(14, 2),
+  t4a_accepted_by    uuid references public.staff (id),
+  t4a_accepted_at    timestamptz,
+  t4a_accepted_diff  numeric(14, 2),
   updated_by       uuid references public.staff (id),
   updated_at       timestamptz not null default now()
 );
 alter table public.cb_revenue_checks add column if not exists explained_diff numeric(14, 2);
 alter table public.cb_revenue_checks add column if not exists gst_explained_diff numeric(14, 2);
 alter table public.cb_revenue_checks add column if not exists t4a_explained_diff numeric(14, 2);
+alter table public.cb_revenue_checks add column if not exists gst_accepted_by uuid references public.staff (id);
+alter table public.cb_revenue_checks add column if not exists gst_accepted_at timestamptz;
+alter table public.cb_revenue_checks add column if not exists gst_accepted_diff numeric(14, 2);
+alter table public.cb_revenue_checks add column if not exists t4a_accepted_by uuid references public.staff (id);
+alter table public.cb_revenue_checks add column if not exists t4a_accepted_at timestamptz;
+alter table public.cb_revenue_checks add column if not exists t4a_accepted_diff numeric(14, 2);
+
+-- An amount as the working paper shows it: a negative in brackets, (500.00).
+create or replace function private.cb_money(p numeric) returns text
+language sql immutable set search_path = '' as $$
+  select case when p < 0 then '(' || to_char(-p, 'FM999,999,990.00') || ')' else to_char(p, 'FM999,999,990.00') end;
+$$;
 
 alter table public.cb_revenue_sources enable row level security;
 alter table public.cb_revenue_sources force row level security;
@@ -100,7 +119,17 @@ begin
     -- An explanation counts only for the difference it was written for.
     'explained', coalesce(r.explanation, '') <> '' and r.explained_diff = v_tb - v_src,
     'gst_explained', coalesce(r.gst_explanation, '') <> '' and r.gst_explained_diff = v_tb - v_gst,
-    't4a_explained', coalesce(r.t4a_explanation, '') <> '' and r.t4a_explained_diff = v_comm - v_t4a);
+    't4a_explained', coalesce(r.t4a_explanation, '') <> '' and r.t4a_explained_diff = v_comm - v_t4a,
+    'gst_accepted_diff', r.gst_accepted_diff, 'gst_accepted_by', r.gst_accepted_by, 'gst_accepted_at', r.gst_accepted_at,
+    't4a_accepted_diff', r.t4a_accepted_diff, 't4a_accepted_by', r.t4a_accepted_by, 't4a_accepted_at', r.t4a_accepted_at,
+    -- A check with no figure entered is open work for the preparer, not a difference: nothing waits
+    -- for the reviewer until its source is in. Over the threshold, it waits until accepted at that
+    -- signed amount: 500.00 and (500.00) are different differences.
+    'waiting', v_n_src > 0 and abs(v_tb - v_src) > coalesce(v_limit, 5000) and r.accepted_diff is distinct from v_tb - v_src,
+    'gst_waiting', coalesce((v_file.setup ->> 'gst_registered')::boolean, false) and v_n_gst > 0 and abs(v_tb - v_gst) > coalesce(v_limit, 5000)
+      and r.gst_accepted_diff is distinct from v_tb - v_gst,
+    't4a_waiting', coalesce((v_file.setup ->> 'realtor')::boolean, false) and v_n_t4a > 0 and v_n_comm > 0 and abs(v_comm - v_t4a) > coalesce(v_limit, 5000)
+      and r.t4a_accepted_diff is distinct from v_comm - v_t4a);
 end;
 $$;
 
@@ -161,18 +190,28 @@ begin
 end;
 $$;
 
--- The reviewer accepts a difference left over the threshold. A later change to the difference opens it again.
-create or replace function public.cb_accept_revenue_difference(p_file uuid) returns void
+-- The reviewer accepts a difference left over the threshold, on any of the three checks. A later change
+-- to that signed difference opens it again.
+drop function if exists public.cb_accept_revenue_difference(uuid);
+create or replace function public.cb_accept_revenue_difference(p_file uuid, p_check text) returns void
 language plpgsql security definer set search_path = '' as $$
-declare v jsonb;
+declare v jsonb; v_diff numeric; v_name text;
 begin
   perform private.require(private.can_edit('closebook') and private.is_owner(), 'Only the reviewer accepts a revenue difference. Reviewers are owners.');
+  perform private.require(p_check in ('revenue', 'gst', 't4a'), 'Unknown check.');
   v := private.cb_revenue_state(p_file);
-  perform private.require(abs((v ->> 'diff')::numeric) > (v ->> 'threshold')::numeric, 'The difference is within the review threshold: nothing to accept.');
-  perform private.require((v ->> 'explained')::boolean, 'The preparer explains this difference first.');
-  insert into public.cb_revenue_checks (file_id, accepted_by, accepted_at, accepted_diff) values (p_file, (select auth.uid()), now(), (v ->> 'diff')::numeric)
-  on conflict (file_id) do update set accepted_by = excluded.accepted_by, accepted_at = excluded.accepted_at, accepted_diff = excluded.accepted_diff;
-  perform private.cb_log(p_file, 'revenue_accepted', 'entries', format('Revenue difference %s accepted', to_char((v ->> 'diff')::numeric, 'FM999,999,990.00')));
+  v_diff := (v ->> case p_check when 'revenue' then 'diff' when 'gst' then 'gst_diff' else 't4a_diff' end)::numeric;
+  v_name := case p_check when 'revenue' then 'Revenue difference' when 'gst' then 'GST/HST returns difference' else 'T4A difference' end;
+  perform private.require((v ->> case p_check when 'revenue' then 'waiting' when 'gst' then 'gst_waiting' else 't4a_waiting' end)::boolean,
+    'Nothing to accept: the difference is within the review threshold, already accepted, or has no source yet.');
+  perform private.require((v ->> case p_check when 'revenue' then 'explained' when 'gst' then 'gst_explained' else 't4a_explained' end)::boolean,
+    'The preparer explains this difference first.');
+  insert into public.cb_revenue_checks (file_id) values (p_file) on conflict (file_id) do nothing;
+  if p_check = 'revenue' then update public.cb_revenue_checks set accepted_by = (select auth.uid()), accepted_at = now(), accepted_diff = v_diff where file_id = p_file;
+  elsif p_check = 'gst' then update public.cb_revenue_checks set gst_accepted_by = (select auth.uid()), gst_accepted_at = now(), gst_accepted_diff = v_diff where file_id = p_file;
+  else update public.cb_revenue_checks set t4a_accepted_by = (select auth.uid()), t4a_accepted_at = now(), t4a_accepted_diff = v_diff where file_id = p_file;
+  end if;
+  perform private.cb_log(p_file, 'revenue_accepted', 'entries', format('%s %s accepted', v_name, private.cb_money(v_diff)));
 end;
 $$;
 
@@ -344,12 +383,12 @@ begin
 end;
 $$;
 
-revoke all on function private.cb_revenue_state(uuid), private.cb_keep_lines_entry() from public, anon, authenticated;
+revoke all on function private.cb_revenue_state(uuid), private.cb_keep_lines_entry(), private.cb_money(numeric) from public, anon, authenticated;
 revoke all on function public.cb_revenue_status(uuid), public.cb_add_revenue_source(uuid, text, text, text, numeric, text), public.cb_remove_revenue_source(uuid),
-  public.cb_save_revenue_check(uuid, text, text, text, boolean), public.cb_accept_revenue_difference(uuid), public.cb_save_standard_entry_line(uuid, text, text, text, boolean),
+  public.cb_save_revenue_check(uuid, text, text, text, boolean), public.cb_accept_revenue_difference(uuid, text), public.cb_save_standard_entry_line(uuid, text, text, text, boolean),
   public.cb_add_personal_expenses(uuid, jsonb, jsonb, text[], boolean), public.cb_add_revenue_entry(uuid, text, jsonb, boolean) from public, anon;
 grant execute on function public.cb_revenue_status(uuid), public.cb_add_revenue_source(uuid, text, text, text, numeric, text), public.cb_remove_revenue_source(uuid),
-  public.cb_save_revenue_check(uuid, text, text, text, boolean), public.cb_accept_revenue_difference(uuid), public.cb_save_standard_entry_line(uuid, text, text, text, boolean),
+  public.cb_save_revenue_check(uuid, text, text, text, boolean), public.cb_accept_revenue_difference(uuid, text), public.cb_save_standard_entry_line(uuid, text, text, text, boolean),
   public.cb_add_personal_expenses(uuid, jsonb, jsonb, text[], boolean), public.cb_add_revenue_entry(uuid, text, jsonb, boolean) to authenticated;
 
 -- ---------------------------------------------------------------------------------------------------
@@ -389,11 +428,12 @@ $$;
 create or replace function private.cb_step5_waiting(p_file uuid) returns text[]
 language plpgsql stable security definer set search_path = '' as $$
 declare v jsonb := private.cb_revenue_state(p_file);
+  v_out text[] := '{}';
 begin
-  if abs((v ->> 'diff')::numeric) > (v ->> 'threshold')::numeric and (v ->> 'accepted_diff')::numeric is distinct from (v ->> 'diff')::numeric then
-    return array[format('Revenue difference of %s, over the review threshold.', to_char((v ->> 'diff')::numeric, 'FM999,999,990.00'))];
-  end if;
-  return '{}';
+  if (v ->> 'waiting')::boolean then v_out := v_out || format('Revenue difference of %s, over the review threshold.', private.cb_money((v ->> 'diff')::numeric)); end if;
+  if (v ->> 'gst_waiting')::boolean then v_out := v_out || format('GST/HST returns difference of %s, over the review threshold.', private.cb_money((v ->> 'gst_diff')::numeric)); end if;
+  if (v ->> 't4a_waiting')::boolean then v_out := v_out || format('T4A difference of %s, over the review threshold.', private.cb_money((v ->> 't4a_diff')::numeric)); end if;
+  return v_out;
 end;
 $$;
 revoke all on function private.cb_step5_problems(uuid), private.cb_step5_waiting(uuid) from public, anon, authenticated;

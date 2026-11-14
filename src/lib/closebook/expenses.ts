@@ -18,7 +18,7 @@ export type ExpenseHead = {
   summaryTotal: number | null;      // the Summary total, with tax, in cents
   kmTotal: number | null; kmBusiness: number | null;
   phonePct: number | null;          // the business share of phone and internet, 0 to 100
-  shareholder: string;              // 23000 or 23050
+  shareholder: string;              // 23000 or 23050; on a client who keeps their own books, "acct:<id>" for their account
   sheet: boolean;                   // the client's sheet is attached
   autoEntry: boolean;               // the file already has an Auto expenses standard entry
   autoChecked: boolean;             // the preparer checked it is not booked twice
@@ -30,8 +30,9 @@ export type ExpenseCtx = { registered: boolean; quick: boolean; autoTax: string;
 export type ExpenseRow = {
   key: string; name: string; account: string; total: number; share: number | null;
   before: number; taxShare: number; itc: number; cost: number; leftOut: number; flag: string; toReviewer: string;
+  needs: string;   // "km" or "share": the business share is missing, so nothing is worked out for the line
 };
-export type ExpenseRpcLine = { chart: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
+export type ExpenseRpcLine = { chart?: string; account?: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
 
 const cents = (n: number) => Math.round(n);
 export const OVER_RECEIPTS = 500000;   // a line over $5,000 needs its receipts attached
@@ -60,7 +61,15 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
     let share: number | null = null;
     if (d.share === "km") { kmNeeded = true; share = kmShare; }
     if (d.share === "phone") { phoneNeeded = true; share = phoneShare; }
-    const s = d.share === "none" ? 1 : share ?? 1;
+    let toReviewer = d.to_reviewer ? (d.capital ? "Capital purchase" : "Passenger vehicle limits") : "";
+    if (!toReviewer && d.capital && ctx.quick) toReviewer = "Capital purchase on the quick method";
+    if (toReviewer) reviewer.push(`${d.name}: ${toReviewer.toLowerCase()}.`);
+    // No business share yet: the line shows what it needs, never 100% of the cost and tax.
+    if (d.share !== "none" && share === null) {
+      rows.push({ key: d.key, name: d.name, account, total, share: null, before: 0, taxShare: 0, itc: 0, cost: 0, leftOut: 0, flag: "", toReviewer, needs: d.share === "km" ? "km" : "share" });
+      continue;
+    }
+    const s = share ?? 1;
     const before = cents(i.before * s), taxShare = cents(i.tax * s);
     const rule = d.tax === "auto" ? (ctx.autoTax === "none" ? "none" : "taxable") : d.tax;
     let flag = "";
@@ -72,10 +81,7 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
     // client gifts of food or drink: half); otherwise, and on a "No tax normally" line, it adds to the cost.
     const itc = claim && rule !== "none" ? (rule === "meals" ? cents(taxShare * 0.5) : taxShare) : 0;
     const cost = before + taxShare - itc;
-    let toReviewer = d.to_reviewer ? (d.capital ? "Capital purchase" : "Passenger vehicle limits") : "";
-    if (!toReviewer && d.capital && ctx.quick) toReviewer = "Capital purchase on the quick method";
-    if (toReviewer) reviewer.push(`${d.name}: ${toReviewer.toLowerCase()}.`);
-    rows.push({ key: d.key, name: d.name, account, total, share: d.share === "none" ? null : share, before, taxShare, itc, cost, leftOut: total - before - taxShare, flag, toReviewer });
+    rows.push({ key: d.key, name: d.name, account, total, share: d.share === "none" ? null : share, before, taxShare, itc, cost, leftOut: total - before - taxShare, flag, toReviewer, needs: "" });
   }
   if (!rows.length) problems.unshift("Type the amounts from the Summary for the lines that apply.");
   if (kmNeeded && kmShare === null) problems.push("Vehicle lines: type the total km and the business km for the year (business km no more than total km).");
@@ -84,22 +90,28 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
   else if (rows.length && typed !== head.summaryTotal) problems.push(`The lines add up to ${formatAmount(typed)}, not the Summary total of ${formatAmount(head.summaryTotal)}. Check the amounts typed.`);
   if (!head.sheet) problems.push("Attach the client's sheet as the source.");
   if (head.autoEntry && !head.autoChecked) problems.push("This file already has an Auto expenses entry. Check the vehicle costs are not booked twice, then tick the box.");
-  if (!["23000", "23050"].includes(head.shareholder)) problems.push("Choose the shareholder.");
+  if (!["23000", "23050"].includes(head.shareholder) && !head.shareholder.startsWith("acct:")) problems.push("Choose the shareholder.");
 
   const itcTotal = rows.reduce((n, r) => n + r.itc, 0);
   const debits = rows.reduce((n, r) => n + r.cost, 0) + itcTotal;
   const leftOut = rows.reduce((n, r) => n + r.leftOut, 0);
-  const rpc: ExpenseRpcLine[] = rows.filter((r) => r.cost && r.account).map((r) => {
+  const rpc: ExpenseRpcLine[] = rows.filter((r) => r.cost && r.account && !r.needs).map((r) => {
     const code = r.itc ? ctx.taxCode(r.account) : null;
     const memo = `${r.name}${r.share !== null ? ` (business share ${Math.round(r.share * 1000) / 10}%)` : ""}${byKey.get(r.key)?.note?.trim() ? `: ${byKey.get(r.key)!.note!.trim()}` : ""}`;
     return { chart: r.account, amount: r.cost / 100, memo: memo.slice(0, 200), ...(code ? { tax_code: code } : {}) };
   });
   if (itcTotal) rpc.push({ chart: "21500", amount: itcTotal / 100, memo: "ITCs on expenses paid personally", is_tax: true });
-  if (debits) rpc.push({ chart: head.shareholder, amount: -debits / 100, memo: "Paid personally by the shareholder" });
+  const credit = head.shareholder.startsWith("acct:") ? { account: head.shareholder.slice(5) } : { chart: head.shareholder };
+  if (debits) rpc.push({ ...credit, amount: -debits / 100, memo: "Paid personally by the shareholder" });
+  // The figures are true only when the lines typed add up to the Summary total and every line has its
+  // business share; until then the screen shows what is missing, never a shareholder loan credit.
+  const balanced = head.summaryTotal !== null && rows.length > 0 && typed === head.summaryTotal;
+  const complete = balanced && !rows.some((r) => r.needs);
   return {
-    rows, rpc, problems, reviewer, typed, itcTotal, leftOut, credit: debits,
+    rows, rpc, problems, reviewer, typed, itcTotal, leftOut, credit: debits, balanced, complete,
+    summaryDiff: head.summaryTotal === null ? null : head.summaryTotal - typed,
     // The tie-out beside the entry: Summary total less the personal share = the shareholder loan credit.
-    tieOut: head.summaryTotal !== null && head.summaryTotal - leftOut === debits,
+    tieOut: complete && head.summaryTotal! - leftOut === debits,
     check: { summary_total: (head.summaryTotal ?? 0) / 100, km_total: head.kmTotal, km_business: head.kmBusiness, credit: debits / 100,
       lines: rows.map((r) => ({ key: r.key, total: r.total / 100, receipts: byKey.get(r.key)?.receipts ?? 0, account: r.account, note: byKey.get(r.key)?.note ?? "" })) },
     toReviewer: reviewer.length > 0,

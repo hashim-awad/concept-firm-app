@@ -6,7 +6,7 @@
 // waits for the reviewer on the step 6 list. The database applies the same rules to step 5's sign-off.
 import { formatDate } from "@/lib/dates";
 import type { AcctOpt } from "@/lib/closebook/entry-form";
-import { revenueWaiting, type RevenueSource, type RevenueState } from "@/lib/closebook/expenses-server";
+import { type RevenueSource, type RevenueState } from "@/lib/closebook/expenses-server";
 import { acceptRevenueDifference, addRevenueEntry, addRevenueSource, removeRevenueSource, saveRevenueCheck } from "../round9-actions";
 import { FilePick } from "./file-pick";
 
@@ -25,16 +25,26 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
   const primary = sources.filter((x) => ["commission_statement", "sales_report", "processor_report", "slips"].includes(x.kind) || (x.kind === "t4a" && x.payer === "other"));
   const gst = sources.filter((x) => x.kind === "gst_returns"), t4a = sources.filter((x) => x.kind === "t4a" && x.payer === "brokerage");
   const comm = sources.filter((x) => x.kind === "commission_statement");
-  const over = Math.abs(st.diff) > st.threshold, waiting = revenueWaiting(st);
-  // An explanation counts only for the difference it was written for (the database applies the same rule).
+  const hasSrc = primary.length > 0, hasGst = gst.length > 0, hasT4a = t4a.length > 0 && comm.length > 0;
+  // An explanation counts only for the signed difference it was written for: 500.00 and (500.00) are
+  // different differences (the database applies the same rule).
   const chip = (diff: number, text: string, explained: boolean, explainedFor: number | null, extra?: React.ReactNode) =>
     diff === 0 ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Ties out</span>
       : extra ?? (explained ? <span className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800">Explained</span>
-        : text && explainedFor !== null ? <span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Explained for {neg(explainedFor)}: the difference changed. Check it and save again</span>
+        : text && explainedFor !== null ? <span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Explained for {neg(explainedFor)}: the difference is now {neg(diff)}. Check it and save again</span>
         : <span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">To explain or fix</span>);
-  const mainChip = waiting ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">Over the review threshold: for the reviewer</span>
-    : over && st.accepted_by ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {names.get(st.accepted_by) ?? "the reviewer"}, {formatDate(st.accepted_at)}</span>
-    : undefined;
+  // Over the threshold, each check waits for the reviewer until accepted at that signed amount.
+  const review = (waiting: boolean, explained: boolean, by: string | null, at: string | null, accepted: number | null, diff: number) =>
+    waiting && explained ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">Explained, over the review threshold: for the reviewer</span>
+      : !waiting && by && accepted === diff && Math.abs(diff) > st.threshold ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {names.get(by) ?? "the reviewer"}, {formatDate(at)}</span>
+      : undefined;
+  const noSource = (t: string) => <span className="rounded bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-2">{t}</span>;
+  const accept = (check: "revenue" | "gst" | "t4a", waiting: boolean, explained: boolean, explanation: string) => waiting && explained && isOwner && editable && (
+    <form action={acceptRevenueDifference} className="flex flex-wrap items-center gap-3 border-t border-sand-200 px-3 py-2">
+      <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="check" value={check} />
+      <span className="text-sm">The difference is over the review threshold. The preparer&rsquo;s explanation: <i>{explanation}</i></span>
+      <button type="submit" className="btn-secondary btn-compact">Accept the difference</button></form>
+  );
   const row = (label: React.ReactNode, amount: string, cls = "") => (
     <tr className={cls}><td className="px-3 py-1">{label}</td><td className="w-36 px-3 py-1 text-right tabular-nums">{amount}</td></tr>
   );
@@ -70,30 +80,27 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
         <tbody>
           {row("Revenue per the trial balance (all revenue accounts, after entries)", fmt(st.tb), "font-medium")}
           {primary.length ? primary.map(sourceRow) : row(<span className="text-ink-3">{st.realtor ? "No commission statement yet." : "No source yet."}</span>, "")}
-          {row("Total per the sources", fmt(st.sources), "border-t border-sand-200 font-medium")}
-          {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {chip(st.diff, st.explanation, st.explained, st.explained_diff, mainChip)}</span>, neg(st.diff), "border-t-2 border-ink")}
+          {row("Total per the sources", hasSrc ? fmt(st.sources) : "–", "border-t border-sand-200 font-medium")}
+          {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {hasSrc
+            ? chip(st.diff, st.explanation, st.explained, st.explained_diff, review(st.waiting, st.explained, st.accepted_by, st.accepted_at, st.accepted_diff, st.diff))
+            : noSource("No source yet: open work for the preparer")}</span>, hasSrc ? neg(st.diff) : "–", "border-t-2 border-ink")}
         </tbody></table>
-        {explain("explanation", st.explanation, st.diff)}
+        {hasSrc && explain("explanation", st.explanation, st.diff)}
         {hasFix && <p className="px-3 pb-2 text-xs text-ink-2">An entry made from this check is on the list below, W/P ref &ldquo;Revenue check&rdquo;.</p>}
-        {st.diff !== 0 && editable && (
+        {hasSrc && st.diff !== 0 && editable && (
           <details className="border-t border-sand-200 px-3 py-2">
             <summary className="cursor-pointer text-sm text-navy-700 underline">Fix it with an entry</summary>
             <form action={addRevenueEntry} className="mt-2 flex flex-wrap items-end gap-3">
               <input type="hidden" name="file_id" value={fileId} />
               {select("debit", fixDr, "Debit")}{select("credit", fixCr, "Credit")}
               <label className="grid gap-1 text-sm">Amount<input name="amount" defaultValue={fmt(Math.abs(st.diff))} className="input input-compact w-32 text-right tabular-nums" /></label>
-              <label className="grid gap-1 text-sm">Memo<input name="memo" required minLength={3} maxLength={500} className="input input-compact w-96" placeholder="What the entry fixes" /></label>
+              <label className="grid min-w-[20rem] flex-1 basis-full gap-1 text-sm">Memo<input name="memo" required minLength={3} maxLength={500} className="input input-compact w-full" placeholder="What the entry fixes" /></label>
               <button type="submit" className="btn-secondary btn-compact">Make the entry</button>
               <span className="basis-full text-xs text-ink-3">An AJE at the year end, W/P ref &ldquo;Revenue check&rdquo;, for the reviewer. For an entry with sales tax, use the journal entry form below with the same W/P ref.</span>
             </form>
           </details>
         )}
-        {waiting && isOwner && editable && st.explained && (
-          <form action={acceptRevenueDifference} className="flex flex-wrap items-center gap-3 border-t border-sand-200 px-3 py-2">
-            <input type="hidden" name="file_id" value={fileId} />
-            <span className="text-sm">The difference is over the review threshold. The preparer&rsquo;s explanation: <i>{st.explanation}</i></span>
-            <button type="submit" className="btn-secondary btn-compact">Accept the difference</button></form>
-        )}
+        {accept("revenue", st.waiting, st.explained, st.explanation)}
       </div>
 
       {st.registrant && (
@@ -102,9 +109,12 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
           <tbody>
             {row("Revenue per the trial balance", fmt(st.tb))}
             {gst.length ? gst.map(sourceRow) : row(<span className="text-ink-3">The revenue on the year&rsquo;s GST/HST returns is not entered yet.</span>, "")}
-            {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {chip(st.gst_diff, st.gst_explanation, st.gst_explained, st.gst_explained_diff)}</span>, gst.length ? neg(st.gst_diff) : "–", "border-t-2 border-ink")}
+            {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {hasGst
+              ? chip(st.gst_diff, st.gst_explanation, st.gst_explained, st.gst_explained_diff, review(st.gst_waiting, st.gst_explained, st.gst_accepted_by, st.gst_accepted_at, st.gst_accepted_diff, st.gst_diff))
+              : noSource("Returns not entered yet")}</span>, hasGst ? neg(st.gst_diff) : "–", "border-t-2 border-ink")}
           </tbody></table>
-          {gst.length > 0 && explain("gst_explanation", st.gst_explanation, st.gst_diff)}
+          {hasGst && explain("gst_explanation", st.gst_explanation, st.gst_diff)}
+          {accept("gst", st.gst_waiting, st.gst_explained, st.gst_explanation)}
         </div>
       )}
 
@@ -114,9 +124,12 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
           <tbody>
             {row("Commission statement", comm.length ? fmt(st.commission) : "–")}
             {t4a.length ? t4a.map(sourceRow) : row(<span className="text-ink-3">{st.t4a_none ? "No T4A from the brokerage." : "The brokerage's T4A is not entered yet."}</span>, "")}
-            {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {t4a.length ? chip(st.t4a_diff, st.t4a_explanation, st.t4a_explained, st.t4a_explained_diff) : null}</span>, t4a.length ? neg(st.t4a_diff) : "–", "border-t-2 border-ink")}
+            {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {hasT4a
+              ? chip(st.t4a_diff, st.t4a_explanation, st.t4a_explained, st.t4a_explained_diff, review(st.t4a_waiting, st.t4a_explained, st.t4a_accepted_by, st.t4a_accepted_at, st.t4a_accepted_diff, st.t4a_diff))
+              : t4a.length ? noSource("Commission statement not entered yet") : null}</span>, hasT4a ? neg(st.t4a_diff) : "–", "border-t-2 border-ink")}
           </tbody></table>
-          {t4a.length > 0 && explain("t4a_explanation", st.t4a_explanation, st.t4a_diff)}
+          {hasT4a && explain("t4a_explanation", st.t4a_explanation, st.t4a_diff)}
+          {accept("t4a", st.t4a_waiting, st.t4a_explained, st.t4a_explanation)}
           {!t4a.length && <label className="flex items-center gap-2 px-3 pb-2 text-sm"><input form="rev-explain" type="checkbox" name="t4a_none" defaultChecked={st.t4a_none} disabled={!editable} className="h-4 w-4" />
             The brokerage issued no T4A for the year</label>}
         </div>
@@ -124,9 +137,9 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
       {/* Fields that live in the sections above but are not shown there keep their saved value. */}
       {editable && (
         <div className="flex flex-wrap items-center gap-3">
-          {st.diff === 0 && <input form="rev-explain" type="hidden" name="explanation" value={st.explanation} />}
-          {(!st.registrant || !gst.length || st.gst_diff === 0) && <input form="rev-explain" type="hidden" name="gst_explanation" value={st.gst_explanation} />}
-          {(!st.realtor || !t4a.length || st.t4a_diff === 0) && <input form="rev-explain" type="hidden" name="t4a_explanation" value={st.t4a_explanation} />}
+          {(!hasSrc || st.diff === 0) && <input form="rev-explain" type="hidden" name="explanation" value={st.explanation} />}
+          {(!st.registrant || !hasGst || st.gst_diff === 0) && <input form="rev-explain" type="hidden" name="gst_explanation" value={st.gst_explanation} />}
+          {(!st.realtor || !hasT4a || st.t4a_diff === 0) && <input form="rev-explain" type="hidden" name="t4a_explanation" value={st.t4a_explanation} />}
           {t4a.length > 0 && st.t4a_none && <input form="rev-explain" type="hidden" name="t4a_none" value="on" />}
           <button form="rev-explain" type="submit" className="btn-secondary btn-compact">Save the explanations</button>
         </div>
@@ -141,7 +154,7 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
               {kinds.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}{st.registrant && <option value="gst_returns">{KIND.gst_returns}</option>}</select></label>
             <label className="grid gap-1 text-sm">For a T4A: who paid it<select name="payer" defaultValue={st.realtor ? "brokerage" : "other"} className="input input-compact w-48">
               <option value="brokerage">The brokerage</option><option value="other">Another payer</option></select></label>
-            <label className="grid gap-1 text-sm">Label<input name="label" maxLength={120} className="input input-compact w-56" placeholder="For example, the brokerage's name" /></label>
+            <label className="grid gap-1 text-sm">Label<input name="label" maxLength={120} className="input input-compact w-56" placeholder="Brokerage name" /></label>
             <label className="grid gap-1 text-sm">Total from the report<input name="amount" required inputMode="decimal" className="input input-compact w-36 text-right tabular-nums" /></label>
             <FilePick id="rev-report" name="report" label="Report" add="Attach the report" accept=".pdf,.xlsx,.xls,.csv,.png,.jpg" hint="Required. PDF, Excel or an image." />
             <button type="submit" className="btn-secondary btn-compact">Add the source</button>

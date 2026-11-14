@@ -238,7 +238,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <summary className="cursor-pointer font-semibold">Expenses paid personally <span className="ml-1 text-sm font-normal text-ink-3">
             {booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked, marked below` : "Setup: the owner paid business costs personally. Book one entry from the client's sheet."}</span></summary>
           {open ? <div className="mt-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
-            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} /></div>
+            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders} /></div>
             : <p className="mt-2 text-sm text-ink-2">The file is locked, or you have view access only.</p>}
         </details>
       )}
@@ -262,7 +262,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           { href: `${href("entries")}#entry-${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
         { key: "revenue", title: "Revenue check", step: "step 5", items: await (async () => {
           const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
-          return r && revenueWaiting(r) ? [{ href: `${href("entries")}#revenue-check`, label: "Revenue difference over the review threshold", detail: r.explained ? r.explanation : r.explanation ? `Explained for another amount: ${r.explanation}` : "Not explained yet.", amount: amt(r.diff) }] : [];
+          return r ? revenueWaiting(r).map((w) => ({ href: `${href("entries")}#revenue-check`, label: w.label,
+            detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: w.diff < 0 ? `(${amt(-w.diff)})` : amt(w.diff) })) : [];
         })() },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`, detail: a.needs_reviewer ? a.reviewer_reason : typeFlagText(a, lineOf(a.line_no)), amount: amt(a.this_year) })) },
