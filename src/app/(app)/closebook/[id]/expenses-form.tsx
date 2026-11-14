@@ -9,20 +9,27 @@ import { useMemo, useState } from "react";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { OVER_RECEIPTS, planExpenses, type ExpenseDef, type ExpenseInput } from "@/lib/closebook/expenses";
 import { defaultTaxCode } from "@/lib/closebook/sales-tax";
-import { addPersonalExpenses } from "../round9-actions";
+import { addPersonalExpenses, saveExpenseLineInline } from "../round9-actions";
 import { FilePick } from "./file-pick";
 
 type Typed = { before: string; tax: string; account: string; note: string; taxChecked: boolean; receipts: number };
 const blank = (): Typed => ({ before: "", tax: "", account: "", note: "", taxChecked: false, receipts: 0 });
 const TAX: Record<string, string> = { taxable: "GST/HST", meals: "Meals: 50% ITC", none: "No tax normally", auto: "As Auto expenses" };
 
-export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, autoEntry, clientList, shown, shareholders }: {
+export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, autoEntry, clientList, shown, shareholders, options, defaults, chosen, rolledFrom, editable = true }: {
   fileId: string; yearEnd: string; defs: ExpenseDef[]; chart: { number: string; name: string; type: string }[];
   // Each chart account as it posts on this file, and the accounts the credit can go to (fix 7).
   shown: Record<string, string>; shareholders: { value: string; label: string }[];
+  // Round 9b: each line's account list on this file, its default, and the choice saved for the file.
+  options: Record<string, { value: string; label: string; group: string }[]>; defaults: Record<string, string>; chosen: Record<string, string>;
+  rolledFrom: string | null; editable?: boolean;
   ctx: { registered: boolean; quick: boolean; autoTax: string }; province: string; autoEntry: boolean; clientList: boolean;
 }) {
-  const [typed, setTyped] = useState<Record<string, Typed>>({});
+  const [typed, setTyped] = useState<Record<string, Typed>>(() => Object.fromEntries(Object.entries(chosen).map(([k, v]) => [k, { ...blank(), account: v }])));
+  const [saveError, setSaveError] = useState("");
+  // The line's account: the one chosen on the file, else the default. Saved as soon as it is picked.
+  const acctOf = (d: ExpenseDef) => (d.pick ? typed[d.key]?.account ?? "" : typed[d.key]?.account || defaults[d.key] || (d.account ?? ""));
+  const keep = async (key: string, value: string) => { const e = await saveExpenseLineInline(fileId, key, value); setSaveError(e ?? ""); };
   const [head, setHead] = useState({ summary: "", kmTotal: "", kmBusiness: "", phone: "", shareholder: shareholders[0]?.value ?? "23000", autoChecked: false });
   const [sheet, setSheet] = useState("");
   const name = useMemo(() => new Map(chart.map((c) => [c.number, shown[c.number] ?? `${c.number} ${c.name}`])), [chart, shown]);
@@ -33,7 +40,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
   const set = (k: string, patch: Partial<Typed>) => setTyped({ ...typed, [k]: { ...t(k), ...patch } });
   const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(/[,\s]/g, "")));
   const inputs: ExpenseInput[] = defs.map((d) => ({ key: d.key, before: parseAmount(t(d.key).before) ?? 0, tax: parseAmount(t(d.key).tax) ?? 0,
-    account: t(d.key).account || undefined, note: t(d.key).note, receipts: t(d.key).receipts, taxChecked: t(d.key).taxChecked }));
+    account: acctOf(d) || undefined, note: t(d.key).note, receipts: t(d.key).receipts, taxChecked: t(d.key).taxChecked }));
   const formHead = { summaryTotal: head.summary.trim() ? parseAmount(head.summary) : null, kmTotal: num(head.kmTotal), kmBusiness: num(head.kmBusiness), phonePct: num(head.phone),
     shareholder: head.shareholder, autoChecked: head.autoChecked };
   const plan = planExpenses(defs, inputs, { ...formHead, sheet: !!sheet, autoEntry },
@@ -45,7 +52,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
   const money = (c: number) => (c ? formatAmount(c) : "");
   const amountBox = (k: string, field: "before" | "tax", label: string) => (
     <input aria-label={label} inputMode="decimal" value={t(k)[field]} onChange={(e) => set(k, { [field]: e.target.value })} onBlur={(e) => set(k, { [field]: tidyAmount(e.target.value) })}
-      style={{ width: "6.75rem" }} className={`input input-compact text-right tabular-nums ${t(k)[field] && parseAmount(t(k)[field]) === null ? "border-danger" : ""}`} />
+      style={{ width: "6.25rem" }} className={`input input-compact text-right tabular-nums ${t(k)[field] && parseAmount(t(k)[field]) === null ? "border-danger" : ""}`} />
   );
 
   return (
@@ -62,7 +69,9 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
       </div>
       <p className="text-sm text-ink-2">Type the amounts from the Summary of the client&rsquo;s sheet for the lines that apply; leave the rest blank. GST/HST is never worked out from a total: type it as the client wrote it.
         {ctx.registered && !ctx.quick ? " This client is a regular GST/HST registrant: the GST/HST is claimed as an ITC (meals and client gifts of food or drink: half)." : ctx.registered ? " This client uses the quick method: GST/HST is added to the cost." : " This client is not registered: GST/HST is added to the cost."}
-        {clientList && " The client keeps their own books: each line posts to their account on the same GIFI line, or a new account if they have none, and the entry goes on the client entry list."}</p>
+        {clientList && " The client keeps their own books: each line posts to their account on the same GIFI line, or a new account if they have none, and the entry goes on the client entry list."}
+        {" Change a line's account in its list: the choice is kept for this file and next year's."}{rolledFrom && ` Choices carried forward from the file for the year ended ${rolledFrom}.`}</p>
+      {saveError && <p role="alert" className="text-sm text-danger">The account choice was not saved: {saveError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-sand-200">
         <table className="w-full min-w-[900px] text-sm">
@@ -75,7 +84,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
             return (
               <tr key={d.key} className={`border-b border-sand-100 align-top ${r ? "bg-navy-50/40" : ""}`}>
                 <td className={`${cell} tabular-nums text-ink-3`}>{i + 1}</td>
-                <td className={`${cell} w-44`}>{d.name}<span className="block text-xs text-ink-3">{TAX[d.tax]}{d.capital ? " · capital" : ""}{d.to_reviewer ? " · to the reviewer" : ""}</span>
+                <td className={`${cell} w-36`}>{d.name}<span className="block text-xs text-ink-3">{TAX[d.tax]}{d.capital ? " · capital" : ""}{d.to_reviewer ? " · to the reviewer" : ""}</span>
                   <div className="grid gap-1 text-xs">
                   {r?.flag && <label className="flex items-start gap-1.5 text-warning"><input type="checkbox" checked={t(d.key).taxChecked} onChange={(e) => set(d.key, { taxChecked: e.target.checked })} className="mt-0.5 h-4 w-4" />
                     <span>{r.flag} Checked</span></label>}
@@ -84,11 +93,26 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
                     accept=".pdf,.png,.jpg,.jpeg" hint="One PDF or image with the receipts." narrow onPick={(n) => set(d.key, { receipts: n ? 1 : 0 })} /></div>}
                   </div></td>
                 <td className={cell}>{d.pick
-                  ? <select aria-label={`${d.name}: account`} value={t(d.key).account} onChange={(e) => set(d.key, { account: e.target.value })} className="input input-compact pr-8" style={{ width: "15rem" }}>
+                  ? <select aria-label={`${d.name}: account`} value={t(d.key).account} onChange={(e) => set(d.key, { account: e.target.value })} className="input input-compact pr-8" style={{ width: "18rem" }}>
                       <option value="">Choose</option>{pickChoices(d).map((n) => <option key={n} value={n}>{name.get(n) ?? n}</option>)}</select>
+                  : options[d.key] ? (() => {
+                      const v = acctOf(d), isNew = v.startsWith("new:"), groups = [...new Set(options[d.key].map((o) => o.group))];
+                      const label = (x: string) => options[d.key].find((o) => o.value === x)?.label ?? (x.startsWith("new:") ? `New account: ${x.slice(4)}` : x);
+                      return <>
+                        <select aria-label={`${d.name}: account`} value={isNew ? "new" : v} disabled={!editable} style={{ width: "18rem" }} className="input input-compact pr-8"
+                          onChange={(e) => { const nv = e.target.value === "new" ? `new:${(chart.find((c) => c.number === d.account)?.name) ?? d.name}` : e.target.value; set(d.key, { account: nv }); void keep(d.key, nv); }}>
+                          {groups.map((g) => <optgroup key={g} label={g}>{options[d.key].filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>)}
+                          {clientList && <option value="new">New account, with a name</option>}
+                        </select>
+                        {/* The name box shows on a line in use or changed from its default, not on every unused line. */}
+                        {isNew && (rowOf.has(d.key) || v !== defaults[d.key]) && <input aria-label={`${d.name}: new account name`} value={v.slice(4)} maxLength={80} onChange={(e) => set(d.key, { account: `new:${e.target.value}` })}
+                          onBlur={(e) => void keep(d.key, `new:${e.target.value}`)} placeholder="Name of the new account" style={{ width: "18rem" }} className="input input-compact mt-1 block" />}
+                        {v !== defaults[d.key] && <span className="mt-0.5 block text-xs text-ink-3">Changed on this file. Default: {label(defaults[d.key] ?? "")}</span>}
+                      </>;
+                    })()
                   : <span className="tabular-nums">{name.get(d.account ?? "") ?? d.account}</span>}
                   {d.note_required && <input aria-label={`${d.name}: what it is`} value={t(d.key).note} onChange={(e) => set(d.key, { note: e.target.value })} maxLength={120}
-                    placeholder="What it is" className="input input-compact mt-1 block" style={{ width: "15rem" }} />}</td>
+                    placeholder="What it is" className="input input-compact mt-1 block" style={{ width: "18rem" }} />}</td>
                 <td className={`${cell} text-right`}>{amountBox(d.key, "before", `${d.name}: before tax`)}</td>
                 <td className={`${cell} text-right`}>{amountBox(d.key, "tax", `${d.name}: GST/HST`)}</td>
                 <td className={`${cell} text-right tabular-nums`}>{r?.needs ? <span className="whitespace-nowrap font-medium text-danger">{r.needs === "km" ? "Needs km" : "Needs the share"}</span>
@@ -169,7 +193,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
           <p className="bg-[#EEF1F6] px-3 py-1.5 font-bold text-[#1A3C7C]">The entry it books</p>
           <table className="w-full min-w-[560px]"><tbody>
             {plan.rpc.map((l, i) => (
-              <tr key={i} className={l.is_tax ? "text-[#5B6475]" : ""}><td className="px-3 py-0.5">{l.account ? holder.get(l.account) : name.get(l.chart ?? "") ?? l.chart}<span className="ml-2 text-xs text-muted">{l.memo}</span></td>
+              <tr key={i} className={l.is_tax ? "text-[#5B6475]" : ""}><td className="px-3 py-0.5">{l.account ? holder.get(l.account) ?? Object.values(options).flat().find((o) => o.value === `acct:${l.account}`)?.label : l.new_name ? `New account: ${l.new_name}` : name.get(l.chart ?? "") ?? l.chart}<span className="ml-2 text-xs text-muted">{l.memo}</span></td>
                 <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount > 0 ? formatAmount(Math.round(l.amount * 100)) : ""}</td>
                 <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount < 0 ? formatAmount(-Math.round(l.amount * 100)) : ""}</td></tr>
             ))}

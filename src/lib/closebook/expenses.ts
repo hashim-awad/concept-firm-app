@@ -12,7 +12,9 @@ export type ExpenseDef = {
   key: string; name: string; account: string | null; tax: ExpenseTax; share: "none" | "km" | "phone";
   capital: boolean; to_reviewer: boolean; pick: boolean; note_required: boolean; choices: string[];
 };
-// What the preparer typed for a line, in cents. account: the picked account (pick lines only).
+// What the preparer typed for a line, in cents. account: the picked account on a pick line; on any other line,
+// the account chosen on the file (round 9b): a chart number, "acct:<id>" for the client's own account, or
+// "new:<name>" for a new account in their books. Empty: the line's default.
 export type ExpenseInput = { key: string; before: number; tax: number; account?: string; note?: string; receipts?: number; taxChecked?: boolean };
 export type ExpenseHead = {
   summaryTotal: number | null;      // the Summary total, with tax, in cents
@@ -32,7 +34,7 @@ export type ExpenseRow = {
   before: number; taxShare: number; itc: number; cost: number; leftOut: number; flag: string; toReviewer: string;
   needs: string;   // "km" or "share": the business share is missing, so nothing is worked out for the line
 };
-export type ExpenseRpcLine = { chart?: string; account?: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
+export type ExpenseRpcLine = { chart?: string; account?: string; new_name?: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
 
 const cents = (n: number) => Math.round(n);
 export const OVER_RECEIPTS = 500000;   // a line over $5,000 needs its receipts attached
@@ -52,8 +54,9 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
     if (i.before < 0 || i.tax < 0) { problems.push(`${d.name}: type the amounts as positive numbers.`); continue; }
     const total = i.before + i.tax;
     typed += total;
-    const account = d.pick ? i.account ?? "" : d.account ?? "";
+    const account = d.pick ? i.account ?? "" : i.account || (d.account ?? "");
     if (d.pick && !account) problems.push(`${d.name}: choose the account.`);
+    if (account.startsWith("new:") && account.slice(4).trim().length < 3) problems.push(`${d.name}: name the new account.`);
     if (d.pick && d.choices.length && account && !d.choices.includes(account)) problems.push(`${d.name}: choose one of ${d.choices.join(", ")}.`);
     if (d.note_required && (i.note ?? "").trim().length < 3) problems.push(`${d.name}: add a note saying what it is.`);
     if (total > OVER_RECEIPTS && !(i.receipts ?? 0)) problems.push(`${d.name} is over $5,000: attach the receipts.`);
@@ -96,9 +99,13 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
   const debits = rows.reduce((n, r) => n + r.cost, 0) + itcTotal;
   const leftOut = rows.reduce((n, r) => n + r.leftOut, 0);
   const rpc: ExpenseRpcLine[] = rows.filter((r) => r.cost && r.account && !r.needs).map((r) => {
-    const code = r.itc ? ctx.taxCode(r.account) : null;
+    // The sales tax code follows the line (meals stay 50% on any account), so it comes from the default.
+    const code = r.itc ? ctx.taxCode(defs.find((d) => d.key === r.key)?.account ?? r.account) : null;
     const memo = `${r.name}${r.share !== null ? ` (business share ${Math.round(r.share * 1000) / 10}%)` : ""}${byKey.get(r.key)?.note?.trim() ? `: ${byKey.get(r.key)!.note!.trim()}` : ""}`;
-    return { chart: r.account, amount: r.cost / 100, memo: memo.slice(0, 200), ...(code ? { tax_code: code } : {}) };
+    const def = defs.find((d) => d.key === r.key)?.account ?? "";
+    const target = r.account.startsWith("acct:") ? { account: r.account.slice(5) }
+      : r.account.startsWith("new:") ? { chart: def, new_name: r.account.slice(4).trim() } : { chart: r.account };
+    return { ...target, amount: r.cost / 100, memo: memo.slice(0, 200), ...(code ? { tax_code: code } : {}) };
   });
   if (itcTotal) rpc.push({ chart: "21500", amount: itcTotal / 100, memo: "ITCs on expenses paid personally", is_tax: true });
   const credit = head.shareholder.startsWith("acct:") ? { account: head.shareholder.slice(5) } : { chart: head.shareholder };

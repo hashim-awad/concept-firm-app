@@ -101,6 +101,14 @@ export async function addPersonalExpenses(formData: FormData) {
   const data = await loadExpenses(supabase, f!.file);
   if (!data) redirect(withMessage(back(id), "error", "The \"Expenses paid personally\" standard entry is missing. Ask an owner."));
   if (!data!.shareholders.some((h) => h.value === form!.head.shareholder)) redirect(withMessage(back(id), "error", "Choose the shareholder from the list. Nothing was saved."));
+  // Round 9b: an account chosen on a line must be one the form offered (or a named new account on a client
+  // who keeps their own books).
+  for (const i of form!.inputs) {
+    const d = data!.defs.find((x) => x.key === i.key);
+    if (!d || d.pick || !i.account) continue;
+    const ok = (data!.options[i.key] ?? []).some((o) => o.value === i.account) || i.account === data!.defaults[i.key] || (data!.own && i.account.startsWith("new:"));
+    if (!ok) redirect(withMessage(back(id), "error", `${d.name}: choose an account from the list. Nothing was saved.`));
+  }
   const sheet = fileOf(formData, "sheet");
   const receipts = new Map(form!.inputs.map((i) => [i.key, formData.getAll(`receipts_${i.key}`).filter((x): x is File => x instanceof File && x.size > 0)]));
   const inputs = form!.inputs.map((i) => ({ ...i, receipts: receipts.get(i.key)?.length ?? 0 }));
@@ -117,8 +125,10 @@ export async function addPersonalExpenses(formData: FormData) {
     const chart = new Map(data!.chart.map((c) => [c.number, c]));
     const has = new Set(f!.accounts.filter((a) => a.line_no && a.number && !a.client_new && !a.account_key.startsWith("line:") && !a.account_key.startsWith("gifi:")).map((a) => a.line_no));
     lines = plan.rpc.map((l) => {
-      if (!l.chart) return l;   // already the client's own account (the shareholder)
+      if (!l.chart) return l;   // already the client's own account
       const c = chart.get(l.chart);
+      // A new account named on the line (round 9b): on the default's GIFI line, with its QuickBooks type.
+      if (l.new_name && c) { const { chart: _c, ...rest } = l; void _c; return { ...rest, line: c.line_no, new_type: QBO_TYPE[c.type] ?? "Expenses" }; }
       if (l.is_tax || !c || has.has(c.line_no)) return l;
       const { chart: _drop, ...rest } = l;
       void _drop;
@@ -130,6 +140,25 @@ export async function addPersonalExpenses(formData: FormData) {
   const { error } = await supabase.rpc("cb_add_personal_expenses", { p_file: id, p_lines: lines, p_check: plan.check, p_attachments: paths, p_to_reviewer: plan.toReviewer });
   if (error) done(id, { message: `Nothing was saved. ${error.message}` }, "");
   done(id, null, plan.toReviewer ? "Expenses paid personally: entry added. It goes to the reviewer." : "Expenses paid personally: entry added.");
+}
+
+// Round 9b: one line's account on this file, saved as soon as it is picked (rolls forward to next year).
+export async function saveExpenseLineInline(fileId: string, key: string, value: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const supabase = await createClient();
+  const f = await loadFile(supabase, fileId);
+  if (!f) return "File not found.";
+  const data = await loadExpenses(supabase, f.file);
+  if (!data) return "The standard entry is missing.";
+  let kind = "default", v = "";
+  if (value && value !== data.defaults[key]) {
+    if (value.startsWith("acct:")) { kind = "client"; v = f.accounts.find((x) => x.id === value.slice(5))?.number ?? ""; if (!v) return "That account is not in this file."; }
+    else if (value.startsWith("new:")) { kind = "new"; v = value.slice(4).trim(); }
+    else { kind = "chart"; v = value; }
+  }
+  const { error } = await supabase.rpc("cb_save_expense_line_account", { p_file: fileId, p_key: key, p_kind: kind, p_value: v });
+  return error ? error.message : null;
 }
 
 // Settings, Closebook, Standard entries: a line's default account, tax and reviewer flag (owners).

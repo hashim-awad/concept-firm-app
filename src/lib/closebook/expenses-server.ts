@@ -49,6 +49,11 @@ export type ExpensesData = {
   // own books, their account on the same GIFI line, or the new account Closebook will name). shareholders:
   // the accounts the credit can go to (round 9 fix 7: Cedar's own 26000, not the firm's 23000).
   own: boolean; shown: Record<string, string>; shareholders: { value: string; label: string }[];
+  // Round 9b: each line's account list on this file (lines 1 to 28), with the default and the choice
+  // saved for the file (or rolled forward from the client's last file). Values: a chart number,
+  // "acct:<id>" for the client's own account, "new:<name>" for a new account in their books.
+  options: Record<string, { value: string; label: string; group: string }[]>; defaults: Record<string, string>; chosen: Record<string, string>;
+  rolledFrom: string | null;
 };
 
 export async function loadExpenses(supabase: SupabaseClient, file: CbFileRow): Promise<ExpensesData | null> {
@@ -58,10 +63,14 @@ export async function loadExpenses(supabase: SupabaseClient, file: CbFileRow): P
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
   ]);
   if (!std) return null;
-  const [{ data: lines }, { count }, { data: accts }] = await Promise.all([
+  const [{ data: lines }, { count }, { data: accts }, { data: master }, { data: saved }] = await Promise.all([
     supabase.from("cb_standard_entry_lines").select("key, name, account, tax, share, capital, to_reviewer, pick, note_required, choices").eq("standard_id", std.id).order("sort_order"),
     auto ? supabase.from("cb_entries").select("id", { count: "exact", head: true }).eq("file_id", file.id).eq("standard_id", auto.id) : Promise.resolve({ count: 0 }),
     supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new").eq("file_id", file.id).order("number"),
+    supabase.from("cb_master_lines").select("line_no, line_type"),
+    // This file's choices, then the client's earlier files, newest first: the first row per line wins.
+    supabase.from("cb_expense_line_accounts").select("key, kind, value, file:file_id!inner(id, client_id, year_end)")
+      .eq("file.client_id", file.client_id).lte("file.year_end", file.year_end),
   ]);
   const charts = ((chart ?? []) as { number: string; name: string; account_type: string; line_no: string | null }[]).map((c) => ({ number: c.number, name: c.name, type: c.account_type, line_no: c.line_no ?? "" }));
   const own = ["client_software", "bookkeeper"].includes(file.books);
@@ -78,11 +87,43 @@ export async function loadExpenses(supabase: SupabaseClient, file: CbFileRow): P
   const ownHolders = own ? theirs.filter((a) => holderCharts.some((c) => c.line_no === a.line_no)) : [];
   const shareholders = ownHolders.length ? ownHolders.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}` }))
     : holderCharts.map((c) => ({ value: c.number, label: shown[c.number] }));
+  // Each line's account list. A firm or bank-statement file: the standard chart accounts of the same kind
+  // (expense or asset). A client who keeps their own books: their accounts of that kind, those on the
+  // default's GIFI line first, then "New account" with a name (as step 2 offers when a line has several).
+  const typeOf = new Map(((master ?? []) as { line_no: string; line_type: string }[]).map((m) => [m.line_no, m.line_type]));
+  const defs = (lines ?? []) as ExpenseDef[];
+  const options: ExpensesData["options"] = {}, defaults: Record<string, string> = {}, chosen: Record<string, string> = {};
+  type Saved = { key: string; kind: string; value: string; file: { id: string; client_id: string; year_end: string } };
+  const savedRows = ((saved ?? []) as unknown as Saved[]).sort((a, b) => (a.file.id === file.id ? -1 : b.file.id === file.id ? 1 : b.file.year_end.localeCompare(a.file.year_end)));
+  let rolledFrom: string | null = null;
+  for (const d of defs) {
+    if (d.pick || !d.account) continue;
+    const c = charts.find((x) => x.number === d.account);
+    if (!c) continue;
+    if (!own) {
+      options[d.key] = charts.filter((x) => x.type === c.type && x.line_no).map((x) => ({ value: x.number, label: `${x.number} ${x.name}`, group: "Standard chart" }));
+      defaults[d.key] = c.number;
+    } else {
+      const kind = typeOf.get(c.line_no);
+      const same = theirs.filter((a) => a.line_no === c.line_no), other = theirs.filter((a) => a.line_no !== c.line_no && typeOf.get(a.line_no ?? "") === kind);
+      options[d.key] = [...same.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}`, group: `On GIFI ${c.line_no.replace(/\.00$/, "")}` })),
+        ...other.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}`, group: "Other accounts" }))];
+      defaults[d.key] = same[0] ? `acct:${same[0].id}` : `new:${c.name}`;
+    }
+    const row = savedRows.find((r) => r.key === d.key);
+    if (row) {
+      const v = row.kind === "chart" ? (options[d.key].some((o) => o.value === row.value) ? row.value : "")
+        : row.kind === "client" ? (theirs.find((a) => a.number === row.value) ? `acct:${theirs.find((a) => a.number === row.value)!.id}` : "")
+        // A new account named last year may be in this year's books by now: use it when the name matches.
+        : (theirs.find((a) => a.name.toLowerCase() === row.value.toLowerCase()) ? `acct:${theirs.find((a) => a.name.toLowerCase() === row.value.toLowerCase())!.id}` : `new:${row.value}`);
+      if (v) { chosen[d.key] = v; if (row.file.id !== file.id) rolledFrom = row.file.year_end; }
+    }
+  }
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   return {
-    standardId: std.id as string, defs: (lines ?? []) as ExpenseDef[], autoTax: (auto?.tax_mode as string) ?? "line", autoEntry: (count ?? 0) > 0,
+    standardId: std.id as string, defs, autoTax: (auto?.tax_mode as string) ?? "line", autoEntry: (count ?? 0) > 0,
     // The same reading of the GST/HST answers as the journal entry form (round 2 item 11).
     registered: setup.gst_registered !== false, quick: setup.quick_method === true,
-    chart: charts, own, shown, shareholders,
+    chart: charts, own, shown, shareholders, options, defaults, chosen, rolledFrom,
   };
 }
