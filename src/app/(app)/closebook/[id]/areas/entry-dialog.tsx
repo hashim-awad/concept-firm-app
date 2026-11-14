@@ -111,8 +111,8 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
               <div className="grid gap-2 px-3.5 py-2.5 text-[12.5px]">
                 <p className="flex items-center gap-2"><Circle kind="p" text={initials(prep)} />Prepared by {prep} · {formatDate(entry.created_at)}</p>
                 {entry.needs_review ? (
-                  <p className="flex items-center gap-2">{entry.reviewed_at ? <><Circle kind="r" text={initials(rev)} />Reviewed by {rev} · {formatDate(entry.reviewed_at)}</>
-                    : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} /><button type="submit" className="btn btn-compact">Approve</button></form>}</>}</p>
+                  <div className="flex items-center gap-2">{entry.reviewed_at ? <><Circle kind="r" text={initials(rev)} />Reviewed by {rev} · {formatDate(entry.reviewed_at)}</>
+                    : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} /><button type="submit" className="btn btn-compact">Approve</button></form>}</>}</div>
                 ) : <p className="flex items-center gap-2 text-ink-3"><Circle kind="none" />No review needed: a standard entry at or under the threshold.</p>}
               </div>
             </section>
