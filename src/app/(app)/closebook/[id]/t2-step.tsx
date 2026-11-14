@@ -60,7 +60,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
           <div className="flex flex-wrap items-center gap-3">
             <ExportButton href={`/closebook/${fileId}/gifi?kind=before_tax`} label="Export before tax entries" primary={false} />
             <ExportButton href={`/closebook/${fileId}/gifi?kind=final`} label="Export final" />
-            <span className="text-xs text-ink-2">Before tax entries: for preparing the T2 in ProFile, to get CCA and income tax. Final: after the tax entries (TJE) are booked.
+            <span className="text-xs text-ink-2">Before tax entries: for preparing the T2 in ProFile, to get CCA and income tax; it always leaves the tax entries (TJE) out. Final: every entry, after the tax entries are booked.
               {g.tjes === 0 && <b className="ml-1 text-warning">No tax entry (TJE) is booked yet.</b>}</span>
           </div>
         ) : null}
@@ -107,6 +107,11 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
                   <td className="px-3 py-0.5 text-right tabular-nums">{s.effect === 0 ? "–" : `${s.effect > 0 ? "+" : "−"} ${fmt(Math.abs(s.effect))}`}</td></tr></tbody></table>
           </div>
         ))}
+        {g.workpaper.length > 0 && (() => {
+          const net = Math.round(g.workpaper.reduce((n, w) => n + w.effect, 0) * 100) / 100;
+          return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (+ adds to net income for tax)</span>
+            <span className="tabular-nums">{net === 0 ? "–" : `${net > 0 ? "+" : "−"} ${fmt(Math.abs(net))}`}</span></p>;
+        })()}
         <p className="text-xs text-ink-2">+ adds to net income for tax, − deducts from it. The preparer enters these in ProFile. CCA is claimed on Schedule 8.</p>
         {isOwner && editable && (
           <form action={setBookAmortization} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-2 text-sm">{hidden}
@@ -122,13 +127,14 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
         <h2 className="font-semibold">Tie-out to ProFile <span className="ml-1 text-sm font-normal text-ink-3">After the final export is imported and the T2 prepared</span></h2>
         {!g.final ? <p className="text-sm text-ink-2">Export the final GIFI file first, import it into ProFile and prepare the T2.</p> : (<>
           <table className="table table-compact">
-            <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference</th><th>Status</th></tr></thead>
+            <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference (Closebook less ProFile)</th><th>Status</th></tr></thead>
             <tbody>{g.tieItems.map((t) => (
               <tr key={t.key}><td>{t.label}</td><td className="text-right tabular-nums">{fmt(t.closebook)}</td><td className="text-right tabular-nums">{amt(t.profile)}</td>
                 <td className={`text-right font-semibold tabular-nums ${t.open ? "text-danger" : ""}`}>{amt(t.diff)}</td>
                 <td>{!t.compared ? <span className="text-xs text-ink-2">Not compared: book amortization</span>
                   : t.diff === null ? <span className="text-xs text-ink-3">To enter</span>
                   : t.diff === 0 ? chip(true, "Ties")
+                  : t.rounding ? <span className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800">Rounding</span>
                   : !t.open && t.accepted ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {staff.get(t.accepted.by) ?? "the reviewer"}: {t.accepted.reason}</span>
                   : <span className="grid gap-1"><span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Blocks the preparer&rsquo;s sign-off</span>
                       {t.accepted && <span className="text-xs text-ink-2">Accepted at {fmt(t.accepted.diff)}; the difference changed.</span>}
@@ -138,7 +144,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
                           <button type="submit" className="btn-secondary btn-compact">Accept</button></form>)}</span>}</td></tr>
             ))}</tbody>
           </table>
-          {anyOpen && <p className="text-sm text-danger">A difference blocks the preparer&rsquo;s sign-off. Only the reviewer can accept one, with a reason.</p>}
+          <p className="text-xs text-ink-2">ProFile rounds each GIFI line to whole dollars. A difference of {fmt(g.roundingAllowed)} or less shows as rounding and does not block (Settings, Closebook, Thresholds).</p>
+          {anyOpen && <p className="text-sm text-danger">A larger difference blocks the preparer&rsquo;s sign-off. Only the reviewer can accept one, with a reason.</p>}
           {editable && !g.stale && (
             <form action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
               {([["ni", "Net income (9999)"], ["assets", "Total assets (2599)"], ["cca", "Total CCA, Schedule 8"], ["tax", "Total income tax, federal plus provincial"]] as const).map(([k, label]) => {

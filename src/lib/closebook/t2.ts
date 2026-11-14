@@ -104,16 +104,18 @@ export function taxWorkpaper(accounts: WpAccount[], codes: Map<string, { name: s
 }
 
 // The tie-out to ProFile. Closebook's figures come from the final export; the preparer types ProFile's.
-// A difference shows to the cent (ProFile less Closebook). CCA is compared only when the client's book
-// amortization is CCA (the reviewer can set book amortization for the client).
+// A difference shows to the cent, Closebook less ProFile (round 10 fix 6). ProFile rounds each GIFI line
+// to whole dollars, so a difference within the rounding allowed (Settings, $5) shows as rounding and does
+// not block (fix 1). CCA is compared only when the client's book amortization is CCA.
 export type TieItem = { key: "ni" | "assets" | "cca" | "tax"; label: string; closebook: number; profile: number | null; diff: number | null; compared: boolean;
-  accepted: { diff: number; by: string; at: string; reason: string } | null; open: boolean };
+  accepted: { diff: number; by: string; at: string; reason: string } | null; open: boolean; rounding: boolean };
 export function tieOut(closebook: { ni: number; assets: number; amort: number; tax: number }, typed: { ni: number | null; assets: number | null; cca: number | null; tax: number | null },
-  accepted: Record<string, { diff: number; by: string; at: string; reason: string }>, bookAmortization: boolean): TieItem[] {
+  accepted: Record<string, { diff: number; by: string; at: string; reason: string }>, bookAmortization: boolean, roundingAllowed = 5): TieItem[] {
   const item = (key: TieItem["key"], label: string, cb: number, pf: number | null, compared = true): TieItem => {
-    const diff = pf === null ? null : cents(pf - cb);
+    const diff = pf === null ? null : cents(cb - pf);
     const acc = accepted[key] ?? null;
-    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, open: compared && diff !== null && diff !== 0 && (!acc || acc.diff !== diff) };
+    const rounding = compared && diff !== null && diff !== 0 && Math.abs(diff) <= roundingAllowed;
+    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, rounding, open: compared && diff !== null && Math.abs(diff) > roundingAllowed && (!acc || acc.diff !== diff) };
   };
   return [
     item("ni", "Net income (9999)", closebook.ni, typed.ni),

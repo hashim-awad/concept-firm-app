@@ -10,12 +10,17 @@ import { todayToronto } from "@/lib/dates";
 
 export type GifiExportRow = { id: string; kind: ExportKind; file_name: string; created_by: string | null; created_at: string; fingerprint: string; totals: Record<string, number> };
 
-export async function gifiFor(supabase: SupabaseClient, fileId: string) {
+// kind: the export to build. "before_tax" always leaves the tax entries (TJE) out, even when made after
+// they are booked (round 10 fix 4); "final" takes every entry. The screen shows the final figures.
+export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: ExportKind = "final") {
   const data = await loadFile(supabase, fileId);
   if (!data) return null;
   const ref = await loadReference(supabase);
   const entryTotals = new Map<string, number>();
-  for (const e of data.entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
+  for (const e of data.entries) {
+    if (kind === "before_tax" && e.kind === "TJE") continue;
+    for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
+  }
   const byNo = new Map(ref.lines.map((l) => [l.line_no, l]));
   const result = gifiCodes(data.accounts, entryTotals, byNo);
 
@@ -36,13 +41,15 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string) {
 
   // The tax workpaper: each account's final balance as GIFI shows it, with its tax code (the account's,
   // else its GIFI line's default).
-  const [{ data: codes }, { data: treat }, { data: book }, { data: exps }, { data: tie }] = await Promise.all([
+  const [{ data: codes }, { data: treat }, { data: book }, { data: exps }, { data: tie }, { data: set }] = await Promise.all([
     supabase.from("cb_tax_codes").select("code, name, schedule1_effect"),
     supabase.from("cb_review_treatments").select("line_no, treatment").eq("client_id", data.file.client_id),
     supabase.from("cb_client_tax_settings").select("book_amortization").eq("client_id", data.file.client_id).maybeSingle(),
     supabase.from("cb_gifi_exports").select("id, kind, file_name, created_by, created_at, fingerprint, totals").eq("file_id", fileId).order("created_at", { ascending: false }),
     supabase.from("cb_t2_tieouts").select("net_income, total_assets, cca, income_tax, t2_pdf, accepted, entered_by, entered_at").eq("file_id", fileId).maybeSingle(),
+    supabase.from("cb_settings").select("t2_rounding").maybeSingle(),
   ]);
+  const roundingAllowed = Number((set as { t2_rounding?: number } | null)?.t2_rounding ?? 5);
   const wpAccounts: WpAccount[] = [];
   let amort = 0, inctax = 0;
   for (const a of data.accounts) {
@@ -56,7 +63,7 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string) {
     const amount = l.line_type === "Revenue" ? -fin : fin;
     if (code === "AMORT") amort += fin;
     if (code === "INCTAX") inctax += fin;
-    wpAccounts.push({ label: `${a.number ? `${a.number} ` : ""}${a.name}`, line_no: l.line_no, gifi: l.gifi_code, lineType: l.line_type, code, amount });
+    wpAccounts.push({ label: `${a.number ? `${a.number} ` : ""}${a.name}`, line_no: a.line_no, gifi: l.gifi_code, lineType: l.line_type, code, amount });
   }
   const workpaper = taxWorkpaper(wpAccounts, new Map(((codes ?? []) as { code: string; name: string; schedule1_effect: string }[]).map((x) => [x.code, { name: x.name, rule: x.schedule1_effect }])),
     new Map(((treat ?? []) as { line_no: string; treatment: Treatment }[]).map((x) => [x.line_no, x.treatment])));
@@ -74,11 +81,11 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string) {
   const n = (v: unknown) => (v === null || v === undefined ? null : Number(v));
   const bookAmortization = !!(book as { book_amortization?: boolean } | null)?.book_amortization;
   const tieItems = final ? tieOut({ ni: Number(final.totals["9999"] ?? 0), assets: Number(final.totals["2599"] ?? 0), amort: Number(final.totals.amort ?? 0), tax: Number(final.totals.inctax ?? 0) },
-    { ni: n(t?.net_income), assets: n(t?.total_assets), cca: n(t?.cca), tax: n(t?.income_tax) }, t?.accepted ?? {}, bookAmortization) : [];
+    { ni: n(t?.net_income), assets: n(t?.total_assets), cca: n(t?.cca), tax: n(t?.income_tax) }, t?.accepted ?? {}, bookAmortization, roundingAllowed) : [];
   const names = new Map(ref.lines.map((l) => [l.gifi_code, l.line_no.endsWith(".00") ? l.name : undefined]).filter(([, nm]) => nm) as [string, string][]);
   names.set("3660", "Retained earnings/deficit – Start");
   return {
-    ...result, checks, refused, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
+    ...result, kind, roundingAllowed, checks, refused, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
     reviewLines: [...new Set(wpAccounts.filter((a) => a.code === "REVIEW").map((a) => a.line_no))],
     treatments: new Map(((treat ?? []) as { line_no: string; treatment: Treatment }[]).map((x) => [x.line_no, x.treatment])),
     tjes: data.entries.filter((e) => e.kind === "TJE").length,

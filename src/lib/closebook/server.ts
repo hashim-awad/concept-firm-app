@@ -4,6 +4,7 @@ import type { CbDoc, CbFileRow } from "./files";
 
 export type CbClient = { id: string; legal_name: string; business_number: string; year_end_md: string; taxdome_tags: string[]; province: string; signing_officer: string; street_address?: string; city?: string; postal_code?: string };
 export type CbAccount = { id: string; account_key: string; number: string; name: string; last_year: number; this_year: number; line_no: string | null; tax_code: string | null;
+  side_confirm_reason?: string | null; side_confirmed_line?: string | null; side_confirmed_by?: string | null; side_confirmed_at?: string | null;
   client_new?: boolean; qbo_type?: string | null; account_type?: string | null; type_source?: string | null;
   type_confirm_reason?: string | null; type_confirmed_line?: string | null; type_confirmed_by?: string | null; type_confirmed_at?: string | null;
   mapping_source: string | null; needs_reviewer: boolean; reviewer_reason: string };
@@ -37,7 +38,7 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags, province, signing_officer, street_address, city, postal_code").eq("id", f.client_id).maybeSingle(),
     supabase.from("cb_documents").select(DOC_COLS).eq("file_id", id).order("sort_order"),
-    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at").eq("file_id", id).order("number").order("name"),
+    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at, side_confirm_reason, side_confirmed_line, side_confirmed_by, side_confirmed_at").eq("file_id", id).order("number").order("name"),
     supabase.from("cb_imports").select("target, source, file_name, rows, debit_total, credit_total, imported_at, who:imported_by(full_name)").eq("file_id", id).order("imported_at", { ascending: false }),
     staffNames(supabase),
   ]);

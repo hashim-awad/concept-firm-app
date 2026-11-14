@@ -29,6 +29,7 @@ export default async function ThresholdsPage({ searchParams }: PageProps<"/admin
         {num("flag_percent", "Year-over-year flag: percentage", c.flag_percent, "The percentage part of the same rule.", "%")}
         {num("entry_review", "Entries the reviewer must approve", c.entry_review_amount, "Any entry over this amount goes to the reviewer. Free entries always do.")}
         {num("capital_invoice", "Capital additions: invoice needed", c.capital_invoice_amount, "Asset additions over this amount need the invoice attached.")}
+        {num("t2_rounding", "Rounding allowed in the T2 tie-out", c.t2_rounding, "ProFile rounds each GIFI line to whole dollars. In step 8, a difference with ProFile of this amount or less shows as rounding and does not block the sign-off.")}
         <button type="submit" className="btn w-fit">Save thresholds</button>
       </form>
     </>

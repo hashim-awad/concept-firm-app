@@ -2,7 +2,7 @@ import { pctChange } from "@/lib/closebook/reports";
 import Link from "next/link";
 import { FilePick } from "./file-pick";
 import { formatDateTime } from "@/lib/dates";
-import { effectiveLine, leadSheets, lockedLines, normalSide, typeFlag, typeFlagText, typeFromBooksMissing, typeNotChecked, wrongSign, type Line } from "@/lib/closebook/matching";
+import { effectiveLine, leadSheets, lockedLines, normalSide, sideFlag, sideFlagText, typeFlag, typeFlagText, typeFromBooksMissing, typeNotChecked, wrongSign, type Line } from "@/lib/closebook/matching";
 import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
@@ -78,14 +78,15 @@ export function TbTab(p: Props) {
       // The trial balance's rule, on the figures shown (round 4 item 1): this year after entries against last year.
       change: pctChange(Math.round(fin * 100), Math.round(a.last_year * 100)),
       lineNo: a.line_no ?? "", lineLabel: eff ? `${eff} ${byNo.get(eff)?.name ?? ""}` : "", movedFrom: eff && eff !== a.line_no ? a.line_no ?? "" : "",
-      source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines" : mismatchText(a),
-      typeFlag: typeFlag(a, lineOf(a)), notChecked: typeNotChecked(a),
+      source: SOURCE_LABEL[a.mapping_source ?? ""] ?? "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: a.line_no && lockedSet.has(a.line_no) ? "Locked line: choose one of its sub-lines"
+        : [mismatchText(a), sideFlagText(a, lineOf(a), fin, a.side_confirmed_by ? p.names?.get(a.side_confirmed_by) ?? "" : "", formatDate(a.side_confirmed_at))].filter(Boolean).join(" "),
+      typeFlag: typeFlag(a, lineOf(a)), sideFlag: sideFlag(a, lineOf(a), fin), notChecked: typeNotChecked(a),
       tax: taxOf(a), taxDefault: eff ? byNo.get(eff)?.default_tax_code ?? "" : "", taxOverride: !!a.tax_code,
       // An account with no balance either year and no entries needs no decision (round 3 item 12).
       unused: a.account_key !== "chart:10900" && unusedOf(a),
       // Clearing (10900) has no GIFI line by design: it needs a decision only while it has a balance (round 4 item 3).
       attention: a.account_key === "chart:10900" ? Math.round(fin * 100) !== 0
-        : !unusedOf(a) && (!a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a))),
+        : !unusedOf(a) && (!a.line_no || a.needs_reviewer || lockedSet.has(a.line_no) || (isMismatch(a) && !confirmed(a)) || sideFlag(a, lineOf(a), fin) === "open"),
       buildUp: a.account_key === "opening" && p.causes?.length ? p.causes.map((c) => ({ text: c.text, amount: amt(c.cents / 100) })) : undefined,
     };
   });

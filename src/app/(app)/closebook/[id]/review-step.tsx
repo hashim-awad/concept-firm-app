@@ -105,7 +105,7 @@ const ACTION: Record<string, string> = {
   prepared: "Signed as preparer", reviewed: "Signed as reviewer", unsigned_prepared: "Took back the preparer sign-off", unsigned_reviewed: "Took back the reviewer sign-off",
   signoff_cleared: "Sign-offs cleared by a change", note_added: "Review note added", note_replied: "Replied to a note", note_fixed: "Marked a note fixed",
   note_cleared: "Cleared a note", note_reopened: "Reopened a note", checklist_saved: "Saved the completion checklist",
-  revenue_accepted: "Accepted a revenue difference", gifi_exported: "Exported the GIFI file", t2_accepted: "Accepted a T2 tie-out difference",
+  revenue_accepted: "Accepted a revenue difference", gifi_exported: "Exported the GIFI file", t2_accepted: "Accepted a T2 tie-out difference", side_confirmed: "Kept a balance on the other side of its line",
 };
 export function HistoryView({ rows, stepName }: { rows: HistoryRow[]; stepName: (k: string) => string }) {
   return (

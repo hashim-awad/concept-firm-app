@@ -153,14 +153,16 @@ test("round 10: tax workpaper: meals add back 50%, amortization and income tax 1
   assert.equal(set[0].effect, -120);
 });
 
-test("round 10: tie-out: a difference to the cent stays open until accepted at that signed amount; CCA skipped with book amortization", () => {
-  const cb = { ni: 10000, assets: 50000, amort: 1960, tax: 800 };
-  const t = tieOut(cb, { ni: 10000, assets: 50000, cca: 1960, tax: 800 }, {}, false);
-  assert.ok(t.every((x) => !x.open && x.diff === 0));
-  const d = tieOut(cb, { ni: 9999.99, assets: 50000, cca: 1500, tax: 800 }, {}, false);
-  assert.deepEqual(d.filter((x) => x.open).map((x) => [x.key, x.diff]), [["ni", -0.01], ["cca", -460]]);
-  const acc = tieOut(cb, { ni: 9999.99, assets: 50000, cca: 1500, tax: 800 }, { ni: { diff: -0.01, by: "o", at: "", reason: "Rounding" } }, true);
+test("round 10: tie-out: Closebook less ProFile; within $5 is rounding; over it stays open until accepted at that signed amount; CCA skipped with book amortization", () => {
+  const cb = { ni: 1036.63, assets: 65624.5, amort: 1960, tax: 800 };
+  // Birch in ProFile: every line rounded to whole dollars.
+  const t = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}, false);
+  assert.deepEqual(t.map((x) => [x.key, x.diff, x.rounding, x.open]), [["ni", 0.63, true, false], ["assets", -0.5, true, false], ["cca", 0, false, false], ["tax", 0, false, false]]);
+  const d = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 812.5 }, {}, false);
+  assert.deepEqual(d.filter((x) => x.open).map((x) => [x.key, x.diff]), [["tax", -12.5]], "(12.50): Closebook less ProFile");
+  const acc = tieOut(cb, { ni: 1036, assets: 65625, cca: 1500, tax: 812.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } }, true);
   assert.deepEqual(acc.filter((x) => x.open).map((x) => x.key), [], "accepted, and CCA not compared");
-  const flip = tieOut(cb, { ni: 10000.01, assets: 50000, cca: 1960, tax: 800 }, { ni: { diff: -0.01, by: "o", at: "", reason: "Rounding" } }, false);
-  assert.ok(flip.find((x) => x.key === "ni")!.open, "0.01 is not (0.01)");
+  const flip = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 787.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } }, false);
+  assert.ok(flip.find((x) => x.key === "tax")!.open, "12.50 is not (12.50)");
+  assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}, false, 0).find((x) => x.key === "ni")!.open, "the rounding allowed is a setting");
 });

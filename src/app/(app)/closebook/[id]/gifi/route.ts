@@ -30,10 +30,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const kind = q.get("kind");
   if (kind !== "before_tax" && kind !== "final") return new NextResponse("Not found", { status: 404 });
-  const g = await gifiFor(supabase, id);
+  const g = await gifiFor(supabase, id, kind);
   if (!g) return new NextResponse("Not found", { status: 404 });
   if (g.refused.length) return back("error", `Export refused. ${g.refused.join(" ")}`);
-  const body = g.file(), name = g.fileName(kind);
+  const body = g.file(), name = g.fileName(kind);   // before tax entries: built without the TJEs
   const { error } = await supabase.rpc("cb_record_gifi_export", { p_file: id, p_kind: kind, p_file_name: name, p_content: body, p_totals: g.totals,
     p_checks: g.checks.map((c) => ({ key: c.key, title: c.title, ok: c.ok, result: c.result })) });
   if (error) return back("error", error.message);

@@ -41,25 +41,37 @@ select test.check('step 8: the ProFile figures come next', private.cb_step8_prob
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the T2 PDF is needed', test.try(format($q$select public.cb_save_t2_tieout(%L, 12000, 12000, 0, 0, '')$q$, :'f')) = 'Attach the T2 PDF from ProFile.');
-select public.cb_save_t2_tieout(:'f', 11999.99, 12000, 0, 0, 'files/t2.pdf');
+select public.cb_save_t2_tieout(:'f', 11987.50, 12000, 0, 0, 'files/t2.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('a difference to the cent blocks the preparer', private.cb_step8_problems(:'f') = array['Net income: ProFile differs from Closebook by (0.01). Only the reviewer can accept it.']);
+select test.check('a difference over the rounding allowed blocks the preparer, Closebook less ProFile',
+  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 12.50, more than the rounding allowed (5.00). Only the reviewer can accept it.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer cannot accept it', test.try(format($q$select public.cb_accept_t2_difference(%L, 'ni', 'Rounding')$q$, :'f')) like 'Only the reviewer accepts%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the reviewer gives a reason', test.try(format($q$select public.cb_accept_t2_difference(%L, 'ni', '')$q$, :'f')) = 'Say why the difference is accepted.');
-select public.cb_accept_t2_difference(:'f', 'ni', 'ProFile rounds the provincial tax.');
+select public.cb_accept_t2_difference(:'f', 'ni', 'Late ProFile change, booked next year.');
 reset role;
 reset request.jwt.claims;
 select test.check('accepted: nothing open', private.cb_step8_problems(:'f') = '{}');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_save_t2_tieout(:'f', 12000.01, 12000, 0, 0, null);
+select public.cb_save_t2_tieout(:'f', 12012.50, 12000, 0, 0, null);
 reset role;
 reset request.jwt.claims;
-select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: ProFile differs from Closebook by 0.01. Only the reviewer can accept it.']);
+select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is (12.50), more than the rounding allowed (5.00). Only the reviewer can accept it.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+-- ProFile rounds each line to whole dollars: 11,999 against 12,000.00 is rounding, not a difference.
+select public.cb_save_t2_tieout(:'f', 11999, 12000, 0, 0, null);
+reset role;
+reset request.jwt.claims;
+select test.check('a difference within the rounding allowed ($5) does not block', private.cb_step8_problems(:'f') = '{}'
+  and (select (x ->> 'rounding')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'ni'));
+update public.cb_settings set t2_rounding = 0;
+select test.check('the rounding allowed is a setting', private.cb_step8_problems(:'f') @> array['Net income: Closebook less ProFile is 1.00, more than the rounding allowed (0.00). Only the reviewer can accept it.']);
+update public.cb_settings set t2_rounding = 5;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 0, null);
@@ -101,3 +113,41 @@ reset request.jwt.claims;
 select test.check('kept for the client, so they roll forward', exists (select 1 from public.cb_review_treatments where client_id = :'client' and line_no = '8231.00' and treatment = 'deduct100')
   and (select book_amortization from public.cb_client_tax_settings where client_id = :'client'));
 select test.check('with book amortization, CCA is not compared', (select (x ->> 'compared')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'cca') = false);
+
+-- A REVIEW line with no treatment blocks the preparer; the reviewer's treatment clears it.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb2.csv', '[
+  {"number":"10100","name":"Chequing","amount":12000},{"number":"41000","name":"Commission income","amount":-20000},
+  {"number":"64250","name":"Accounting fees","amount":8000},{"number":"48000","name":"Foreign exchange gain","amount":-50},{"number":"10200","name":"US account","amount":50}]');
+select public.cb_map_account(id, case number when '48000' then '8231.00' when '10200' then '1002.00' when '10100' then '1002.00' when '41000' then '8000.00' else '8862.00' end)
+  from public.cb_accounts where file_id = :'f' and number in ('48000', '10200');
+reset role;
+reset request.jwt.claims;
+delete from public.cb_review_treatments where client_id = :'client';
+select test.check('a REVIEW line with no treatment blocks step 8', private.cb_step8_problems(:'f') @> array['1 REVIEW line waits for the reviewer''s Schedule 1 treatment (tax workpaper).']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_set_review_treatment(:'f', '8231.00', 'none');
+reset role;
+reset request.jwt.claims;
+select test.check('set by the reviewer: no longer blocks', not (private.cb_step8_problems(:'f') @> array['1 REVIEW line waits for the reviewer''s Schedule 1 treatment (tax workpaper).']));
+
+-- A liability with a debit balance on a line with no paired line goes to the reviewer in step 7.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb3.csv', '[
+  {"number":"10100","name":"Chequing","amount":12000},{"number":"41000","name":"Commission income","amount":-20000},
+  {"number":"64250","name":"Accounting fees","amount":8000},{"number":"21700","name":"Visa","amount":55.20},{"number":"10300","name":"Cash float","amount":-55.20}]');
+select public.cb_map_account(id, case number when '21700' then '2707.00' else '1002.00' end) from public.cb_accounts where file_id = :'f' and number in ('21700', '10300');
+reset role;
+reset request.jwt.claims;
+select test.check('a debit balance on 2707 waits for the reviewer in step 7', private.cb_step_waiting(:'f', 'mapping') @> array['1 account with a balance on the wrong side of its GIFI line.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('only the reviewer keeps it there', test.try(format($q$select public.cb_confirm_side(%L, 'Card in credit')$q$, (select id from public.cb_accounts where file_id = :'f' and number = '21700'))) like 'Only the reviewer keeps%');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_confirm_side((select id from public.cb_accounts where file_id = :'f' and number = '21700'), 'The card is in credit at the year end.');
+reset role;
+reset request.jwt.claims;
+select test.check('kept with a reason: no longer waiting', private.cb_open_side_flags(:'f') = 0);

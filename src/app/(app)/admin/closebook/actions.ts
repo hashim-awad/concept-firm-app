@@ -64,8 +64,15 @@ export async function updateCbSettings(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_update_settings", {
     p_recon: vals[0], p_flag_amount: vals[1], p_flag_percent: vals[2], p_entry_review: vals[3], p_capital_invoice: vals[4], p_note1: s(formData, "note1") || "amortization_equals_cca",
   });
+  // Round 10: the T2 tie-out rounding, on the Thresholds page only (the Note 1 page does not send it).
+  let err = error;
+  if (!err && formData.has("t2_rounding")) {
+    const r = n("t2_rounding");
+    if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Rounding allowed in the T2 tie-out: enter a number, 0 or more."));
+    err = (await (await createClient()).rpc("cb_update_t2_rounding", { p_amount: r })).error;
+  }
   revalidatePath(back);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
+  redirect(withMessage(back, err ? "error" : "msg", err ? err.message : "Saved."));
 }
 
 // Standard entries (Hashim, Nov 15, 2026, layout item 6). Owners only.

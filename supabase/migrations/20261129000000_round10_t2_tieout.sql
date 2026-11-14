@@ -13,7 +13,27 @@
 --   4. The reviewer's treatment of REVIEW lines and the client's book amortization choice, kept per client
 --      so they roll forward.
 --   5. Step 8 gets its sign-offs.
+-- Round 10 fixes (Hashim, Nov 27, 2026): ProFile rounds each GIFI line to whole dollars, so a tie-out
+-- difference within "Rounding allowed in the T2 tie-out" (Settings, $5) shows as rounding and does not
+-- block; differences are Closebook less ProFile; a REVIEW line with no treatment blocks step 8's
+-- preparer; a balance on the wrong side of a balance sheet line with no paired line goes to the reviewer
+-- in step 7, who keeps it there with a reason or moves it.
 -- Safe to run twice (round 4d rule).
+
+alter table public.cb_settings add column if not exists t2_rounding numeric(12, 2) not null default 5;
+alter table public.cb_settings drop constraint if exists cb_settings_t2_rounding_check;
+alter table public.cb_settings add constraint cb_settings_t2_rounding_check check (t2_rounding between 0 and 1000);
+
+create or replace function public.cb_update_t2_rounding(p_amount numeric) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform private.require(private.is_owner(), 'Only an owner changes thresholds.');
+  perform private.require(p_amount is not null and p_amount between 0 and 1000, 'Rounding allowed in the T2 tie-out: a number from 0 to 1,000.');
+  update public.cb_settings set t2_rounding = round(p_amount, 2), updated_at = now(), updated_by = (select auth.uid());
+end;
+$$;
+revoke all on function public.cb_update_t2_rounding(numeric) from public, anon;
+grant execute on function public.cb_update_t2_rounding(numeric) to authenticated;
 
 create table if not exists public.cb_gifi_exports (
   id           uuid primary key default gen_random_uuid(),
@@ -110,26 +130,31 @@ create or replace function private.cb_t2_state(p_file uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
   v_file public.cb_files; e public.cb_gifi_exports; t public.cb_t2_tieouts; v_book boolean; v_items jsonb := '[]'; v_stale boolean;
-  k text; v_cb numeric; v_pf numeric; v_diff numeric; v_acc jsonb; v_compared boolean;
+  k text; v_cb numeric; v_pf numeric; v_diff numeric; v_acc jsonb; v_compared boolean; v_round numeric;
 begin
   select * into v_file from public.cb_files where id = p_file;
   select * into e from public.cb_gifi_exports where file_id = p_file and kind = 'final' order by created_at desc limit 1;
   select * into t from public.cb_t2_tieouts where file_id = p_file;
   select coalesce(book_amortization, false) into v_book from public.cb_client_tax_settings where client_id = v_file.client_id;
   v_book := coalesce(v_book, false);
+  select coalesce(t2_rounding, 5) into v_round from public.cb_settings limit 1;
+  v_round := coalesce(v_round, 5);
   v_stale := e.id is not null and e.fingerprint <> private.cb_tb_fingerprint(p_file);
   if e.id is not null then
     foreach k in array array['ni', 'assets', 'cca', 'tax'] loop
       v_cb := coalesce((e.totals ->> case k when 'ni' then '9999' when 'assets' then '2599' when 'cca' then 'amort' else 'inctax' end)::numeric, 0);
       v_pf := case k when 'ni' then t.net_income when 'assets' then t.total_assets when 'cca' then t.cca else t.income_tax end;
-      v_diff := case when v_pf is null then null else v_pf - v_cb end;
+      -- Closebook less ProFile (round 10 fix 6).
+      v_diff := case when v_pf is null then null else v_cb - v_pf end;
       v_acc := t.accepted -> k;
       v_compared := k <> 'cca' or not v_book;
       v_items := v_items || jsonb_build_object('key', k, 'closebook', v_cb, 'profile', v_pf, 'diff', v_diff, 'compared', v_compared,
-        'open', v_compared and v_diff is not null and v_diff <> 0 and (v_acc is null or (v_acc ->> 'diff')::numeric is distinct from v_diff));
+        -- ProFile rounds each line to whole dollars: within the rounding allowed, not a difference to clear.
+        'rounding', v_compared and v_diff is not null and v_diff <> 0 and abs(v_diff) <= v_round,
+        'open', v_compared and v_diff is not null and abs(v_diff) > v_round and (v_acc is null or (v_acc ->> 'diff')::numeric is distinct from v_diff));
     end loop;
   end if;
-  return jsonb_build_object('final_id', e.id, 'final_at', e.created_at, 'stale', v_stale, 'book_amortization', v_book,
+  return jsonb_build_object('rounding', v_round, 'final_id', e.id, 'final_at', e.created_at, 'stale', v_stale, 'book_amortization', v_book,
     'entered', t.file_id is not null and t.net_income is not null and t.total_assets is not null and t.cca is not null and t.income_tax is not null,
     't2_pdf', t.t2_pdf, 'items', v_items);
 end;
@@ -150,13 +175,19 @@ begin
     else
       for i in select * from jsonb_array_elements(v -> 'items') loop
         if (i ->> 'open')::boolean then
-          v_out := v_out || format('%s: ProFile differs from Closebook by %s. Only the reviewer can accept it.',
+          v_out := v_out || format('%s: Closebook less ProFile is %s, more than the rounding allowed (%s). Only the reviewer can accept it.',
             case i ->> 'key' when 'ni' then 'Net income' when 'assets' then 'Total assets' when 'cca' then 'CCA' else 'Income tax' end,
-            private.cb_money((i ->> 'diff')::numeric));
+            private.cb_money((i ->> 'diff')::numeric), private.cb_money((v ->> 'rounding')::numeric));
         end if;
       end loop;
     end if;
   end if;
+  -- A REVIEW line with a balance and no treatment set by the reviewer (round 10 fix 2). Exports go ahead.
+  select count(*) into v_n from public.cb_accounts a join public.cb_master_lines m on m.line_no = a.line_no join public.cb_files f on f.id = a.file_id
+   where a.file_id = p_file and coalesce(a.tax_code, m.default_tax_code) = 'REVIEW' and private.cb_account_final(a.id) <> 0
+     and not exists (select 1 from public.cb_review_treatments t where t.client_id = f.client_id and t.line_no = a.line_no);
+  if v_n > 0 then v_out := v_out || format('%s REVIEW line%s wait%s for the reviewer''s Schedule 1 treatment (tax workpaper).', v_n,
+    case when v_n = 1 then '' else 's' end, case when v_n = 1 then 's' else '' end); end if;
   select count(*) into v_n from public.cb_review_notes where file_id = p_file and step = 't2' and status = 'open';
   if v_n > 0 then v_out := v_out || format('%s review note%s to fix.', v_n, case when v_n = 1 then '' else 's' end); end if;
   return v_out;
@@ -249,6 +280,47 @@ create trigger cb_changed_gifi_export after insert on public.cb_gifi_exports for
 drop trigger if exists cb_changed_t2_tieout on public.cb_t2_tieouts;
 create trigger cb_changed_t2_tieout after insert or update of net_income, total_assets, cca, income_tax, t2_pdf on public.cb_t2_tieouts for each row
   execute function private.cb_changed('t2', 'The ProFile figures changed');
+
+-- A balance on the wrong side of a balance sheet line with no paired line (round 10 fix 5): an asset line
+-- with a credit balance, or a liability line with a debit balance (Birch's Visa in credit on 2707). Contra
+-- lines (accumulated amortization, allowances) are left out. It waits for the reviewer in step 7, who
+-- keeps it on the line with a reason (kept while the account stays on that line) or moves it.
+alter table public.cb_accounts add column if not exists side_confirm_reason text check (side_confirm_reason is null or length(side_confirm_reason) <= 300);
+alter table public.cb_accounts add column if not exists side_confirmed_line text;
+alter table public.cb_accounts add column if not exists side_confirmed_by uuid references public.staff (id);
+alter table public.cb_accounts add column if not exists side_confirmed_at timestamptz;
+
+create or replace function private.cb_side_open(p_account uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce((select m.pair_line is null and m.line_type in ('Asset', 'Liability')
+      and m.name !~* '^(accumulated|allowance|less\M)|dividends|draws?\M'
+      and abs(f.fin) >= 0.005 and (case when m.line_type = 'Asset' then f.fin < 0 else f.fin > 0 end)
+      and a.side_confirmed_line is distinct from a.line_no
+    from public.cb_accounts a join public.cb_master_lines m on m.line_no = a.line_no
+    cross join lateral (select private.cb_account_final(a.id) as fin) f
+   where a.id = p_account), false);
+$$;
+create or replace function private.cb_open_side_flags(p_file uuid) returns int
+language sql stable security definer set search_path = '' as $$
+  select count(*)::int from public.cb_accounts a where a.file_id = p_file and a.line_no is not null and private.cb_side_open(a.id);
+$$;
+
+create or replace function public.cb_confirm_side(p_account uuid, p_reason text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare a public.cb_accounts;
+begin
+  perform private.require(private.can_edit('closebook') and private.is_owner(), 'Only the reviewer keeps a balance on this side. Reviewers are owners.');
+  select * into a from public.cb_accounts where id = p_account;
+  perform private.require(a.id is not null and (select phase from public.cb_files where id = a.file_id) <> 'locked', 'This file is locked or the account is gone.');
+  perform private.require(private.cb_side_open(p_account), 'This balance is not on the wrong side of its line.');
+  perform private.require(length(btrim(coalesce(p_reason, ''))) between 3 and 300, 'Type the reason for keeping it on this line.');
+  update public.cb_accounts set side_confirm_reason = btrim(p_reason), side_confirmed_line = line_no, side_confirmed_by = (select auth.uid()), side_confirmed_at = now() where id = p_account;
+  perform private.cb_log(a.file_id, 'side_confirmed', 'mapping', format('%s kept on GIFI %s: %s', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name), replace(a.line_no, '.00', ''), btrim(p_reason)));
+end;
+$$;
+revoke all on function private.cb_side_open(uuid), private.cb_open_side_flags(uuid) from public, anon, authenticated;
+revoke all on function public.cb_confirm_side(uuid, text) from public, anon;
+grant execute on function public.cb_confirm_side(uuid, text) to authenticated;
 
 -- Step 8's sign-offs (round 8 functions, with step 8 added).
 create or replace function public.cb_sign_step(p_file uuid, p_step text, p_role text)
@@ -357,3 +429,40 @@ $function$
 
 ;
 
+-- Step 7's waiting list, with the wrong-side balances (round 9 function otherwise unchanged).
+create or replace function private.cb_step_waiting(p_file uuid, p_step text)
+ RETURNS text[]
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_out text[] := '{}';
+  v_n int;
+begin
+  if p_step = 'opening' then
+    if exists (select 1 from public.cb_accounts where file_id = p_file and account_key = 'opening' and needs_reviewer) then
+      v_out := v_out || 'A difference with last year''s closing balances.'::text;
+    end if;
+  elsif p_step = 'code' then
+    select count(*) into v_n from public.cb_bank_lines where file_id = p_file and status = 'reviewer';
+    if v_n > 0 then v_out := v_out || format('%s line%s for the reviewer.', v_n, case when v_n = 1 then '' else 's' end); end if;
+  elsif p_step = 'entries' then
+    select count(*) into v_n from public.cb_entries where file_id = p_file and needs_review and reviewed_at is null;
+    if v_n > 0 then v_out := v_out || format('%s entr%s to approve.', v_n, case when v_n = 1 then 'y' else 'ies' end); end if;
+    v_out := v_out || private.cb_step5_waiting(p_file);
+  elsif p_step = 'mapping' then
+    select count(*) into v_n from public.cb_accounts where file_id = p_file and needs_reviewer and account_key not in ('opening', 'uncoded');
+    if v_n > 0 then v_out := v_out || format('%s account%s waiting for the reviewer''s decision.', v_n, case when v_n = 1 then '' else 's' end); end if;
+    v_n := private.cb_open_type_flags(p_file);
+    if v_n > 0 then v_out := v_out || format('%s account%s on a GIFI line of another type.', v_n, case when v_n = 1 then '' else 's' end); end if;
+    v_n := private.cb_open_side_flags(p_file);
+    if v_n > 0 then v_out := v_out || format('%s account%s with a balance on the wrong side of its GIFI line.', v_n, case when v_n = 1 then '' else 's' end); end if;
+  end if;
+  select count(*) into v_n from public.cb_review_notes where file_id = p_file and step = p_step and status <> 'cleared';
+  if v_n > 0 then v_out := v_out || format('%s review note%s to clear.', v_n, case when v_n = 1 then '' else 's' end); end if;
+  return v_out;
+end;
+$function$
+
+;
