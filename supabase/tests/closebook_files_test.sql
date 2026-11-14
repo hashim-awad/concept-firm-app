@@ -16,11 +16,11 @@ insert into public.clients (kind, legal_name, province) values ('individual', 'P
 select test.check('only companies get a file', test.try(format($f$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'statements', %L, %L)$f$, :'person', :A, :A)) like '%company%');
 select test.check('a short year needs a reason', test.try(format($f$select public.cb_create_file(%L, '2026-12-31', '2026-05-01', '', 'full', 'statements', %L, %L)$f$, :'client', :A, :A)) like '%reason%');
 select test.check('monthly files are Concept QuickBooks clients', test.try(format($f$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'monthly', 'statements', %L, %L)$f$, :'client', :A, :A)) <> 'OK');
-select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'statements', :A::uuid, :C::uuid) as f \gset
+select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'statements', :A::uuid, :A::uuid) as f \gset
 select test.check('the full file has the 18 core documents, F4 included', (select count(*) from public.cb_documents where file_id = :'f') = 18
   and (select title from public.cb_documents where file_id = :'f' and code = 'F3') = 'Reconcile bank and cards');
 select test.check('one file per client and year-end', test.try(format($f$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'statements', %L, %L)$f$, :'client', :A, :A)) like '%already has a file%');
-select public.cb_create_file(:'client', '2025-12-31', '2025-05-15', 'Incorporated May 15, 2025', 'monthly', 'concept_qbo', :A::uuid, :C::uuid) as m \gset
+select public.cb_create_file(:'client', '2025-12-31', '2025-05-15', 'Incorporated May 15, 2025', 'monthly', 'concept_qbo', :A::uuid, :A::uuid) as m \gset
 select test.check('a monthly file: no entries document, bank and cards confirmed', (select count(*) from public.cb_documents where file_id = :'m') = 17
   and not exists (select 1 from public.cb_documents where file_id = :'m' and code = 'F4')
   and (select title from public.cb_documents where file_id = :'m' and code = 'F3') = 'Confirm bank and cards'

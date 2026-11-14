@@ -6,10 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
-import { BOOKS, fileBy, FILE_TYPE, firstName, type CbDoc } from "@/lib/closebook/files";
-import { fileSteps, fromStatements, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
+import { BOOKS, fileBy, FILE_TYPE, firstName } from "@/lib/closebook/files";
+import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
+import { loadReview, stepSigns } from "@/lib/closebook/review-server";
+import { CB_CHECKLIST, cbText } from "@/lib/closebook/client-wording";
+import { loadWordingState } from "@/lib/studio/wording-state";
+import { entryNo } from "@/lib/closebook/reports";
+import { StatusPill } from "@/components/ds/primitives";
+import { SignoffBar } from "./signoff-bar";
+import { ReviewNotes } from "./review-notes";
+import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
-import { typeFlag } from "@/lib/closebook/matching";
+import { typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { BankView } from "./bank-view";
@@ -69,7 +77,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Bank files: step 2, last year's balance sheet; after sign-off, any difference with the first statements.
   const openingRow = accounts.find((a) => a.account_key === "opening");
   const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source };
-  const { steps, current, next } = fileSteps({ bankGaps, coding, opening,
+  // Round 8: each step's sign-offs, open items and review notes, from the database's own rules.
+  const review = await loadReview(supabase, id);
+  let setupOpen = ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered"].filter((k) => !(k in setup)).length;
+  if (setup.gst_registered === true) setupOpen += ("gst_frequency" in setup ? 0 : 1) + ("quick_method" in setup ? 0 : 1);
+  const { steps, current, next } = fileSteps({ bankGaps, coding, opening, signs: stepSigns(review), setupOpen,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
       // An account with no balance either year and no entries is "not used": no decision (round 4b item 4).
@@ -80,19 +92,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const asked = str(sp.step) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
+  const showHistory = access.is_owner && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>>; importOnly?: boolean } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
-      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names} />
+      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
+      noteStep={access.is_owner && ["code", "mapping"].includes(base) ? base : undefined} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
-  const planning = docs.filter((d) => d.phase === "planning");
-  const who = (uid: string | null, at: string | null) => (uid ? `${firstName(names.get(uid) ?? "")}${at ? `, ${formatDate(at)}` : ""}` : "");
-  const docStatus = (d: CbDoc) => d.status === "signed" ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Signed</span>
-    : d.status === "prepared" ? <span className="rounded bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">For review</span>
-    : <span className="rounded bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">Open</span>;
 
   // Reports (Hashim, Nov 15, 2026): full pages under "Reports" in the step list, built live every time.
   const report = REPORTS.find(([k]) => k === str(sp.report))?.[0] as ReportKey | undefined;
@@ -113,7 +122,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         {steps.map((x) => (
           <Link key={x.key} href={href(x.key)} className={`flex items-start gap-2.5 rounded px-2 py-1.5 hover:bg-sand-100 ${!report && x.key === step ? "bg-navy-50" : ""}`}>
             <span aria-hidden className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold ${x.state === "done" ? "bg-success-soft text-success" : x.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{x.state === "done" ? "✓" : x.n}</span>
-            <span><span className={`block whitespace-nowrap ${!report && x.key === step ? "font-semibold" : "font-normal"}`}>{x.name}</span>{x.note && <span className="block text-xs font-normal text-ink-3">{x.note}</span>}</span>
+            <span><span className={`block whitespace-nowrap ${!report && x.key === step ? "font-semibold" : "font-normal"}`}>{x.name}</span>{x.note && <span className="block text-xs font-normal text-ink-3">{x.note}</span>}
+              <span className="mt-0.5 flex items-center gap-1.5"><StatusPill status={x.word} />{x.notes > 0 && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white">{x.notes}<span className="sr-only"> review notes open</span></span>}</span></span>
           </Link>
         ))}
         <p className="mt-1 border-t border-sand-200 px-2 pt-2 text-xs font-semibold text-ink-3 uppercase">Reports</p>
@@ -162,16 +172,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (
       <div className="form-col">
-        <section className="card mb-4 overflow-x-auto p-0">
-          <h2 className="px-5 pt-4 pb-2 font-semibold">Set up the file</h2>
-          <table className="table">
-            <thead><tr><th>Item</th><th>Prepared by</th><th>Reviewed by</th><th>Status</th></tr></thead>
-            <tbody>{planning.map((d) => (
-              <tr key={d.code}><td><span className="font-medium">{d.title}</span>{d.detail && <span className="block text-xs text-muted">{d.detail}</span>}</td>
-                <td>{who(d.prepared_by, d.prepared_at)}</td><td>{who(d.reviewed_by, d.reviewed_at)}</td><td>{docStatus(d)}</td></tr>
-            ))}</tbody>
-          </table>
-        </section>
         <section className="card text-sm">
           <h2 className="mb-2 font-semibold">File settings</h2>
           <dl className="grid gap-3 sm:grid-cols-4">
@@ -211,7 +211,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "code") {
     body = bankFile
       ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
-          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null} />
+          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
+          noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: `${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}` } : undefined} />
       : tb("code", ["accounts", "lines"], "accounts", true);
   } else if (step === "entries") {
     // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
@@ -219,9 +220,44 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
     // The entry form's choices: accounts, sales tax, standard entries resolved to this file (round 2 item 11).
     const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
-    body = <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form} />;
+    body = <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form}
+      noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} />;
   } else if (step === "review") {
-    body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
+    // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
+    // are one click away, where the preparer explains the flagged changes for step 5.
+    if (view === "lead") body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
+    else {
+      const amt = (v: number) => v.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
+      const { data: rl } = bankFile ? await supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, reviewer_reason").eq("file_id", id).eq("status", "reviewer").order("txn_date") : { data: [] };
+      const groups: ReviewGroup[] = [
+        { key: "opening", title: "Opening balance differences", step: "step 2", items: openingRow?.needs_reviewer
+          ? [{ href: href("opening"), label: "Difference with last year's closing balances", detail: openingRow.reviewer_reason ?? "", amount: amt(openingRow.this_year) }] : [] },
+        { key: "code", title: "Lines for the reviewer", step: "step 4", items: ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
+          { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
+        { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
+          { href: `${href("entries")}#entry-${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
+        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open").map((a) => (
+          { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`, detail: a.needs_reviewer ? a.reviewer_reason : typeFlagText(a, lineOf(a.line_no)), amount: amt(a.this_year) })) },
+      ];
+      const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `Step ${x.n}, ${x.name}` : k; };
+      const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
+        { href: `${href(n.step)}#note-${n.id}`, label: `${stepName(n.step)}${n.target_label ? `: ${n.target_label}` : ""}`,
+          detail: `${n.status === "fixed" ? "Fixed, to clear. " : ""}${n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body}` }));
+      const [{ data: qs }, { data: ans }, wording, { data: appr }] = await Promise.all([
+        supabase.from("cb_checklist_questions").select("key").order("sort_order"),
+        supabase.from("cb_checklist_answers").select("question, answer, note").eq("file_id", id),
+        loadWordingState(supabase),
+        supabase.from("template_approvals").select("approved_on").eq("template_key", "cbchecklist").limit(1).maybeSingle(),
+      ]);
+      const texts = wording.live?.texts ?? {};
+      const ansOf = new Map(((ans ?? []) as { question: string; answer: ChecklistRow["answer"]; note: string }[]).map((a) => [a.question, a]));
+      const checklist: ChecklistRow[] = ((qs ?? []) as { key: string }[]).map((q) => {
+        const piece = CB_CHECKLIST.find((c) => c.key === q.key);
+        return { key: q.key, text: piece ? cbText(texts, piece) : q.key, answer: ansOf.get(q.key)?.answer ?? "", note: ansOf.get(q.key)?.note ?? "" };
+      });
+      body = <ReviewStep fileId={id} groups={groups} notes={openNotes} checklist={checklist} editable={editable && file.phase !== "locked"} back={href("review")} trial={!appr} />;
+    }
   } else if (step === "mapping") {
     body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
   } else if (step === "t2") {
@@ -231,6 +267,26 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     body = null;
   } else {
     body = null;
+  }
+
+  // Round 8: each step with a sign-off shows "Prepared by" and "Reviewed by" at the top and its review
+  // notes below. Step 6's bar sits under its list, where the reviewer finishes.
+  const stepBack = `${href(step)}${view ? `&view=${view}` : ""}`;
+  const bar = SIGNED_STEPS.includes(step) && !report ? (
+    <SignoffBar fileId={id} step={step} st={review.status[step]} names={names} me={access.staff_id} isOwner={access.is_owner} editable={editable && file.phase !== "locked"} back={stepBack}
+      preparerElsewhere={step === "opening" && bankFile} />
+  ) : null;
+  const stepNotes = <ReviewNotes fileId={id} notes={review.notes.filter((n) => n.step === step)} names={names} isOwner={access.is_owner}
+    canFix={!access.is_owner || access.staff_id === file.preparer_id} editable={editable && file.phase !== "locked"} back={stepBack} />;
+  if (showHistory) {
+    const { data: hist } = await supabase.from("cb_file_history").select("at, actor_id, action, step, detail").eq("file_id", id).order("at", { ascending: false }).limit(500);
+    const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
+    body = <HistoryView stepName={stepName} rows={((hist ?? []) as { at: string; actor_id: string | null; action: string; step: string | null; detail: string }[]).map((h) => (
+      { at: h.at, who: h.actor_id ? names.get(h.actor_id) ?? "" : "System", action: h.action, step: h.step ?? "", detail: h.detail }))} />;
+  } else if (bar) {
+    body = step === "review"
+      ? <>{(view !== "lead") && stepNotes}{body}<div className="mt-4">{bar}</div></>
+      : <>{bar}{body}<div className="mt-4">{stepNotes}</div></>;
   }
 
   return (
@@ -264,6 +320,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
                   <span className="min-w-0">
                     <span className={`block text-sm whitespace-nowrap ${!report && s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
                     {s.note && <span className="block text-xs text-ink-3">{s.note}</span>}
+                    <span className="mt-1 flex items-center gap-1.5"><StatusPill status={s.word} />
+                      {s.notes > 0 && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white" title={`${s.notes} review note${s.notes === 1 ? "" : "s"} open`}>{s.notes}<span className="sr-only"> review notes open</span></span>}</span>
                   </span>
                 </Link>
               </li>
@@ -277,6 +335,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
                   className={`block rounded-lg px-2 py-1.5 text-sm ${report === k ? "bg-navy-50 font-semibold" : "hover:bg-sand-100"}`}>{label}</Link>
               </li>
             ))}
+            {/* Round 8 item 8: owners see every sign-off, cleared sign-off, note and reply. */}
+            {access.is_owner && <li><Link href={`/closebook/${id}?history=1`} aria-current={showHistory ? "page" : undefined}
+              className={`block rounded-lg px-2 py-1.5 text-sm ${showHistory ? "bg-navy-50 font-semibold" : "hover:bg-sand-100"}`}>File history</Link></li>}
           </ul>
         </nav>
 
@@ -300,6 +361,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <p className="mt-1 text-base">{step === current ? next : step === "records" && !bankFile ? RECORDS_TB : STEP_LINE[step]}</p>
             </div>
           </section>
+          {step === "review" && !showHistory && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              <Link href={href("review")} className={`rounded-full px-3 py-1 ${view !== "lead" ? "bg-navy-700 font-medium text-white" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>Review list</Link>
+              <Link href={`${href("review")}&view=lead`} className={`rounded-full px-3 py-1 ${view === "lead" ? "bg-navy-700 font-medium text-white" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>Lead sheets</Link>
+            </div>
+          )}
           {body}</>}
         </main>
       </div>

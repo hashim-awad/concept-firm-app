@@ -74,7 +74,7 @@ export function EmptyState({ title, description, action, icon }: { title: string
 }
 
 /* ---------- Status pills ---------- */
-export type Status = "draft" | "sent" | "viewed" | "signed" | "expired" | "lost" | "withdrawn" | "out_of_scope" | "new" | "published" | "retired";
+export type Status = "draft" | "sent" | "viewed" | "signed" | "expired" | "lost" | "withdrawn" | "out_of_scope" | "new" | "published" | "retired" | "next" | "prepared" | "open";
 const STATUS: Record<Status, { label: string; cls: string }> = {
   draft: { label: "Draft", cls: "bg-sand-100 text-ink-2 ring-sand-300" },
   new: { label: "New", cls: "bg-navy-50 text-navy-700 ring-navy-200" },
@@ -87,6 +87,11 @@ const STATUS: Record<Status, { label: string; cls: string }> = {
   out_of_scope: { label: "Out of scope", cls: "bg-[#F6E9F1] text-[#8A2E62] ring-[#EBCADD]" },
   published: { label: "Live", cls: "bg-success-soft text-success ring-[#BFE0CC]" },
   retired: { label: "Retired", cls: "bg-sand-100 text-ink-3 ring-sand-300" },
+  // Closebook step words (Phase 3 screen rules; round 8): Signed green, Next blue, Open grey, and
+  // Prepared, signed by the preparer and waiting for the reviewer, in the lighter blue of "Sent".
+  next: { label: "Next", cls: "bg-navy-700 text-white ring-navy-700" },
+  prepared: { label: "Prepared", cls: "bg-navy-100 text-navy-800 ring-navy-200" },
+  open: { label: "Open", cls: "bg-sand-100 text-ink-2 ring-sand-300" },
 };
 export function StatusPill({ status }: { status: Status }) {
   const s = STATUS[status];

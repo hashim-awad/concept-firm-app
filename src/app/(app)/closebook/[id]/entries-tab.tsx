@@ -3,6 +3,7 @@ import type { Line } from "@/lib/closebook/matching";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import { deleteEntry, reviewEntry } from "../actions";
+import { NoteOnItem } from "./note-on-item";
 import { amt } from "./tb-tab";
 import { entryNo } from "@/lib/closebook/reports";
 import { JournalForm } from "./journal-form";
@@ -16,8 +17,9 @@ const REASONS: Record<string, string> = { accrual: "Accrual", reclassification: 
 
 // Entries tab (Phase 3 batch 5.4; mockup FileEntries). Full files only; monthly files make entries in
 // QuickBooks. Free entries go to the reviewer; standard entries arrive with Settings, Closebook.
-export function EntriesTab({ file, entries, accounts, editable, isReviewer, names, clientList = false, chartOnLine = {}, form }: {
+export function EntriesTab({ file, entries, accounts, editable, isReviewer, names, clientList = false, chartOnLine = {}, form, noteBy }: {
   file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; lines?: Line[]; editable: boolean; isReviewer: boolean; names: Map<string, string>; clientList?: boolean; chartOnLine?: Record<string, { number: string; name: string }>; form: EntryFormData;
+  noteBy?: { back: string };   // round 8: the reviewer adds a review note on an entry
 }) {
   const byId = new Map(accounts.map((a) => [a.id, a]));
   if (file.file_type === "monthly") return <p className="card text-sm text-ink-2">Entries are made in QuickBooks. This tab stays read-only for monthly files; import the trial balance again after the entries are booked.</p>;
@@ -62,6 +64,7 @@ export function EntriesTab({ file, entries, accounts, editable, isReviewer, name
               <div className="flex flex-wrap items-center justify-between gap-2 px-3 pt-1 pb-2">
                 <span><i>Memo:</i> {e.note}<span className="ml-2 text-xs text-muted">{names.get(e.created_by ?? "")?.split(" ")[0]}, {formatDate(e.created_at)}</span>
                   {!!e.attachments?.length && <span className="block text-xs text-muted">Attachments: {e.attachments.map((p) => p.split("/").pop()!.replace(/^\d+-/, "")).join(", ")}</span>}</span>
+                {noteBy && <NoteOnItem fileId={file.id} step="entries" targetType="entry" targetId={e.id} back={noteBy.back} />}
                 {e.reviewed_at
                   ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Approved</span>
                   : !e.needs_review ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Standard entry, under the review threshold</span>

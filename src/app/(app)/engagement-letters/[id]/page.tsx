@@ -24,6 +24,8 @@ type Signer = { person: number; first_name: string; last_name: string; email: st
 // signed PDF. Quotes and proposals open on their own pages.
 export default async function LetterPage({ params, searchParams }: PageProps<"/engagement-letters/[id]">) {
   const access = await requireAccess("documents", "view");
+  // Owners only (round 8 item 7), like the list.
+  if (!access.is_owner) redirect("/?error=owners-only");
   const { id } = await params;
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();

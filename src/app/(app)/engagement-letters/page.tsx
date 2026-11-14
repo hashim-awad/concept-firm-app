@@ -27,8 +27,9 @@ export default async function EngagementLettersPage({ searchParams }: PageProps<
     for (const [k, v] of Object.entries(sp)) if (typeof v === "string") q.set(k, v);
     redirect(`/engagement-letters/new?${q}`);
   }
+  // Owners only (round 8 item 7): the engagement letter status screen is not for staff roles.
   const access = await requireAccess();
-  if (!canView(access, "documents") && !canView(access, "leads")) redirect("/?error=no-access");
+  if (!access.is_owner || (!canView(access, "documents") && !canView(access, "leads"))) redirect("/?error=owners-only");
   const tab = sp.tab === "signed" ? "signed" : sp.tab === "all" ? "all" : "waiting";
   const supabase = await createClient();
   await supabase.rpc("expire_quotes");

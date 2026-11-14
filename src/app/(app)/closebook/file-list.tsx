@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { fileBy, FILE_TYPE, firstName } from "@/lib/closebook/files";
-import { fileSteps, STEP_KEYS } from "@/lib/closebook/steps";
+import { fileSteps, SIGNED_STEPS, STEP_KEYS } from "@/lib/closebook/steps";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 import type { ListedFile } from "@/lib/closebook/server";
 
@@ -22,7 +22,10 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
           const { steps, current, next } = fileSteps({ bankGaps,
             books: f.books, docs: f.docs, statements: f.stmts?.length ?? 0, imported: (f.imps ?? []).some((i) => i.target === "this_year"), accounts: accts.length,
             unmatched: accts.filter((a) => !a.line_no && !a.needs_reviewer).length, waiting: accts.filter((a) => a.needs_reviewer).length, entries: f.ents?.length ?? 0, people,
+            signs: Object.fromEntries(SIGNED_STEPS.map((k) => { const x = f.signs?.find((y) => y.step === k);
+              return [k, { prepared: !!x?.prepared_at, reviewed: !!x?.reviewed_at, notes: (f.rnotes ?? []).filter((n) => n.step === k && n.status !== "cleared").length }]; })),
           });
+          const openNotes = (f.rnotes ?? []).filter((n) => n.status !== "cleared").length;
           const cur = steps.find((s) => s.key === current)!;
           return (
             <tr key={f.id}>
@@ -36,7 +39,8 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
                   {steps.map((s) => <span key={s.key} className={`h-1.5 rounded-full ${s.state === "done" ? "bg-success" : s.key === current ? "bg-navy-700" : "bg-sand-200"}`} />)}
                 </span>
               </td>
-              <td className="text-sm">{next.replace(/ You can start coding.*$/, "").replace(/\. You can start getting.*$/, "")}</td>
+              <td className="text-sm">{next.replace(/ You can start coding.*$/, "").replace(/\. You can start getting.*$/, "")}
+                {openNotes > 0 && <span className="ml-1 rounded-full bg-danger px-1.5 text-xs font-semibold text-white" title="Review notes open">{openNotes}<span className="sr-only"> review notes open</span></span>}</td>
               {showPeople && <td className="whitespace-nowrap">{people.preparer} / {people.reviewer}</td>}
             </tr>
           );

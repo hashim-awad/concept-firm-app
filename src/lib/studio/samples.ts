@@ -6,7 +6,7 @@ import { createStudioEngine, type StudioEnv } from "./engine.generated";
 import { CorporateLetter, Proposal, T1Letter } from "./controllers";
 import { wordingEnv, type Wording } from "./wording";
 import { SIGN_PAGE, T1Q_TEMPLATES } from "../t1-quote/wording";
-import { CB_CLIENT, CB_TEMPLATES } from "../closebook/client-wording";
+import { CB_CHECKLIST, CB_CLIENT, CB_TEMPLATES } from "../closebook/client-wording";
 import { renderProposalEmail } from "../proposal/email";
 import { renderLetterEmail } from "../letters/email";
 import { renderEmail, renderQuote, SAMPLE, SAMPLE_SENDER } from "../t1-quote/render";
@@ -79,6 +79,11 @@ export function templateSample(key: string, signers: { letter: { name: string; t
     const t = (p: { key: string; text: string }) => (mark ? `<p><span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span></p>` : `<p>${(wording?.texts ?? {})[p.key] ?? p.text}</p>`);
     return { parts: [{ label: "First page: under \u201cNew accounts to create in your books\u201d", html: t(CB_CLIENT.newAccountsIntro) },
       { label: "Under the trial balance by group", html: t(CB_CLIENT.tbNote) }] };
+  }
+  // The completion checklist (round 8): every question, in order, as the reviewer sees it on step 6.
+  if (key === "cbchecklist") {
+    const t = (p: { key: string; text: string }, i: number) => `<p>${i + 1}. ${mark ? `<span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span>` : (wording?.texts ?? {})[p.key] ?? p.text}</p>`;
+    return { parts: [{ label: "Step 6, completion checklist (CSRS 4200). Each answer: Yes, No (with a note) or Not applicable", html: CB_CHECKLIST.map(t).join("") }] };
   }
   if (key === "signpage") {
     const t = (p: { key: string; text: string }) => `<p><span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span></p>`;

@@ -9,6 +9,7 @@
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
 import { askReviewerInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
+import { NoteOnItem } from "./note-on-item";
 
 export type Row = {
   id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
@@ -23,9 +24,10 @@ export type Group = { lineNo: string; label: string; count: number; total: strin
 export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
 
 
-export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit }: {
+export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit, noteBy }: {
   fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
   isReviewer: boolean; editable: boolean; totals: { last: string; current: string; niLast?: string }; edit?: string; matchNow?: boolean;
+  noteBy?: { step: string; back: string };   // round 8: the reviewer adds a review note on an account
 }) {
   const [showUnused, setShowUnused] = useState(false);
   const unused = rows.filter((r) => r.unused);
@@ -110,7 +112,7 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
         </section>
       )}
 
-      {open && <Panel key={open.id} fileId={fileId} r={open} options={options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} />}
+      {open && <Panel key={open.id} fileId={fileId} r={open} options={options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} noteBy={noteBy} />}
     </>
   );
 }
@@ -139,7 +141,7 @@ function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<strin
 
 // The side panel (borrowed from QuickBooks' "Change tax line"): the account's facts, From, To, and
 // for the reviewer the tax code. Nothing changes until Save.
-function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: string; r: Row; options: Option[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void }) {
+function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fileId: string; r: Row; options: Option[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void; noteBy?: { step: string; back: string } }) {
   const [to, setTo] = useState("");
   const [tax, setTax] = useState(r.taxOverride ? r.tax : "");
   const [err, setErr] = useState("");
@@ -170,6 +172,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose }: { fileId: str
           <dt className="font-semibold">Last year</dt><dd className="tabular-nums">{r.last}</dd>
           {r.mismatch && <><dt className="font-semibold">Check</dt><dd>{r.mismatch}</dd></>}
         </dl>
+        {noteBy && <NoteOnItem fileId={fileId} step={noteBy.step} targetType="account" targetId={r.id} back={noteBy.back} label="Add a review note on this account" />}
         <hr className="border-sand-200" />
         <div className="grid gap-1 text-sm"><p className="font-semibold">From</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : "Not matched yet")}</p></div>
         {canPick ? (

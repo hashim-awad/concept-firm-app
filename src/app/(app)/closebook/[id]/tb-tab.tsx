@@ -27,6 +27,7 @@ type Props = {
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
   // importOnly: step 3 of a trial balance file shows the import and nothing else (round 7 item 3).
   base?: string; pills?: string[]; showImport?: boolean; importOnly?: boolean;
+  noteStep?: string;   // round 8: the reviewer (an owner) adds review notes on accounts, on this step
   // Bank-statement files: what makes up "Opening balances to enter" (round 2 item 8).
   causes?: { text: string; cents: number }[];
   // Staff names, for "Reviewer confirmed: reason (name, date)" (round 6).
@@ -160,7 +161,9 @@ export function TbTab(p: Props) {
       )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
         : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
-          unmatched.length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.length + waiting.length} left.</p> : (
+          // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not
+          // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
+          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Lead sheets open when every account is matched to a GIFI line. {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
@@ -173,6 +176,7 @@ export function TbTab(p: Props) {
           )
         ) : (
           <MatchWorkspace matchNow={editable && !locked && unmatched.some((a) => !unusedOf(a))} fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
+            noteBy={p.noteStep && editable && !locked ? { step: p.noteStep, back: base } : undefined}
             editable={editable && !locked} totals={(() => {
               // Last year's net income is not an account: when last year's income statement was not entered,
               // it shows as its own line so the last-year column adds to zero, as on the balance sheet.

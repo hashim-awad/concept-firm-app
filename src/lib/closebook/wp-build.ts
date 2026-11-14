@@ -25,9 +25,9 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   const tb = trialBalance(data.accounts, data.postings);
   const box = netIncomeBox(data.accounts, data.postings, data.info);
   const client = f.client?.legal_name ?? "";
-  // "DRAFT FOR REVIEW" until the reviewer signs step 6 (Review). Step 6 has no sign-off yet, so the
-  // client's copy stays a draft until that sign-off is built.
-  const reviewSigned = false;
+  // "DRAFT FOR REVIEW" until the reviewer signs step 6 (Review) (round 8).
+  const { data: signed } = await supabase.from("cb_step_signoffs").select("reviewed_at").eq("file_id", fileId).eq("step", "review").maybeSingle();
+  const reviewSigned = !!(signed as { reviewed_at: string | null } | null)?.reviewed_at;
   const texts = mode === "client" ? (await loadWordingState(supabase)).live?.texts ?? {} : {};
   const ctx: WpCtx = {
     client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "",
@@ -54,7 +54,10 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
     // Plain words for the client: no GIFI wording in a group heading.
     if (mode === "client") for (const x of g.groups) if (x.code === "50") { x.name = "Income taxes"; x.total.name = "Total income taxes"; }
     title = ctx.packageName = mode === "client" ? CLIENT_STAMP : "Trial balance by group and journal entries";
-    sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client" ? cbText(texts, CB_CLIENT.tbNote) : undefined), entriesSection(ctx, entries, box, "TB.2")];
+    // The client's copy (round 8 item 6): no working paper references, and the entries page is called
+    // "Entries to record".
+    sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client" ? cbText(texts, CB_CLIENT.tbNote) : undefined),
+      entriesSection(ctx, entries, box, "TB.2", mode === "client" ? { title: "Entries to record", noRefs: true } : undefined)];
     if (mode === "client") {
       const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
       const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));

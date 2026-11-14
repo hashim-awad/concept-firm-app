@@ -12,7 +12,9 @@ export type CbEntry = { id: string; kind: string; number: number; seq: number; w
 export type CbImport = { target: string; source: string; file_name: string; rows: number; debit_total: number; credit_total: number; imported_at: string; who: { full_name: string } | null };
 export type ListedFile = CbFileRow & { client: { legal_name: string } | null; docs: CbDoc[];
   // For the 9-step "Step" and "Next job" columns (Nov 13, 2026).
-  stmts?: { account_id: string; period_start: string; period_end: string; opening: number; closing: number }[]; baccts?: { id: string; name: string }[]; imps?: { target: string }[]; accts?: { line_no: string | null; needs_reviewer: boolean }[]; ents?: { id: string }[] };
+  stmts?: { account_id: string; period_start: string; period_end: string; opening: number; closing: number }[]; baccts?: { id: string; name: string }[]; imps?: { target: string }[]; accts?: { line_no: string | null; needs_reviewer: boolean }[]; ents?: { id: string }[];
+  // Round 8: sign-offs and notes not yet cleared, for the Step and Next job columns.
+  signs?: { step: string; prepared_at: string | null; reviewed_at: string | null }[]; rnotes?: { step: string; status: string }[] };
 
 const DOC_COLS = "code, phase, title, detail, sort_order, status, prepared_by, prepared_at, reviewed_by, reviewed_at";
 
@@ -23,7 +25,7 @@ export async function staffNames(supabase: SupabaseClient): Promise<Map<string, 
 
 // Files for the lists; mine: only files where this person is the preparer or the reviewer.
 export async function loadFileList(supabase: SupabaseClient, mine?: string): Promise<ListedFile[]> {
-  let q = supabase.from("cb_files").select(`id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, client:client_id(legal_name), docs:cb_documents(${DOC_COLS}), stmts:cb_bank_statements(account_id, period_start, period_end, opening, closing), baccts:cb_bank_accounts(id, name), imps:cb_imports(target), accts:cb_accounts(line_no, needs_reviewer), ents:cb_entries(id)`).order("year_end");
+  let q = supabase.from("cb_files").select(`id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, client:client_id(legal_name), docs:cb_documents(${DOC_COLS}), stmts:cb_bank_statements(account_id, period_start, period_end, opening, closing), baccts:cb_bank_accounts(id, name), imps:cb_imports(target), accts:cb_accounts(line_no, needs_reviewer), ents:cb_entries(id), signs:cb_step_signoffs(step, prepared_at, reviewed_at), rnotes:cb_review_notes(step, status)`).order("year_end");
   if (mine) q = q.or(`preparer_id.eq.${mine},reviewer_id.eq.${mine}`);
   const { data } = await q;
   return (data ?? []) as unknown as ListedFile[];
