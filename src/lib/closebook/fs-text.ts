@@ -46,7 +46,7 @@ export function noteBlocks(m: FsModel): NoteBlock[] {
   const out: NoteBlock[] = [{ heading: "1. Basis of accounting", paras: [`The basis of accounting applied in the preparation of the balance sheet of ${m.name} as at ${m.asat.slice(6)}, and the statement of earnings and retained earnings ${per}, is the historical cost basis and reflects cash transactions with the addition of:`], bullets }];
   if (N.has_hst) out.push({ heading: "GST/HST", paras: ["Revenue and expenses are recorded net of GST/HST. Receivables and payables include GST/HST."] });
   if (N.ppa) out.push({ heading: `${N.ppa.n}. Prior period adjustment`, paras: [`Opening retained earnings has been ${N.ppa.amount < 0 ? "reduced" : "increased"} by $${Math.abs(N.ppa.amount).toLocaleString("en-US")} to correct an error in a prior period. Comparative figures have not been restated.`] });
-  if (N.shareholder) out.push({ heading: `${N.shareholder.n}. Due to shareholder`, paras: [N.shareholder.terms], table: "shareholder" });
+  if (N.shareholder) out.push({ heading: `${N.shareholder.n}. ${N.shareholder.heading}`, paras: [N.shareholder.terms], table: "shareholder" });
   // Round 11: written by Closebook, not in Appendix C (approved by Hashim, Nov 14, 2026).
   if (N.related) out.push({ heading: `${N.related.n}. Related parties`, paras: ["The balances below are with related parties. They are recorded at the amounts agreed between the parties."], table: "related" });
   return out;

@@ -129,3 +129,20 @@ test("amounts print as Appendix C: commas, brackets, a dash for zero", () => {
   assert.equal(n(-500), "(500)");
   assert.equal(n(0), "-");
 });
+
+test("round 14: a debit balance on a due to shareholder line prints as Due from shareholder, a current asset, with the note", () => {
+  const ls = new Map([...lines, L("1301", "Due from individual shareholder(s)", "Due from shareholder")]);
+  // 2781 goes from a 3,762.68 credit to a 2,000.00 debit; cash falls by the 5,762.68 difference.
+  const m = buildFs({ ...base, lines: ls, cur: new Map([...cur, ["2781", -2000], ["1002", 44237.57]]), shTerms: "" });
+  assert.deepEqual(m.failed, []);
+  const row = m.bs.ca.find((r) => r.cap === "Due from shareholder");
+  assert.equal(row?.cur, 2000);
+  assert.equal(row?.note, String(m.notes.shareholder!.n));
+  assert.equal(m.bs.cl.some((r) => r.code === "2781"), false, "nothing left on the due to line");
+  assert.equal(m.notes.shareholder!.heading, "Due from shareholder");
+  assert.match(m.notes.shareholder!.terms, /due from the shareholder .* current asset/);
+  // The step 9 terms print as typed, as for a credit balance.
+  assert.equal(buildFs({ ...base, lines: ls, cur: new Map([...cur, ["2781", -2000], ["1002", 44237.57]]), shTerms: "Repayable on demand." }).notes.shareholder!.terms, "Repayable on demand.");
+  // A credit balance keeps its note as before.
+  assert.equal(buildFs(base).notes.shareholder!.heading, "Due to shareholder");
+});

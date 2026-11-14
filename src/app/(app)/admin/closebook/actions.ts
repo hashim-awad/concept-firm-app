@@ -77,6 +77,12 @@ export async function updateCbSettings(formData: FormData) {
     if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Instalment threshold: enter a number, 0 or more."));
     err = (await (await createClient()).rpc("cb_update_instalment_threshold", { p_amount: r })).error;
   }
+  // Round 14: the shareholder loan repayment window, in days.
+  if (!err && formData.has("sh_repay_window_days")) {
+    const d = n("sh_repay_window_days");
+    if (!Number.isInteger(d) || d < 1 || d > 365) redirect(withMessage(back, "error", "Shareholder loans: enter a whole number of days from 1 to 365."));
+    err = (await (await createClient()).rpc("cb_update_sh_window", { p_days: d })).error;
+  }
   revalidatePath(back);
   redirect(withMessage(back, err ? "error" : "msg", err ? err.message : "Saved."));
 }
