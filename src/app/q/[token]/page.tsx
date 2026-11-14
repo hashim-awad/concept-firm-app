@@ -11,7 +11,7 @@ import { SignForm } from "./sign-form";
 import { SignDock } from "./sign-dock";
 import { ProposalSign } from "./proposal-sign";
 import { proposalView, type ProposalRow } from "@/lib/proposal/server";
-import { isCompanyLetter, letterHtml, type LetterRow } from "@/lib/letters/server";
+import { isCompanyLetter, isMal, letterHtml, type LetterRow } from "@/lib/letters/server";
 import { firmSignature } from "@/lib/t1-quote/server";
 
 // A signed proposal shows the proposal and the letter for the option chosen.
@@ -36,6 +36,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   if (!found) return say("This link does not work", `Please check the link in your email, or call us at ${FIRM.phone}.`);
   const { quote, signers, me } = found;
   if (quote.status === "draft") return say("Your quote is almost ready", "Please try the link again in a few minutes.");
+  if (quote.status === "withdrawn") return say("This letter was withdrawn", pieceText(quote.wording ?? {}, SIGN_PAGE.withdrawn));
   if (quote.status === "declined") return say("This quote is closed", `Please contact us at ${FIRM.phone} or ${FIRM.email} if you would like a new one.`);
   const signed = quote.status === "signed";
   // Viewed: the first time the client opens the link (front office batch, section 3).
@@ -56,7 +57,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   }
   // A New letter: the letter as Hashim issued it, then sign (front office batch, section 7).
   const parts = quote.kind === "proposal" ? proposalSignedParts(quote as ProposalRow)
-    : quote.kind === "letter" ? [{ label: "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature()) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
+    : quote.kind === "letter" ? [{ label: isMal(quote as LetterRow) ? "Management Responsibility Acknowledgement" : "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature(), signed && me.signed_at ? { at: me.signed_at, name: me.signed_name ?? `${me.first_name} ${me.last_name}`, title: me.signed_title ?? "" } : null) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
     : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
   // Names on the page (step 5 retest, Nov 12, 2026): first names, or full names when a couple share one.
@@ -67,7 +68,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
     const intro = `${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)} ${pieceText(texts, C.spouseOwnLink, `${other.first_name} ${other.last_name}`)}`;
     parts[2] = { ...parts[2], html: parts[2].html.replace(/<p([^>]*)>[\s\S]*?<\/p>/, (_m, a) => `<p${a}>${esc(intro)}</p>`) };
   }
-  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, quote.kind === "letter" ? SIGN_PAGE.agreeLetter : C.agree), sign: pieceText(texts, C.signButton),
+  const labels = { fullName: pieceText(texts, C.fullName), typed: pieceText(texts, C.typed), agree: pieceText(texts, isMal(quote as LetterRow) ? SIGN_PAGE.agreeMal : quote.kind === "letter" ? SIGN_PAGE.agreeLetter : C.agree), sign: pieceText(texts, C.signButton),
     ...(quote.kind === "corporate" || quote.kind === "proposal" || isCompanyLetter(quote as LetterRow) ? { title: pieceText(texts, CORP.signerTitle) } : {}) };
 
   const download = { href: `/q/${token}/pdf`, label: pieceText(texts, C.download) };
@@ -75,7 +76,16 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
 
   // The panel: sign, wait for the spouse, or done (download and portal). Couples: done only when both signed.
   let panel: React.ReactNode, bar: { text: string; button?: string; links?: typeof download[] };
-  if (signed) {
+  if (signed && isMal(quote as LetterRow)) {
+    // The MAL (Closebook step 9): signed by the company's officer; no portal step, only the copy.
+    panel = (
+      <div className="grid gap-4">
+        <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, nm(me))}</h2>
+        <a href={download.href} className="btn">{download.label}</a>
+      </div>
+    );
+    bar = { text: "Signed", links: [download] };
+  } else if (signed) {
     panel = (
       <div className="grid gap-4">
         <h2 className="text-xl font-semibold">{pieceText(texts, C.signed, nm(me))}</h2>

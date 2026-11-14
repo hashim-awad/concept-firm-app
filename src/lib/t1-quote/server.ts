@@ -9,13 +9,13 @@ import type { CorpQuoteData } from "@/lib/corporate/render";
 
 export type QuoteRow = {
   id: string; lead_id: string; tax_year: number; couple: boolean; lines: { code: string; person: number | null; quantity: number; unit_cents: number; total_cents: number }[];
-  total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired"; sent_at: string | null; valid_until: string | null;
+  total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired" | "withdrawn"; sent_at: string | null; valid_until: string | null;
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
   kind?: "t1" | "corporate" | "proposal" | "letter"; company_name?: string | null; year_end?: string | null;
   details?: { books: "bookkeeper" | "software" | "statements"; extras: { gst: boolean; slips: boolean }; province: string; counts?: { bank: number; cc: number; loc: number; loan: number; car: number } } | null;
 };
-export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null };
+export type SignerRow = { person: number; first_name: string; last_name: string; email: string; token: string; signed_at: string | null; signed_name?: string | null; signed_title?: string | null };
 
 const COLS = "id, lead_id, tax_year, couple, lines, total_cents, status, sent_at, valid_until, sender, signer, wording, wording_label, kind, company_name, year_end, details, proposal, chosen_option, title";
 
@@ -79,7 +79,7 @@ export async function letterSigner(): Promise<{ name: string; title: string }> {
 export async function loadQuoteByToken(token: string) {
   if (!/^[0-9a-f]{64}$/.test(token)) return null;
   const db = createAdminClient();
-  const { data: me } = await db.from("quote_signers").select("quote_id, person, first_name, last_name, email, token, signed_at").eq("token", token).maybeSingle();
+  const { data: me } = await db.from("quote_signers").select("quote_id, person, first_name, last_name, email, token, signed_at, signed_name, signed_title").eq("token", token).maybeSingle();
   if (!me) return null;
   const [{ data: q }, { data: s }] = await Promise.all([
     db.from("quotes").select(COLS).eq("id", me.quote_id).maybeSingle(),

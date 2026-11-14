@@ -13,7 +13,7 @@ export type StepWord = "signed" | "prepared" | "next" | "open";
 export type Step = { key: StepKey; n: number; name: string; who: string; note: string; state: StepState; word: StepWord; notes: number };
 export type StepSign = { prepared: boolean; reviewed: boolean; notes: number };
 // The steps with sign-offs today (round 8); 8 to 10 get theirs when they are built.
-export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2"];
+export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2", "statements"];
 
 // Files built from bank and card CSVs code transactions to the standard chart; every other file
 // imports a trial balance and matches its accounts straight to GIFI lines (Hashim, Nov 13, 2026).
@@ -90,7 +90,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     // the preparer has not signed; once steps 1 to 5 and 7 are prepared, it is step 6, the review.
     for (const k of SIGNED_STEPS) done[k] = !!sg[k]?.reviewed;
     const work: StepKey[] = ["setup", "opening", "records", "code", "entries", "mapping"];
-    current = work.find((k) => !sg[k]?.prepared) ?? (!sg.review?.reviewed ? "review" : "t2");
+    current = work.find((k) => !sg[k]?.prepared) ?? (!sg.review?.reviewed ? "review" : !sg.t2?.prepared ? "t2" : "statements");
   }
   const word = (k: StepKey): StepWord => (sg?.[k]?.reviewed ? "signed" : sg?.[k]?.prepared ? "prepared" : k === current ? "next" : "open");
   const steps = base.map((b) => ({ ...b, state: (b.key === current ? "current" : done[b.key] ? "done" : "open") as StepState,

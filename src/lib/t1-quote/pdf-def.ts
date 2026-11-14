@@ -9,7 +9,10 @@ const NAVY = "#1A3C7C";
 export type AuditSigner = { name: string; signedName: string; email: string; signedAt: string; ip: string; agent: string; sameDevice: boolean; documentHash: string; title?: string };
 // company: a corporate quote, signed on behalf of the company (the master letter's signature wording).
 // docTitle and option: a proposal ("Proposal and engagement letter", the option the client chose).
-export type AuditInfo = { quoteId: string; taxYear: number | null; docTitle?: string; option?: string; sentAt: string; validUntil: string; wordingLabel: string; clientNames?: string; company?: string; signers: AuditSigner[] };
+// mal (round 11): the Management Responsibility Acknowledgement from Closebook step 9, signed by the
+// company's signing officer under its own statement; no quote, terms or validity lines.
+export type AuditInfo = { quoteId: string; taxYear: number | null; docTitle?: string; option?: string; sentAt: string; validUntil: string; wordingLabel: string; clientNames?: string; company?: string; signers: AuditSigner[];
+  mal?: { statement: string } };
 
 const TZ = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZone: "America/Toronto", timeZoneName: "short" });
 export const auditTime = (iso: string) => (iso ? TZ.format(new Date(iso)) : "");
@@ -41,16 +44,18 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
   const [a, b] = parts;
   const title = audit.docTitle ?? `Quote and engagement letter ${audit.taxYear}`;
   // What was signed, in the signing record's words: a quote, a proposal, or a New letter.
-  const doc = audit.docTitle === "Engagement letter" ? { name: "this engagement letter", read: "the engagement letter", text: "the letter", ref: "Letter reference" }
+  const mal = audit.mal;
+  const doc = mal ? { name: "this letter", read: "", text: "the letter", ref: "Letter reference" }
+    : audit.docTitle === "Engagement letter" ? { name: "this engagement letter", read: "the engagement letter", text: "the letter", ref: "Letter reference" }
     : audit.option ? { name: "this proposal and engagement letter", read: "the proposal and the engagement letter for the option they chose", text: "the proposal and the letter", ref: "Proposal reference" }
     : { name: "this quote and engagement letter", read: "the quote and engagement terms", text: "the quote and terms", ref: "Quote reference" };
   // One signature block per signer, side by side, like the letters' "Agreed and accepted" blocks.
   const sig = (s: AuditSigner) => ({ stack: [
-    { text: audit.company ? `Agreed and accepted on behalf of ${audit.company}` : "Agreed and accepted", bold: true, color: NAVY, margin: [0, 0, 0, 6] },
+    { text: mal ? `Signed on behalf of ${audit.company ?? ""}` : audit.company ? `Agreed and accepted on behalf of ${audit.company}` : "Agreed and accepted", bold: true, color: NAVY, margin: [0, 0, 0, 6] },
     { text: s.signedName, fontSize: 18, italics: true, color: NAVY, margin: [0, 0, 0, 2] },
     { canvas: [{ type: "line", x1: 0, y1: 0, x2: 220, y2: 0, lineWidth: 0.6, lineColor: "#7a8394" }] },
     { text: s.name, bold: true, margin: [0, 4, 0, 0] },
-    ...(audit.company ? [...(s.title ? [{ text: `Title: ${s.title}` }] : []), { text: "I have authority to bind the Company.", fontSize: 9 }] : []),
+    ...(audit.company ? [...(s.title ? [{ text: `Title: ${s.title}` }] : []), ...(mal ? [] : [{ text: "I have authority to bind the Company.", fontSize: 9 }])] : []),
     { text: `Signed electronically ${auditTime(s.signedAt)}${s.sameDevice ? ", on the same device as the other signer" : ""}`, fontSize: 8.5, color: "#3d4441" },
   ] });
   const signatures: any[] = [];
@@ -85,16 +90,17 @@ export function signedPdfDef(parts: { label: string; html: string }[], audit: Au
       // The heading, the agreement and the first row of signatures stay on one page.
       { unbreakable: true, stack: [
         { text: "Signatures", fontSize: 11.5, bold: true, color: NAVY, margin: [0, 14, 0, 4] },
-        { text: audit.option ? `I have read the proposal and the engagement letter for ${audit.option}, and I agree to them.` : audit.docTitle === "Engagement letter" ? "I have read this engagement letter, and I agree to it." : "I have read my quote and these engagement terms, and I agree to them.", margin: [0, 0, 0, 6] },
+        { text: mal ? mal.statement : audit.option ? `I have read the proposal and the engagement letter for ${audit.option}, and I agree to them.` : audit.docTitle === "Engagement letter" ? "I have read this engagement letter, and I agree to it." : "I have read my quote and these engagement terms, and I agree to them.", margin: [0, 0, 0, 6] },
         signatures[0],
       ] },
       ...signatures.slice(1),
       { image: "lh", width: 492, margin: [0, 0, 0, 18], pageBreak: "before" },
       { text: "Signing record", fontSize: 13.5, bold: true, color: NAVY, margin: [0, 0, 0, 6] },
-      { text: `This page records how ${doc.name} was signed in Concept Studio. Each person signed through their own private link by typing their full name and clicking Sign under the statement that they have read ${doc.read} and agree to ${audit.docTitle === "Engagement letter" ? "it" : "them"}. The fingerprint identifies the exact text of ${doc.text} that was signed; any change to the text gives a different fingerprint.`, fontSize: 9, margin: [0, 0, 0, 8] },
+      mal ? { text: `This page records how ${doc.name} was signed in Concept Studio. The signing officer signed through their own private link by typing their full name and title and clicking Sign under the statement: "${mal.statement}" The fingerprint identifies the exact text of the letter that was signed; any change to the text gives a different fingerprint.`, fontSize: 9, margin: [0, 0, 0, 8] }
+      : { text: `This page records how ${doc.name} was signed in Concept Studio. Each person signed through their own private link by typing their full name and clicking Sign under the statement that they have read ${doc.read} and agree to ${audit.docTitle === "Engagement letter" ? "it" : "them"}. The fingerprint identifies the exact text of ${doc.text} that was signed; any change to the text gives a different fingerprint.`, fontSize: 9, margin: [0, 0, 0, 8] },
       { table: { widths: [130, "*"], body: [
         row(doc.ref, audit.quoteId), ...(audit.taxYear ? [row("Tax year", String(audit.taxYear))] : []), ...(audit.option ? [row("Option chosen", audit.option)] : []), row("Sent", auditTime(audit.sentAt)),
-        row("Valid until", day(audit.validUntil)), row("Wording version", audit.wordingLabel || "Published wording at sending"),
+        ...(mal ? [] : [row("Valid until", day(audit.validUntil)), row("Wording version", audit.wordingLabel || "Published wording at sending")]),
       ] }, layout: "lightHorizontalLines" },
       ...audits,
     ],

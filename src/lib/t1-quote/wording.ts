@@ -269,6 +269,9 @@ const SP = "signpage";
 export const SIGN_PAGE = {
   agreeLetter: P(640, "I have read this engagement letter, and I agree to it.", [], SP),
   agreeProposal: P(641, "I have read the proposal and the engagement letter for the option I chose, and I agree to them.", [], SP),
+  // Round 11: the signing officer signs the Management Responsibility Acknowledgement (Closebook step 9).
+  agreeMal: P(642, "I have read this letter, and I confirm it on behalf of the company.", [], SP),
+  withdrawn: P(643, "This letter was withdrawn because the financial statements changed. We will send you a new one.", [], SP),
 };
 
 export const T1Q_PIECES: QPiece[] = [

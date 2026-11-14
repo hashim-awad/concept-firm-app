@@ -22,6 +22,10 @@ import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { RevenueCheck } from "./revenue-check";
 import { T2Step } from "./t2-step";
+import { env } from "@/lib/env";
+import { StatementsStep } from "./statements-step";
+import { OpeningS125 } from "./opening-s125";
+import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankView } from "./bank-view";
@@ -142,6 +146,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     </details>
   );
   let body: React.ReactNode;
+  let pk: PackageData | null = null;
   if (step === "opening") {
     if (!bankFile) body = soon("Last year's balances come with the trial balance import, in its last-year column.");
     else {
@@ -177,6 +182,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
         signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
         source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
+      // Round 11: last year's Schedule 125, for step 9's prior-year column. Rows: the codes saved, and the
+      // revenue and expense codes this year's accounts post to.
+      const { data: s125 } = await supabase.from("cb_opening_s125").select("code, amount").eq("file_id", id);
+      const { data: ffs } = await supabase.from("cb_file_fs").select("first_year").eq("file_id", id).maybeSingle();
+      const pl = new Map([...info.entries()].filter(([, i]) => i.type === "Revenue" || i.type === "Expense"));
+      const used = new Set(accounts.map((a) => a.line_no?.slice(0, 4) ?? "").filter((c) => pl.has(c)));
+      const saved = new Map(((s125 ?? []) as { code: string; amount: number }[]).map((x) => [x.code, Number(x.amount)]));
+      const rows = [...new Set([...used, ...saved.keys()])].sort().map((c) => ({ code: c, name: gname.get(c) ?? pl.get(c)?.name ?? c, amount: saved.get(c) ?? null }));
+      body = <>{body}<OpeningS125 fileId={id} rows={rows} editable={editable && file.phase !== "locked"} needed={!saved.size && (ob ?? []).length > 0 && ffs?.first_year !== true} /></>;
     }
   } else if (step === "setup") {
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
@@ -290,11 +304,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "t2") {
     // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
     const g = accounts.length ? await gifiFor(supabase, id) : null;
-    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} />
+    // The rounding line: the same whole-dollar figures as the statements in step 9.
+    const fsm = g ? (await loadPackage(supabase, id))?.m : null;
+    const curFail = fsm?.failed.find((t) => t.column === "current");
+    const rounding = fsm ? (curFail ? { stopped: `Not worked out: a tie-out fails in step 9 (${curFail.name}).` } : { fix: fsm.profileFix }) : undefined;
+    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} />
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
-    // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
-    body = null;
+    // Step 9 (round 11): the year-end package, its fields and the MAL's signing.
+    pk = accounts.length ? await loadPackage(supabase, id) : null;
+    body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} siteUrl={env.siteUrl()} />
+      : soon("The package opens once there is a trial balance.");
   } else {
     // Step 10 (round 8b): the completion checklist lives here, answered before the file is locked and the
     // compilation report is released. The rest of step 10 comes when it is built.
@@ -317,8 +337,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Round 8: each step with a sign-off shows "Prepared by" and "Reviewed by" at the top and its review
   // notes below. Step 6's bar sits under its list, where the reviewer finishes.
   const stepBack = `${href(step)}${view ? `&view=${view}` : ""}`;
+  // Step 9: a stopped package (a failed tie-out, named) blocks the sign-off like the database's own checks.
+  const stStep = step === "statements" && pk?.blocked.length && review.status[step] ? { ...review.status[step], problems: [...new Set([...pk.blocked, ...(review.status[step].problems ?? [])])] } : review.status[step];
   const bar = SIGNED_STEPS.includes(step) && !report ? (
-    <SignoffBar fileId={id} step={step} st={review.status[step]} names={names} me={access.staff_id} isOwner={access.is_owner} editable={editable && file.phase !== "locked"} back={stepBack}
+    <SignoffBar fileId={id} step={step} st={stStep} names={names} me={access.staff_id} isOwner={access.is_owner} editable={editable && file.phase !== "locked"} back={stepBack}
       preparerElsewhere={step === "opening" && bankFile} />
   ) : null;
   const stepNotes = <ReviewNotes fileId={id} notes={review.notes.filter((n) => n.step === step)} names={names} isOwner={access.is_owner}
