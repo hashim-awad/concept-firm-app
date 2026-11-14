@@ -9,6 +9,7 @@
 // remittance rate; 106 ITCs on capital purchases only; 107 the credit on the first part of the year's
 // eligible sales. The rates, the credit and its limit are settings (Settings, Closebook), never this file.
 import { addMonths } from "./fs-email.ts";
+import { entryLineTax, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
 export type GstItem = {
   date: string; source: "bank" | "entry"; ref: string; label: string; account: string; accountName: string; code: string;
@@ -26,7 +27,9 @@ export const LINE_NAMES: [string, string][] = [
 ];
 export type Line = keyof typeof EMPTY;
 const EMPTY = { "101": 0, "103": 0, "104": 0, "105": 0, "106": 0, "107": 0, "108": 0, "109": 0, "110": 0, "111": 0, "112": 0, "113": 0 };
-export type GstReturn = { period: Period; lines: Record<Line, number>; drill: Partial<Record<Line, GstItem[]>>; problems: string[]; notes: string[]; eligibleCents: number };
+// salesNetCents: the period's sales before tax, for step 5's revenue check (on the quick method, the
+// eligible sales without the tax).
+export type GstReturn = { period: Period; lines: Record<Line, number>; drill: Partial<Record<Line, GstItem[]>>; problems: string[]; notes: string[]; eligibleCents: number; salesNetCents: number };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const D = (s: string) => new Date(`${s}T12:00:00Z`);
@@ -59,15 +62,17 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
   const problems: string[] = [], notes: string[] = [];
   const sales = items.filter((x) => x.sale && x.code !== "OUT_OF_SCOPE");
   const purchases = items.filter((x) => !x.sale && x.taxCents !== 0);
-  let eligible = 0;
+  let eligible = 0, salesNet = 0;
   if (!quick) {
     L["101"] = sales.reduce((n, x) => n + x.netCents, 0);
     L["103"] = sales.reduce((n, x) => n + x.taxCents, 0);
     drill["101"] = sales; drill["103"] = sales.filter((x) => x.taxCents !== 0);
+    salesNet = L["101"];
   } else {
     // Eligible supplies: taxable sales, the GST/HST included; zero-rated and exempt sales are left out.
     const el = sales.filter((x) => x.taxCents !== 0);
     eligible = el.reduce((n, x) => n + x.netCents + x.taxCents, 0);
+    salesNet = el.reduce((n, x) => n + x.netCents, 0);
     L["101"] = Math.round(eligible / 100) * 100;
     drill["101"] = el; drill["103"] = el;
     if (q.rate === null) problems.push("Set the quick method remittance rate in Settings, Closebook, GST/HST.");
@@ -88,7 +93,7 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
   L["110"] = instalmentsCents;
   L["112"] = L["110"] + L["111"];
   L["113"] = L["109"] - L["112"];
-  return { period, lines: L, drill, problems, notes, eligibleCents: L["101"] };
+  return { period, lines: L, drill, problems, notes, eligibleCents: L["101"], salesNetCents: salesNet };
 }
 
 // All the returns of the year. The quick method credit runs across the year's periods until its limit.
@@ -143,4 +148,30 @@ export function checkAgainstBooks(openingOwingCents: number, returns: GstReturn[
   const paid = payments.reduce((n, x) => n + x.cents, 0);
   const owing = openingOwingCents + netTax - paid;
   return { openingCents: openingOwingCents, netTaxCents: netTax, paymentsCents: paid, owingCents: owing, bookCents: bookOwingCents, diffCents: bookOwingCents - owing };
+}
+
+// The items of one entry, as posted (round 13 fix, Hashim, Nov 14, 2026), like QuickBooks Online: the
+// before-tax amount is the line less the tax kept on it (the parts not claimed, e.g. the half of the HST
+// on meals), and the tax is what the entry posted to GST/HST payable (21500), shared over its taxed lines.
+// Recomputing the ITC on the posted line would overstate it (13% of 106.50 halved is 6.93; the entry
+// booked 6.50).
+export type EntryTaxLine = { cents: number; code: TaxCode | null; codeName: string; accountType: string; account: string; accountName: string; isTax: boolean; on21500: boolean };
+export function itemsFromEntry(e: { date: string; ref: string; label: string }, lines: EntryTaxLine[], ctx: TaxContext): GstItem[] {
+  const taxed = lines.filter((l) => !l.isTax && l.codeName && l.code);
+  const posted = lines.filter((l) => l.isTax && l.on21500).reduce((n, l) => n + l.cents, 0);
+  const est = taxed.map((l) => {
+    const sale = l.accountType === "Revenue";
+    const claim = (p: TaxCode["parts"][number]) => p.recoverable && p.liability === "gst_hst" && (!ctx.quick || l.accountType === "Asset");
+    const kept = !ctx.registered || sale ? 0 : l.code!.parts.filter((p) => !claim(p)).reduce((n, p) => n + p.rate, 0);
+    const net = Math.round(l.cents / (1 + kept));
+    return { l, sale, net, t: entryLineTax(net, l.code, l.accountType, ctx).gstHst };
+  });
+  const total = est.reduce((n, x) => n + x.t, 0);
+  let given = 0;
+  return est.map((x, i) => {
+    const tax = total === 0 ? 0 : i === est.length - 1 ? posted - given : Math.round((posted * x.t) / total);
+    given += tax;
+    const base = { ...e, source: "entry" as const, account: x.l.account, accountName: x.l.accountName, code: x.l.codeName };
+    return x.sale ? { ...base, sale: true, netCents: -x.net, taxCents: -tax } : { ...base, sale: false, netCents: x.net, taxCents: tax };
+  });
 }

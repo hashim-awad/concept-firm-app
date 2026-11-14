@@ -82,3 +82,26 @@ reset request.jwt.claims;
 select test.check('the lock names each return still to record', private.cb_lock_problems(:'f') @> array['GST/HST return Quarter 2: the filing date and CRA confirmation number are not recorded.']
   and not private.cb_lock_problems(:'f') @> array['GST/HST return Quarter 1: the filing date and CRA confirmation number are not recorded.']);
 select test.check('the confirmation number is kept in capitals', (select confirmation from public.cb_gst_returns where file_id = :'f' and period_no = 1) = 'GST-4401');
+
+-- Round 13 fixes: the revenue check takes the returns' sales; entries into 21500 are instalment candidates.
+update public.cb_gst_returns set lines = lines || '{"sales": 1000000}' where file_id = :'f';
+select test.check('step 5''s cross-check takes the returns'' sales before tax', (private.cb_revenue_state(:'f') ->> 'gst_from_return')::boolean
+  and (private.cb_revenue_state(:'f') ->> 'gst')::numeric = 40000 and (private.cb_revenue_state(:'f') ->> 'n_gst')::int = 4);
+select test.check('own books: the cross-check stays typed', not (private.cb_revenue_state(:'own') ->> 'gst_from_return')::boolean);
+select test.check('the quick method gain account: 42400 on GIFI 8230', exists (select 1 from public.cb_chart_accounts where number = '42400' and line_no = '8230.00' and account_type = 'Revenue'));
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_add_entry(:'f', 'RJE', 'reclassification', 'Instalment first recorded as income tax', false,
+  '[{"chart":"21500","amount":300,"memo":"HST instalment"},{"chart":"21400","amount":-300,"memo":"HST instalment"}]', 'GST-1') as rje \gset
+select test.check('an entry from another file is refused', test.try(format($q$select public.cb_confirm_gst_entry(%L, gen_random_uuid(), true)$q$, :'f')) = 'That entry is not in this file.');
+select public.cb_confirm_gst_entry(:'f', :'rje', true);
+reset role;
+reset request.jwt.claims;
+select test.check('confirmed as an instalment: kept, the returns to prepare again', (select :'rje'::uuid = any(instalment_entries) from public.cb_gst_check where file_id = :'f')
+  and not exists (select 1 from public.cb_gst_returns where file_id = :'f') and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gst_instalment_entry'));
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_confirm_gst_entry(:'f', :'rje', false);
+reset role;
+reset request.jwt.claims;
+select test.check('left out again', (select not (:'rje'::uuid = any(instalment_entries)) from public.cb_gst_check where file_id = :'f'));

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { LINE_NAMES, type Line } from "@/lib/closebook/gst-return";
 import type { GstData } from "@/lib/closebook/gst-server";
-import { acceptGstCheck, prepareGstReturns } from "../gst-actions";
+import { acceptGstCheck, bookQuickGain, confirmGstEntry, prepareGstReturns } from "../gst-actions";
 
 const m = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 }));
 const plain = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -89,16 +89,46 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
           <tr><td className="px-3 py-0.5">GST/HST payable (21500) at year end</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.bookCents)}</td></tr>
           <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Difference (21500 less the returns)</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.diffCents)}</td></tr>
         </tbody></table>
-        {c.diffCents !== 0 && g.other21500 !== 0 && <p className="px-3 py-1.5 text-xs text-ink-2">Entries post {m(g.other21500)} to 21500 without a sales tax code: they are not on any return.</p>}
+        {c.diffCents !== 0 && g.other21500 !== 0 && <p className="px-3 py-1.5 text-xs text-ink-2">Entries move {m(g.other21500)} into 21500 without a sales tax code and are not counted as instalments (see below).</p>}
         {row?.note && <p className="px-3 py-1.5 text-xs">Explained: {row.note}</p>}
         {row?.accepted_at && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(row.accepted_by ?? "") ?? ""}: {row.accepted_why}</p>}
       </div>
+      {/* Round 13 fix 3: on a quick method file the difference is the tax the company keeps, booked as income. */}
+      {g.quick && c.diffCents > 0 && editable && allPrepared && (
+        <div aria-label="Quick method gain" className="rounded-lg border border-navy-200 bg-navy-50/40 p-3 text-sm">
+          <p className="font-medium">Quick method gain: {m(c.diffCents)}</p>
+          <p className="text-xs text-ink-2">The GST/HST collected less the tax remitted and the credit stays with the company. It is income. The entry:</p>
+          <table className="table table-compact mt-2 max-w-xl"><thead><tr><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
+            <tbody><tr><td>21500 GST/HST payable</td><td className="text-right tabular-nums">{plain(c.diffCents)}</td><td /></tr>
+              <tr><td>{g.gainAccount} GST/HST quick method gain (GIFI 8230)</td><td /><td className="text-right tabular-nums">{plain(c.diffCents)}</td></tr></tbody></table>
+          <form action={bookQuickGain} className="mt-2 flex flex-wrap items-center gap-3">
+            <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="amount" value={(c.diffCents / 100).toFixed(2)} />
+            <button className="btn-secondary btn-compact">Book the entry</button><span className="text-xs text-ink-2">AJE, W/P ref &ldquo;GST/HST return&rdquo;. Then prepare the return again.</span>
+          </form>
+        </div>
+      )}
       {isOwner && editable && over && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
         <form action={acceptGstCheck} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="file_id" value={fileId} />
           <input name="why" required minLength={3} maxLength={300} placeholder="Why the difference is accepted" className="input input-compact" style={{ width: "24rem" }} aria-label="Reason" />
           <button className="btn-secondary btn-compact">Accept the difference</button>
         </form>
+      )}
+
+      {/* Round 13 fix 2: entries that move an amount into 21500 without a tax code, for the preparer to
+          count as an instalment or leave out. */}
+      {g.candidates.length > 0 && (
+        <div aria-label="Instalment candidates" className="rounded-lg border border-sand-200 p-3 text-sm">
+          <p className="font-medium">Entries that move an amount into GST/HST payable (21500) without a tax code</p>
+          <p className="text-xs text-ink-2">An instalment first recorded elsewhere goes on line 110 once confirmed. Leave out anything that is not an instalment.</p>
+          <table className="table table-compact mt-2"><thead><tr><th>Date</th><th>Entry</th><th className="text-right">Into 21500</th><th>Instalment?</th><th /></tr></thead>
+            <tbody>{g.candidates.map((x) => (
+              <tr key={x.ref}><td className="whitespace-nowrap">{formatDate(x.date)}</td><td>{x.label}</td><td className="text-right tabular-nums">{m(x.cents)}</td>
+                <td>{x.confirmed ? chip(true, "Counted on line 110", "") : <span className="text-xs text-ink-3">Not counted</span>}</td>
+                <td>{editable && <form action={confirmGstEntry}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="entry" value={x.ref} />
+                  <input type="hidden" name="yes" value={x.confirmed ? "no" : "yes"} /><button className="btn-secondary btn-compact">{x.confirmed ? "Leave out" : "Count as an instalment"}</button></form>}</td></tr>
+            ))}</tbody></table>
+        </div>
       )}
 
       {/* Prepare: the instalments from the CRA account, then the lines kept as worked out. */}

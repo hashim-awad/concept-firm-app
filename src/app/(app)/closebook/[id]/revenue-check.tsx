@@ -25,7 +25,9 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
   const primary = sources.filter((x) => ["commission_statement", "sales_report", "processor_report", "slips"].includes(x.kind) || (x.kind === "t4a" && x.payer === "other"));
   const gst = sources.filter((x) => x.kind === "gst_returns"), t4a = sources.filter((x) => x.kind === "t4a" && x.payer === "brokerage");
   const comm = sources.filter((x) => x.kind === "commission_statement");
-  const hasSrc = primary.length > 0, hasGst = gst.length > 0, hasT4a = t4a.length > 0 && comm.length > 0;
+  // Round 13: a file whose GST/HST return is built in Closebook takes the return's figure (step 8).
+  const fromReturn = !!st.gst_from_return;
+  const hasSrc = primary.length > 0, hasGst = fromReturn ? st.n_gst > 0 : gst.length > 0, hasT4a = t4a.length > 0 && comm.length > 0;
   // An explanation counts only for the signed difference it was written for: 500.00 and (500.00) are
   // different differences (the database applies the same rule).
   const chip = (diff: number, text: string, explained: boolean, explainedFor: number | null, extra?: React.ReactNode) =>
@@ -107,11 +109,14 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
         <div className={box}><table className="w-full min-w-[560px] text-sm">
           {head("GST/HST cross-check")}
           <tbody>
-            {row("Revenue per the trial balance", fmt(st.tb))}
-            {gst.length ? gst.map(sourceRow) : row(<span className="text-ink-3">The revenue on the year&rsquo;s GST/HST returns is not entered yet.</span>, "")}
+            {row(fromReturn && st.tb_gst !== st.tb ? "Revenue per the trial balance, less the quick method gain" : "Revenue per the trial balance", fmt(fromReturn ? st.tb_gst ?? st.tb : st.tb))}
+            {fromReturn
+              ? row(st.n_gst ? <span>Sales before tax on the year&rsquo;s GST/HST return{st.n_gst > 1 ? "s" : ""} <span className="text-xs text-ink-3">(step 8{st.n_gst > 1 ? `, ${st.n_gst} returns` : ""}; quick method: eligible sales without the tax)</span></span>
+                : <span className="text-ink-3">Prepare the GST/HST return in step 8: its sales come here.</span>, st.n_gst ? fmt(st.gst) : "")
+              : gst.length ? gst.map(sourceRow) : row(<span className="text-ink-3">The revenue on the year&rsquo;s GST/HST returns is not entered yet.</span>, "")}
             {row(<span className="flex flex-wrap items-center gap-2 font-semibold">Difference {hasGst
               ? chip(st.gst_diff, st.gst_explanation, st.gst_explained, st.gst_explained_diff, review(st.gst_waiting, st.gst_explained, st.gst_accepted_by, st.gst_accepted_at, st.gst_accepted_diff, st.gst_diff))
-              : noSource("Returns not entered yet")}</span>, hasGst ? neg(st.gst_diff) : "–", "border-t-2 border-ink")}
+              : noSource(fromReturn ? "Return not prepared yet" : "Returns not entered yet")}</span>, hasGst ? neg(st.gst_diff) : "–", "border-t-2 border-ink")}
           </tbody></table>
           {hasGst && explain("gst_explanation", st.gst_explanation, st.gst_diff)}
           {accept("gst", st.gst_waiting, st.gst_explained, st.gst_explanation)}
@@ -151,7 +156,7 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
           <form action={addRevenueSource} className="mt-2 flex flex-wrap items-end gap-3">
             <input type="hidden" name="file_id" value={fileId} />
             <label className="grid gap-1 text-sm">Source<select name="kind" className="input input-compact w-80">
-              {kinds.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}{st.registrant && <option value="gst_returns">{KIND.gst_returns}</option>}</select></label>
+              {kinds.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}{st.registrant && !fromReturn && <option value="gst_returns">{KIND.gst_returns}</option>}</select></label>
             <label className="grid gap-1 text-sm">For a T4A: who paid it<select name="payer" defaultValue={st.realtor ? "brokerage" : "other"} className="input input-compact w-48">
               <option value="brokerage">The brokerage</option><option value="other">Another payer</option></select></label>
             <label className="grid gap-1 text-sm">Label<input name="label" maxLength={120} className="input input-compact w-56" placeholder="Brokerage name" /></label>

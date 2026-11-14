@@ -86,3 +86,21 @@ test("the check against 21500: tied, and with a difference", () => {
   assert.equal(r.lines["113"], 4000, "the balance still owing is the return's balance");
   assert.equal(checkAgainstBooks(210000, [r], pay, 4500).diffCents, 500);
 });
+
+test("entries as posted: the meals line's ITC is the 6.50 the entry booked, not 13% of 106.50 halved (round 13 fix)", async () => {
+  const { itemsFromEntry } = await import("../src/lib/closebook/gst-return.ts");
+  const HST = { code: "HST_ON", name: "HST ON", parts: [{ name: "HST ON", rate: 0.13, recoverable: true, liability: "gst_hst" as const }] };
+  const MEALS = { code: "MEALS_HST_50", name: "Meals HST 50", parts: [{ name: "ITC", rate: 0.065, recoverable: true, liability: "gst_hst" as const }, { name: "NoITC", rate: 0.065, recoverable: false, liability: "gst_hst" as const }] };
+  const L = (cents: number, code: typeof HST | null, account: string, isTax = false) => ({ cents, code, codeName: code?.code ?? "", accountType: "Expense", account, accountName: account, isTax, on21500: account === "21500" });
+  // AJE 10 on Birch: meals 106.50 (100.00 + the 6.50 not claimable), fuel 750.00, ITCs 104.00 to 21500.
+  const items = itemsFromEntry({ date: "2026-12-31", ref: "aje10", label: "AJE 10" }, [L(10650, MEALS, "60200"), L(75000, HST, "70600"), L(10400, null, "21500", true)], { registered: true, quick: false });
+  assert.deepEqual(items.map((x) => [x.account, x.netCents, x.taxCents]), [["60200", 10000, 650], ["70600", 75000, 9750]]);
+  assert.equal(items.reduce((n, x) => n + x.taxCents, 0), 10400, "the ITCs posted, to the cent");
+});
+
+test("quick method: the sales before tax for step 5 are the eligible sales without the tax", () => {
+  const r = buildReturn([sale("2026-02-01", 1000000, 130000), sale("2026-02-02", 50000, 0, "ZERO_RATED")], gstPeriods("2026-01-01", "2026-12-31", "annual", DUE)[0], true,
+    { rate: 0.088, creditRate: 0.01, creditLimitCents: 3000000 }, 0);
+  assert.equal(r.salesNetCents, 1000000);
+  assert.equal(r.lines["101"], 1130000);
+});

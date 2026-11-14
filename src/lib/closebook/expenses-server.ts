@@ -8,7 +8,7 @@ import type { ExpenseDef } from "./expenses";
 
 export type RevenueState = {
   tb: number; sources: number; n_sources: number; diff: number; gst: number; n_gst: number; gst_diff: number; commission: number; n_commission: number;
-  t4a: number; n_t4a: number; t4a_diff: number; threshold: number; realtor: boolean; registrant: boolean;
+  t4a: number; n_t4a: number; t4a_diff: number; threshold: number; realtor: boolean; registrant: boolean; gst_from_return?: boolean; tb_gst?: number;
   explanation: string; gst_explanation: string; t4a_explanation: string; t4a_none: boolean;
   explained: boolean; gst_explained: boolean; t4a_explained: boolean; explained_diff: number | null; gst_explained_diff: number | null; t4a_explained_diff: number | null; accepted_diff: number | null; accepted_by: string | null; accepted_at: string | null;
   gst_accepted_diff: number | null; gst_accepted_by: string | null; gst_accepted_at: string | null; t4a_accepted_diff: number | null; t4a_accepted_by: string | null; t4a_accepted_at: string | null;

@@ -336,3 +336,92 @@ begin
 end;
 $$;
 revoke all on function private.cb_lock_problems(uuid), private.cb_step8_problems(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------------------------------
+-- Round 13 fixes (Hashim, Nov 14, 2026).
+-- 2. Entries that move an amount into 21500 without a tax code are instalment candidates; the preparer
+--    confirms each one (it then goes on line 110) or leaves it out.
+alter table public.cb_gst_check add column if not exists instalment_entries uuid[] not null default '{}';
+create or replace function public.cb_confirm_gst_entry(p_file uuid, p_entry uuid, p_yes boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v_file public.cb_files; v_label text;
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
+  perform private.require(private.cb_gst_applies(p_file), 'This file has no GST/HST return built in Closebook.');
+  select e.kind || ' ' || e.number into v_label from public.cb_entries e where e.id = p_entry and e.file_id = p_file;
+  perform private.require(v_label is not null, 'That entry is not in this file.');
+  insert into public.cb_gst_check (file_id, owing, book, diff, fingerprint) values (p_file, 0, 0, 0, '') on conflict (file_id) do nothing;
+  update public.cb_gst_check set instalment_entries = case when p_yes then array(select distinct unnest(instalment_entries || p_entry)) else array_remove(instalment_entries, p_entry) end
+   where file_id = p_file;
+  -- The instalments change: the returns are prepared again from the new pre-fill.
+  delete from public.cb_gst_returns where file_id = p_file;
+  perform private.cb_log(p_file, 'gst_instalment_entry', 't2', format('%s %s an instalment', v_label, case when p_yes then 'counted as' else 'not counted as' end));
+  perform private.cb_clear_step(p_file, 't2', 'The GST/HST instalments changed');
+end;
+$$;
+revoke all on function public.cb_confirm_gst_entry(uuid, uuid, boolean) from public, anon;
+grant execute on function public.cb_confirm_gst_entry(uuid, uuid, boolean) to authenticated;
+
+-- 3. The quick method gain: the tax a quick method company keeps is income, booked to a standard chart
+--    revenue account on the other revenue line (GIFI 8230), after 42300 Other income.
+insert into public.cb_chart_accounts (number, name, account_type, line_no, tax_default, note, sort_order)
+values ('42400', 'GST/HST quick method gain', 'Revenue', '8230.00', 'None', 'Quick method: the GST/HST collected less the tax remitted and the credit (step 8 books it).', 77)
+on conflict (number) do nothing;
+
+-- 4. Step 5's GST/HST cross-check takes the return's sales before tax on files with a return.
+create or replace function private.cb_revenue_state(p_file uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_file public.cb_files;
+  v_tb numeric; v_src numeric; v_gst numeric; v_comm numeric; v_t4a numeric;
+  v_n_src int; v_n_gst int; v_n_comm int; v_n_t4a int;
+  r public.cb_revenue_checks;
+  v_limit numeric;
+  v_from_return boolean; v_tb_gst numeric;
+begin
+  select * into v_file from public.cb_files where id = p_file;
+  select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_tb
+    from public.cb_accounts a join public.cb_master_lines m on m.line_no = a.line_no where a.file_id = p_file and m.line_type = 'Revenue';
+  select coalesce(sum(amount) filter (where kind in ('commission_statement', 'sales_report', 'processor_report', 'slips') or (kind = 't4a' and payer = 'other')), 0),
+         count(*) filter (where kind in ('commission_statement', 'sales_report', 'processor_report', 'slips') or (kind = 't4a' and payer = 'other')),
+         coalesce(sum(amount) filter (where kind = 'gst_returns'), 0), count(*) filter (where kind = 'gst_returns'),
+         coalesce(sum(amount) filter (where kind = 'commission_statement'), 0), count(*) filter (where kind = 'commission_statement'),
+         coalesce(sum(amount) filter (where kind = 't4a' and payer = 'brokerage'), 0), count(*) filter (where kind = 't4a' and payer = 'brokerage')
+    into v_src, v_n_src, v_gst, v_n_gst, v_comm, v_n_comm, v_t4a, v_n_t4a
+    from public.cb_revenue_sources where file_id = p_file;
+  -- Round 13: a file whose GST/HST return is built in Closebook takes the return's sales before tax (quick
+  -- method: the eligible sales without the tax) instead of a typed figure. The quick method gain (42400) is
+  -- not a sale and stays out of the comparison.
+  v_from_return := private.cb_gst_applies(p_file);
+  v_tb_gst := v_tb;
+  if v_from_return then
+    select coalesce(sum(coalesce((lines ->> 'sales')::numeric, (lines ->> '101')::numeric)) / 100, 0), count(*) into v_gst, v_n_gst from public.cb_gst_returns where file_id = p_file;
+    v_tb_gst := v_tb + coalesce((select sum(private.cb_account_final(a.id)) from public.cb_accounts a where a.file_id = p_file and a.account_key = 'chart:42400'), 0);
+  end if;
+  select * into r from public.cb_revenue_checks where file_id = p_file;
+  select entry_review_amount into v_limit from public.cb_settings limit 1;
+  return jsonb_build_object('tb', v_tb, 'sources', v_src, 'n_sources', v_n_src, 'diff', v_tb - v_src,
+    'gst', v_gst, 'n_gst', v_n_gst, 'gst_diff', v_tb_gst - v_gst, 'gst_from_return', v_from_return, 'tb_gst', v_tb_gst, 'commission', v_comm, 'n_commission', v_n_comm,
+    't4a', v_t4a, 'n_t4a', v_n_t4a, 't4a_diff', v_comm - v_t4a, 'threshold', coalesce(v_limit, 5000),
+    'realtor', coalesce((v_file.setup ->> 'realtor')::boolean, false), 'registrant', coalesce((v_file.setup ->> 'gst_registered')::boolean, false),
+    'explanation', coalesce(r.explanation, ''), 'gst_explanation', coalesce(r.gst_explanation, ''), 't4a_explanation', coalesce(r.t4a_explanation, ''),
+    't4a_none', coalesce(r.t4a_none, false), 'accepted_diff', r.accepted_diff, 'accepted_by', r.accepted_by, 'accepted_at', r.accepted_at,
+    'explained_diff', r.explained_diff, 'gst_explained_diff', r.gst_explained_diff, 't4a_explained_diff', r.t4a_explained_diff,
+    -- An explanation counts only for the difference it was written for.
+    'explained', coalesce(r.explanation, '') <> '' and r.explained_diff = v_tb - v_src,
+    'gst_explained', coalesce(r.gst_explanation, '') <> '' and r.gst_explained_diff = v_tb_gst - v_gst,
+    't4a_explained', coalesce(r.t4a_explanation, '') <> '' and r.t4a_explained_diff = v_comm - v_t4a,
+    'gst_accepted_diff', r.gst_accepted_diff, 'gst_accepted_by', r.gst_accepted_by, 'gst_accepted_at', r.gst_accepted_at,
+    't4a_accepted_diff', r.t4a_accepted_diff, 't4a_accepted_by', r.t4a_accepted_by, 't4a_accepted_at', r.t4a_accepted_at,
+    -- A check with no figure entered is open work for the preparer, not a difference: nothing waits
+    -- for the reviewer until its source is in. Over the threshold, it waits until accepted at that
+    -- signed amount: 500.00 and (500.00) are different differences.
+    'waiting', v_n_src > 0 and abs(v_tb - v_src) > coalesce(v_limit, 5000) and r.accepted_diff is distinct from v_tb - v_src,
+    'gst_waiting', coalesce((v_file.setup ->> 'gst_registered')::boolean, false) and v_n_gst > 0 and abs(v_tb_gst - v_gst) > coalesce(v_limit, 5000)
+      and r.gst_accepted_diff is distinct from v_tb_gst - v_gst,
+    't4a_waiting', coalesce((v_file.setup ->> 'realtor')::boolean, false) and v_n_t4a > 0 and v_n_comm > 0 and abs(v_comm - v_t4a) > coalesce(v_limit, 5000)
+      and r.t4a_accepted_diff is distinct from v_comm - v_t4a);
+end;
+$$;
