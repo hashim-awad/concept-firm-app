@@ -9,6 +9,7 @@ import { packageDocx, malDocx, lawyerDocx } from "@/lib/closebook/fs-docx";
 import { renderWpPdf } from "@/lib/closebook/wp-pdf";
 import { FS_LETTERHEAD } from "@/lib/closebook/fs-letterhead.generated";
 import { signedPdfBytes } from "@/lib/t1-quote/sign";
+import { deliveredFile, docFile } from "@/lib/closebook/close-server";
 
 const NAMES = { fs: "Financial statements", mal: "Management Responsibility Acknowledgement", letter: "Minute book letter", signed: "MAL signed" } as const;
 
@@ -20,7 +21,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!/^[0-9a-f-]{36}$/.test(id) || !(doc in NAMES) || (format !== "pdf" && format !== "docx")) return new Response("Not found", { status: 404 });
   // The Word copy is for the reviewer (owners) only.
   if (format === "docx" && !access.is_owner) return new Response("The Word copy is for the reviewer only.", { status: 403 });
-  const pk = await loadPackage(await createClient(), id);
+  const supabase = await createClient();
+  // Delivered (and locked) files: the PDFs as delivered to TaxDome, never rebuilt (round 12).
+  if (format === "pdf" && (doc === "fs" || doc === "signed" || doc === "letter")) {
+    const [{ data: close }, { data: f }, { data: cl }] = await Promise.all([
+      supabase.from("cb_file_close").select("delivered_path").eq("file_id", id).maybeSingle(),
+      supabase.from("cb_files").select("year_end, client_id").eq("id", id).maybeSingle(),
+      supabase.from("cb_files").select("client:client_id(legal_name)").eq("id", id).maybeSingle(),
+    ]);
+    const path = (close as { delivered_path?: string | null } | null)?.delivered_path;
+    const legal = ((cl as unknown as { client?: { legal_name?: string } } | null)?.client?.legal_name) ?? "";
+    if (path && f) {
+      const name = docFile(legal, doc, (f as { year_end: string }).year_end);
+      const bytes = await deliveredFile(path, name);
+      if (bytes) return new Response(new Uint8Array(bytes), { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${name}"`, "cache-control": "private, no-store" } });
+    }
+  }
+  const pk = await loadPackage(supabase, id);
   if (!pk) return new Response("Not found", { status: 404 });
   if (pk.blocked.length) return new Response(`The package is stopped:\n${pk.blocked.join("\n")}`, { status: 409, headers: { "content-type": "text/plain; charset=utf-8" } });
   const base = `${pk.m.name} ${NAMES[doc]} ${pk.data.file.year_end}${pk.ctx.draft && doc !== "signed" ? " DRAFT" : ""}`.replace(/[^\w .&-]+/g, "").replace(/\s+/g, " ").trim();

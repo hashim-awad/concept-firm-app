@@ -62,8 +62,9 @@ export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: Re
 // the compilation report is released (round 8b). 1, 10 and 11 must be Yes; only 8 and 9 (conditional)
 // can be Not applicable. The database applies the same rules.
 const MUST_YES = new Set([1, 10, 11]), MAY_NA = new Set([8, 9]);
-export function Checklist({ fileId, checklist, problems, editable, back, trial }: {
-  fileId: string; checklist: ChecklistRow[]; problems: string[]; editable: boolean; back: string; trial: boolean;
+// auto (round 12): questions Closebook fills from the signing record (10 and 11): shown, read-only.
+export function Checklist({ fileId, checklist, problems, editable, back, trial, auto = [] }: {
+  fileId: string; checklist: ChecklistRow[]; problems: string[]; editable: boolean; back: string; trial: boolean; auto?: number[];
 }) {
   return (
     <div className="grid gap-3">
@@ -81,14 +82,17 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial }
               <legend className="sr-only">Question {i + 1}</legend>
               <p className="text-sm"><span className="mr-1.5 tabular-nums text-ink-3">{i + 1}.</span>{c.text}
                 {MUST_YES.has(i + 1) && <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Must be Yes</span>}</p>
-              <div className="flex flex-wrap items-center gap-3 text-sm">
+              {auto.includes(i + 1) ? (
+                <p className="text-sm font-medium">{c.answer === "yes" ? "Yes" : c.answer === "no" ? "No" : "Not answered"} <span className="ml-1 rounded bg-navy-50 px-1.5 py-0.5 text-xs font-normal text-navy-700">Filled by Closebook</span></p>
+              ) : <div className="flex flex-wrap items-center gap-3 text-sm">
                 {(MAY_NA.has(i + 1) ? (["yes", "no", "na"] as const) : (["yes", "no"] as const)).map((a) => (
                   <label key={a} className="inline-flex items-center gap-1.5"><input type="radio" name={`a_${c.key}`} value={a} defaultChecked={c.answer === a} disabled={!editable} className="h-4 w-4" />
                     {a === "yes" ? "Yes" : a === "no" ? "No" : "Not applicable"}</label>
                 ))}
-              </div>
+              </div>}
+              {auto.includes(i + 1) ? <p className="text-xs text-ink-2 md:col-span-2">{c.note}</p> :
               <label className="md:col-span-2"><span className="sr-only">Note for question {i + 1}</span>
-                <input name={`n_${c.key}`} defaultValue={c.note} maxLength={1000} disabled={!editable} className="input input-compact w-full" placeholder="Note (needed for a No)" /></label>
+                <input name={`n_${c.key}`} defaultValue={c.note} maxLength={1000} disabled={!editable} className="input input-compact w-full" placeholder="Note (needed for a No)" /></label>}
             </fieldset>
           ))}
           {editable && <div className="border-t border-sand-100 pt-3"><button type="submit" className="btn-secondary">Save the checklist</button></div>}
@@ -107,6 +111,8 @@ const ACTION: Record<string, string> = {
   note_cleared: "Cleared a note", note_reopened: "Reopened a note", checklist_saved: "Saved the completion checklist",
   revenue_accepted: "Accepted a revenue difference", gifi_exported: "Exported the GIFI file", t2_accepted: "Accepted a T2 tie-out difference", side_confirmed: "Kept a balance on the other side of its line",
   mal_sent: "Sent the MAL for signing", mal_signed: "The MAL was signed", mal_withdrawn: "The MAL was withdrawn",
+  checklist_opened: "The checklist opened (MAL signed)", close_fields_saved: "Saved the email figures", filing_recorded: "Saved the filing record",
+  delivered: "Uploaded to TaxDome and email sent", delivery_cleared: "Delivery cleared by a change", locked: "Locked the file", reopened: "Reopened the file",
 };
 export function HistoryView({ rows, stepName }: { rows: HistoryRow[]; stepName: (k: string) => string }) {
   return (

@@ -71,6 +71,12 @@ export async function updateCbSettings(formData: FormData) {
     if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Rounding allowed in the T2 tie-out: enter a number, 0 or more."));
     err = (await (await createClient()).rpc("cb_update_t2_rounding", { p_amount: r })).error;
   }
+  // Round 12: the instalment threshold Appendix C's client email uses (step 10).
+  if (!err && formData.has("instalment_threshold")) {
+    const r = n("instalment_threshold");
+    if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Instalment threshold: enter a number, 0 or more."));
+    err = (await (await createClient()).rpc("cb_update_instalment_threshold", { p_amount: r })).error;
+  }
   revalidatePath(back);
   redirect(withMessage(back, err ? "error" : "msg", err ? err.message : "Saved."));
 }

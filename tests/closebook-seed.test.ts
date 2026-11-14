@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { fromWorkbook, gifiFromCsv, parseCsv, seedSql, PACKAGE_CAPTIONS } from "../src/lib/closebook/seed.ts";
 import { readXlsx } from "../src/lib/closebook/xlsx.ts";
 
-const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
+const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/archive/Closebook-master-lines-2026-11-11-seed.xlsx", import.meta.url)));
 const gifi = gifiFromCsv(readFileSync(new URL("../docs/phase3/GIFI-Concept-RC4088-Rev23.csv", import.meta.url), "utf8"));
 const migration = readFileSync(new URL("../supabase/migrations/20261111000000_closebook_structure.sql", import.meta.url), "utf8");
 
@@ -52,7 +52,7 @@ test("CSV reader: quotes, commas and new lines inside fields", () => {
 });
 
 test("Excel reader: sheet names, text and numbers", () => {
-  const sheets = readXlsx(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
+  const sheets = readXlsx(readFileSync(new URL("../docs/phase3/archive/Closebook-master-lines-2026-11-11-seed.xlsx", import.meta.url)));
   assert.deepEqual(sheets.map((s) => s.name), ["Read me", "Master lines", "Tax codes", "Lead sheets", "Decisions for Hashim"]);
   assert.equal(sheets[3].rows[1][1], 9, "a number stays a number");
   assert.equal(sheets[1].rows[0][0], "Line no.");

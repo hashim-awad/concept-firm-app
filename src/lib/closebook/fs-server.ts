@@ -13,7 +13,7 @@ export type FsFields = { officer_name: string; officer_position: string; officer
 export type MalStatus = { mal_quote_id: string | null; mal_status: string | null; mal_sent_at: string | null; mal_token: string | null; mal_email: string | null; mal_signed_at: string | null;
   mal_signed_name: string | null; mal_signed_title: string | null; mal_withdrawn_at: string | null; mal_withdrawn_why: string | null };
 
-const SH = new Set(["1300", "1301", "1302", "2180", "2181", "2182", "2780", "2781", "2782", "3260", "3261", "3262"]);
+const SH = new Set(["1300", "1301", "1302", "1303", "2180", "2181", "2182", "2183", "2780", "2781", "2782", "2783", "3260", "3261", "3262", "3263"]);
 const RELATED = /related (part|corp|canadian|foreign)|affiliat/i;
 const torontoDate = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 

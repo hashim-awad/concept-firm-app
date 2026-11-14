@@ -15,7 +15,7 @@ import { entryNo } from "@/lib/closebook/reports";
 import { StatusPill } from "@/components/ds/primitives";
 import { SignoffBar } from "./signoff-bar";
 import { ReviewNotes } from "./review-notes";
-import { Checklist, HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
+import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
@@ -24,6 +24,8 @@ import { RevenueCheck } from "./revenue-check";
 import { T2Step } from "./t2-step";
 import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
+import { CloseStep } from "./close-step";
+import { loadClose } from "@/lib/closebook/close-server";
 import { OpeningS125 } from "./opening-s125";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
@@ -316,8 +318,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} siteUrl={env.siteUrl()} />
       : soon("The package opens once there is a trial balance.");
   } else {
-    // Step 10 (round 8b): the completion checklist lives here, answered before the file is locked and the
-    // compilation report is released. The rest of step 10 comes when it is built.
+    // Step 10 (round 8b, round 12): the completion checklist, then delivery and the lock.
       const [{ data: qs }, { data: ans }, wording, { data: appr }] = await Promise.all([
         supabase.from("cb_checklist_questions").select("key").order("sort_order"),
         supabase.from("cb_checklist_answers").select("question, answer, note").eq("file_id", id),
@@ -330,8 +331,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         const piece = CB_CHECKLIST.find((c) => c.key === q.key);
         return { key: q.key, text: piece ? cbText(texts, piece) : q.key, answer: ansOf.get(q.key)?.answer ?? "", note: ansOf.get(q.key)?.note ?? "" };
       });
-      const checkProblems = ((review.status as Record<string, unknown>).checklist ?? []) as string[];
-    body = <Checklist fileId={id} checklist={checklist} problems={checkProblems} editable={editable && file.phase !== "locked"} back={href("lock")} trial={!appr} />;
+    // Round 12: step 10, "Deliver and lock": the checklist, the client email, the documents, the filing
+    // record and the lock.
+    const cd = accounts.length ? await loadClose(supabase, id) : null;
+    body = cd ? <CloseStep fileId={id} d={cd} checklist={checklist} checklistTrial={!appr} editable={editable} isOwner={access.is_owner} names={names} />
+      : soon("Step 10 opens once there is a trial balance.");
   }
 
   // Round 8: each step with a sign-off shows "Prepared by" and "Reviewed by" at the top and its review
@@ -368,6 +372,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
         </span>
       </header>
+      {file.phase === "locked" && (
+        <p role="status" className="mb-4 rounded-lg border border-navy-300 bg-navy-50 px-4 py-2.5 text-sm text-navy-800">
+          <b>Locked:</b> this file is read-only. Its documents are kept as delivered. Only an owner can reopen it, on step 10, with a reason.</p>
+      )}
       <Notice msg={messageFrom(sp.msg)} error={sp.upload || sp.opening ? undefined : messageFrom(sp.error)} />
 
       {/* Tables use the full width (round 2 item 9): on table screens the step list is narrower. */}
