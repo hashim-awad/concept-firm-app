@@ -2,13 +2,15 @@
 // Round 8: "Add a review note" on one item (an account, an entry or a bank line), for the reviewer.
 // A small form that opens in place; the note then lists on the item's step with the item's name.
 import { useState } from "react";
+import { MessageSquarePlus } from "lucide-react";
 import { addNote } from "../actions";
 
-export function NoteOnItem({ fileId, step, targetType, targetId, back, label = "Review note" }: {
-  fileId: string; step: string; targetType: "account" | "entry" | "bank_line"; targetId: string; back: string; label?: string;
+export function NoteOnItem({ fileId, step, targetType, targetId, back, label = "Review note", icon = false }: {
+  fileId: string; step: string; targetType: "account" | "entry" | "bank_line"; targetId: string; back: string; label?: string; icon?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  if (!open) return <button type="button" onClick={() => setOpen(true)} className="text-xs text-navy-700 underline">{label}</button>;
+  if (!open) return icon ? <button type="button" onClick={() => setOpen(true)} aria-label={label} title={label} className="text-[#9aa0ae] hover:text-navy-700"><MessageSquarePlus className="h-[15px] w-[15px]" /></button>
+    : <button type="button" onClick={() => setOpen(true)} className="text-xs text-navy-700 underline">{label}</button>;
   return (
     <form action={addNote} className="grid w-full min-w-[16rem] gap-1.5">
       <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="step" value={step} />

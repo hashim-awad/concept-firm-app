@@ -122,7 +122,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
                 <ul className="grid gap-2 text-sm">{s152.map((x) => (
                   <li key={`${x.file_id}|${x.shareholder}`} className="flex flex-wrap items-baseline gap-x-2">
                     <span className={`font-semibold ${x.due_on < today ? "text-danger" : ""}`}>Repay by {formatDate(x.due_on)}</span>
-                    <Link href={`/closebook/${x.file_id}?step=entries#sh-loans`} className="font-medium text-navy-700 hover:underline">{x.client_name}</Link>
+                    <Link href={`/closebook/${x.file_id}?step=entries&paper=sh`} className="font-medium text-navy-700 hover:underline">{x.client_name}</Link>
                     <span className="text-muted">Shareholder {x.shareholder}: {Number(x.amount).toLocaleString("en-CA", { style: "currency", currency: "CAD" })} owed from loans made in the year to {formatDate(x.year_end)} ({x.accounts})</span>
                     <span className="text-muted">{x.unpaid !== null ? `· next year's file: ${Number(x.unpaid).toLocaleString("en-CA", { style: "currency", currency: "CAD" })} not repaid, with the reviewer` : x.next_file ? "· next year's file: not confirmed yet" : "· next year's file not started"}</span>
                   </li>

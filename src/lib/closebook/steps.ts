@@ -4,7 +4,9 @@
 // Sign-offs per step arrive with build step 3: until then a step is "done" only where the data says so.
 import type { CbDoc } from "./files.ts";
 
-export const STEP_KEYS = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2", "statements", "lock"] as const;
+// Round 15b (Hashim): GIFI mapping comes before Review, because Review's sign-off already needs mapping
+// signed. Only the order and the names changed; every rule is the same.
+export const STEP_KEYS = ["setup", "opening", "records", "code", "entries", "mapping", "review", "t2", "statements", "lock"] as const;
 export type StepKey = (typeof STEP_KEYS)[number];
 export type StepState = "done" | "current" | "open";
 // word: the step's status in Studio's fixed words (round 8): Signed (reviewed), Prepared (signed by the
@@ -13,7 +15,7 @@ export type StepWord = "signed" | "prepared" | "next" | "open";
 export type Step = { key: StepKey; n: number; name: string; who: string; note: string; state: StepState; word: StepWord; notes: number };
 export type StepSign = { prepared: boolean; reviewed: boolean; notes: number };
 // The steps with sign-offs today (round 8); 8 to 10 get theirs when they are built.
-export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2", "statements", "lock"];
+export const SIGNED_STEPS: StepKey[] = [...STEP_KEYS];
 
 // Files built from bank and card CSVs code transactions to the standard chart; every other file
 // imports a trial balance and matches its accounts straight to GIFI lines (Hashim, Nov 13, 2026).
@@ -44,9 +46,9 @@ const s = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : 
 // books are kept. The Review notes page lists each note under its own file's step names.
 export function stepTitle(key: string, books: string): string {
   const bank = fromStatements(books);
-  const names: Record<string, [number, string]> = { setup: [1, "Set up the file"], opening: [2, "Opening balances"],
-    records: [3, bank ? "Bank statements" : "Get the records"], code: [4, bank ? "Code the transactions" : "Match accounts to GIFI"],
-    entries: [5, "Adjusting entries"], review: [6, "Review"], mapping: [7, "GIFI mapping"], t2: [8, "T2 tie-out"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
+  const names: Record<string, [number, string]> = { setup: [1, "Set up"], opening: [2, "Opening balances"],
+    records: [3, bank ? "Bank statements" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
+    entries: [5, "Checks"], mapping: [6, "GIFI mapping"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
   const n = names[key];
   return n ? `${n[0]}. ${n[1]}` : key;
 }
@@ -63,20 +65,20 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   const matched = bank ? cd.lines > 0 && cd.open + cd.reviewer + cd.ask === 0 : f.imported && f.accounts > 0 && f.unmatched === 0 && f.waiting === 0 && !f.typeFlags;
 
   const base: Omit<Step, "state" | "word" | "notes">[] = [
-    { key: "setup", n: 1, name: "Set up the file", who: f.people.preparer,
+    { key: "setup", n: 1, name: "Set up", who: f.people.preparer,
       note: f.setupOpen !== undefined ? (f.setupOpen ? `${s(f.setupOpen, "question")} to answer` : "Questions answered") : setupDone ? "Done" : `${s(planning.filter((d) => d.status !== "signed").length, "item")} open` },
     { key: "opening", n: 2, name: "Opening balances", who: f.people.preparer,
       // Round 8b: the step's sign-off is its Prepared by; the sub-line only says what the step is.
       note: bank ? "Last year's balance sheet" : "From the trial balance import" },
     { key: "records", n: 3, name: bank ? "Bank statements" : "Get the records", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
-    { key: "code", n: 4, name: bank ? "Code the transactions" : "Match accounts to GIFI", who: f.people.preparer,
+    { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
-    { key: "entries", n: 5, name: "Adjusting entries", who: f.people.preparer, note: f.entries ? s(f.entries, "entry", "entries") : "" },
-    { key: "review", n: 6, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },
-    { key: "mapping", n: 7, name: "GIFI mapping", who: f.people.reviewer,
+    { key: "entries", n: 5, name: "Checks", who: f.people.preparer, note: "" },
+    { key: "mapping", n: 6, name: "GIFI mapping", who: f.people.reviewer,
       note: f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : bank ? "Reviewer" : "Reviewer checks the matches" },
-    { key: "t2", n: 8, name: "T2 tie-out", who: f.people.preparer, note: "GIFI to ProFile" },
+    { key: "review", n: 7, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },
+    { key: "t2", n: 8, name: "Tax returns", who: f.people.preparer, note: "GIFI to ProFile" },
     { key: "statements", n: 9, name: "Statements", who: f.people.preparer, note: "" },
     { key: "lock", n: 10, name: "Deliver and lock", who: f.people.preparer, note: "" },
   ];
@@ -87,7 +89,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   const sg = f.signs;
   if (sg) {
     // Round 8 (CaseWare): a step is done when the reviewer has signed it. The current step is the first
-    // the preparer has not signed; once steps 1 to 5 and 7 are prepared, it is step 6, the review.
+    // the preparer has not signed; once steps 1 to 6 are prepared, it is step 7, the review.
     for (const k of SIGNED_STEPS) done[k] = !!sg[k]?.reviewed;
     const work: StepKey[] = ["setup", "opening", "records", "code", "entries", "mapping"];
     current = work.find((k) => !sg[k]?.prepared) ?? (!sg.review?.reviewed ? "review" : !sg.t2?.prepared ? "t2" : !sg.statements?.reviewed ? "statements" : "lock");
@@ -106,8 +108,8 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     code: bank ? (cd.open ? `Code ${s(cd.open, "line")} to accounts from the standard chart, with the sales tax.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : f.unmatched + f.waiting ? `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`
       : `${s(f.typeFlags ?? 0, "account")} on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer (${f.people.reviewer}).`,
-    entries: "Post the year-end entries, then explain the flagged changes on the lead sheets.",
-    review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 6.`,
+    entries: "Finish the checks and post the year-end entries, then explain the flagged changes on the lead sheets.",
+    review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 7.`,
     mapping: f.typeFlags ? `Decide ${s(f.typeFlags, "account")} whose type or balance does not fit its GIFI line (keep it there with a reason, or move it), then sign off.`
       : "Check the GIFI line of every account, then sign off.",
     t2: "Export the GIFI file, import it into ProFile, then tie out the T2.",
@@ -130,3 +132,21 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
   if (view === "lead") return "review";
   return fromStatements(books) ? "mapping" : "code";
 }
+
+// Round 15b (Hashim; CaseWare Cloud's document map): a step holds one or more working papers, each its
+// own screen, listed under the step when it is open. A paper shows only when it applies. Sign-offs stay
+// on the step.
+export type PaperKey = "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
+export type Paper = { key: PaperKey; name: string };
+export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean };
+export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
+  const p = (key: PaperKey, name: string, on = true): Paper[] => (on ? [{ key, name }] : []);
+  switch (step) {
+    case "entries": return [...p("revenue", "Revenue check", f.full), ...p("sh", "Shareholder loans", f.shareholders), ...p("expenses", "Expenses paid personally", f.full && f.ownerPaid)];
+    case "t2": return [...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
+    case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];
+    case "lock": return [...p("checklist", "Checklist"), ...p("email", "Client email"), ...p("documents", "Documents"), ...p("filing", "Filing and lock")];
+    default: return [];
+  }
+}
+

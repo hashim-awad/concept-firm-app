@@ -45,7 +45,7 @@ export function SignoffBar({ fileId, step, st, names, me, isOwner, editable, bac
             : <p className="text-sm text-ink-3">{review || prepared ? "Not signed" : "After the preparer"}</p>}
           <div className="mt-1 flex flex-wrap items-center gap-3">
             {!reviewed && editable && (isOwner
-              ? (review || prepared) && form("reviewed", review ? "Sign step 6 as reviewer" : "Sign as reviewer", review)
+              ? (review || prepared) && form("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer", review)
               : <span className="inline-flex items-center gap-2"><button type="button" disabled className="btn-secondary btn-compact" aria-describedby={`rv-${step}`}>Sign as reviewer</button>
                   <span id={`rv-${step}`} className="text-xs text-ink-3">Only the reviewer signs here. Reviewers are owners.</span></span>)}
             {reviewed && editable && isOwner && undo("reviewed")}
@@ -55,9 +55,9 @@ export function SignoffBar({ fileId, step, st, names, me, isOwner, editable, bac
       </div>
       {(problems.length > 0 || waiting.length > 0) && !reviewed && (
         <div className="grid gap-1 border-t border-sand-200 pt-2 text-sm sm:grid-cols-2">
-          {problems.length > 0 && <div><p className="font-medium">{review ? "Before step 6 can be signed" : "Open on this step"}</p>
+          {problems.length > 0 && <div><p className="font-medium">{review ? "Before step 7 can be signed" : "Open on this step"}</p>
             <ul className="list-disc pl-5 text-ink-2">{problems.map((p) => <li key={p}>{p}</li>)}</ul></div>}
-          {waiting.length > 0 && <div><p className="font-medium">Waiting for the reviewer<span className="font-normal text-ink-2">: on the step 6 list; they do not hold the preparer</span></p>
+          {waiting.length > 0 && <div><p className="font-medium">Waiting for the reviewer<span className="font-normal text-ink-2">: on the step 7 list; they do not hold the preparer</span></p>
             <ul className="list-disc pl-5 text-ink-2">{waiting.map((p) => <li key={p}>{p}</li>)}</ul></div>}
         </div>
       )}

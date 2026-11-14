@@ -11,7 +11,7 @@ import { loadShLoans, toSavedGroup, toSavedRow } from "@/lib/closebook/sh-server
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 // The notice goes in the query, the anchor after it, so the page opens on the schedule with the notice.
-const back = (id: string, kind: "msg" | "error" = "error", text = "") => `${withMessage(`/closebook/${id}?step=entries`, kind, text)}#sh-loans`;
+const back = (id: string, kind: "msg" | "error" = "error", text = "") => withMessage(`/closebook/${id}?step=entries&paper=sh`, kind, text);
 const done = (id: string, error: { message: string } | null, ok: string): never => {
   revalidatePath(`/closebook/${id}`);
   redirect(back(id, error ? "error" : "msg", error ? error.message : ok));

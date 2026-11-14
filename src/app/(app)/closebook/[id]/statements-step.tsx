@@ -15,7 +15,9 @@ const HEAD = "flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 
 const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
 
-export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fileId: string; pk: PackageData; editable: boolean; isOwner: boolean; siteUrl: string }) {
+// Round 15b: the step's papers, Package and MAL signing (CaseWare's document map). Without a paper, both.
+export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl, paper }: { fileId: string; pk: PackageData; editable: boolean; isOwner: boolean; siteUrl: string; paper?: string }) {
+  const show = (k: string) => !paper || paper === k;
   const f = pk.fields;
   const doc = (d: string, fmt = "pdf") => `/closebook/${fileId}/package?doc=${d}&format=${fmt}`;
   const mal = pk.mal;
@@ -33,6 +35,7 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fil
         <p role="alert" className="text-[12.5px] text-warning"><b>MAL withdrawn</b> {when(mal.mal_withdrawn_at)}: {mal.mal_withdrawn_why}. Sign step 9 again before a new MAL.</p>
       )}
 
+      {show("package") && <>
       {/* The documents: draft until the signing officer signs the MAL. */}
       <section aria-label="Documents" className={CARD}>
         <div className={HEAD}>
@@ -121,6 +124,8 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fil
         </fieldset>
       </form>
 
+      </>}
+      {show("mal") && <>
       {/* The MAL, through the signing engine used for quotes. */}
       <section aria-label="MAL signing" className={CARD}>
         <div className={HEAD}><h3 className={H}>MAL signing</h3></div>
@@ -150,6 +155,7 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fil
         ) : null}
         </div>
       </section>
+      </>}
     </div>
   );
 }

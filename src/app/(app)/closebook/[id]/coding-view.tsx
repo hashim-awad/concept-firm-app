@@ -13,13 +13,14 @@ import { splitLine } from "@/lib/closebook/sales-tax";
 import { suggestionLabel } from "@/lib/closebook/vendor";
 import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
 import { NoteOnItem } from "./note-on-item";
+import { formatDate } from "@/lib/dates";
 
-type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
-const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"]];
+type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done" | "all";
+const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"], ["all", "All"]];
 // Lines charged in US dollars are never confirmed in bulk: each one is checked by hand.
 const USD = /\bAMT\s+[\d,.]+\s+USD\b/i;
 const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
-const inFilter = (l: CodeLine, f: Filter) => f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
+const inFilter = (l: CodeLine, f: Filter) => f === "all" ? true : f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : l.status === "done";
 
 export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null, noteBy }: {
@@ -98,7 +99,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
           <div className={`overflow-x-auto ${showItc ? "" : "[&_.itc]:hidden"}`}>
             {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
             <table className="table table-compact min-w-[960px] table-fixed">
-              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="itc w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
+              <colgroup><col className="w-[6.8rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="itc w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="itc text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
@@ -152,12 +153,17 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const locked = !editable || l.status === "done";
   const amount = money(Math.abs(cents)).replace("$", "");
   return (
-    <tr id={`line-${l.id}`} className={`align-top ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
-      <td className="whitespace-nowrap tabular-nums text-ink-2">{l.txn_date}</td>
+    <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
+      <td className="whitespace-nowrap tabular-nums text-ink-2">{formatDate(l.txn_date)}</td>
       <td>{l.description}{l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
         {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
       <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
       <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
+      {l.status === "done" ? <>
+        {/* Round 15b (QuickBooks Online's Categorized tab): a coded line is plain text. */}
+        <td className="truncate" title={c ? `${account} ${c.name}` : undefined}>{c ? `${account} ${c.name}` : account}</td>
+        <td className="truncate">{tax ? codes.get(tax)?.name ?? tax : "No tax"}</td>
+      </> : <>
       <td style={{ paddingLeft: 6, paddingRight: 6 }}>
         {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
             list opens over it (round 2 item 10). */}
@@ -183,6 +189,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         </span>
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
+      </>}
       <td className="itc text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
@@ -203,13 +210,8 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
             {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
           </span>
         )}
-        {l.status === "done" && (
-          <span className="inline-flex items-center gap-2">
-            <span className="text-xs text-success">Coded</span>
-            {editable && <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
-          </span>
-        )}
-        {noteBy && <span className="mt-1 block text-right"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} /></span>}
+        {l.status === "done" && editable && <button type="button" className="text-[12.5px] font-semibold text-navy-700 hover:underline" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
+        {noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>}
       </td>
     </tr>
   );

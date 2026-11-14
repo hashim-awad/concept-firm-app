@@ -19,7 +19,10 @@ const amt = (n: number | null | undefined) => (n === null || n === undefined ? "
 export type RoundingLine = { fix: { code: string; from: number; to: number } | null } | { stopped: string };
 const whole = (v: number) => v.toLocaleString("en-US");
 
-export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean; rounding?: RoundingLine }) {
+// Round 15b: the step's papers (CaseWare's document map): GIFI file, Tax workpaper, T2 tie-out. Without a
+// paper, all of them (the export routes and tests use it that way).
+export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean; rounding?: RoundingLine; paper?: string }) {
+  const show = (k: string) => !paper || paper === k;
   const hidden = <input type="hidden" name="file_id" value={fileId} />;
   const anyOpen = g.tieItems.some((t) => t.open);
   return (
@@ -29,6 +32,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
           The trial balance changed after the final export. Export again and import it into ProFile.</p>
       )}
 
+      {show("gifi") && <>
       {/* 2. The checks, CaseWare style: each with its figures and its result. */}
       <section aria-label="Checks before export" className="card grid gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -86,6 +90,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
         </details>
       </section>
 
+      </>}
+      {show("taxwp") && <>
       {/* 4. Tax workpaper: Schedule 1 items from the tax codes. */}
       <section aria-label="Tax workpaper" className="card grid gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -124,6 +130,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
         )}
       </section>
 
+      </>}
+      {show("tie") && <>
       {/* 5. Tie-out to ProFile. */}
       <section aria-label="Tie-out to ProFile" className="card grid gap-3">
         <h2 className="font-semibold">Tie-out to ProFile <span className="ml-1 text-sm font-normal text-ink-3">After the final export is imported and the T2 prepared</span></h2>
@@ -169,6 +177,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
           {g.tie?.entered_by && <p className="text-xs text-ink-3">Entered by {staff.get(g.tie.entered_by) ?? ""}, {when(g.tie.entered_at)}</p>}
         </>)}
       </section>
+      </>}
     </div>
   );
 }

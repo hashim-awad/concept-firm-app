@@ -2,7 +2,7 @@
 // The Closebook file page's 10 steps (Hashim, Nov 13 and 14, 2026).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fileSteps, stepFromLegacy, type StepFacts } from "../src/lib/closebook/steps.ts";
+import { fileSteps, stepFromLegacy, stepPapers, type StepFacts } from "../src/lib/closebook/steps.ts";
 import type { CbDoc } from "../src/lib/closebook/files.ts";
 
 const doc = (code: string, phase: CbDoc["phase"], status: CbDoc["status"] = "open"): CbDoc =>
@@ -16,7 +16,7 @@ test("a new file opens on step 1; ten steps in order", () => {
   const r = fileSteps(facts({}));
   assert.equal(r.current, "setup");
   assert.deepEqual(r.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.deepEqual(r.steps.map((x) => x.name), ["Set up the file", "Opening balances", "Bank statements", "Code the transactions", "Adjusting entries", "Review", "GIFI mapping", "T2 tie-out", "Statements", "Deliver and lock"]);
+  assert.deepEqual(r.steps.map((x) => x.name), ["Set up", "Opening balances", "Bank statements", "Code transactions", "Checks", "GIFI mapping", "Review", "Tax returns", "Statements", "Deliver and lock"]);
 });
 
 test("bank files: step 2 waits for the preparer's sign-off on last year's balance sheet", () => {
@@ -84,4 +84,17 @@ test("open type flags hold the matching step and show on step 7", () => {
   assert.match(r.next, /^2 accounts on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer/);
   const ok = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 0 }));
   assert.equal(ok.steps.find((s) => s.key === "code")!.state, "done");
+});
+
+// Round 15b (Hashim): each step's working papers; a paper shows only when it applies.
+test("step papers show only when they apply", () => {
+  const base = { full: true, shareholders: false, ownerPaid: false, gst: false };
+  assert.deepEqual(stepPapers("entries", base).map((p) => p.key), ["revenue"]);
+  assert.deepEqual(stepPapers("entries", { ...base, shareholders: true, ownerPaid: true }).map((p) => p.name), ["Revenue check", "Shareholder loans", "Expenses paid personally"]);
+  assert.deepEqual(stepPapers("entries", { ...base, full: false, shareholders: true }).map((p) => p.key), ["sh"]);
+  assert.deepEqual(stepPapers("t2", base).map((p) => p.name), ["GIFI file", "Tax workpaper", "T2 tie-out"]);
+  assert.deepEqual(stepPapers("t2", { ...base, gst: true }).map((p) => p.key), ["gifi", "taxwp", "tie", "gst"]);
+  assert.deepEqual(stepPapers("statements", base).map((p) => p.name), ["Package", "MAL signing"]);
+  assert.deepEqual(stepPapers("lock", base).map((p) => p.name), ["Checklist", "Client email", "Documents", "Filing and lock"]);
+  assert.deepEqual(stepPapers("review", base), []);
 });

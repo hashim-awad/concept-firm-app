@@ -3,11 +3,11 @@
 // reviewer clears it, or reopens it with a reply. Cleared notes fold away but stay on the file.
 import { formatDateTime } from "@/lib/dates";
 import type { ReviewNote } from "@/lib/closebook/review-server";
-import { clearNote, replyNote } from "../actions";
+import { NoteActions } from "./note-actions";
 
+// Fixed status colours (round 15): notes red, Signed green, Open grey; a fixed note waits for the reviewer.
 const WORD: Record<ReviewNote["status"], [string, string]> = {
-  open: ["Open", "bg-danger-soft text-danger ring-[#F3C4BE]"], fixed: ["Fixed: for the reviewer to clear", "bg-navy-100 text-navy-800 ring-navy-200"],
-  cleared: ["Cleared", "bg-success-soft text-success ring-[#BFE0CC]"],
+  open: ["Open", "bg-danger-soft text-danger"], fixed: ["Fixed: to clear", "bg-navy-100 text-navy-800"], cleared: ["Cleared", "bg-sand-100 text-ink-2"],
 };
 const TARGET: Record<ReviewNote["target_type"], string> = { step: "The step", account: "Account", entry: "Entry", bank_line: "Bank line" };
 
@@ -31,43 +31,27 @@ export function ReviewNotes({ fileId, notes, names, isOwner, canFix, editable, b
   );
 }
 
-// One note: who, when, status, the text and replies; Reply, Mark fixed (the preparer), Clear and Reopen
-// (the reviewer). Round 15: shared by a step's Issues panel and the Notes tab, which adds a link to the
-// item the note is on.
+// One note (round 15b, CaseWare Cloud's issues): a white card; the status chip carries the colour. Who,
+// when, the item it is on, the text and the replies; Reply, Mark fixed (the preparer), Clear (the
+// reviewer) as small actions. Shared by a step's Issues panel and the Notes tab.
 export function NoteCard({ fileId, n, names, isOwner, canFix, editable, back, itemLink }: {
   fileId: string; n: ReviewNote; names: Map<string, string>; isOwner: boolean; canFix: boolean; editable: boolean; back: string; itemLink?: { href: string; label: string };
 }) {
-  const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const name = (id: string | null) => (id ? names.get(id) ?? "" : "");
   return (
-    <li id={`note-${n.id}`} className={`grid gap-2 rounded-lg border p-3 ${n.status === "open" ? "border-danger/40 bg-danger/5" : "border-sand-200"}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-ink-3"><span className="font-semibold text-ink-2">{TARGET[n.target_type]}{n.target_label ? `: ${n.target_label}` : ""}</span> · {name(n.created_by)}, {formatDateTime(n.created_at)}</p>
-        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${WORD[n.status][1]}`}>{WORD[n.status][0]}</span>
-      </div>
-      <p className="text-sm whitespace-pre-line">{n.body}</p>
-      {itemLink && <a href={itemLink.href} className="justify-self-start text-xs font-semibold text-navy-700 hover:underline">{itemLink.label} ›</a>}
+    <li id={`note-${n.id}`} className="grid gap-1.5 rounded-[10px] border border-sand-200 bg-white px-3.5 py-3">
+      <p className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
+        <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${WORD[n.status][1]}`}>{WORD[n.status][0]}</span>
+        <span className="font-semibold text-ink">{name(n.created_by)}</span><span>{formatDateTime(n.created_at)}</span>
+        <span>·</span>{itemLink ? <a href={itemLink.href} className="text-navy-700 hover:underline">{itemLink.label}</a>
+          : <span>{TARGET[n.target_type]}{n.target_label ? `: ${n.target_label}` : ""}</span>}
+      </p>
+      <p className="text-[13px] leading-relaxed whitespace-pre-line">{n.body}</p>
       {n.replies.length > 0 && <ul className="grid gap-1.5 border-l-2 border-sand-200 pl-3">{n.replies.map((r) => (
-        <li key={r.id} className="text-sm"><span className="text-xs text-ink-3">{name(r.created_by)}, {formatDateTime(r.created_at)}</span><span className="block whitespace-pre-line">{r.body}</span></li>
+        <li key={r.id} className="text-[12.5px]"><span className="font-semibold">{name(r.created_by)}</span> <span className="text-ink-3">{formatDateTime(r.created_at)}</span><span className="block whitespace-pre-line">{r.body}</span></li>
       ))}</ul>}
-      {n.status === "cleared" && <p className="text-xs text-ink-3">Cleared by {name(n.cleared_by)}, {formatDateTime(n.cleared_at)}</p>}
-      {n.status !== "cleared" && editable && (
-        <div className="grid gap-2">
-          <form action={replyNote} className="grid gap-1.5">
-            {hidden("file_id", fileId)}{hidden("note", n.id)}{hidden("back", back)}
-            <label htmlFor={`reply-${n.id}`} className="sr-only">Reply</label>
-            <textarea id={`reply-${n.id}`} name="body" rows={2} maxLength={2000} className="input" placeholder={isOwner ? "Reply, or say what is still needed to reopen it" : "Reply: what you did"} />
-            <div className="flex flex-wrap gap-2">
-              <button type="submit" name="fixed" value="0" className="btn-secondary btn-compact">Reply</button>
-              {n.status === "open" && canFix && <button type="submit" name="fixed" value="1" className="btn btn-compact">Reply and mark fixed</button>}
-              {isOwner && n.status === "fixed" && <button type="submit" formAction={clearNote} name="reopen" value="1" className="btn-secondary btn-compact">Reopen with this reply</button>}
-            </div>
-          </form>
-          {isOwner && <form action={clearNote}>{hidden("file_id", fileId)}{hidden("note", n.id)}{hidden("back", back)}
-            <button type="submit" className="text-sm text-navy-700 underline">Clear the note</button></form>}
-        </div>
-      )}
+      {n.status === "cleared" && <p className="text-[12px] text-ink-3">Cleared by {name(n.cleared_by)}, {formatDateTime(n.cleared_at)}</p>}
+      {n.status !== "cleared" && editable && <NoteActions fileId={fileId} noteId={n.id} status={n.status} back={back} canFix={canFix} canClear={isOwner && !canFix} />}
     </li>
-  
   );
 }

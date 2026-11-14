@@ -44,7 +44,7 @@ export function Drawer({ button, label, title, children, open: startOpen, top = 
     return () => document.removeEventListener("keydown", onKey);
   }, []);
   return (
-    <details ref={ref} open={startOpen} className="group">
+    <details ref={ref} open={startOpen} className="cb-drawer group">
       <summary aria-label={label} title={label} className="flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">{button}</summary>
       <aside className={`fixed ${top} right-0 bottom-0 z-30 flex w-[420px] max-w-full flex-col border-l border-sand-300 bg-white shadow-[-8px_0_24px_rgba(15,35,80,.10)]`}>
         <div className="flex items-center gap-2 border-b border-sand-200 px-4 py-3">

@@ -16,7 +16,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 const BASE = process.env.APP_URL ?? "http://localhost:3300";
 const USERS = { staff: "staff.dummy@example.test", owner: "owner.dummy@example.test" };
 const PASS = process.env.DUMMY_PASS ?? "dummy-pass-123";
-const STEPS = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2", "statements", "lock"];
+const STEPS = ["setup", "opening", "records", "code", "entries", "mapping", "review", "t2", "statements", "lock"];
+// Round 15b: steps hold working papers, and entries open in a dialog on the Entries tab.
+const PAPERS = { entries: ["revenue", "sh", "expenses"], t2: ["gifi", "taxwp", "tie", "gst"], statements: ["package", "mal"], lock: ["checklist", "email", "documents", "filing"] };
 const REPORTS = ["tb", "bs", "pl", "gl", "journal"];
 const ENDPOINT = /\/(report-export|package|gst-workpaper|tax-workpaper|opening-pdf|gifi|close|client-entries)(\/|\?|$)|\/admin\/closebook\/.+\/(export|download)/;
 
@@ -24,6 +26,8 @@ const ENDPOINT = /\/(report-export|package|gst-workpaper|tax-workpaper|opening-p
 // addresses keep working after round 15 (they open the matching tab), so the same list covers both.
 const fileScreens = (id) => [
   ...STEPS.map((s) => `/closebook/${id}?step=${s}`), `/closebook/${id}?step=review&view=lead`,
+  ...Object.entries(PAPERS).flatMap(([s, ps]) => ps.map((p) => `/closebook/${id}?step=${s}&paper=${p}`)),
+  `/closebook/${id}?area=entries`, `/closebook/${id}?area=entries&new=journal`, `/closebook/${id}?area=entries&new=revenue`, "OPEN_FIRST_ENTRY",
   ...REPORTS.map((r) => `/closebook/${id}?report=${r}`), `/closebook/${id}?history=1`,
 ];
 const SETTINGS = ["thresholds", "gifi-lines", "lead-sheets", "policy", "standard-entries", "tax-codes", "vendor-rules", "gst"].map((p) => `/admin/closebook/${p}`);
@@ -66,7 +70,17 @@ async function capture(out) {
     await p.goto(`${BASE}/closebook/files`);
     const files = await p.locator('a[href^="/closebook/"]').evaluateAll((as) => [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => /^\/closebook\/[0-9a-f-]{36}$/.test(h)).map((h) => h.slice(11)))]);
     const urls = ["/closebook", "/closebook/files", "/closebook/notes", ...SETTINGS, ...files.flatMap(fileScreens)];
-    for (const u of urls) {
+    for (let u of urls) {
+      if (u === "OPEN_FIRST_ENTRY") continue;
+      // The first entry of the file, opened read-only and in Edit, when the file has entries.
+      if (/area=entries$/.test(u)) {
+        try {
+          result[`${who} ${u}`] = await inventory(p, u);
+          const open = await p.locator('a[href*="&open="]').first().getAttribute("href", { timeout: 2000 }).catch(() => null);
+          if (open) for (const x of [open, `${open}&edit=1`]) result[`${who} ${x.replace(/open=[0-9a-f-]{36}/, "open=:first")}|${u.split("?")[0]}`] = await inventory(p, x);
+        } catch (e) { result[`${who} ${u}`] = { error: String(e).slice(0, 200) }; }
+        continue;
+      }
       try { result[`${who} ${u}`] = await inventory(p, u); } catch (e) { result[`${who} ${u}`] = { error: String(e).slice(0, 200) }; }
     }
     console.log(who, urls.length, "screens");
@@ -96,7 +110,42 @@ function compare(a, b) {
   process.exit(missing ? 1 : 0);
 }
 
+// Round 15b: functions move between screens by design (papers, the entry dialog), so compare each file's
+// functions as a whole: every function a file offered before, it still offers somewhere after. Screens
+// outside a file are still compared one by one.
+function compareByFile(a, b) {
+  const A = JSON.parse(readFileSync(a, "utf8")), B = JSON.parse(readFileSync(b, "utf8"));
+  const group = (X) => {
+    const g = new Map();
+    for (const [k, v] of Object.entries(X)) {
+      if (v.error) continue;
+      const m = /^(\w+) \/closebook\/([0-9a-f-]{36})/.exec(k) ?? /^(\w+) .*\|\/closebook\/([0-9a-f-]{36})$/.exec(k);
+      const key = m ? `${m[1]} file ${m[2]}` : k;
+      const cur = g.get(key) ?? { actions: {}, endpoints: new Set() };
+      for (const [id, fields] of Object.entries(v.actions ?? {})) cur.actions[id] = [...new Set([...(cur.actions[id] ?? []), ...fields])];
+      (v.endpoints ?? []).forEach((e) => cur.endpoints.add(e));
+      g.set(key, cur);
+    }
+    return g;
+  };
+  const GA = group(A), GB = group(B);
+  let missing = 0;
+  for (const [k, v] of GA) {
+    const w = GB.get(k);
+    if (!w) { console.log(`MISSING ${k}`); missing++; continue; }
+    for (const [id, fields] of Object.entries(v.actions)) {
+      if (!w.actions[id]) { console.log(`MISSING ACTION ${k}: ${id} (${fields.join(", ")})`); missing++; continue; }
+      const lost = fields.filter((f) => !w.actions[id].includes(f));
+      if (lost.length) { console.log(`FIELDS LOST ${k}: ${id} (${lost.join(", ")})`); missing++; }
+    }
+    for (const e of v.endpoints) if (!w.endpoints.has(e)) { console.log(`MISSING EXPORT ${k}: ${e}`); missing++; }
+  }
+  console.log(`${GA.size} files and pages; ${missing ? `${missing} missing` : "every function still offered"}.`);
+  process.exit(missing ? 1 : 0);
+}
+
 const [cmd, x, y] = process.argv.slice(2);
 if (cmd === "capture") await capture(x);
 else if (cmd === "compare") compare(x, y);
+else if (cmd === "compare-files") compareByFile(x, y);
 else { console.log("usage: capture <out.json> | compare <before.json> <after.json>"); process.exit(2); }

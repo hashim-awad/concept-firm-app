@@ -41,7 +41,7 @@ export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, ar
       <div className="flex flex-1">
         <LeftPanel folded={folded}>{left}</LeftPanel>
         {/* Card headings in small capitals on every file screen (round 15). */}
-        <div className="min-w-0 flex-1 px-5 pt-3.5 pb-12 [&_.card]:rounded-[10px] [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
+        <div className="cb-push min-w-0 flex-1 px-5 pt-3.5 pb-12 [&_.card]:rounded-[10px] [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
       </div>
     </div>
   );
@@ -121,7 +121,7 @@ export function SignCircles(p: SignProps) {
       <p className="font-bold">{reviewed ? `Reviewed by ${name(st!.reviewed_by)}` : "Reviewer"}</p>
       <p className="text-ink-3">{reviewed ? formatDate(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
-      {!reviewed && editable && (isOwner ? (review || prepared) && signForm("reviewed", review ? "Sign step 6 as reviewer" : "Sign as reviewer")
+      {!reviewed && editable && (isOwner ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
         : <p className="mt-2 text-xs text-ink-3">Only owners review.</p>)}
       {reviewed && editable && isOwner && undo("reviewed")}
     </Popover>
@@ -133,8 +133,8 @@ export function SignCircles(p: SignProps) {
 // A step's title row: the name in small capitals, the circles, the Issues chip, then add note, export
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
-export function StepTitle({ n, name, sign, issues, notesPanel, next, addNoteFor, exports, help }: {
-  n: number; name: string; sign: SignProps | null;
+export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next, addNoteFor, exports, help }: {
+  n: number; name: string; paper?: string; sub?: string; sign: SignProps | null;
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
   addNoteFor: { fileId: string; step: string; back: string } | null;
@@ -144,14 +144,15 @@ export function StepTitle({ n, name, sign, issues, notesPanel, next, addNoteFor,
   const icon = "grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100";
   return (
     <div className="mb-3 flex min-h-[30px] flex-wrap items-center gap-2.5">
-      <h2 className="text-xs font-bold tracking-[.1em] text-navy-900 uppercase">{n} · {name}</h2>
+      <h2 className="text-xs font-bold tracking-[.1em] text-navy-900 uppercase">{n} · {name}{paper && <><span className="mx-1.5 text-ink-3">›</span>{paper}</>}</h2>
+      {sub && <span className="text-[12.5px] text-ink-3">{sub}</span>}
       {sign && <SignCircles {...sign} size="lg" />}
       {(count > 0 || notesPanel || next) && (
         <Drawer label="Issues" title={`Issues · ${name}`} button={
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold ${count ? "border-[#efd9a6] bg-warning-soft text-warning" : "border-sand-300 bg-white text-ink-2"}`}>
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden />Issues {count}</span>}>
           {next && <><p className="mb-1 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">Next</p><p className="mb-3">{next}</p></>}
-          {issues.problems.length > 0 && <><p className="mb-1 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">{issues.review ? "Before step 6 can be signed" : "To fix"} ({issues.problems.length})</p>
+          {issues.problems.length > 0 && <><p className="mb-1 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">{issues.review ? "Before step 7 can be signed" : "To fix"} ({issues.problems.length})</p>
             <ul className="mb-3 grid gap-1.5">{issues.problems.map((x) => <li key={x} className="rounded-md border border-sand-200 px-2.5 py-1.5">{x}</li>)}</ul></>}
           {issues.waiting.length > 0 && <><p className="mb-1 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">With the reviewer ({issues.waiting.length})</p>
             <ul className="mb-3 grid gap-1.5">{issues.waiting.map((x) => <li key={x} className="rounded-md border border-sand-200 px-2.5 py-1.5 text-ink-2">{x}</li>)}</ul></>}

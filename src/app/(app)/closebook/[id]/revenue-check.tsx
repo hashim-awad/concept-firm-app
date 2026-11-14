@@ -7,7 +7,8 @@
 import { formatDate } from "@/lib/dates";
 import type { AcctOpt } from "@/lib/closebook/entry-form";
 import { type RevenueSource, type RevenueState } from "@/lib/closebook/expenses-server";
-import { acceptRevenueDifference, addRevenueEntry, addRevenueSource, removeRevenueSource, saveRevenueCheck } from "../round9-actions";
+import Link from "next/link";
+import { acceptRevenueDifference, addRevenueSource, removeRevenueSource, saveRevenueCheck } from "../round9-actions";
 import { FilePick } from "./file-pick";
 import { Popover } from "./shell/ui";
 
@@ -19,9 +20,9 @@ const fmt = (n: number) => n.toLocaleString("en-CA", { minimumFractionDigits: 2,
 const neg = (n: number) => (n < 0 ? `(${fmt(-n)})` : fmt(n));
 const fileName = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
 
-export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable, isOwner, names, hasFix }: {
-  fileId: string; st: RevenueState; sources: RevenueSource[]; opts: AcctOpt[]; revenueOpts: AcctOpt[]; editable: boolean; isOwner: boolean;
-  names: Map<string, string>; hasFix: boolean;
+export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, hasFix, fixHref }: {
+  fileId: string; st: RevenueState; sources: RevenueSource[]; opts?: AcctOpt[]; revenueOpts?: AcctOpt[]; editable: boolean; isOwner: boolean;
+  names: Map<string, string>; hasFix: boolean; fixHref: string;
 }) {
   const primary = sources.filter((x) => ["commission_statement", "sales_report", "processor_report", "slips"].includes(x.kind) || (x.kind === "t4a" && x.payer === "other"));
   const gst = sources.filter((x) => x.kind === "gst_returns"), t4a = sources.filter((x) => x.kind === "t4a" && x.payer === "brokerage");
@@ -45,8 +46,8 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
       <button type="submit" className="ml-1.5 text-[11px] font-semibold text-navy-700 underline">Accept</button></form>
   );
   const explainCell = (name: "explanation" | "gst_explanation" | "t4a_explanation", value: string, diff: number, has: boolean) => (
-    has && diff !== 0 ? <input form="rev-explain" name={name} defaultValue={value} maxLength={200} disabled={!editable} aria-label="Explanation" placeholder="Explain in one line"
-      className="w-full min-w-[14rem] rounded border border-sand-300 px-1.5 py-0.5 text-[12.5px] disabled:bg-transparent disabled:border-transparent" /> : <span className="text-ink-3">{value}</span>
+    has && diff !== 0 ? <textarea form="rev-explain" name={name} defaultValue={value} maxLength={200} disabled={!editable} aria-label="Explanation" placeholder="Explain in one line" rows={1}
+      className="block w-full min-w-[14rem] resize-none rounded border border-sand-300 px-1.5 py-0.5 text-[12.5px] leading-snug [field-sizing:content] disabled:border-transparent disabled:bg-transparent" /> : <span className="text-ink-3">{value}</span>
   );
   const sourceRow = (x: RevenueSource) => (
     <tr key={x.id} className="text-[12px] text-ink-2"><td className="py-0.5 pr-2 pl-6">{KIND[x.kind]}{x.kind === "t4a" ? (x.payer === "brokerage" ? ", brokerage" : ", other payer") : ""}{x.label && ` · ${x.label}`}
@@ -56,12 +57,6 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
       <td /><td className="px-2.5 py-0.5 text-right tabular-nums">{fmt(x.amount)}</td><td colSpan={3} /></tr>
   );
   const kinds = st.realtor ? ["commission_statement", "t4a", "sales_report", "processor_report", "slips"] : ["sales_report", "processor_report", "slips", "t4a", "commission_statement"];
-  const fixDr = st.diff > 0 ? revenueOpts[0]?.value ?? "" : "", fixCr = st.diff < 0 ? revenueOpts[0]?.value ?? "" : "";
-  const groups = [...new Set(opts.map((o) => o.group))];
-  const select = (name: string, dflt: string, label: string) => (
-    <label className="grid gap-1 text-xs font-semibold">{label}<select name={name} defaultValue={dflt} required className="input input-compact w-full"><option value="">Choose</option>
-      {groups.map((g) => <optgroup key={g} label={g}>{opts.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>)}</select></label>
-  );
   const th = "px-2.5 py-1.5 font-semibold";
   const gstSrc = fromReturn ? (st.n_gst ? st.gst : null) : gst.length ? st.gst : null;
 
@@ -69,7 +64,6 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
     <section id="revenue-check" aria-label="Revenue check" className="mb-3.5 rounded-[10px] border border-sand-200 bg-white">
       <form id="rev-explain" action={saveRevenueCheck}><input type="hidden" name="file_id" value={fileId} /></form>
       <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5">
-        <h3 className="text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Revenue check</h3><span className="text-[12.5px] text-ink-3">W/P Revenue check</span>
         <span className="flex-1" />
         {editable && (
           <Popover align="right" width="w-[34rem]" label="Add a source" button={<span className="btn-secondary btn-compact">+ Source</span>}>
@@ -86,17 +80,8 @@ export function RevenueCheck({ fileId, st, sources, opts, revenueOpts, editable,
             </form>
           </Popover>
         )}
-        {hasSrc && st.diff !== 0 && editable && (
-          <Popover align="right" width="w-[30rem]" label="Fix with an entry" button={<span className="btn-secondary btn-compact">Fix with an entry</span>}>
-            <form action={addRevenueEntry} className="grid grid-cols-2 gap-2.5">
-              <input type="hidden" name="file_id" value={fileId} />
-              {select("debit", fixDr, "Debit")}{select("credit", fixCr, "Credit")}
-              <label className="grid gap-1 text-xs font-semibold">Amount<input name="amount" defaultValue={fmt(Math.abs(st.diff))} className="input input-compact text-right tabular-nums" /></label>
-              <label className="col-span-2 grid gap-1 text-xs font-semibold">Memo<input name="memo" required minLength={3} maxLength={500} className="input input-compact" /></label>
-              <button type="submit" className="btn-secondary btn-compact justify-self-start">Make the entry</button>
-            </form>
-          </Popover>
-        )}
+        {/* Round 15b: the fix opens the journal entry dialog with the difference filled in. */}
+        {hasSrc && st.diff !== 0 && editable && <Link href={fixHref} scroll={false} className="btn-secondary btn-compact">Fix with an entry</Link>}
         {editable && <button form="rev-explain" type="submit" className="btn btn-compact">Save</button>}
       </div>
       <div className="overflow-x-auto">

@@ -194,3 +194,39 @@ test("a card payment through Clearing nets to nil; one side alone needs a decisi
   assert.equal(get(one, "chart:10900"), 50000);
   assert.match(one.find((r) => r.key === "chart:10900")!.reviewer ?? "", /Clearing should be nil/);
 });
+
+import { reasonFor } from "../src/lib/closebook/entry-form.ts";
+// Round 15b: the journal entry dialog (QuickBooks Online's "Amounts are"; no Reason field).
+test("amounts including tax: 1,130.00 with HST posts 1,000.00 and 130.00 to 21500, and balances", () => {
+  const hst = codes.get("HST_ON")!;
+  const head = { kind: "AJE", wpRef: "Payables listing", memo: "Accrued office supplies", reverse: false, inclusive: true };
+  const opts = new Map([["a", { value: "a", label: "65000 Office supplies", type: "Expense", line_no: "8810.00", group: "x" }], ["b", { value: "b", label: "21100 Accrued liabilities", type: "Liability", line_no: "2680.00", group: "x" }]]);
+  const blank = { desc: "", newName: "", newType: "", newLine: "" };
+  const p = planEntry(head, [{ ...blank, acct: "a", dr: "1,130.00", cr: "", tax: "HST_ON" }, { ...blank, acct: "b", dr: "", cr: "1,130.00", tax: "none" }], opts as never, new Map([["HST_ON", hst]]), ctx);
+  assert.deepEqual(p.problems, []);
+  assert.equal(p.dr, 113000); assert.equal(p.cr, 113000);
+  assert.deepEqual(p.rpc.map((r) => r.amount), [1000, -1130, 130]);
+  // Before tax, the same 1,130.00 would put 146.90 of tax on top and not balance.
+  const q = planEntry({ ...head, inclusive: false }, [{ ...blank, acct: "a", dr: "1,130.00", cr: "", tax: "HST_ON" }, { ...blank, acct: "b", dr: "", cr: "1,130.00", tax: "none" }], opts as never, new Map([["HST_ON", hst]]), ctx);
+  assert.equal(q.diff, 14690);
+});
+test("the reason the database's rules use is worked out from the entry", () => {
+  const h = { kind: "AJE", wpRef: "x", memo: "x", reverse: false };
+  assert.equal(reasonFor(h, false), "correction");
+  assert.equal(reasonFor({ ...h, reverse: true }, false), "accrual");
+  assert.equal(reasonFor({ ...h, kind: "RJE" }, false), "reclassification");
+  assert.equal(reasonFor({ ...h, kind: "TJE" }, false), "tax");
+  assert.equal(reasonFor(h, true), "prior_period");
+  // A standard entry keeps its own reason while its type and reverse box are unchanged.
+  assert.equal(reasonFor({ ...h, reverse: true }, false, { kind: "AJE", reason: "accrual", reverse: true }), "accrual");
+  assert.equal(reasonFor(h, false, { kind: "AJE", reason: "accrual", reverse: false }), "accrual");
+  assert.equal(reasonFor({ ...h, kind: "RJE" }, false, { kind: "AJE", reason: "accrual", reverse: false }), "reclassification");
+});
+test("a prior period adjustment never reverses next year", () => {
+  const head = { kind: "AJE", wpRef: "Prior year file", memo: "Missed accrual", reverse: true };
+  const opts = new Map([["a", { value: "a", label: "31500 Prior period adjustments", type: "Equity", line_no: "3720.00", group: "x" }], ["b", { value: "b", label: "21100 Accrued liabilities", type: "Liability", line_no: "2680.00", group: "x" }]]);
+  const blank = { desc: "", tax: "none", newName: "", newType: "", newLine: "" };
+  const p = planEntry(head, [{ ...blank, acct: "a", dr: "50", cr: "" }, { ...blank, acct: "b", dr: "", cr: "50" }], opts as never, new Map(), ctx);
+  assert.equal(p.reason, "prior_period");
+  assert.deepEqual(p.problems, ["A prior period adjustment never reverses next year."]);
+});

@@ -37,7 +37,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
   // opening balance in step 2 (the statement in Bank statements for a statement's opening balance).
   const sourceHref = (kind: PostingKind, ref: string, acct: string | undefined, back: string) => {
     if (kind === "bank") return withBack(`${base}?step=code&account=${acct}&line=${ref}`, back) + `#line-${ref}`;
-    if (kind === "entry") return withBack(`${base}?step=entries&entry=${ref}`, back) + `#entry-${ref}`;
+    if (kind === "entry") return withBack(`${base}?area=entries&open=${ref}`, back);
     if (kind === "import") return withBack(`${base}?step=records`, back);
     if (ref.startsWith("stmt:")) return withBack(`${base}?step=records&account=${ref.slice(5)}`, back);
     return withBack(`${base}?step=opening`, back) + (ref.startsWith("gifi:") ? `#gifi-${ref.slice(5)}` : "");
