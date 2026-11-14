@@ -3,17 +3,21 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
-import { BOOKS, fileBy, FILE_TYPE, firstName } from "@/lib/closebook/files";
+import { BOOKS, fileBy, firstName } from "@/lib/closebook/files";
 import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
 import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, cbText } from "@/lib/closebook/client-wording";
 import { loadWordingState } from "@/lib/studio/wording-state";
 import { entryNo } from "@/lib/closebook/reports";
-import { StatusPill } from "@/components/ds/primitives";
-import { SignoffBar } from "./signoff-bar";
+import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, SignCircles, StepTitle, type Area, type FileStatus } from "./shell/shell";
+import { stepHelp } from "./shell/help";
+import { TbArea } from "./areas/tb-area";
+import { entriesArea } from "./areas/entries-area";
+import { notesArea } from "./areas/notes-area";
+import { statementsArea } from "./areas/statements-area";
+import { statements as fsStatements, trialBalance } from "@/lib/closebook/reports";
 import { ReviewNotes } from "./review-notes";
 import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
@@ -133,26 +137,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   // What makes up "Opening balances to enter", shown when its row is opened (round 2 item 8).
   const openingCauses = bankFile && (step === "mapping" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
-  // Below 1,536 px the step list folds on every step page; the step picker sits in the blue banner
-  // (round 4 item 6). On report pages, which have no banner, it sits above the report.
-  const stepPicker = (dark: boolean) => (
-    <details className="relative 2xl:hidden">
-      <summary className={`inline-flex cursor-pointer list-none items-center gap-2 text-xs font-semibold tracking-wide uppercase ${dark ? "text-white/85" : "card px-3 py-2 text-ink"}`}>
-        {report ? REPORTS.find(([k]) => k === report)?.[1] : `Step ${cur.n} of ${STEP_KEYS.length} · ${cur.name}`}<span aria-hidden>▾</span><span className="sr-only">: all steps and reports</span></summary>
-      {/* One column in step order, each with its status line, as in the full list (round 4b item 5). */}
-      <div className="card absolute z-20 mt-2 grid w-max min-w-[17rem] gap-0.5 p-2 text-sm text-ink normal-case tracking-normal">
-        {steps.map((x) => (
-          <Link key={x.key} href={href(x.key)} className={`flex items-start gap-2.5 rounded px-2 py-1.5 hover:bg-sand-100 ${!report && x.key === step ? "bg-navy-50" : ""}`}>
-            <span aria-hidden className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold ${x.state === "done" ? "bg-success-soft text-success" : x.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{x.state === "done" ? "✓" : x.n}</span>
-            <span><span className={`block whitespace-nowrap ${!report && x.key === step ? "font-semibold" : "font-normal"}`}>{x.name}</span>{x.note && <span className="block text-xs font-normal text-ink-3">{x.note}</span>}
-              <span className="mt-0.5 flex items-center gap-1.5"><StatusPill status={x.word} />{x.notes > 0 && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white">{x.notes}<span className="sr-only"> review notes open</span></span>}</span></span>
-          </Link>
-        ))}
-        <p className="mt-1 border-t border-sand-200 px-2 pt-2 text-xs font-semibold text-ink-3 uppercase">Reports</p>
-        {REPORTS.map(([k, label]) => <Link key={k} href={`/closebook/${id}?report=${k}`} className={`rounded px-2 py-1 font-normal whitespace-nowrap hover:bg-sand-100 ${report === k ? "bg-navy-50 font-semibold" : ""}`}>{label}</Link>)}
-      </div>
-    </details>
-  );
   let body: React.ReactNode;
   let pk: PackageData | null = null;
   if (step === "opening") {
@@ -215,7 +199,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </section>
         <section className="card mt-4">
           <h2 className="font-semibold">Setup questions</h2>
-          <p className="mb-2 text-sm text-ink-2">They decide which extra work the file needs, and the GST/HST answers set the sales tax on every line.</p>
           <form action={saveSetup} className="grid gap-1">
             <input type="hidden" name="file_id" value={id} />
               <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
@@ -232,7 +215,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             </div>
               <SetupQ name="quick_method" q="Does it use the quick method?" adds="Yes: no ITCs on operating expenses, meals included; capital purchases still claim them" value={setup.quick_method as boolean | undefined} />
             <div className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
-              <label htmlFor="gst_rt" className="text-sm">GST/HST account<span className="block text-xs text-ink-3">The RT account the return is filed under</span></label>
+              <label htmlFor="gst_rt" className="text-sm">GST/HST account</label>
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
             </div>
               <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
@@ -270,17 +253,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} />}
       {(sh.rows.length > 0 || sh.status.applies) && <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />}
       {exp && (
-        <details id="expenses-personal" className="card mb-4" open={open && !booked}>
-          <summary className="cursor-pointer font-semibold">Expenses paid personally <span className="ml-1 text-sm font-normal text-ink-3">
-            {booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked, marked below` : "Setup: the owner paid business costs personally. Book one entry from the client's sheet."}</span></summary>
-          {open ? <div className="mt-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
+        <details id="expenses-personal" className="mb-3.5 rounded-[10px] border border-sand-200 bg-white" open={open && !booked}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 [&::-webkit-details-marker]:hidden"><span className="text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Expenses paid personally</span>
+            <span className="text-[12.5px] text-ink-3">{booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked` : "Not booked"}</span></summary>
+          {open ? <div className="border-t border-sand-200 px-3.5 py-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
             clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders}
             options={exp.options} defaults={exp.defaults} chosen={exp.chosen} rolledFrom={exp.rolledFrom} /></div>
-            : <p className="mt-2 text-sm text-ink-2">The file is locked, or you have view access only.</p>}
+            : <p className="border-t border-sand-200 px-3.5 py-2.5 text-[12.5px] text-ink-3">Read-only.</p>}
         </details>
       )}
       <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form}
-        noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} />
+        noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} prefill={str(sp.newfor)} />
     </>;
   } else if (step === "review") {
     // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
@@ -362,136 +345,118 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       : soon("Step 10 opens once there is a trial balance.");
   }
 
-  // Round 8: each step with a sign-off shows "Prepared by" and "Reviewed by" at the top and its review
-  // notes below. Step 6's bar sits under its list, where the reviewer finishes.
+  // Round 15 (CaseWare Cloud): the sign-offs are circles in the title row and the step rail; what is open
+  // and waiting, and the step's review notes, sit in the Issues panel; explanations in the help panel.
   const stepBack = `${href(step)}${view ? `&view=${view}` : ""}`;
   // Step 9: a stopped package (a failed tie-out, named) blocks the sign-off like the database's own checks.
   const stStep = step === "statements" && pk?.blocked.length && review.status[step] ? { ...review.status[step], problems: [...new Set([...pk.blocked, ...(review.status[step].problems ?? [])])] } : review.status[step];
-  const bar = SIGNED_STEPS.includes(step) && !report ? (
-    <SignoffBar fileId={id} step={step} st={stStep} names={names} me={access.staff_id} isOwner={access.is_owner} editable={editable && file.phase !== "locked"} back={stepBack}
-      preparerElsewhere={step === "opening" && bankFile} />
-  ) : null;
-  const stepNotes = <ReviewNotes fileId={id} notes={review.notes.filter((n) => n.step === step)} names={names} isOwner={access.is_owner}
+  const stepNotesList = review.notes.filter((n) => n.step === step);
+  const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} isOwner={access.is_owner}
     canFix={!access.is_owner || access.staff_id === file.preparer_id} editable={editable && file.phase !== "locked"} back={stepBack} />;
+  const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
+    editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile });
   if (showHistory) {
     const { data: hist } = await supabase.from("cb_file_history").select("at, actor_id, action, step, detail").eq("file_id", id).order("at", { ascending: false }).limit(500);
     const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
-    body = <HistoryView stepName={stepName} rows={((hist ?? []) as { at: string; actor_id: string | null; action: string; step: string | null; detail: string }[]).map((h) => (
-      { at: h.at, who: h.actor_id ? names.get(h.actor_id) ?? "" : "System", action: h.action, step: h.step ?? "", detail: h.detail }))} />;
-  } else if (bar) {
-    body = step === "review"
-      ? <>{(view !== "lead") && stepNotes}{body}<div className="mt-4">{bar}</div></>
-      : <>{bar}{body}<div className="mt-4">{stepNotes}</div></>;
+    body = <><PageTitle>File history</PageTitle><HistoryView stepName={stepName} rows={((hist ?? []) as { at: string; actor_id: string | null; action: string; step: string | null; detail: string }[]).map((h) => (
+      { at: h.at, who: h.actor_id ? names.get(h.actor_id) ?? "" : "System", action: h.action, step: h.step ?? "", detail: h.detail }))} /></>;
+  } else {
+    const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
+      ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];
+    const title = (
+      <StepTitle n={cur.n} name={cur.name} sign={SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
+        issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
+        notesPanel={stepNotesList.length ? stepNotes : null} next={step === current ? next : undefined}
+        addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
+        exports={exports} help={stepHelp(step, bankFile)} />
+    );
+    body = <>{title}
+      {step === "review" && (
+        <div className="mb-3 inline-flex overflow-hidden rounded-md border border-sand-300 text-[12.5px]">
+          <Link href={href("review")} className={`px-3 py-1 ${view !== "lead" ? "bg-navy-700 font-semibold text-white" : "text-ink-2 hover:bg-sand-50"}`}>Review list</Link>
+          <Link href={`${href("review")}&view=lead`} className={`border-l border-sand-300 px-3 py-1 ${view === "lead" ? "bg-navy-700 font-semibold text-white" : "text-ink-2 hover:bg-sand-50"}`}>Lead sheets</Link>
+        </div>
+      )}
+      {body}</>;
+  }
+
+  // The file's status chip, from the sign-offs (CaseWare's workflow status).
+  const signs = SIGNED_STEPS.map((k) => review.status[k]);
+  const status: FileStatus = file.phase === "locked" ? "Locked" : signs.every((x) => x?.reviewed_at) ? "Reviewed" : signs.every((x) => x?.prepared_at || x?.reviewed_at) ? "Ready for review"
+    : signs.some((x) => x?.prepared_at || x?.reviewed_at) ? "In progress" : "Open";
+  const rdata = await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets);
+  const netCents = accounts.length ? fsStatements(trialBalance(rdata.accounts, rdata.postings), rdata.info).pl.net.now : null;
+  const openNotes = review.notes.filter((n) => n.status !== "cleared").length;
+  const area: Area = report ? "tb" : (AREAS.find(([k]) => k === str(sp.area))?.[0] ?? "steps");
+
+  // The left panel follows the tab.
+  const stepRail = (
+    <>
+      <PanelHead>Steps</PanelHead>
+      {steps.map((x) => (
+        <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
+          <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3.5 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
+            <span className="w-4 text-right text-[11.5px] text-ink-3 tabular-nums">{x.n}</span><span className="truncate">{x.name}</span>
+          </Link>
+          {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
+          <SignCircles {...signFor(x.key)} />
+        </div>
+      ))}
+    </>
+  );
+  const stepRailFolded = (
+    <>{steps.map((x) => (
+      <Link key={x.key} href={href(x.key)} title={x.name} className={`relative flex justify-center py-2 text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2"}`}>
+        {x.n}{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
+        <span className={`absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full ${x.word === "signed" ? "bg-success" : x.word === "prepared" ? "bg-[#2f6fd6]" : "bg-[#b9bcc6]"}`} />
+      </Link>))}</>
+  );
+  const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
+  const tbLeft = (
+    <>
+      <PanelHead>Views</PanelHead>
+      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k}>{l}</PanelLink>)}
+      <PanelHead>Reports</PanelHead>
+      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k}>{l}</PanelLink>)}
+    </>
+  );
+  let left: React.ReactNode = stepRail, folded: React.ReactNode = stepRailFolded, content: React.ReactNode = body;
+  if (area === "tb") {
+    left = tbLeft; folded = null;
+    content = report && report !== "tb"
+      ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
+          data={rdata} yearEnd={file.year_end} yearStart={file.year_start}
+          todo={[
+            // What the preparer acts on, by cause, each linked (round 2 item 15). Zero counts are left out.
+            { n: coding.open, one: "to code", many: "to code", href: href("code") },
+            { n: coding.reviewer, one: "with the reviewer", many: "with the reviewer", href: href("code") },
+            { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
+            { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
+            { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key) && (a.account_key !== "chart:10900" || Math.round(a.this_year * 100) !== 0)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
+          ].filter((t) => t.n > 0)} />
+      : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
+          view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag} />;
+  } else if (area === "entries") {
+    const ea = await entriesArea({ supabase, file, entries, accounts, names, sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
+    left = ea.left; folded = null; content = ea.content;
+  } else if (area === "notes") {
+    const na = notesArea({ fileId: id, notes: review.notes, steps, names, isOwner: access.is_owner, canFix: !access.is_owner || access.staff_id === file.preparer_id,
+      editable: editable && file.phase !== "locked", sp: { status: str(sp.status), step: str(sp.nstep), who: str(sp.who) } });
+    left = na.left; folded = null; content = na.content;
+  } else if (area === "statements") {
+    const sa = await statementsArea({ supabase, fileId: id, data: rdata, isOwner: access.is_owner, sp: { doc: str(sp.doc), line: str(sp.line) } });
+    left = sa.left; folded = null; content = sa.content;
   }
 
   return (
-    <>
-      <nav className="mb-2 text-sm text-ink-3"><Link href="/closebook" className="text-navy-700 hover:underline">My files</Link> › {client?.legal_name}</nav>
-      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{client?.legal_name}</h1>
-          <p className="mt-1 text-sm text-ink-2">{FILE_TYPE[file.file_type]} file · Year-end {formatDate(file.year_end)}{file.year_change_reason ? ` (from ${formatDate(file.year_start)}: ${file.year_change_reason})` : ""} · {BOOKS[file.books]} · Preparer {people.preparer} · Reviewer {people.reviewer}</p>
-        </div>
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-sand-200 bg-surface px-3 py-1 text-sm">T2 due <b>{formatDate(fileBy(file.year_end))}</b></span>
-        </span>
-      </header>
-      {file.phase === "locked" && (
-        <p role="status" className="mb-4 rounded-lg border border-navy-300 bg-navy-50 px-4 py-2.5 text-sm text-navy-800">
-          <b>Locked:</b> this file is read-only. Its documents are kept as delivered. Only an owner can reopen it, on step 10, with a reason.</p>
-      )}
-      <Notice msg={messageFrom(sp.msg)} error={sp.upload || sp.opening ? undefined : messageFrom(sp.error)} />
-
-      {/* Tables use the full width (round 2 item 9): on table screens the step list is narrower. */}
-      {/* The step list keeps each name on one line (round 3 item 10). On table screens narrower than
-          1,536 px it folds into a step picker above the table, so the table has the width (QuickBooks Online
-          keeps its bank feed full width the same way). */}
-      {report && <div className="mb-3">{stepPicker(false)}</div>}
-      <div className="flex flex-wrap items-start gap-6 lg:flex-nowrap">
-        <nav aria-label="Year-end steps" className="card hidden w-[16rem] flex-none p-3 2xl:block">
-          <p className="px-2 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Year-end steps</p>
-          <ol className="grid gap-1">
-            {steps.map((s) => (
-              <li key={s.key}>
-                <Link href={href(s.key)} aria-current={!report && s.key === step ? "step" : undefined}
-                  className={`flex items-start gap-3 rounded-lg px-2 py-2 ${!report && s.key === step ? "bg-navy-50" : "hover:bg-sand-100"}`}>
-                  <span aria-hidden className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-semibold ${s.state === "done" ? "bg-success-soft text-success" : s.key === current ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-3"}`}>{s.state === "done" ? "✓" : s.n}</span>
-                  <span className="min-w-0">
-                    <span className={`block text-sm whitespace-nowrap ${!report && s.key === step ? "font-semibold" : ""}`}>{s.name}{s.state === "done" && <span className="sr-only"> (done)</span>}{s.key === current && <span className="sr-only"> (current step)</span>}</span>
-                    {s.note && <span className="block text-xs text-ink-3">{s.note}</span>}
-                    <span className="mt-1 flex items-center gap-1.5"><StatusPill status={s.word} />
-                      {s.notes > 0 && <span className="rounded-full bg-danger px-1.5 text-xs font-semibold text-white" title={`${s.notes} review note${s.notes === 1 ? "" : "s"} open`}>{s.notes}<span className="sr-only"> review notes open</span></span>}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-3 border-t border-sand-200 px-2 pt-3 pb-2 text-xs font-semibold tracking-wide text-muted uppercase">Reports</p>
-          <ul className="grid gap-0.5">
-            {REPORTS.map(([k, label]) => (
-              <li key={k}>
-                <Link href={`/closebook/${id}?report=${k}`} aria-current={report === k ? "page" : undefined}
-                  className={`block rounded-lg px-2 py-1.5 text-sm ${report === k ? "bg-navy-50 font-semibold" : "hover:bg-sand-100"}`}>{label}</Link>
-              </li>
-            ))}
-            {/* Round 8 item 8: owners see every sign-off, cleared sign-off, note and reply. */}
-            {access.is_owner && <li><Link href={`/closebook/${id}?history=1`} aria-current={showHistory ? "page" : undefined}
-              className={`block rounded-lg px-2 py-1.5 text-sm ${showHistory ? "bg-navy-50 font-semibold" : "hover:bg-sand-100"}`}>File history</Link></li>}
-          </ul>
-        </nav>
-
-        <main className="min-w-0 flex-1">
-          {backHref && <Link href={backHref} className="mb-3 inline-block text-sm font-semibold text-navy-700 hover:underline">← Back</Link>}
-          {report ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
-            data={await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearEnd={file.year_end} yearStart={file.year_start}
-            todo={[
-              // What the preparer acts on, by cause, each linked (round 2 item 15). Zero counts are left out.
-              // Step 4's own words and numbers (round 3 item 13).
-              { n: coding.open, one: "to code", many: "to code", href: href("code") },
-              { n: coding.reviewer, one: "with the reviewer", many: "with the reviewer", href: href("code") },
-              { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
-              { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
-              { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key) && (a.account_key !== "chart:10900" || Math.round(a.this_year * 100) !== 0)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
-            ].filter((t) => t.n > 0)} /> : <>
-          <section className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy-700 px-5 py-4 text-white">
-            <div className="max-w-2xl">
-              {stepPicker(true)}
-              <p className="hidden text-xs font-semibold tracking-wide text-white/75 uppercase 2xl:block">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
-              <p className="mt-1 text-base">{step === current ? next : step === "records" && !bankFile ? RECORDS_TB : step === "code" && !bankFile ? CODE_TB : STEP_LINE[step]}</p>
-            </div>
-          </section>
-          {step === "review" && !showHistory && (
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-              <Link href={href("review")} className={`rounded-full px-3 py-1 ${view !== "lead" ? "bg-navy-700 font-medium text-white" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>Review list</Link>
-              <Link href={`${href("review")}&view=lead`} className={`rounded-full px-3 py-1 ${view === "lead" ? "bg-navy-700 font-medium text-white" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>Lead sheets</Link>
-            </div>
-          )}
-          {body}</>}
-        </main>
-      </div>
-    </>
+    <FileShell fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} area={area}
+      history={access.is_owner} left={left} folded={folded} notes={openNotes}
+      toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
+      {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
+      {content}
+    </FileShell>
   );
 }
-
-// Each step's one-line description, shown on a step that is not the next job (Hashim, Nov 15, 2026,
-// layout item 7): no "current step is X / Go to step X" on a step that can already be worked.
-const STEP_LINE: Record<StepKey, string> = {
-  setup: "Answer the setup questions.",
-  opening: "Last year's closing balances by GIFI code, checked and signed.",
-  records: "Every bank and card statement for the year, uploaded and balanced.",
-  code: "Each bank and card line gets an account and a sales tax code.",
-  entries: "Adjusting, reclassifying and tax entries, each with its working paper reference.",
-  review: "The reviewer works through the lead sheets and the items to look at.",
-  mapping: "Every account on its GIFI line.",
-  t2: "The GIFI goes to ProFile; net income and total assets tie out.",
-  statements: "The statements, the management acknowledgement and the compilation report.",
-  lock: "Deliver the package and lock the file.",
-};
-
-// Step 3 for a file that imports a trial balance (round 7 item 2).
-const RECORDS_TB = "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks.";
-// Step 4 for a file that imports a trial balance (round 8b item 8).
-const CODE_TB = "Match each account to its GIFI line.";
 
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {

@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui";
+import { SettingsHelp } from "../settings-help";
 
 // Settings, Closebook, Tax codes (Phase 3 batch 4.3): the 11 codes. Each GIFI line carries a default;
 // only the reviewer changes an account's code; REVIEW means the reviewer decides for that client.
@@ -15,8 +16,7 @@ export default async function TaxCodesPage() {
   for (const l of (lines ?? []) as { default_tax_code: string }[]) count.set(l.default_tax_code, (count.get(l.default_tax_code) ?? 0) + 1);
   return (
     <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="Tax codes"
-        description="Each GIFI line carries a default tax code, and a client's account takes it automatically. Only the reviewer changes a client account's code; preparers never choose tax treatment. The tax workpaper builds the Schedule 1 add-backs from these codes." />
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="Tax codes" actions={<SettingsHelp title="Tax codes"><p>Each GIFI line carries a default tax code, and a client&rsquo;s account takes it automatically. Only the reviewer changes a client account&rsquo;s code; preparers never choose tax treatment. The tax workpaper builds the Schedule 1 add-backs from these codes.</p><p>To change a line&rsquo;s default code, open the line under GIFI lines.</p></SettingsHelp>} />
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead><tr><th>Code</th><th>Name</th><th>Schedule 1 effect</th><th>Used for</th><th className="text-right">GIFI lines</th></tr></thead>
@@ -25,7 +25,6 @@ export default async function TaxCodesPage() {
           ))}</tbody>
         </table>
       </section>
-      <p className="mt-2 text-xs text-muted">To change a line&rsquo;s default code, open the line under GIFI lines.</p>
     </>
   );
 }

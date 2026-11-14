@@ -10,6 +10,8 @@ export const WORKSPACE_PATHS = ["/engagement-letters/new", "/quotes/proposal", "
 export function MainArea({ children, workspace: force }: { children: ReactNode; workspace?: boolean }) {
   const path = usePathname();
   const workspace = force ?? (WORKSPACE_PATHS.some((p) => path === p || path.startsWith(p + "/")));
+  // A Closebook file lays out its own header, tabs and panels edge to edge (round 15, CaseWare Cloud).
+  if (/^\/closebook\/[0-9a-f-]{36}$/.test(path)) return <main className="min-w-0 flex-1">{children}</main>;
   if (workspace) {
     return <main className="min-w-0 flex-1 px-4 py-4 md:px-6 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">{children}</main>;
   }

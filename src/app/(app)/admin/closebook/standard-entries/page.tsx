@@ -5,6 +5,7 @@ import { messageFrom } from "@/lib/messages";
 import { deleteStandardEntry, saveStandardEntry } from "../actions";
 import { FIRM_TAX_MODE } from "@/lib/closebook/vendor";
 import { saveStandardEntryLine } from "../../../closebook/round9-actions";
+import { SettingsHelp } from "../settings-help";
 
 type Ln = { key: string; name: string; sort_order: number; account: string | null; tax: string; share: string; capital: boolean; to_reviewer: boolean; pick: boolean; note_required: boolean; choices: string[] };
 const LINE_TAX: [string, string][] = [["taxable", "GST/HST, client's rate"], ["meals", "Meals: 50% ITC"], ["none", "No tax normally"], ["auto", "As Auto expenses"]];
@@ -51,8 +52,7 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
   );
   return (
     <>
-      <PageHeader eyebrow="Settings › Closebook · owners only" title="Standard entries"
-        description="Entries the firm makes the same way every year. In step 5, staff pick one and enter the total paid, including any tax; everything else comes from here. One at or under the review threshold (Thresholds) does not need the reviewer." />
+      <PageHeader eyebrow="Settings › Closebook · owners only" title="Standard entries" actions={<SettingsHelp title="Standard entries"><p>Entries the firm makes the same way every year. In step 5, staff pick one and enter the total paid, including any tax; everything else comes from here. One at or under the review threshold (Thresholds) does not need the reviewer.</p><h4>Expenses paid personally</h4><p>In step 5 the preparer types the before-tax and GST/HST amounts from the Summary of the client&rsquo;s sheet; blank lines are dropped. Each line debits its account, the claimable GST/HST goes to 21500 and the shareholder loan (23000 or 23050) is credited. Change a line&rsquo;s default here; the lines and their order follow the client&rsquo;s sheet.</p></SettingsHelp>} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="grid gap-4">
         {((list ?? []) as Std[]).map((e) => (
@@ -68,8 +68,7 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
           <section key={x.id} id="expenses-personal" className="card grid gap-3">
             <div>
               <h2 className="font-semibold">{x.name} <span className="ml-1 text-sm font-normal text-ink-3">{x.lines.length} lines · {x.kind} at the year end · W/P ref: {x.wp_ref}</span></h2>
-              <p className="text-sm text-ink-2">Memo: {x.memo} In step 5 the preparer types the before-tax and GST/HST amounts from the Summary of the client&rsquo;s sheet; blank lines are dropped.
-                Each line debits its account, the claimable GST/HST goes to 21500 and the shareholder loan (23000 or 23050) is credited. Change a line&rsquo;s default here; the lines and their order follow the client&rsquo;s sheet.</p>
+              <p className="text-sm text-ink-2">Memo: {x.memo}</p>
             </div>
             <div className="overflow-x-auto">
               <table className="table table-compact">

@@ -17,15 +17,36 @@ export function ReviewNotes({ fileId, notes, names, isOwner, canFix, editable, b
 }) {
   if (!notes.length) return null;
   const open = notes.filter((n) => n.status !== "cleared"), cleared = notes.filter((n) => n.status === "cleared");
+  const one = (n: ReviewNote) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} isOwner={isOwner} canFix={canFix} editable={editable} back={back} />;
+  return (
+    <section aria-label={title} className="grid gap-2">
+      <h3 className="flex items-center gap-2 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">{title}
+        {open.length > 0 && <span className="rounded-full bg-danger px-1.5 text-[10px] font-bold text-white">{open.length} open</span>}</h3>
+      {open.length > 0 && <ul className="grid gap-2">{open.map(one)}</ul>}
+      {cleared.length > 0 && (
+        <details><summary className="cursor-pointer text-sm text-ink-2">{cleared.length} cleared note{cleared.length === 1 ? "" : "s"}</summary>
+          <ul className="mt-2 grid gap-2">{cleared.map(one)}</ul></details>
+      )}
+    </section>
+  );
+}
+
+// One note: who, when, status, the text and replies; Reply, Mark fixed (the preparer), Clear and Reopen
+// (the reviewer). Round 15: shared by a step's Issues panel and the Notes tab, which adds a link to the
+// item the note is on.
+export function NoteCard({ fileId, n, names, isOwner, canFix, editable, back, itemLink }: {
+  fileId: string; n: ReviewNote; names: Map<string, string>; isOwner: boolean; canFix: boolean; editable: boolean; back: string; itemLink?: { href: string; label: string };
+}) {
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const name = (id: string | null) => (id ? names.get(id) ?? "" : "");
-  const one = (n: ReviewNote) => (
-    <li key={n.id} id={`note-${n.id}`} className={`grid gap-2 rounded-lg border p-3 ${n.status === "open" ? "border-danger/40 bg-danger/5" : "border-sand-200"}`}>
+  return (
+    <li id={`note-${n.id}`} className={`grid gap-2 rounded-lg border p-3 ${n.status === "open" ? "border-danger/40 bg-danger/5" : "border-sand-200"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-ink-3"><span className="font-semibold text-ink-2">{TARGET[n.target_type]}{n.target_label ? `: ${n.target_label}` : ""}</span> · {name(n.created_by)}, {formatDateTime(n.created_at)}</p>
         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${WORD[n.status][1]}`}>{WORD[n.status][0]}</span>
       </div>
       <p className="text-sm whitespace-pre-line">{n.body}</p>
+      {itemLink && <a href={itemLink.href} className="justify-self-start text-xs font-semibold text-navy-700 hover:underline">{itemLink.label} ›</a>}
       {n.replies.length > 0 && <ul className="grid gap-1.5 border-l-2 border-sand-200 pl-3">{n.replies.map((r) => (
         <li key={r.id} className="text-sm"><span className="text-xs text-ink-3">{name(r.created_by)}, {formatDateTime(r.created_at)}</span><span className="block whitespace-pre-line">{r.body}</span></li>
       ))}</ul>}
@@ -47,16 +68,6 @@ export function ReviewNotes({ fileId, notes, names, isOwner, canFix, editable, b
         </div>
       )}
     </li>
-  );
-  return (
-    <section aria-label={title} className="card mb-4 grid gap-3">
-      <h2 className="flex items-center gap-2 font-semibold">{title}
-        {open.length > 0 && <span className="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">{open.length} open</span>}</h2>
-      {open.length > 0 && <ul className="grid gap-2">{open.map(one)}</ul>}
-      {cleared.length > 0 && (
-        <details><summary className="cursor-pointer text-sm text-ink-2">{cleared.length} cleared note{cleared.length === 1 ? "" : "s"}</summary>
-          <ul className="mt-2 grid gap-2">{cleared.map(one)}</ul></details>
-      )}
-    </section>
+  
   );
 }

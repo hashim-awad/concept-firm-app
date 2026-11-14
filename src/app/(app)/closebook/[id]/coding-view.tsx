@@ -28,8 +28,12 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   const router = useRouter();
   // Opened from a report's ledger: the list shows the line's own filter, with the line highlighted.
   const focus = focusLine ? data.lines.find((l) => l.id === focusLine) : undefined;
+  // Round 15: the list opens on the first filter with lines (a coded account shows its coded lines).
+  const firstWith = (ls: CodeLine[]) => (["needs", "suggested", "reviewer", "ask", "done"] as Filter[]).find((k) => ls.some((l) => inFilter(l, k))) ?? "needs";
   const [filter, setFilter] = useState<Filter>(focus ? FILTERS.map(([k]) => k).find((k) => inFilter(focus, k)) ?? "done"
-    : isReviewer && data.lines.some((l) => l.status === "reviewer") ? "reviewer" : "suggested");
+    : isReviewer && data.lines.some((l) => l.status === "reviewer") ? "reviewer" : firstWith(data.lines.filter((l) => l.account_id === (accounts.find((a) => a.id === selected) ?? accounts[0])?.id)));
+  const [q, setQ] = useState("");
+  const [showItc, setShowItc] = useState(true);
   useEffect(() => { if (focus) document.getElementById(`line-${focus.id}`)?.scrollIntoView({ block: "center" }); }, [focus]);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   const mine = data.lines.filter((l) => l.account_id === acc?.id);
   const count = (f: Filter) => mine.filter((l) => inFilter(l, f)).length;
   const effFilter = count(filter) === 0 && filter === "suggested" && count("needs") > 0 ? "needs" : filter;
-  const rows = mine.filter((l) => inFilter(l, effFilter));
+  const rows = mine.filter((l) => inFilter(l, effFilter) && (!q || `${l.description} ${l.chart_account ?? ""}`.toLowerCase().includes(q.toLowerCase())));
   const ctx = { registered: data.setup.gst_registered !== false, quick: data.setup.quick_method === true };
   // No GST/HST answers yet: no tax is assumed, and nothing is confirmed until step 1 is answered (round 3 item 5).
   const gstAnswered = data.setup.gst_registered !== undefined;
@@ -54,65 +58,55 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   const bulkable = (l: CodeLine) => !!l.suggestion?.tax && !USD.test(l.description);
   const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter(bulkable).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
 
-  if (!acc) return <p className="card text-sm text-ink-2">Upload a statement in step 2 first: the lines to code come from the statements.</p>;
+  if (!acc) return <p className="text-[12.5px] text-ink-3">Upload a statement in step 3 first.</p>;
 
   return (
-    <div className="grid gap-4">
-      {data.error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">{data.error}</p>}
+    <div className="grid gap-3">
+      {data.error && <p role="alert" className="text-[12.5px] text-danger">{data.error}</p>}
       {data.setup.gst_registered === undefined && (
-        <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">The GST/HST questions are not answered yet, so no sales tax is worked out and no line can be confirmed. <Link href={`/closebook/${fileId}?step=setup`} className="font-semibold text-navy-700 underline">Answer them in step 1</Link>.</p>
+        <p className="text-[12.5px] text-warning">Answer the GST/HST questions first: <Link href={`/closebook/${fileId}?step=setup`} className="font-semibold text-navy-700 underline">step 1</Link>.</p>
       )}
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {accounts.map((a) => {
-          const left = data.lines.filter((l) => l.account_id === a.id && l.status === "new").length;
-          const total = data.lines.filter((l) => l.account_id === a.id).length;
-          // Coded means done: a line waiting for the reviewer or the client is not coded yet (round 2 item 16).
-          const coded = data.lines.filter((l) => l.account_id === a.id && l.status === "done").length;
-          const withClient = data.lines.filter((l) => l.account_id === a.id && l.status === "ask_client").length;
-          const withReviewer = data.lines.filter((l) => l.account_id === a.id && l.status === "reviewer").length;
-          return (
-            <Link key={a.id} href={`/closebook/${fileId}?step=code&account=${a.id}`} aria-current={a.id === acc.id ? "true" : undefined}
-              className={`card grid gap-1 p-4 ${a.id === acc.id ? "ring-2 ring-navy-700" : "hover:border-navy-300"}`}>
-              <span className="flex justify-between gap-2"><span className="font-semibold">{a.name}</span>
-                {total === 0 ? <span className="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-3">No lines yet</span>
-                  : coded === total ? <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">✓ Coded</span>
-                  : <span className="flex flex-wrap justify-end gap-1">
-                    {left > 0 && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">{left} to code</span>}
-                    {withReviewer > 0 && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">{withReviewer} with the reviewer</span>}
-                    {withClient > 0 && <span className="rounded-full bg-sand-100 px-2 py-0.5 text-xs font-semibold text-ink-2">{withClient} with the client</span>}</span>}</span>
-              <span className="text-xs text-ink-2">{coded} of {total} lines coded</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      <section className="card overflow-hidden p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sand-200 px-4 py-3">
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lines">
-            {FILTERS.map(([k, label]) => (
-              <button key={k} type="button" role="tab" aria-selected={effFilter === k} onClick={() => setFilter(k)}
-                className={`rounded-full px-3 py-1.5 text-sm ${effFilter === k ? "bg-navy-700 font-semibold text-white" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>{label} · {count(k)}</button>
-            ))}
-          </div>
-          {editable && effFilter === "suggested" && rows.length > 0 && (
-            <button type="button" disabled={pending || !gstAnswered || !rows.some(bulkable)} onClick={confirmSuggested} className="btn">Confirm {rows.filter(bulkable).length} suggestion{rows.filter(bulkable).length === 1 ? "" : "s"}</button>
-          )}
+      <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Lines">
+        {/* One card: the accounts as tabs, a toolbar, the lines (round 15, CaseWare Cloud). */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-sand-200 px-3 py-2" role="tablist" aria-label="Accounts">
+          {accounts.map((a) => {
+            const total = data.lines.filter((l) => l.account_id === a.id).length;
+            const coded = data.lines.filter((l) => l.account_id === a.id && l.status === "done").length;
+            const left = data.lines.filter((l) => l.account_id === a.id && l.status === "new").length;
+            const on = a.id === acc.id;
+            return (
+              <Link key={a.id} href={`/closebook/${fileId}?step=code&account=${a.id}`} role="tab" aria-selected={on}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12.5px] ${on ? "border border-navy-200 font-semibold text-navy-900" : "text-ink-2 hover:bg-sand-50"}`}>
+                {a.name}<span className={`rounded px-1.5 text-[11px] font-semibold ${total && coded === total ? "bg-success-soft text-success" : left ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>{coded}/{total}</span>
+              </Link>
+            );
+          })}
         </div>
-        {err && <p role="alert" className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">{err}</p>}
-        {rows.length === 0 ? <p className="p-5 text-sm text-ink-2">Nothing here.</p> : (
-          <div className="overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-sand-200 px-3 py-2">
+          <label className="inline-flex items-center gap-1 rounded-md border border-sand-300 bg-white px-2 py-1 text-xs"><span className="text-ink-3">Show</span>
+            <select value={effFilter} onChange={(e) => setFilter(e.target.value as Filter)} className="bg-transparent outline-none" aria-label="Show">
+              {FILTERS.map(([k, label]) => <option key={k} value={k}>{label} ({count(k)})</option>)}</select></label>
+          <label className="inline-flex items-center gap-1.5 rounded-md border border-sand-300 bg-white px-2 py-1 text-xs"><input type="checkbox" checked={showItc} onChange={(e) => setShowItc(e.target.checked)} />ITC column</label>
+          <span className="flex-1" />
+          {editable && effFilter === "suggested" && rows.length > 0 && (
+            <button type="button" disabled={pending || !gstAnswered || !rows.some(bulkable)} onClick={confirmSuggested} className="btn btn-compact">Confirm {rows.filter(bulkable).length} suggestion{rows.filter(bulkable).length === 1 ? "" : "s"}</button>
+          )}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lines" aria-label="Search lines" className="w-56 rounded-md border border-sand-300 px-2 py-1 text-xs outline-none focus:border-navy-600" />
+        </div>
+        {err && <p role="alert" className="border-b border-danger/30 px-3 py-1.5 text-[12.5px] text-danger">{err}</p>}
+        {rows.length === 0 ? <p className="px-3 py-3 text-[12.5px] text-ink-3">Nothing here.</p> : (
+          <div className={`overflow-x-auto ${showItc ? "" : "[&_.itc]:hidden"}`}>
             {/* Like the QuickBooks Online bank feed (round 2 item 10): one row per line, Spent and Received apart. */}
             <table className="table table-compact min-w-[960px] table-fixed">
-              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
+              <colgroup><col className="w-[5.4rem]" /><col /><col className="w-[4.4rem]" /><col className="w-[4.4rem]" /><col className="w-[14.6rem]" /><col className="w-[8rem]" /><col className="itc w-[3.6rem]" /><col className="w-[7.8rem]" /></colgroup>
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
-                <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
+                <th>Account</th><th>Sales tax</th><th className="itc text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
                 <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} noteBy={noteBy} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
                   editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} gstAnswered={gstAnswered} />
               ))}</tbody>
             </table>
-            {rows.length > 300 && <p className="px-4 py-3 text-sm text-ink-2">Showing the first 300 of {rows.length}. Confirm these to see the rest.</p>}
+            {rows.length > 300 && <p className="px-3 py-2 text-[12.5px] text-ink-3">First 300 of {rows.length}.</p>}
           </div>
         )}
       </section>
@@ -189,7 +183,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         </span>
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
-      <td className="text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
+      <td className="itc text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">

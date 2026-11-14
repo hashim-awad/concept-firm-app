@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type ReactNode } from "react";
+import Link from "next/link";
 import { ChevronDown, Search } from "lucide-react";
 import { StudioLogo } from "./brand";
 
@@ -27,8 +28,21 @@ function parse(raw: string): string[] {
 // are not links. A folded group shows the total of its badges. A group whose pages are all "Soon"
 // starts folded, so the menu fits a laptop screen without scrolling (batch section 13); for those
 // groups the stored list means "unfolded" instead of "folded".
-export function Sidebar({ groups, footer, user, onSearch, bottom }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string }; onSearch?: () => void; bottom?: NavItem }) {
+export function Sidebar({ groups, footer, user, onSearch, bottom, compact }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string }; onSearch?: () => void; bottom?: NavItem; compact?: boolean }) {
   const closed = parse(useSyncExternalStore(subscribe, readClosed, () => "[]"));
+  // Round 15 (CaseWare Cloud): inside a Closebook file the menu folds to its icons, so the file gets the
+  // width. Every item stays one click away; its name shows on hover.
+  if (compact) return (
+    <aside className="flex h-full w-14 flex-col items-center bg-gradient-to-b from-navy-800 to-navy-950 py-3 text-white" aria-label="Main menu">
+      <Link href="/" className="mb-3 text-lg font-extrabold leading-none" title="Concept Studio">C</Link>
+      {onSearch && <button type="button" onClick={onSearch} title="Find a client" aria-label="Find a client" className="mb-1 rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"><Search className="h-[18px] w-[18px]" aria-hidden /></button>}
+      <nav aria-label="Main" className="sidebar-scroll flex flex-1 flex-col items-center gap-0.5 overflow-y-auto">
+        {groups.flatMap((g) => g.items.filter((i) => !i.soon)).map((i) => <IconLink key={i.label} i={i} />)}
+      </nav>
+      {bottom && <IconLink i={bottom} />}
+      {footer && <div className="mt-1 [&_button]:text-[0px] [&_svg]:h-4 [&_svg]:w-4" title="Sign out">{footer}</div>}
+    </aside>
+  );
   const toggle = (label: string) => writeClosed(closed.includes(label) ? closed.filter((x) => x !== label) : [...closed, label]);
   return (
     <aside className="flex h-full w-60 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white">
@@ -101,6 +115,16 @@ function NavLink({ i }: { i: NavItem }) {
       <span className={`h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4 ${i.active ? "text-lime-400" : ""}`} aria-hidden>{i.icon}</span>
       <span className="flex-1 leading-tight">{i.label}</span>
       {i.badge && <span className="rounded bg-lime-500 px-1.5 py-0.5 text-[10px] font-semibold text-navy-900">{i.badge}</span>}
+    </a>
+  );
+}
+
+function IconLink({ i }: { i: NavItem }) {
+  return (
+    <a href={i.href} aria-current={i.active ? "page" : undefined} title={i.label} aria-label={i.label}
+      className={`relative rounded-md p-2 ${i.active ? "bg-white/12 text-lime-400" : "text-white/75 hover:bg-white/8 hover:text-white"}`}>
+      <span className="block h-[18px] w-[18px] [&>svg]:h-[18px] [&>svg]:w-[18px]" aria-hidden>{i.icon}</span>
+      {i.badge && <span className="absolute -top-0.5 -right-0.5 rounded bg-lime-500 px-1 text-[9px] font-semibold text-navy-900">{i.badge}</span>}
     </a>
   );
 }

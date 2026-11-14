@@ -65,8 +65,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
           <div className="flex flex-wrap items-center gap-3">
             <ExportButton href={`/closebook/${fileId}/gifi?kind=before_tax`} label="Export before tax entries" primary={false} />
             <ExportButton href={`/closebook/${fileId}/gifi?kind=final`} label="Export final" />
-            <span className="text-xs text-ink-2">Before tax entries: for preparing the T2 in ProFile, to get CCA and income tax; it always leaves the tax entries (TJE) out. Final: every entry, after the tax entries are booked.
-              {g.tjes === 0 && <b className="ml-1 text-warning">No tax entry (TJE) is booked yet.</b>}</span>
+            {g.tjes === 0 && <span className="text-xs font-semibold text-warning">No TJE booked yet</span>}
           </div>
         ) : null}
         {g.exports.length > 0 && (
@@ -84,7 +83,6 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
           <summary className="cursor-pointer text-sm text-navy-700 underline">What the file holds ({g.codes.length} GIFI codes)</summary>
           <table className="table table-compact mt-2 max-w-2xl"><thead><tr><th>GIFI</th><th>Line</th><th className="text-right">Amount</th></tr></thead>
             <tbody>{g.codes.map(([c, v]) => <tr key={c}><td className="tabular-nums">{c}</td><td>{g.names.get(c) ?? ""}</td><td className="text-right tabular-nums">{v.toFixed(2)}</td></tr>)}</tbody></table>
-          <p className="mt-1 text-xs text-ink-3">As QuickBooks Online writes it: a header line, then one line per GIFI code with a balance. Signs follow GIFI: contra lines and a deficit are negative. No total lines.</p>
         </details>
       </section>
 
@@ -117,7 +115,6 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
           return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (+ adds to net income for tax)</span>
             <span className="tabular-nums">{net === 0 ? "–" : `${net > 0 ? "+" : "−"} ${fmt(Math.abs(net))}`}</span></p>;
         })()}
-        <p className="text-xs text-ink-2">+ adds to net income for tax, − deducts from it. The preparer enters these in ProFile. CCA is claimed on Schedule 8.</p>
         {isOwner && editable && (
           <form action={setBookAmortization} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-2 text-sm">{hidden}
             <input type="hidden" name="on" value={g.bookAmortization ? "0" : "1"} />
@@ -136,7 +133,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
               : rounding.fix ? `In ProFile, change ${rounding.fix.code} from ${whole(rounding.fix.from)} to ${whole(rounding.fix.to)} so Schedule 100 balances.`
               : "No change needed in ProFile."}</p>
         )}
-        {!g.final ? <p className="text-sm text-ink-2">Export the final GIFI file first, import it into ProFile and prepare the T2.</p> : (<>
+        {!g.final ? <p className="text-sm text-ink-2">Export the final GIFI file first.</p> : (<>
           <table className="table table-compact">
             <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference (Closebook less ProFile)</th><th>Status</th></tr></thead>
             <tbody>{g.tieItems.map((t) => (
@@ -155,8 +152,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { file
                           <button type="submit" className="btn-secondary btn-compact">Accept</button></form>)}</span>}</td></tr>
             ))}</tbody>
           </table>
-          <p className="text-xs text-ink-2">ProFile rounds each GIFI line to whole dollars, so net income and total assets may differ by up to {fmt(g.roundingAllowed)}: that shows as rounding and does not block (Settings, Closebook, Thresholds). CCA and income tax are typed from ProFile and booked to the cent: they must tie exactly, and any difference blocks the sign-off.</p>
-          {anyOpen && <p className="text-sm text-danger">A difference marked in red blocks the preparer&rsquo;s sign-off. Only the reviewer can accept one, with a reason.</p>}
+          <p className="text-xs text-ink-3">Rounding allowed: {fmt(g.roundingAllowed)}</p>
+          {anyOpen && <p className="text-sm text-danger">A red difference blocks sign-off.</p>}
           {editable && !g.stale && (
             <form action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
               {([["ni", "Net income (9999)"], ["assets", "Total assets (2599)"], ["cca", "Total CCA, Schedule 8"], ["tax", "Total income tax, federal plus provincial"]] as const).map(([k, label]) => {

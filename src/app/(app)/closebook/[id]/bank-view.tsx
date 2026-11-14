@@ -101,7 +101,6 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
 
             <section className="card overflow-x-auto p-0">
               <h3 className="px-5 pt-4 font-semibold">Statements</h3>
-              <p className="px-5 text-sm text-ink-2">The transactions are coded in step 4, account by account, like the QuickBooks bank feed.</p>
               <table className="table">
                 <thead><tr><th>Period</th><th>File</th><th className="text-right">Lines</th><th className="text-right">Opening</th><th className="text-right">{w.plus}</th><th className="text-right">{w.minus}</th><th className="text-right">Closing</th><th>Uploaded</th><th></th></tr></thead>
                 <tbody>{sts.map((s, i) => {
@@ -131,7 +130,7 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
       {panelOpen && (
         <SidePanel title={panelAcc ? `Upload a statement: ${panelAcc.name}` : "Add an account"} closeHref={closeHref}>
           {error && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
-          <p className="text-sm text-ink-2">Concept&rsquo;s bank upload template: Date (YYYY-MM-DD), Description, Amount. Signs as in QuickBooks. <a href="/templates/Concept-bank-upload-template.csv" download className="text-navy-700 underline">Download the template</a></p>
+          <p className="text-sm text-ink-2">Template: Date, Description, Amount. <a href="/templates/Concept-bank-upload-template.csv" download className="text-navy-700 underline">Download the template</a></p>
           <BankUploadForm fileId={fileId} account={panelAcc} nextOpening={panelAcc ? cov.get(panelAcc.id)!.latestClosing : null} />
         </SidePanel>
       )}

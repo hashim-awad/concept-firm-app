@@ -89,7 +89,10 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
   );
   const onSearch = access.clients ? () => { setOpen(false); search.setOpen(true); } : undefined;
   const settings: NavItem = { href: "/admin/settings", label: "Settings", icon: <Settings key="i" />, active: path === "/admin" || path.startsWith("/admin/") };
+  // Inside a Closebook file the menu folds to icons (round 15).
+  const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path);
   const sidebar = <Sidebar groups={groups} bottom={settings} user={{ name: access.fullName, role: access.roleName }} footer={signOutButton} onSearch={onSearch} />;
+  const desktop = inFile ? <Sidebar compact groups={groups} bottom={settings} footer={signOutButton} onSearch={onSearch} /> : sidebar;
 
   return (
     <>
@@ -108,7 +111,7 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
         </div>
       )}
       {/* Desktop: fixed sidebar */}
-      <div className="sticky top-0 hidden h-screen shrink-0 md:block">{sidebar}</div>
+      <div className="sticky top-0 hidden h-screen shrink-0 md:block">{desktop}</div>
       {access.clients && <ClientSearchDialog open={search.open} onClose={() => search.setOpen(false)} />}
     </>
   );

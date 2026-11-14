@@ -67,10 +67,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
           <select value={head.shareholder} onChange={(e) => setHead({ ...head, shareholder: e.target.value })} className="input input-compact">
             {shareholders.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}</select></label>
       </div>
-      <p className="text-sm text-ink-2">Type the amounts from the Summary of the client&rsquo;s sheet for the lines that apply; leave the rest blank. GST/HST is never worked out from a total: type it as the client wrote it.
-        {ctx.registered && !ctx.quick ? " This client is a regular GST/HST registrant: the GST/HST is claimed as an ITC (meals and client gifts of food or drink: half)." : ctx.registered ? " This client uses the quick method: GST/HST is added to the cost." : " This client is not registered: GST/HST is added to the cost."}
-        {clientList && " The client keeps their own books: each line posts to their account on the same GIFI line, or a new account if they have none, and the entry goes on the client entry list."}
-        {" Change a line's account in its list: the choice is kept for this file and next year's."}{rolledFrom && ` Choices carried forward from the file for the year ended ${rolledFrom}.`}</p>
+      <p className="text-sm text-ink-2">Type the amounts from the client&rsquo;s Summary. Leave the rest blank.{rolledFrom && ` Carried forward from ${rolledFrom}.`}</p>
       {saveError && <p role="alert" className="text-sm text-danger">The account choice was not saved: {saveError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-sand-200">
@@ -143,7 +140,7 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
                 <label className="grid gap-1">Business km<input inputMode="numeric" value={head.kmBusiness} onChange={(e) => setHead({ ...head, kmBusiness: e.target.value })} onBlur={(e) => setHead({ ...head, kmBusiness: tidyKm(e.target.value) })} className="input input-compact w-32 text-right" /></label>
               </>}
               {phone && <label className="grid gap-1">Phone and internet: business %<input inputMode="decimal" value={head.phone} onChange={(e) => setHead({ ...head, phone: e.target.value })} className="input input-compact w-24 text-right" /></label>}
-              <span className="self-end text-xs text-ink-3">The share applies to the cost and its GST/HST. The personal share is left out of the entry.</span>
+              
             </fieldset>
           )}
           <FilePick id="exp-sheet" name="sheet" label="Client's sheet (the source)" add="Attach the client's sheet" accept=".xlsx,.xls,.pdf,.csv"
