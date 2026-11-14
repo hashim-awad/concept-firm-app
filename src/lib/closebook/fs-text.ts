@@ -28,7 +28,7 @@ export function reportParagraphs(m: FsModel): Run[][] {
   ];
 }
 
-// The notes: Appendix C's wording, and round 11's two (amortization at tax rates, related parties),
+// The notes: Appendix C's wording, and round 11's related parties note (the capital assets note comes in round 12),
 // generated from the file. Each block: heading, paragraphs, bullets, an optional table.
 export type NoteBlock = { heading: string; paras: string[]; bullets?: string[]; table?: "shareholder" | "related" };
 export function noteBlocks(m: FsModel): NoteBlock[] {
@@ -38,7 +38,7 @@ export function noteBlocks(m: FsModel): NoteBlock[] {
   if (N.has_ar) bullets.push("Accounts receivable, less an allowance for doubtful accounts");
   // Appendix C said "amortized over their useful lives"; Closebook's Note 1 policy is amortization equal
   // to capital cost allowance, so the bullet says so and agrees with the capital assets note (for Hashim's approval).
-  if (N.has_ppe) bullets.push(N.amortization?.policy === "amortization_equals_cca" ? "Property, plant and equipment, amortized at the rates allowed for income tax purposes" : "Property, plant and equipment, amortized over their useful lives");
+  if (N.has_ppe) bullets.push(N.note1Policy === "amortization_equals_cca" ? "Property, plant and equipment, amortized at the rates allowed for income tax purposes" : "Property, plant and equipment, amortized over their useful lives");
   if (N.has_ap) bullets.push("Accounts payable and accrued liabilities");
   if (N.has_sd) bullets.push("Source deductions payable on salaries");
   if (N.has_tax) bullets.push("Current income taxes payable as at the reporting date");
@@ -47,8 +47,7 @@ export function noteBlocks(m: FsModel): NoteBlock[] {
   if (N.has_hst) out.push({ heading: "GST/HST", paras: ["Revenue and expenses are recorded net of GST/HST. Receivables and payables include GST/HST."] });
   if (N.ppa) out.push({ heading: `${N.ppa.n}. Prior period adjustment`, paras: [`Opening retained earnings has been ${N.ppa.amount < 0 ? "reduced" : "increased"} by $${Math.abs(N.ppa.amount).toLocaleString("en-US")} to correct an error in a prior period. Comparative figures have not been restated.`] });
   if (N.shareholder) out.push({ heading: `${N.shareholder.n}. Due to shareholder`, paras: [N.shareholder.terms], table: "shareholder" });
-  // Round 11: written by Closebook, not in Appendix C (it left these to hand-editing). For Hashim's approval.
-  if (N.amortization) out.push({ heading: `${N.amortization.n}. Capital assets`, paras: ["Capital assets are recorded at cost. Amortization is recorded at the rates allowed for income tax purposes (capital cost allowance)."] });
+  // Round 11: written by Closebook, not in Appendix C (approved by Hashim, Nov 14, 2026).
   if (N.related) out.push({ heading: `${N.related.n}. Related parties`, paras: ["The balances below are with related parties. They are recorded at the amounts agreed between the parties."], table: "related" });
   return out;
 }
@@ -79,13 +78,14 @@ export const money = (v: number) => `$${Number(v).toLocaleString("en-US")}`;
 // The MAL as the signing officer reads it on the signing page (the same words as the PDF). The date is
 // left as {{DATE}}: the signing page fills in the day it is signed.
 const h = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-export function malHtml(m: FsModel, officer: { name: string; position: string }, date: string): string {
+export function malHtml(m: FsModel, officer: { name: string; position: string }, date: string, esign = ""): string {
   const [street, city] = addressLines(m);
   const [p1, p2] = malParagraphs(m);
   return `<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a">`
     + `<p style="margin:0 0 24px"><b>${h(m.name)}</b><br>${h(street)}<br>${h(city)}</p>`
     + `<h2 style="text-align:center;font-size:18px;font-weight:700;margin:0 0 24px">Management Responsibility Acknowledgement</h2>`
     + `<p style="margin:0 0 16px">${h(date)}</p><p style="margin:0 0 16px">${h(FIRM)}<br>${h(FIRM_ADDRESS[0])}<br>${h(FIRM_ADDRESS[1])}</p><p style="margin:0 0 16px">To: ${h(FIRM)}</p>`
-    + `<p style="text-align:justify;margin:0 0 12px">${h(p1)}</p><p style="text-align:justify;margin:0 0 24px">${h(p2)}</p><p style="margin:0 0 48px">Yours truly,</p>`
+    + `<p style="text-align:justify;margin:0 0 12px">${h(p1)}</p><p style="text-align:justify;margin:0 0 24px">${h(p2)}</p><p style="margin:0 0 ${esign ? 24 : 48}px">Yours truly,</p>`
+    + (esign ? `<p style="margin:0 0 4px;font-style:italic">${h(esign)}</p>` : "")
     + `<p style="margin:0 0 16px;border-top:1px solid #1a1a1a;padding-top:6px;max-width:420px">${h(officer.name)}<br>${h(m.name)}<br>${h(officer.position)}</p><p>Date: ${h(date)}</p></div>`;
 }

@@ -57,7 +57,7 @@ export default async function ClientQuotePage({ params }: PageProps<"/q/[token]"
   }
   // A New letter: the letter as Hashim issued it, then sign (front office batch, section 7).
   const parts = quote.kind === "proposal" ? proposalSignedParts(quote as ProposalRow)
-    : quote.kind === "letter" ? [{ label: isMal(quote as LetterRow) ? "Management Responsibility Acknowledgement" : "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature(), signed ? me.signed_at : null) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
+    : quote.kind === "letter" ? [{ label: isMal(quote as LetterRow) ? "Management Responsibility Acknowledgement" : "Engagement letter", html: letterHtml(quote as LetterRow, await firmSignature(), signed && me.signed_at ? { at: me.signed_at, name: me.signed_name ?? `${me.first_name} ${me.last_name}`, title: me.signed_title ?? "" } : null) }, { label: "", html: "" }, { label: "", html: `<p>${pieceText(texts, C.typeName, `${me.first_name} ${me.last_name}`)}</p>` }]
     : await clientParts(quote, signers);
   const other = signers.find((s) => s.person !== me.person);
   // Names on the page (step 5 retest, Nov 12, 2026): first names, or full names when a couple share one.

@@ -192,6 +192,10 @@ begin
   perform private.require(exists (select 1 from public.cb_step_signoffs where file_id = p_file and step = 'statements' and reviewed_at is not null),
     'The reviewer signs step 9 first. Nothing goes to the client before that.');
   perform private.require(not exists (select 1 from public.cb_file_fs where file_id = p_file and mal_quote_id is not null), 'The MAL is already out for signing.');
+  -- Management cannot confirm statements for a year that has not ended: the MAL goes out from the day
+  -- after the year end (Hashim, Nov 14, 2026).
+  perform private.require((now() at time zone 'America/Toronto')::date > v_file.year_end,
+    format('The MAL can be sent from %s, the day after the year end.', trim(to_char(v_file.year_end + 1, 'FMMonth FMDD, YYYY'))));
   select * into c from public.cb_client_fs_fields where client_id = v_file.client_id;
   perform private.require(coalesce(c.officer_email, '') ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$', 'Add the signing officer''s email in step 9.');
   perform private.require(length(coalesce(p_html, '')) > 100 and jsonb_typeof(p_pdf) = 'array', 'The MAL could not be built.');

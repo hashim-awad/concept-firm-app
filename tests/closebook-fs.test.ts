@@ -62,17 +62,35 @@ test("last year's GST/HST is split out too, when Closebook has the account", () 
   assert.deepEqual(m.failed, []);
 });
 
-test("whole dollars that add and tie: the balance sheet balances, the income statement and retained earnings agree", () => {
+test("ProFile's rounding: each GIFI line to the dollar, lines and totals add, the balance sheet balanced on its largest line", () => {
   const m = buildFs(base);
   const S = (rs: { cur: number }[]) => rs.reduce((a, r) => a + r.cur, 0);
+  // Net income from the rounded lines: 9,000 − 235 − 1,960 − 800 = 6,005 (ProFile), not 6,005.25 rounded.
+  assert.equal(m.is.ni.cur, 9000 - 235 - 1960 - 800);
+  assert.equal(S(m.is.rev) - S(m.is.exp) - m.is.tax.cur, m.is.ni.cur);
+  assert.equal(m.is.reOpen.cur + m.is.ppa.cur + m.is.ni.cur - m.is.div.cur, m.is.reClose.cur);
+  // Assets 300 + 50,000 + 5,500 + 9,800 − 5,880 = 59,720; liabilities 7,350 + 1,273 + 3,763 = 12,386;
+  // equity 100 + 47,235 = 47,335; out by 1: 1002 (the largest line) goes from 50,000 to 50,001.
+  assert.deepEqual(m.profileFix, { code: "1002", name: "Deposits in Canadian banks", from: 50000, to: 50001 });
   const TA = S(m.bs.ca) + S(m.bs.nca), TL = S(m.bs.cl) + S(m.bs.ncl), EQ = S(m.bs.eq);
   assert.equal(TA, TL + EQ);
-  assert.equal(TA, 59721, "59,720.50 rounded to 59,721");
-  assert.equal(S(m.is.rev) - S(m.is.exp) - m.is.tax.cur, m.is.ni.cur);
-  assert.equal(m.is.ni.cur, 6005, "9,000 − 234.75 − 1,960 − 800 = 6,005.25");
-  assert.equal(m.is.reOpen.cur + m.is.ppa.cur + m.is.ni.cur - m.is.div.cur, m.is.reClose.cur);
+  assert.equal(TA, 59721);
   assert.equal(m.bs.eq.at(-1)!.cur, m.is.reClose.cur, "retained earnings on the balance sheet = the end of the statement");
   assert.deepEqual(m.failed, []);
+});
+
+test("a line of exactly 2,500.00 prints 2,500; the GST/HST parts add to the rounded 2680; a nil line is left out", () => {
+  const ls = new Map([...lines, L("8860", "Professional fees", "Professional fees")]);
+  const c = new Map([...cur, ["8860", 2500], ["1002", 47500.25]]);
+  const m = buildFs({ ...base, lines: ls, cur: c });
+  assert.equal(m.is.exp.find((r) => r.cap === "Professional fees")?.cur, 2500);
+  const t = m.bs.cl.find((r) => r.code === "2680")!.cur + m.bs.cl.find((r) => r.code === "HST")!.cur;
+  assert.equal(t, 1273, "800 + 473 = the rounded 1,272.57");
+  assert.equal(buildFs(base).profileFix?.code, "1002");
+  // All of 2680 is GST/HST: "Income taxes payable" is nil and left out.
+  const all = buildFs({ ...base, hst: 1272.57 });
+  assert.equal(all.bs.cl.some((r) => r.code === "2680"), false);
+  assert.equal(all.notes.has_tax, false);
 });
 
 test("no prior-year column in the first year; a prior column that does not tie stops the package by name", () => {
@@ -86,17 +104,17 @@ test("no prior-year column in the first year; a prior column that does not tie s
   assert.deepEqual(buildFs({ ...base, prior: good }).failed, []);
 });
 
-test("notes: only those that apply, numbered in order: prior period adjustment, due to shareholder, amortization, related parties", () => {
+test("notes: only those that apply, numbered in order: prior period adjustment, due to shareholder, related parties (capital assets waits for round 12)", () => {
   const m = buildFs({ ...base, cur: new Map([...cur, ["2860", 0]]), related: {} });
   assert.equal(m.notes.ppa?.n, 2);
   assert.equal(m.notes.ppa?.amount, -500);
   assert.equal(m.notes.shareholder?.n, 3);
-  assert.equal(m.notes.amortization?.n, 4);
+  assert.equal("amortization" in m.notes, false);
   assert.equal(m.notes.related, null, "no related-party balance");
   assert.ok(m.notes.has_hst && m.notes.has_ap && m.notes.has_ar && m.notes.has_tax);
   assert.match(m.notes.shareholder!.terms, /non-interest bearing, unsecured, and has no set terms of repayment\. It is classified as a current liability\./);
   const rel = buildFs({ ...base, cur: new Map([...cur, ["2860", 1000], ["1002", 51000.25]]), related: { "2860": "Birch Holdings Inc." } });
-  assert.equal(rel.notes.related?.n, 5);
+  assert.equal(rel.notes.related?.n, 4);
   assert.equal(rel.bs.cl.find((r) => r.code === "2860")?.cap, "Due to related parties (Birch Holdings Inc.)");
 });
 

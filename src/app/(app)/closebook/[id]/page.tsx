@@ -304,7 +304,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "t2") {
     // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
     const g = accounts.length ? await gifiFor(supabase, id) : null;
-    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} />
+    // The rounding line: the same whole-dollar figures as the statements in step 9.
+    const fsm = g ? (await loadPackage(supabase, id))?.m : null;
+    const curFail = fsm?.failed.find((t) => t.column === "current");
+    const rounding = fsm ? (curFail ? { stopped: `Not worked out: a tie-out fails in step 9 (${curFail.name}).` } : { fix: fsm.profileFix }) : undefined;
+    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} />
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Step 9 (round 11): the year-end package, its fields and the MAL's signing.

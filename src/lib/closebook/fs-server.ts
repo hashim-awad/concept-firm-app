@@ -89,7 +89,9 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   const signed = !!mal.mal_signed_at && !!mal.mal_quote_id;
   const signedDate = signed ? torontoDate(mal.mal_signed_at!) : null;
   // The report, the MAL and the minute book letter share one date: the day the signing officer signs.
-  const ctx: FsCtx = { draft: !signed, reportDate: signedDate ? longDate(signedDate) : DATE_PLACEHOLDER, officer: { name: fields.officer_name, position: fields.officer_position } };
+  const ctx: FsCtx = { draft: !signed, reportDate: signedDate ? longDate(signedDate) : DATE_PLACEHOLDER, officer: { name: fields.officer_name, position: fields.officer_position },
+    // The minute book copy of the MAL shows it signed, on its own signature line.
+    esign: signedDate ? `Signed electronically by ${mal.mal_signed_name}${mal.mal_signed_title ? `, ${mal.mal_signed_title}` : ""}, on ${longDate(signedDate)}` : undefined };
   const dividends: Dividend[] = divLines.map((d) => {
     const f = fields.dividends.find((x) => x.line === d.line);
     return { cls: f?.cls ?? "", amount: d.amount, eligible: d.eligible ?? !!f?.eligible, declared: f?.declared ? longDate(f.declared) : "", paid: f?.paid ? longDate(f.paid) : "" };

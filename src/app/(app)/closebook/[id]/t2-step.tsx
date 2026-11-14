@@ -14,7 +14,12 @@ const chip = (ok: boolean, yes = "Pass", no = "Fail") =>
 const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
 const amt = (n: number | null | undefined) => (n === null || n === undefined ? "–" : fmt(n));
 
-export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean }) {
+// ProFile rounds each GIFI line to the dollar; a Schedule 100 out by a dollar or two is balanced on its
+// largest line (round 11). The statements in step 9 make the same change, so the two agree.
+export type RoundingLine = { fix: { code: string; from: number; to: number } | null } | { stopped: string };
+const whole = (v: number) => v.toLocaleString("en-US");
+
+export function T2Step({ fileId, g, staff, editable, isOwner, rounding }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean; rounding?: RoundingLine }) {
   const hidden = <input type="hidden" name="file_id" value={fileId} />;
   const anyOpen = g.tieItems.some((t) => t.open);
   return (
@@ -125,6 +130,12 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
       {/* 5. Tie-out to ProFile. */}
       <section aria-label="Tie-out to ProFile" className="card grid gap-3">
         <h2 className="font-semibold">Tie-out to ProFile <span className="ml-1 text-sm font-normal text-ink-3">After the final export is imported and the T2 prepared</span></h2>
+        {rounding && (
+          <p aria-label="Rounding in ProFile" className={`rounded-lg border px-3 py-2 text-sm ${"stopped" in rounding ? "border-sand-200 text-ink-2" : rounding.fix ? "border-warning/40 bg-warning/10" : "border-sand-200"}`}>
+            <b>Rounding: </b>{"stopped" in rounding ? rounding.stopped
+              : rounding.fix ? `In ProFile, change ${rounding.fix.code} from ${whole(rounding.fix.from)} to ${whole(rounding.fix.to)} so Schedule 100 balances.`
+              : "No change needed in ProFile."}</p>
+        )}
         {!g.final ? <p className="text-sm text-ink-2">Export the final GIFI file first, import it into ProFile and prepare the T2.</p> : (<>
           <table className="table table-compact">
             <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference (Closebook less ProFile)</th><th>Status</th></tr></thead>

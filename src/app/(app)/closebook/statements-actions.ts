@@ -10,7 +10,7 @@ import { parseAmount } from "@/lib/closebook/amount";
 import { loadPackage } from "@/lib/closebook/fs-server";
 import { malHtml } from "@/lib/closebook/fs-text";
 import { malDef } from "@/lib/closebook/fs-pdf";
-import { MAL_DATE } from "@/lib/letters/server";
+import { MAL_DATE, MAL_ESIGN } from "@/lib/letters/server";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const done = (back: string, id: string, error: { message: string } | null, ok: string): never => {
@@ -74,8 +74,8 @@ export async function sendMal(formData: FormData) {
   if (!pk) redirect(withMessage(step9(id), "error", "This file was not found."));
   if (pk!.blocked.length) redirect(withMessage(step9(id), "error", `The package is stopped: ${pk!.blocked[0]}`));
   const officer = { name: pk!.fields.officer_name, position: pk!.fields.officer_position };
-  const html = malHtml(pk!.m, officer, MAL_DATE);
-  const pdf = malDef(pk!.m, { draft: false, reportDate: MAL_DATE, officer }).content;
+  const html = malHtml(pk!.m, officer, MAL_DATE, MAL_ESIGN);
+  const pdf = malDef(pk!.m, { draft: false, reportDate: MAL_DATE, officer, esign: MAL_ESIGN }).content;
   const { error } = await supabase.rpc("cb_send_mal", { p_file: id, p_title: `Management Responsibility Acknowledgement ${pk!.data.file.year_end}`, p_html: html, p_pdf: pdf });
   done(step9(id), id, error, "The MAL is out for signing. Copy the signing link below and send it to the signing officer.");
 }

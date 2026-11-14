@@ -114,7 +114,8 @@ export async function malDocx(m: FsModel, ctx: FsCtx): Promise<Buffer> {
   const body = [p([T(m.name, { bold: true, size: 24 })], { after: 0 }), p(street, { after: 0 }), p(city, { after: 360 }),
     p([T("Management Responsibility Acknowledgement", { bold: true, size: 24 })], { align: AlignmentType.CENTER, after: 360 }), p(ctx.reportDate, { after: 240 }),
     p(FIRM, { after: 0 }), p(FIRM_ADDRESS[0], { after: 0 }), p(FIRM_ADDRESS[1], { after: 240 }), p(`To: ${FIRM}`, { after: 240 }),
-    p(a, { align: AlignmentType.JUSTIFIED }), p(b, { align: AlignmentType.JUSTIFIED, after: 480 }), p("Yours truly,", { after: 960 }),
+    p(a, { align: AlignmentType.JUSTIFIED }), p(b, { align: AlignmentType.JUSTIFIED, after: 480 }), p("Yours truly,", { after: ctx.esign ? 600 : 960 }),
+    ...(ctx.esign ? [p([new TextRun({ text: ctx.esign, font: F, size: 20, italics: true })], { after: 60 })] : []),
     p(ctx.officer.name, { line: true, after: 0 }), p(m.name, { after: 0 }), p(ctx.officer.position, { after: 240 }), p(`Date: ${ctx.reportDate}`)];
   return Packer.toBuffer(new Document({ styles: { default: { document: { run: { font: F, size: 20 } } } }, sections: [{ properties: PAGE, headers: draftHeader(ctx.draft), children: body }] }));
 }

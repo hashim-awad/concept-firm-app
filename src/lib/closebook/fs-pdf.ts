@@ -6,7 +6,9 @@
 import { n, type FsModel, type FsRow } from "./fs-model.ts";
 import { addressLines, CONFIDENTIAL, DRAFT, FIRM, FIRM_ADDRESS, FIRM_FOOTER, lawyerGroups, lawyerRows, malParagraphs, money, noteBlocks, reportParagraphs, UNAUDITED, type Lawyer } from "./fs-text.ts";
 
-export type FsCtx = { draft: boolean; reportDate: string; officer: { name: string; position: string } };
+// esign: the MAL's signature line once the officer has signed ("Signed electronically by ..."), or the
+// {{ESIGN}} placeholder in the copy kept with the MAL sent for signing.
+export type FsCtx = { draft: boolean; reportDate: string; officer: { name: string; position: string }; esign?: string };
 const PAGE = { pageSize: "LETTER", pageMargins: [72, 54, 72, 54] as number[] };
 const BLACK = "#000000";
 
@@ -124,8 +126,9 @@ export function malDef(m: FsModel, ctx: FsCtx): any {
       p({ text: "Management Responsibility Acknowledgement", bold: true, fontSize: 12 }, { align: "center", after: 18 }),
       p(ctx.reportDate, { after: 12 }), p(FIRM, { after: 0 }), p(FIRM_ADDRESS[0], { after: 0 }), p(FIRM_ADDRESS[1], { after: 12 }),
       p(`To: ${FIRM}`, { after: 12 }), p(malParagraphs(m)[0], { align: "justify" }), p(malParagraphs(m)[1], { align: "justify", after: 24 }),
-      p("Yours truly,", { after: 48 }),
-      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 468, y2: 0, lineWidth: 0.6 }] }, p(ctx.officer.name, { after: 0 }), p(m.name, { after: 0 }), p(ctx.officer.position, { after: 12 }),
+      p("Yours truly,", { after: ctx.esign ? 30 : 48 }),
+      ...(ctx.esign ? [{ text: ctx.esign, italics: true, margin: [0, 0, 0, 4] }] : []),
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 468, y2: 0, lineWidth: 0.6 }], margin: [0, 0, 0, 4] }, p(ctx.officer.name, { after: 0 }), p(m.name, { after: 0 }), p(ctx.officer.position, { after: 12 }),
       p(`Date: ${ctx.reportDate}`)],
   };
 }

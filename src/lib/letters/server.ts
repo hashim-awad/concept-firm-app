@@ -10,6 +10,7 @@ import { CorporateLetter, T1Letter, type Fee } from "@/lib/studio/controllers";
 import { ILLUSTRATIVE, LETTERHEAD } from "@/lib/studio/assets.generated";
 import { LETTERHEAD_URL } from "@/lib/t1-quote/render";
 import { longDate } from "@/lib/closebook/fs-model";
+import { DATE_PLACEHOLDER } from "@/lib/closebook/fs-text";
 import { partBHtml, partBPdf, type LetterBuild } from "@/lib/corporate/render";
 import type { QuoteRow } from "@/lib/t1-quote/server";
 
@@ -52,16 +53,21 @@ function companyBuild(q: LetterRow, lh: string, sig: string): LetterBuild {
 }
 const company = (q: LetterRow) => q.details?.doc_kind === "corporate_letter";
 
-// The MAL's date: the day it is signed (Toronto), or today while it waits to be signed.
+// The MAL's date and signature line: "[Date of signing]" and a blank line until the officer signs; then
+// the day it was signed (Toronto) and "Signed electronically by <name>, <title>, on <date>".
 export const MAL_DATE = "{{DATE}}";
-const malDate = (iso?: string | null) => longDate((iso ? new Date(iso) : new Date()).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }));
-const dated = (x: unknown, date: string): unknown => (typeof x === "string" ? x.split(MAL_DATE).join(date) : Array.isArray(x) ? x.map((y) => dated(y, date))
-  : x && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, dated(v, date)])) : x);
+export const MAL_ESIGN = "{{ESIGN}}";
+export type MalSigned = { at: string; name: string; title: string } | null;
+const malDay = (iso: string) => longDate(new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }));
+const dated = (x: unknown, date: string, esign: string): unknown => (typeof x === "string" ? x.split(MAL_DATE).join(date).split(MAL_ESIGN).join(esign)
+  : Array.isArray(x) ? x.map((y) => dated(y, date, esign))
+  : x && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, dated(v, date, esign)])) : x);
+const malFill = (x: unknown, s: MalSigned) => dated(x, s ? malDay(s.at) : DATE_PLACEHOLDER, s ? `Signed electronically by ${s.name}${s.title ? `, ${s.title}` : ""}, on ${malDay(s.at)}` : "");
 export const isMal = (q: { kind?: string; details?: { doc_kind?: string } | null }) => q.kind === "letter" && q.details?.doc_kind === "cb_mal";
 
 // The letter as the client reads it.
-export function letterHtml(q: LetterRow, signature: string | null, signedAt?: string | null): string {
-  if (isMal(q)) return dated(q.details?.html ?? "", malDate(signedAt)) as string;
+export function letterHtml(q: LetterRow, signature: string | null, signed?: MalSigned): string {
+  if (isMal(q)) return malFill(q.details?.html ?? "", signed ?? null) as string;
   if (company(q)) return partBHtml(q.wording ?? {}, companyBuild(q, LETTERHEAD_URL, signature ?? BLANK), { letterhead: LETTERHEAD_URL, signature });
   return wrap(built(q, LETTERHEAD_URL, signature ?? BLANK).html());
 }
@@ -73,8 +79,8 @@ export function letterHash(html: string): string {
 }
 
 // The letter's PDF content, exactly as the Letter Builder lays it out.
-export function letterPdf(q: LetterRow, signature: string | null, signedAt?: string | null): { content: unknown[]; images: Record<string, string> } {
-  if (isMal(q)) return { content: dated(q.details?.pdf ?? [], malDate(signedAt)) as unknown[], images: {} };
+export function letterPdf(q: LetterRow, signature: string | null, signed?: MalSigned): { content: unknown[]; images: Record<string, string> } {
+  if (isMal(q)) return { content: malFill(q.details?.pdf ?? [], signed ?? null) as unknown[], images: {} };
   if (company(q)) return partBPdf(q.wording ?? {}, companyBuild(q, LETTERHEAD, signature ?? BLANK), LETTERHEAD, signature);
   const b = built(q, LETTERHEAD, signature ?? BLANK);
   const dd = b.e.pdfDoc(b.s, b.blocks(), LETTERHEAD);

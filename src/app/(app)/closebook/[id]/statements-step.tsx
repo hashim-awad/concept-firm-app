@@ -1,7 +1,8 @@
 // Step 9, Statements (round 11): the year-end package as Appendix C, from Closebook's figures. Benchmarks:
 // CaseWare (the fields a compilation needs, each empty one shown "To fill" and blocking the preparer's
 // sign-off; the package stopped by a failed tie-out, named), Appendix C for the documents.
-import { formatDate } from "@/lib/dates";
+import { formatDate, todayToronto } from "@/lib/dates";
+import { longDate } from "@/lib/closebook/fs-model";
 import type { PackageData } from "@/lib/closebook/fs-server";
 import { saveFsFields, sendMal } from "../statements-actions";
 import { CopyButton } from "@/app/(app)/leads/[id]/quote/copy-button";
@@ -17,6 +18,10 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fil
   const out = !!mal.mal_quote_id && !pk.signed;
   const lock = !editable;
   const link = mal.mal_token ? `${siteUrl}/q/${mal.mal_token}` : "";
+  // Management cannot confirm statements for a year that has not ended (the database refuses it too).
+  const ye = pk.data.file.year_end;
+  const dayAfter = new Date(Date.parse(`${ye}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+  const notYet = todayToronto() < dayAfter;
   return (
     <div className="grid gap-4">
       {pk.blocked.length > 0 && (
@@ -147,8 +152,9 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl }: { fil
         ) : editable ? (
           <form action={sendMal} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="file_id" value={fileId} />
-            <button className="btn" disabled={pk.blocked.length > 0}>Send the MAL for signing</button>
-            <span className="text-xs text-ink-2">To {f.officer_name || "the signing officer"} ({f.officer_email || "no email"}). When it is signed, the package takes that date.</span>
+            <button className="btn" disabled={pk.blocked.length > 0 || notYet}>Send the MAL for signing</button>
+            {notYet && <span role="alert" className="text-sm font-medium text-danger">Not yet: the MAL can be sent from {longDate(dayAfter)}, the day after the year end.</span>}
+            {!notYet && <span className="text-xs text-ink-2">To {f.officer_name || "the signing officer"} ({f.officer_email || "no email"}). When it is signed, the package takes that date.</span>}
           </form>
         ) : null}
       </section>

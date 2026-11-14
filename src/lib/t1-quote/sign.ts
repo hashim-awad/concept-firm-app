@@ -1,4 +1,6 @@
 import "server-only";
+import { pieceText } from "./render";
+import { SIGN_PAGE } from "./wording";
 // Signing a T1 quote through a private link (batch sections 7 and 9), and the signed PDF.
 // Runs with the server key; the database checks every rule again (record_t1_signature).
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -64,7 +66,8 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
   const pp = proposal ? proposalPdfParts(q as ProposalRow, q.chosen_option ?? 0, signature) : null;
   // A New letter: the letter's own PDF, then the signatures and the signing record.
   const mal = isMal(q as LetterRow);
-  const lp = q.kind === "letter" ? letterPdf(q as LetterRow, signature, mal ? signers[0]?.signed_at : null) : null;
+  // The MAL: dated the day it is signed, its signature line filled in ("Signed electronically by ...").
+  const lp = q.kind === "letter" ? letterPdf(q as LetterRow, signature, mal && signers[0]?.signed_at ? { at: signers[0].signed_at, name: signers[0].signed_name, title: signers[0].signed_title ?? "" } : null) : null;
   const parts = proposal || lp ? [] : await clientParts(q as QuoteRow, signers, signature);
   // Corporate: Part B is the master letter, laid out by Studio's own engine (pdfDoc), word for word.
   let partB: { content: unknown[]; images: Record<string, string> } | undefined;
@@ -79,6 +82,7 @@ export async function makeSignedPdf(quoteId: string): Promise<string | null> {
     clientNames: q.kind !== "t1" ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and "),
     company: q.kind !== "t1" ? q.company_name ?? "" : undefined,
     ...(pp ? { docTitle: "Proposal and engagement letter", option: pp.optionName } : {}),
+    ...(mal ? { mal: { statement: pieceText(q.wording ?? {}, SIGN_PAGE.agreeMal) } } : {}),
     ...(lp ? { docTitle: mal ? "Management Responsibility Acknowledgement" : "Engagement letter", company: isCompanyLetter(q as LetterRow) ? q.company_name ?? "" : undefined,
       clientNames: isCompanyLetter(q as LetterRow) ? `${q.company_name}` : signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and ") } : {}),
     signers: signers.map((x) => ({ name: `${x.first_name} ${x.last_name}`, signedName: x.signed_name, email: x.email, signedAt: x.signed_at ?? "", ip: x.signed_ip, agent: x.signed_agent, sameDevice: x.same_device, documentHash: x.document_hash, title: x.signed_title ?? undefined })),

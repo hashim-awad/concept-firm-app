@@ -58,6 +58,21 @@ select test.check('the MAL waits for the reviewer', test.try(format($q$select pu
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_sign_step(:'f', 'statements', 'reviewed');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+reset role;
+reset request.jwt.claims;
+-- A year that ends today (Toronto): the MAL waits until tomorrow.
+update public.cb_files set year_end = (now() at time zone 'America/Toronto')::date, year_start = (now() at time zone 'America/Toronto')::date - 364 where id = :'f';
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('the MAL waits for the day after the year end', test.try(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f'))
+  = format('The MAL can be sent from %s, the day after the year end.', trim(to_char((now() at time zone 'America/Toronto')::date + 1, 'FMMonth FMDD, YYYY'))));
+reset role;
+reset request.jwt.claims;
+-- The year end moved into the past (yesterday, Toronto), for the rest of the tests.
+update public.cb_files set year_end = (now() at time zone 'America/Toronto')::date - 1, year_start = (now() at time zone 'America/Toronto')::date - 365 where id = :'f';
+select test.check('the year-end move kept step 9 signed', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'statements' and reviewed_at is not null));
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the MAL needs its document', test.try(format($q$select public.cb_send_mal(%L, 'MAL', 'short', '[]')$q$, :'f')) = 'The MAL could not be built.');
 select public.cb_send_mal(:'f', 'Management Responsibility Acknowledgement', '<p>' || repeat('MAL text ', 30) || '{{DATE}}</p>', '[{"text":"MAL"}]') as mal \gset
 select test.check('only one MAL out at a time', test.try(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f')) = 'The MAL is already out for signing.');
@@ -107,3 +122,16 @@ select public.cb_save_opening_s125(:'f', '[{"code":"8000","amount":18000},{"code
 reset role;
 reset request.jwt.claims;
 select test.check('Schedule 125 saved, zero lines dropped', (select count(*) from public.cb_opening_s125 where file_id = :'f') = 2);
+
+-- Statement lines (round 11 fix): capital assets print their own GIFI name; 2620 to 2628 one line;
+-- 2707 credit cards; 1062 trade receivables.
+select test.check('statement lines: capital assets, payables, credit cards, trade receivables', (
+  select bool_and(case gifi_code
+    when '1775' then statement_line = 'Accumulated amortization of computer equipment/software'
+    when '1774' then statement_line = 'Computer equipment/software'
+    when '2241' then statement_line = 'Due from/investment in Canadian related parties'
+    when '2627' then statement_line = 'Accounts payable and accrued liabilities'
+    when '2621' then statement_line = 'Accounts payable and accrued liabilities'
+    when '2707' then statement_line = 'Credit cards payable'
+    when '1062' then statement_line = 'Trade accounts receivable' end)
+  from public.cb_master_lines where gifi_code in ('1775', '1774', '2241', '2627', '2621', '2707', '1062')));
