@@ -64,14 +64,16 @@ reset role;
 reset request.jwt.claims;
 select test.check('A4: the fix entry says it came from the revenue check', (select origin || '|' || wp_ref || '|' || entry_date from public.cb_entries where id = :'fix') = 'revenue_check|Revenue check|2026-12-31');
 select test.check('A4: the fix clears the difference', (private.cb_revenue_state(:'f') ->> 'diff')::numeric = 0);
-select test.check('A2: the GST/HST difference opens after the fix', private.cb_step5_problems(:'f') = array['Revenue check: explain the difference with the GST/HST returns.']);
+-- Round 14: step 5 also lists the shareholder loan schedule; these checks are on the revenue check's own lines.
+select test.check('A2: the GST/HST difference opens after the fix', array(select x from unnest(private.cb_step5_problems(:'f')) x where x like 'Revenue check:%') = array['Revenue check: explain the difference with the GST/HST returns.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('A4: one line only', test.try(format($q$select public.cb_save_revenue_check(%L, repeat('x', 201), '', '', false)$q$, :'f')) = 'Keep each explanation to one line (200 characters).');
 select public.cb_save_revenue_check(:'f', '', 'The return was filed before the duplicate was found.', 'Brokerage slip left out a December deal of 500.00.', false);
 reset role;
 reset request.jwt.claims;
-select test.check('the revenue check is done', private.cb_step5_problems(:'f') = '{}');
+select test.check('the revenue check is done', array(select x from unnest(private.cb_step5_problems(:'f')) x where x like 'Revenue check:%') = '{}');
+select test.check('round 14: the file has a shareholder account, so step 5 also waits for the schedule', private.cb_step5_problems(:'f') @> array['Shareholder loan schedule: prepare it.']);
 
 -- A5: a difference over the threshold goes to the reviewer and waits on the step 6 list.
 set role authenticated;

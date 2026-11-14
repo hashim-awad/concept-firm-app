@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildFs, caption, n, periodOf, type FsLine } from "../src/lib/closebook/fs-model.ts";
+import { noteBlocks } from "../src/lib/closebook/fs-text.ts";
 
 const L = (code: string, name: string, cap: string): [string, FsLine] => [code, { code, name, caption: cap }];
 const lines = new Map<string, FsLine>([
@@ -128,4 +129,42 @@ test("amounts print as Appendix C: commas, brackets, a dash for zero", () => {
   assert.equal(n(1234567), "1,234,567");
   assert.equal(n(-500), "(500)");
   assert.equal(n(0), "-");
+});
+
+test("round 14: a debit balance on a due to shareholder line prints as Due from shareholder, a current asset, with the note", () => {
+  const ls = new Map([...lines, L("1301", "Due from individual shareholder(s)", "Due from shareholder")]);
+  // 2781 goes from a 3,762.68 credit to a 2,000.00 debit; cash falls by the 5,762.68 difference.
+  const m = buildFs({ ...base, lines: ls, cur: new Map([...cur, ["2781", -2000], ["1002", 44237.57]]), shTerms: "" });
+  assert.deepEqual(m.failed, []);
+  const row = m.bs.ca.find((r) => r.cap === "Due from shareholder");
+  assert.equal(row?.cur, 2000);
+  assert.equal(row?.note, String(m.notes.shareholder!.n));
+  assert.equal(m.bs.cl.some((r) => r.code === "2781"), false, "nothing left on the due to line");
+  assert.equal(m.notes.shareholder!.heading, "Due from shareholder");
+  assert.match(m.notes.shareholder!.terms, /due from the shareholder .* current asset/);
+  // The step 9 terms print as typed, as for a credit balance.
+  assert.equal(buildFs({ ...base, lines: ls, cur: new Map([...cur, ["2781", -2000], ["1002", 44237.57]]), shTerms: "Repayable on demand." }).notes.shareholder!.terms, "Repayable on demand.");
+  // A credit balance keeps its note as before.
+  assert.equal(buildFs(base).notes.shareholder!.heading, "Due to shareholder");
+});
+
+test("round 14 fix 3: a credit on a due from shareholder line prints as Due to shareholder, a current liability, with the note", () => {
+  const ls = new Map([...lines, L("1301", "Due from individual shareholder(s)", "Due from shareholder")]);
+  // 1301 at a 1,500.00 credit (the company owes the shareholder); 2781 at nil.
+  const m = buildFs({ ...base, lines: ls, cur: new Map([...cur, ["2781", 0], ["1301", -1500], ["1002", 47737.57]]), shTerms: "" });
+  assert.deepEqual(m.failed, []);
+  const row = m.bs.cl.find((r) => r.code === "2781");
+  assert.equal(row?.cap, "Due to shareholder(s)/director(s)");
+  assert.equal(row?.cur, 1500);
+  assert.equal(m.bs.ca.some((r) => r.code === "1301"), false, "nothing left on the due from line");
+  assert.equal(m.notes.shareholder!.heading, "Due to shareholder");
+  assert.match(m.notes.shareholder!.terms, /due to the shareholder .* current liability/);
+});
+
+test("round 14 fix 4: Note 1 ends with a full stop when there is nothing to list", () => {
+  const plain = buildFs({ ...base, cur: new Map([["1002", 45000], ["3500", 100], ["3660", 19900], ["8121", 25000]]), hst: 0 });
+  const n1 = noteBlocks(plain)[0];
+  assert.deepEqual(n1.bullets, []);
+  assert.match(n1.paras[0], /is the historical cost basis and reflects cash transactions\.$/);
+  assert.match(noteBlocks(buildFs(base))[0].paras[0], /with the addition of:$/);
 });

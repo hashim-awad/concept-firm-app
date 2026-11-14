@@ -26,6 +26,24 @@ export type FsInput = {
 
 const TOTALS = new Set(["2599", "3499", "3620", "3640", "3849", "3660", "3680", "3600", "8089", "8299", "8519", "9367", "9368", "9369", "9970", "9990", "9995", "9999", "9659", "9898", "9899", "8518", "8300"]);
 const SHAREHOLDER_TO = new Set(["2780", "2781", "2782", "2783", "3260", "3261", "3262", "3263"]);
+// Round 14: a debit balance on a due to shareholder line (the shareholder owes the company) prints on the
+// matching due from shareholder line, a current asset (CaseWare's sign-based reclassification).
+const DUE_FROM: Record<string, string> = { "2780": "1300", "3260": "1300", "2781": "1301", "3261": "1301", "2782": "1302", "3262": "1302", "2783": "1303", "3263": "1303" };
+const SHAREHOLDER_FROM = new Set(["1300", "1301", "1302", "1303"]);
+// Round 14 fix 3: the reverse, a credit on a due from shareholder line (the company owes the shareholder)
+// prints on the matching due to shareholder line, a current liability.
+const DUE_TO: Record<string, string> = { "1300": "2780", "1301": "2781", "1302": "2782", "1303": "2783" };
+export function reclassDueTo(m: Map<string, number>): Map<string, number> {
+  const out = new Map(m);
+  for (const [code, v] of m) {
+    // GIFI-signed: a debit on a liability line and a credit on an asset line are both negative.
+    const to = v < 0 ? DUE_FROM[code] ?? DUE_TO[code] : undefined;
+    if (!to) continue;
+    out.set(code, (out.get(code) ?? 0) - v);
+    out.set(to, (out.get(to) ?? 0) - v);
+  }
+  return out;
+}
 const RELATED = /related (part|corp|canadian|foreign)|affiliat/i;
 const cents = (n: number) => Math.round(n * 100);
 
@@ -110,7 +128,8 @@ function balance(m: Col, out: number, inp: FsInput): ProfileFix | null {
   return { code: best, name: inp.lines.get(best)?.name ?? "", from, to };
 }
 
-export function buildFs(inp: FsInput) {
+export function buildFs(input: FsInput) {
+  const inp: FsInput = { ...input, cur: reclassDueTo(input.cur), prior: input.prior ? reclassDueTo(input.prior) : null };
   const p = periodOf(inp.yearStart, inp.yearEnd);
   const hasPrior = !!inp.prior && [...inp.prior.values()].some((v) => v !== 0);
   const prior = hasPrior ? inp.prior : null;
@@ -156,6 +175,7 @@ export function buildFs(inp: FsInput) {
   // Notes: only those that apply, numbered in order after Note 1 (Appendix C's wording, plus related
   // parties). The capital assets note comes back in round 12 with its table.
   const sh = [...ncl, ...cl].filter((r) => SHAREHOLDER_TO.has(r.code));
+  const shFrom = ca.filter((r) => SHAREHOLDER_FROM.has(r.code));
   const relatedRows = [...ca, ...nca, ...cl, ...ncl].filter((r) => RELATED.test(inp.lines.get(r.code)?.name ?? ""));
   const has = (lo: number, hi: number, skip: string[] = []) => [...rC].some(([c, v]) => v && Number(c) >= lo && Number(c) <= hi && !skip.includes(c));
   let nn = 2;
@@ -163,10 +183,16 @@ export function buildFs(inp: FsInput) {
     has_ar: has(1060, 1063), has_ppe: nca.length > 0, has_ap: has(2620, 2628, ["2627"]), has_sd: has(2627, 2627),
     has_tax: cl.some((r) => r.code === "2680"), has_hst: !!hst, note1Policy: inp.note1Policy,
     ppa: ppa.cur ? { n: nn++, amount: ppa.cur } : null,
-    shareholder: sh.length ? { n: nn++, rows: sh, terms: inp.shTerms || `The amount due to the shareholder is non-interest bearing, unsecured, and has no set terms of repayment. It is classified as a ${sh.some((x) => Number(x.code) >= 3260) ? "non-current" : "current"} liability.` } : null,
+    // One note for the shareholder balances, due to and due from, with the terms typed in step 9.
+    shareholder: sh.length || shFrom.length ? { n: nn++, rows: [...shFrom, ...sh],
+      heading: sh.length && shFrom.length ? "Due to and from shareholder" : sh.length ? "Due to shareholder" : "Due from shareholder",
+      terms: inp.shTerms || [
+        ...(shFrom.length ? ["The amount due from the shareholder is non-interest bearing, unsecured, and has no set terms of repayment. It is classified as a current asset."] : []),
+        ...(sh.length ? [`The amount due to the shareholder is non-interest bearing, unsecured, and has no set terms of repayment. It is classified as a ${sh.some((x) => Number(x.code) >= 3260) ? "non-current" : "current"} liability.`] : []),
+      ].join(" ") } : null,
     related: relatedRows.length ? { n: nn++, rows: relatedRows } : null,
   };
-  for (const r of sh) r.note = String(notes.shareholder!.n);
+  for (const r of [...shFrom, ...sh]) r.note = String(notes.shareholder!.n);
   for (const r of relatedRows) if (!r.note) r.note = String(notes.related!.n);
   return {
     name: inp.name, address: inp.address, ...p, y: inp.yearEnd.slice(0, 4), py: String(Number(inp.yearEnd.slice(0, 4)) - 1), hasPrior,

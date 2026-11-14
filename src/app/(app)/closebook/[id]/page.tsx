@@ -21,6 +21,9 @@ import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { RevenueCheck } from "./revenue-check";
+import { ShSchedule } from "./sh-schedule";
+import { loadShLoans } from "@/lib/closebook/sh-server";
+import { flagText, type ShFlag } from "@/lib/closebook/sh-loans";
 import { T2Step } from "./t2-step";
 import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
@@ -260,9 +263,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const exp = file.file_type === "full" && setup.owner_paid === true ? await loadExpenses(supabase, file) : null;
     const open = editable && file.phase !== "locked";
     const booked = entries.filter((e) => e.origin === "expenses_personal").length;
+    // Round 14: the shareholder loan schedule (CaseWare's continuity working paper), beside the revenue check.
+    const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
     body = <>
       {rev && <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} />}
+      {(sh.rows.length > 0 || sh.status.applies) && <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />}
       {exp && (
         <details id="expenses-personal" className="card mb-4" open={open && !booked}>
           <summary className="cursor-pointer font-semibold">Expenses paid personally <span className="ml-1 text-sm font-normal text-ink-3">
@@ -296,6 +302,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
           return r ? revenueWaiting(r).map((w) => ({ href: `${href("entries")}#revenue-check`, label: w.label,
             detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
+        })() },
+        { key: "sh", title: "Shareholder loans", step: "step 5", items: await (async () => {
+          // Round 14: flags the preparer answered, per shareholder (last year's part not repaid; repaid near year end).
+          const { data: fl } = await supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null);
+          return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: `${href("entries")}#sh-loans`,
+            label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: f.note, amount: amt(Number(f.closing)) }));
         })() },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
