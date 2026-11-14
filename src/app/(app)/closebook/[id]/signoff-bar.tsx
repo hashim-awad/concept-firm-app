@@ -57,7 +57,7 @@ export function SignoffBar({ fileId, step, st, names, me, isOwner, editable, bac
         <div className="grid gap-1 border-t border-sand-200 pt-2 text-sm sm:grid-cols-2">
           {problems.length > 0 && <div><p className="font-medium">{review ? "Before step 6 can be signed" : "Open on this step"}</p>
             <ul className="list-disc pl-5 text-ink-2">{problems.map((p) => <li key={p}>{p}</li>)}</ul></div>}
-          {waiting.length > 0 && <div><p className="font-medium">Waiting for the reviewer{st?.holds_preparer && !prepared ? <span className="font-normal text-ink-2">: the preparer signs after these are decided</span> : null}</p>
+          {waiting.length > 0 && <div><p className="font-medium">Waiting for the reviewer<span className="font-normal text-ink-2">: on the step 6 list; they do not hold the preparer</span></p>
             <ul className="list-disc pl-5 text-ink-2">{waiting.map((p) => <li key={p}>{p}</li>)}</ul></div>}
         </div>
       )}

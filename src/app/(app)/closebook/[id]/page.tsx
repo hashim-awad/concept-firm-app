@@ -15,7 +15,7 @@ import { entryNo } from "@/lib/closebook/reports";
 import { StatusPill } from "@/components/ds/primitives";
 import { SignoffBar } from "./signoff-bar";
 import { ReviewNotes } from "./review-notes";
-import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
+import { Checklist, HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
@@ -61,7 +61,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const ref = await loadReference(supabase);
   const isReviewer = access.staff_id === file.reviewer_id;
   const editable = canEdit(access, "closebook");
-  const people = { preparer: firstName(names.get(file.preparer_id) ?? ""), reviewer: firstName(names.get(file.reviewer_id) ?? "") };
+  // Full names (round 8b item 9): two staff can share a first name.
+  const people = { preparer: names.get(file.preparer_id) ?? "", reviewer: names.get(file.reviewer_id) ?? "" };
   const bankFile = fromStatements(file.books);
   const str = (v: unknown) => (typeof v === "string" ? v : undefined);
   // Bank files: the months still missing per account set step 2's note and next job.
@@ -213,7 +214,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
           selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
           noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: `${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}` } : undefined} />
-      : tb("code", ["accounts", "lines"], "accounts", true);
+      : tb("code", ["accounts", "lines"], "accounts", false);   // the uploads stay on step 3 (round 8b item 8)
   } else if (step === "entries") {
     // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
     const onLine: Record<string, { number: string; name: string }> = {};
@@ -244,6 +245,18 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
         { href: `${href(n.step)}#note-${n.id}`, label: `${stepName(n.step)}${n.target_label ? `: ${n.target_label}` : ""}`,
           detail: `${n.status === "fixed" ? "Fixed, to clear. " : ""}${n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body}` }));
+      body = <ReviewStep groups={groups} notes={openNotes} />;
+    }
+  } else if (step === "mapping") {
+    body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
+  } else if (step === "t2") {
+    body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
+  } else if (step === "statements") {
+    // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
+    body = null;
+  } else {
+    // Step 10 (round 8b): the completion checklist lives here, answered before the file is locked and the
+    // compilation report is released. The rest of step 10 comes when it is built.
       const [{ data: qs }, { data: ans }, wording, { data: appr }] = await Promise.all([
         supabase.from("cb_checklist_questions").select("key").order("sort_order"),
         supabase.from("cb_checklist_answers").select("question, answer, note").eq("file_id", id),
@@ -256,17 +269,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         const piece = CB_CHECKLIST.find((c) => c.key === q.key);
         return { key: q.key, text: piece ? cbText(texts, piece) : q.key, answer: ansOf.get(q.key)?.answer ?? "", note: ansOf.get(q.key)?.note ?? "" };
       });
-      body = <ReviewStep fileId={id} groups={groups} notes={openNotes} checklist={checklist} editable={editable && file.phase !== "locked"} back={href("review")} trial={!appr} />;
-    }
-  } else if (step === "mapping") {
-    body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
-  } else if (step === "t2") {
-    body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
-  } else if (step === "statements") {
-    // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
-    body = null;
-  } else {
-    body = null;
+      const checkProblems = ((review.status as Record<string, unknown>).checklist ?? []) as string[];
+    body = <Checklist fileId={id} checklist={checklist} problems={checkProblems} editable={editable && file.phase !== "locked"} back={href("lock")} trial={!appr} />;
   }
 
   // Round 8: each step with a sign-off shows "Prepared by" and "Reviewed by" at the top and its review
@@ -358,7 +362,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             <div className="max-w-2xl">
               {stepPicker(true)}
               <p className="hidden text-xs font-semibold tracking-wide text-white/75 uppercase 2xl:block">Step {cur.n} of {STEP_KEYS.length} · {cur.name}</p>
-              <p className="mt-1 text-base">{step === current ? next : step === "records" && !bankFile ? RECORDS_TB : STEP_LINE[step]}</p>
+              <p className="mt-1 text-base">{step === current ? next : step === "records" && !bankFile ? RECORDS_TB : step === "code" && !bankFile ? CODE_TB : STEP_LINE[step]}</p>
             </div>
           </section>
           {step === "review" && !showHistory && (
@@ -377,7 +381,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 // Each step's one-line description, shown on a step that is not the next job (Hashim, Nov 15, 2026,
 // layout item 7): no "current step is X / Go to step X" on a step that can already be worked.
 const STEP_LINE: Record<StepKey, string> = {
-  setup: "Answer the setup questions and confirm the planning items.",
+  setup: "Answer the setup questions.",
   opening: "Last year's closing balances by GIFI code, checked and signed.",
   records: "Every bank and card statement for the year, uploaded and balanced.",
   code: "Each bank and card line gets an account and a sales tax code.",
@@ -391,6 +395,8 @@ const STEP_LINE: Record<StepKey, string> = {
 
 // Step 3 for a file that imports a trial balance (round 7 item 2).
 const RECORDS_TB = "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks.";
+// Step 4 for a file that imports a trial balance (round 8b item 8).
+const CODE_TB = "Match each account to its GIFI line.";
 
 // One Yes/No setup question (step 1). Blank until answered.
 function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: string; value: boolean | undefined }) {

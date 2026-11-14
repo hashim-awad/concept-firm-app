@@ -58,7 +58,7 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
     group("Sales", [
       access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
       access.leads && item("/quotes", "Quotes", <Landmark key="i" />),
-      access.isOwner && (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
+      (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
     ]),
     group("Clients", [
       access.clients && item("/clients", "Clients", <Building2 key="i" />),

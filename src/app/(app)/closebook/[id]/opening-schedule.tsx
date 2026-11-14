@@ -162,7 +162,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
           )}
         </table>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 bg-sand-50 px-4 py-3">
-          <span className="text-sm text-ink-2">{signed && `Signed by ${signed.by}, ${signed.at}.${dirty ? " Saving a change clears the sign-off." : ""} `}
+          <span className="text-sm text-ink-2">{signed && `Prepared by ${signed.by}, ${signed.at}.${dirty ? " Saving a change clears the sign-off." : ""} `}
             {blocking ? <>{/* A count only: each problem shows once, on its own row (layout item 8). */}
               {flags.length > 0 && <a href={`#gifi-${flags[0].code}`} className="font-semibold text-navy-700 underline">{flags.length} {flags.length === 1 ? "total does" : "totals do"} not tie</a>}
               {flags.length > 0 && badRows > 0 && " · "}

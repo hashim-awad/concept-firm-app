@@ -40,6 +40,17 @@ export type StepFacts = {
 
 const s = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+// A step's number and name as the file shows it (round 8b item 11): steps 3 and 4 are named by how the
+// books are kept. The Review notes page lists each note under its own file's step names.
+export function stepTitle(key: string, books: string): string {
+  const bank = fromStatements(books);
+  const names: Record<string, [number, string]> = { setup: [1, "Set up the file"], opening: [2, "Opening balances"],
+    records: [3, bank ? "Bank statements" : "Get the records"], code: [4, bank ? "Code the transactions" : "Match accounts to GIFI"],
+    entries: [5, "Adjusting entries"], review: [6, "Review"], mapping: [7, "GIFI mapping"], t2: [8, "T2 tie-out"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
+  const n = names[key];
+  return n ? `${n[0]}. ${n[1]}` : key;
+}
+
 export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next: string } {
   const bank = fromStatements(f.books);
   const planning = f.docs.filter((d) => d.phase === "planning");
@@ -55,7 +66,8 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     { key: "setup", n: 1, name: "Set up the file", who: f.people.preparer,
       note: f.setupOpen !== undefined ? (f.setupOpen ? `${s(f.setupOpen, "question")} to answer` : "Questions answered") : setupDone ? "Done" : `${s(planning.filter((d) => d.status !== "signed").length, "item")} open` },
     { key: "opening", n: 2, name: "Opening balances", who: f.people.preparer,
-      note: bank ? (op.signed ? "Balance sheet ties out" : op.entered ? "Not signed yet" : "Last year's balance sheet") : "From the trial balance import" },
+      // Round 8b: the step's sign-off is its Prepared by; the sub-line only says what the step is.
+      note: bank ? "Last year's balance sheet" : "From the trial balance import" },
     { key: "records", n: 3, name: bank ? "Bank statements" : "Get the records", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 4, name: bank ? "Code the transactions" : "Match accounts to GIFI", who: f.people.preparer,
@@ -85,7 +97,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     word: sg ? word(b.key) : ((done[b.key] ? "signed" : b.key === current ? "next" : "open") as StepWord), notes: sg?.[b.key]?.notes ?? 0 }));
 
   const next: Record<StepKey, string> = {
-    setup: "Set up the file. You can start on the opening balances and the statements now: they often come in before the letter is signed.",
+    setup: "Answer the setup questions.",
     opening: !bank ? "Import this year's trial balance; last year's column comes with it." : op.entered
       ? "Check last year's balance sheet: sign as preparer when no total is highlighted."
       : "Enter last year's closing balance sheet from the prior T2 or the CRA assessment. Sign off when no total is highlighted.",

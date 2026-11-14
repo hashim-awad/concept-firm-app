@@ -7,13 +7,19 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Closebook preparer'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
 select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Staff D', 'staff.d@example.test', (select id from public.roles where name = 'Staff'));
 reset role;
 reset request.jwt.claims;
-select test.check('the Closebook preparer role: Closebook edit, Clients view, nothing else',
+-- Round 8b: Closebook preparer is a permission on a role (Closebook at Edit), not a role of its own.
+-- Staff C keeps the Staff role and gets Closebook at Edit on it; Staff D is on a role without it.
+select test.check('there is no "Closebook preparer" role', not exists (select 1 from public.roles where name = 'Closebook preparer'));
+insert into public.roles (name) values ('Front desk') returning id as fd \gset
+update public.staff set role_id = :'fd' where id = '00000000-0000-0000-0000-00000000000d';
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+select test.check('Staff with Closebook at Edit keeps Leads and Quotes too',
   (select string_agg(area_key || ':' || level, ',' order by area_key) from public.role_permissions rp join public.roles r on r.id = rp.role_id
-    where r.name = 'Closebook preparer' and level <> 'none') = 'clients:view,closebook:edit');
+    where r.name = 'Staff' and area_key in ('closebook', 'leads', 'documents')) = 'closebook:edit,documents:edit,leads:edit');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Larch Test Realty Inc.', 'ON') returning id as client \gset
 
 -- People: the reviewer is an owner; the preparer needs Closebook preparer access.
@@ -70,7 +76,7 @@ reset request.jwt.claims;
 select test.check('a setup change clears step 1''s sign-offs', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'setup'));
 select test.check('step 3 keeps its sign-offs', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and reviewed_at is not null));
 select test.check('the history records the cleared sign-off, with who', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'setup'
-  and actor_id = '00000000-0000-0000-0000-00000000000c' and detail = 'The setup answers changed'));
+  and actor_id = '00000000-0000-0000-0000-00000000000c' and detail = 'Payroll: No to Yes'));
 select test.check('saving the same answers again changes nothing', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared') = 1);
 
 -- Review notes: added, replied, fixed (reopening only its step), cleared.
@@ -133,12 +139,19 @@ reset role;
 reset request.jwt.claims;
 select test.check('the history says when one person prepared and reviewed', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reviewed' and step = 'setup' and detail = 'Prepared and reviewed by the same person'));
 
--- Step 6: the checklist, then no open note, then the reviewer signs.
+-- Round 8b: the completion checklist belongs to step 10. Step 6 does not need it.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('step 6 waits for the checklist', test.try(format($q$select public.cb_sign_step(%L, 'review', 'reviewed')$q$, :'f')) = 'Not yet: 12 checklist questions to answer.');
-select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000001","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
-select public.cb_save_checklist(:'f', (select jsonb_agg(jsonb_build_object('question', key, 'answer', case when sort_order = 9 then 'na' else 'yes' end, 'note', '')) from public.cb_checklist_questions));
+select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000002","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
+select test.check('question 1 cannot be Not applicable', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000001","answer":"na","note":""}]')$q$, :'f')) = 'Question 1 cannot be Not applicable: only questions 8 and 9 can.');
+select test.check('question 10 cannot be Not applicable', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000a","answer":"na","note":""}]')$q$, :'f')) like 'Question 10 cannot%');
+select public.cb_save_checklist(:'f', (select jsonb_agg(jsonb_build_object('question', key, 'answer', case when sort_order = 9 then 'na' when sort_order = 11 then 'no' else 'yes' end,
+  'note', case when sort_order = 11 then 'Report not dated yet.' else '' end)) from public.cb_checklist_questions));
+reset role;
+reset request.jwt.claims;
+select test.check('a "No" on question 11 is kept, and blocks: it must be Yes', private.cb_checklist_problems(:'f') = array['Question 11 must be Yes.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_add_note(:'f', 'review', 'step', null, 'Check the MAL date against the report date.') as n3 \gset
 select test.check('step 6 is refused while a note is open', test.try(format($q$select public.cb_sign_step(%L, 'review', 'reviewed')$q$, :'f')) = 'Not yet: 1 review note still open.');
 select public.cb_clear_note(:'n3', null);

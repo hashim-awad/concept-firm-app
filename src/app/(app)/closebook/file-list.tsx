@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
-import { fileBy, FILE_TYPE, firstName } from "@/lib/closebook/files";
+import { fileBy, FILE_TYPE } from "@/lib/closebook/files";
 import { fileSteps, SIGNED_STEPS, STEP_KEYS } from "@/lib/closebook/steps";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 import type { ListedFile } from "@/lib/closebook/server";
@@ -14,7 +14,7 @@ export function FileList({ files, names, showPeople }: { files: ListedFile[]; na
       <table className="table min-w-[900px]">
         <thead><tr><th>Client</th><th>Year-end</th><th>File by</th><th>Step</th><th>Next job</th>{showPeople && <th>Preparer / reviewer</th>}</tr></thead>
         <tbody>{rows.map((f) => {
-          const people = { preparer: firstName(names.get(f.preparer_id) ?? ""), reviewer: firstName(names.get(f.reviewer_id) ?? "") };
+          const people = { preparer: names.get(f.preparer_id) ?? "", reviewer: names.get(f.reviewer_id) ?? "" };
           const accts = f.accts ?? [];
           // The list checks statement periods only (not the months without transactions), to stay light.
           const bankGaps = missingText((f.baccts ?? []).map((a) => ({ name: a.name,
