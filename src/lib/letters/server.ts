@@ -9,10 +9,14 @@ import { createStudioEngine } from "@/lib/studio/engine.generated.js";
 import { CorporateLetter, T1Letter, type Fee } from "@/lib/studio/controllers";
 import { ILLUSTRATIVE, LETTERHEAD } from "@/lib/studio/assets.generated";
 import { LETTERHEAD_URL } from "@/lib/t1-quote/render";
+import { longDate } from "@/lib/closebook/fs-model";
 import { partBHtml, partBPdf, type LetterBuild } from "@/lib/corporate/render";
 import type { QuoteRow } from "@/lib/t1-quote/server";
 
-export type LetterDetails = { doc_kind: "corporate_letter" | "t1_letter"; inputs: { f: Record<string, unknown>; fees?: Fee[] }; label?: string; document_id?: string; engagement_id?: string };
+export type LetterDetails = { doc_kind: "corporate_letter" | "t1_letter" | "cb_mal"; inputs: { f: Record<string, unknown>; fees?: Fee[] }; label?: string; document_id?: string; engagement_id?: string;
+  // cb_mal (round 11): the Management Responsibility Acknowledgement from Closebook step 9, built when the
+  // preparer sends it. Its date is the day the signing officer signs ({{DATE}} until then).
+  file_id?: string; html?: string; pdf?: unknown[]; position?: string };
 export type LetterRow = QuoteRow & { details: LetterDetails | null; title: string | null };
 
 function built(q: LetterRow, lh: string, sig: string) {
@@ -48,8 +52,16 @@ function companyBuild(q: LetterRow, lh: string, sig: string): LetterBuild {
 }
 const company = (q: LetterRow) => q.details?.doc_kind === "corporate_letter";
 
+// The MAL's date: the day it is signed (Toronto), or today while it waits to be signed.
+export const MAL_DATE = "{{DATE}}";
+const malDate = (iso?: string | null) => longDate((iso ? new Date(iso) : new Date()).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }));
+const dated = (x: unknown, date: string): unknown => (typeof x === "string" ? x.split(MAL_DATE).join(date) : Array.isArray(x) ? x.map((y) => dated(y, date))
+  : x && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, dated(v, date)])) : x);
+export const isMal = (q: { kind?: string; details?: { doc_kind?: string } | null }) => q.kind === "letter" && q.details?.doc_kind === "cb_mal";
+
 // The letter as the client reads it.
-export function letterHtml(q: LetterRow, signature: string | null): string {
+export function letterHtml(q: LetterRow, signature: string | null, signedAt?: string | null): string {
+  if (isMal(q)) return dated(q.details?.html ?? "", malDate(signedAt)) as string;
   if (company(q)) return partBHtml(q.wording ?? {}, companyBuild(q, LETTERHEAD_URL, signature ?? BLANK), { letterhead: LETTERHEAD_URL, signature });
   return wrap(built(q, LETTERHEAD_URL, signature ?? BLANK).html());
 }
@@ -61,11 +73,12 @@ export function letterHash(html: string): string {
 }
 
 // The letter's PDF content, exactly as the Letter Builder lays it out.
-export function letterPdf(q: LetterRow, signature: string | null): { content: unknown[]; images: Record<string, string> } {
+export function letterPdf(q: LetterRow, signature: string | null, signedAt?: string | null): { content: unknown[]; images: Record<string, string> } {
+  if (isMal(q)) return { content: dated(q.details?.pdf ?? [], malDate(signedAt)) as unknown[], images: {} };
   if (company(q)) return partBPdf(q.wording ?? {}, companyBuild(q, LETTERHEAD, signature ?? BLANK), LETTERHEAD, signature);
   const b = built(q, LETTERHEAD, signature ?? BLANK);
   const dd = b.e.pdfDoc(b.s, b.blocks(), LETTERHEAD);
   return { content: dd.content as unknown[], images: dd.images as Record<string, string> };
 }
 
-export const isCompanyLetter = (q: { kind?: string; details?: { doc_kind?: string } | null }) => q.kind === "letter" && q.details?.doc_kind === "corporate_letter";
+export const isCompanyLetter = (q: { kind?: string; details?: { doc_kind?: string } | null }) => q.kind === "letter" && (q.details?.doc_kind === "corporate_letter" || q.details?.doc_kind === "cb_mal");

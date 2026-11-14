@@ -9,7 +9,7 @@ import type { CorpQuoteData } from "@/lib/corporate/render";
 
 export type QuoteRow = {
   id: string; lead_id: string; tax_year: number; couple: boolean; lines: { code: string; person: number | null; quantity: number; unit_cents: number; total_cents: number }[];
-  total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired"; sent_at: string | null; valid_until: string | null;
+  total_cents: number; status: "draft" | "sent" | "viewed" | "signed" | "declined" | "expired" | "withdrawn"; sent_at: string | null; valid_until: string | null;
   sender: { name: string; phone: string; email: string } | null; signer: { name: string; title: string } | null;
   wording: Record<string, string> | null; wording_label: string | null;
   kind?: "t1" | "corporate" | "proposal" | "letter"; company_name?: string | null; year_end?: string | null;

@@ -51,7 +51,7 @@ select public.cb_sign_step(:'f', 'records', 'prepared');
 select test.check('step 4: three accounts to match', test.try(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'Not yet: 3 accounts to match to a GIFI line.');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '41000' then '8000.00' else '8862.00' end) from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'code', 'prepared');
-select test.check('steps 9 and 10 have no sign-off yet (step 8 got its own in round 10)', test.try(format($q$select public.cb_sign_step(%L, 'statements', 'prepared')$q$, :'f')) like 'This step is not built yet%');
+select test.check('step 10 has no sign-off yet (steps 8 and 9 got theirs in rounds 10 and 11)', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) like 'This step is not built yet%');
 reset role;
 reset request.jwt.claims;
 

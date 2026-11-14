@@ -14,7 +14,7 @@ export default async function ThresholdsPage({ searchParams }: PageProps<"/admin
   const num = (id: string, label: string, value: number, hint: string, unit = "$") => (
     <div className="grid gap-1 sm:grid-cols-[minmax(0,1fr)_160px] sm:items-center sm:gap-6">
       <div><label htmlFor={id} className="font-medium">{label}</label><p className="text-sm text-ink-2">{hint}</p></div>
-      <div className="flex items-center gap-2">{unit === "$" && <span className="text-ink-3">$</span>}<input id={id} name={id} defaultValue={value} inputMode="decimal" required className="input text-right tabular-nums" />{unit === "%" && <span className="text-ink-3">%</span>}</div>
+      <div className="flex items-center gap-2">{unit === "$" && <span className="text-ink-3">$</span>}<input id={id} name={id} defaultValue={unit === "$" ? Number(value).toLocaleString("en-US", { maximumFractionDigits: 2 }) : value} inputMode="decimal" required className="input text-right tabular-nums" />{unit === "%" && <span className="text-ink-3">%</span>}</div>
     </div>
   );
   return (
