@@ -94,3 +94,15 @@ test("Account List: a trial balance uploaded by mistake is refused", () => {
   const r = readAccountList(parseCsv("Account,Debit,Credit\nChequing,100,\nSales,,100\n"));
   assert.match(r.error ?? "", /^This is not a QuickBooks Account List/);
 });
+
+// Round 8 item 9: an Account List in the trial balance box is refused by name, even when its balance
+// column is called "Balance" and nets to zero (so the balance check alone would pass it).
+test("an Account List in the trial balance box is refused, even when its Balance nets to zero", () => {
+  const list = parseCsv("Dummy Co.\nAccount List\n\nAccount #,Account,Type,Detail type,Description,Balance\n10100,Chequing,Bank,Chequing,,500.00\n20000,Accounts payable,Accounts payable (A/P),Accounts Payable (A/P),,-500.00\n");
+  assert.equal(readTrialBalance(list).error, "This is a QuickBooks Account List: upload it in the Account List box.");
+  const noType = parseCsv("Account,Detail type,Balance\nChequing,Chequing,100\nSales,Service,-100\n");
+  assert.equal(readTrialBalance(noType).error, "This is a QuickBooks Account List: upload it in the Account List box.");
+  // A trial balance with an Account Type column and Debit and Credit columns is still a trial balance.
+  const tb = parseCsv("Code,Account,Account Type,Debit,Credit\n1500,Computer gear,Fixed Assets,3000,\n4000,Sales,Revenue,,3000\n");
+  assert.equal(readTrialBalance(tb).error, undefined);
+});

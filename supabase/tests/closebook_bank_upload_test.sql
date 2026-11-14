@@ -10,8 +10,8 @@ select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Maple Test Realty Inc.', 'ON') returning id as client \gset
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
-select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'statements', :A::uuid, :C::uuid) as f \gset
-select public.cb_create_file(:'client', '2025-12-31', '2025-01-01', '', 'monthly', 'concept_qbo', :A::uuid, :C::uuid) as m \gset
+select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'statements', :A::uuid, :A::uuid) as f \gset
+select public.cb_create_file(:'client', '2025-12-31', '2025-01-01', '', 'monthly', 'concept_qbo', :A::uuid, :A::uuid) as m \gset
 \set rows '''[{"line":2,"date":"2026-01-02","description":"SAMPLE PIZZA","amount":294.83},{"line":3,"date":"2026-01-05","description":"PAYMENT FROM","amount":-1000},{"line":4,"date":"2026-01-09","description":"SAMPLE PRINT SHOP AMT 1 USD","amount":57.9}]'''
 
 select test.check('monthly files have nothing to upload', test.try(format($f$select public.cb_upload_bank(%L, null, 'Visa', 'card', 'v.csv', 0, 0, %L, '2026-01-01', '2026-01-31')$f$, :'m', :rows)) like '%Monthly files%');

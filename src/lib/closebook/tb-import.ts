@@ -26,7 +26,23 @@ export function money(c: Cell | undefined): number | null {
 
 const NUMBERED = /^(\d{3,6}(?:[.-]\d{1,4})?)\s+[-–]?\s*(.+)$/;
 
+// Round 8 item 9: a QuickBooks Account List uploaded in the trial balance box. It has a Type or Detail
+// type column and no Debit and Credit columns; its balance column can even net to zero, so the balance
+// check alone does not catch it.
+export const ACCOUNT_LIST_IN_TB = "This is a QuickBooks Account List: upload it in the Account List box.";
+function looksLikeAccountList(table: Cell[][]): boolean {
+  for (let i = 0; i < Math.min(table.length, 30); i++) {
+    const r = (table[i] ?? []).map((c) => txt(c).toLowerCase());
+    const hasType = r.some((c) => /^(account\s*)?type$|^detail\s*type$/.test(c));
+    const hasDrCr = r.some((c) => /^debit/.test(c)) && r.some((c) => /^credit/.test(c));
+    if (hasType && !hasDrCr) return true;
+    if (hasDrCr) return false;
+  }
+  return false;
+}
+
 export function readTrialBalance(table: Cell[][]): TbResult {
+  if (looksLikeAccountList(table)) return { rows: [], debit: 0, credit: 0, skipped: [], error: ACCOUNT_LIST_IN_TB };
   const skipped: string[] = [];
   let head = -1, dr = -1, cr = -1, bal = -1, nameCol = -1, numCol = -1, typeCol = -1;
   for (let i = 0; i < Math.min(table.length, 30) && head < 0; i++) {

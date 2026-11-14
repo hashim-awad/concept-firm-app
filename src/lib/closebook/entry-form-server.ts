@@ -28,7 +28,8 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
     supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new").eq("file_id", file.id).order("number").order("name"),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_master_lines").select("line_no, name, line_type, mappable, locked").order("sort_order"),
-    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").order("sort_order"),
+    // Round 9: "Expenses paid personally" has its own lines and its own form; the picker offers the simple ones.
+    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").eq("style", "simple").order("sort_order"),
     supabase.from("cb_settings").select("entry_review_amount").maybeSingle(),
     supabase.from("cb_entries").select("seq").eq("file_id", file.id).order("seq", { ascending: false }).limit(1).maybeSingle(),
     loadTaxCodes(supabase, province, file.year_end),

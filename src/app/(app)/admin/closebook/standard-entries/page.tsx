@@ -4,6 +4,11 @@ import { PageHeader, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { deleteStandardEntry, saveStandardEntry } from "../actions";
 import { FIRM_TAX_MODE } from "@/lib/closebook/vendor";
+import { saveStandardEntryLine } from "../../../closebook/round9-actions";
+
+type Ln = { key: string; name: string; sort_order: number; account: string | null; tax: string; share: string; capital: boolean; to_reviewer: boolean; pick: boolean; note_required: boolean; choices: string[] };
+const LINE_TAX: [string, string][] = [["taxable", "GST/HST, client's rate"], ["meals", "Meals: 50% ITC"], ["none", "No tax normally"], ["auto", "As Auto expenses"]];
+const SHARE: Record<string, string> = { km: "Business km", phone: "Business share", none: "" };
 
 type Std = { id: string; name: string; kind: string; reason: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; reverse_next_year: boolean; tax_mode: string };
 const REASONS: [string, string][] = [["accrual", "Accrual"], ["correction", "Correction"], ["tax", "Tax"]];
@@ -14,10 +19,12 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
   await requireOwner();
   const sp = await searchParams;
   const supabase = await createClient();
-  const [{ data: list }, { data: chart }] = await Promise.all([
-    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").order("sort_order"),
+  const [{ data: list }, { data: chart }, { data: lined }] = await Promise.all([
+    supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").eq("style", "simple").order("sort_order"),
     supabase.from("cb_chart_accounts").select("number, name").order("sort_order"),
+    supabase.from("cb_standard_entries").select("id, name, kind, memo, wp_ref, lines:cb_standard_entry_lines(key, name, sort_order, account, tax, share, capital, to_reviewer, pick, note_required, choices)").eq("style", "lines"),
   ]);
+  const withLines = ((lined ?? []) as { id: string; name: string; kind: string; memo: string; wp_ref: string; lines: Ln[] }[]);
   const accounts = (chart ?? []) as { number: string; name: string }[];
   const fields = (e: Partial<Std>) => (
     <>
@@ -55,6 +62,40 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
             <div className="flex gap-3"><button type="submit" className="btn-secondary">Save</button>
               <button type="submit" formAction={deleteStandardEntry} className="text-sm text-danger underline">Delete</button></div>
           </form>
+        ))}
+        {/* Round 9 (Hashim, Nov 27, 2026): one entry with its own lines, in the client sheet's names and order. */}
+        {withLines.map((x) => (
+          <section key={x.id} id="expenses-personal" className="card grid gap-3">
+            <div>
+              <h2 className="font-semibold">{x.name} <span className="ml-1 text-sm font-normal text-ink-3">{x.lines.length} lines · {x.kind} at the year end · W/P ref: {x.wp_ref}</span></h2>
+              <p className="text-sm text-ink-2">Memo: {x.memo} In step 5 the preparer types the before-tax and GST/HST amounts from the Summary of the client&rsquo;s sheet; blank lines are dropped.
+                Each line debits its account, the claimable GST/HST goes to 21500 and the shareholder loan (23000 or 23050) is credited. Change a line&rsquo;s default here; the lines and their order follow the client&rsquo;s sheet.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="table table-compact">
+                <thead><tr><th>#</th><th>Line on the sheet</th><th>Account</th><th>Sales tax</th><th>Share</th><th>Reviewer</th><th /></tr></thead>
+                <tbody>{[...x.lines].sort((a, b) => a.sort_order - b.sort_order).map((l) => {
+                  const fid = `ln-${l.key}`;
+                  return (
+                    <tr key={l.key}>
+                      <td className="tabular-nums text-ink-3">{l.sort_order}</td>
+                      <td>{l.name}{l.capital && <span className="ml-1 text-xs text-ink-3">(capital)</span>}{l.note_required && <span className="block text-xs text-ink-3">The preparer adds a note saying what it is.</span>}
+                        {l.pick && l.choices.length > 0 && <span className="block text-xs text-ink-3">Only {l.choices.join(", ")}.</span>}</td>
+                      <td><form id={fid} action={saveStandardEntryLine}><input type="hidden" name="standard" value={x.id} /><input type="hidden" name="key" value={l.key} /></form>
+                        <select form={fid} name="account" defaultValue={l.account ?? ""} className="input input-compact pr-8" style={{ width: "17.5rem" }} aria-label={`${l.name}: account`}>
+                          {l.pick && <option value="">Preparer picks</option>}
+                          {accounts.filter((a) => !l.choices.length || l.choices.includes(a.number)).map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</select></td>
+                      <td><select form={fid} name="tax" defaultValue={l.tax} className="input input-compact pr-8" style={{ width: "12.5rem" }} aria-label={`${l.name}: sales tax`}>{LINE_TAX.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+                      <td className="text-sm">{SHARE[l.share]}</td>
+                      <td><label className="inline-flex items-center gap-1.5 text-sm"><input form={fid} type="checkbox" name="to_reviewer" defaultChecked={l.to_reviewer} disabled={l.capital} className="h-4 w-4 accent-navy-700" />
+                        {l.capital ? "Always (capital)" : "Send"}</label>{l.capital && <input form={fid} type="hidden" name="to_reviewer" value="on" />}</td>
+                      <td><button form={fid} type="submit" className="btn-secondary btn-compact">Save</button></td>
+                    </tr>
+                  );
+                })}</tbody>
+              </table>
+            </div>
+          </section>
         ))}
         <form action={saveStandardEntry} className="card grid gap-3">
           <h2 className="font-semibold">Add a standard entry</h2>

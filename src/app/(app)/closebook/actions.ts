@@ -409,3 +409,62 @@ export async function findDuplicatesInline(fileId: string, rows: { line: number;
   }
   return [...byRow.values()];
 }
+
+// ---------- Round 8: sign-offs, review notes, the completion checklist (Hashim, Nov 24, 2026) ----------
+// Every form names the page to come back to; only a page of the same file is accepted.
+const backTo = (f: FormData, id: string) => { const b = s(f, "back"); return b.startsWith(`/closebook/${id}?`) ? b : `/closebook/${id}`; };
+const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", records: "Step 3", code: "Step 4", entries: "Step 5", review: "Step 6", mapping: "Step 7" };
+
+export async function signStep(formData: FormData) {
+  const id = s(formData, "file_id"), step = s(formData, "step"), role = s(formData, "role");
+  const back = backTo(formData, id);
+  const { error } = await (await createClient()).rpc("cb_sign_step", { p_file: id, p_step: step, p_role: role });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `${STEP_WORD[step] ?? "Step"} signed as ${role === "reviewed" ? "reviewed" : "prepared"}.`));
+}
+
+export async function unsignStep(formData: FormData) {
+  const id = s(formData, "file_id"), step = s(formData, "step"), role = s(formData, "role");
+  const back = backTo(formData, id);
+  const { error } = await (await createClient()).rpc("cb_unsign_step", { p_file: id, p_step: step, p_role: role });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Your sign-off is taken back."));
+}
+
+export async function addNote(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = backTo(formData, id);
+  const target = s(formData, "target_type") || "step";
+  const { error } = await (await createClient()).rpc("cb_add_note", { p_file: id, p_step: s(formData, "step"), p_target_type: target,
+    p_target: target === "step" ? null : s(formData, "target_id"), p_body: s(formData, "body") });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Review note added."));
+}
+
+export async function replyNote(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = backTo(formData, id);
+  const fixed = s(formData, "fixed") === "1";
+  const { error } = await (await createClient()).rpc("cb_reply_note", { p_note: s(formData, "note"), p_body: s(formData, "body"), p_fixed: fixed });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : fixed ? "Marked fixed. The step's sign-offs are cleared until it is signed again." : "Reply added."));
+}
+
+export async function clearNote(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = backTo(formData, id);
+  const reopen = s(formData, "reopen") === "1";
+  const { error } = await (await createClient()).rpc("cb_clear_note", { p_note: s(formData, "note"), p_reopen_with: reopen ? s(formData, "body") : null });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : reopen ? "Note reopened." : "Note cleared."));
+}
+
+export async function saveChecklist(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = backTo(formData, id);
+  const keys = formData.getAll("question").map(String);
+  const answers = keys.filter((k) => s(formData, `a_${k}`)).map((k) => ({ question: k, answer: s(formData, `a_${k}`), note: s(formData, `n_${k}`) }));
+  const { error } = await (await createClient()).rpc("cb_save_checklist", { p_file: id, p_answers: answers });
+  revalidatePath(`/closebook/${id}`);
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `Checklist saved: ${answers.length} of ${keys.length} answered.`));
+}

@@ -82,7 +82,8 @@ export function tbGroupSection(ctx: WpCtx, groups: TbGroup[], total: TbLine, wpR
     ?? "Debits are shown as positive and credits in brackets. % change compares the size of each balance (a growing liability or revenue shows a positive %); n/m when the balance changed side. Prelim = balances before Closebook entries; Adjust = adjusting and tax entries; Reclass = reclassifying entries.";
   return [headerBlock(ctx, "Trial balance by group", wpRef),
     { table: { headerRows: 1, dontBreakRows: true, widths: [44, "*", 62, 58, 58, 64, 64, 64, 50], body }, layout: tableLayout([7, 8]), fontSize: 8.5 },
-    { text: note, fontSize: clientNote ? 9 : 7.5, color: clientNote ? C.ink : C.grey, margin: [0, 10, 0, 0] }];
+    // The client's "How to read this page" legend reads more easily with looser line spacing (round 8 item 6).
+    { text: note, fontSize: clientNote ? 9 : 7.5, color: clientNote ? C.ink : C.grey, margin: [0, 10, 0, 0], lineHeight: clientNote ? 1.45 : 1 }];
 }
 
 // Trial balance, flat (no groups).
@@ -167,8 +168,9 @@ export function journalSection(ctx: WpCtx, txns: JournalTxn[], source: (t: Journ
 
 // Adjusting and reclass journal entries (reference page 3).
 export type EntryDoc = { no: string; kind: string; wpRef: string; memo: string; lines: { number: string; name: string; cents: number }[] };
-export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string): any[] {
-  const out: any[] = [headerBlock(ctx, "Adjusting and reclass journal entries", wpRef),
+// client: the client's copy names the page "Entries to record" and leaves out the W/P references.
+export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string, client?: { title: string; noRefs: boolean }): any[] {
+  const out: any[] = [headerBlock(ctx, client?.title ?? "Adjusting and reclass journal entries", wpRef),
     { text: `Period: ${monthDayYear(ctx.yearStart)} to ${monthDayYear(ctx.yearEnd)}`, color: C.grey, fontSize: 9.5, margin: [6, 0, 0, 10] }];
   if (!entries.length) out.push({ text: "No entries.", fontSize: 9, margin: [22, 0, 0, 10] });
   for (const e of entries) {
@@ -177,7 +179,7 @@ export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBo
     const colHead = (t: string, right = false) => ({ text: t, bold: true, color: C.grey, alignment: right ? "right" : "left", border: [false, false, false, true], fontSize: 8.5 });
     const body: any[] = [
       [{ text: [{ text: e.no.split(" ")[0], bold: true, color: C.navy }, { text: `   ${e.kind}`, bold: true, color: C.navy }], colSpan: 2, fillColor: C.band, border: NO, fontSize: 9.5 }, {},
-        { text: `W/P ref: ${e.wpRef}`, colSpan: 3, alignment: "right", color: C.grey, fillColor: C.band, border: NO, fontSize: 9 }, {}, {}],
+        { text: client?.noRefs ? "" : `W/P ref: ${e.wpRef}`, colSpan: 3, alignment: "right", color: C.grey, fillColor: C.band, border: NO, fontSize: 9 }, {}, {}],
       [colHead("Date"), colHead("Account"), colHead("Account name"), colHead("Debit", true), colHead("Credit", true)],
       ...e.lines.map((l) => [cell(ctx.yearEnd), cell(l.number), cell(l.name), cell(l.cents > 0 ? money(l.cents) : "", { alignment: "right" }), cell(l.cents < 0 ? money(-l.cents) : "", { alignment: "right" })]),
       [cell(""), cell(""), cell("Total", { bold: true }), { text: money(dr), alignment: "right", bold: true, border: TOP }, { text: money(dr), alignment: "right", bold: true, border: TOP }],

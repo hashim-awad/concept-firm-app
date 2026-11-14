@@ -26,11 +26,15 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
   const supabase = await createClient();
   const [{ data: clients }, { data: staff }] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags").eq("kind", "corporation").eq("status", "active").order("legal_name"),
-    supabase.from("staff").select("id, full_name").eq("is_active", true).order("full_name"),
+    supabase.from("staff").select("id, full_name, role:roles(is_owner, role_permissions(area_key, level))").eq("is_active", true).order("full_name"),
   ]);
   const list = (clients ?? []) as Client[];
   const chosen = list.find((c) => c.id === sp.client);
-  const people = (staff ?? []) as { id: string; full_name: string }[];
+  // Round 8: the reviewer is an owner; the preparer has Closebook preparer access (Settings, Team and roles).
+  type Person = { id: string; full_name: string; role: { is_owner: boolean; role_permissions: { area_key: string; level: string }[] } | null };
+  const all = (staff ?? []) as unknown as Person[];
+  const reviewers = all.filter((p) => p.role?.is_owner);
+  const people = all.filter((p) => p.role?.is_owner || p.role?.role_permissions.some((x) => x.area_key === "closebook" && x.level === "edit"));
   const monthly = !!chosen?.taxdome_tags?.includes("BK");
   const yearEnd = chosen ? lastYearEnd(chosen.year_end_md, todayToronto()) : "";
 
@@ -79,7 +83,8 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
             <div><label htmlFor="preparer" className="label">4. Preparer</label>
               <select id="preparer" name="preparer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
             <div><label htmlFor="reviewer" className="label">Reviewer</label>
-              <select id="reviewer" name="reviewer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
+              <select id="reviewer" name="reviewer" defaultValue={reviewers.some((p) => p.id === access.staff_id) ? access.staff_id : reviewers[0]?.id} className="input">{reviewers.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select>
+              <span className="mt-1 block text-xs text-ink-3">Reviewers are owners.</span></div>
           </div>
           <button type="submit" className="btn w-fit">Start the file</button>
         </form>

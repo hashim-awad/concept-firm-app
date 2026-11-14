@@ -25,7 +25,8 @@ test("bank files: step 2 waits for the preparer's sign-off on last year's balanc
   assert.match(a.next, /^Enter last year's closing balance sheet/);
   const b = fileSteps(facts({ statements: 2, bankGaps: "", opening: { signed: false, entered: true } }));
   assert.match(b.next, /sign as preparer when no total is highlighted/);
-  assert.equal(b.steps[1].note, "Not signed yet");
+  // Round 8b: the sub-line says what the step is; its state is the sign-off (Prepared by), not a word here.
+  assert.equal(b.steps[1].note, "Last year's balance sheet");
 });
 
 test("statements in and step 2 signed before the setup is signed: the file moves on to coding", () => {

@@ -113,11 +113,11 @@ select public.cb_add_entry(:'f', 'AJE', 'correction', 'Clear it again from the f
 select test.check('entries post to Clearing', (select count(*) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where a.account_key = 'chart:10900') = 2);
 
 -- Item 6: standard entries, now picked in the entry form.
-select test.check('four standard entries to start', (select string_agg(name, ',' order by sort_order) from public.cb_standard_entries) = 'Home office,Auto expenses,Accounting fee accrual,Tax provision');
+select test.check('four simple standard entries to start (round 9 adds one with lines)', (select string_agg(name, ',' order by sort_order) from public.cb_standard_entries where style = 'simple') = 'Home office,Auto expenses,Accounting fee accrual,Tax provision');
 select id as accrual from public.cb_standard_entries where name = 'Accounting fee accrual' \gset
 select id as taxp from public.cb_standard_entries where name = 'Tax provision' \gset
 select test.check('staff cannot change a standard entry', test.try(format($f$select public.cb_save_standard_entry(%L, 'X', 'AJE', 'accrual', '66000', '21100', '', '', false, 'none')$f$, :'accrual')) like '%owner%');
-select test.check('standard entries carry a tax choice, never a code: home office no tax, the accounting fee taxable', (select string_agg(name || '=' || tax_mode, ',' order by sort_order) from public.cb_standard_entries)
+select test.check('standard entries carry a tax choice, never a code: home office no tax, the accounting fee taxable', (select string_agg(name || '=' || tax_mode, ',' order by sort_order) from public.cb_standard_entries where style = 'simple')
   = 'Home office=none,Auto expenses=line,Accounting fee accrual=taxable,Tax provision=none');
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"66000","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1 \gset
 select test.check('a standard entry as set, under the threshold: no review needed', (select not needs_review and standard_id = :'accrual' from public.cb_entries where id = :'e1'));

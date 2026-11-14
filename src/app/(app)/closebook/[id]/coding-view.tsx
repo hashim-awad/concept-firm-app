@@ -12,6 +12,7 @@ import type { CodingData, CodeLine } from "@/lib/closebook/coding-server";
 import { splitLine } from "@/lib/closebook/sales-tax";
 import { suggestionLabel } from "@/lib/closebook/vendor";
 import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
+import { NoteOnItem } from "./note-on-item";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done";
 const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"]];
@@ -21,8 +22,8 @@ const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currenc
 const inFilter = (l: CodeLine, f: Filter) => f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : l.status === "done";
 
-export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null }: {
-  fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean; focusLine?: string | null;
+export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null, noteBy }: {
+  fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean; focusLine?: string | null; noteBy?: { back: string };
 }) {
   const router = useRouter();
   // Opened from a report's ledger: the list shows the line's own filter, with the line highlighted.
@@ -107,7 +108,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
-                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
+                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} noteBy={noteBy} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
                   editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} gstAnswered={gstAnswered} />
               ))}</tbody>
             </table>
@@ -119,10 +120,12 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   );
 }
 
-function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused, gstAnswered }: {
+function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused, gstAnswered, noteBy }: {
   l: CodeLine; kind: string; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
   byType: [string, CodingData["chart"]][]; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
   run: (f: () => Promise<string | null>) => void; focused: boolean; gstAnswered: boolean;
+  // Round 8: the reviewer (an owner) can add a review note on the line.
+  noteBy?: { back: string };
 }) {
   const start = l.chart_account ?? l.suggestion?.account ?? "";
   const [account, setAccount] = useState(start);
@@ -212,6 +215,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
             {editable && <button type="button" className="btn-secondary btn-compact" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
           </span>
         )}
+        {noteBy && <span className="mt-1 block text-right"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} /></span>}
       </td>
     </tr>
   );

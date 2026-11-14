@@ -5,7 +5,7 @@ import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions"
 import { LockIcon } from "../settings-nav";
 
 type StaffRow = { id: string; full_name: string; email: string; phone: string; role_id: string; is_active: boolean; created_at: string };
-type RoleRow = { id: string; name: string; is_owner: boolean };
+type RoleRow = { id: string; name: string; is_owner: boolean; role_permissions?: { area_key: string; level: string }[] };
 
 // People: everyone who can sign in. Shown on Team and roles. Everyone edits their own phone; only owners
 // change roles (decision 48; the database enforces it in set_staff_role).
@@ -15,10 +15,14 @@ export async function PeopleSection({ access }: { access: Access }) {
 
   const [{ data: staff }, { data: roles }] = await Promise.all([
     supabase.from("staff").select("id, full_name, email, phone, role_id, is_active, created_at").order("full_name"),
-    supabase.from("roles").select("id, name, is_owner").order("is_owner", { ascending: false }).order("name"),
+    supabase.from("roles").select("id, name, is_owner, role_permissions(area_key, level)").order("is_owner", { ascending: false }).order("name"),
   ]);
   const roleList = (roles ?? []) as RoleRow[];
   const roleName = new Map(roleList.map((r) => [r.id, r.name]));
+  // Round 8b: Closebook preparer is a permission on the role (Closebook at Edit), shown next to the role.
+  // Owners prepare and review every file.
+  const preparer = new Set(roleList.filter((r) => !r.is_owner && r.role_permissions?.some((p) => p.area_key === "closebook" && p.level === "edit")).map((r) => r.id));
+  const extra = (roleId: string) => preparer.has(roleId) ? <span className="ml-2 inline-flex rounded-full bg-navy-50 px-2 py-0.5 text-xs font-medium text-navy-700 ring-1 ring-navy-200 ring-inset">+ Closebook preparer</span> : null;
   // Non-owners never see the Owner role as a choice. The database enforces the full rule.
   const assignable = roleList.filter((r) => access.is_owner || !r.is_owner);
 
@@ -94,9 +98,10 @@ export async function PeopleSection({ access }: { access: Access }) {
                           ))}
                         </select>
                         <button type="submit" className="btn-secondary">Save</button>
+                        {extra(s.role_id)}
                       </form>
                     ) : (
-                      roleName.get(s.role_id)
+                      <>{roleName.get(s.role_id)}{extra(s.role_id)}</>
                     )}
                   </td>
                   <td>{s.is_active ? "Active" : <span className="text-muted">Switched off</span>}</td>
