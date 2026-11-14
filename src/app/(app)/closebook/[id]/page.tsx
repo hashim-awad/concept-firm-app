@@ -17,10 +17,11 @@ import { SignoffBar } from "./signoff-bar";
 import { ReviewNotes } from "./review-notes";
 import { Checklist, HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
-import { typeFlag, typeFlagText } from "@/lib/closebook/matching";
+import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { RevenueCheck } from "./revenue-check";
+import { T2Step } from "./t2-step";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankView } from "./bank-view";
@@ -77,6 +78,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
   const sts = (st ?? []) as { status: string }[];
   const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
+  // An account's balance after entries (round 10: the wrong-side check uses it).
+  const entryTotal = new Map<string, number>();
+  for (const e of entries) for (const l of e.lines) entryTotal.set(l.account_id, (entryTotal.get(l.account_id) ?? 0) + l.amount);
+  const finalOf = (a: { id: string; this_year: number }) => Math.round((Number(a.this_year) + (entryTotal.get(a.id) ?? 0)) * 100) / 100;
   const setup = (file.setup ?? {}) as Record<string, unknown>;
   // Bank files: step 2, last year's balance sheet; after sign-off, any difference with the first statements.
   const openingRow = accounts.find((a) => a.account_key === "opening");
@@ -90,7 +95,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
       // An account with no balance either year and no entries is "not used": no decision (round 4b item 4).
       && !(a.this_year === 0 && a.last_year === 0 && !entries.some((e) => e.lines.some((l) => l.account_id === a.id)))).length, waiting: accounts.filter((a) => a.needs_reviewer).length,
-    typeFlags: accounts.filter((a) => typeFlag(a, ref.lines.find((l) => l.line_no === a.line_no)) === "open").length,
+    typeFlags: accounts.filter((a) => typeFlag(a, ref.lines.find((l) => l.line_no === a.line_no)) === "open"
+      || sideFlag(a, ref.lines.find((l) => l.line_no === a.line_no), finalOf(a)) === "open").length,
     entries: entries.length, people,
   });
   const asked = str(sp.step) as StepKey | undefined;
@@ -99,9 +105,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const showHistory = access.is_owner && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
-  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>>; importOnly?: boolean } = {}) => (
+  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
+      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
       noteStep={access.is_owner && ["code", "mapping"].includes(base) ? base : undefined} />
   );
@@ -267,8 +273,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           return r ? revenueWaiting(r).map((w) => ({ href: `${href("entries")}#revenue-check`, label: w.label,
             detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
         })() },
-        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open").map((a) => (
-          { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`, detail: a.needs_reviewer ? a.reviewer_reason : typeFlagText(a, lineOf(a.line_no)), amount: amt(a.this_year) })) },
+        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
+          || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
+          { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
+            detail: a.needs_reviewer ? a.reviewer_reason : [typeFlag(a, lineOf(a.line_no)) === "open" ? typeFlagText(a, lineOf(a.line_no)) : "", sideFlagText(a, lineOf(a.line_no), finalOf(a))].filter(Boolean).join(" "),
+            amount: amt(finalOf(a)) })) },
       ];
       const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `Step ${x.n}, ${x.name}` : k; };
       const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
@@ -279,7 +288,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "mapping") {
     body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
   } else if (step === "t2") {
-    body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
+    // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
+    const g = accounts.length ? await gifiFor(supabase, id) : null;
+    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} />
+      : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
     body = null;

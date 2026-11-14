@@ -13,7 +13,7 @@ export type StepWord = "signed" | "prepared" | "next" | "open";
 export type Step = { key: StepKey; n: number; name: string; who: string; note: string; state: StepState; word: StepWord; notes: number };
 export type StepSign = { prepared: boolean; reviewed: boolean; notes: number };
 // The steps with sign-offs today (round 8); 8 to 10 get theirs when they are built.
-export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping"];
+export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2"];
 
 // Files built from bank and card CSVs code transactions to the standard chart; every other file
 // imports a trial balance and matches its accounts straight to GIFI lines (Hashim, Nov 13, 2026).
@@ -27,7 +27,7 @@ export type StepFacts = {
   accounts: number;
   unmatched: number;           // accounts with no GIFI line
   waiting: number;             // accounts waiting for the reviewer's decision
-  typeFlags?: number;          // accounts whose type differs from their GIFI line's, not yet confirmed (round 5)
+  typeFlags?: number;          // accounts whose type differs from their GIFI line's (round 5) or whose balance is on the wrong side of it (round 10), not yet decided
   entries: number;
   bankGaps?: string;           // bank files: how many months are still missing ("4 months missing"; "" when complete)
   coding?: { lines: number; open: number; reviewer: number; ask: number };   // bank files: step 3
@@ -71,11 +71,11 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     { key: "records", n: 3, name: bank ? "Bank statements" : "Get the records", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 4, name: bank ? "Code the transactions" : "Match accounts to GIFI", who: f.people.preparer,
-      note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "type check")} for the reviewer` : "All matched" },
+      note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
     { key: "entries", n: 5, name: "Adjusting entries", who: f.people.preparer, note: f.entries ? s(f.entries, "entry", "entries") : "" },
     { key: "review", n: 6, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },
     { key: "mapping", n: 7, name: "GIFI mapping", who: f.people.reviewer,
-      note: f.typeFlags ? `${s(f.typeFlags, "type check")} for the reviewer` : bank ? "Reviewer" : "Reviewer checks the matches" },
+      note: f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : bank ? "Reviewer" : "Reviewer checks the matches" },
     { key: "t2", n: 8, name: "T2 tie-out", who: f.people.preparer, note: "GIFI to ProFile" },
     { key: "statements", n: 9, name: "Statements", who: f.people.preparer, note: "" },
     { key: "lock", n: 10, name: "Deliver and lock", who: f.people.preparer, note: "" },
@@ -105,12 +105,12 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
       : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? (cd.open ? `Code ${s(cd.open, "line")} to accounts from the standard chart, with the sales tax.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : f.unmatched + f.waiting ? `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`
-      : `${s(f.typeFlags ?? 0, "account")} on a GIFI line of another type: for the reviewer (${f.people.reviewer}).`,
+      : `${s(f.typeFlags ?? 0, "account")} on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer (${f.people.reviewer}).`,
     entries: "Post the year-end entries, then explain the flagged changes on the lead sheets.",
     review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 6.`,
-    mapping: f.typeFlags ? `Decide ${s(f.typeFlags, "account")} whose type differs from its GIFI line (the reviewer's match confirms it), then sign off.`
+    mapping: f.typeFlags ? `Decide ${s(f.typeFlags, "account")} whose type or balance does not fit its GIFI line (keep it there with a reason, or move it), then sign off.`
       : "Check the GIFI line of every account, then sign off.",
-    t2: "Download the GIFI file and import it into ProFile.",
+    t2: "Export the GIFI file, import it into ProFile, then tie out the T2.",
     statements: "Send the management acknowledgement (MAL) for signature.",
     lock: "Send the package to the client and lock the file.",
   };

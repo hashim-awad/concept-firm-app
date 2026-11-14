@@ -79,9 +79,9 @@ test("old links land on the right step", () => {
 test("open type flags hold the matching step and show on step 7", () => {
   const r = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 2 }));
   assert.equal(r.current, "code");
-  assert.equal(r.steps.find((s) => s.key === "code")!.note, "2 type checks for the reviewer");
-  assert.equal(r.steps.find((s) => s.key === "mapping")!.note, "2 type checks for the reviewer");
-  assert.match(r.next, /^2 accounts on a GIFI line of another type: for the reviewer/);
+  assert.equal(r.steps.find((s) => s.key === "code")!.note, "2 checks for the reviewer");
+  assert.equal(r.steps.find((s) => s.key === "mapping")!.note, "2 checks for the reviewer");
+  assert.match(r.next, /^2 accounts on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer/);
   const ok = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 0 }));
   assert.equal(ok.steps.find((s) => s.key === "code")!.state, "done");
 });

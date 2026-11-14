@@ -102,6 +102,17 @@ export async function confirmTypeInline(fileId: string, account: string, reason:
   return null;
 }
 
+// Round 10 fix 5: the reviewer keeps a balance on the wrong side of its line, with a reason.
+export async function confirmSideInline(fileId: string, account: string, reason: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  if (!reason.trim()) return "Type the reason for keeping this balance on this line.";
+  const { error } = await (await createClient()).rpc("cb_confirm_side", { p_account: account, p_reason: reason });
+  if (error) return error.message;
+  revalidatePath(`/closebook/${fileId}`);
+  return null;
+}
+
 // Round 6 item 2: the QuickBooks Online Account List, for each account's type.
 export async function importAccountList(formData: FormData) {
   const id = s(formData, "file_id");

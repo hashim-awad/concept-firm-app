@@ -6,7 +6,10 @@ import { effectiveLine, type Line } from "./matching.ts";
 
 export type GifiAccount = { id: string; number: string; name: string; line_no: string | null; this_year: number; needs_reviewer: boolean };
 export type GifiTotals = { "2599": number; "3499": number; "3620": number; "3640": number; "8299": number; "9368": number; "9999": number; "3660": number; "3849": number };
-export type GifiResult = { codes: [string, number][]; totals: GifiTotals; problems: string[] };
+// Round 10: tbOutBy (the trial balance difference), issues (accounts not ready: unmatched, waiting for the
+// reviewer, on a total or locked line) and the retained earnings movements, for the checks on step 8.
+export type GifiResult = { codes: [string, number][]; totals: GifiTotals; problems: string[]; tbOutBy: number; issues: string[];
+  re: { dividends: number; ppa: number; other: number; shareEquity: number } };
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 const num = (code: string) => Number(code);
@@ -22,6 +25,7 @@ export function gifiAmount(line: Pick<Line, "line_type" | "gifi_code">, debitPos
 
 export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, number>, lines: Map<string, Line>): GifiResult {
   const problems: string[] = [];
+  const issues: string[] = [];
   const byCode = new Map<string, number>();
   let tb = 0;
   for (const a of accounts) {
@@ -29,21 +33,22 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     tb += fin;
     if (fin === 0) continue;
     const label = `${a.number ? `${a.number} ` : ""}${a.name}`;
-    if (!a.line_no) { problems.push(`${label} is not matched to a GIFI line.`); continue; }
-    if (a.needs_reviewer) problems.push(`${label} is waiting for the reviewer's decision.`);
+    if (!a.line_no) { issues.push(`${label} is not matched to a GIFI line.`); continue; }
+    if (a.needs_reviewer) issues.push(`${label} is waiting for the reviewer's decision.`);
     const eff = effectiveLine(a.line_no, fin, lines);
     const l = eff ? lines.get(eff) : undefined;
-    if (!l) { problems.push(`${label}: its GIFI line ${a.line_no} no longer exists.`); continue; }
-    if (!l.mappable) { problems.push(`${label} is on ${l.line_no}, a total line. Match it to a line that is not a total.`); continue; }
-    if (l.locked) problems.push(`${label} is on ${l.line_no}, a locked line. Choose one of its sub-lines.`);
+    if (!l) { issues.push(`${label}: its GIFI line ${a.line_no} no longer exists.`); continue; }
+    if (!l.mappable) { issues.push(`${label} is on ${l.line_no}, a total line. Match it to a line that is not a total.`); continue; }
+    if (l.locked) issues.push(`${label} is on ${l.line_no}, a locked line. Choose one of its sub-lines.`);
     // The trial balance's retained earnings is the balance at the start of the year: GIFI 3660.
     const code = l.gifi_code === "3600" ? "3660" : l.gifi_code;
     byCode.set(code, cents((byCode.get(code) ?? 0) + gifiAmount({ line_type: l.line_type, gifi_code: code }, fin)));
   }
+  problems.push(...issues);
   if (Math.abs(cents(tb)) >= 0.01) problems.push(`The trial balance is out by ${cents(tb).toFixed(2)}.`);
 
   const typeOf = (code: string) => [...lines.values()].find((l) => l.gifi_code === code)?.line_type ?? "";
-  let assets = 0, liabilities = 0, shareEquity = 0, revenue = 0, opExpenses = 0, allExpenses = 0, reMoves = 0;
+  let assets = 0, liabilities = 0, shareEquity = 0, revenue = 0, opExpenses = 0, allExpenses = 0, reMoves = 0, dividends = 0, ppa = 0, other = 0;
   for (const [code, amt] of byCode) {
     const t = code === "3660" ? "Equity" : typeOf(code), n = num(code);
     if (t === "Asset") assets += amt;
@@ -52,7 +57,10 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     else if (t === "Expense") { allExpenses += amt; if (n < 9369) opExpenses += amt; }
     else if (t === "Equity") {
       if (code === "3660") continue;
-      if (n >= 3700 && n < 3849) reMoves += amt;   // dividends (negative) and other retained earnings items
+      if (n >= 3700 && n < 3849) {   // dividends (negative) and other retained earnings items
+        reMoves += amt;
+        if (n < 3720) dividends -= amt; else if (n < 3740) ppa += amt; else other += amt;
+      }
       else shareEquity += amt;
     }
   }
@@ -66,15 +74,28 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     problems.push(`Total assets (2599) ${totals["2599"].toFixed(2)} do not equal total liabilities and equity (3640) ${totals["3640"].toFixed(2)}: a difference of ${cents(totals["2599"] - totals["3640"]).toFixed(2)}.`);
   }
   const codes = [...byCode.entries()].filter(([, v]) => v !== 0).sort(([a], [b]) => a.localeCompare(b));
-  return { codes, totals, problems };
+  return { codes, totals, problems, tbOutBy: cents(tb), issues, re: { dividends: cents(dividends), ppa: cents(ppa), other: cents(other), shareEquity: cents(shareEquity) } };
 }
 
-export type GifiHeader = { bn: string; legalName: string; address: string; city: string; province: string; postal: string; yearEnd: string; created: string };
+// Round 10 (Hashim, Nov 27, 2026). Benchmark: QuickBooks Online's GIFI export, field for field. bn: the
+// 15-character Business Number (123456789RC0001). vendor and software: positions 6 and 11; Closebook
+// writes "Concept Accounting" and "Concept Studio" (the test passes QuickBooks' own to rebuild the sample).
+export type GifiHeader = { bn: string; legalName: string; address: string; city: string; province: string; postal: string; yearEnd: string; created: string;
+  vendor?: string; software?: string };
 
-// The file, byte for byte in QuickBooks' layout. Dates are YYYY-MM-DD in, YYYYMMDD out.
+// A Business Number as the header needs it: 9 digits get the first corporate income tax account
+// (RC0001); 15 characters are taken as they are. Anything else: null, and the export is refused.
+export function businessNumber(bn: string | null | undefined): string | null {
+  const t = (bn ?? "").replace(/\s+/g, "").toUpperCase();
+  if (/^\d{9}$/.test(t)) return `${t}RC0001`;
+  return /^\d{9}RC\d{4}$/.test(t) ? t : null;
+}
+
+// The file, byte for byte in QuickBooks' layout. Dates are YYYY-MM-DD in, YYYYMMDD out. CRLF between
+// lines and none after the last, as the sample.
 export function gifiFile(h: GifiHeader, codes: [string, number][]): string {
   const q = (v: string) => `"${v.replace(/"/g, "'")}"`;
   const ymd = (d: string) => d.replace(/-/g, "");
-  const head = ["GIFI01", "", "", "", "", "Concept Accounting & Advisory", "", "", "", "", "Concept Studio", "", "", `${h.bn}RC0001`, h.legalName, "", h.address, h.city, h.province, h.postal, "", ymd(h.yearEnd), ymd(h.created), ""];
+  const head = ["GIFI01", "", "", "", "", h.vendor ?? "Concept Accounting", "", "", "", "", h.software ?? "Concept Studio", "", "", h.bn, h.legalName, "", h.address, h.city, h.province, h.postal, "", ymd(h.yearEnd), ymd(h.created), ""];
   return [head.map(q).join(","), ...codes.map(([c, v]) => `"${c}",${v.toFixed(2)}`)].join("\r\n");
 }

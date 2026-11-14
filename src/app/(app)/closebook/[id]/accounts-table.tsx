@@ -8,7 +8,7 @@
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
-import { askReviewerInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
+import { askReviewerInline, confirmSideInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
 import { NoteOnItem } from "./note-on-item";
 
 export type Row = {
@@ -16,7 +16,7 @@ export type Row = {
   lineNo: string; lineLabel: string; movedFrom: string; source: string; needsReviewer: boolean; reason: string; mismatch: string;
   tax: string; taxDefault: string; taxOverride: boolean; attention: boolean; unused?: boolean;
   // Round 6: the type check's state, and "Type not checked" for an account with no type.
-  typeFlag?: "" | "open" | "confirmed"; notChecked?: boolean;
+  typeFlag?: "" | "open" | "confirmed"; sideFlag?: "" | "open" | "confirmed"; notChecked?: boolean;
   // "Opening balances to enter": one line per cause, adding up to the row (round 2 item 8).
   buildUp?: { text: string; amount: string }[];
 };
@@ -151,7 +151,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
   const canPick = !r.needsReviewer || isReviewer;
   // With an open type flag the reviewer sees "To" first, then "Or keep it on this line"; the line list
   // stays closed until clicked, so it does not cover the reason box (rounds 6 and 7).
-  const confirmFirst = isReviewer && r.typeFlag === "open";
+  const confirmFirst = isReviewer && (r.typeFlag === "open" || r.sideFlag === "open");
   const hit = [options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`)].find((o) => o && !o.locked);
   const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
   const save = () => start(async () => {
@@ -190,7 +190,11 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
             <label htmlFor="type_reason" className="text-sm">The reason (reviewer only)</label>
             <textarea id="type_reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} maxLength={300} className="input" placeholder="Why this account belongs on this line" />
             <button type="button" disabled={pending} className="btn-secondary btn-compact justify-self-start"
-              onClick={() => start(async () => { setReasonErr(""); const e = await confirmTypeInline(fileId, r.id, reason); if (e) setReasonErr(e); else onClose(); })}>Keep it on this line</button>
+              onClick={() => start(async () => {
+                setReasonErr("");
+                // A type flag and a wrong-side balance are kept with the same reason (round 10 fix 5).
+                const e = (r.typeFlag === "open" ? await confirmTypeInline(fileId, r.id, reason) : null) ?? (r.sideFlag === "open" ? await confirmSideInline(fileId, r.id, reason) : null);
+                if (e) setReasonErr(e); else onClose(); })}>Keep it on this line</button>
             {reasonErr && <p role="alert" className="text-sm text-danger">{reasonErr}</p>}
           </div>
         )}

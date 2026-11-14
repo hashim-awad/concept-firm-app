@@ -162,6 +162,26 @@ export function wrongSign(line: Line | undefined, total: number): string {
   return `This line is normally a ${debitNormal ? "debit" : "credit"}, but its total is a ${isDebit ? "debit" : "credit"}. Check the matching, or a missing entry.`;
 }
 
+// Round 10 fix 5: a balance on the wrong side of a balance sheet line with no paired line (an asset line
+// with a credit balance, a liability line with a debit balance: a credit card in credit on 2707). Contra
+// lines are left out. It waits for the reviewer in step 7, who keeps it there with a reason (kept while the
+// account stays on that line) or moves it. The database applies the same rule (private.cb_side_open).
+export type SidedAccount = { line_no: string | null; side_confirm_reason?: string | null; side_confirmed_line?: string | null };
+export function sideFlag(a: SidedAccount, line: Line | undefined, final: number): "" | "open" | "confirmed" {
+  if (!line || line.pair_line || !["Asset", "Liability"].includes(line.line_type) || CONTRA.test(line.name) || Math.round(final * 100) === 0) return "";
+  const wrong = line.line_type === "Asset" ? final < 0 : final > 0;
+  if (!wrong) return "";
+  return a.side_confirm_reason && a.side_confirmed_line === line.line_no ? "confirmed" : "open";
+}
+export function sideFlagText(a: SidedAccount, line: Line | undefined, final: number, by = "", date = ""): string {
+  const f = sideFlag(a, line, final);
+  if (!f) return "";
+  const amt = Math.abs(final).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const asset = line!.line_type === "Asset";
+  if (f === "confirmed") return `Reviewer kept the ${asset ? "credit" : "debit"} balance of ${amt} here: ${a.side_confirm_reason}${by || date ? ` (${[by, date].filter(Boolean).join(", ")})` : ""}`;
+  return `Check: ${asset ? "credit" : "debit"} balance of ${amt} on ${asset ? "an asset" : "a liability"} line. Keep it here with a reason, or move it to ${asset ? "a liability" : "an asset"} line.`;
+}
+
 // Locked lines (Hashim, Nov 11, 2026, as QuickBooks locks parent accounts): shown with a lock; staff pick
 // one of the sub-lines instead. Set per line in Settings; the database enforces it.
 export function lockedLines(lines: Line[]): Set<string> {
