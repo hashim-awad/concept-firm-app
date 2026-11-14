@@ -21,6 +21,7 @@ import { typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
 import { EntriesTab } from "./entries-tab";
 import { RevenueCheck } from "./revenue-check";
+import { T2Step } from "./t2-step";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankView } from "./bank-view";
@@ -99,9 +100,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const showHistory = access.is_owner && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
-  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { gifi?: Awaited<ReturnType<typeof gifiFor>>; importOnly?: boolean } = {}) => (
+  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} gifi={extra.gifi ?? null} craText={ref.craText} notes={data.notes}
+      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
       noteStep={access.is_owner && ["code", "mapping"].includes(base) ? base : undefined} />
   );
@@ -279,7 +280,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else if (step === "mapping") {
     body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
   } else if (step === "t2") {
-    body = accounts.length ? tb("t2", ["gifi"], "gifi", false, { gifi: await gifiFor(supabase, id) }) : soon("The GIFI file opens once there is a trial balance.");
+    // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
+    const g = accounts.length ? await gifiFor(supabase, id) : null;
+    body = g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} />
+      : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Not built yet: nothing is shown beyond the step's own line (round 2 item 18).
     body = null;

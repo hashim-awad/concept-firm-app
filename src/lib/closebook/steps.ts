@@ -13,7 +13,7 @@ export type StepWord = "signed" | "prepared" | "next" | "open";
 export type Step = { key: StepKey; n: number; name: string; who: string; note: string; state: StepState; word: StepWord; notes: number };
 export type StepSign = { prepared: boolean; reviewed: boolean; notes: number };
 // The steps with sign-offs today (round 8); 8 to 10 get theirs when they are built.
-export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping"];
+export const SIGNED_STEPS: StepKey[] = ["setup", "opening", "records", "code", "entries", "review", "mapping", "t2"];
 
 // Files built from bank and card CSVs code transactions to the standard chart; every other file
 // imports a trial balance and matches its accounts straight to GIFI lines (Hashim, Nov 13, 2026).
@@ -110,7 +110,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 6.`,
     mapping: f.typeFlags ? `Decide ${s(f.typeFlags, "account")} whose type differs from its GIFI line (the reviewer's match confirms it), then sign off.`
       : "Check the GIFI line of every account, then sign off.",
-    t2: "Download the GIFI file and import it into ProFile.",
+    t2: "Export the GIFI file, import it into ProFile, then tie out the T2.",
     statements: "Send the management acknowledgement (MAL) for signature.",
     lock: "Send the package to the client and lock the file.",
   };

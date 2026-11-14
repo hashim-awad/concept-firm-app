@@ -9,7 +9,6 @@ import type { CbAccount, CbEntry, CbImport } from "@/lib/closebook/server";
 import { importAccountList, importTrialBalance } from "../actions";
 import { MatchWorkspace, type Group, type Row } from "./accounts-table";
 import { LeadSheetsView, type LeadAcc, type LeadGroup } from "./lead-sheets";
-import { GifiView } from "./gifi-view";
 import type { BankData } from "@/lib/closebook/bank-server";
 
 const SOURCES: Record<string, string> = { quickbooks: "QuickBooks", client_software: "the client's software", bookkeeper: "the bookkeeper", prior_accountant: "the prior accountant" };
@@ -22,7 +21,6 @@ type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
   lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
-  gifi?: Parameters<typeof GifiView>[0]["g"] | null;
   bank?: BankData | null;
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
   // importOnly: step 3 of a trial balance file shows the import and nothing else (round 7 item 3).
@@ -110,7 +108,6 @@ export function TbTab(p: Props) {
         {shown("accounts") && pill("accounts", "By account")}
         {shown("lines") && pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
         {shown("lead") && pill("lead", "Lead sheets")}
-        {shown("gifi") && pill("gifi", "GIFI")}
       </div>}
 
       {p.showImport !== false && (
@@ -159,7 +156,6 @@ export function TbTab(p: Props) {
       {p.importOnly ? (accounts.length > 0 && (
         <p className="card text-sm">{accounts.length} accounts imported. Match them to GIFI lines in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=mapping`} className="text-navy-700 underline">step 7</a>.</p>
       )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">Import the trial balance to see the accounts. {file.file_type === "monthly" ? "Monthly files: export QuickBooks' Trial Balance report after the year-end entries are booked." : "Bank-statement files: upload the statements in step 2."}</p>
-        : view === "gifi" && p.gifi ? <GifiView fileId={file.id} g={p.gifi} />
         : view === "lead" ? (
           // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).

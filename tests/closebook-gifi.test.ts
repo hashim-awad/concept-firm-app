@@ -5,7 +5,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
 import type { Line } from "../src/lib/closebook/matching.ts";
-import { gifiCodes, gifiFile, type GifiAccount } from "../src/lib/closebook/gifi.ts";
+import { businessNumber, gifiCodes, gifiFile, type GifiAccount } from "../src/lib/closebook/gifi.ts";
+import { gifiChecks, gifiFileName, taxWorkpaper, tieOut } from "../src/lib/closebook/t2.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
 const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair, locked: ["1301.00", "2781.00", "3701.00"].includes(l.line) }));
@@ -32,7 +33,7 @@ test("the sample trial balance gives the sample's codes and amounts exactly", ()
 test("the file matches QuickBooks' layout: header positions, CRLF, 2 decimals, no total lines", () => {
   const tb = trialBalance();
   const r = gifiCodes(tb, new Map(), byNo);
-  const file = gifiFile({ bn: "000000000", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" }, r.codes);
+  const file = gifiFile({ bn: "000000000RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" }, r.codes);
   const [head, ...rows] = file.split("\r\n");
   const ours = head.split(","), theirs = sample.split("\r\n")[0].split(",");
   assert.equal(ours.length, theirs.length, "24 header fields");
@@ -77,4 +78,89 @@ test("a balanced trial balance ties and is ready", () => {
   const r = gifiCodes(tb, new Map(), byNo);
   assert.deepEqual(r.problems, []);
   assert.equal(r.totals["2599"], r.totals["3640"]);
+});
+
+// Round 10 (Hashim, Nov 27, 2026).
+const head = { bn: "000000000RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" };
+
+test("round 10: with QuickBooks' own vendor and software, the file is the sample byte for byte", () => {
+  const r = gifiCodes(trialBalance(), new Map(), byNo);
+  assert.equal(gifiFile({ ...head, vendor: "Intuit Inc.", software: "QuickBooks Online" }, r.codes), sample);
+});
+
+test("round 10: Closebook's header: field 6 Concept Accounting, 11 Concept Studio, 14 the 15-character BN, the rest as the sample", () => {
+  const r = gifiCodes(trialBalance(), new Map(), byNo);
+  const ours = gifiFile(head, r.codes).split("\r\n")[0].split(","), theirs = sample.split("\r\n")[0].split(",");
+  assert.equal(ours.length, 24);
+  assert.equal(ours[5], '"Concept Accounting"');
+  assert.equal(ours[10], '"Concept Studio"');
+  for (let i = 0; i < 24; i++) if (i !== 5 && i !== 10) assert.equal(ours[i], theirs[i], `field ${i + 1}`);
+});
+
+test("round 10: a Business Number of 9 digits gets RC0001; 15 characters stay; anything else is refused", () => {
+  assert.equal(businessNumber("123456789"), "123456789RC0001");
+  assert.equal(businessNumber("123456789RC0002"), "123456789RC0002");
+  assert.equal(businessNumber(""), null);
+  assert.equal(businessNumber("12345"), null);
+});
+
+test("round 10: file names", () => {
+  assert.equal(gifiFileName("Birch Dummy Realty Inc.", "2026-12-31", "before_tax"), "Birch Dummy Realty Inc. GIFI 2026-12-31 before tax entries.gfi");
+  assert.equal(gifiFileName("A/B: Co", "2026-12-31", "final"), "AB Co GIFI 2026-12-31 final.gfi");
+});
+
+test("round 10: the five checks, with their figures; the sample fails the balance sheet check by 1,654.27", () => {
+  const r = gifiCodes(trialBalance(), new Map(), byNo);
+  const c = gifiChecks(r, r.totals["3660"]);
+  assert.deepEqual(c.map((x) => x.key), ["tb", "bs", "ni", "re", "opening"]);
+  assert.equal(c.find((x) => x.key === "bs")!.ok, false);
+  assert.equal(c.find((x) => x.key === "bs")!.rows.at(-1)!.amount, 1654.27);
+  assert.equal(c.find((x) => x.key === "opening")!.ok, true);
+  const tb = trialBalance();
+  tb.push({ id: "fix", number: "3001", name: "Balancing", line_no: "3500.00", this_year: -1654.27, needs_reviewer: false });
+  const ok = gifiChecks(gifiCodes(tb, new Map(), byNo), -80534.59);
+  assert.ok(ok.every((x) => x.ok), JSON.stringify(ok.filter((x) => !x.ok).map((x) => x.result)));
+  const noStep2 = gifiChecks(gifiCodes(tb, new Map(), byNo), null).find((x) => x.key === "opening")!;
+  assert.equal(noStep2.ok, false);
+  const off = gifiChecks(gifiCodes(tb, new Map(), byNo), -80000).find((x) => x.key === "opening")!;
+  assert.equal(off.result, "Off by (534.59)");
+});
+
+test("round 10: retained earnings: start + net income − dividends + prior period + other = end", () => {
+  const tb = trialBalance();
+  tb.push({ id: "fix", number: "3001", name: "Balancing", line_no: "3500.00", this_year: -1654.27, needs_reviewer: false });
+  tb.push({ id: "div", number: "3700", name: "Dividends", line_no: "3700.00", this_year: 5000, needs_reviewer: false });
+  tb.push({ id: "cash", number: "1001", name: "Cash", line_no: "1002.00", this_year: -5000, needs_reviewer: false });
+  const r = gifiCodes(tb, new Map(), byNo);
+  assert.equal(r.re.dividends, 5000);
+  assert.equal(new Map(r.codes).get("3700"), -5000, "dividends are written negative (rule 1, Nov 14)");
+  const re = gifiChecks(r, -80534.59).find((x) => x.key === "re")!;
+  assert.ok(re.ok);
+  assert.equal(r.totals["3849"], Math.round((r.totals["3660"] + r.totals["9999"] - 5000) * 100) / 100);
+});
+
+test("round 10: tax workpaper: meals add back 50%, amortization and income tax 100%, a REVIEW line waits for the reviewer", () => {
+  const codes = new Map([["M50", { name: "Meals", rule: "Add back 50%" }], ["AMORT", { name: "Amortization", rule: "" }], ["INCTAX", { name: "Income tax", rule: "" }], ["REVIEW", { name: "Reviewer decides", rule: "" }]]);
+  const w = taxWorkpaper([
+    { label: "60200 Meals", line_no: "8523.00", gifi: "8523", lineType: "Expense", code: "M50", amount: 1000 },
+    { label: "70100 Amortization", line_no: "8670.00", gifi: "8670", lineType: "Expense", code: "AMORT", amount: 1960 },
+    { label: "72000 Income tax", line_no: "9990.00", gifi: "9990", lineType: "Expense", code: "INCTAX", amount: 800 },
+    { label: "40800 FX gain", line_no: "8231.00", gifi: "8231", lineType: "Revenue", code: "REVIEW", amount: 120 },
+    { label: "61000 Bank fees", line_no: "8710.00", gifi: "8710", lineType: "Expense", code: "FULL", amount: 300 },
+  ], codes, new Map());
+  assert.deepEqual(w.map((x) => [x.code, x.total, x.effect, x.open]), [["M50", 1000, 500, 0], ["AMORT", 1960, 1960, 0], ["INCTAX", 800, 800, 0], ["REVIEW", 120, 0, 1]]);
+  const set = taxWorkpaper([{ label: "40800 FX gain", line_no: "8231.00", gifi: "8231", lineType: "Revenue", code: "REVIEW", amount: 120 }], codes, new Map([["8231.00", "deduct100"]]));
+  assert.equal(set[0].effect, -120);
+});
+
+test("round 10: tie-out: a difference to the cent stays open until accepted at that signed amount; CCA skipped with book amortization", () => {
+  const cb = { ni: 10000, assets: 50000, amort: 1960, tax: 800 };
+  const t = tieOut(cb, { ni: 10000, assets: 50000, cca: 1960, tax: 800 }, {}, false);
+  assert.ok(t.every((x) => !x.open && x.diff === 0));
+  const d = tieOut(cb, { ni: 9999.99, assets: 50000, cca: 1500, tax: 800 }, {}, false);
+  assert.deepEqual(d.filter((x) => x.open).map((x) => [x.key, x.diff]), [["ni", -0.01], ["cca", -460]]);
+  const acc = tieOut(cb, { ni: 9999.99, assets: 50000, cca: 1500, tax: 800 }, { ni: { diff: -0.01, by: "o", at: "", reason: "Rounding" } }, true);
+  assert.deepEqual(acc.filter((x) => x.open).map((x) => x.key), [], "accepted, and CCA not compared");
+  const flip = tieOut(cb, { ni: 10000.01, assets: 50000, cca: 1960, tax: 800 }, { ni: { diff: -0.01, by: "o", at: "", reason: "Rounding" } }, false);
+  assert.ok(flip.find((x) => x.key === "ni")!.open, "0.01 is not (0.01)");
 });
