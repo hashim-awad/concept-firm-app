@@ -25,7 +25,7 @@ export type FsInput = {
 };
 
 const TOTALS = new Set(["2599", "3499", "3620", "3640", "3849", "3660", "3680", "3600", "8089", "8299", "8519", "9367", "9368", "9369", "9970", "9990", "9995", "9999", "9659", "9898", "9899", "8518", "8300"]);
-const SHAREHOLDER_TO = new Set(["2780", "2781", "2782", "3260", "3261", "3262"]);
+const SHAREHOLDER_TO = new Set(["2780", "2781", "2782", "2783", "3260", "3261", "3262", "3263"]);
 const RELATED = /related (part|corp|canadian|foreign)|affiliat/i;
 const cents = (n: number) => Math.round(n * 100);
 

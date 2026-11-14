@@ -9,7 +9,7 @@ const BEGIN = "-- BEGIN GENERATED (scripts/gen-closebook-seed.ts from docs/phase
 const END = "-- END GENERATED";
 
 export function generated(): string {
-  const wb = fromWorkbook(readFileSync("docs/phase3/Closebook-master-lines-APPROVED.xlsx"));
+  const wb = fromWorkbook(readFileSync("docs/phase3/archive/Closebook-master-lines-2026-11-11-seed.xlsx"));
   const gifi = gifiFromCsv(readFileSync("docs/phase3/GIFI-Concept-RC4088-Rev23.csv", "utf8"));
   return seedSql(gifi, wb);
 }

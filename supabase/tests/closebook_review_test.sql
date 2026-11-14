@@ -51,7 +51,7 @@ select public.cb_sign_step(:'f', 'records', 'prepared');
 select test.check('step 4: three accounts to match', test.try(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'Not yet: 3 accounts to match to a GIFI line.');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '41000' then '8000.00' else '8862.00' end) from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'code', 'prepared');
-select test.check('step 10 has no sign-off yet (steps 8 and 9 got theirs in rounds 10 and 11)', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) like 'This step is not built yet%');
+select test.check('step 10 has its sign-off (round 12), and it waits for the MAL', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) = 'Not yet: The MAL is not signed yet (step 9).');
 reset role;
 reset request.jwt.claims;
 
@@ -143,17 +143,13 @@ reset role;
 reset request.jwt.claims;
 select test.check('the history says when one person prepared and reviewed', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reviewed' and step = 'setup' and detail = 'Prepared and reviewed by the same person'));
 
--- Round 8b: the completion checklist belongs to step 10. Step 6 does not need it.
+-- Round 8b: the completion checklist belongs to step 10. Step 6 does not need it. Round 12: it opens once
+-- the MAL is signed (its rules are tested in closebook_deliver_lock_test.sql).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000002","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
-select test.check('question 1 cannot be Not applicable', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000001","answer":"na","note":""}]')$q$, :'f')) = 'Question 1 cannot be Not applicable: only questions 8 and 9 can.');
-select test.check('question 10 cannot be Not applicable', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000a","answer":"na","note":""}]')$q$, :'f')) like 'Question 10 cannot%');
-select public.cb_save_checklist(:'f', (select jsonb_agg(jsonb_build_object('question', key, 'answer', case when sort_order = 9 then 'na' when sort_order = 11 then 'no' else 'yes' end,
-  'note', case when sort_order = 11 then 'Report not dated yet.' else '' end)) from public.cb_checklist_questions));
+select test.check('the checklist is closed until the MAL is signed', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000002","answer":"yes"}]')$q$, :'f')) = 'The checklist opens once the MAL is signed (step 9).');
 reset role;
 reset request.jwt.claims;
-select test.check('a "No" on question 11 is kept, and blocks: it must be Yes', private.cb_checklist_problems(:'f') = array['Question 11 must be Yes.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_add_note(:'f', 'review', 'step', null, 'Check the MAL date against the report date.') as n3 \gset
