@@ -129,3 +129,15 @@ test("own books: the credit goes to the client's own shareholder account", () =>
   assert.deepEqual(p.problems, []);
   assert.deepEqual(p.rpc.at(-1), { account: "abc", amount: -113, memo: "Paid personally by the shareholder" });
 });
+
+test("round 9b: a line's account chosen on the file replaces the default; meals keep their 50% code", () => {
+  const p = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 1300, account: "60100" }], head({ summaryTotal: 11300 }), REG);
+  assert.deepEqual(p.problems, []);
+  assert.deepEqual(p.rpc[0], { chart: "60100", amount: 106.5, memo: "Meals and entertainment", tax_code: "MEALS_HST_50" });
+  const own = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 0, account: "acct:abc" }], head({ summaryTotal: 10000 }), { ...REG, registered: false });
+  assert.deepEqual(own.rpc[0], { account: "abc", amount: 100, memo: "Meals and entertainment" });
+  const fresh = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 0, account: "new:Client meals" }], head({ summaryTotal: 10000 }), { ...REG, registered: false });
+  assert.deepEqual(fresh.rpc[0], { chart: "60200", new_name: "Client meals", amount: 100, memo: "Meals and entertainment" });
+  const unnamed = planExpenses(DEFS, [{ key: "meals", before: 10000, tax: 0, account: "new:" }], head({ summaryTotal: 10000 }), REG);
+  assert.ok(unnamed.problems.includes("Meals and entertainment: name the new account."));
+});

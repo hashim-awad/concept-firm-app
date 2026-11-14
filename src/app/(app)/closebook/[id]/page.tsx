@@ -238,7 +238,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <summary className="cursor-pointer font-semibold">Expenses paid personally <span className="ml-1 text-sm font-normal text-ink-3">
             {booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked, marked below` : "Setup: the owner paid business costs personally. Book one entry from the client's sheet."}</span></summary>
           {open ? <div className="mt-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
-            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders} /></div>
+            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders}
+            options={exp.options} defaults={exp.defaults} chosen={exp.chosen} rolledFrom={exp.rolledFrom} /></div>
             : <p className="mt-2 text-sm text-ink-2">The file is locked, or you have view access only.</p>}
         </details>
       )}
@@ -250,7 +251,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // are one click away, where the preparer explains the flagged changes for step 5.
     if (view === "lead") body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
     else {
-      const amt = (v: number) => v.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      // Every amount as the working papers show it: a negative in brackets (round 9b item 2).
+      const amt = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${t})` : t; };
       const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
       const { data: rl } = bankFile ? await supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, reviewer_reason").eq("file_id", id).eq("status", "reviewer").order("txn_date") : { data: [] };
       const groups: ReviewGroup[] = [
@@ -263,7 +265,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         { key: "revenue", title: "Revenue check", step: "step 5", items: await (async () => {
           const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
           return r ? revenueWaiting(r).map((w) => ({ href: `${href("entries")}#revenue-check`, label: w.label,
-            detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: w.diff < 0 ? `(${amt(-w.diff)})` : amt(w.diff) })) : [];
+            detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
         })() },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`, detail: a.needs_reviewer ? a.reviewer_reason : typeFlagText(a, lineOf(a.line_no)), amount: amt(a.this_year) })) },
