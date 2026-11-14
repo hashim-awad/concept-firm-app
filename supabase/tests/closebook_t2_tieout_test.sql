@@ -74,6 +74,17 @@ select test.check('the rounding allowed is a setting', private.cb_step8_problems
 update public.cb_settings set t2_rounding = 5;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 3, null);
+reset role;
+reset request.jwt.claims;
+select test.check('income tax and CCA tie to the cent: 3.00 on income tax blocks', private.cb_step8_problems(:'f') = array['Income tax: Closebook less ProFile is (3.00). It must tie to the cent. Only the reviewer can accept it.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 0, null);
+reset role;
+reset request.jwt.claims;
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 0, null);
 select public.cb_sign_step(:'f', 't2', 'prepared');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';

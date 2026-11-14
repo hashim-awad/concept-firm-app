@@ -165,4 +165,7 @@ test("round 10: tie-out: Closebook less ProFile; within $5 is rounding; over it 
   const flip = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 787.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } }, false);
   assert.ok(flip.find((x) => x.key === "tax")!.open, "12.50 is not (12.50)");
   assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}, false, 0).find((x) => x.key === "ni")!.open, "the rounding allowed is a setting");
+  const tax3 = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 803 }, {}, false);
+  assert.deepEqual(tax3.filter((x) => x.open).map((x) => [x.key, x.diff, x.rounding]), [["tax", -3, false]], "income tax ties to the cent: 3.00 blocks");
+  assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1959.99, tax: 800 }, {}, false).find((x) => x.key === "cca")!.open, "CCA ties to the cent");
 });

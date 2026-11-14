@@ -114,8 +114,10 @@ export function tieOut(closebook: { ni: number; assets: number; amort: number; t
   const item = (key: TieItem["key"], label: string, cb: number, pf: number | null, compared = true): TieItem => {
     const diff = pf === null ? null : cents(cb - pf);
     const acc = accepted[key] ?? null;
-    const rounding = compared && diff !== null && diff !== 0 && Math.abs(diff) <= roundingAllowed;
-    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, rounding, open: compared && diff !== null && Math.abs(diff) > roundingAllowed && (!acc || acc.diff !== diff) };
+    // Only net income and total assets come from the rounded GIFI lines; CCA and income tax tie to the cent.
+    const allowed = key === "ni" || key === "assets" ? roundingAllowed : 0;
+    const rounding = compared && allowed > 0 && diff !== null && diff !== 0 && Math.abs(diff) <= allowed;
+    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, rounding, open: compared && diff !== null && Math.abs(diff) > allowed && (!acc || acc.diff !== diff) };
   };
   return [
     item("ni", "Net income (9999)", closebook.ni, typed.ni),

@@ -144,8 +144,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner }: { fileId: string
                           <button type="submit" className="btn-secondary btn-compact">Accept</button></form>)}</span>}</td></tr>
             ))}</tbody>
           </table>
-          <p className="text-xs text-ink-2">ProFile rounds each GIFI line to whole dollars. A difference of {fmt(g.roundingAllowed)} or less shows as rounding and does not block (Settings, Closebook, Thresholds).</p>
-          {anyOpen && <p className="text-sm text-danger">A larger difference blocks the preparer&rsquo;s sign-off. Only the reviewer can accept one, with a reason.</p>}
+          <p className="text-xs text-ink-2">ProFile rounds each GIFI line to whole dollars, so net income and total assets may differ by up to {fmt(g.roundingAllowed)}: that shows as rounding and does not block (Settings, Closebook, Thresholds). CCA and income tax are typed from ProFile and booked to the cent: they must tie exactly, and any difference blocks the sign-off.</p>
+          {anyOpen && <p className="text-sm text-danger">A difference marked in red blocks the preparer&rsquo;s sign-off. Only the reviewer can accept one, with a reason.</p>}
           {editable && !g.stale && (
             <form action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
               {([["ni", "Net income (9999)"], ["assets", "Total assets (2599)"], ["cca", "Total CCA, Schedule 8"], ["tax", "Total income tax, federal plus provincial"]] as const).map(([k, label]) => {

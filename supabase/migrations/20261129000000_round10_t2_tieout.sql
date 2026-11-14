@@ -149,9 +149,12 @@ begin
       v_acc := t.accepted -> k;
       v_compared := k <> 'cca' or not v_book;
       v_items := v_items || jsonb_build_object('key', k, 'closebook', v_cb, 'profile', v_pf, 'diff', v_diff, 'compared', v_compared,
-        -- ProFile rounds each line to whole dollars: within the rounding allowed, not a difference to clear.
-        'rounding', v_compared and v_diff is not null and v_diff <> 0 and abs(v_diff) <= v_round,
-        'open', v_compared and v_diff is not null and abs(v_diff) > v_round and (v_acc is null or (v_acc ->> 'diff')::numeric is distinct from v_diff));
+        -- ProFile rounds the GIFI lines to whole dollars, so net income (9999) and total assets (2599) may
+        -- differ by the rounding allowed. CCA and income tax are typed from ProFile and booked to the cent:
+        -- they tie exactly.
+        'rounding', v_compared and k in ('ni', 'assets') and v_diff is not null and v_diff <> 0 and abs(v_diff) <= v_round,
+        'open', v_compared and v_diff is not null and abs(v_diff) > (case when k in ('ni', 'assets') then v_round else 0 end)
+          and (v_acc is null or (v_acc ->> 'diff')::numeric is distinct from v_diff));
     end loop;
   end if;
   return jsonb_build_object('rounding', v_round, 'final_id', e.id, 'final_at', e.created_at, 'stale', v_stale, 'book_amortization', v_book,
@@ -175,9 +178,11 @@ begin
     else
       for i in select * from jsonb_array_elements(v -> 'items') loop
         if (i ->> 'open')::boolean then
-          v_out := v_out || format('%s: Closebook less ProFile is %s, more than the rounding allowed (%s). Only the reviewer can accept it.',
-            case i ->> 'key' when 'ni' then 'Net income' when 'assets' then 'Total assets' when 'cca' then 'CCA' else 'Income tax' end,
-            private.cb_money((i ->> 'diff')::numeric), private.cb_money((v ->> 'rounding')::numeric));
+          v_out := v_out || case when i ->> 'key' in ('ni', 'assets')
+            then format('%s: Closebook less ProFile is %s, more than the rounding allowed (%s). Only the reviewer can accept it.',
+              case i ->> 'key' when 'ni' then 'Net income' else 'Total assets' end, private.cb_money((i ->> 'diff')::numeric), private.cb_money((v ->> 'rounding')::numeric))
+            else format('%s: Closebook less ProFile is %s. It must tie to the cent. Only the reviewer can accept it.',
+              case i ->> 'key' when 'cca' then 'CCA' else 'Income tax' end, private.cb_money((i ->> 'diff')::numeric)) end;
         end if;
       end loop;
     end if;
