@@ -44,7 +44,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
   const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");
   const e = ctl.e, f = ctl.f;
   const s = ctl.state();
-  const scr = proposalScreen(e, s, { client: null, loaded: env.loaded, isOwner, acks: {} });
+  const scr = proposalScreen(e, s, { client: null, loaded: env.loaded, isOwner, acks: {}, live: !!live });
   const html = e.pHtml(s);
 
   // ---- Quotes: save as a Draft, Letter details, Send for signing ----
@@ -85,7 +85,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
     if (r.ok) router.push(r.href); else setSendNote({ error: r.error, problems: r.problems });
   }
   async function removeDraft() {
-    if (!live || !quoteId || !window.confirm("Delete this draft proposal?")) return;
+    if (!live || !quoteId || !window.confirm("Delete this draft monthly quote?")) return;
     const r = await live.remove(quoteId);
     if (r.ok) router.push("/quotes?msg=Draft%20deleted."); else setSaveNote(r.error ?? "Could not delete.");
   }
@@ -234,7 +234,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
             <SelectIn id="p_segment" value={f.segment} onValue={(x) => act((c) => c.set("segment", x))}>{["Team or brokerage", "Agent", "Other"].map((x) => <option key={x} value={x}>{x}</option>)}</SelectIn>
           </Labelled>
         </Row>
-        <Labelled id="p_format" label="Proposal format">
+        <Labelled id="p_format" label="Quote format">
           <SelectIn id="p_format" value={f.format} onValue={(x) => act((c) => c.set("format", x))}>
             <option value="single">Single price (one package)</option>
             <option value="options">Options (two or three packages)</option>
@@ -242,7 +242,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
         </Labelled>
         <Hint>Set automatically from client type: agents get a single price, teams get options. You can change it.</Hint>
         {live ? <Hint>Dated the day it is sent. Valid for 21 days.</Hint> : <Row>
-          <Labelled id="p_date" label="Proposal date">
+          <Labelled id="p_date" label="Quote date">
             <input id="p_date" type="date" value={f.date} onChange={(ev) => act((c) => c.set("date", ev.target.value))} className="h-10 w-full rounded-lg border border-sand-300 bg-surface px-3 text-[15px]" />
           </Labelled>
           <Labelled id="p_valid" label="Valid for (days)">{txt("valid", { inputMode: "numeric" })}</Labelled>
@@ -256,27 +256,27 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
       </Panel>
     ) },
     { label: "Options", done: opts.length > 0 && opts.every((o) => o.lines.some((l: any) => e.feeVal(l.amt).k === "num")), body: optionsBody },
-    live ? letterStep : { label: "Recent proposals", body: <Panel title="Recent proposals">{recent ?? <Hint>Saved proposals appear here.</Hint>}</Panel> },
+    live ? letterStep : { label: "Recent monthly quotes", body: <Panel title="Recent monthly quotes">{recent ?? <Hint>Saved monthly quotes appear here.</Hint>}</Panel> },
   ];
 
   return (
     <StudioLayout
-      form={<Stepper steps={steps} lastNote={live ? "Last step. Check the proposal, then send it for signing." : "Last step. Review the proposal, then download."} />}
+      form={<Stepper steps={steps} lastNote={live ? "Last step. Check the monthly quote, then send it for signing." : "Last step. Review the monthly quote, then download."} />}
       controls={
           <Panel>
             {approvedTax && !approvedTax[f.province] && (
               <p role="status" className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-[#5C3D00]">
-                No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final proposal needs one: an owner approves rates under GST/HST rates. Drafts are fine.
+                No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final monthly quote needs one: an owner approves rates under GST/HST rates. Drafts are fine.
               </p>
             )}
-            {approvedTax?.[f.province] && <p className="text-[13px] text-ink-3">Tax on this proposal: {approvedTax[f.province]} (approved rate).</p>}
+            {approvedTax?.[f.province] && <p className="text-[13px] text-ink-3">Tax on this monthly quote: {approvedTax[f.province]} (approved rate).</p>}
             <ChecksPanel id="p_checks" list={scr.checks} />
             {live ? (
               <div className="grid gap-3">
                 <p className="text-[13px] text-ink-3" role="status">{saveNote || "Not saved yet: it saves as a draft once you start."}</p>
                 {isOwner ? (
                   <Button type="button" disabled={!quoteId || !scr.ok || !letterOk || sending} onClick={send}>{sending ? "Sending..." : "Send for signing"}</Button>
-                ) : <p className="text-[13px] text-ink-3">Hashim sends proposals. It waits in Quotes as a draft.</p>}
+                ) : <p className="text-[13px] text-ink-3">Hashim sends monthly quotes. It waits in Quotes as a draft.</p>}
                 {(!scr.ok || !letterOk) && <p className="text-[13px] text-ink-3">To send: fix the items above{letterOk ? "" : " and complete Letter details"}.</p>}
                 {sendNote && (
                   <div role="alert" className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[13px] text-danger">

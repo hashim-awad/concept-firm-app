@@ -26,7 +26,7 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
   const editable = canEdit(access, "engagement_terms");
 
   return (
-    <SettingsShell title="Review and publish" help={<p>Every unpublished change, before and after. Publishing puts them into new letters and proposals. Letters already made keep the wording they used.</p>}>
+    <SettingsShell title="Review and publish" help={<p>Every unpublished change, before and after. Publishing puts them into new letters and quotes. Letters already made keep the wording they used.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {keys.length === 0 ? <p className="card text-sm text-muted">No unpublished changes.</p> : (
         <>
@@ -38,7 +38,7 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
               const places = usedIn(k);
               return (
                 <li key={k} className="card space-y-2">
-                  <p className="text-xs text-muted">{places.length ? `In: ${places.join(" · ")}` : "Used in letters and proposals"}</p>
+                  <p className="text-xs text-muted">{places.length ? `In: ${places.join(" · ")}` : "Used in letters and quotes"}</p>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div><p className="mb-1 text-xs font-medium text-ink-3 uppercase">Published now</p><p className="rounded-lg bg-sand-50 p-2 text-sm whitespace-pre-wrap">{before}</p></div>
                     <div><p className="mb-1 text-xs font-medium text-ink-3 uppercase">After publishing</p><p className="rounded-lg bg-[#FFF4CC] p-2 text-sm whitespace-pre-wrap">{after}</p></div>

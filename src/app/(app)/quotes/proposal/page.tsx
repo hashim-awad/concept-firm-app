@@ -20,7 +20,7 @@ export default async function ProposalPage({ searchParams }: PageProps<"/quotes/
   let saved: { f: Record<string, string>; opts: unknown[]; rec: number; clientId?: string; leadId?: string } | undefined;
   if (quoteId) {
     const { data: q } = await supabase.from("quotes").select("id, kind, status, proposal, client_id, lead_id").eq("id", quoteId).maybeSingle();
-    if (!q || q.kind !== "proposal") redirect("/quotes?error=Proposal%20not%20found.");
+    if (!q || q.kind !== "proposal") redirect("/quotes?error=Monthly%20quote%20not%20found.");
     if (q.status !== "draft") redirect(`/quotes/${quoteId}`);
     const p = (q.proposal ?? {}) as { f?: Record<string, string>; opts?: unknown[]; rec?: number };
     if (p.f && Array.isArray(p.opts)) saved = { f: p.f, opts: p.opts, rec: p.rec ?? 0, clientId: q.client_id ?? undefined, leadId: q.lead_id ?? undefined };
@@ -45,7 +45,7 @@ export default async function ProposalPage({ searchParams }: PageProps<"/quotes/
   }
   return (
     <>
-      <WorkspaceHeader title="Proposal" description="Up to three options. It saves as a draft in Quotes. The client picks an option and signs its engagement letter online." />
+      <WorkspaceHeader title="Monthly quote" description="Up to three options. It saves as a draft in Quotes. The client picks an option and signs its engagement letter online." />
       {prefill && (
         <div className="mb-4 rounded-lg border border-navy-200 bg-navy-50 p-4 text-sm">
           <p className="font-medium">Filled in from the lead. Check every field before you send.</p>

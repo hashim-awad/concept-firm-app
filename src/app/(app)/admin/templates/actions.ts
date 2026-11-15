@@ -54,7 +54,7 @@ export async function publishChanges(formData: FormData) {
   if (!draft) redirect(withMessage(LIST, "msg", "Nothing to publish."));
   const { error } = await supabase.rpc("approve_wording", { p_id: draft!.id });
   revalidatePath(LIST, "layout");
-  redirect(withMessage(error ? back : LIST, error ? "error" : "msg", error ? error.message : "Published. New letters and proposals use the new wording from now on. Letters already made keep theirs."));
+  redirect(withMessage(error ? back : LIST, error ? "error" : "msg", error ? error.message : "Published. New letters and quotes use the new wording from now on. Letters already made keep theirs."));
 }
 
 export async function discardChanges() {

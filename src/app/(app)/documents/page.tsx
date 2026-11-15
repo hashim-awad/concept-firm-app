@@ -7,7 +7,7 @@ import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
 
-const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Proposal" };
+const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Monthly quote" };
 
 // The document vault: every PDF made in the app, with permanent versions.
 // Engagements and proposals moved to their own pages; old links still land there.
@@ -28,11 +28,11 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
   );
   return (
     <>
-      <PageHeader title="Document vault" description="Every letter and proposal PDF made in the app. Versions are permanent: a change makes a new version." />
+      <PageHeader title="Document vault" description="Every letter and monthly quote PDF made in the app. Versions are permanent: a change makes a new version." />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="mb-4 flex flex-wrap gap-2" aria-label="Filter by type">{chip("", "All")}{Object.entries(KIND).map(([k, l]) => chip(k, l))}</div>
       <section className="card overflow-x-auto p-0">
-        {rows.length === 0 ? <p className="p-5 text-sm text-muted">Nothing in the vault yet. Every letter and proposal you download is filed here.</p> : (
+        {rows.length === 0 ? <p className="p-5 text-sm text-muted">Nothing in the vault yet. Every letter and monthly quote you download is filed here.</p> : (
           <table className="table">
             <thead><tr><th>Document</th><th>Client</th><th>Type</th><th>Versions</th><th>Status</th><th>Last change</th></tr></thead>
             <tbody>{rows.map((d) => (

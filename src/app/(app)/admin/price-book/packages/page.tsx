@@ -20,7 +20,7 @@ export default async function PackagesPage({ searchParams }: PageProps<"/admin/p
   const offers = (data ?? []) as Offer[];
   const section = (seg: string) => offers.filter((o) => o.segment === seg);
   return (
-    <SettingsShell title="Price book" help={<p>Packages and price floors used by the Corporate Letter and Proposal checks. Proposals below the floor are flagged. The services ticked on a package decide which catalogue items show as priced through packages.</p>}
+    <SettingsShell title="Price book" help={<p>Packages and price floors used by the Corporate Letter and monthly quote checks. Monthly quotes below the floor are flagged. The services ticked on a package decide which catalogue items show as priced through packages.</p>}
       actions={editable ? <Link href="/admin/price-book/packages/new" className="btn">Add offer</Link> : undefined}>
       <PriceBookTabs current="/admin/price-book/packages" />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />

@@ -6,13 +6,15 @@
 // menus stay in the page and are hidden when closed, so Sign out and every link are there from the start.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookCheck, Building2, ChevronDown, FileSignature, HelpCircle, Landmark, LogOut, Menu, Plus, Search, Settings, UserPlus } from "lucide-react";
+import { BookCheck, Briefcase, Building2, ChevronDown, FileSignature, HelpCircle, Landmark, LogOut, Menu, Plus, Search, Settings, User, UserPlus } from "lucide-react";
 import { ClientSearchDialog, useClientSearch } from "./client-search";
 import type { GearColumn } from "./admin/settings-menu";
 
-export type NewItem = { key: "lead" | "proposal" | "letter" | "client" | "file"; label: string; href: string };
+// group: a small label shown above the items that share it (round 19: "New quote" with its three kinds).
+export type NewItem = { key: "lead" | "quote_t1" | "quote_corporate" | "proposal" | "letter" | "client" | "file"; label: string; href: string; group?: string };
 const NEW_ICON: Record<NewItem["key"], ReactNode> = {
-  lead: <UserPlus className="h-4 w-4" />, proposal: <Landmark className="h-4 w-4" />, letter: <FileSignature className="h-4 w-4" />,
+  lead: <UserPlus className="h-4 w-4" />, quote_t1: <User className="h-4 w-4" />, quote_corporate: <Briefcase className="h-4 w-4" />,
+  proposal: <Landmark className="h-4 w-4" />, letter: <FileSignature className="h-4 w-4" />,
   client: <Building2 className="h-4 w-4" />, file: <BookCheck className="h-4 w-4" />,
 };
 
@@ -66,7 +68,12 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
             className="flex h-9 items-center gap-1.5 rounded-lg bg-navy-800 px-3 text-[13.5px] font-bold text-white hover:bg-navy-700"><Plus className="h-4 w-4" aria-hidden />New</button>
           {(
             <div role="menu" hidden={open !== "new"} className={`${panel} right-0 w-60 py-1.5`}>
-              {newItems.map((i) => <Link key={i.key} role="menuitem" href={i.href} onClick={() => setOpen(null)} className="flex items-center gap-2.5 px-4 py-2 text-[13.5px] hover:bg-navy-50">{NEW_ICON[i.key]}{i.label}</Link>)}
+              {newItems.map((i, n) => (
+                <div key={i.key} role="none">
+                  {i.group && i.group !== newItems[n - 1]?.group && <p role="presentation" className="px-4 pt-2 pb-1 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">{i.group}</p>}
+                  <Link role="menuitem" href={i.href} onClick={() => setOpen(null)} className={`flex items-center gap-2.5 py-2 pr-4 text-[13.5px] hover:bg-navy-50 ${i.group ? "pl-8" : "pl-4"}`}>{NEW_ICON[i.key]}{i.label}</Link>
+                </div>
+              ))}
             </div>
           )}
         </div>

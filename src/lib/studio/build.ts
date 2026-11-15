@@ -52,6 +52,6 @@ export function rebuild(kind: DocKind, e: StudioEngine, snap: any, client: any, 
   const s = c.state();
   const scr = proposalScreen(e, s, { client: null, loaded: true, isOwner, acks: {} });
   const out = c.output();
-  return { s, scr, e, def: e.pPdf(s), fileName: out.fileName, title: `${s.name} proposal ${s.date}`, inputs: { f: c.f, opts: s.opts, rec: s.rec, mode } };
+  return { s, scr, e, def: e.pPdf(s), fileName: out.fileName, title: `${s.name} monthly quote ${s.date}`, inputs: { f: c.f, opts: s.opts, rec: s.rec, mode } };
 }
 

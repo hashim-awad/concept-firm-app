@@ -29,7 +29,7 @@ export async function TaxRatesView(sp: SP): Promise<View> {
 
   return {
     help: <>
-      <p>Proposals and quotes charge GST or HST by the client&rsquo;s province. Concept does not collect PST or QST. A rate is used only after an owner approves it. If a province has no approved rate, no quote is made.</p>
+      <p>Quotes charge GST or HST by the client&rsquo;s province. Concept does not collect PST or QST. A rate is used only after an owner approves it. If a province has no approved rate, no quote is made.</p>
       {access.is_owner && <div><h4>Load the CRA table</h4><p>Loads all 13 GST/HST rates from the {craLink("CRA rates page")} as pending, in effect from {formatDate(CRA_TABLE.effectiveFrom)}, checked {formatDate(CRA_TABLE.checkedOn)}. Rates already loaded are skipped. Nothing is used until you approve.</p></div>}
       {editable && <div><h4>Add a rate</h4><p>Open the {craLink("CRA GST/HST rates page")}, check the rate for the province, then enter it here. It starts as pending until an owner approves it.</p></div>}
     </>,

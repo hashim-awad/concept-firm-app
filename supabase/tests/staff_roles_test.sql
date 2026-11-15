@@ -35,7 +35,8 @@ select test.check('owner sets permissions', test.try($$select public.set_role_pe
 select test.check('saving an unchanged role succeeds',
   test.try($$select public.update_role((select id from public.roles where name = 'Reviewer'), 'Reviewer', 'Test role')$$) = 'OK');
 select test.check('saving an unchanged role writes no log entry', not exists (
-  select 1 from public.activity_log where entity_type = 'roles' and action = 'update'));
+  select 1 from public.activity_log where entity_type = 'roles' and action = 'update'
+     and entity_id = (select id::text from public.roles where name = 'Reviewer')));
 select test.check('owner cannot change Owner role permissions', test.try($$select public.set_role_permissions(
   (select id from public.roles where is_owner), '{"leads":"none"}')$$) like '%locked%');
 select test.check('owner cannot rename Owner role', test.try($$select public.update_role(

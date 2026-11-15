@@ -14,6 +14,7 @@ export type ScreenContext = {
   loaded: boolean;                // client records are available (always true in the app)
   isOwner: boolean;
   acks: Record<string, boolean>;
+  live?: boolean;                 // the Quotes builder: staff wording says "monthly quote" (Hashim, round 19)
 };
 
 export type ScreenResult = {
@@ -79,8 +80,11 @@ export function proposalScreen(e: StudioEngine, s: any, ctx: ScreenContext): Scr
   const C: Check[] = e.pChecks(s).slice();
   const errs = C.filter((x) => x.lvl === "err").length;
   const ok = !errs && (s.mode !== "final" || ctx.isOwner);
-  const message = errs ? "Fix the items listed first." : !ok ? "Only Hashim can issue a Final proposal." : "";
-  return { checks: errs ? C : [{ lvl: "ok", msg: "Proposal is complete." }, ...C], errs, needAck: [], ok, message, showSaveClient: false };
+  const message = errs ? "Fix the items listed first." : !ok ? "Only Hashim can issue a Final monthly quote." : "";
+  // Studio's own words ("Proposal is complete.") stay on the test-only harness, which the screen
+  // parity test compares with Studio. The Quotes builder says "monthly quote".
+  const done = ctx.live ? "Monthly quote is complete." : "Proposal is complete.";
+  return { checks: errs ? C : [{ lvl: "ok", msg: done }, ...C], errs, needAck: [], ok, message, showSaveClient: false };
 }
 
 // Studio collapseChecks(): the one-line summary above the list.

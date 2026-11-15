@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { BookCheck, Briefcase, Building2, FileSignature, FolderLock, Home, Landmark, UserPlus, X } from "lucide-react";
+import { BookCheck, Briefcase, Building2, FolderLock, Home, Landmark, UserPlus, X } from "lucide-react";
 import { Sidebar, type NavItem } from "@/components/ds/navigation";
 
 export type SidebarAccess = {
@@ -27,7 +27,8 @@ export type SidebarCounts = { quotesAwaiting: number; lettersAwaiting: number; l
 // Which menu item a page belongs to (pages keep their addresses; only their place in the menu changed).
 const OWNER: [string, string][] = [
   ["/documents/proposal", "/quotes"], ["/proposals", "/quotes"],
-  ["/documents/corporate-letter", "/engagement-letters"], ["/documents/t1-letter", "/engagement-letters"], ["/engagement-letters/new", "/engagement-letters"],
+  // Round 19: Engagement letters is the Letters tab under Engagements; its pages light Engagements.
+  ["/documents/corporate-letter", "/engagements"], ["/documents/t1-letter", "/engagements"], ["/engagement-letters", "/engagements"],
   ["/documents/engagements", "/engagements"],
 ];
 
@@ -50,9 +51,8 @@ export function AppSidebar({ access, counts }: { access: SidebarAccess; counts: 
     access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
     access.leads && item("/quotes", "Quotes", <Landmark key="i" />),
     access.clients && item("/clients", "Clients", <Building2 key="i" />),
-    access.documents && item("/engagements", "Engagements", <Briefcase key="i" />),
-    // Engagement letters keeps its own item until round 19, when it becomes a tab under Engagements.
-    (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
+    // Round 19: Engagements holds the Letters tab, so it carries the letters' badge (waiting for a signature).
+    (access.documents || access.leads) && item("/engagements", "Engagements", <Briefcase key="i" />, counts.lettersAwaiting),
     // Closebook opens on My files; All files and Review notes are tabs on that page.
     access.closebook && item("/closebook", "Closebook", <BookCheck key="i" />),
     (access.documents || access.vault) && item("/documents", "Documents", <FolderLock key="i" />),

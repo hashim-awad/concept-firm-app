@@ -31,7 +31,7 @@ export default async function LetterPage({ params, searchParams }: PageProps<"/e
   const { data: q } = await supabase.from("quotes").select("id, kind, status, sent_at, valid_until, signed_at, sender, signer, wording, wording_label, company_name, title, details, lead_id").eq("id", id).maybeSingle();
   if (!q) notFound();
   if (q.kind === "proposal") redirect(`/quotes/${id}`);
-  if (q.kind !== "letter") redirect(q.lead_id ? `/leads/${q.lead_id}/quote` : "/engagement-letters");
+  if (q.kind !== "letter") redirect(q.lead_id ? `/leads/${q.lead_id}/quote` : "/engagements?tab=letters");
   const letter = q as unknown as LetterRow & { status: QuoteStatus; signed_at: string | null };
   const { data: s } = await supabase.from("quote_signers").select("person, first_name, last_name, email, token, signed_at, signed_title").eq("quote_id", id).order("person");
   const signers = (s ?? []) as Signer[];
@@ -40,13 +40,13 @@ export default async function LetterPage({ params, searchParams }: PageProps<"/e
     letter.sender ?? { name: access.full_name, phone: "", email: "" }, signers.map((x) => `${env.siteUrl()}/q/${x.token}`));
   const to = [...new Set(signers.map((x) => x.email))].join("; ");
   const editable = canEdit(access, "documents");
-  const details = letter.details as { label?: string; document_id?: string; version_id?: string; email?: { ok: boolean; at: string; from: string; to: string[]; skipped?: string[]; error?: string } } | null;
+  const details = letter.details as { label?: string; doc_kind?: string; document_id?: string; version_id?: string; email?: { ok: boolean; at: string; from: string; to: string[]; skipped?: string[]; error?: string } } | null;
   const sending = await signingEmailOn("letters");
   const sent = details?.email;
 
   return (
     <>
-      <Link href="/engagement-letters" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Engagement letters</Link>
+      <Link href="/engagements?tab=letters" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Letters</Link>
       <PageHeader eyebrow={`New letter · ${details?.label ?? "Engagement letter"}`} title={letter.company_name ?? signers.map((x) => `${x.first_name} ${x.last_name}`).join(" and ")}
         description={`Sent for signing ${formatDateTime(letter.sent_at)} by ${letter.sender?.name ?? ""}. Sign by ${formatDate(letter.valid_until)}.${letter.wording_label ? ` Wording ${letter.wording_label}.` : ""}`} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -77,7 +77,7 @@ export default async function LetterPage({ params, searchParams }: PageProps<"/e
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <Link href={`/letter-preview/${id}`} className="text-navy-700 underline">Preview as client</Link>
             {details?.version_id && <a href={`/documents/file/${details.version_id}?download=1`} className="text-navy-700 underline">Download the issued PDF</a>}
-            {details?.document_id && <Link href={`/engagement-letters/new?doc=${details.document_id}`} className="text-navy-700 underline">Open in the Letter Builder</Link>}
+            {details?.document_id && <Link href={`/engagement-letters/new?type=${details.doc_kind === "t1_letter" ? "t1" : "corporate"}&doc=${details.document_id}`} className="text-navy-700 underline">Open in the Letter Builder</Link>}
           </div>
           {editable && WAITING.includes(letter.status) && (
             <form action={declineQuote}>

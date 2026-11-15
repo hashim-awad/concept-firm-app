@@ -13,6 +13,6 @@ export async function declineQuote(formData: FormData) {
   const access = await getAccess();
   if (!access || !(canEdit(access, "leads") || canEdit(access, "documents"))) redirect(withMessage(safeBack, "error", "You need Edit on Leads to change a quote."));
   const { error } = await (await createClient()).rpc("mark_quote_declined", { p_id: id });
-  revalidatePath("/quotes"); revalidatePath("/leads"); revalidatePath("/engagement-letters"); revalidatePath("/");
+  revalidatePath("/quotes"); revalidatePath("/leads"); revalidatePath("/engagement-letters"); revalidatePath("/engagements"); revalidatePath("/");
   redirect(withMessage(safeBack, error ? "error" : "msg", error ? error.message : "Marked declined."));
 }

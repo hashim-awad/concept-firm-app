@@ -13,7 +13,7 @@ export async function markProposal(formData: FormData) {
   const supabase = await createClient();
   const { data: p } = await supabase.from("proposals").select("options_data, status").eq("id", id).maybeSingle();
   const back = "/proposals";
-  if (!p) redirect(withMessage(back, "error", "Proposal not found."));
+  if (!p) redirect(withMessage(back, "error", "Monthly quote not found."));
   let patch: Record<string, string>;
   if (result === "decl") patch = { status: "Declined" };
   else if (result === "exp") patch = { status: "Expired" };
@@ -24,7 +24,7 @@ export async function markProposal(formData: FormData) {
   } else redirect(withMessage(back, "error", "Choose a result."));
   const { error } = await supabase.from("proposals").update(patch!).eq("id", id);
   revalidatePath("/proposals");
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Proposal updated."));
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Monthly quote updated."));
 }
 
 const ENG_DATES = ["el_issued", "el_signed"] as const;

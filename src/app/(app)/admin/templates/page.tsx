@@ -34,7 +34,7 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/admin/
 
   return (
     <SettingsShell title="Templates" href="/admin/templates" active={tab} tabs={TEMPLATE_TABS.map(([key, label]) => ({ key, label, count: drafts(key) }))}
-      help={<><p>The wording of your letters, proposals, emails and Closebook papers. Open a template to read it; click any text to change it. Changes go into letters when an owner publishes them.</p>
+      help={<><p>The wording of your letters, quotes, emails and Closebook papers. Open a template to read it; click any text to change it. Changes go into letters when an owner publishes them.</p>
         <p>A draft template needs an owner&rsquo;s approval before it is used. The owner opens it, reads it, ticks &ldquo;I read it&rdquo; and approves it at the bottom.</p>
         <p>Published wording: <b>{state.live?.label ?? e.EL_VERSION}</b>{state.live?.date ? `, ${formatDate(state.live.date)}` : ""}.</p></>}
       actions={<Link href="/admin/templates/history" className={buttonClass("secondary")}><History className="h-4 w-4" aria-hidden />History</Link>}>

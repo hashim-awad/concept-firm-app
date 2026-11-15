@@ -81,7 +81,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
           </table>
         )}
       </section>
-      <p className="mt-2 text-xs text-muted">A signed quote closes the lead and its letter is filed under Engagement letters.</p>
+      <p className="mt-2 text-xs text-muted">A signed quote closes the lead and its letter is filed under Engagements, on the Letters tab.</p>
     </>
   );
 }

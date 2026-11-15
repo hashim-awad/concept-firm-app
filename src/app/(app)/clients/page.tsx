@@ -53,7 +53,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   const canFile = canEdit(access, "closebook");
   const menu = (c: Row): MenuItem[] => [
     { label: "New letter", href: c.kind === "individual" ? `/engagement-letters/new?type=t1&client=${c.id}` : `/engagement-letters/new?type=corporate&client=${c.id}` },
-    ...(canPropose ? [{ label: "New proposal", href: `/quotes/proposal?client=${c.id}` }] : []),
+    ...(canPropose ? [{ label: "New monthly quote", href: `/quotes/proposal?client=${c.id}` }] : []),
     ...(canFile && c.kind === "corporation" ? [{ label: "New Closebook file", href: `/closebook/new?client=${c.id}` }] : []),
     ...(tdUrl && c.taxdome_account_id ? [{ label: "Open in TaxDome", href: tdUrl.replace("{id}", encodeURIComponent(c.taxdome_account_id)), external: true }] : []),
     { label: "Edit client", href: `/clients/${c.id}?edit=details` },
@@ -63,7 +63,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   return (
     <>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-sand-200 pb-5">
-        <h1 className={`${typeScale.h1} flex items-center`}>Clients<InfoTip label="About clients">Client records used by letters and proposals. A Final letter needs the legal name checked against the registry (or ID for individuals).</InfoTip></h1>
+        <h1 className={`${typeScale.h1} flex items-center`}>Clients<InfoTip label="About clients">Client records used by letters and quotes. A Final letter needs the legal name checked against the registry (or ID for individuals).</InfoTip></h1>
         <div className="flex flex-wrap items-center gap-2">
           {access.is_owner && <Link href="/admin/connections" className="mr-1 text-sm text-navy-700 hover:underline">TaxDome tags → types</Link>}
           {access.is_owner && <Link href={href({ import: "1" })} scroll={false} className={buttonClass("secondary")}><Upload className="h-4 w-4" aria-hidden />Import from TaxDome</Link>}

@@ -49,7 +49,7 @@ export function Card({ className, children, padded = true }: { className?: strin
   return <div className={cx("rounded-[var(--radius-ds)] border border-sand-200 bg-surface shadow-[var(--shadow-card)]", padded && "p-5 md:p-6", className)}>{children}</div>;
 }
 
-export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: ReactNode; description?: string; actions?: ReactNode }) {
   return (
     <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-sand-200 pb-5">
       <div className="min-w-0">

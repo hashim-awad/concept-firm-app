@@ -2,17 +2,17 @@
 // saying where it is used, and whether it goes to clients. Benchmark: TaxDome keeps templates as their own
 // area. No build notes here: the line is for the person approving the wording.
 export type TemplateTab = "letters" | "schedules" | "emails" | "closebook";
-export const TEMPLATE_TABS: [TemplateTab, string][] = [["letters", "Letters and proposals"], ["schedules", "Schedules and terms"], ["emails", "Emails"], ["closebook", "Closebook"]];
+export const TEMPLATE_TABS: [TemplateTab, string][] = [["letters", "Letters and quotes"], ["schedules", "Schedules and terms"], ["emails", "Emails"], ["closebook", "Closebook"]];
 
 // key: [tab, where it is used]
 export const TEMPLATE_INFO: Record<string, [TemplateTab, string]> = {
   master: ["letters", "The engagement letter each corporate client signs. The service schedules attach to it."],
   corpquote: ["letters", "The year-end quote a corporate lead signs online. The corporate letter follows it."],
-  prop: ["letters", "The monthly service proposal, with up to three options, signed online."],
+  prop: ["letters", "The monthly quote, with up to three options, signed online (the client's copy is titled Proposal)."],
   t1quote: ["letters", "The T1 quote and letter a personal tax lead signs online."],
   t1: ["letters", "The T1 engagement letter for owners of our corporate clients, made and signed in Studio."],
   t1td: ["letters", "The master copy of the T1 letter we send from TaxDome."],
-  signpage: ["letters", "The sentence above the Sign button on every letter and proposal signed online."],
+  signpage: ["letters", "The sentence above the Sign button on every letter and quote signed online."],
   sComp: ["schedules", "Compilation engagement. Added to the corporate letter when we compile the financial statements."],
   sT2: ["schedules", "Corporate tax return (T2, and AT1 in Alberta). Added to the corporate letter."],
   sCatch: ["schedules", "Catch-up bookkeeping. Added to the corporate letter."],
@@ -31,7 +31,7 @@ export const TEMPLATE_INFO: Record<string, [TemplateTab, string]> = {
   t1email2: ["emails", "The email that sends a T1 quote to a couple who both sign."],
   corpemail: ["emails", "The email that sends a corporate year-end quote."],
   letteremail: ["emails", "The email that sends a new engagement letter for signing."],
-  propemail: ["emails", "The email that sends a monthly proposal for signing."],
+  propemail: ["emails", "The email that sends a monthly quote for signing."],
   cbchecklist: ["closebook", "Answered on step 10 of each Closebook file, before the file is locked. Not sent to clients."],
   cbclientlist: ["closebook", "The list of our entries, for clients who keep their own books."],
   memo: ["closebook", "Kept in the client's file for each compilation. Not sent to clients."],

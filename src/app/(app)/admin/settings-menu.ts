@@ -61,7 +61,7 @@ export const GEAR: [string, GearDef[]][] = [
     { label: "Vendor rules", href: "/admin/vendor-rules", open: ["owner"], dir: "closebook/vendor-rules" },
   ]],
   ["Templates", [
-    { label: "Letters and proposals", href: "/admin/templates?tab=letters", open: TEMPLATES, ownerOnly: "approve or publish wording", dir: "templates", count: "letters" },
+    { label: "Letters and quotes", href: "/admin/templates?tab=letters", open: TEMPLATES, ownerOnly: "approve or publish wording", dir: "templates", count: "letters" },
     { label: "Schedules and terms", href: "/admin/templates?tab=schedules", open: TEMPLATES, ownerOnly: "approve or publish wording", dir: "templates", count: "schedules" },
     { label: "Emails", href: "/admin/templates?tab=emails", open: TEMPLATES, ownerOnly: "approve or publish wording", dir: "templates", count: "emails" },
     { label: "Closebook", href: "/admin/templates?tab=closebook", open: TEMPLATES, ownerOnly: "approve or publish wording", dir: "templates", count: "closebook" },

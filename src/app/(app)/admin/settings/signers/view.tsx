@@ -6,7 +6,7 @@ import { saveSigner } from "../actions";
 
 const SIGNERS: [string, string, string][] = [
   ["signer_engagement_letter", "Engagement letters", "Corporate and T1 letters. Use the name registered with CPA Ontario."],
-  ["signer_proposal", "Proposals", "The name on proposals."],
+  ["signer_proposal", "Monthly quotes", "The name on monthly quotes."],
   ["signer_other", "Everything else", "Other documents the app makes."],
 ];
 

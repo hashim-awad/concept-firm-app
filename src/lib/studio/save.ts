@@ -23,6 +23,9 @@ export type SaveResult = { ok: true; documentId: string; versionId: string; vers
 export async function saveDocument(supabase: SupabaseClient, access: Access, input: SaveInput): Promise<SaveResult> {
   if (!canEdit(access, "documents")) return { ok: false, error: "You do not have permission to make documents." };
   if (!["corporate_letter", "t1_letter", "proposal"].includes(input.kind)) return { ok: false, error: "Unknown document type." };
+  // Round 19: each role prepares only the letter types ticked on it (owners: every type). The database checks again.
+  if (input.kind === "t1_letter" && !access.is_owner && !access.letters?.t1) return { ok: false, error: "Your role does not include T1 letters." };
+  if (input.kind === "corporate_letter" && !access.is_owner && !access.letters?.corporate) return { ok: false, error: "Your role does not include corporate letters." };
   const data = await loadStudioData(supabase, access);
   const client = input.clientId ? data.clients.find((c) => c.url === input.clientId) ?? null : null;
   if (input.clientId && !client) return { ok: false, error: "That client record was not found." };
@@ -32,7 +35,7 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
 
   let sig = BLANK_PNG;
   if (final) {
-    if (!access.is_owner) return { ok: false, error: input.kind === "proposal" ? "Only Hashim can issue a Final proposal." : "Only Hashim can issue a Final letter." };
+    if (!access.is_owner) return { ok: false, error: input.kind === "proposal" ? "Only Hashim can issue a Final monthly quote." : "Only Hashim can issue a Final letter." };
     const loaded = input.kind === "proposal" ? BLANK_PNG : await loadSignature(supabase);
     if (!loaded) return { ok: false, error: "Upload the signature image under Settings before issuing a Final letter." };
     sig = loaded;
@@ -44,7 +47,7 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   if (!b.scr.ok) return { ok: false, error: b.scr.message || "Fix the items listed first." };
 
   // Front office batch: proposals are sent for online signing from Quotes, never issued as a Final PDF.
-  if (final && input.kind === "proposal") return { ok: false, error: "Proposals are sent for online signing. Use Send for signing in the proposal builder." };
+  if (final && input.kind === "proposal") return { ok: false, error: "Monthly quotes are sent for online signing. Use Send for signing in the monthly quote builder." };
   // Decision 22: a Final proposal needs an approved GST/HST rate for the client's province.
   if (final && input.kind === "proposal") {
     const prov = String(input.snapshot?.f?.province ?? "");
@@ -202,14 +205,14 @@ async function recordT1(supabase: SupabaseClient, b: Built, access: Access, clie
 async function recordProposal(supabase: SupabaseClient, b: Built, clientId: string): Promise<Rec> {
   const { s, e } = b;
   const { data: ins, error } = await supabase.from("proposals").insert({
-    client_id: clientId || null, title: s.name + " proposal " + s.date, prospect_name: s.name, contact: s.contact,
+    client_id: clientId || null, title: s.name + " monthly quote " + s.date, prospect_name: s.name, contact: s.contact,
     province: ["ON", "AB", "BC"].includes(s.province) ? s.province : "OTHER", segment: s.segment, status: "Sent",
     date_sent: s.date, valid_until: e.pValidUntil(s),
     options_summary: s.opts.map((o: any) => { const t = e.pTotals(o); return o.name + ": " + e.money(t.m) + "/month, " + e.money(t.y) + " year end, " + e.money(t.once) + " one-time, annual " + e.money(t.annual); }).join("; "),
     recommended: s.opts.length > 1 ? s.opts[s.rec].name : s.opts[0].name, options_data: JSON.parse(e.pPack(s)),
   }).select("id").single();
-  if (error || !ins) return { ok: false, error: "Could not record the proposal." };
-  return { ok: true, proposalId: ins.id, note: "Recorded as sent. When the client replies, mark the result under Proposals." };
+  if (error || !ins) return { ok: false, error: "Could not record the monthly quote." };
+  return { ok: true, proposalId: ins.id, note: "Recorded as sent. When the client replies, mark the result under Quotes." };
 }
 
 // Studio "Save client to Concept Studio": a new client record, name not yet verified.

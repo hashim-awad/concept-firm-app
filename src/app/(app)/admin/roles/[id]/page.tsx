@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, Notice } from "@/components/ui";
+import { InfoTip } from "@/components/ds/info-tip";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
@@ -21,7 +22,7 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const { data: role } = await supabase.from("roles").select("id, name, description, is_owner").eq("id", id).maybeSingle();
+  const { data: role } = await supabase.from("roles").select("id, name, description, is_owner, can_t1_letters, can_corporate_letters").eq("id", id).maybeSingle();
   if (!role) notFound();
   const [{ data: areas }, { data: perms }, { count }] = await Promise.all([
     supabase.from("permission_areas").select("key, label, description, sort_order").order("sort_order"),
@@ -83,6 +84,18 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
             </tbody>
           </table>
         </div>
+
+        {/* Round 19 (QuickBooks Online: permissions ticked on the role): the letter types this role prepares. */}
+        <fieldset className="rounded-lg border border-sand-200 p-4">
+          <legend className="flex items-center px-1 font-semibold">Letters<InfoTip label="About letter permissions">A person sees and starts only the letter types ticked here, in Engagements › Letters and in New letter. Marking a letter Final and sending it stays with owners. Owners see every letter.</InfoTip></legend>
+          <div className="grid gap-2">
+            {([["can_t1_letters", "Can prepare T1 letters", role.can_t1_letters], ["can_corporate_letters", "Can prepare corporate letters", role.can_corporate_letters]] as [string, string, boolean][]).map(([name, label, on]) => (
+              <label key={name} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name={name} defaultChecked={locked || on} disabled={locked} className="h-4 w-4 accent-accent" />{label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         {!locked && <button type="submit" className="btn">Save role</button>}
       </form>
