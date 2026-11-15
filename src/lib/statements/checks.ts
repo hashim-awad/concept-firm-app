@@ -125,3 +125,39 @@ export function statementStatus(data: { accounts: StatementAccount[] }): "ready"
   if (!data.accounts.length || !data.accounts.some((a) => a.lines.length)) return "needs_look";
   return data.accounts.every((a) => checkAccount(a).ok) ? "ready" : "needs_look";
 }
+
+// A working copy sent back from the verify screen: the shape of a ReadResult, with sensible values.
+// Returns the problem in plain words, or null.
+export function resultProblem(d: unknown): string | null {
+  const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
+  const isInt = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v);
+  const r = d as { accounts?: unknown; pages?: unknown; bank?: unknown } | null;
+  if (!r || typeof r !== "object" || !Array.isArray(r.accounts)) return "The statement has no accounts.";
+  if (typeof r.bank !== "string" || !isInt(r.pages)) return "The statement details are missing.";
+  const keys = new Set<string>();
+  let total = 0;
+  for (const a of r.accounts as Partial<StatementAccount>[]) {
+    const name = a.name || "An account";
+    if (typeof a.key !== "string" || !a.key || keys.has(a.key)) return "Each account needs its own key.";
+    keys.add(a.key);
+    if (typeof a.name !== "string" || typeof a.last4 !== "string" || (a.kind !== "bank" && a.kind !== "card")) return `${name}: the account details are missing.`;
+    if (!isDate(a.periodStart) || !isDate(a.periodEnd) || a.periodEnd! < a.periodStart!) return `${name}: enter the statement start and end dates.`;
+    if (!isInt(a.opening) || !isInt(a.closing)) return `${name}: enter the opening and closing balances.`;
+    if (a.summary !== null && (typeof a.summary !== "object" || !isInt(a.summary?.inTotal) || !isInt(a.summary?.outTotal))) return `${name}: the printed summary is not complete.`;
+    if (!Array.isArray(a.lines)) return `${name}: the lines are missing.`;
+    const ids = new Set<string>();
+    for (const l of a.lines as Partial<StatementLine>[]) {
+      if (typeof l.id !== "string" || !l.id || ids.has(l.id)) return `${name}: each line needs its own id.`;
+      ids.add(l.id);
+      if (!isDate(l.date)) return `${name}: every line needs a date.`;
+      if (typeof l.description !== "string" || !l.description.trim() || l.description.length > 500) return `${name}: every line needs a description (up to 500 characters).`;
+      if (!isInt(l.amountCents) || l.amountCents! < 0) return `${name}: every amount must be a positive number with up to 2 decimals.`;
+      if (l.dir !== "in" && l.dir !== "out") return `${name}: every line needs a type.`;
+      if (l.balanceCents !== null && !isInt(l.balanceCents)) return `${name}: a printed balance is not a number.`;
+      if (!isInt(l.page) || typeof l.unsure !== "boolean" || typeof l.unsureReason !== "string" || !["read", "added", "edited"].includes(String(l.source))) return `${name}: a line is not complete.`;
+    }
+    total += a.lines.length;
+  }
+  if (total > 20000) return "The statement has too many lines.";
+  return null;
+}

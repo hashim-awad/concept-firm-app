@@ -79,15 +79,19 @@ async function preparePdf(bytes: Uint8Array): Promise<Prepared> {
   const inP = `/in-${n}.pdf`, outP = `/out-${n}.pdf`, jsonP = `/pages-${n}.json`;
   q.FS.writeFile(inP, bytes);
   try {
-    // --requires-password: 0 needs a password, 2 not locked, 3 locked with an empty password.
-    const lock = run(q, ["--requires-password", inP]);
-    if (lock === 0) throw new PrepareError("The PDF is locked with a password. Open it, print it to a new PDF without the password, and upload that.");
+    // qpdf exit codes: 0 done, 3 done with warnings, 2 error. --is-encrypted: 0 locked, 2 not.
+    const done = (rc: number) => rc === 0 || rc === 3;
     let use = inP, unlocked = false;
-    if (lock === 3) {
-      if (run(q, ["--decrypt", inP, outP]) !== 0) throw new PrepareError("The PDF is locked and could not be opened. Print it to a new PDF and upload that.");
+    if (run(q, ["--is-encrypted", inP]) === 0) {
+      // Opens only when the password to open it is empty; a real password fails here.
+      if (!done(run(q, ["--decrypt", inP, outP]))) throw new PrepareError("The PDF is locked with a password. Open it, print it to a new PDF without the password, and upload that.");
       use = outP; unlocked = true;
     }
-    if (run(q, ["--json=2", "--json-key=pages", use, jsonP]) !== 0) throw new PrepareError("The PDF could not be opened. Save it again as a PDF and upload it.");
+    if (!done(run(q, ["--json=2", "--json-key=pages", use, jsonP]))) {
+      // qpdf could not open it. A PDF with an /Encrypt entry that would not open needs a real password.
+      if (!unlocked && hasEncrypt(bytes)) throw new PrepareError("The PDF is locked with a password. Open it, print it to a new PDF without the password, and upload that.");
+      throw new PrepareError("The PDF could not be opened. Save it again as a PDF and upload it.");
+    }
     const pages = (JSON.parse(new TextDecoder().decode(q.FS.readFile(jsonP))) as { pages?: unknown[] }).pages?.length ?? 0;
     if (!pages) throw new PrepareError("The PDF has no pages.");
     if (pages > MAX_PAGES) throw new PrepareError(`The PDF has ${pages} pages. The reader takes up to ${MAX_PAGES}. Split it and upload the parts.`);
@@ -99,6 +103,7 @@ async function preparePdf(bytes: Uint8Array): Promise<Prepared> {
   }
 }
 
+const hasEncrypt = (b: Uint8Array) => Buffer.from(b.buffer, b.byteOffset, b.byteLength).includes("/Encrypt", 0, "latin1");
 export const isPdf = (b: Uint8Array) => b.length > 4 && new TextDecoder().decode(b.subarray(0, Math.min(b.length, 1024))).includes("%PDF-");
 const isJpeg = (b: Uint8Array) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
 const isPng = (b: Uint8Array) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;

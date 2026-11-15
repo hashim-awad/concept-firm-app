@@ -24,6 +24,9 @@ type SortCol = "date" | "description" | "type" | "amount";
 type Draft = { date: string; description: string; dir: "in" | "out"; amount: string };
 type Dup = { accountKey: string; lineIds: string[] };
 
+// "new:<kind>:<name>" adds the account to the file on import, named as on the statement.
+const newName = (a: StatementAccount) => `${a.name || (a.kind === "card" ? "Credit card" : "Bank account")}${a.last4 ? ` ${a.last4}` : ""}`;
+const newValue = (a: StatementAccount) => `new:${a.kind}:${newName(a)}`;
 const lastDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
 // The file's bank account whose last digits match the statement's, when exactly one does.
 function suggest(acc: StatementAccount, file: FileCtx | null): string {
@@ -156,8 +159,9 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
   const show = (l: StatementLine) => setFocus((f) => ({ n: (f?.n ?? 0) + 1, page: l.page, amountCents: l.amountCents, description: l.description }));
 
   // ---------- Import readiness (Closebook) and download readiness (standalone).
-  const live = data.accounts.filter((a) => assign[a.key] !== "skip");
-  const unassigned = closebook ? data.accounts.filter((a) => !assign[a.key]) : [];
+  const live = data.accounts.filter((a) => assign[a.key] !== "skip" && (!closebook || a.lines.length > 0));
+  // An account with no lines needs no choice; any other must be assigned or skipped.
+  const unassigned = closebook ? data.accounts.filter((a) => !assign[a.key] && a.lines.length > 0) : [];
   const unbalanced = (closebook ? live : data.accounts).filter((a) => checks.get(a.key)!.differenceCents !== 0);
   const importLines = live.reduce((n, a) => n + a.lines.length, 0);
   const ready = !unassigned.length && !unbalanced.length && (closebook ? live.length > 0 : true);
@@ -192,7 +196,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
       if (save.state !== "saved" && !(await flush())) return;
       const r = await importStatement(id, assign, confirm);
       if (!r.ok) { setErr(r.error); return; }
-      if (r.duplicates?.length && !confirm) { setDups(r.duplicates); setDupOk(false); return; }
+      if (!r.imported) { setDups(r.duplicates); setDupOk(false); return; }
       router.push(nav.next ? `/statements/${nav.next}` : backHref);
       router.refresh();
     } catch {
@@ -259,7 +263,8 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
             <table className="w-full text-sm">
               <tbody>{data.accounts.map((a) => {
                 const v = assign[a.key] ?? "", sug = suggest(a, file);
-                const state = v === "skip" ? ["Skipped", "text-ink-3"] : !v ? ["Not assigned", "text-danger"] : v === sug ? ["Digits match", "text-success"]
+                const state = v === "skip" ? ["Skipped", "text-ink-3"] : !v ? (a.lines.length ? ["Not assigned", "text-danger"] : ["No lines", "text-ink-3"])
+                  : v.startsWith("new:") ? ["New account", "text-ink-2"] : v === sug ? ["Digits match", "text-success"]
                   : lastDigits(a.last4) && lastDigits(file?.bankAccounts.find((b) => b.id === v)?.last4) ? ["Digits differ", "text-warning"] : ["Assigned", "text-ink-2"];
                 return (
                   <tr key={a.key} onClick={() => pickAcc(a.key)} className={`cursor-pointer border-b border-sand-100 last:border-0 ${a.key === acc?.key ? "bg-navy-50" : "hover:bg-sand-50"}`}>
@@ -272,6 +277,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
                           className={`input input-compact h-9 min-w-[14rem] font-medium ${!v ? "border-danger/50 text-danger" : ""}`}>
                           <option value="">Choose an account or Skip</option>
                           {file?.bankAccounts.map((b) => <option key={b.id} value={b.id}>{accountLabel(b.name, b.last4 ?? "")}</option>)}
+                          <option value={newValue(a)}>New account: {newName(a)}</option>
                           <option value="skip">Skip: do not import</option>
                         </select>
                       </td>
@@ -282,7 +288,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
                 );
               })}</tbody>
             </table>
-            {closebook && !file?.bankAccounts.length && <p className="border-t border-sand-200 px-4 py-2 text-[12.5px] text-warning">This file has no bank accounts yet. Add one on step 3 (Upload CSV, then Add an account), then come back.</p>}
+            {closebook && !file?.bankAccounts.length && <p className="border-t border-sand-200 px-4 py-2 text-[12.5px] text-warning">This file has no bank accounts yet. Choose New account to add it on import.</p>}
           </section>
 
           {/* Ready or not */}
