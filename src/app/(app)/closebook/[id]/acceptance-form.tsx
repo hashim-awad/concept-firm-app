@@ -7,11 +7,7 @@ import { useState } from "react";
 import { InfoTip } from "@/components/ds/info-tip";
 import { acceptanceSameAsLast, saveAcceptance } from "../round16-actions";
 
-type YN = "yes" | "no" | "";
-export type AccUser = { kind: "lender" | "other"; name: string; agreed: YN };
-export type AccRow = { q1: YN; q2: YN; q3: YN; q4: YN; q5: YN; q5_note: string; users: AccUser[]; q8: "confirmed" | "different" | ""; q8_note: string; q9: YN;
-  answered: Record<string, { by: string; at: string; same?: boolean }> };
-export const emptyAcc = (): AccRow => ({ q1: "", q2: "", q3: "", q4: "", q5: "", q5_note: "", users: [], q8: "", q8_note: "", q9: "", answered: {} });
+import { emptyAcc, type AccRow, type AccUser, type YN } from "@/lib/closebook/acceptance";
 
 const MUST = <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-ink-2">Must be Yes</span>;
 const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Toronto" });

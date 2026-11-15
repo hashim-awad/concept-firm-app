@@ -27,7 +27,7 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
   const supabase = await createClient();
   const [{ data: clients }, { data: staff }] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags").eq("kind", "corporation").eq("status", "active").order("legal_name"),
-    supabase.from("staff").select("id, full_name, role:roles(is_owner, role_permissions(area_key, level))").eq("is_active", true).order("full_name"),
+    supabase.from("staff").select("id, full_name, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").eq("is_active", true).order("full_name"),
   ]);
   const list = (clients ?? []) as Client[];
   const chosen = list.find((c) => c.id === sp.client);

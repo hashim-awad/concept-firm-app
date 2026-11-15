@@ -54,7 +54,8 @@ import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 import { InfoTip } from "@/components/ds/info-tip";
-import { AcceptanceForm, emptyAcc, type AccRow } from "./acceptance-form";
+import { AcceptanceForm } from "./acceptance-form";
+import { emptyAcc, type AccRow } from "@/lib/closebook/acceptance";
 import { setFirstYear } from "../round16-actions";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
@@ -402,7 +403,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} isOwner={access.is_owner}
     canFix={preparerRole} editable={editable && file.phase !== "locked"} back={stepBack} />;
   const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
-    editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile });
+    editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year });
   if (showHistory) {
     const { data: hist } = await supabase.from("cb_file_history").select("at, actor_id, action, step, detail").eq("file_id", id).order("at", { ascending: false }).limit(500);
     const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
@@ -503,7 +504,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   }
 
   // Round 16: the people on the file (CaseWare engagement properties). Only owners are offered as reviewer.
-  const { data: staffRows } = await supabase.from("staff").select("id, full_name, is_active, role:roles(is_owner, role_permissions(area_key, level))").order("full_name");
+  const { data: staffRows } = await supabase.from("staff").select("id, full_name, is_active, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").order("full_name");
   type StaffRow = { id: string; full_name: string; is_active: boolean; role: { is_owner: boolean; role_permissions: { area_key: string; level: string }[] } | null };
   const staffAll = ((staffRows ?? []) as unknown as StaffRow[]).filter((x) => x.is_active);
   const peopleProps = {
