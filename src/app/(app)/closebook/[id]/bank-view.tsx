@@ -2,6 +2,7 @@
 // step 2): one tile per account like QuickBooks' bank cards, with "+ Add account". The chosen account
 // shows its months for the file's year, its statements and its transactions. A file may hold one month
 // or a whole year; every upload must balance to the cent.
+import { Fragment } from "react";
 import Link from "next/link";
 import { formatDate, formatDateTime } from "@/lib/dates";
 import type { BankData, BankStatement } from "@/lib/closebook/bank-server";
@@ -26,9 +27,9 @@ function ConversionRecord({ s }: { s: BankStatement }) {
   if (e?.deleted) changes.push(`${e.deleted} removed`);
   const summary = (ok: boolean | null) => (ok === null ? "no printed total" : ok ? "matches the statement" : "does not match the statement");
   return (
-    <details className="mt-1 text-xs text-ink-2">
-      <summary className="cursor-pointer text-navy-700">PDF · conversion record</summary>
-      <ul className="mt-1 space-y-0.5 whitespace-normal">
+    <details className="text-xs text-ink-2">
+      <summary className="cursor-pointer text-navy-700">Conversion record</summary>
+      <ul className="mt-1 max-w-4xl list-disc space-y-0.5 whitespace-normal pl-5">
         <li>Read by {model}{s.converted_at ? ` on ${formatDateTime(s.converted_at)}` : ""}{s.conv ? `, uploaded by ${s.conv.full_name}` : ""}.</li>
         <li>{plural(s.pages ?? 0, "page", "pages")} · cost {s.cost_usd == null ? "not recorded" : `US$${s.cost_usd.toFixed(4)}`} (US-only processing){s.input_tokens != null ? ` · ${s.input_tokens.toLocaleString("en-CA")} tokens in, ${(s.output_tokens ?? 0).toLocaleString("en-CA")} out` : ""}</li>
         {k && <li>Checks at import: difference {cents(k.differenceCents)}; money in {summary(k.summaryOk.in)}; money out {summary(k.summaryOk.out)}; running balance {k.runningBreak ? "stopped matching on one line, kept after review" : "matched on every line"}{k.review ? `; ${plural(k.review, "line", "lines")} looked at in For review` : ""}.</li>}
@@ -136,10 +137,11 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
                   const prev = sts[i - 1];
                   const gap = prev && Math.round((s.opening - prev.closing) * 100) !== 0;
                   return (
-                    <tr key={s.id}>
+                    <Fragment key={s.id}>
+                    <tr className={s.source === "pdf" ? "[&>td]:border-b-0" : undefined}>
                       <td className="whitespace-nowrap">{formatDate(s.period_start)} to {formatDate(s.period_end)}
                         {gap && <div className="text-xs text-warning">Opening differs from the last closing ({money(prev.closing)}) by {money(s.opening - prev.closing)}. A statement may be missing.</div>}</td>
-                      <td className="whitespace-nowrap text-sm">{s.file_name}<ConversionRecord s={s} /></td><td className="text-right tabular-nums">{s.lines}</td>
+                      <td className="whitespace-nowrap text-sm">{s.file_name}{s.source === "pdf" && <div className="text-xs text-ink-3">PDF</div>}</td><td className="text-right tabular-nums">{s.lines}</td>
                       <td className="text-right tabular-nums">{money(s.opening)}</td><td className="text-right tabular-nums">{money(s.plus_total)}</td>
                       <td className="text-right tabular-nums">{money(-s.minus_total)}</td><td className="text-right tabular-nums">{money(s.closing)}</td>
                       <td className="whitespace-nowrap text-sm text-ink-2">{s.who?.full_name ?? ""} · {formatDateTime(s.uploaded_at)}</td>
@@ -147,6 +149,8 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
                         <form action={deleteBankStatement}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="statement" value={s.id} />
                           <button type="submit" className="text-sm text-danger underline">Remove</button></form>)}</td>
                     </tr>
+                    {s.source === "pdf" && <tr><td colSpan={9} className="pt-0"><ConversionRecord s={s} /></td></tr>}
+                    </Fragment>
                   );
                 })}</tbody>
               </table>
