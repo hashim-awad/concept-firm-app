@@ -1,4 +1,4 @@
-import { requireAccess, canView, canEdit } from "@/lib/access";
+import { requireAccess, canView, canEdit, letterTypes } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ds/overlays";
 import { signOut } from "../login/actions";
@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const seeDocs = canView(access, "documents");
   const pricing = canView(access, "pricing");
   const { count: leadsNew } = canView(access, "leads") ? await supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : { count: 0 };
-  // Engagement letters' badge: every letter waiting for a signature (quotes, proposals, new letters).
+  // The Engagements badge (its Letters tab): every letter waiting for a signature (quotes, proposals, new letters).
   const { data: lettersAwaiting } = seeDocs || canView(access, "leads") ? await supabase.rpc("letters_waiting_count") : { data: 0 };
   // The gear's count: templates waiting for an owner's approval (owners only).
   const drafts = access.is_owner && canView(access, "engagement_terms") ? await draftsByTab(supabase) : { letters: 0, schedules: 0, emails: 0, closebook: 0 };
@@ -26,7 +26,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const newItems = ([
     canEdit(access, "leads") && { key: "lead", label: "New lead by phone", href: "/leads/phone" },
     canEdit(access, "documents") && pricing && { key: "proposal", label: "New proposal", href: "/quotes/proposal" },
-    canEdit(access, "documents") && pricing && { key: "letter", label: "New letter", href: "/engagement-letters/new" },
+    // Round 19: only for the letter types ticked on the person's role, opening a type they may prepare.
+    canEdit(access, "documents") && pricing && letterTypes(access).length > 0 && { key: "letter", label: "New letter", href: `/engagement-letters/new?type=${letterTypes(access)[0]}` },
     canEdit(access, "clients") && { key: "client", label: "Add client", href: "/clients/new" },
     canEdit(access, "closebook") && { key: "file", label: "New Closebook file", href: "/closebook/new" },
   ] as (NewItem | false)[]).filter(Boolean) as NewItem[];

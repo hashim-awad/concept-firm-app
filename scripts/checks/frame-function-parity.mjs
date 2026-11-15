@@ -35,6 +35,8 @@ const PAGES = [
   "/admin/connections", "/admin/retention", "/admin/sales-tax", "/admin/sales-tax?tab=rates", "/admin/sales-tax?tab=quick", "/admin/t1-rules", "/admin/lead-sources",
   "/admin/chart", "/admin/chart?tab=gifi", "/admin/chart?tab=tax-codes", "/admin/chart?tab=lead-sheets", "/admin/standard-entries", "/admin/vendor-rules",
   "/admin/templates/cbchecklist", "/admin/templates?tab=letters", "/admin/templates?tab=schedules", "/admin/templates?tab=emails", "/admin/templates?tab=closebook",
+  // Round 19: Engagement letters became the Letters tab under Engagements (the old address redirects there).
+  "/engagements?tab=letters", "/engagements?tab=letters&status=signed", "/engagements?tab=letters&status=all", "/engagement-letters?tab=signed", "/engagement-letters?tab=all",
 ];
 const DETAIL = [/^\/admin\/price-book\/(packages\/)?[0-9a-f-]{36}$/, /^\/admin\/screening\/[0-9a-f-]{36}$/, /^\/admin\/closebook\/gifi-lines\/[^/?]+$/, /^\/admin\/templates\/(?!history|publish)[A-Za-z0-9]+$/, /^\/admin\/roles\/[0-9a-f-]{36}$/];
 

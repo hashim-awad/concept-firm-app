@@ -23,6 +23,9 @@ export type SaveResult = { ok: true; documentId: string; versionId: string; vers
 export async function saveDocument(supabase: SupabaseClient, access: Access, input: SaveInput): Promise<SaveResult> {
   if (!canEdit(access, "documents")) return { ok: false, error: "You do not have permission to make documents." };
   if (!["corporate_letter", "t1_letter", "proposal"].includes(input.kind)) return { ok: false, error: "Unknown document type." };
+  // Round 19: each role prepares only the letter types ticked on it (owners: every type). The database checks again.
+  if (input.kind === "t1_letter" && !access.is_owner && !access.letters?.t1) return { ok: false, error: "Your role does not include T1 letters." };
+  if (input.kind === "corporate_letter" && !access.is_owner && !access.letters?.corporate) return { ok: false, error: "Your role does not include corporate letters." };
   const data = await loadStudioData(supabase, access);
   const client = input.clientId ? data.clients.find((c) => c.url === input.clientId) ?? null : null;
   if (input.clientId && !client) return { ok: false, error: "That client record was not found." };

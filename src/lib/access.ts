@@ -13,6 +13,8 @@ export type Access = {
   role_name: string;
   is_owner: boolean;
   permissions: Record<Area, Level>;
+  // Round 19: the letter types the person's role may prepare and see (ticked on the role). Owners: both.
+  letters: { t1: boolean; corporate: boolean };
 };
 
 // The signed-in staff member's access, from the database. Null if not active staff.
@@ -20,7 +22,9 @@ export async function getAccess(): Promise<Access | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("my_access");
   if (error || !data) return null;
-  return data as Access;
+  const a = data as Access;
+  const l = (a.letters ?? {}) as Partial<Access["letters"]>;
+  return { ...a, letters: { t1: l.t1 === true, corporate: l.corporate === true } };
 }
 
 export function canView(access: Access, area: Area) {
@@ -52,4 +56,12 @@ export async function requireOwner(): Promise<Access> {
   const access = await requireAccess();
   if (!access.is_owner) redirect("/?error=owners-only");
   return access;
+}
+
+// Round 19: the letter types a person may prepare and see. Owners always have both.
+export function letterTypes(access: Access): ("corporate" | "t1")[] {
+  const t: ("corporate" | "t1")[] = [];
+  if (access.is_owner || access.letters?.corporate) t.push("corporate");
+  if (access.is_owner || access.letters?.t1) t.push("t1");
+  return t;
 }

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 // Tabs under a page header: each tab is a link, the current one underlined in Concept green.
-export function PageTabs({ tabs, current, label }: { tabs: { href: string; label: string; key: string }[]; current: string; label: string }) {
+export function PageTabs({ tabs, current, label }: { tabs: { href: string; label: ReactNode; key: string }[]; current: string; label: string }) {
   return (
     <nav className="mb-4 flex flex-wrap gap-1 border-b border-sand-200" aria-label={label}>
       {tabs.map((t) => (

@@ -40,20 +40,61 @@ export function nextYearEnd(md: string, today: string): string {
 export type T2Client = { id: string; legal_name: string; year_end_md: string; t2_balance_due_months: number };
 export type DeadlineItem = { clientId: string; client: string; yearEnd: string; kind: "filing" | "balance"; due: string; days: number };
 
-// Every filing and balance-due date that is overdue or due within `ahead` days, oldest first. Looks at
-// the latest year end and the next one; items marked done are left out. done keys: clientId|yearEnd|kind.
-export function t2Deadlines(clients: T2Client[], today: string, done: Set<string>, ahead = 90): DeadlineItem[] {
+export const deadlineKey = (x: { clientId: string; yearEnd: string; kind: string }) => `${x.clientId}|${x.yearEnd}|${x.kind}`;
+
+// Every filing and balance-due date for the latest year end and the next one, done or not, oldest first.
+// Clients with no month-day year end are left out.
+export function t2DeadlinesAll(clients: T2Client[], today: string): DeadlineItem[] {
   const out: DeadlineItem[] = [];
   for (const c of clients) {
     if (!/^\d{2}-\d{2}$/.test(c.year_end_md)) continue;
     for (const ye of [lastYearEnd(c.year_end_md, today), nextYearEnd(c.year_end_md, today)]) {
       const items: [DeadlineItem["kind"], string][] = [["balance", t2BalanceDue(ye, c.t2_balance_due_months === 3 ? 3 : 2)], ["filing", t2FilingDeadline(ye)]];
-      for (const [kind, due] of items) {
-        const days = daysBetween(today, due);
-        if (days > ahead || done.has(`${c.id}|${ye}|${kind}`)) continue;
-        out.push({ clientId: c.id, client: c.legal_name, yearEnd: ye, kind, due, days });
-      }
+      for (const [kind, due] of items) out.push({ clientId: c.id, client: c.legal_name, yearEnd: ye, kind, due, days: daysBetween(today, due) });
     }
   }
   return out.sort((a, b) => a.due.localeCompare(b.due) || a.client.localeCompare(b.client));
+}
+
+// Every filing and balance-due date that is overdue or due within `ahead` days, oldest first. Looks at
+// the latest year end and the next one; items marked done are left out. done keys: clientId|yearEnd|kind.
+export function t2Deadlines(clients: T2Client[], today: string, done: Set<string>, ahead = 90): DeadlineItem[] {
+  return t2DeadlinesAll(clients, today).filter((x) => x.days <= ahead && !done.has(deadlineKey(x)));
+}
+
+// The same window, but only the items marked done (My day, "Show done").
+export function t2DeadlinesDone(clients: T2Client[], today: string, done: Set<string>, ahead = 90): DeadlineItem[] {
+  return t2DeadlinesAll(clients, today).filter((x) => x.days <= ahead && done.has(deadlineKey(x)));
+}
+
+// Deadlines due strictly before a date (YYYY-MM-DD). No 90-day limit.
+export function dueBefore<T extends { due: string }>(items: T[], before: string): T[] {
+  return /^\d{4}-\d{2}-\d{2}$/.test(before) ? items.filter((x) => x.due < before) : [];
+}
+
+// "Mark done before a date": every open deadline for the latest and next year end, due before the date.
+export function t2DeadlinesDueBefore(clients: T2Client[], today: string, done: Set<string>, before: string): DeadlineItem[] {
+  return dueBefore(t2DeadlinesAll(clients, today).filter((x) => !done.has(deadlineKey(x))), before);
+}
+
+// The reason kept with each deadline marked done in one step: 2 to 200 characters. Null when not valid.
+export function cleanReason(value: string): string | null {
+  const r = value.trim().replace(/\s+/g, " ");
+  return r.length >= 2 && r.length <= 200 ? r : null;
+}
+
+// A deadline label inside a sentence: "Balance due" -> "balance due"; "T2 filing" stays as it is.
+export const labelInSentence = (label: string) => (/^[A-Z][a-z]/.test(label) ? label[0].toLowerCase() + label.slice(1) : label);
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+// "3 deadlines due before Jan 1, 2026 will be marked done: 2 T2 filing, 1 balance due, for 2 clients."
+// Kinds are listed most first; a kind with none is left out. labels: kind key -> label.
+export function doneBeforeSummary(items: { clientId: string; kind: string }[], labels: Record<string, string>, beforeText: string): string {
+  const counts = new Map<string, number>();
+  for (const x of items) counts.set(x.kind, (counts.get(x.kind) ?? 0) + 1);
+  const parts = [...counts].sort((a, b) => b[1] - a[1] || (labels[a[0]] ?? a[0]).localeCompare(labels[b[0]] ?? b[0]))
+    .map(([k, n]) => `${n} ${labelInSentence(labels[k] ?? k)}`);
+  const clients = new Set(items.map((x) => x.clientId)).size;
+  return `${plural(items.length, "deadline", "deadlines")} due before ${beforeText} will be marked done: ${parts.join(", ")}, for ${plural(clients, "client", "clients")}.`;
 }

@@ -147,7 +147,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   } else if (tab === "documents") {
     // Everything Studio made for the client: the vault, then each Closebook file's package once the MAL
     // is signed or the file is delivered or locked.
-    const FROM: Record<string, string> = { corporate_letter: "Engagement letters", t1_letter: "Engagement letters", proposal: "Quotes" };
+    const FROM: Record<string, string> = { corporate_letter: "Engagements", t1_letter: "Engagements", proposal: "Quotes" };
     type Row = { key: string; title: string; href: string; from: string; date: string | null; status: string };
     const rows: Row[] = docs.map((d) => ({ key: d.id, title: d.title, href: `/documents/vault/${d.id}`, from: FROM[d.kind] ?? "Documents", date: d.updated_at, status: d.status }));
     for (const f of files) {

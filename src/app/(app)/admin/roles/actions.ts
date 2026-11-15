@@ -35,6 +35,15 @@ export async function saveRole(formData: FormData) {
   const { error } = await supabase.rpc("set_role_permissions", { p_role_id: roleId, p_levels: levels });
   if (error) redirect(withMessage(page, "error", friendly(error.message)));
 
+  // Round 19: the letter types this role prepares. The Owner role always has both and is not changed.
+  const { data: role } = await supabase.from("roles").select("is_owner").eq("id", roleId).maybeSingle();
+  if (role && !role.is_owner) {
+    const { error: lettersError } = await supabase.rpc("set_role_letters", {
+      p_role_id: roleId, p_t1: formData.get("can_t1_letters") === "on", p_corporate: formData.get("can_corporate_letters") === "on",
+    });
+    if (lettersError) redirect(withMessage(page, "error", friendly(lettersError.message)));
+  }
+
   revalidatePath("/admin/team");
   redirect(withMessage(page, "msg", "Role saved."));
 }
