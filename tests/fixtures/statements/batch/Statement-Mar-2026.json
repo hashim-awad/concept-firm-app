@@ -1,0 +1,168 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4521",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-03-01",
+      "periodEnd": "2026-03-31",
+      "opening": 4801093,
+      "closing": 6458157,
+      "summary": {
+        "inTotal": 2616850,
+        "inCount": 3,
+        "outTotal": 959786,
+        "outCount": 9
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-03-01",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 161004,
+          "dir": "out",
+          "balanceCents": 4640089,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-03-02",
+          "description": "CRA PAYMENT PAYROLL REMITTANCE",
+          "amountCents": 229344,
+          "dir": "out",
+          "balanceCents": 4410745,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-03-04",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 3390,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-03-04",
+          "description": "MOBILE CHEQUE DEPOSIT",
+          "amountCents": 561872,
+          "dir": "in",
+          "balanceCents": 4969227,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-03-07",
+          "description": "INTERAC PURCHASE MAPLE DUMMY FUEL",
+          "amountCents": 8625,
+          "dir": "out",
+          "balanceCents": 4960602,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-03-10",
+          "description": "E-TRANSFER SENT DUMMY ASSISTANT",
+          "amountCents": 56413,
+          "dir": "out",
+          "balanceCents": 4904189,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-03-21",
+          "description": "E-TRANSFER RECEIVED DUMMY CLIENT",
+          "amountCents": 367631,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-03-21",
+          "description": "PAYROLL DUMMY PAYROLL SERVICE",
+          "amountCents": 205863,
+          "dir": "out",
+          "balanceCents": 5065957,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-03-23",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 1687347,
+          "dir": "in",
+          "balanceCents": 6753304,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-03-24",
+          "description": "ONLINE BILL PAYMENT NORTHERN DUMMY VISA",
+          "amountCents": 280194,
+          "dir": "out",
+          "balanceCents": 6473110,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-03-26",
+          "description": "INTERAC PURCHASE MAPLE DUMMY FUEL",
+          "amountCents": 11958,
+          "dir": "out",
+          "balanceCents": 6461152,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-03-31",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 6458157,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

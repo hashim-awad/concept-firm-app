@@ -28,6 +28,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const client = f.client?.legal_name ?? "";
   const base = `${client} GST-HST return ${f.file.year_end}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim();
   const method = `${g.quick ? "Quick method" : "Regular method"}, ${g.freq}, ${g.rt}`;
+  // Round 20: the quick method rate each return used (or that it is missing), on the working paper.
+  const rateNotes = g.quick ? [...new Set(g.returns.map((r) => r.rateUsed ?? `${r.period.label}: no approved quick method rate. Line 103 is not worked out.`))] : [];
   const c = g.check;
   const checkRows: [string, number][] = [["Last year's balance owing (step 2)", c.openingCents], ["Net tax on the year's returns (line 109)", c.netTaxCents],
     ["Less payments to the CRA in the year", -c.paymentsCents], ["Balances still owing", c.owingCents], ["GST/HST payable (21500) at year end", c.bookCents], ["Difference (21500 less the returns)", c.diffCents]];
@@ -44,7 +46,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       t.rows.push({ cells: [k, `${r.period.label}: line ${k}, the postings behind it (${items.length})`, ...g.returns.map(() => null)], bold: true });
       for (const x of items) t.rows.push({ cells: ["", `${x.date}  ${x.source === "bank" ? "Bank" : "Entry"}  ${x.label}  ${x.account} ${x.accountName}  ${x.code}  before tax ${m(x.netCents)}`, x.taxCents, ...g.returns.slice(1).map(() => null)], indent: 1 });
     }
-    return new Response(new Uint8Array(reportXlsx(t, [client, `Year end ${formatDate(f.file.year_end)}`, method], STAMP)), { headers: {
+    return new Response(new Uint8Array(reportXlsx(t, [client, `Year end ${formatDate(f.file.year_end)}`, method, ...rateNotes], STAMP)), { headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": `attachment; filename="${base}.xlsx"`, "cache-control": "private, no-store" } });
   }
 
@@ -67,6 +69,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     drill.push({ text: `${r.period.label}: line ${k}, ${LINE_NAMES.find(([a]) => a === k)?.[1]}`, bold: true, margin: [0, 12, 0, 4] }, { table: { headerRows: 1, widths: [55, 35, "*", 110, 60, 60, 55], body }, layout, fontSize: 8 });
   }
   const def = wpDocument(ctx, [[headerBlock(ctx, `GST/HST return: ${method}`, "GST/HST"),
+    ...rateNotes.map((x) => ({ text: x, fontSize: 8.5, margin: [0, 0, 0, 4] })),
     { table: { headerRows: 1, widths: [30, "*", ...g.returns.map(() => g.returns.length > 2 ? 62 : 85)], body: lines }, layout },
     { text: " ", margin: [0, 6, 0, 0] }, { table: { headerRows: 1, widths: ["*", 100], body: check }, layout }, ...drill,
     { text: "Figures to the cent, as QuickBooks Online's GST/HST return. The preparer files the return from these lines.", color: C.grey, fontSize: 8, margin: [0, 10, 0, 0] }]]);

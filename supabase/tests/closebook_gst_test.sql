@@ -71,8 +71,10 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_update_gst_settings(3, 1, 0.01, 30000, '[{"province":"ON","rate":0.088},{"province":"BC","rate":""}]');
 reset role;
 reset request.jwt.claims;
-select test.check('settings: due dates, credit and the rate kept', (select gst_due_months_annual = 3 and gst_due_months_period = 1 and quick_credit_rate = 0.01 and quick_credit_limit = 30000 from public.cb_settings)
-  and (select rate from public.cb_gst_quick_rates where province = 'ON') = 0.088 and not exists (select 1 from public.cb_gst_quick_rates where province = 'BC'));
+-- Round 20: the due dates only. The credit has its own draft and approval, and the round 13 rates table is
+-- no longer written (supabase/tests/quick_rates_page_round20_test.sql).
+select test.check('settings: due dates kept; the credit and the old rates are not changed here', (select gst_due_months_annual = 3 and gst_due_months_period = 1 and quick_credit_rate is null and quick_credit_limit is null from public.cb_settings)
+  and not exists (select 1 from public.cb_gst_quick_rates));
 -- Step 10: each return's filing date and confirmation; the lock needs them.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';

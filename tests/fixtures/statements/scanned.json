@@ -1,0 +1,168 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "3307",
+      "name": "Business Chequing",
+      "kind": "bank",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "opening": 1964218,
+      "closing": 3452811,
+      "summary": {
+        "inTotal": 1957798,
+        "inCount": 4,
+        "outTotal": 469205,
+        "outCount": 8
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-04-02",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 57433,
+          "dir": "out",
+          "balanceCents": 1906785,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-04-03",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 1202626,
+          "dir": "in",
+          "balanceCents": 3109411,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-04-06",
+          "description": "DEPOSIT DUMMY REALTY TRUST",
+          "amountCents": 252529,
+          "dir": "in",
+          "balanceCents": 3361940,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-04-11",
+          "description": "MOBILE CHEQUE DEPOSIT",
+          "amountCents": 230550,
+          "dir": "in",
+          "balanceCents": 3592490,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-04-12",
+          "description": "ONLINE BILL PAYMENT NORTHERN DUMMY VISA",
+          "amountCents": 238344,
+          "dir": "out",
+          "balanceCents": 3354146,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-04-13",
+          "description": "E-TRANSFER SENT DUMMY ASSISTANT",
+          "amountCents": 115150,
+          "dir": "out",
+          "balanceCents": 3238996,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-04-16",
+          "description": "POS PURCHASE DUMMY OFFICE SUPPLY",
+          "amountCents": 29067,
+          "dir": "out",
+          "balanceCents": 3209929,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-04-16",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 4721,
+          "dir": "out",
+          "balanceCents": 3205208,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-04-21",
+          "description": "MOBILE CHEQUE DEPOSIT",
+          "amountCents": 272093,
+          "dir": "in",
+          "balanceCents": 3477301,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-04-26",
+          "description": "INTERAC PURCHASE MAPLE DUMMY FUEL",
+          "amountCents": 9471,
+          "dir": "out",
+          "balanceCents": 3467830,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-04-26",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 12024,
+          "dir": "out",
+          "balanceCents": 3455806,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-04-30",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 3452811,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Lakeshore Dummy Credit Union"
+}

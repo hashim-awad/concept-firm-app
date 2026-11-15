@@ -7,7 +7,10 @@
 // instalments; 113 balance (owing +, refund -).
 // Quick method (CRA RC4058): 101 eligible sales including the GST/HST, to the dollar; 103 = 101 x the
 // remittance rate; 106 ITCs on capital purchases only; 107 the credit on the first part of the year's
-// eligible sales. The rates, the credit and its limit are settings (Settings, Closebook), never this file.
+// eligible sales. The rates, the credit and its limit are settings (Settings, Sales tax rates, Quick method
+// rates), never this file. Round 20 (Hashim, Nov 15, 2026): two remittance rates, Services and Goods for
+// resale; the client's step 1 answer picks one (services when not answered), an owner approves each rate,
+// and the return says which rate it used. A missing or unapproved rate is named, never guessed.
 import { addMonths } from "./fs-email.ts";
 import { entryLineTax, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
@@ -19,7 +22,27 @@ export type GstItem = {
 export type GstPayment = { date: string; ref: string; label: string; cents: number };   // to the CRA (+) or refund received (-)
 export type Frequency = "annual" | "quarterly" | "monthly";
 export type Period = { n: number; start: string; end: string; label: string; due: string };
-export type QuickSettings = { rate: number | null; creditRate: number | null; creditLimitCents: number | null };
+export type QuickType = "services" | "goods";
+// An approved row from Settings: both rates for a province, from CRA's "reporting periods beginning on or
+// after" date (null: a rate typed before round 20, for every period).
+export type QuickRate = { province: string; services: number | null; goods: number | null; from: string | null };
+// rate: one rate for every period (round 13 callers and tests). rates: the approved rows; with them the
+// rate is picked per period from the client's province and type.
+export type QuickSettings = { rate: number | null; creditRate: number | null; creditLimitCents: number | null; type?: QuickType; province?: string; rates?: QuickRate[] };
+export const QUICK_TYPE_LABEL: Record<QuickType, string> = { services: "services", goods: "goods for resale" };
+const PROVINCE_NAME: Record<string, string> = { AB: "Alberta", BC: "British Columbia", MB: "Manitoba", NB: "New Brunswick", NL: "Newfoundland and Labrador", NS: "Nova Scotia",
+  NT: "Northwest Territories", NU: "Nunavut", ON: "Ontario", PE: "Prince Edward Island", QC: "Quebec", SK: "Saskatchewan", YT: "Yukon" };
+export const provinceName = (p: string) => PROVINCE_NAME[p] ?? p;
+export const quickType = (v: unknown): QuickType => (v === "goods" ? "goods" : "services");
+const pctText = (r: number) => `${Math.round(r * 1e6) / 1e4}%`;
+
+// The approved rate a period uses: the latest row for the province starting on or before the period's
+// first day that has a rate for the type. Null when there is none.
+export function quickRateFor(rates: QuickRate[], province: string, type: QuickType, periodStart: string): number | null {
+  const hit = rates.filter((r) => r.province === province && (r.from ?? "") <= periodStart && r[type] !== null)
+    .sort((a, b) => (b.from ?? "").localeCompare(a.from ?? ""))[0];
+  return hit ? hit[type] : null;
+}
 export const LINE_NAMES: [string, string][] = [
   ["101", "Sales and other revenue"], ["103", "GST/HST collected or collectible"], ["104", "Adjustments"], ["105", "Total GST/HST and adjustments for the period"],
   ["106", "Input tax credits (ITCs) for the current period"], ["107", "Adjustments"], ["108", "Total ITCs and adjustments"], ["109", "Net tax"],
@@ -29,7 +52,8 @@ export type Line = keyof typeof EMPTY;
 const EMPTY = { "101": 0, "103": 0, "104": 0, "105": 0, "106": 0, "107": 0, "108": 0, "109": 0, "110": 0, "111": 0, "112": 0, "113": 0 };
 // salesNetCents: the period's sales before tax, for step 5's revenue check (on the quick method, the
 // eligible sales without the tax).
-export type GstReturn = { period: Period; lines: Record<Line, number>; drill: Partial<Record<Line, GstItem[]>>; problems: string[]; notes: string[]; eligibleCents: number; salesNetCents: number };
+// rateUsed: the quick method rate the return used, in words ("Quick method rate, services, Ontario: 8.8%").
+export type GstReturn = { period: Period; lines: Record<Line, number>; drill: Partial<Record<Line, GstItem[]>>; problems: string[]; notes: string[]; eligibleCents: number; salesNetCents: number; rateUsed: string | null };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const D = (s: string) => new Date(`${s}T12:00:00Z`);
@@ -62,7 +86,7 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
   const problems: string[] = [], notes: string[] = [];
   const sales = items.filter((x) => x.sale && x.code !== "OUT_OF_SCOPE");
   const purchases = items.filter((x) => !x.sale && x.taxCents !== 0);
-  let eligible = 0, salesNet = 0;
+  let eligible = 0, salesNet = 0, rateUsed: string | null = null;
   if (!quick) {
     L["101"] = sales.reduce((n, x) => n + x.netCents, 0);
     L["103"] = sales.reduce((n, x) => n + x.taxCents, 0);
@@ -75,9 +99,16 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
     salesNet = el.reduce((n, x) => n + x.netCents, 0);
     L["101"] = Math.round(eligible / 100) * 100;
     drill["101"] = el; drill["103"] = el;
-    if (q.rate === null) problems.push("Set the quick method remittance rate in Settings, Closebook, GST/HST.");
-    else L["103"] = Math.round(L["101"] * q.rate);
-    if (q.creditRate === null || q.creditLimitCents === null) problems.push("Set the quick method credit and its limit in Settings, Closebook, GST/HST.");
+    const type = q.type ?? "services";
+    const where = q.province ? `, ${provinceName(q.province)}` : "";
+    const rate = q.rates ? quickRateFor(q.rates, q.province ?? "", type, period.start) : q.rate;
+    if (rate === null) problems.push(`No approved quick method rate for ${QUICK_TYPE_LABEL[type]}${q.province ? ` in ${provinceName(q.province)}` : ""} for the period from ${short(period.start)}. An owner loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates.`);
+    else {
+      L["103"] = Math.round(L["101"] * rate);
+      rateUsed = `Quick method rate, ${QUICK_TYPE_LABEL[type]}${where}: ${pctText(rate)}`;
+      notes.push(`${rateUsed}. Line 103 = line 101 x ${pctText(rate)}.`);
+    }
+    if (q.creditRate === null || q.creditLimitCents === null) problems.push("Set the quick method credit and its limit in Settings, Sales tax rates, Quick method rates.");
     else {
       const room = Math.max(0, q.creditLimitCents - creditUsedCents);
       L["107"] = Math.round(Math.min(L["101"], room) * q.creditRate);
@@ -93,7 +124,7 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
   L["110"] = instalmentsCents;
   L["112"] = L["110"] + L["111"];
   L["113"] = L["109"] - L["112"];
-  return { period, lines: L, drill, problems, notes, eligibleCents: L["101"], salesNetCents: salesNet };
+  return { period, lines: L, drill, problems, notes, eligibleCents: L["101"], salesNetCents: salesNet, rateUsed };
 }
 
 // All the returns of the year. The quick method credit runs across the year's periods until its limit.

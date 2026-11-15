@@ -1,0 +1,252 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4521",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-02-01",
+      "periodEnd": "2026-02-28",
+      "opening": 2517639,
+      "closing": 4801093,
+      "summary": {
+        "inTotal": 3655419,
+        "inCount": 6,
+        "outTotal": 1371965,
+        "outCount": 13
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-02-07",
+          "description": "E-TRANSFER RECEIVED DUMMY CLIENT",
+          "amountCents": 45225,
+          "dir": "in",
+          "balanceCents": 2562864,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-02-08",
+          "description": "E-TRANSFER RECEIVED DUMMY CLIENT",
+          "amountCents": 174829,
+          "dir": "in",
+          "balanceCents": 2737693,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-02-11",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY HYDRO",
+          "amountCents": 23163,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-02-11",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 1120775,
+          "dir": "in",
+          "balanceCents": 3835305,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-02-12",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 419322,
+          "dir": "out",
+          "balanceCents": 3415983,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-02-13",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 4292,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-02-13",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY MLS BOARD",
+          "amountCents": 45837,
+          "dir": "out",
+          "balanceCents": 3365854,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-02-14",
+          "description": "CRA PAYMENT PAYROLL REMITTANCE",
+          "amountCents": 236671,
+          "dir": "out",
+          "balanceCents": 3129183,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-02-15",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 226865,
+          "dir": "out",
+          "balanceCents": 2902318,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-02-16",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 910322,
+          "dir": "in",
+          "balanceCents": 3812640,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-02-18",
+          "description": "CRA PAYMENT PAYROLL REMITTANCE",
+          "amountCents": 129552,
+          "dir": "out",
+          "balanceCents": 3683088,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-02-19",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 10583,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l13",
+          "date": "2026-02-19",
+          "description": "DEPOSIT DUMMY REALTY TRUST",
+          "amountCents": 614030,
+          "dir": "in",
+          "balanceCents": 4286535,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l14",
+          "date": "2026-02-22",
+          "description": "DEPOSIT DUMMY REALTY TRUST",
+          "amountCents": 790238,
+          "dir": "in",
+          "balanceCents": 5076773,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l15",
+          "date": "2026-02-23",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY HYDRO",
+          "amountCents": 18057,
+          "dir": "out",
+          "balanceCents": 5058716,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l16",
+          "date": "2026-02-25",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 3946,
+          "dir": "out",
+          "balanceCents": 5054770,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l17",
+          "date": "2026-02-26",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY INSURANCE",
+          "amountCents": 37934,
+          "dir": "out",
+          "balanceCents": 5016836,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l18",
+          "date": "2026-02-27",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 212748,
+          "dir": "out",
+          "balanceCents": 4804088,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l19",
+          "date": "2026-02-28",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 4801093,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

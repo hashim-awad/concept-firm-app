@@ -53,13 +53,15 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const fileId = f.id, yearEnd = f.year_end;
   const province = ((f.client as { province: string } | null)?.province ?? "ON");
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
-  const [{ data: banks }, { data: sts }, { data: lines }, { data: chart }, { data: codes }, { data: parts }] = await Promise.all([
+  const [{ data: banks }, { data: sts }, { data: lines }, { data: chart }, { data: codes }, { data: parts }, { data: transfers }] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number").eq("file_id", fileId),
     supabase.from("cb_bank_statements").select("account_id, period_start, opening").eq("file_id", fileId).order("period_start"),
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("txn_date").limit(50000),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", yearEnd).order("effective_from"),
+    // Round 20: matched transfers. The money-out line posts to the other account; the money-in line posts nothing.
+    supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).limit(50000),
   ]);
   // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was typed.
   const { info, lines: master } = await gifiCodeInfo(supabase);
@@ -90,10 +92,12 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const codeMap = new Map<string, TaxCode>(((codes ?? []) as { code: string; name: string; provinces: string[] | null }[])
     .filter((c) => !c.provinces || c.provinces.includes(province))
     .map((c) => [c.code, { code: c.code, name: c.name, parts: [...latest.values()].filter((p) => p.code === c.code) }]));
+  const lineAccount = new Map(((lines ?? []) as { id: string; account_id: string }[]).map((l) => [l.id, l.account_id]));
+  const transferTo = new Map(((transfers ?? []) as { out_line: string; in_line: string }[]).map((t) => [t.out_line, lineAccount.get(t.in_line) ?? null]));
   return {
     banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string; number: string }[]).map((b) => ({ id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, openingCents: firstOpening.get(b.id) ?? 0 })),
     lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
-      .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100) })),
+      .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100), transfer_bank: transferTo.get(l.id) ?? null })),
     chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),
     codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start, fileNumbers,
   };

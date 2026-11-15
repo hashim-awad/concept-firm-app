@@ -3,14 +3,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type BankAccount = { id: string; name: string; kind: "bank" | "card" };
 export type BankStatement = { id: string; account_id: string; file_name: string; first_date: string; last_date: string; period_start: string; period_end: string; opening: number; closing: number;
-  lines: number; plus_total: number; minus_total: number; uploaded_at: string; who: { full_name: string } | null };
+  lines: number; plus_total: number; minus_total: number; uploaded_at: string; who: { full_name: string } | null } & Conversion;
+// Round 20: the conversion record kept on a statement read from a PDF or photo (null for CSV uploads).
+export type ConversionCheck = { differenceCents: number; inTotal: number; inCount: number; outTotal: number; outCount: number;
+  summaryOk: { in: boolean | null; out: boolean | null }; runningBreak: { lineId: string } | null; review: number; ok: boolean; warnings?: string[] };
+export type Conversion = { source: "csv" | "pdf" | null; statement_import_id: string | null; model: string | null; pages: number | null; cost_usd: number | null;
+  input_tokens: number | null; output_tokens: number | null; converted_at: string | null; check_result: ConversionCheck | null;
+  edits: { edited: number; added: number; deleted: number } | null; conv: { full_name: string } | null };
 export type BankLine = { id: string; row_no: number; txn_date: string; description: string; amount: number; statement_id: string };
 export type BankData = { accounts: BankAccount[]; statements: BankStatement[]; lines: BankLine[]; selected: string; error: string | null; txnMonths: Map<string, Set<string>> };
 
 export async function loadBank(supabase: SupabaseClient, fileId: string, account?: string): Promise<BankData> {
   const [{ data: accs, error: e1 }, { data: sts, error: e2 }] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, kind").eq("file_id", fileId).order("name"),
-    supabase.from("cb_bank_statements").select("id, account_id, file_name, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total, uploaded_at, who:uploaded_by(full_name)")
+    supabase.from("cb_bank_statements").select("id, account_id, file_name, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total, uploaded_at, who:uploaded_by(full_name), " +
+      "source, statement_import_id, model, pages, cost_usd, input_tokens, output_tokens, converted_at, check_result, edits, conv:converted_by(full_name)")
       .eq("file_id", fileId).order("period_start"),
   ]);
   const accounts = (accs ?? []) as BankAccount[];
@@ -28,7 +35,7 @@ export async function loadBank(supabase: SupabaseClient, fileId: string, account
     lines = ((r.data ?? []) as BankLine[]).map((l) => ({ ...l, amount: Number(l.amount) }));
     e3 = r.error;
   }
-  const num = (s: BankStatement) => ({ ...s, opening: Number(s.opening), closing: Number(s.closing), plus_total: Number(s.plus_total), minus_total: Number(s.minus_total) });
+  const num = (s: BankStatement) => ({ ...s, opening: Number(s.opening), closing: Number(s.closing), plus_total: Number(s.plus_total), minus_total: Number(s.minus_total), cost_usd: s.cost_usd == null ? null : Number(s.cost_usd) });
   const err = e1 ?? e2 ?? e3;
   return { accounts, statements: ((sts ?? []) as unknown as BankStatement[]).map(num), lines, selected, txnMonths, error: err ? `Bank statements could not be read: ${err.message}` : null };
 }

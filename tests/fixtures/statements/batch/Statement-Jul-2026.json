@@ -1,0 +1,204 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4521",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-07-01",
+      "periodEnd": "2026-07-31",
+      "opening": 13201899,
+      "closing": 12735389,
+      "summary": {
+        "inTotal": 282174,
+        "inCount": 1,
+        "outTotal": 748684,
+        "outCount": 14
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-07-03",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 14026,
+          "dir": "out",
+          "balanceCents": 13187873,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-07-04",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 49029,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-07-04",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 16329,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-07-04",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 2233,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-07-04",
+          "description": "DEPOSIT DUMMY REALTY TRUST",
+          "amountCents": 282174,
+          "dir": "in",
+          "balanceCents": 13402456,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-07-10",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 55481,
+          "dir": "out",
+          "balanceCents": 13346975,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-07-12",
+          "description": "CHEQUE #1103",
+          "amountCents": 177099,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-07-12",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 647,
+          "dir": "out",
+          "balanceCents": 13169229,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-07-13",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 13657,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-07-13",
+          "description": "CHEQUE #1104",
+          "amountCents": 310292,
+          "dir": "out",
+          "balanceCents": 12845280,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-07-18",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 35307,
+          "dir": "out",
+          "balanceCents": 12809973,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-07-19",
+          "description": "POS PURCHASE DUMMY OFFICE SUPPLY",
+          "amountCents": 14303,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l13",
+          "date": "2026-07-19",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY MLS BOARD",
+          "amountCents": 23442,
+          "dir": "out",
+          "balanceCents": 12772228,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l14",
+          "date": "2026-07-22",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY MLS BOARD",
+          "amountCents": 33844,
+          "dir": "out",
+          "balanceCents": 12738384,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l15",
+          "date": "2026-07-31",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 12735389,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

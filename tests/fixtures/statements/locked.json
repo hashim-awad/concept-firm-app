@@ -1,0 +1,204 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4821",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-04-01",
+      "periodEnd": "2026-04-30",
+      "opening": 1730640,
+      "closing": 2114986,
+      "summary": {
+        "inTotal": 2164480,
+        "inCount": 3,
+        "outTotal": 1780134,
+        "outCount": 12
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-04-06",
+          "description": "DEPOSIT DUMMY REALTY TRUST",
+          "amountCents": 112854,
+          "dir": "in",
+          "balanceCents": 1843494,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-04-10",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 234182,
+          "dir": "out",
+          "balanceCents": 1609312,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-04-11",
+          "description": "PAYROLL DUMMY PAYROLL SERVICE",
+          "amountCents": 283167,
+          "dir": "out",
+          "balanceCents": 1326145,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-04-11",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 11291,
+          "dir": "out",
+          "balanceCents": 1314854,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-04-11",
+          "description": "ONLINE BILL PAYMENT NORTHERN DUMMY VISA",
+          "amountCents": 65868,
+          "dir": "out",
+          "balanceCents": 1248986,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-04-14",
+          "description": "MOBILE CHEQUE DEPOSIT",
+          "amountCents": 441785,
+          "dir": "in",
+          "balanceCents": 1690771,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-04-15",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 352190,
+          "dir": "out",
+          "balanceCents": 1338581,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-04-15",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY TELECOM",
+          "amountCents": 13363,
+          "dir": "out",
+          "balanceCents": 1325218,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-04-15",
+          "description": "INTERAC PURCHASE DUMMY COFFEE HOUSE",
+          "amountCents": 1195,
+          "dir": "out",
+          "balanceCents": 1324023,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-04-17",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 1609841,
+          "dir": "in",
+          "balanceCents": 2933864,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-04-20",
+          "description": "E-TRANSFER SENT DUMMY ASSISTANT",
+          "amountCents": 170421,
+          "dir": "out",
+          "balanceCents": 2763443,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-04-20",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 135913,
+          "dir": "out",
+          "balanceCents": 2627530,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l13",
+          "date": "2026-04-24",
+          "description": "CHEQUE #1043",
+          "amountCents": 213134,
+          "dir": "out",
+          "balanceCents": 2414396,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l14",
+          "date": "2026-04-28",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 296415,
+          "dir": "out",
+          "balanceCents": 2117981,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l15",
+          "date": "2026-04-30",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 2114986,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

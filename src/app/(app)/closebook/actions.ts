@@ -375,6 +375,9 @@ export async function saveSetup(formData: FormData) {
   }
   const f = s(formData, "gst_frequency");
   if (f) answers.gst_frequency = f;
+  // Round 20: which quick method rate applies (services or goods for resale), kept only on a quick method file.
+  const qt = s(formData, "quick_method_type");
+  if ((qt === "services" || qt === "goods") && answers.quick_method === true) answers.quick_method_type = qt;
   // Round 13: the GST/HST account, written RT0001.
   const rt = s(formData, "gst_rt").replace(/\s+/g, "").toUpperCase();
   if (rt) answers.gst_rt = rt;

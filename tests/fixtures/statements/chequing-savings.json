@@ -1,0 +1,174 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4821",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-03-01",
+      "periodEnd": "2026-03-31",
+      "opening": 1248015,
+      "closing": 1730640,
+      "summary": {
+        "inTotal": 1245000,
+        "inCount": 3,
+        "outTotal": 762375,
+        "outCount": 6
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-03-02",
+          "description": "E-TRANSFER RECEIVED DUMMY CLIENT",
+          "amountCents": 350000,
+          "dir": "in",
+          "balanceCents": 1598015,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-03-03",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY HYDRO",
+          "amountCents": 18422,
+          "dir": "out",
+          "balanceCents": 1579593,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-03-07",
+          "description": "POS PURCHASE DUMMY OFFICE SUPPLY",
+          "amountCents": 9648,
+          "dir": "out",
+          "balanceCents": 1569945,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-03-10",
+          "description": "CHEQUE #1042",
+          "amountCents": 225000,
+          "dir": "out",
+          "balanceCents": 1344945,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-03-14",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 891240,
+          "dir": "in",
+          "balanceCents": 2236185,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-03-18",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 1995,
+          "dir": "out",
+          "balanceCents": 2234190,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-03-21",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 500000,
+          "dir": "out",
+          "balanceCents": 1734190,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-03-28",
+          "description": "INTERAC PURCHASE MAPLE DUMMY FUEL",
+          "amountCents": 7310,
+          "dir": "out",
+          "balanceCents": 1726880,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-03-31",
+          "description": "INTEREST PAID",
+          "amountCents": 3760,
+          "dir": "in",
+          "balanceCents": 1730640,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    },
+    {
+      "key": "a2",
+      "last4": "7730",
+      "name": "Business Savings Account",
+      "kind": "bank",
+      "periodStart": "2026-03-01",
+      "periodEnd": "2026-03-31",
+      "opening": 2500000,
+      "closing": 3004110,
+      "summary": {
+        "inTotal": 504110,
+        "inCount": 2,
+        "outTotal": 0,
+        "outCount": 0
+      },
+      "lines": [
+        {
+          "id": "l10",
+          "date": "2026-03-21",
+          "description": "ONLINE TRANSFER FROM CHEQUING 4821",
+          "amountCents": 500000,
+          "dir": "in",
+          "balanceCents": 3000000,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-03-31",
+          "description": "INTEREST PAID",
+          "amountCents": 4110,
+          "dir": "in",
+          "balanceCents": 3004110,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

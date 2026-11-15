@@ -68,6 +68,8 @@ export const GEAR: [string, GearDef[]][] = [
   ]],
   ["Tools", [
     { label: "T1 price check", href: "/admin/t1-price-check", open: ["pricing"], dir: "t1-price-check" },
+    // Round 20: bank and card statement PDFs to CSV or Excel, with no client file.
+    { label: "Bank statement PDF to CSV", href: "/admin/bank-pdf", open: ["closebook"], dir: "bank-pdf" },
     { label: "Import TaxDome export", href: "/admin/taxdome-import", open: ["owner"], dir: "taxdome-import" },
     { label: "Download full export", href: "/admin/export", open: ["owner"], dir: "export" },
     { label: "Activity log", href: "/admin/activity", open: ["owner"], dir: "activity" },

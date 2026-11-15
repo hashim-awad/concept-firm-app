@@ -4,6 +4,9 @@
 // sales tax code (only the codes for the company's province; meals only as the group code), Confirm and
 // Ask the client. Suggestions come from the client's vendor rules and earlier files. Lines on a "Check"
 // account, and meals at the full rate, go to the reviewer.
+// Round 20 (QuickBooks Online "Record as transfer"): a money-out line with an equal money-in line in another
+// of the file's accounts, within 5 days, is offered as a transfer. Accept codes the money-out line to the
+// other account and marks the other line matched (greyed, posts nothing); Undo removes both.
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,6 +15,8 @@ import type { CodingData, CodeLine } from "@/lib/closebook/coding-server";
 import { splitLine } from "@/lib/closebook/sales-tax";
 import { suggestionLabel } from "@/lib/closebook/vendor";
 import { askClientInline, codeLinesInline, undoLinesInline } from "../actions";
+import { acceptTransferInline, undoTransferInline } from "../transfer-actions";
+import { looksLikeTransfer, matchedLabel, transferLabel, TRANSFER_WARNING, type TransferAccount } from "@/lib/closebook/transfers";
 import { NoteOnItem } from "./note-on-item";
 import { formatDate } from "@/lib/dates";
 
@@ -20,8 +25,11 @@ const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Sugg
 // Lines charged in US dollars are never confirmed in bulk: each one is checked by hand.
 const USD = /\bAMT\s+[\d,.]+\s+USD\b/i;
 const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
-const inFilter = (l: CodeLine, f: Filter) => f === "all" ? true : f === "needs" ? l.status === "new" && !l.suggestion : f === "suggested" ? l.status === "new" && !!l.suggestion
-  : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : l.status === "done";
+// A transfer offered (round 20) is a suggestion; a matched line is done.
+const suggested = (l: CodeLine) => !!l.suggestion || l.transfers.length > 0;
+const isDone = (l: CodeLine) => l.status === "done" || l.status === "matched";
+const inFilter = (l: CodeLine, f: Filter) => f === "all" ? true : f === "needs" ? l.status === "new" && !suggested(l) : f === "suggested" ? l.status === "new" && suggested(l)
+  : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : isDone(l);
 
 export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null, noteBy }: {
   fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean; focusLine?: string | null; noteBy?: { back: string };
@@ -56,7 +64,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
 
   const run = (f: () => Promise<string | null>) => start(async () => { setErr(null); const e = await f(); if (e) setErr(e); else router.refresh(); });
   // Only suggestions that carry a sales tax code can be confirmed in bulk; the rest stay for one by one.
-  const bulkable = (l: CodeLine) => !!l.suggestion?.tax && !USD.test(l.description);
+  // A line that could be a transfer is never confirmed in bulk: the preparer accepts the transfer or not.
+  const bulkable = (l: CodeLine) => !!l.suggestion?.tax && !USD.test(l.description) && l.transfers.length === 0;
   const confirmSuggested = () => run(() => codeLinesInline(fileId, rows.filter(bulkable).map((l) => ({ id: l.id, account: l.suggestion!.account, tax: l.suggestion!.tax, source: l.suggestion!.source })), []));
 
   if (!acc) return <p className="text-[12.5px] text-ink-3">Upload a statement in step 3 first.</p>;
@@ -72,7 +81,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
         <div className="flex flex-wrap items-center gap-1.5 border-b border-sand-200 px-3 py-2" role="tablist" aria-label="Accounts">
           {accounts.map((a) => {
             const total = data.lines.filter((l) => l.account_id === a.id).length;
-            const coded = data.lines.filter((l) => l.account_id === a.id && l.status === "done").length;
+            const coded = data.lines.filter((l) => l.account_id === a.id && isDone(l)).length;
             const left = data.lines.filter((l) => l.account_id === a.id && l.status === "new").length;
             const on = a.id === acc.id;
             return (
@@ -103,7 +112,7 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
               <thead><tr><th>Date</th><th>Description</th><th className="text-right">Spent</th><th className="text-right">Received</th>
                 <th>Account</th><th>Sales tax</th><th className="itc text-right">ITC</th><th className="text-right">Action</th></tr></thead>
               <tbody>{rows.slice(0, 300).map((l) => (
-                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}`} noteBy={noteBy} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx}
+                <Row key={`${l.id}-${l.status}-${l.suggestion?.account ?? ""}-${l.chart_account ?? ""}-${l.transfers[0]?.otherId ?? ""}`} noteBy={noteBy} l={l} kind={acc.kind} fileId={fileId} chart={chart} codes={codes} byType={byType} ctx={ctx} banks={data.banks}
                   editable={editable} pending={pending} hasRule={data.ruleKeys.includes(l.key)} run={run} focused={l.id === focus?.id} gstAnswered={gstAnswered} />
               ))}</tbody>
             </table>
@@ -115,8 +124,8 @@ export function CodingView({ fileId, data, accounts, selected, editable, isRevie
   );
 }
 
-function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused, gstAnswered, noteBy }: {
-  l: CodeLine; kind: string; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
+function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, hasRule, run, focused, gstAnswered, noteBy, banks }: {
+  l: CodeLine; kind: string; banks: TransferAccount[]; fileId: string; chart: Map<string, CodingData["chart"][number]>; codes: Map<string, CodingData["codes"][number]>;
   byType: [string, CodingData["chart"]][]; ctx: { registered: boolean; quick: boolean }; editable: boolean; pending: boolean; hasRule: boolean;
   run: (f: () => Promise<string | null>) => void; focused: boolean; gstAnswered: boolean;
   // Round 8: the reviewer (an owner) can add a review note on the line.
@@ -128,6 +137,9 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const [tax, setTax] = useState<string>(gstAnswered ? l.tax_code ?? l.suggestion?.tax ?? "" : "");
   const [rowErr, setRowErr] = useState("");
   const [rule, setRule] = useState(false);
+  // Round 20: the transfer offered (closest date first); "" when the preparer says it is not a transfer.
+  const [pick, setPick] = useState(l.status === "new" ? l.transfers[0]?.otherId ?? "" : "");
+  const offer = l.transfers.find((t) => t.otherId === pick);
   const c = chart.get(account);
   // Money out of a bank account, or a charge on a card, is a purchase.
   const cents = Math.round(l.amount * 100);
@@ -149,13 +161,41 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
     : c?.account_type === "Revenue" && !moneyIn ? "Revenue on money out: check it is a refund to a customer. Confirm sends it to the reviewer."
     : account === "60200" && tax && !tax.startsWith("MEALS") ? "Meals at the full rate: only 50% is claimable. Confirm sends it to the reviewer."
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";
-  const warning = rowErr || live || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
+  // Coded straight to another of the file's accounts, outside a transfer: counted twice (round 20).
+  const twice = !offer && !l.transfer && l.status !== "matched" && looksLikeTransfer(l.status === "new" ? account : l.chart_account, l.account_id, banks) ? TRANSFER_WARNING : "";
+  const warning = rowErr || (offer ? "" : live || twice) || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
   const locked = !editable || l.status === "done";
   const amount = money(Math.abs(cents)).replace("$", "");
+  const note = noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>;
+  // Round 20: a line in a transfer. The money-out line names the other account; the money-in line is matched,
+  // greyed, and posts nothing. Undo on either removes both.
+  if (l.status === "matched" || l.transfer?.role === "out") {
+    const t = l.transfer;
+    const text = !t ? "Matched to a transfer" : t.role === "in" ? matchedLabel(t.otherName, t.otherDate) : transferLabel({ direction: "to", otherName: t.otherName, otherDate: t.otherDate });
+    const matched = l.status === "matched";
+    return (
+      <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${matched ? "bg-sand-50 text-ink-3" : ""} ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
+        <td className="whitespace-nowrap tabular-nums text-ink-3">{formatDate(l.txn_date)}</td>
+        <td>{l.description}</td>
+        <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
+        <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
+        {matched ? <td colSpan={2} className="truncate" title={text}>{text}</td> : <>
+          <td className="truncate" title={text}>{text}</td>
+          <td className="truncate">No tax</td>
+        </>}
+        <td className="itc" />
+        <td className="text-right">
+          {editable && <button type="button" className="text-[12.5px] font-semibold text-navy-700 hover:underline" disabled={pending} onClick={() => run(() => undoTransferInline(fileId, l.id))}>Undo</button>}
+          {note}
+        </td>
+      </tr>
+    );
+  }
   return (
     <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
       <td className="whitespace-nowrap tabular-nums text-ink-2">{formatDate(l.txn_date)}</td>
-      <td>{l.description}{l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
+      <td>{l.description}{offer ? <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Transfer between your accounts</span>
+        : l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
         {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
       <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
       <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
@@ -163,6 +203,22 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {/* Round 15b (QuickBooks Online's Categorized tab): a coded line is plain text. */}
         <td className="truncate" title={c ? `${account} ${c.name}` : undefined}>{c ? `${account} ${c.name}` : account}</td>
         <td className="truncate">{tax ? codes.get(tax)?.name ?? tax : "No tax"}</td>
+      </> : offer ? <>
+      <td style={{ paddingLeft: 6, paddingRight: 6 }}>
+        {/* Round 20: the transfer offered, the closest date first; the list holds the others and "Not a transfer". */}
+        <span className="relative block">
+          <span aria-hidden title={transferLabel(offer)} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""}`}>
+            {transferLabel(offer)}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
+          <select aria-label="Transfer" value={pick} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setPick(e.target.value); setRowErr(""); }}>
+            <optgroup label="Transfer between your accounts">
+              {l.transfers.map((t) => <option key={t.otherId} value={t.otherId}>{transferLabel(t)}</option>)}
+            </optgroup>
+            <option value="">Not a transfer: choose an account</option>
+          </select>
+        </span>
+        {l.transfers.length > 1 && <span className="block text-xs text-ink-3">{l.transfers.length} lines fit. The closest date is first.</span>}
+      </td>
+      <td className="text-ink-3">No tax</td>
       </> : <>
       <td style={{ paddingLeft: 6, paddingRight: 6 }}>
         {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
@@ -170,8 +226,11 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         <span className="relative block">
           <span aria-hidden title={c ? `${account} ${c.name}` : undefined} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
             {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
-          <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setAccount(e.target.value); setRowErr(""); }}>
+          <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+            onChange={(e) => { const v = e.target.value; if (v.startsWith("t:")) setPick(v.slice(2)); else setAccount(v); setRowErr(""); }}>
             <option value="">Choose an account</option>
+            {l.status === "new" && l.transfers.length > 0 && <optgroup label="Transfer between your accounts">
+              {l.transfers.map((t) => <option key={t.otherId} value={`t:${t.otherId}`}>{transferLabel(t)}</option>)}</optgroup>}
             {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
           </select>
         </span>
@@ -190,15 +249,17 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
       </>}
-      <td className="itc text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
+      <td className="itc text-right tabular-nums">{offer ? "" : itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">
             {/* Like the QuickBooks Online bank feed: one action button, the others under its arrow (round 4 item 6). */}
             <span className="flex whitespace-nowrap">
-              <button type="button" className="btn btn-compact rounded-r-none" disabled={pending}
+              {offer ? <button type="button" className="btn btn-compact rounded-r-none" disabled={pending} title={`Record as a transfer: ${transferLabel(offer)}`}
+                onClick={() => run(() => acceptTransferInline(fileId, l.id, offer.otherId))}>Accept</button>
+              : <button type="button" className="btn btn-compact rounded-r-none" disabled={pending}
                 onClick={() => !gstAnswered ? setRowErr("Answer the GST/HST questions in step 1 first.") : !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
-                  rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
+                  rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>}
               <details className="relative">
                 <summary aria-label="More actions" className="btn btn-compact cursor-pointer list-none rounded-l-none border-l border-white/30 px-2">▾</summary>
                 <span className="card absolute right-0 z-20 mt-1 grid w-max gap-1 p-1.5 text-left">
@@ -207,11 +268,11 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
                 </span>
               </details>
             </span>
-            {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
+            {!offer && !hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
           </span>
         )}
         {l.status === "done" && editable && <button type="button" className="text-[12.5px] font-semibold text-navy-700 hover:underline" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
-        {noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>}
+        {note}
       </td>
     </tr>
   );
