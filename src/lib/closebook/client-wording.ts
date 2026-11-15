@@ -15,7 +15,31 @@ export const CB_CLIENT = {
 // cb_checklist_questions in the database, where the answers are kept; never reuse or renumber one.
 const ckey = (id: number) => `wb2${id.toString(16).padStart(8, "0")}`;
 const Q = (id: number, text: string): QPiece => ({ key: ckey(id), text, fills: [], fns: ["cbchecklist"] });
+// Round 16 (Hashim, Nov 15, 2026): the 13 questions, a new draft for approval in Templates. New keys
+// (13 to 25): the first 12 stay with the files answered on them.
 export const CB_CHECKLIST: QPiece[] = [
+  Q(13, "A signed engagement letter is on file, and it covers this year-end."),
+  Q(14, "We understand the business and its operations, how it keeps its books and records, and the basis of accounting."),
+  Q(15, "Management chose the basis of accounting, and its acknowledgment is on file (written, or a note of what they told us)."),
+  Q(16, "The basis of accounting note describes the basis in plain words, lists the accruals we used, and matches how the statements were prepared. It uses no vague terms such as \"substantially ASPE\"."),
+  Q(17, "We discussed the significant judgments in the statements with management, and their answers are in the file."),
+  Q(18, "Management approved all our adjusting entries and reclassifications in the signed acknowledgement letter."),
+  Q(19, "We read the statements as a whole. Nothing in them is false or misleading."),
+  Q(20, "If anything made the statements false or misleading, management corrected it. If they would not, we did not issue the report."),
+  Q(21, "If we are not independent of the client, the compilation report includes a statement saying so."),
+  Q(22, "Management acknowledged in writing its responsibility for the final statements."),
+  Q(23, "The compilation report is dated no earlier than the day management signed the acknowledgement."),
+  Q(24, "The compilation report uses the firm's standard CSRS 4200 wording, unchanged."),
+  Q(25, "The file holds the working papers that support the work: the trial balance, our entries, the supporting papers and the sign-offs."),
+];
+// The rules on the 13 (round 16), the database's too: which must be Yes, which may be Not applicable,
+// which Closebook fills from the signing record and the locked template.
+export const CHECKLIST_RULES = {
+  v2: { mustYes: [1, 2, 3, 4, 6, 7, 10, 11, 12, 13], mayNa: [8, 9], auto: [6, 10, 11, 12] },
+  v1: { mustYes: [1, 10, 11], mayNa: [8, 9], auto: [10, 11] },
+};
+// The first 12 questions (round 8): kept for files answered on them; no longer in Templates.
+export const CB_CHECKLIST_V1: QPiece[] = [
   Q(1, "The engagement letter for this compilation is signed and on file, and it covers this year-end."),
   Q(2, "We know enough about the business, its industry and its records to compile these statements."),
   Q(3, "Management chose the basis of accounting, and it suits the people who will use the statements."),

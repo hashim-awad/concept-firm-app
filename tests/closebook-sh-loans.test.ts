@@ -137,3 +137,30 @@ test("two shareholders are tested apart", () => {
   assert.equal(g.find((x) => x.shareholder === 1)!.thisPartCents, 100_000);
   assert.equal(g.find((x) => x.shareholder === 2)!.dueOn, null);
 });
+
+// Round 16: a part the reviewer decided in an earlier file is not flagged again; repayments go against it
+// first; once repaid it is noted for the shareholder's T1.
+test("a decided part carries forward: not flagged again, shown until repaid", () => {
+  const k = "chart:13000";
+  const yr = { yearStart: "2027-01-01", yearEnd: "2027-12-31", windowDays: 30, own: false };
+  const sched = (postings: Posting[]) => buildSchedules({ accounts: [A(k, "13000", "1301.10", 0)], postings, entries, own: false, yearEnd: "2027-12-31" });
+  const carry = new Map([["sh:1", { cents: 300_000, year: 2026, why: "Included in the 2025 T1." }]]);
+  // Owes 500,000 at the start (300,000 decided in 2026, 200,000 from 2026), nothing repaid.
+  const [a] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening")]), owners1([k]), { ...yr, carry });
+  assert.equal(a.lastPartCents, 500_000);
+  assert.equal(a.earlierDebitCents, 200_000);
+  assert.deepEqual(a.flags, ["earlier_debit"]);
+  assert.deepEqual(a.carried, { year: 2026, why: "Included in the 2025 T1.", startCents: 300_000, leftCents: 300_000, repaidCents: 0 });
+  // Only the decided part left: no flag at all.
+  const [b] = buildGroups(sched([P(k, 300_000, "2027-01-01", "opening")]), owners1([k]), { ...yr, carry });
+  assert.deepEqual(b.flags, []);
+  assert.equal(b.carried?.leftCents, 300_000);
+  // 350,000 repaid: the decided part first (all 300,000 of it, noted for the T1), then 50,000 of the rest.
+  const [c] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening"), P(k, -350_000, "2027-04-01", "bank")]), owners1([k]), { ...yr, carry });
+  assert.deepEqual(c.carried, { year: 2026, why: "Included in the 2025 T1.", startCents: 300_000, leftCents: 0, repaidCents: 300_000 });
+  assert.equal(c.earlierDebitCents, 150_000);
+  // No carry: round 14 unchanged.
+  const [d] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening")]), owners1([k]), yr);
+  assert.equal(d.carried, null);
+  assert.equal(d.earlierDebitCents, 500_000);
+});

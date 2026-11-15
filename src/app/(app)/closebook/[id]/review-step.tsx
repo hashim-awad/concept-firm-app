@@ -7,6 +7,8 @@ import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { saveChecklist } from "../actions";
 import { ChecklistAnswer } from "./checklist-answer";
+import { InfoTip } from "@/components/ds/info-tip";
+import { CHECKLIST_RULES } from "@/lib/closebook/client-wording";
 
 export type ReviewItem = { href: string; label: string; detail: string; amount?: string };
 export type ReviewGroup = { key: string; title: string; step: string; items: ReviewItem[] };
@@ -59,17 +61,22 @@ export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: Re
 // The completion checklist (CSRS 4200, compilation engagements): step 10's, before the file is locked and
 // the compilation report is released (round 8b). 1, 10 and 11 must be Yes; only 8 and 9 (conditional)
 // can be Not applicable. The database applies the same rules.
-const MUST_YES = new Set([1, 10, 11]), MAY_NA = new Set([8, 9]);
 // auto (round 12): questions Closebook fills from the signing record (10 and 11): shown, read-only.
-export function Checklist({ fileId, checklist, problems, editable, back, trial, auto = [] }: {
+// Round 16: the 13 questions (v2), or the first 12 for a file answered on them (v1). The rules come with
+// the set. The Draft banner shows to owners only; question 9 offers Not applicable only when we are
+// independent (step 1, acceptance question 5).
+export function Checklist({ fileId, checklist, problems, editable, back, trial, version = "v2", isOwner = false, notIndependent = false }: {
   fileId: string; checklist: ChecklistRow[]; problems: string[]; editable: boolean; back: string; trial: boolean; auto?: number[];
+  version?: "v1" | "v2"; isOwner?: boolean; notIndependent?: boolean;
 }) {
+  const rules = CHECKLIST_RULES[version];
+  const MUST_YES = new Set(rules.mustYes), MAY_NA = new Set(rules.mayNa), auto = rules.auto;
   return (
     <div className="grid gap-3">
       {problems.length > 0 && <p className="text-[12.5px] text-danger">Not yet: {problems.join(" ")}</p>}
       <section aria-label="Completion checklist" className="card">
         <h2 className="font-semibold">Completion checklist</h2>
-        {trial && <p className="mb-2"><span className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning">Draft questions: approve them in Templates</span></p>}
+        {trial && isOwner && <p className="mb-2"><span className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning">Draft questions: approve them in Templates</span></p>}
         <form action={saveChecklist} className="grid gap-0">
           <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
           {checklist.map((c, i) => (
@@ -79,10 +86,9 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
               <p className="text-sm"><span className="mr-1.5 tabular-nums text-ink-3">{i + 1}.</span>{c.text}
                 {MUST_YES.has(i + 1) && <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Must be Yes</span>}</p>
               {auto.includes(i + 1) ? (
-                <p className="text-sm font-medium">{c.answer === "yes" ? "Yes" : c.answer === "no" ? "No" : "Not answered"} <span className="ml-1 rounded bg-navy-50 px-1.5 py-0.5 text-xs font-normal text-navy-700">Filled by Closebook</span></p>
+                <p className="text-sm font-medium">{c.answer === "yes" ? "Yes" : c.answer === "no" ? "No" : "Not answered"} <span className="ml-1 inline-flex items-center rounded bg-navy-50 px-1.5 py-0.5 text-xs font-normal text-navy-700">Filled by Closebook{c.note && <InfoTip align="right">{c.note}</InfoTip>}</span></p>
               ) : <ChecklistAnswer qkey={c.key} n={i + 1} answer={c.answer} note={c.note} editable={editable}
-                  options={MAY_NA.has(i + 1) ? (["yes", "no", "na"] as const) : (["yes", "no"] as const)} />}
-              {auto.includes(i + 1) && <p className="text-xs text-ink-2 md:col-span-2">{c.note}</p>}
+                  options={MAY_NA.has(i + 1) && !(version === "v2" && i + 1 === 9 && notIndependent) ? (["yes", "no", "na"] as const) : (["yes", "no"] as const)} />}
             </fieldset>
           ))}
           {editable && <div className="border-t border-sand-100 pt-3"><button type="submit" className="btn-secondary">Save the checklist</button></div>}

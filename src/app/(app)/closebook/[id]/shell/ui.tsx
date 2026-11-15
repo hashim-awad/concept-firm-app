@@ -20,13 +20,13 @@ function useCloseOnOutside(ref: React.RefObject<HTMLDetailsElement | null>, enab
 }
 
 // A button that opens a small card under it.
-export function Popover({ button, label, children, align = "left", width = "w-72", className = "" }: {
-  button: ReactNode; label: string; children: ReactNode; align?: "left" | "right"; width?: string; className?: string;
+export function Popover({ button, label, children, align = "left", width = "w-72", className = "", open }: {
+  button: ReactNode; label: string; children: ReactNode; align?: "left" | "right"; width?: string; className?: string; open?: boolean;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useCloseOnOutside(ref);
   return (
-    <details ref={ref} className={`relative ${className}`}>
+    <details ref={ref} open={open} className={`relative ${className}`}>
       <summary aria-label={label} title={label} className="flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">{button}</summary>
       <div className={`absolute z-40 mt-2 ${align === "right" ? "right-0" : "left-0"} ${width} rounded-lg border border-sand-300 bg-white p-3 text-sm text-ink shadow-[0_10px_28px_rgba(15,35,80,.18)]`}>{children}</div>
     </details>

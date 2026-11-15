@@ -6,7 +6,7 @@ import type { CbAccount, CbEntry } from "./server";
 import type { CbFileRow } from "./files";
 import { loadReportData } from "./report-data";
 import { keepsOwnBooks } from "./books";
-import { buildGroups, buildSchedules, CHART_SHAREHOLDER, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
+import { buildGroups, buildSchedules, CHART_SHAREHOLDER, type ShCarry, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
 
 export type ShFlagRow = { account_key: string; flag: ShFlag; closing: number; note: string; noted_by: string | null; noted_at: string | null; accepted_by: string | null; accepted_at: string | null; accepted_why: string };
 export type ShRepaidRow = { account_key: string; due_on: string; opening: number; repaid: number; unpaid: number; answered_by: string | null; answered_at: string };
@@ -59,7 +59,25 @@ export async function loadShLoans(supabase: SupabaseClient, file: CbFileRow, acc
     owners[r.key] = chart ? { shareholder: chart, source: "chart" } : here ? { shareholder: here.shareholder, source: "picked" }
       : before ? { shareholder: before.shareholder, source: "rolled" } : { shareholder: null, source: "none" };
   }
-  const groups = buildGroups(rows, new Map(rows.map((r) => [r.key, owners[r.key].shareholder])), { yearStart: file.year_start, yearEnd: file.year_end, windowDays, own });
+  // Round 16: what the client's last file decided carries forward: the reviewer's accepted "last year's
+  // part" plus anything still carried there.
+  const carry = new Map<string, ShCarry>();
+  const { data: prev } = await supabase.from("cb_files").select("id, year_end").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle();
+  if (prev) {
+    const [{ data: pg }, { data: pf }] = await Promise.all([
+      supabase.from("cb_sh_groups").select("group_key, decided_left, decided_year, decided_why").eq("file_id", prev.id),
+      supabase.from("cb_sh_flags").select("account_key, closing, accepted_at, accepted_why").eq("file_id", prev.id).eq("flag", "earlier_debit").not("accepted_at", "is", null),
+    ]);
+    const prevYear = Number(String(prev.year_end).slice(0, 4));
+    for (const g of (pg ?? []) as { group_key: string; decided_left: number; decided_year: number | null; decided_why: string }[]) {
+      if (Number(g.decided_left) > 0) carry.set(g.group_key, { cents: Math.round(Number(g.decided_left) * 100), year: g.decided_year ?? prevYear, why: g.decided_why });
+    }
+    for (const f of (pf ?? []) as { account_key: string; closing: number; accepted_why: string }[]) {
+      const before = carry.get(f.account_key);
+      carry.set(f.account_key, { cents: (before?.cents ?? 0) + Math.round(Number(f.closing) * 100), year: prevYear, why: f.accepted_why || before?.why || "" });
+    }
+  }
+  const groups = buildGroups(rows, new Map(rows.map((r) => [r.key, owners[r.key].shareholder])), { yearStart: file.year_start, yearEnd: file.year_end, windowDays, own, carry });
   const raw = (st ?? {}) as Partial<ShStatus>;
   const n = (v: unknown) => Number(v ?? 0);
   return {
@@ -84,5 +102,7 @@ export const toSavedGroup = (g: ShGroup) => ({
   last_part: g.lastPartCents / 100, this_part: g.thisPartCents / 100, due_on: g.dueOn ?? "",
   prior_due_on: g.prior?.dueOn ?? "", prior_opening: g.prior ? g.prior.openingCents / 100 : null,
   prior_repaid: g.prior ? g.prior.repaidCents / 100 : null, prior_unpaid: g.prior ? g.prior.unpaidCents / 100 : null,
-  flags: g.flags, flag_amounts: { earlier_debit: g.lastPartCents / 100, late_repayment: g.closingCents / 100 },
+  flags: g.flags, flag_amounts: { earlier_debit: g.earlierDebitCents / 100, late_repayment: g.closingCents / 100 },
+  decided_left: g.carried ? g.carried.leftCents / 100 : 0, decided_year: g.carried?.year ?? "", decided_why: g.carried?.why ?? "",
+  decided_repaid: g.carried ? g.carried.repaidCents / 100 : 0,
 });

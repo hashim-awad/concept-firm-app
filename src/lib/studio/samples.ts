@@ -83,7 +83,7 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   // The completion checklist (round 8): every question, in order, as the reviewer sees it on step 6.
   if (key === "cbchecklist") {
     const t = (p: { key: string; text: string }, i: number) => `<p>${i + 1}. ${mark ? `<span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span>` : (wording?.texts ?? {})[p.key] ?? p.text}</p>`;
-    return { parts: [{ label: "Step 10, completion checklist (CSRS 4200), before the file is locked and the report released. Questions 1, 10 and 11 must be Yes; only 8 and 9 can be Not applicable; a No needs a note", html: CB_CHECKLIST.map(t).join("") }] };
+    return { parts: [{ label: "Step 10, completion checklist (CSRS 4200), before the file is locked and the report released. Questions 1 to 4, 6, 7 and 10 to 13 must be Yes; Closebook fills 6, 10, 11 and 12; only 8 and 9 can be Not applicable; a No needs a note", html: CB_CHECKLIST.map(t).join("") }] };
   }
   if (key === "signpage") {
     const t = (p: { key: string; text: string }) => `<p><span class="wmark" data-w="${p.key}">${(wording?.texts ?? {})[p.key] ?? p.text}</span></p>`;

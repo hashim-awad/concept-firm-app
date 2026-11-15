@@ -22,8 +22,8 @@ const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 
 // Round 15b: the step's papers, Checklist, Client email, Documents, Filing and lock (CaseWare's document
 // map). Without a paper, all of them.
-export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOwner, names, paper }: {
-  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>; paper?: string;
+export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersion = "v2", notIndependent = false, editable, isOwner, names, paper }: {
+  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; checklistVersion?: "v1" | "v2"; notIndependent?: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>; paper?: string;
 }) {
   const show = (k: string) => !paper || paper === k;
   const c = d.close, s = d.status, locked = d.locked, open = !!s.mal_signed_at;
@@ -43,7 +43,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
       {/* 7. The completion checklist: open once the MAL is signed; 10 and 11 filled by Closebook. */}
       {open ? (
         <Checklist fileId={fileId} checklist={checklist} problems={s.lock.filter((x) => x.startsWith("Checklist: ")).map((x) => x.slice(11))} editable={can}
-          back={`/closebook/${fileId}?step=lock`} trial={checklistTrial} auto={[10, 11]} />
+          back={`/closebook/${fileId}?step=lock&paper=checklist`} trial={checklistTrial} version={checklistVersion} isOwner={isOwner} notIndependent={notIndependent} />
       ) : (
         <section aria-label="Completion checklist" className={CARD}>
           <div className={HEAD}><h3 className={H}>Completion checklist</h3><span className="text-[12.5px] text-ink-3">Opens when the MAL is signed</span></div>

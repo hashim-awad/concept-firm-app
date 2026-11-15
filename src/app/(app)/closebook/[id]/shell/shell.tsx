@@ -5,10 +5,11 @@
 // prepared, with a green tick once reviewed; a click opens a popover to sign or take back.
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Check, Clock, Download, HelpCircle, MessageSquarePlus, Pencil, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, Clock, Download, HelpCircle, MessageSquarePlus, Pencil, TriangleAlert } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import type { StepStatus } from "@/lib/closebook/review-server";
 import { addNote, signStep, unsignStep } from "../../actions";
+import { setPeople } from "../../round16-actions";
 import { Drawer, FileToast, LeftPanel, Popover } from "./ui";
 
 export type Area = "steps" | "tb" | "entries" | "notes" | "statements";
@@ -21,9 +22,45 @@ const STATUS_CLS: Record<FileStatus, string> = {
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 export const money = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 
-export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, area, history, left, folded, toast, notes, children }: {
+// Round 16 (CaseWare Cloud engagement properties): the file's preparer and reviewer, changed by an owner.
+export type PeopleProps = { preparer: { id: string; name: string }; reviewer: { id: string; name: string }; canChange: boolean;
+  preparers: { id: string; name: string }[]; reviewers: { id: string; name: string }[]; back: string; error?: string | null };
+function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
+  const same = p.preparer.id === p.reviewer.id;
+  const chip = (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 py-0.5 pr-2 pl-1 text-xs text-[#dbe3f3] hover:border-white/50">
+      <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[9px] font-bold text-navy-800" title={`Preparer: ${p.preparer.name}`}>{initials(p.preparer.name)}</span>
+      {!same && <span className="grid h-5 w-5 place-items-center rounded-full bg-[#e5f3ea] text-[9px] font-bold text-success" title={`Reviewer: ${p.reviewer.name}`}>{initials(p.reviewer.name)}</span>}
+      People{p.canChange && <ChevronDown className="h-3 w-3" aria-hidden />}
+    </span>
+  );
+  const sameLine = same && <p className="mt-2 rounded bg-sand-100 px-2 py-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>;
+  if (!p.canChange) return (
+    <Popover align="right" width="w-64" label="People" button={chip}>
+      <p className="text-[12.5px]"><span className="text-ink-3">Preparer</span> {p.preparer.name}</p><p className="text-[12.5px]"><span className="text-ink-3">Reviewer</span> {p.reviewer.name}</p>{sameLine}
+    </Popover>
+  );
+  return (
+    <Popover align="right" width="w-72" label="People" button={chip} open={!!p.error}>
+      <form action={setPeople} className="grid gap-2.5">
+        <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={p.back} />
+        <p className="font-semibold">People</p>
+        <label className="grid gap-1 text-[11.5px] font-semibold text-ink-2">Preparer
+          <select name="preparer" defaultValue={p.preparer.id} className="input input-compact text-[13px] font-normal text-ink">{p.preparers.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        {/* Only owners are offered as reviewer: the database refuses anyone else. */}
+        <label className="grid gap-1 text-[11.5px] font-semibold text-ink-2">Reviewer
+          <select name="reviewer" defaultValue={p.reviewer.id} className="input input-compact text-[13px] font-normal text-ink">{p.reviewers.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+        {sameLine}
+        {p.error && <p role="alert" className="text-[12.5px] text-danger">{p.error}</p>}
+        <div><button type="submit" className="btn btn-compact">Save</button></div>
+      </form>
+    </Popover>
+  );
+}
+
+export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, area, history, left, folded, toast, notes, people, children }: {
   fileId: string; client: string; yearEnd: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
-  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; children: ReactNode;
+  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; people?: PeopleProps; children: ReactNode;
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -33,6 +70,7 @@ export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, ar
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
         <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${STATUS_CLS[status]}`}>{status}</span>
         <span className="flex-1" />
+        {people && <PeopleChip fileId={fileId} p={people} />}
         {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className="ml-1 font-bold text-white tabular-nums">{money(netCents)}</b></span>}
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
@@ -134,7 +172,7 @@ export function SignCircles(p: SignProps) {
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
 export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notesOpen = 0, next, addNoteFor, exports, help }: {
-  n: number; name: string; paper?: string; sub?: string; sign: SignProps | null; notesOpen?: number;
+  n: number; name: string; paper?: string; sub?: ReactNode; sign: SignProps | null; notesOpen?: number;
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
   addNoteFor: { fileId: string; step: string; back: string } | null;

@@ -8,6 +8,7 @@ import type { PostingKind } from "@/lib/closebook/tb-build";
 import { journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type StmtGroup, type StmtSection, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { formatDate } from "@/lib/dates";
+import { InfoTip } from "@/components/ds/info-tip";
 
 export type ReportKey = "tb" | "bs" | "pl" | "gl" | "journal";
 export const REPORTS: [ReportKey, string][] = [["tb", "Trial balance"], ["bs", "Balance sheet"], ["pl", "Income statement"], ["gl", "General ledger"], ["journal", "Journal"]];
@@ -163,7 +164,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
           </p>)}
         <div className="flex justify-end px-4 pt-3"><Link href={here({ open: all ? undefined : "all" })} className="text-sm text-navy-700 underline">{all ? "Collapse all" : "Expand all"}</Link></div>
         <table className="w-full min-w-[640px] text-sm">
-          <thead><tr className="text-xs text-ink-3"><th /><th className="w-36 px-3 py-1 text-right font-semibold">This year</th><th className="w-36 px-3 py-1 text-right font-semibold">Last year</th></tr></thead>
+          <thead><tr className="text-xs text-ink-3"><th className="px-3 py-1 text-left"><InfoTip label="How to read this statement">Liabilities, equity and revenue show as positive; brackets are the opposite side. Click a lead sheet to open its accounts, and an amount to open the ledger.</InfoTip></th><th className="w-36 px-3 py-1 text-right font-semibold">This year</th><th className="w-36 px-3 py-1 text-right font-semibold">Last year{p.report === "pl" && s.pl.lastFromT2 && <InfoTip align="right" label="Where last year comes from">Last year&rsquo;s income statement (Schedule 125) was not entered in step 2, so last year shows only its net income, {money(s.pl.net.last)}, the figure on last year&rsquo;s T2.</InfoTip>}</th></tr></thead>
           <tbody>
             {p.report === "bs" ? (
               <>
@@ -182,9 +183,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
             )}
           </tbody>
         </table>
-        {p.report === "pl" && s.pl.lastFromT2 && <p className="px-4 py-2 text-sm text-ink-2">Last year&rsquo;s income statement (Schedule 125) was not entered in step 2, so last year shows only its net income, {money(s.pl.net.last)}, the figure on last year&rsquo;s T2.</p>}
         {p.report === "bs" && !s.bs.balanced && <p className="px-4 py-2 text-sm text-danger">The balance sheet does not balance: total assets {money(s.bs.assets.now)}, total liabilities and equity {money(s.bs.totalLE.now)}.</p>}
-        <p className="px-4 py-2 text-xs text-ink-3">Liabilities, equity and revenue show as positive; brackets are the opposite side. Click a lead sheet to open its accounts, and an amount to open the ledger.</p>
       </div>
     );
   } else if (p.report === "gl") {

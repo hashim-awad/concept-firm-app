@@ -96,5 +96,6 @@ test("step papers show only when they apply", () => {
   assert.deepEqual(stepPapers("t2", { ...base, gst: true }).map((p) => p.key), ["gifi", "taxwp", "tie", "gst"]);
   assert.deepEqual(stepPapers("statements", base).map((p) => p.name), ["Package", "MAL signing"]);
   assert.deepEqual(stepPapers("lock", base).map((p) => p.name), ["Checklist", "Client email", "Documents", "Filing and lock"]);
+  assert.deepEqual(stepPapers("setup", base).map((p) => p.name), ["Setup questions", "Acceptance"]);
   assert.deepEqual(stepPapers("review", base), []);
 });

@@ -52,7 +52,14 @@ export type ShGroup = {
   prior: { dueOn: string; openingCents: number; repaidCents: number; unpaidCents: number } | null;
   flags: ShFlag[];
   datesKnown: boolean;                 // own books give one line a year: the 30-day test needs dates
+  // Round 16 (round 14's deferred item): a part the reviewer already decided in an earlier file. It is
+  // not flagged again; repayments go against it first (oldest first). Repaid: noted for the T1.
+  carried: { year: number; why: string; startCents: number; leftCents: number; repaidCents: number } | null;
+  earlierDebitCents: number;           // the part of last year's part still to decide (the flag's amount)
 };
+// What an earlier file decided, per shareholder group: the amount still owed from it, the year it was
+// flagged in and the reviewer's reason.
+export type ShCarry = { cents: number; year: number; why: string };
 
 const money = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const longDate = (iso: string) => { const d = new Date(`${iso}T12:00:00Z`); return `${d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; };
@@ -130,7 +137,7 @@ export function buildSchedules(inp: ShInput): ShSchedule[] {
 }
 
 // Each shareholder's accounts together. owners: the shareholder of each account (null: not picked).
-export function buildGroups(schedules: ShSchedule[], owners: Map<string, number | null>, o: { yearStart: string; yearEnd: string; windowDays: number; own: boolean }): ShGroup[] {
+export function buildGroups(schedules: ShSchedule[], owners: Map<string, number | null>, o: { yearStart: string; yearEnd: string; windowDays: number; own: boolean; carry?: Map<string, ShCarry> }): ShGroup[] {
   const by = new Map<string, ShSchedule[]>();
   for (const s of schedules) {
     const n = owners.get(s.key) ?? null;
@@ -160,15 +167,22 @@ export function buildGroups(schedules: ShSchedule[], owners: Map<string, number 
     const live = shareholder !== null;
     const lastPartCents = live ? Math.min(closingDebit, Math.max(0, openingDebit - reductionsCents)) : 0;
     const thisPartCents = live ? closingDebit - lastPartCents : 0;
+    // A part decided in an earlier file: repayments go against it first; only the rest of last year's
+    // part is flagged.
+    const c = live ? o.carry?.get(k) : undefined;
+    const startCents = c ? Math.min(c.cents, openingDebit) : 0;
+    const leftCents = Math.max(0, startCents - reductionsCents);
+    const carried = c && startCents > 0 ? { year: c.year, why: c.why, startCents, leftCents, repaidCents: startCents - leftCents } : null;
+    const earlierDebitCents = Math.max(0, lastPartCents - leftCents);
     const flags: ShFlag[] = [];
-    if (lastPartCents > 0) flags.push("earlier_debit");
+    if (earlierDebitCents > 0) flags.push("earlier_debit");
     const datesKnown = !o.own;
     if (live && datesKnown && closingCents <= 0 && lateRepayment(openingCents, netted, o.yearEnd, o.windowDays)) flags.push("late_repayment");
     out.push({
       shareholder, keys: list.map((s) => s.key), openingCents, closingCents, reductionsCents, reductions,
       lastPartCents, thisPartCents, dueOn: thisPartCents > 0 ? addYear(o.yearEnd) : null,
       prior: live && openingDebit > 0 ? { dueOn: priorDueOn(o.yearStart), openingCents: openingDebit, repaidCents: openingDebit - lastPartCents, unpaidCents: lastPartCents } : null,
-      flags, datesKnown,
+      flags, datesKnown, carried, earlierDebitCents,
     });
   }
   return out.sort((x, y) => (x.shareholder ?? 99) - (y.shareholder ?? 99) || x.keys[0].localeCompare(y.keys[0]));
