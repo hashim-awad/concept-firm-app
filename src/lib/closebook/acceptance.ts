@@ -14,6 +14,8 @@ export const basisWords = (s: Pick<Statements, "basis" | "custom_basis_wording">
   s.basis === "cash" ? "Cash basis" : s.basis === "custom" ? `Custom: ${s.custom_basis_wording || "wording not set"}` : "Concept standard (cash basis with selected accruals)";
 export const userWords = (u: StatementUser) => `${u.kind === "lender" ? "A lender" : "Other"}: ${u.name}${u.basis_needed ? ` (${u.basis_needed.toLowerCase()})` : ""}`;
 export const usersWords = (users: StatementUser[]) => ["Management", ...users.map(userWords)].join("; ");
+// One line for the face of question 6 (Hashim, round 18 fix): "Management; Dummy Credit Union (lender); Dummy Landlord Ltd."
+export const usersLine = (users: StatementUser[]) => ["Management", ...users.map((u) => (u.kind === "lender" ? `${u.name} (lender)` : u.name))].join("; ");
 // The same record? Compares what matters, ignoring who and when.
 const userKey = (x: Statements) => JSON.stringify(x.users.map((u) => [u.kind, u.name.trim().toLowerCase(), u.basis_needed ?? ""]));
 export const sameBasis = (a: Statements | null, b: Statements | null) => !!a && !!b && a.basis === b.basis && (a.custom_basis_wording ?? "") === (b.custom_basis_wording ?? "");
