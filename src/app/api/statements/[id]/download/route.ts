@@ -1,11 +1,10 @@
 // Download one statement read from a PDF (round 20, Hashim, Nov 15, 2026): ?format=csv|xlsx, and
 // &account=a1 for one account. A statement with several accounts and no account named comes as a zip.
-// Refused while an account's Difference is not 0.00. A standalone statement is deleted once the whole
-// statement has been downloaded (a log row stays: who, when, pages, cost).
+// Refused while an account's Difference is not 0.00. Fix (Hashim, Nov 15, 2026): a standalone statement
+// stays after a download (CSV and Excel, any number of times); "Done" or 24 hours deletes it.
 import { after, type NextRequest } from "next/server";
 import { getAccess, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { removeStored } from "@/lib/statements/server";
 import { accountFile, CONTENT_TYPE, downloadBlock, zipFiles, zipName, type ExportFormat } from "@/lib/statements/export";
 import type { ReadResult } from "@/lib/statements/types";
 
@@ -38,14 +37,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     body = await zipFiles(accounts.map((acc) => accountFile(data, acc, format)));
     name = zipName([data], today); type = CONTENT_TYPE.zip;
   }
-  // Standalone: nothing is kept once the whole statement is downloaded.
-  if (!row.file_id && accounts.length === data.accounts.length) {
-    after(async () => {
-      const { data: path, error } = await (await createClient()).rpc("statement_finish_standalone", { p_id: id });
-      if (error) console.error("statement download: could not delete the standalone statement", error.message);
-      else await removeStored([path as string]);
-    });
-  }
+  // Standalone: note the download, so "Done" logs it as downloaded. The statement stays.
+  if (!row.file_id) after(async () => {
+    const { error } = await (await createClient()).rpc("statement_mark_downloaded", { p_ids: [id] });
+    if (error) console.error("statement download: could not note the download", error.message);
+  });
   return new Response(new Blob([body as BlobPart]), {
     headers: { "Content-Type": type, "Content-Disposition": disposition(name), "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
   });

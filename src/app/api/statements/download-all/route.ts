@@ -1,10 +1,9 @@
 // "Download all" (round 20, Hashim, Nov 15, 2026): ?ids=a,b,c&format=csv|xlsx. One zip with a file per
 // account of each statement. Refused while any of them has a Difference that is not 0.00. Standalone
-// statements in it are deleted once the zip is sent (a log row stays: who, when, pages, cost).
+// statements stay after the download (fix, Hashim, Nov 15, 2026); "Done" or 24 hours deletes them.
 import { after, type NextRequest } from "next/server";
 import { getAccess, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { removeStored } from "@/lib/statements/server";
 import { accountFile, CONTENT_TYPE, downloadBlock, zipFiles, zipName, type ExportFile, type ExportFormat } from "@/lib/statements/export";
 import type { ReadResult } from "@/lib/statements/types";
 
@@ -41,16 +40,10 @@ export async function GET(req: NextRequest) {
   const body = await zipFiles(files);
   const name = datas.length === 1 ? zipName(datas, today) : `Bank statements ${today}.zip`;
   const standalone = rows.filter((r) => !r.file_id).map((r) => r.id);
-  if (standalone.length) {
-    after(async () => {
-      const client = await createClient();
-      for (const id of standalone) {
-        const { data: path, error } = await client.rpc("statement_finish_standalone", { p_id: id });
-        if (error) console.error("statement download: could not delete the standalone statement", error.message);
-        else await removeStored([path as string]);
-      }
-    });
-  }
+  if (standalone.length) after(async () => {
+    const { error } = await (await createClient()).rpc("statement_mark_downloaded", { p_ids: standalone });
+    if (error) console.error("statement download: could not note the download", error.message);
+  });
   return new Response(new Blob([body as BlobPart]), {
     headers: { "Content-Type": CONTENT_TYPE.zip, "Content-Disposition": `attachment; filename="${name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'")}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" },
   });

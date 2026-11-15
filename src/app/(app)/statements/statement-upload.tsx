@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { Download, FileText, Upload } from "lucide-react";
 import type { StatementRow } from "@/lib/statements/server";
 import { createClient } from "@supabase/supabase-js";
-import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements, retryStatement } from "./actions";
+import { confirmStatementUploads, createStatementUploads, discardStatement, doneStatements, pollStatements, retryStatement } from "./actions";
 import { StatementList, type PendingUpload } from "./statement-list";
 
 // The browser's own storage client, only to send files to the signed upload links the server made.
@@ -115,8 +115,16 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
     a.href = `/api/statements/download-all?ids=${downloadable.map((r) => r.id).join(",")}&format=${format}`;
     a.download = "";
     document.body.appendChild(a); a.click(); a.remove();
-    // The files are deleted once downloaded: refresh the list after the download has started.
-    setTimeout(() => { poll(); router.refresh(); }, 2500);
+  };
+  // Done (fix, Hashim, Nov 15, 2026): every statement on this page is deleted at once.
+  const done = async () => {
+    if (!rows.length) return;
+    if (!confirm(`Delete all ${rows.length} statement${rows.length === 1 ? "" : "s"} on this page? Download what you need first.`)) return;
+    setBusy("done"); setErr(null);
+    try {
+      const r = await doneStatements();
+      if (!r.ok) setErr(r.error);
+    } finally { setBusy(null); await poll(); router.refresh(); }
   };
 
   const dropZone = (
@@ -167,12 +175,13 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
           <span className="flex-1" />
           <span className="text-[12.5px] text-ink-3">{downloadable.length ? `${downloadable.length} ready to download` : "Statements download when the difference is 0.00."}</span>
           <button type="button" className="btn h-9" disabled={!downloadable.length} onClick={downloadAll}><Download className="h-4 w-4" aria-hidden />Download all</button>
+          <button type="button" className="btn-secondary h-9" disabled={!rows.length || busy === "done"} onClick={done}>Done</button>
         </div>
       )}
       {open && (
         <div className="grid items-start gap-4 lg:grid-cols-[2fr_5fr]">
           {canEdit ? dropZone : <p className="text-sm text-ink-3">You can see the statements but not upload them.</p>}
-          <StatementList rows={rows} pending={pending} canEdit={canEdit} busy={busy}
+          <StatementList rows={rows} pending={pending} canEdit={canEdit} busy={busy} standalone={standalone}
             onRetry={(id) => act(id, retryStatement)}
             onRemove={(id) => { if (confirm("Remove this statement? The file and what was read are deleted.")) act(id, discardStatement); }}
             onDismiss={(key) => setPending((p) => p.filter((x) => x.key !== key))} />

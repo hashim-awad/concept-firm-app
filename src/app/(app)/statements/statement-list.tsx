@@ -3,7 +3,7 @@
 // Benchmark: QuickBooks Online "Import bank transactions": many files at once, one status per file.
 // Each statement is its own background job, so the list only shows where each one is.
 import Link from "next/link";
-import { Loader2, RotateCcw, X } from "lucide-react";
+import { Download, Loader2, RotateCcw, X } from "lucide-react";
 import type { StatementRow } from "@/lib/statements/server";
 import { STATUS_LABEL } from "@/lib/statements/types";
 import { accountLabel, money, periodText, plural, shortName, STATUS_CLS } from "./format";
@@ -34,8 +34,8 @@ export function summaryText(rows: StatementRow[]): string {
     failed && `${failed} failed`, imported && `${imported} imported`].filter(Boolean).join(" · ");
 }
 
-export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove, onDismiss }: {
-  rows: StatementRow[]; pending: PendingUpload[]; canEdit: boolean; busy: string | null;
+export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove, onDismiss, standalone = false }: {
+  rows: StatementRow[]; pending: PendingUpload[]; canEdit: boolean; busy: string | null; standalone?: boolean;
   onRetry: (id: string) => void; onRemove: (id: string) => void; onDismiss: (key: string) => void;
 }) {
   const total = rows.length + pending.filter((p) => !p.error).length;
@@ -68,14 +68,21 @@ export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove,
                     <td className="max-w-[15rem] truncate font-medium" title={r.file_name}>{r.file_name}</td>
                     <td><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${STATUS_CLS[r.status]}`}>
                       {reading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}{STATUS_LABEL[r.status]}</span></td>
-                    <td className={`text-[13px] ${r.status === "failed" ? "text-danger" : "text-ink-2"}`}>{foundText(r)}</td>
-                    <td className="text-right whitespace-nowrap">
+                    <td className={`min-w-[13rem] text-[13px] ${r.status === "failed" ? "text-danger" : "text-ink-2"}`}>{foundText(r)}</td>
+                    <td className="text-right">
+                      <div className="flex flex-wrap items-center justify-end gap-1">
                       {(r.status === "ready" || r.status === "needs_look") && <Link href={`/statements/${r.id}`} className="btn-secondary h-8 px-3 text-[13px]">Check</Link>}
+                      {/* Standalone tool (fix, Hashim, Nov 15, 2026): both formats, any number of times; the statement stays. */}
+                      {standalone && (r.status === "ready" || r.status === "needs_look") && r.difference_cents === 0 && (["csv", "xlsx"] as const).map((f) => (
+                        <a key={f} href={`/api/statements/${r.id}/download?format=${f}`} download className="btn-secondary h-8 px-3 text-[13px] whitespace-nowrap">
+                          <Download className="h-3.5 w-3.5" aria-hidden />Download {f === "csv" ? "CSV" : "Excel"}</a>
+                      ))}
                       {r.status === "imported" && <Link href={`/statements/${r.id}`} className="btn-secondary h-8 px-3 text-[13px]">Open</Link>}
                       {r.status === "failed" && canEdit && <>
                         <button type="button" disabled={busy === r.id} onClick={() => onRetry(r.id)} className="btn-secondary h-8 px-3 text-[13px]"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry</button>
                         <button type="button" disabled={busy === r.id} onClick={() => onRemove(r.id)} title="Remove" aria-label={`Remove ${r.file_name}`} className="ml-1 inline-grid h-8 w-8 place-items-center rounded-lg text-ink-3 hover:bg-sand-100 hover:text-danger"><X className="h-4 w-4" aria-hidden /></button>
                       </>}
+                      </div>
                     </td>
                   </tr>
                 );
