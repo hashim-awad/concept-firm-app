@@ -7,6 +7,7 @@ import { messageFrom } from "@/lib/messages";
 import { todayToronto } from "@/lib/dates";
 import { BOOKS } from "@/lib/closebook/files";
 import { createFile } from "../actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 type Client = { id: string; legal_name: string; business_number: string; year_end_md: string; taxdome_tags: string[] };
 
@@ -82,9 +83,8 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label htmlFor="preparer" className="label">4. Preparer</label>
               <select id="preparer" name="preparer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
-            <div><label htmlFor="reviewer" className="label">Reviewer</label>
-              <select id="reviewer" name="reviewer" defaultValue={reviewers.some((p) => p.id === access.staff_id) ? access.staff_id : reviewers[0]?.id} className="input">{reviewers.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select>
-              <span className="mt-1 block text-xs text-ink-3">Reviewers are owners.</span></div>
+            <div><span className="flex items-start"><label htmlFor="reviewer" className="label">Reviewer</label><InfoTip>Reviewers are owners.</InfoTip></span>
+              <select id="reviewer" name="reviewer" defaultValue={reviewers.some((p) => p.id === access.staff_id) ? access.staff_id : reviewers[0]?.id} className="input">{reviewers.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
           </div>
           <button type="submit" className="btn w-fit">Start the file</button>
         </form>

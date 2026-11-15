@@ -181,7 +181,6 @@ export function TbTab(p: Props) {
               return Math.round(lastSum * 100) ? { last: "–", current: amt(total), niLast: amt(-lastSum) } : { last: amt(lastSum), current: amt(total) };
             })()} edit={p.edit} />
         )}
-      {!p.importOnly && <p className="mt-2 text-xs text-muted">Debits show as positive, credits in brackets. An account whose balance flips sign moves to its paired line automatically. Only the reviewer changes a tax code.</p>}
     </>
   );
 }

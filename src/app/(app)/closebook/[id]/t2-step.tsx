@@ -7,6 +7,7 @@ import type { gifiFor } from "@/lib/closebook/gifi-server";
 import { acceptT2Difference, saveT2Tieout, setBookAmortization, setReviewTreatment } from "../t2-actions";
 import { ExportButton } from "./export-button";
 import { FilePick } from "./file-pick";
+import { InfoTip } from "@/components/ds/info-tip";
 
 type G = NonNullable<Awaited<ReturnType<typeof gifiFor>>>;
 const chip = (ok: boolean, yes = "Pass", no = "Fail") =>
@@ -101,7 +102,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
         </div>
         {g.workpaper.length === 0 ? <p className="text-sm text-ink-2">No account has a tax code with a Schedule 1 effect.</p> : g.workpaper.map((s) => (
           <div key={s.code} className="overflow-x-auto rounded-lg border border-sand-200">
-            <p className="border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-sm"><b>{s.code}</b> {s.name}<span className="ml-2 text-xs text-ink-3">{s.rule}</span></p>
+            <p className="border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-sm"><b>{s.code}</b> {s.name}{s.rule && <InfoTip label="The rule">{s.rule}</InfoTip>}</p>
             <table className="w-full text-sm"><thead><tr className="text-left text-xs text-ink-3"><th className="px-3 py-1">Account</th><th className="px-3 py-1">GIFI</th><th className="px-3 py-1 text-right">Amount</th><th className="px-3 py-1">Schedule 1</th><th className="px-3 py-1 text-right">Effect</th></tr></thead>
               <tbody>{s.accounts.map((a, i) => (
                 <tr key={i}><td className="px-3 py-0.5">{a.label}</td><td className="px-3 py-0.5 tabular-nums">{a.gifi}</td><td className="px-3 py-0.5 text-right tabular-nums">{fmt(a.amount)}</td>

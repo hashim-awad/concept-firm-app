@@ -24,7 +24,7 @@ export function InfoTip({ children, label = "More detail", align = "left", class
       <button type="button" aria-label={label} aria-expanded={open} aria-describedby={open ? id : undefined}
         onClick={() => setPinned(!pinned)} onFocus={() => setHover(true)} onBlur={() => setHover(false)}
         onKeyDown={(e) => { if (e.key === "Escape") { setPinned(false); setHover(false); } }}
-        className="ml-1 grid h-[15px] w-[15px] flex-none place-items-center rounded-full border-[1.3px] border-ink-3 text-[9.5px] leading-none font-bold text-ink-3 italic hover:border-navy-700 hover:text-navy-700 focus-visible:outline-2 focus-visible:outline-navy-700">i</button>
+        className="ml-1 grid h-[15px] w-[15px] flex-none place-items-center rounded-full border-[1.3px] border-ink-3 text-[9.5px] leading-none font-bold tracking-normal text-ink-3 normal-case italic hover:border-navy-700 hover:text-navy-700 focus-visible:outline-2 focus-visible:outline-navy-700">i</button>
       {open && (
         <span id={id} role="tooltip" className={`absolute top-5 z-50 w-72 rounded-lg border border-sand-300 bg-white px-3 py-2 text-left text-[12.5px] leading-snug font-normal tracking-normal text-ink-2 normal-case shadow-[0_10px_28px_rgba(15,35,80,.18)] ${align === "right" ? "right-0" : "left-0"}`}>{children}</span>
       )}

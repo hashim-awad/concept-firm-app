@@ -7,6 +7,7 @@ import { lockFile, recordDelivery, reopenFile, saveCloseFields, saveFilingRecord
 import { saveGstFiling } from "../gst-actions";
 import { CopyButton } from "@/app/(app)/leads/[id]/quote/copy-button";
 import { Checklist, type ChecklistRow } from "./review-step";
+import { InfoTip } from "@/components/ds/info-tip";
 
 const TO_FILL = <span className="ml-2 inline-block whitespace-nowrap rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning">To fill</span>;
 const label = (text: string, empty: boolean) => <span className="label flex items-center">{text}{empty && TO_FILL}</span>;
@@ -55,7 +56,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersi
       {/* 8. The email's figures, typed from ProFile. */}
       <form action={saveCloseFields} className={CARD} aria-label="Email figures">
         <input type="hidden" name="file_id" value={fileId} />
-        <div className={HEAD}><h3 className={H}>Email figures</h3><span className="text-[12.5px] text-ink-3">From ProFile{delivered && " · as sent"}</span></div>
+        <div className={HEAD}><h3 className={H}>Email figures<InfoTip>Typed from ProFile.</InfoTip></h3>{delivered && <span className="text-[12.5px] text-ink-3">As sent</span>}</div>
         <fieldset disabled={fieldsLocked} className="grid gap-4 px-3.5 py-3">
           <div className="grid gap-3">
             <p className="font-medium">A. Corporate tax</p>
@@ -71,7 +72,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersi
           </div>
           {d.gst.fromReturn ? (
             <div className="grid gap-1">
-              <p className="font-medium">B. GST/HST <span className="text-xs font-normal text-ink-3">From step 8</span></p>
+              <p className="font-medium">B. GST/HST<InfoTip>Filled from the GST/HST return in step 8.</InfoTip></p>
               {(() => { const r = d.gst.returns.at(-1); if (!r) return <p className="text-sm text-danger">Prepare the GST/HST return in step 8 first.</p>;
                 const v = Number(r.lines["113"]) / 100;
                 return <p className="text-sm">{r.label}: {v > 0 ? "owing" : v < 0 ? "refund" : "nil"} {money(v)} · due {formatDate(r.due_on)} · {d.pk.data.file.setup && String((d.pk.data.file.setup as Record<string, unknown>).gst_rt ?? "RT0001").replace(/^RT/, "RT ")}</p>; })()}

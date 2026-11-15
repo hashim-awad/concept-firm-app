@@ -249,7 +249,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <SetupQ name="holdco" q="Does it own, or is it owned by, another company?" adds="Yes adds: investments and intercompany balances" value={setup.holdco as boolean | undefined} />
               <SetupQ name="gst_registered" q="Is it registered for GST/HST?" adds="No: the tax stays in the expense; nothing is split out" value={setup.gst_registered as boolean | undefined} />
             <div className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
-              <label htmlFor="gst_frequency" className="text-sm">GST/HST filing frequency<span className="block text-xs text-ink-3">Annual adds: the annual GST/HST return</span></label>
+              <span className="text-sm"><label htmlFor="gst_frequency">GST/HST filing frequency</label><InfoTip>Annual adds: the annual GST/HST return</InfoTip></span>
               <select id="gst_frequency" name="gst_frequency" defaultValue={(setup.gst_frequency as string) ?? ""} className="input input-compact max-w-[9rem]">
                 <option value="">Choose</option><option value="annual">Annual</option><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option>
               </select>
@@ -540,7 +540,7 @@ function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: strin
   return (
     <fieldset className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
       <legend className="sr-only">{q}</legend>
-      <span className="text-sm">{q}<span className="block text-xs text-ink-3">{adds}</span></span>
+      <span className="text-sm">{q}<InfoTip>{adds}</InfoTip></span>
       {/* A small two-button control right after the question, like QuickBooks Online's settings toggles. */}
       <span className="inline-flex w-fit overflow-hidden rounded-md border border-sand-300">
         {(["yes", "no"] as const).map((v) => (

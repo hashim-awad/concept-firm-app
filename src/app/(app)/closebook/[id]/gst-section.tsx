@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/dates";
 import { LINE_NAMES, type Line } from "@/lib/closebook/gst-return";
 import type { GstData } from "@/lib/closebook/gst-server";
 import { acceptGstCheck, bookQuickGain, confirmGstEntry, prepareGstReturns } from "../gst-actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 const m = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 }));
 const plain = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,7 +34,8 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
     <section id="gst" aria-label="GST/HST return" className="card grid gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">GST/HST return{g.periods.length > 1 ? "s" : ""}</h2>
-        <span className="text-xs text-ink-2">{g.quick ? "Quick method" : "Regular method"} · {g.freq === "annual" ? "Annual" : g.freq === "quarterly" ? "Quarterly" : "Monthly"} · {g.rt} · {g.province}</span>
+        <span className="text-xs text-ink-2">{g.quick ? "Quick method" : "Regular method"} · {g.freq === "annual" ? "Annual" : g.freq === "quarterly" ? "Quarterly" : "Monthly"} · {g.rt} · {g.province}
+          {g.returns.some((r) => r.notes.some((x) => !x.includes("Check"))) && <InfoTip align="right" label="How the figures were worked out"><span className="grid gap-1">{[...new Set(g.returns.flatMap((r) => r.notes.filter((x) => !x.includes("Check"))))].map((x) => <span key={x}>{x}</span>)}</span></InfoTip>}</span>
       </div>
       {problems.length > 0 && <ul role="alert" className="ml-4 list-disc text-sm text-danger">{problems.map((x) => <li key={x}>{x}</li>)}</ul>}
       <div className="overflow-x-auto">
@@ -55,7 +57,8 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
           </tbody>
         </table>
       </div>
-      {g.returns.some((r) => r.notes.length) && <ul className="ml-4 list-disc text-xs text-ink-2">{[...new Set(g.returns.flatMap((r) => r.notes))].map((x) => <li key={x}>{x}</li>)}</ul>}
+      {/* Round 16: how a figure was worked out sits behind the "i" by the method; a note that asks for a check stays here. */}
+      {g.returns.some((r) => r.notes.some((x) => x.includes("Check"))) && <ul className="ml-4 list-disc text-xs text-ink-2">{[...new Set(g.returns.flatMap((r) => r.notes.filter((x) => x.includes("Check"))))].map((x) => <li key={x}>{x}</li>)}</ul>}
 
       {d && drill && (
         <div id="gst-drill" className="rounded-lg border border-navy-200 bg-navy-50/40 p-3">
@@ -87,9 +90,8 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
           <tr><td className="px-3 py-0.5">Less payments to the CRA in the year (instalments and balances)</td><td className="px-3 py-0.5 text-right tabular-nums">{m(-c.paymentsCents)}</td></tr>
           <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Balances still owing</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.owingCents)}</td></tr>
           <tr><td className="px-3 py-0.5">GST/HST payable (21500) at year end</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.bookCents)}</td></tr>
-          <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Difference (21500 less the returns)</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.diffCents)}</td></tr>
+          <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Difference (21500 less the returns){c.diffCents !== 0 && g.other21500 !== 0 && <InfoTip>Entries move {m(g.other21500)} into 21500 without a sales tax code and are not counted as instalments (see below).</InfoTip>}</td><td className="px-3 py-0.5 text-right tabular-nums">{m(c.diffCents)}</td></tr>
         </tbody></table>
-        {c.diffCents !== 0 && g.other21500 !== 0 && <p className="px-3 py-1.5 text-xs text-ink-2">Entries move {m(g.other21500)} into 21500 without a sales tax code and are not counted as instalments (see below).</p>}
         {row?.note && <p className="px-3 py-1.5 text-xs">Explained: {row.note}</p>}
         {row?.accepted_at && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(row.accepted_by ?? "") ?? ""}: {row.accepted_why}</p>}
       </div>
@@ -134,14 +136,14 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
       {editable && (
         <form action={prepareGstReturns} className="grid gap-3 border-t border-sand-200 pt-3" aria-label="Prepare the returns">
           <input type="hidden" name="file_id" value={fileId} />
-          <p className="text-sm font-medium">Instalments paid (line 110), from the CRA account</p>
+          <p className="text-sm font-medium">Instalments paid (line 110), from the CRA account<InfoTip>Pre-filled with the payments coded to GST/HST in each period{g.prefill.lastYear ? `; the ${plain(g.prefill.lastYear.cents)} paid on ${formatDate(g.prefill.lastYear.date)} is last year's balance, not an instalment` : ""}{g.prefill.balances.length ? `; ${g.prefill.balances.map((x) => `${plain(x.cents)} on ${formatDate(x.date)}`).join(", ")} paid an earlier return's balance` : ""}.</InfoTip></p>
           <div className="flex flex-wrap gap-3">
             {g.periods.map((p) => (
               <label key={p.n}><span className="label">{g.periods.length > 1 ? p.label.split(":")[0] : "The year"}</span>
                 <input name={`inst_${p.n}`} className="input text-right tabular-nums" style={{ width: "9rem" }} defaultValue={plain(g.returns.find((r) => r.period.n === p.n)!.lines["110"])} /></label>
             ))}
           </div>
-          <p className="text-xs text-ink-2">Pre-filled with the payments coded to GST/HST in each period{g.prefill.lastYear ? `; the ${plain(g.prefill.lastYear.cents)} paid on ${formatDate(g.prefill.lastYear.date)} is last year's balance, not an instalment` : ""}{g.prefill.balances.length ? `; ${g.prefill.balances.map((x) => `${plain(x.cents)} on ${formatDate(x.date)}`).join(", ")} paid an earlier return's balance` : ""}. Confirm them against the CRA account.</p>
+          <p className="text-xs text-ink-2">Confirm them against the CRA account.</p>
           {c.diffCents !== 0 && !over && (
             <label><span className="label">Explain the difference with 21500 in one line (or fix it with an entry in step 5)</span>
               <input name="note" className="input" maxLength={300} defaultValue={row?.note ?? ""} style={{ width: "40rem", maxWidth: "100%" }} /></label>
