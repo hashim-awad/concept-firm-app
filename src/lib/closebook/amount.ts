@@ -26,3 +26,6 @@ export const bracketAmount = (cents: number) => (cents < 0 ? `(${plain(cents)})`
 export const tidyAmount = (text: string) => { const c = parseAmount(text); return text.trim() === "" || c === null ? text : bracketAmount(c); };
 // The box's text is a negative amount (for the red colour).
 export const isNegativeText = (text: string) => { const c = parseAmount(text); return c !== null && c < 0; };
+// The on-screen class for a figure (cents or dollars): red when negative (item C). Pure, so server
+// components can use it too. Not for the trial balance and lead sheets, where brackets mean a credit.
+export const negativeTone = (n: number | null | undefined) => (n != null && n < 0 ? "text-danger" : "");

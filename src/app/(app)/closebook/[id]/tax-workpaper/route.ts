@@ -13,7 +13,9 @@ import { fmt } from "@/lib/closebook/t2";
 import { formatDate } from "@/lib/dates";
 
 const STAMP = "Working paper: not for the client";
-const sign = (n: number | null) => (n === null ? "To set" : n === 0 ? "–" : `${n > 0 ? "+" : "−"} ${fmt(Math.abs(n))}`);
+// The effect on net income for tax: an add-back plain, a deduction in black brackets, never a minus sign
+// (Hashim, Nov 15, 2026, item C).
+const sign = (n: number | null) => (n === null ? "To set" : n === 0 ? "–" : fmt(n));
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAccess("closebook", "view");
@@ -34,7 +36,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       for (const a of s.accounts) t.rows.push({ cells: [a.label, a.gifi, Math.round(a.amount * 100), a.note, a.effect === null ? "To set" : Math.round(a.effect * 100)], indent: 1 });
       t.rows.push({ cells: [`Total ${s.code}`, "", Math.round(s.total * 100), "", Math.round(s.effect * 100)], bold: true });
     }
-    t.rows.push({ cells: ["Net Schedule 1 adjustment (+ adds to net income for tax)", "", null, "", Math.round(net * 100)], grand: true, bold: true });
+    t.rows.push({ cells: ["Net Schedule 1 adjustment (an amount in brackets is a deduction)", "", null, "", Math.round(net * 100)], grand: true, bold: true });
     return new Response(new Uint8Array(reportXlsx(t, [client, `Year end ${formatDate(f.file.year_end)}`], STAMP)), { headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": `attachment; filename="${base}.xlsx"`, "cache-control": "private, no-store" } });
   }
@@ -50,7 +52,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     body.push([cell(`Total ${s.code}`, { bold: true }), cell(""), cell(fmt(s.total), { alignment: "right", bold: true, border: [false, true, false, false] }), cell(""),
       cell(sign(s.effect), { alignment: "right", bold: true, border: [false, true, false, false] })]);
   }
-  body.push([cell("Net Schedule 1 adjustment (+ adds to net income for tax)", { bold: true, colSpan: 4 }), cell(""), cell(""), cell(""), cell(sign(Math.round(net * 100) / 100), { alignment: "right", bold: true })]);
+  body.push([cell("Net Schedule 1 adjustment (an amount in brackets is a deduction)", { bold: true, colSpan: 4 }), cell(""), cell(""), cell(""), cell(sign(Math.round(net * 100) / 100), { alignment: "right", bold: true })]);
   const def = wpDocument(ctx, [[headerBlock(ctx, "Tax workpaper: Schedule 1 items", "Income tax schedule"),
     { table: { headerRows: 1, widths: ["*", 40, 80, 220, 80], body }, layout: { hLineWidth: () => 0.7, vLineWidth: () => 0, hLineColor: () => C.ink, paddingTop: () => 3, paddingBottom: () => 3 } },
     { text: "The preparer enters these items on Schedule 1 in ProFile. CCA is claimed on Schedule 8.", color: C.grey, fontSize: 8, margin: [0, 10, 0, 0] }]]);

@@ -7,7 +7,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;
   return (
     <AuthCard title="Sign in">
-      <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
+      <Notice inline msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form action={signIn} className="space-y-4">
         <div>
           <label htmlFor="email" className="label">Email</label>

@@ -22,9 +22,11 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const fd = (d: Date) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 const monthName = (d: Date) => MONTHS[d.getUTCMonth()];
+// A client email: a negative in brackets, ($1,234), never a minus sign (Hashim, Nov 15, 2026, item C).
 export function money(v: number): string {
-  const r = Math.round(v * 100) / 100;
-  return Number.isInteger(r) ? `$${r.toLocaleString("en-US")}` : `$${r.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const r = Math.abs(Math.round(v * 100) / 100);
+  const t = Number.isInteger(r) ? `$${r.toLocaleString("en-US")}` : `$${r.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return v < 0 && r !== 0 ? `(${t})` : t;
 }
 const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
 // Appendix C's add_months: the same day n months on, or the month end when the day is the 28th or later.

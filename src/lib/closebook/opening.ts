@@ -7,14 +7,16 @@ export type OpeningLine = { code: string; line_no: string; name: string; type: s
 export type Opening = { lines: OpeningLine[]; netIncomeCents: number; reStartCents: number; reClosingCents: number };
 
 const n = (c: string) => Number(c);
-// Lines 3700 to 3740 are always deductions: kept negative whatever sign is typed (Hashim's rule 3, Nov 14;
-// benchmark: the QuickBooks GIFI files ProFile imports carry equity debits as negative).
-export const isDeduction = (c: string) => n(c) >= 3700 && n(c) <= 3740;
-export const isReAdjustment = (c: string) => n(c) >= 3741 && n(c) <= 3848;
+// Dividends declared (3700 to 3719) are always deductions: kept negative whatever sign is typed (Hashim's
+// rule 3, Nov 14; benchmark: the QuickBooks GIFI files ProFile imports carry equity debits as negative).
+// Prior period adjustments (3720) and other items (3740 to 3848) keep the sign printed on the T2 (round 21,
+// item 12): they add to retained earnings, as in gifi.ts and fs-model.ts.
+export const isDeduction = (c: string) => n(c) >= 3700 && n(c) <= 3719;
+export const isReAdjustment = (c: string) => n(c) >= 3720 && n(c) <= 3848;
 
 // GIFI sign: assets and expenses as debits; liabilities, equity and revenue as credits, so equity debits
 // (the 3700s) are negative. Turned into debit-positive balances; closing retained earnings worked out as
-// 3660 + net income + the 3700s (negative) + other adjustments (what last year's 3849 should show).
+// 3660 + net income + dividends (negative) + 3720, 3740 and other adjustments (what last year's 3849 should show).
 export function openingFrom(codes: [string, number][], info: Map<string, CodeInfo>, niTypedCents: number | null = null): { opening: Opening; errors: string[] } {
   const errors: string[] = [];
   const lines: OpeningLine[] = [];

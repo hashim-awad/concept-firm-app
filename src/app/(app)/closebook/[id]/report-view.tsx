@@ -9,6 +9,7 @@ import { journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChan
 import type { ReportData } from "@/lib/closebook/report-data";
 import { formatDate } from "@/lib/dates";
 import { InfoTip } from "@/components/ds/info-tip";
+import { negativeTone } from "@/lib/closebook/amount";
 
 export type ReportKey = "tb" | "bs" | "pl" | "gl" | "journal";
 export const REPORTS: [ReportKey, string][] = [["tb", "Trial balance"], ["bs", "Balance sheet"], ["pl", "Income statement"], ["gl", "General ledger"], ["journal", "Journal"]];
@@ -17,6 +18,10 @@ export const STAMP = "Working paper: not for the client";
 export const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
   : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const moneyTotal = (c: number) => (c === 0 ? "0.00" : money(c));
+// The balance sheet and income statement show each side positive, so a negative there is a true negative
+// (a contra account, a deficit, a loss): red brackets (Hashim, Nov 15, 2026, item C). The trial balance,
+// ledger and journal keep black brackets: there they mean a credit.
+const red = (c: number) => <span className={negativeTone(c)}>{money(c)}</span>;
 const dateText = (d: string) => (d ? formatDate(d) : "");
 const gifi = (line_no: string | null) => (line_no ? line_no.replace(/\.00$/, "") : "");
 
@@ -116,13 +121,13 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
     const group = (g: StmtGroup) => {
       if (g.code === NET_INCOME) return (
         <tr key={g.code} className="border-b border-sand-100"><td className="px-4 py-1.5 pl-8">{g.name}</td>
-          <td className="px-3 py-1.5 text-right tabular-nums"><Link href={withBack(`${base}?report=pl`, here())} className="hover:text-navy-700 hover:underline">{money(g.now)}</Link></td>
-          <td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(g.last)}</td></tr>
+          <td className="px-3 py-1.5 text-right tabular-nums"><Link href={withBack(`${base}?report=pl`, here())} className="hover:text-navy-700 hover:underline">{red(g.now)}</Link></td>
+          <td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{red(g.last)}</td></tr>
       );
       // An equity line with nothing on it this year or last (no dividends): shown, at "–".
       if (!g.accounts.length) return (
         <tr key={g.code} className="border-b border-sand-100"><td className="px-4 py-1.5 pl-8">{g.name}</td>
-          <td className="px-3 py-1.5 text-right tabular-nums">{money(g.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(g.last)}</td></tr>
+          <td className="px-3 py-1.5 text-right tabular-nums">{red(g.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{red(g.last)}</td></tr>
       );
       const backOpen = [...new Set([...open, g.code])].join(",");
       return (
@@ -130,14 +135,14 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
           <details open={all || open.has(g.code)} className="group border-b border-sand-100">
             <summary className="flex cursor-pointer list-none items-center px-4 py-1.5 hover:bg-sand-50">
               <span className="flex-1 pl-4"><span aria-hidden className="mr-2 inline-block text-ink-3 transition group-open:rotate-90">›</span>{g.name}</span>
-              <span className="w-36 px-3 text-right font-medium tabular-nums">{money(g.now)}</span><span className="w-36 px-3 text-right tabular-nums text-ink-3">{money(g.last)}</span>
+              <span className="w-36 px-3 text-right font-medium tabular-nums">{red(g.now)}</span><span className="w-36 px-3 text-right tabular-nums text-ink-3">{red(g.last)}</span>
             </summary>
             <table className="w-full text-sm"><tbody>
               {g.accounts.map((a) => (
                 <tr key={a.key} id={`a-${a.key}`} className="target:bg-navy-50">
                   <td className="px-4 py-1 pl-14 text-ink-2">{a.number && <span className="mr-2 tabular-nums text-ink-3">{a.number}</span>}{a.name}{a.line_no && <span className="ml-2 text-xs text-ink-3">GIFI {gifi(a.line_no)}</span>}</td>
-                  <td className="w-36 px-3 py-1 text-right tabular-nums"><Link href={toLedger(a.key, here({ open: backOpen }) + `#a-${a.key}`)} className="hover:text-navy-700 hover:underline">{money(a.now)}</Link></td>
-                  <td className="w-36 px-3 py-1 text-right tabular-nums text-ink-3">{money(a.last)}</td>
+                  <td className="w-36 px-3 py-1 text-right tabular-nums"><Link href={toLedger(a.key, here({ open: backOpen }) + `#a-${a.key}`)} className="hover:text-navy-700 hover:underline">{red(a.now)}</Link></td>
+                  <td className="w-36 px-3 py-1 text-right tabular-nums text-ink-3">{red(a.last)}</td>
                 </tr>
               ))}
             </tbody></table>
@@ -149,11 +154,11 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
       <>
         <tr id={warn ? "unsorted" : undefined}><th colSpan={3} className={`px-4 pt-4 pb-1 text-left text-xs font-bold tracking-wide uppercase ${warn ? "text-warning" : "text-navy-700"}`}>{x.title}</th></tr>
         {x.groups.map(group)}
-        <tr className="border-b border-sand-300 font-semibold"><td className="px-4 py-1.5">{total}</td><td className="px-3 py-1.5 text-right tabular-nums">{money(x.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{money(x.last)}</td></tr>
+        <tr className="border-b border-sand-300 font-semibold"><td className="px-4 py-1.5">{total}</td><td className="px-3 py-1.5 text-right tabular-nums">{red(x.now)}</td><td className="px-3 py-1.5 text-right tabular-nums text-ink-3">{red(x.last)}</td></tr>
       </>
     );
     const grand = (label: string, v: { now: number; last: number }) => (
-      <tr className="border-t-2 border-ink font-semibold"><td className="px-4 py-2">{label}</td><td className="px-3 py-2 text-right tabular-nums">{money(v.now)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-3">{money(v.last)}</td></tr>
+      <tr className="border-t-2 border-ink font-semibold"><td className="px-4 py-2">{label}</td><td className="px-3 py-2 text-right tabular-nums">{red(v.now)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-3">{red(v.last)}</td></tr>
     );
     body = (
       <div className="card overflow-x-auto p-0">

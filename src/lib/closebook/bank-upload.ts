@@ -7,6 +7,8 @@
 // It tolerates spaces in header names, an empty trailing column, two-line descriptions in quotes,
 // amounts with 0 to 2 decimals, and blank rows. Pure: no database. Money is kept in cents.
 
+import { parseAmount } from "./amount.ts";
+
 export type BankKind = "bank" | "card";
 export type BankRow = { line: number; date: string; description: string; cents: number };
 export type BankRead = { rows: BankRow[]; errors: string[] };
@@ -44,12 +46,15 @@ export function validDate(d: string): boolean {
   return dt.getUTCFullYear() === +m[1] && dt.getUTCMonth() === +m[2] - 1 && dt.getUTCDate() === +m[3];
 }
 
-// "57.9" is 5790 cents, "-1000" is -100000. Anything else (commas, $, brackets, 3 decimals) is null.
+// "57.9" is 5790 cents, "-1000" is -100000, "(1000)" is -100000 too (Hashim, Nov 15, 2026, item C: a minus
+// sign or brackets both mean negative; Excel saves a bracketed number format that way). Anything else
+// (commas, $, 3 decimals, brackets with a minus) is null.
 export function amountCents(v: string): number | null {
-  const m = AMOUNT.exec(v.trim());
-  if (!m) return null;
+  const t = v.trim(), br = /^\((.*)\)$/.exec(t);
+  const m = AMOUNT.exec(br ? br[1].trim() : t);
+  if (!m || (br && m[1])) return null;
   const c = Number(m[2]) * 100 + Number((m[3] ?? "").padEnd(2, "0"));
-  return m[1] ? -c : c;
+  return (m[1] || br) && c !== 0 ? -c : c;
 }
 
 export function readBankUpload(text: string): BankRead {
@@ -98,11 +103,9 @@ export function balanceCheck(openingCents: number, closingCents: number, rows: {
   return { totalCents: total, expectedCents: expected, differenceCents: closingCents - expected, ok: expected === closingCents };
 }
 
-// A balance typed by the preparer: "1,234.56", "-1234.5", "$1,234", "(1,234.56)" for a negative.
-export function typedCents(v: string): number | null {
-  const s = v.trim().replace(/[$\s,]/g, "");
-  const neg = /^\(.*\)$/.test(s);
-  return amountCents(neg ? `-${s.slice(1, -1)}` : s);
-}
+// A balance typed by the preparer: "1,234.56", "-1234.5", "$1,234", "(1,234.56)" for a negative. The one
+// reader for typed amounts (parseAmount, item C).
+export const typedCents = (v: string): number | null => parseAmount(v);
 
-export const dollars = (c: number) => `${c < 0 ? "-" : ""}$${(Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// What people read: $1,234.00, and a negative in brackets, ($1,234.00) (item C).
+export const dollars = (c: number) => { const t = `$${(Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; return c < 0 ? `(${t})` : t; };

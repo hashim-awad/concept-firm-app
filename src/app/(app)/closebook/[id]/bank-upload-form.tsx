@@ -4,6 +4,8 @@
 // balance check shows before uploading. The server reads the file again and the database checks again.
 import { useState } from "react";
 import { fileInputClass } from "@/components/ds/primitives";
+import { AmountInput } from "@/components/amount";
+import { tidyAmount } from "@/lib/closebook/amount";
 import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents, type BankRow } from "@/lib/closebook/bank-upload";
 import { findDuplicatesInline, uploadBankStatement } from "../actions";
 import type { BankAccount } from "@/lib/closebook/bank-server";
@@ -13,7 +15,7 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
   const [rows, setRows] = useState<BankRow[] | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [period, setPeriod] = useState({ start: "", end: "" });
-  const [opening, setOpening] = useState(nextOpening === null ? "" : nextOpening.toFixed(2));
+  const [opening, setOpening] = useState(nextOpening === null ? "" : tidyAmount(nextOpening.toFixed(2)));
   const [closing, setClosing] = useState("");
   // The signs turned over by "Flip signs and re-check"; the flipped lines must still tie to the cent.
   const [flip, setFlip] = useState(false);
@@ -93,9 +95,9 @@ export function BankUploadForm({ fileId, account, nextOpening }: { fileId: strin
         <div><label htmlFor="period_end" className="label">to</label>
           <input id="period_end" name="period_end" type="date" required value={period.end} onChange={(e) => setPeriod({ ...period, end: e.target.value })} className="input" /></div>
         <div><label htmlFor="opening" className="label">Opening balance</label>
-          <input id="opening" name="opening" required inputMode="decimal" placeholder="0.00" value={opening} onChange={(e) => setOpening(e.target.value)} className="input" /></div>
+          <AmountInput id="opening" name="opening" required placeholder="0.00" value={opening} onValue={setOpening} className="input" /></div>
         <div><label htmlFor="closing" className="label">Closing balance</label>
-          <input id="closing" name="closing" required inputMode="decimal" placeholder="0.00" value={closing} onChange={(e) => setClosing(e.target.value)} className="input" /></div>
+          <AmountInput id="closing" name="closing" required placeholder="0.00" value={closing} onValue={setClosing} className="input" /></div>
       </div>
       <p className="text-xs text-muted">
         Check the period against the statement: the file only knows its first and last transaction. {k === "card" ? "Card or line of credit: the balance owing; a credit balance is negative." : k === "bank" ? "Bank account: an overdraft is negative." : ""}

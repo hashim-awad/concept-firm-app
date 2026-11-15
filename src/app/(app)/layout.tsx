@@ -1,6 +1,7 @@
 import { requireAccess, canView, canEdit, letterTypes } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ds/overlays";
+import { NoteHost } from "@/components/save-state";
 import { signOut } from "../login/actions";
 import { AppSidebar } from "./app-sidebar";
 import { MainArea } from "./main-area";
@@ -65,6 +66,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <MainArea>{children}</MainArea>
         </div>
       </div>
+      {/* Round 21: the "Saved" note (bottom-left, Dext) and the "Save your changes?" question, for every page. */}
+      <NoteHost />
     </ToastProvider>
   );
 }

@@ -203,7 +203,7 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('step 3 counts the missing months and the empty ones',
   test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'g')) = 'Not yet: 9 months of statements missing. 3 months with no transactions: check the statements are complete.');
-select test.check('step 2 on a bank file needs last year''s balance sheet', test.try(format($q$select public.cb_sign_step(%L, 'opening', 'prepared')$q$, :'g')) = 'Not yet: Enter last year''s balance sheet first.');
+select test.check('step 2 on a bank file needs last year''s balance sheet', test.try(format($q$select public.cb_sign_step(%L, 'opening', 'prepared')$q$, :'g')) = 'Not yet: Type the source: which T2 or CRA assessment the balances come from. Attach the PDF of last year''s T2 or the CRA assessment. Enter last year''s balance sheet (Schedule 100).');
 reset role;
 reset request.jwt.claims;
 -- Deleting a file with sign-offs leaves nothing behind.

@@ -49,12 +49,26 @@ test("refusals: other columns, bad dates and amounts name the line", () => {
   assert.equal(readBankUpload("Date,Description,Amount\n,,,\n").errors[0], "The file has the right columns but no transactions.");
 });
 
+test("a CSV amount in brackets is negative, like a minus sign (item C)", () => {
+  assert.equal(amountCents("(1000)"), -100000);
+  assert.equal(amountCents("(57.9)"), -5790);
+  assert.equal(amountCents("(0.00)"), 0);
+  assert.equal(amountCents("(-5)"), null, "brackets and a minus together is a typo");
+  assert.equal(amountCents("(5"), null);
+  const r = readBankUpload("Date,Description,Amount\n2026-03-01,Rent,(1500.00)\n2026-03-02,Deposit,250\n2026-03-03,Fee,-4.5\n");
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.rows.map((x) => x.cents), [-150000, 25000, -450]);
+  assert.equal(balanceCheck(100000, 100000 - 150000 + 25000 - 450, r.rows).ok, true);
+});
+
 test("helpers", () => {
   assert.equal(amountCents("7"), 700);
   assert.equal(amountCents("-0.5"), -50);
   assert.equal(amountCents("1."), null);
   assert.equal(typedCents("$1,234.56"), 123456);
   assert.equal(typedCents("(1,234.56)"), -123456);
+  assert.equal(typedCents("-62,679.00"), -6267900);
+  assert.equal(typedCents("($62,679)"), -6267900);
   assert.equal(validDate("2028-02-29"), true);
   assert.equal(validDate("2026-02-29"), false);
   assert.equal(csvRecords("a,\"b\nc\",d\ne,f,g").map((r) => r.line).join(), "1,3");

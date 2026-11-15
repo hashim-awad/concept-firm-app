@@ -15,6 +15,7 @@ import { loadFile } from "@/lib/closebook/server";
 import { DATA_SOURCE, MONTHLY_READY, fullYearStart, yearPeriod, type DataSource } from "@/lib/closebook/files";
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
+import { STEP_KEYS, stepTitle, type StepKey } from "@/lib/closebook/steps";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -392,7 +393,7 @@ export async function saveSetup(formData: FormData) {
   if (error) redirect(withMessage(back, "error", error.message));
   await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, "msg", "Setup answers saved."));
+  redirect(withMessage(back, "msg", "Saved"));
 }
 
 // ---------- Step 2, Opening balances (Hashim, Nov 14, 2026) ----------
@@ -438,6 +439,25 @@ export async function uploadOpeningPdf(formData: FormData) {
   redirect(withMessage(back, "msg", "PDF attached."));
 }
 
+// Round 21: the same, from step 2's schedule without leaving the page, so what is typed and not yet saved
+// stays on screen. Returns an error, or null.
+export async function uploadOpeningPdfInline(formData: FormData): Promise<string | null> {
+  const id = s(formData, "file_id");
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  if (!/^[0-9a-f-]{36}$/.test(id)) return "This file is missing.";
+  const upload = formData.get("pdf");
+  if (!(upload instanceof File) || upload.size === 0 || !/\.pdf$/i.test(upload.name)) return "Choose the PDF of the prior T2 or the CRA assessment.";
+  if (upload.size > 20 * 1024 * 1024) return "The PDF is over 20 MB.";
+  const path = `closebook/${id}/opening-${Date.now()}.pdf`;
+  const up = await createAdminClient().storage.from("documents").upload(path, new Uint8Array(await upload.arrayBuffer()), { contentType: "application/pdf", upsert: false });
+  if (up.error) return `The PDF was not saved: ${up.error.message}`;
+  const { error } = await (await createClient()).rpc("cb_set_opening_pdf", { p_file: id, p_path: path });
+  if (error) return error.message;
+  revalidatePath(`/closebook/${id}`);
+  return null;
+}
+
 
 // The lines of an upload already in the file (round 2 item 5), shown before Upload.
 export async function findDuplicatesInline(fileId: string, rows: { line: number; date: string; description: string; cents: number }[]) {
@@ -460,9 +480,17 @@ const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", 
 export async function signStep(formData: FormData) {
   const id = s(formData, "file_id"), step = s(formData, "step"), role = s(formData, "role");
   const back = backTo(formData, id);
-  const { error } = await (await createClient()).rpc("cb_sign_step", { p_file: id, p_step: step, p_role: role });
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_sign_step", { p_file: id, p_step: step, p_role: role });
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `${STEP_WORD[step] ?? "Step"} signed as ${role === "reviewed" ? "reviewed" : "prepared"}.`));
+  // Round 21 (Hashim): after "Sign as preparer" the next step opens by itself, with a note naming it.
+  const i = STEP_KEYS.indexOf(step as StepKey), nextKey = STEP_KEYS[i + 1];
+  if (!error && role === "prepared" && i >= 0 && nextKey) {
+    const { data: f } = await supabase.from("cb_files").select("books").eq("id", id).maybeSingle();
+    const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
+    redirect(withMessage(`/closebook/${id}?step=${nextKey}`, "msg", `${STEP_WORD[step]} signed. Next: ${nextName}`));
+  }
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`));
 }
 
 export async function unsignStep(formData: FormData) {

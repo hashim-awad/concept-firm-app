@@ -22,7 +22,9 @@ export type AccountCheck = {
   ok: boolean;                   // nothing to look at
 };
 
-export const money = (c: number) => `${c < 0 ? "-" : ""}$${(Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// For people (screen messages and the Excel heading): a negative in brackets, ($1,234.00) (Hashim,
+// Nov 15, 2026, item C). The CSV keeps a minus (export.ts).
+export const money = (c: number) => { const t = `$${(Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; return c < 0 ? `(${t})` : t; };
 
 // Walk the lines from the opening balance; the first printed balance that does not match.
 function firstBreak(opening: number, lines: StatementLine[]): RunningBreak | null {

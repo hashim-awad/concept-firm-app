@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
+import { parseAmount } from "@/lib/closebook/amount";
 
 const PAGE = "/admin/sales-tax?tab=quick";
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -70,7 +71,7 @@ export async function setQuickCredit(formData: FormData) {
   const back = `${PAGE}&edit=credit`;
   if (formData.get("confirm") !== "on") redirect(withMessage(back, "error", "Tick the box to confirm you checked the credit on the CRA page."));
   const rate = pct(s(formData, "rate"));
-  const limit = Number(s(formData, "limit").replace(/[$,\s]/g, ""));
+  const limitC = parseAmount(s(formData, "limit")), limit = limitC === null ? NaN : limitC / 100;
   if (rate === null || !Number.isFinite(rate) || !Number.isFinite(limit) || s(formData, "limit") === "") redirect(withMessage(back, "error", "Enter the credit as a percent and the limit as an amount, for example 1 and 30,000."));
   const { error } = await (await createClient()).rpc("cb_set_quick_credit", { p_rate: rate, p_limit: limit, p_source: s(formData, "source_url"), p_checked_on: s(formData, "checked_on") || null });
   done(error, "Saved as a draft. Approve it to use it.", back);

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
+import { parseAmount } from "@/lib/closebook/amount";
 
 const LINES = "/admin/closebook/gifi-lines";
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -59,7 +60,10 @@ export async function updateCbSettings(formData: FormData) {
   const back = String(formData.get("back") ?? "/admin/closebook/thresholds");
   await owner(back);
   const n = (k: string) => Number(s(formData, k).replace(/[$,%\s]/g, ""));
-  const vals = ["recon", "flag_amount", "flag_percent", "entry_review", "capital_invoice"].map(n);
+  // Dollar amounts read as every typed amount does (parseAmount: commas, $, a minus sign or brackets);
+  // a negative is refused below. Percentages and days stay plain numbers.
+  const d = (k: string) => { const c = parseAmount(s(formData, k)); return c === null ? NaN : c / 100; };
+  const vals = [d("recon"), d("flag_amount"), n("flag_percent"), d("entry_review"), d("capital_invoice")];
   if (vals.some((v) => !Number.isFinite(v) || v < 0)) redirect(withMessage(back, "error", "Enter each amount as a number, 0 or more."));
   const { error } = await (await createClient()).rpc("cb_update_settings", {
     p_recon: vals[0], p_flag_amount: vals[1], p_flag_percent: vals[2], p_entry_review: vals[3], p_capital_invoice: vals[4], p_note1: s(formData, "note1") || "amortization_equals_cca",
@@ -67,13 +71,13 @@ export async function updateCbSettings(formData: FormData) {
   // Round 10: the T2 tie-out rounding, on the Thresholds page only (the Note 1 page does not send it).
   let err = error;
   if (!err && formData.has("t2_rounding")) {
-    const r = n("t2_rounding");
+    const r = d("t2_rounding");
     if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Rounding allowed in the T2 tie-out: enter a number, 0 or more."));
     err = (await (await createClient()).rpc("cb_update_t2_rounding", { p_amount: r })).error;
   }
   // Round 12: the instalment threshold Appendix C's client email uses (step 10).
   if (!err && formData.has("instalment_threshold")) {
-    const r = n("instalment_threshold");
+    const r = d("instalment_threshold");
     if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Instalment threshold: enter a number, 0 or more."));
     err = (await (await createClient()).rpc("cb_update_instalment_threshold", { p_amount: r })).error;
   }
@@ -136,7 +140,8 @@ export async function updateGstSettings(formData: FormData) {
   const num = (k: string) => { const v = s(formData, k).replace(/[$,%\s]/g, ""); return v === "" ? null : Number(v); };
   const due = [num("due_annual"), num("due_period")];
   if (due.some((v) => v === null || !Number.isInteger(v))) redirect(withMessage(back, "error", "Due dates: a whole number of months."));
-  const cr = num("credit_rate"), lim = num("credit_limit");
+  const lim0 = s(formData, "credit_limit"), limC = lim0 ? parseAmount(lim0) : null;
+  const cr = num("credit_rate"), lim = lim0 ? (limC === null ? NaN : limC / 100) : null;
   if ((cr !== null && !Number.isFinite(cr)) || (lim !== null && !Number.isFinite(lim))) redirect(withMessage(back, "error", "The quick method credit and limit are numbers."));
   const rates = [...formData.keys()].filter((k) => k.startsWith("rate_")).map((k) => { const v = num(k); return { province: k.slice(5), rate: v === null ? "" : v / 100 }; });
   if (rates.some((r) => r.rate !== "" && !Number.isFinite(r.rate))) redirect(withMessage(back, "error", "A remittance rate is a percentage, for example 8.8."));

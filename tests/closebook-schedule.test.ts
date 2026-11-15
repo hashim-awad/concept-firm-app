@@ -34,7 +34,8 @@ test("3849 typed differently from 3660 + 9999 + dividends is flagged; 9999 comes
   assert.equal(totals.t9999, 2025000);
   assert.equal(totals.ni9999From125, true);
   const f = flags.find((x) => x.code === "3849")!;
-  assert.equal(f.text, "730.00 less than 3660 + 9999 + dividends and adjustments (41,730.00).");
+  // Round 21 (item 10): the plain message; worked out 41,730.00 less 3849 of 41,000.00 is 730.00.
+  assert.equal(f.text, "Retained earnings do not tie. Start (3660) + net income (3680) − dividends (3700) + adjustments (3720, 3740) should equal 3849. Difference: 730.00. Check line 3660 on last year's T2.");
 });
 
 test("blocks and signs", () => {
@@ -42,11 +43,16 @@ test("blocks and signs", () => {
   assert.equal(blockOf("3701", "Equity"), "re");
   assert.equal(blockOf("3500", "Equity"), "equity");
   assert.equal(blockOf("1775", "Asset"), "assets");
-  // Lines 3700 to 3740 are deductions whatever sign is typed.
+  // Dividends (3700 to 3719) are deductions whatever sign is typed; 3720 and 3740 keep the sign printed
+  // (round 21, item 12). A dividend shows in its box as printed: positive.
   assert.equal(toGifi("3700", 800000), -800000);
   assert.equal(toGifi("3700", -800000), -800000);
-  assert.equal(toGifi("3740", 500), -500);
+  assert.equal(toGifi("3719", 500), -500);
+  assert.equal(toGifi("3720", 500), 500);
+  assert.equal(toGifi("3720", -500), -500);
+  assert.equal(toGifi("3740", 500), 500);
   assert.equal(toGifi("3741", 500), 500);
-  assert.equal(fromGifi("3700", -800000), -800000);
+  assert.equal(fromGifi("3700", -800000), 800000);
+  assert.equal(fromGifi("3720", -500), -500);
   assert.equal(toGifi("1002", 100), 100);
 });

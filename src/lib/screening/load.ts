@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { parseAmount } from "@/lib/closebook/amount";
 import type { PricedItem, Question, Questionnaire, Rule } from "./engine";
 
 export type QuestionnaireRow = {
@@ -56,9 +57,9 @@ export async function loadCurrentItems(): Promise<(PricedItem & { id: string; pe
     }));
 }
 
-// "$1,234.50" or "1234.5" -> 123450. Null when not a valid amount.
+// "$1,234.50" or "1234.5" -> 123450. Null when not a valid amount, or negative (a price is 0 or more).
+// Read as every typed amount is (parseAmount: a minus sign or brackets mean negative, item C).
 export function parseDollars(input: string): number | null {
-  const clean = input.replace(/[$,\s]/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null;
-  return Math.round(Number(clean) * 100);
+  const c = parseAmount(input);
+  return c === null || c < 0 ? null : c;
 }

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Pencil, Plus, Search } from "lucide-react";
 import { addNote, askReviewerInline } from "../../actions";
 import { Popover } from "../shell/ui";
+import { parseAmount } from "@/lib/closebook/amount";
 
 export type TbRow = { key: string; id: string; number: string; name: string; gifi: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
   final: number; last: number; diff: number; pct: string; flagged: boolean; notes: number; reviewer: boolean; drillable: boolean };
@@ -40,7 +41,9 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
   const cols: [ColKey, string][] = [["prelim", `Prelim ${year}`], ...(split ? [["aje", "AJE"], ["tje", "TJE"]] as [ColKey, string][] : [["adjust", "Adjust"]] as [ColKey, string][]),
     ["reclass", "Reclass"], ["final", `Final ${year}`], ["last", `Prior ${year - 1}`], ["diff", "$ change"], ["pct", "% change"]];
   const shown = cols.filter(([k]) => !hidden.has(k) && !(split && hidden.has("adjust") && (k === "aje" || k === "tje")));
-  const lo = min ? Math.round(Number(min.replace(/[$,\s]/g, "")) * 100) : null, hi = max ? Math.round(Number(max.replace(/[$,\s]/g, "")) * 100) : null;
+  // A size filter: "(500)" or "-500" reads as 500 (item C: either way a minus or brackets is accepted).
+  const size = (t: string) => { const c = t.trim() ? parseAmount(t) : null; return c === null ? null : Math.abs(c); };
+  const lo = size(min), hi = size(max);
   const keep = (r: TbRow) => (!zero || r.final || r.last || r.prelim) && (!onlyFlags || r.flagged || r.reviewer) && (!onlyNotes || r.notes > 0)
     && (lo === null || Math.abs(r.final) >= lo) && (hi === null || Math.abs(r.final) <= hi);
   const match = (s: string) => !!q && s.toLowerCase().includes(q.toLowerCase());

@@ -1,21 +1,15 @@
 // Round 20 (Hashim, Nov 15, 2026): small helpers shared by the statement screens (Closebook step 3, the
 // verify screen, the standalone tool and My day). Pure, so client and server components can use them.
 import type { StatementStatus } from "@/lib/statements/types";
+import { bracketAmount, parseAmount } from "../../../lib/closebook/amount.ts";
 
-// 1234567 cents -> "12,345.67" (no currency sign, like the statement itself). Negative shows a minus.
-export function money(cents: number): string {
-  const t = (Math.abs(cents) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return cents < 0 ? `-${t}` : t;
-}
+// 1234567 cents -> "12,345.67" (no currency sign, like the statement itself). A negative shows in
+// brackets, (12,345.67) (Hashim, Nov 15, 2026, item C); screens colour it red with amountTone.
+export const money = (cents: number): string => bracketAmount(cents);
 
-// A typed amount: "12,480.15", "-12.5", "$1,000" -> cents; anything else -> null.
-export function parseMoney(v: string): number | null {
-  const s = v.replace(/[\s,$]/g, "");
-  const m = /^(-)?(\d+)(?:\.(\d{0,2}))?$/.exec(s);
-  if (!m) return null;
-  const cents = Number(m[2]) * 100 + Number((m[3] ?? "").padEnd(2, "0") || 0);
-  return m[1] ? -cents : cents;
-}
+// A typed amount: "12,480.15", "-12.5", "(12.50)", "$1,000" -> cents; anything else -> null. A minus sign
+// or brackets both mean negative (item C).
+export const parseMoney = (v: string): number | null => parseAmount(v);
 
 // "2026-10-01" -> "Oct 1".
 export function shortDate(d: string): string {

@@ -27,7 +27,7 @@ export async function saveAcceptance(formData: FormData) {
   let p: unknown;
   try { p = JSON.parse(s(formData, "answers")); } catch { redirect(withMessage(back, "error", "The answers could not be read. Nothing was saved.")); }
   const { error } = await (await createClient()).rpc("cb_save_acceptance", { p_file: id, p });
-  await done(id, back, error, "Acceptance saved.");
+  await done(id, back, error, "Saved");
 }
 
 export async function acceptanceSameAsLast(formData: FormData) {

@@ -8,6 +8,8 @@ import { acceptT2Difference, saveT2Tieout, setBookAmortization, setReviewTreatme
 import { ExportButton } from "./export-button";
 import { FilePick } from "./file-pick";
 import { InfoTip } from "@/components/ds/info-tip";
+import { AmountField } from "@/components/amount";
+import { negativeTone } from "@/lib/closebook/amount";
 
 type G = NonNullable<Awaited<ReturnType<typeof gifiFor>>>;
 const chip = (ok: boolean, yes = "Pass", no = "Fail") =>
@@ -49,7 +51,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
               <table className="w-full text-sm"><tbody>
                 {c.rows.map((r, j) => (
                   <tr key={j} className={r.total ? "border-t border-ink font-semibold" : ""}>
-                    <td className="px-3 py-0.5">{r.label}</td><td className="w-36 px-3 py-0.5 text-right tabular-nums">{r.text ?? amt(r.amount)}</td></tr>
+                    <td className="px-3 py-0.5">{r.label}</td><td className={`w-36 px-3 py-0.5 text-right tabular-nums ${r.text ? "" : negativeTone(r.amount)}`}>{r.text ?? amt(r.amount)}</td></tr>
                 ))}
               </tbody></table>
               <p className={`px-3 py-1.5 text-xs font-medium ${c.ok ? "text-success" : "text-danger"}`}>{c.result}</p>
@@ -105,22 +107,22 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
             <p className="border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-sm"><b>{s.code}</b> {s.name}{s.rule && <InfoTip label="The rule">{s.rule}</InfoTip>}</p>
             <table className="w-full text-sm"><thead><tr className="text-left text-xs text-ink-3"><th className="px-3 py-1">Account</th><th className="px-3 py-1">GIFI</th><th className="px-3 py-1 text-right">Amount</th><th className="px-3 py-1">Schedule 1</th><th className="px-3 py-1 text-right">Effect</th></tr></thead>
               <tbody>{s.accounts.map((a, i) => (
-                <tr key={i}><td className="px-3 py-0.5">{a.label}</td><td className="px-3 py-0.5 tabular-nums">{a.gifi}</td><td className="px-3 py-0.5 text-right tabular-nums">{fmt(a.amount)}</td>
+                <tr key={i}><td className="px-3 py-0.5">{a.label}</td><td className="px-3 py-0.5 tabular-nums">{a.gifi}</td><td className={`px-3 py-0.5 text-right tabular-nums ${negativeTone(a.amount)}`}>{fmt(a.amount)}</td>
                   <td className="px-3 py-0.5">{a.note}{a.code === "REVIEW" && isOwner && editable && (
                     <form action={setReviewTreatment} className="mt-1 flex items-center gap-2">{hidden}<input type="hidden" name="line" value={a.line_no} />
                       <select name="treatment" defaultValue={g.treatments.get(a.line_no) ?? ""} aria-label={`${a.label}: treatment`} className="input input-compact pr-8" style={{ width: "13rem" }}>
                         <option value="">Not set</option>{(Object.keys(TREATMENT) as Treatment[]).map((t) => <option key={t} value={t}>{TREATMENT[t]}</option>)}</select>
                       <button type="submit" className="btn-secondary btn-compact">Save for this client</button></form>)}</td>
-                  <td className="px-3 py-0.5 text-right tabular-nums">{a.effect === null ? <span className="text-danger">To set</span> : a.effect === 0 ? "–" : `${a.effect > 0 ? "+" : "−"} ${fmt(Math.abs(a.effect))}`}</td></tr>
+                  <td className={`px-3 py-0.5 text-right tabular-nums ${negativeTone(a.effect)}`}>{a.effect === null ? <span className="text-danger">To set</span> : a.effect === 0 ? "–" : fmt(a.effect)}</td></tr>
               ))}
-                <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Total</td><td /><td className="px-3 py-0.5 text-right tabular-nums">{fmt(s.total)}</td><td />
-                  <td className="px-3 py-0.5 text-right tabular-nums">{s.effect === 0 ? "–" : `${s.effect > 0 ? "+" : "−"} ${fmt(Math.abs(s.effect))}`}</td></tr></tbody></table>
+                <tr className="border-t border-ink font-semibold"><td className="px-3 py-0.5">Total</td><td /><td className={`px-3 py-0.5 text-right tabular-nums ${negativeTone(s.total)}`}>{fmt(s.total)}</td><td />
+                  <td className={`px-3 py-0.5 text-right tabular-nums ${negativeTone(s.effect)}`}>{s.effect === 0 ? "–" : fmt(s.effect)}</td></tr></tbody></table>
           </div>
         ))}
         {g.workpaper.length > 0 && (() => {
           const net = Math.round(g.workpaper.reduce((n, w) => n + w.effect, 0) * 100) / 100;
-          return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (+ adds to net income for tax)</span>
-            <span className="tabular-nums">{net === 0 ? "–" : `${net > 0 ? "+" : "−"} ${fmt(Math.abs(net))}`}</span></p>;
+          return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (an amount in brackets is a deduction)</span>
+            <span className={`tabular-nums ${negativeTone(net)}`}>{net === 0 ? "–" : fmt(net)}</span></p>;
         })()}
         {isOwner && editable && (
           <form action={setBookAmortization} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-2 text-sm">{hidden}
@@ -146,7 +148,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
           <table className="table table-compact">
             <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference (Closebook less ProFile)</th><th>Status</th></tr></thead>
             <tbody>{g.tieItems.map((t) => (
-              <tr key={t.key}><td>{t.label}</td><td className="text-right tabular-nums">{fmt(t.closebook)}</td><td className="text-right tabular-nums">{amt(t.profile)}</td>
+              <tr key={t.key}><td>{t.label}</td><td className={`text-right tabular-nums ${negativeTone(t.closebook)}`}>{fmt(t.closebook)}</td><td className={`text-right tabular-nums ${negativeTone(t.profile)}`}>{amt(t.profile)}</td>
                 <td className={`text-right font-semibold tabular-nums ${t.open ? "text-danger" : ""}`}>{amt(t.diff)}</td>
                 <td>{!t.compared ? <span className="text-xs text-ink-2">Not compared: book amortization</span>
                   : t.diff === null ? <span className="text-xs text-ink-3">To enter</span>
@@ -167,8 +169,8 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
             <form action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
               {([["ni", "Net income (9999)"], ["assets", "Total assets (2599)"], ["cca", "Total CCA, Schedule 8"], ["tax", "Total income tax, federal plus provincial"]] as const).map(([k, label]) => {
                 const t = g.tieItems.find((x) => x.key === k);
-                return <label key={k} className="grid gap-1 text-sm">{label}<input name={k} required inputMode="decimal" defaultValue={t?.profile === null || t?.profile === undefined ? "" : t.profile.toLocaleString("en-CA", { minimumFractionDigits: 2 })}
-                  className="input input-compact text-right tabular-nums" style={{ width: "11rem" }} /></label>;
+                return <label key={k} className="grid gap-1 text-sm">{label}<AmountField name={k} required defaultValue={t?.profile === null || t?.profile === undefined ? "" : t.profile.toFixed(2)}
+                  className="input input-compact" style={{ width: "11rem" }} /></label>;
               })}
               <FilePick id="t2-pdf" name="t2_pdf" label="T2 from ProFile" add={g.tie?.t2_pdf ? "Replace the T2 PDF" : "Attach the T2 PDF"} accept=".pdf"
                 hint={g.tie?.t2_pdf ? `Attached: ${g.tie.t2_pdf.split("/").pop()!.replace(/^\d+-/, "")}` : "Required."} />

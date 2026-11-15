@@ -1,6 +1,5 @@
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import Link from "next/link";
-import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +11,9 @@ import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, CB_CHECKLIST_V1, cbText } from "@/lib/closebook/client-wording";
 import { loadWordingState } from "@/lib/studio/wording-state";
 import { entryNo } from "@/lib/closebook/reports";
-import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, SignCircles, StepTitle, type Area, type FileStatus } from "./shell/shell";
+import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, PaperMark, SignCircles, StepMark, StepTitle, type Area, type FileStatus } from "./shell/shell";
+import { paperProgress, stepProgress, stepsDone, type ProgressFacts } from "@/lib/closebook/step-progress";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { stepHelp } from "./shell/help";
 import { TbArea } from "./areas/tb-area";
 import { entriesArea } from "./areas/entries-area";
@@ -116,6 +117,23 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const review = await loadReview(supabase, id);
   let setupOpen = ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered"].filter((k) => !(k in setup)).length;
   if (setup.gst_registered === true) setupOpen += ("gst_frequency" in setup ? 0 : 1) + ("quick_method" in setup ? 0 : 1);
+  // Round 21 (ProFile, TurboTax): each step's progress in the list, from what the file already holds.
+  const head = (t: string) => supabase.from(t).select("file_id", { count: "exact", head: true }).eq("file_id", id);
+  const [accN, obN, revN, shN, gifiN, tieN, gstN, chkN, closeN, { data: fsRow }] = await Promise.all([
+    head("cb_acceptance"), head("cb_opening_balances"), head("cb_revenue_checks"), head("cb_sh_flags").not("noted_at", "is", null), head("cb_gifi_exports"),
+    head("cb_t2_tieouts"), head("cb_gst_returns").not("prepared_at", "is", null), head("cb_checklist_answers"), head("cb_file_close"),
+    supabase.from("cb_file_fs").select("updated_by, mal_sent_at").eq("file_id", id).maybeSingle(),
+  ]);
+  const signMap = stepSigns(review);
+  const progress: ProgressFacts = { bank: bankFile, setupAnswers: Object.keys(setup).length, acceptance: !!accN.count, openingRows: obN.count ?? 0,
+    openingTyped: !!file.opening_source || !!file.first_year || file.opening_re_stated !== null && file.opening_re_stated !== undefined, imported: imports.some((i) => i.target === "this_year"),
+    statements, coded: coding.lines - coding.open, matched: accounts.filter((a) => a.mapping_source === "preparer").length,
+    entries: entries.length, revenueCheck: !!revN.count, shNotes: shN.count ?? 0, expensesBooked: entries.some((e) => e.origin === "expenses_personal"),
+    mappingDecisions: accounts.filter((a) => a.mapping_source === "reviewer" || a.type_confirmed_by || a.side_confirmed_by).length,
+    reviewNotes: review.notes.length, reviewedSteps: Object.values(signMap).filter((x) => x?.reviewed).length,
+    gifiExports: gifiN.count ?? 0, t2Tieout: !!tieN.count, gstReturn: !!gstN.count, fsTyped: !!fsRow?.updated_by, malSent: !!fsRow?.mal_sent_at,
+    checklistAnswers: chkN.count ?? 0, closeTyped: !!closeN.count,
+    signs: Object.fromEntries(Object.entries(signMap).map(([k, v]) => [k, { prepared: !!v?.prepared, reviewed: !!v?.reviewed }])) };
   const { steps, current, next } = fileSteps({ bankGaps, coding, opening, signs: stepSigns(review), setupOpen,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
@@ -248,7 +266,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </section>
         <section className="card mt-4">
           <h2 className="font-semibold">Setup questions</h2>
-          <form action={saveSetup} className="group grid gap-1">
+          {/* Round 21: "Saved 2:14 PM", Discard changes, and a question before leaving or changing a signed step. */}
+          <SaveForm action={saveSetup} className="group grid gap-1" aria-label="Setup questions"
+            signed={review.status.setup?.prepared_at ? "Step 1 is signed." : null}>
             <input type="hidden" name="file_id" value={id} />
               <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
               <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
@@ -280,8 +300,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
             </div>
               <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
-            {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
-          </form>
+            {editable && <div className="flex items-center gap-2 pt-3"><SaveFormButton className="btn" /><SaveFormDiscard className="btn-secondary" /></div>}
+          </SaveForm>
         </section>
       </div>
     );
@@ -440,7 +460,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
         notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
-        exports={exports} help={stepHelp(step, bankFile)} />
+        exports={exports} help={stepHelp(step, bankFile)}
+        menu={editable && file.phase !== "locked" ? { fileId: id, step, n: cur.n, back: stepBack,
+          clear: step === "records" || step === "review" ? "nothing" : stStep?.prepared_at ? "signed" : "ok" } : null} />
     );
     body = <>{title}
       {step === "review" && (
@@ -468,7 +490,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       {steps.flatMap((x) => [
         <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
           <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3.5 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
-            <span className="w-4 flex-none text-right text-[11.5px] text-ink-3 tabular-nums">{x.n}</span><span className="leading-snug">{x.name}</span>
+            <StepMark n={x.n} p={stepProgress(x.key, progress)} /><span className="leading-snug">{x.name}</span>
           </Link>
           {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
           <SignCircles {...signFor(x.key)} />
@@ -476,15 +498,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         ...(x.key === step && area === "steps" && !showHistory ? papers.map((pp) => (
           <Link key={`${x.key}-${pp.key}`} href={paperHref(x.key, pp.key)} aria-current={pp.key === paper ? "page" : undefined}
             className={`flex items-center gap-2 py-1.5 pr-3 pl-10 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "text-ink-2 hover:bg-sand-50"}`}>
-            <FileText className="h-3.5 w-3.5 flex-none text-ink-3" aria-hidden />{pp.name}</Link>)) : []),
+            <PaperMark p={paperProgress(x.key, pp.key, progress)} />{pp.name}</Link>)) : []),
       ])}
     </>
   );
   const stepRailFolded = (
     <>{steps.map((x) => (
       <Link key={x.key} href={href(x.key)} title={x.name} className={`relative flex justify-center py-2 text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2"}`}>
-        {x.n}{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
-        <span className={`absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full ${x.word === "signed" ? "bg-success" : x.word === "prepared" ? "bg-[#2f6fd6]" : "bg-[#b9bcc6]"}`} />
+        <StepMark n={x.n} p={stepProgress(x.key, progress)} />{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
+        {x.word === "signed" && <span className="absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full bg-success" title="Reviewed" />}
       </Link>))}</>
   );
   const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
@@ -550,7 +572,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
-      history={access.is_owner} left={left} folded={folded} notes={openNotes}
+      history={access.is_owner} left={left} folded={folded} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
       {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}

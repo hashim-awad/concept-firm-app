@@ -5,12 +5,14 @@
 // prepared, with a green tick once reviewed; a click opens a popover to sign or take back.
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Check, ChevronDown, Clock, Download, HelpCircle, MessageSquarePlus, Pencil, TriangleAlert } from "lucide-react";
-import { formatDate } from "@/lib/dates";
+import { Check, ChevronDown, Clock, Download, FileText, HelpCircle, MessageSquarePlus, Pencil, TriangleAlert } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/dates";
+import type { Progress } from "@/lib/closebook/step-progress";
 import type { StepStatus } from "@/lib/closebook/review-server";
 import { addNote, signStep, unsignStep } from "../../actions";
 import { setPeople } from "../../round16-actions";
 import { Drawer, FileToast, LeftPanel, Popover } from "./ui";
+import { StepMenu, type StepMenuProps } from "./step-menu";
 
 export type Area = "steps" | "tb" | "entries" | "notes" | "statements";
 export const AREAS: [Area, string][] = [["steps", "Steps"], ["tb", "Trial balance"], ["entries", "Entries"], ["notes", "Notes"], ["statements", "Statements"]];
@@ -58,9 +60,10 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   );
 }
 
-export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, toast, notes, people, children }: {
+export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, toast, notes, people, done, children }: {
   fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
-  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; people?: PeopleProps; children: ReactNode;
+  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; people?: PeopleProps;
+  done?: { n: number; of: number }; children: ReactNode;
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -70,9 +73,11 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
         {source && <span className="hidden truncate text-[12.5px] text-[#9fb0d4] lg:inline">{source}</span>}
         <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${STATUS_CLS[status]}`}>{status}</span>
+        {/* Round 21 (ProFile, TurboTax): how far the file has got, counted from the preparer's sign-offs. */}
+        {done && <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
         <span className="flex-1" />
         {people && <PeopleChip fileId={fileId} p={people} />}
-        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className="ml-1 font-bold text-white tabular-nums">{money(netCents)}</b></span>}
+        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b></span>}
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
       </header>
@@ -115,7 +120,7 @@ export function PanelLink({ href, on, children, count, title }: { href: string; 
 // Sign-off circles.
 // ---------------------------------------------------------------------------------------------------
 type SignProps = { fileId: string; step: string; st: StepStatus | undefined; names: Map<string, string>; me: string; isOwner: boolean; editable: boolean; back: string;
-  preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right" };
+  preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right"; side?: "below" | "right" };
 
 function Circle({ kind, who, size }: { kind: "none" | "prepared" | "reviewed"; who?: string; size: "sm" | "lg" }) {
   const dim = size === "lg" ? "h-[26px] w-[26px] text-[10px]" : "h-[22px] w-[22px] text-[9px]";
@@ -132,7 +137,8 @@ function Circle({ kind, who, size }: { kind: "none" | "prepared" | "reviewed"; w
 }
 
 export function SignCircles(p: SignProps) {
-  const { fileId, step, st, names, me, isOwner, editable, back, size = "sm", align = "left" } = p;
+  // Round 21: in the step list the box opens beside the circle (CaseWare Cloud), floating above the page.
+  const { fileId, step, st, names, me, isOwner, editable, back, size = "sm", align = "left", side = size === "sm" ? "right" : "below" } = p;
   const review = step === "review";
   const prepared = !!st?.prepared_at, reviewed = !!st?.reviewed_at;
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
@@ -147,7 +153,7 @@ export function SignCircles(p: SignProps) {
   );
   const problems = st?.problems ?? [];
   const prep = !review && (
-    <Popover align={align} label={prepared ? `Prepared by ${name(st!.prepared_by)} · ${formatDate(st!.prepared_at)}` : "Preparer: not signed"} button={<Circle kind={prepared ? "prepared" : "none"} who={name(st?.prepared_by)} size={size} />}>
+    <Popover align={align} side={side} label={prepared ? `Prepared by ${name(st!.prepared_by)} · ${formatDate(st!.prepared_at)}` : "Preparer: not signed"} button={<Circle kind={prepared ? "prepared" : "none"} who={name(st?.prepared_by)} size={size} />}>
       <p className="font-bold">{prepared ? `Prepared by ${name(st!.prepared_by)}` : "Preparer"}</p>
       <p className="text-ink-3">{prepared ? formatDate(st!.prepared_at) : "Not signed"}</p>
       {!prepared && problems.length > 0 && <ul className="mt-2 list-disc pl-4 text-xs text-ink-2">{problems.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
@@ -156,7 +162,7 @@ export function SignCircles(p: SignProps) {
     </Popover>
   );
   const rev = (
-    <Popover align={align} label={reviewed ? `Reviewed by ${name(st!.reviewed_by)} · ${formatDate(st!.reviewed_at)}` : "Reviewer: not signed"} button={<Circle kind={reviewed ? "reviewed" : "none"} who={name(st?.reviewed_by)} size={size} />}>
+    <Popover align={align} side={side} label={reviewed ? `Reviewed by ${name(st!.reviewed_by)} · ${formatDate(st!.reviewed_at)}` : "Reviewer: not signed"} button={<Circle kind={reviewed ? "reviewed" : "none"} who={name(st?.reviewed_by)} size={size} />}>
       <p className="font-bold">{reviewed ? `Reviewed by ${name(st!.reviewed_by)}` : "Reviewer"}</p>
       <p className="text-ink-3">{reviewed ? formatDate(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
@@ -172,19 +178,25 @@ export function SignCircles(p: SignProps) {
 // A step's title row: the name in small capitals, the circles, the Issues chip, then add note, export
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
-export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notesOpen = 0, next, addNoteFor, exports, help }: {
+export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notesOpen = 0, next, addNoteFor, exports, help, menu }: {
   n: number; name: string; paper?: string; sub?: ReactNode; sign: SignProps | null; notesOpen?: number;
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
   addNoteFor: { fileId: string; step: string; back: string } | null;
-  exports: [string, string][]; help: ReactNode;
+  exports: [string, string][]; help: ReactNode; menu?: StepMenuProps | null;
 }) {
   // Round 15b fix 2: the chip shows only when something is open: problems, waiting items or open notes.
   const count = issues.problems.length + issues.waiting.length + notesOpen;
   const icon = "grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100";
+  // Round 21: a signed step says so in one line under the title (who and when).
+  const st = sign?.st, signedBy = sign && sign.step !== "review" && st?.prepared_at ? st.prepared_by : sign?.step === "review" && st?.reviewed_at ? st.reviewed_by : null;
+  const signedAt = sign?.step === "review" ? st?.reviewed_at : st?.prepared_at;
   return (
+    <>
     <div className="mb-3 flex min-h-[30px] flex-wrap items-center gap-2.5">
-      <h2 className="text-xs font-bold tracking-[.1em] text-navy-900 uppercase">{n} · {name}{paper && <><span className="mx-1.5 text-ink-3">›</span>{paper}</>}</h2>
+      {/* Round 21 fix: "1 · SET UP" read as "I · SET UP" (a small bold 1 with wide letter spacing). The word
+          Step and a plain, unspaced number say it clearly. */}
+      <h2 className="pl-px text-xs font-bold tracking-[.1em] text-navy-900 uppercase"><span className="tracking-normal tabular-nums">Step {n}</span> · {name}{paper && <><span className="mx-1.5 text-ink-3">›</span>{paper}</>}</h2>
       {sub && <span className="text-[12.5px] text-ink-3">{sub}</span>}
       {sign && <SignCircles {...sign} size="lg" />}
       {count > 0 && (
@@ -221,8 +233,33 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notes
         <div className="grid gap-3 leading-relaxed text-ink-2 [&_h4]:text-[11px] [&_h4]:font-bold [&_h4]:tracking-[.08em] [&_h4]:text-ink-3 [&_h4]:uppercase">{help}</div>
         <p className="mt-6 rounded-md border border-dashed border-sand-300 px-3 py-2 text-xs text-ink-3">An assistant will answer questions here later.</p>
       </Drawer></span>
+      {menu && <StepMenu {...menu} />}
     </div>
+    {signedBy && sign && (
+      <p className="-mt-1.5 mb-3 inline-flex items-center gap-1.5 text-[12.5px] text-success" data-signed-line>
+        <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />Signed by {signedBy === sign.me ? "you" : sign.names.get(signedBy) ?? "someone"}, {formatDateTime(signedAt)}
+      </p>
+    )}
+    </>
   );
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Round 21 (Hashim; ProFile and TurboTax side menus): a step's number shows its progress. Grey number:
+// not started; blue ring: work started, not signed; green circle with a tick: signed by the preparer.
+// ---------------------------------------------------------------------------------------------------
+const PROGRESS_WORDS: Record<Progress, string> = { not_started: "Not started", started: "Work started, not signed", signed: "Signed by the preparer" };
+export function StepMark({ n, p }: { n: number; p: Progress }) {
+  const box = "grid h-[19px] w-[19px] flex-none place-items-center rounded-full text-[10.5px] tabular-nums";
+  if (p === "signed") return <span title={PROGRESS_WORDS[p]} data-progress={p} className={`${box} bg-success text-white`}><Check className="h-[11px] w-[11px]" strokeWidth={3.2} aria-hidden /><span className="sr-only">{n}, {PROGRESS_WORDS[p]}</span></span>;
+  if (p === "started") return <span title={PROGRESS_WORDS[p]} data-progress={p} className={`${box} border-[1.5px] border-[#2f6fd6] font-semibold text-navy-800`}>{n}<span className="sr-only">, {PROGRESS_WORDS[p]}</span></span>;
+  return <span title={PROGRESS_WORDS[p]} data-progress={p} className={`${box} text-ink-3`}>{n}<span className="sr-only">, {PROGRESS_WORDS[p]}</span></span>;
+}
+// The same states on a working paper under a step (Setup questions, Acceptance).
+export function PaperMark({ p }: { p: Progress }) {
+  if (p === "signed") return <span title={PROGRESS_WORDS[p]} data-progress={p} className="grid h-[15px] w-[15px] flex-none place-items-center rounded-full bg-success text-white"><Check className="h-[9px] w-[9px]" strokeWidth={3.4} aria-hidden /><span className="sr-only">{PROGRESS_WORDS[p]}</span></span>;
+  if (p === "started") return <span title={PROGRESS_WORDS[p]} data-progress={p} className="grid h-[15px] w-[15px] flex-none place-items-center rounded-full border-[1.5px] border-[#2f6fd6] text-[#2f6fd6]"><FileText className="h-[9px] w-[9px]" aria-hidden /><span className="sr-only">{PROGRESS_WORDS[p]}</span></span>;
+  return <span title={PROGRESS_WORDS[p]} data-progress={p} className="grid h-[15px] w-[15px] flex-none place-items-center text-ink-3"><FileText className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{PROGRESS_WORDS[p]}</span></span>;
 }
 
 // A title row for pages that are not steps (the trial balance, entries, notes, statements).

@@ -114,7 +114,8 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       banksOn.set(g, [...(banksOn.get(g) ?? []), b]);
     }
     const diffs: string[] = [];
-    const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+    // A negative in brackets, ($1,234.00) (Hashim, Nov 15, 2026, item C).
+    const dollars = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" }); return c < 0 ? `(${t})` : t; };
     const taken = new Set<string>([...chart.keys(), ...fileNumbers.values()]);
     // A card or line of credit in the statement's own terms (round 3 item 7): a balance owing is positive.
     const inStatementTerms = (g: string, debitCents: number) => {

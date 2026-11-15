@@ -14,6 +14,7 @@ import { blankLine, netOfTax, planEntry, type AcctOpt, type FormHead, type FormL
 import type { TaxCode, TaxContext } from "@/lib/closebook/sales-tax";
 import { addEntry } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
+import { amountTone } from "@/components/amount";
 
 const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
@@ -98,7 +99,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
 
         {(s0 || ctx.registered) && (
           <div className="flex flex-wrap items-end gap-4">
-            {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums`} /></label>}
+            {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums ${amountTone(stdAmount)}`} /></label>}
             {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: needs review` : "No review needed"}</span>}
             <span className="flex-1" />
             {ctx.registered && !s0 && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
@@ -128,8 +129,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                   )}
                 </td>
                 <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} description`} value={l.desc} onChange={(e) => setLine(i, { desc: e.target.value })} maxLength={200} className={`${box} w-full`} /></td>
-                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} debit`} inputMode="decimal" value={l.dr} onChange={(e) => setLine(i, { dr: e.target.value })} onBlur={(e) => setLine(i, { dr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums`} /></td>
-                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums`} /></td>
+                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} debit`} inputMode="decimal" value={l.dr} onChange={(e) => setLine(i, { dr: e.target.value })} onBlur={(e) => setLine(i, { dr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.dr)}`} /></td>
+                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.cr)}`} /></td>
                 {ctx.registered && <td className="py-1 pl-2"><select aria-label={`Line ${i + 1} sales tax`} value={l.tax} onChange={(e) => setLine(i, { tax: e.target.value })} className={`${box} w-full`}>
                   <option value="" disabled>Choose</option><option value="none">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>}
                 <td className="py-1.5 text-center">{lines.length > 2 && <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger"><X className="h-3.5 w-3.5" /></button>}</td>

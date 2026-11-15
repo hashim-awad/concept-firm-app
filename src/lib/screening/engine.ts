@@ -272,6 +272,8 @@ export function evaluate(qn: Questionnaire, raw: Answers, items: PricedItem[]): 
   return result;
 }
 
+// A negative in brackets, ($1,234.00), never a minus sign (Hashim, Nov 15, 2026, item C).
 export function formatCents(cents: number) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
+  const t = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Math.abs(cents) / 100);
+  return cents < 0 ? `(${t})` : t;
 }
