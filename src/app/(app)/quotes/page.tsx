@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkSelect } from "@/components/link-select";
 import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ds/primitives";
@@ -54,9 +55,8 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
         actions={newQuote.length ? <NewMenu label="New quote" items={newQuote} /> : undefined} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error) ?? (error ? error.message : undefined)} />
       <div className="mb-2 flex flex-wrap items-center gap-2" aria-label="Type">{TYPES.map(([k, l]) => chip(link("type", k), type === k, l))}</div>
-      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Status">
-        {chip(link("status", ""), !status, "Any status")}
-        {STATUSES.map((s) => chip(link("status", s), status === s, QUOTE_STATUS[s]))}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <LinkSelect label="Status" value={status} options={[{ value: "", label: "Any status", href: link("status", "") }, ...STATUSES.map((s) => ({ value: s, label: QUOTE_STATUS[s], href: link("status", s) }))]} />
       </div>
       <section className="card overflow-x-auto p-0">
         {rows.length === 0 ? <p className="p-5 text-sm text-muted">No quotes match.</p> : (
