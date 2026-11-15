@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
+import { SettingsShell } from "../../../settings-shell";
 import { saveOffer } from "../actions";
 import { SERVICES } from "@/lib/price-book/labels";
 
@@ -23,8 +23,7 @@ export default async function OfferPage({ params, searchParams }: PageProps<"/ad
   const n = (v: number | null) => (v == null ? "" : String(Number(v)));
   const field = (name: string, label: string, v: string) => <div><label htmlFor={name} className="label">{label}</label><input id={name} name={name} defaultValue={v} inputMode="decimal" className="input" /></div>;
   return (
-    <>
-      <PageHeader eyebrow="Price book" title={isNew ? "Add offer" : o.offer} description="Amounts are before tax. Annual floor is the lowest annual value a proposal may show without a warning." />
+    <SettingsShell title={isNew ? "Add offer" : o.offer} help={<p>Amounts are before tax. Annual floor is the lowest annual value a proposal may show without a warning.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form action={saveOffer} className="card max-w-3xl space-y-4">
         <input type="hidden" name="id" value={isNew ? "" : id} />
@@ -49,6 +48,6 @@ export default async function OfferPage({ params, searchParams }: PageProps<"/ad
           {editable && <button type="submit" className="btn">Save</button>}
         </fieldset>
       </form>
-    </>
+    </SettingsShell>
   );
 }

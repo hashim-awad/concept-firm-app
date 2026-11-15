@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { lineName, planCleanup } from "@/lib/price-book/cleanup";
 import { loadItems } from "@/lib/price-book/load";
+import { SettingsShell } from "../../settings-shell";
 import { applyCleanup } from "./actions";
 
 const LINES = ["bookkeeping", "t2", "gst_hst", "payroll", "cfo", "advisory", "incorporation", "adjustments", "t1"];
@@ -22,10 +22,11 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
   const perClient = items.filter((i) => i.price_type === "Per client" && i.price_cents == null).length;
 
   return (
-    <>
-      <PageHeader eyebrow="Price book" title="Price book clean-up"
-        description="Your corrections after the Studio import. Check the before and after, then apply. Nothing changes until you press Apply."
-        actions={<Link href="/admin/price-book" className="btn-secondary btn">Back to price book</Link>} />
+    <SettingsShell title="Price book clean-up" help={<>
+      <p>Your corrections after the Studio import. Check the before and after, then apply. Nothing changes until you press Apply.</p>
+      <p>Only an owner can apply the clean-up.</p>
+    </>}
+      actions={<Link href="/admin/price-book" className="btn-secondary btn">Back to price book</Link>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       <section className="card mb-6 space-y-2 text-sm">
@@ -89,6 +90,6 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
           <button className="btn" type="submit">Apply all changes</button>
         </form>
       )}
-    </>
+    </SettingsShell>
   );
 }

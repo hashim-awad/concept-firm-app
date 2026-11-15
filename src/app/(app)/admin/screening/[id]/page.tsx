@@ -28,7 +28,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/a
 
   return (
     <>
-      <p className="mb-2 text-sm"><Link href="/admin/screening" className="text-accent underline">Screening questions</Link></p>
+      <p className="mb-2 text-sm"><Link href="/admin/online-sales?tab=screening" className="text-accent underline">Screening questions</Link></p>
       <PageHeader
         title={`${qn.row.route === "personal" ? "Personal" : "Corporate"}, version ${qn.row.version}`}
         description={isDraft ? "Draft. Clients do not see this until it is published." : qn.row.status === "published" ? "Live. To change it, start a new draft from the Screening page." : "Retired. Kept as a record."}

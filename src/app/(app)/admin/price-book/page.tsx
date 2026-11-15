@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { PageHeader, Notice } from "@/components/ui";
+import { Notice } from "@/components/ui";
+import { SettingsShell } from "../settings-shell";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
@@ -58,9 +59,11 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   }
 
   return (
-    <>
-      <PageHeader title="Price book" description="All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made."
-        actions={editable ? (
+    <SettingsShell title="Price book" help={<>
+      <p>All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made.</p>
+      <p>Only an owner can apply the price book clean-up.</p>
+    </>}
+      actions={editable ? (
           <FormDialog label="Add item" title="Add an item">
             <form action={addItem} className="grid gap-3 md:grid-cols-2">
               <LineAndCode lines={lineChoices} />
@@ -92,7 +95,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
               <div className="flex justify-end md:col-span-2"><button type="submit" className="btn">Add item</button></div>
             </form>
           </FormDialog>
-        ) : undefined} />
+        ) : undefined}>
       <PriceBookTabs current="/admin/price-book" />
       {cleanupPending && <p className="mb-4 text-sm"><Link href="/admin/price-book/cleanup" className="text-navy-700 underline">Price book clean-up (after the Studio import)</Link></p>}
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -133,7 +136,6 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
           </section>
         );
       })}
-
-    </>
+    </SettingsShell>
   );
 }

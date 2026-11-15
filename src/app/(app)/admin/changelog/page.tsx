@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/ui";
+import { SettingsShell } from "../settings-shell";
 import { requireAccess } from "@/lib/access";
 import { formatDate } from "@/lib/dates";
 import { CHANGELOG } from "@/lib/changelog";
@@ -7,8 +7,7 @@ import { CHANGELOG } from "@/lib/changelog";
 export default async function ChangelogPage() {
   await requireAccess();
   return (
-    <>
-      <PageHeader title="Change log" description="What changed in Concept Studio, newest first." />
+    <SettingsShell title="Change log" help={<p>What changed in Concept Studio, newest first.</p>}>
       <div className="grid max-w-3xl gap-4">
         {CHANGELOG.map((c, i) => (
           <section key={i} className="card">
@@ -18,6 +17,6 @@ export default async function ChangelogPage() {
           </section>
         ))}
       </div>
-    </>
+    </SettingsShell>
   );
 }

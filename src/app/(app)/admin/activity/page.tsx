@@ -1,4 +1,5 @@
-import { PageHeader, formatDateTime } from "@/components/ui";
+import { formatDateTime } from "@/components/ui";
+import { SettingsShell } from "../settings-shell";
 import { formatDate } from "@/lib/dates";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -30,8 +31,7 @@ export default async function ActivityPage() {
   const roleName = new Map((roles ?? []).map((r: { id: string; name: string }) => [r.id, r.name]));
 
   return (
-    <>
-      <PageHeader title="Activity log" description="Every change to staff, roles, permissions, settings, the price book and screening. The latest 200 entries. Entries cannot be changed or deleted." />
+    <SettingsShell title="Activity log" help={<p>Every change to staff, roles, permissions, settings, the price book and screening. The latest 200 entries. Entries cannot be changed or deleted.</p>}>
       <section className="card overflow-x-auto p-0">
         <table className="table">
           <thead>
@@ -49,7 +49,7 @@ export default async function ActivityPage() {
           </tbody>
         </table>
       </section>
-    </>
+    </SettingsShell>
   );
 }
 
