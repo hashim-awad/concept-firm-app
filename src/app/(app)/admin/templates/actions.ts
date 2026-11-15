@@ -1,4 +1,5 @@
 "use server";
+import { allTemplates } from "@/lib/studio/samples";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -74,7 +75,9 @@ export async function restoreVersion(formData: FormData) {
 export async function approveTemplate(formData: FormData) {
   const key = String(formData.get("key") ?? "");
   const e = createStudioEngine({});
-  const t = (e.TEMPLATES as { k: string; name: string; basis: string; status: string }[]).find((x) => x.k === key);
+  // Every template on the Templates page, the Closebook and T1 ones included (round 16 fix: the
+  // Closebook completion checklist could not be approved).
+  const t = (allTemplates() as { k: string; name: string; basis: string; status: string }[]).find((x) => x.k === key);
   const back = `${LIST}/${key}`;
   if (!t || t.status !== "Trial") redirect(withMessage(back, "error", "Only a trial template needs this."));
   if (formData.get("read") !== "on") redirect(withMessage(back, "error", "Tick the box to confirm you read it."));
