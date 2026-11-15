@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
-import { fileBy, FILE_TYPE } from "@/lib/closebook/files";
+import { dataSourceLabel, fileBy } from "@/lib/closebook/files";
 import { fileSteps, SIGNED_STEPS, STEP_KEYS } from "@/lib/closebook/steps";
 import { accountCoverage, missingText } from "@/lib/closebook/coverage";
 import type { ListedFile } from "@/lib/closebook/server";
@@ -40,7 +40,7 @@ export function FileList({ files, names, showPeople, me }: { files: ListedFile[]
           return (
             <tr key={f.id}>
               <td><Link href={`/closebook/${f.id}`} className="font-medium text-navy-700 hover:underline">{f.client?.legal_name ?? "Client"}</Link>
-                <span className="block text-[11px] text-ink-3">{FILE_TYPE[f.file_type]}</span></td>
+                <span className="block text-[11px] text-ink-3">{dataSourceLabel(f)}</span></td>
               <td className="tabular-nums whitespace-nowrap">{formatDate(f.year_end)}</td>
               <td className="tabular-nums whitespace-nowrap">{formatDate(fileBy(f.year_end))}</td>
               {me && <td><span className="rounded bg-navy-50 px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap text-navy-700">{role}</span></td>}

@@ -12,6 +12,7 @@ import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSE
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadFile } from "@/lib/closebook/server";
+import { DATA_SOURCE, MONTHLY_READY, fullYearStart, yearPeriod, type DataSource } from "@/lib/closebook/files";
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
 
@@ -26,12 +27,18 @@ export async function createFile(formData: FormData) {
   const yearEnd = s(formData, "year_end");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(yearEnd)) redirect(withMessage(back, "error", "Enter the year-end date."));
   // A blank start means a full year: the day after the same date last year.
-  const normal = new Date(Date.UTC(+yearEnd.slice(0, 4) - 1, +yearEnd.slice(5, 7) - 1, +yearEnd.slice(8, 10) + 1)).toISOString().slice(0, 10);
-  const yearStart = s(formData, "year_start") || normal;
-  const type = s(formData, "file_type");
-  const books = type === "monthly" ? "concept_qbo" : s(formData, "books");
+  const yearStart = s(formData, "year_start") || fullYearStart(yearEnd);
+  const period = yearPeriod(yearStart, yearEnd);
+  if (period.text === "check the dates") redirect(withMessage(back, "error", "The start must be on or before the year-end."));
+  const reason = period.full ? "" : s(formData, "reason");
+  if (!period.full && !reason) redirect(withMessage(back, "error", "Enter the reason the year is not 12 months."));
+  // Data source (round 21): one question, mapped to how the file works (file type and books).
+  const source = s(formData, "data_source") as DataSource;
+  if (!(source in DATA_SOURCE) || (source === "ours" && !MONTHLY_READY)) redirect(withMessage(back, "error", "Choose the data source."));
+  const type = DATA_SOURCE[source].file_type;
+  const books = DATA_SOURCE[source].books;
   const { data, error } = await (await createClient()).rpc("cb_create_file", {
-    p_client: client, p_year_end: yearEnd, p_year_start: yearStart, p_reason: s(formData, "reason"), p_type: type, p_books: books,
+    p_client: client, p_year_end: yearEnd, p_year_start: yearStart, p_reason: reason, p_type: type, p_books: books,
     p_preparer: s(formData, "preparer"), p_reviewer: s(formData, "reviewer"),
   });
   if (error) redirect(withMessage(back, "error", error.message));
