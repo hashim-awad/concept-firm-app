@@ -2,7 +2,6 @@ import { formatDateTime } from "@/components/ui";
 import { canEdit, type Access } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions";
-import { LockIcon } from "../settings-nav";
 
 type StaffRow = { id: string; full_name: string; email: string; phone: string; role_id: string; is_active: boolean; created_at: string };
 type RoleRow = { id: string; name: string; is_owner: boolean; role_permissions?: { area_key: string; level: string }[] };
@@ -63,7 +62,7 @@ export async function PeopleSection({ access }: { access: Access }) {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
-              <th><span className="inline-flex items-center gap-1.5">Role <LockIcon title="Only an owner can change roles" /></span></th>
+              <th>Role</th>
               <th>Status</th>
               <th>Added</th>
               {editable && <th className="text-right">Account</th>}

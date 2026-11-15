@@ -13,7 +13,7 @@ export function MainArea({ children, workspace: force }: { children: ReactNode; 
   // A Closebook file lays out its own header, tabs and panels edge to edge (round 15, CaseWare Cloud).
   if (/^\/closebook\/[0-9a-f-]{36}$/.test(path)) return <main className="min-w-0 flex-1">{children}</main>;
   if (workspace) {
-    return <main className="min-w-0 flex-1 px-4 py-4 md:px-6 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">{children}</main>;
+    return <main className="min-w-0 flex-1 px-4 py-4 md:px-6 lg:flex lg:h-[calc(100vh-3.5rem)] lg:flex-col lg:overflow-hidden">{children}</main>;
   }
   return (
     <main className="cb-push min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>

@@ -64,7 +64,7 @@ export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, ar
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      <header className="sticky top-0 z-30 flex h-[50px] print:hidden flex-none items-center gap-3.5 bg-navy-950 px-4 text-white">
+      <header className="sticky top-14 z-30 flex h-[50px] print:hidden flex-none items-center gap-3.5 bg-navy-950 px-4 text-white">
         <Link href="/closebook" className="text-xs text-[#9fb0d4] hover:text-white">My files ›</Link>
         <h1 className="truncate text-[15px] font-bold">{client}</h1>
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
@@ -87,7 +87,7 @@ export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, ar
 
 function ShellTabs({ fileId, area, toast, notes }: { fileId: string; area: Area; toast: { msg?: string | null; error?: string | null }; notes: number }) {
   return (
-    <nav aria-label="File" className="sticky top-[50px] z-30 flex h-10 print:hidden flex-none items-stretch gap-1 border-b border-sand-200 bg-white px-4">
+    <nav aria-label="File" className="sticky top-[106px] z-30 flex h-10 print:hidden flex-none items-stretch gap-1 border-b border-sand-200 bg-white px-4">
       {AREAS.map(([k, label]) => (
         <Link key={k} href={k === "steps" ? `/closebook/${fileId}` : `/closebook/${fileId}?area=${k}`} aria-current={k === area ? "page" : undefined}
           className={`flex items-center gap-1.5 border-b-2 px-3 text-[13px] font-semibold ${k === area ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>

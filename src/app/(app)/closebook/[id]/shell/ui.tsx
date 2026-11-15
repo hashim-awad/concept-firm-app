@@ -34,7 +34,7 @@ export function Popover({ button, label, children, align = "left", width = "w-72
 }
 
 // A panel on the right, under the file's header and tabs, opened from an icon or chip in the title row.
-export function Drawer({ button, label, title, children, open: startOpen, top = "top-[90px]" }: { button: ReactNode; label: string; title: ReactNode; children: ReactNode; open?: boolean; top?: string }) {
+export function Drawer({ button, label, title, children, open: startOpen, top = "top-[146px]" }: { button: ReactNode; label: string; title: ReactNode; children: ReactNode; open?: boolean; top?: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -90,7 +90,7 @@ export function LeftPanel({ children, folded: foldedNode }: { children: ReactNod
   const folded = useSyncExternalStore((cb) => { foldSubs.add(cb); return () => { foldSubs.delete(cb); }; }, readFold, () => false);
   const toggle = () => { foldMem = !folded; try { localStorage.setItem("cb.left.folded", foldMem ? "1" : "0"); } catch { /* kept for this page only */ } foldSubs.forEach((f) => f()); };
   return (
-    <aside className={`sticky top-[90px] flex h-[calc(100vh-90px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${folded ? "w-[52px]" : "w-[236px]"}`}>
+    <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${folded ? "w-[52px]" : "w-[236px]"}`}>
       <div className="flex-1 overflow-y-auto py-2">{folded ? foldedNode ?? null : children}</div>
       <button type="button" onClick={toggle} className="flex items-center gap-1.5 border-t border-sand-200 px-4 py-2 text-xs text-ink-3 hover:text-ink" aria-label={folded ? "Open the panel" : "Fold the panel"}>
         {folded ? "›" : "‹ Fold"}

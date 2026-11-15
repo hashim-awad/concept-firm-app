@@ -116,7 +116,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
     );
   }
   return (
-    <aside aria-label="Drill-down" className="fixed top-[90px] right-0 bottom-0 z-20 flex w-[480px] max-w-full flex-col border-l border-sand-300 bg-white shadow-[-8px_0_24px_rgba(15,35,80,.10)]">
+    <aside aria-label="Drill-down" className="fixed top-[146px] right-0 bottom-0 z-20 flex w-[480px] max-w-full flex-col border-l border-sand-300 bg-white shadow-[-8px_0_24px_rgba(15,35,80,.10)]">
       <div className="flex items-start gap-2 border-b border-sand-200 px-4 py-2.5">
         <p className="min-w-0 flex-1 text-[12.5px] font-semibold"><Link href={close} className="text-navy-700 hover:underline">Trial balance</Link> <span className="text-ink-3">›</span> <span className="text-ink">{label} · {COL[col] ?? "Final"} {col === "prelim" || col === "final" ? "" : ""}</span></p>
         <Link href={`${base}?report=gl&account=${encodeURIComponent(drill)}&back=${encodeURIComponent(here)}`} className="inline-flex items-center gap-1 text-xs text-navy-700 hover:underline"><ExternalLink className="h-3.5 w-3.5" />Open full page</Link>

@@ -65,7 +65,7 @@ export function Sidebar({ groups, footer, user, onSearch, bottom, compact }: { g
           const id = `nav-${g.label.replace(/\W+/g, "-").toLowerCase()}`;
           return (
             <div key={g.label}>
-              {g.collapsible ? (
+              {!g.label ? null : g.collapsible ? (
                 <button type="button" onClick={() => toggle(g.label)} aria-expanded={isOpen} aria-controls={id} disabled={hasActive}
                   className="flex w-full items-center gap-1 rounded px-3 pb-1 text-left text-[10.5px] font-semibold tracking-wider text-white/45 uppercase hover:text-white/70 disabled:cursor-default disabled:hover:text-white/45">
                   <span className="flex-1">{g.label}</span>
