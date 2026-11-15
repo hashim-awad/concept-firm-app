@@ -89,7 +89,9 @@ export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, na
         {/* Question 7, once per outside user, with the user's name. */}
         {a.users.map((u) => (
           <Q key={u.kind} n={7} ans={<span className="flex gap-4">{radio(`q7_${u.kind}`, "yes", "Yes", u.agreed === "yes", () => setUser(u.kind, { agreed: "yes" }))}{radio(`q7_${u.kind}`, "no", "No", u.agreed === "no", () => setUser(u.kind, { agreed: "no" }))}</span>}>
-            Management confirmed {u.name.trim() || (u.kind === "lender" ? "the lender" : "the user")} agreed a compilation meets its needs.{MUST}</Q>
+            Management confirmed {u.name.trim() || (u.kind === "lender" ? "the lender" : "the user")} agreed a compilation meets its needs.{MUST}
+            {/* Recorded with question 6: the user list carries each user's answer. */}
+            {lastLine("q6", word(last?.users.find((x) => x.kind === u.kind && x.name.trim() === u.name.trim())?.agreed ?? ""))}</Q>
         ))}
         <Q n={8} ans={<span className="flex gap-4">{radio("q8", "confirmed", "Confirmed", a.q8 === "confirmed", () => set({ q8: "confirmed" }))}{radio("q8", "different", "Different", a.q8 === "different", () => set({ q8: "different" }))}</span>}
           extra={a.q8 === "different" ? note(a.q8_note, (v) => set({ q8_note: v }), "How the basis differs") : undefined}>

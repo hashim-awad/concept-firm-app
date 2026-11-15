@@ -35,11 +35,15 @@ select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer sees the file', exists (select 1 from public.cb_files where id = :'f'));
 select test.check('step 1: the preparer cannot sign while setup questions are open',
-  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'Not yet: 6 setup questions to answer.');
+  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) like 'Not yet: 6 setup questions to answer.%');
 select public.cb_save_setup(:'f', '{"realtor":true,"owner_paid":false,"dividends":false,"payroll":false,"holdco":false,"gst_registered":true}');
 select test.check('step 1: a registrant also answers the filing frequency and the quick method',
-  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'Not yet: 2 setup questions to answer.');
+  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) like 'Not yet: 2 setup questions to answer.%');
 select public.cb_save_setup(:'f', '{"gst_frequency":"annual","quick_method":false}');
+-- Round 16: step 1 also needs the acceptance record.
+select test.check('step 1: the acceptance record is needed too',
+  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'Not yet: Answer the acceptance questions.');
+select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q5_note":"","users":[],"q8":"confirmed","q8_note":"","q9":"yes"}'::jsonb);
 select public.cb_sign_step(:'f', 'setup', 'prepared');
 select test.check('the preparer cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) like 'Only the reviewer signs as reviewer%');
 select test.check('the preparer cannot add a review note', test.try(format($q$select public.cb_add_note(%L, 'setup', 'step', null, 'x')$q$, :'f')) like 'Only the reviewer adds review notes%');
