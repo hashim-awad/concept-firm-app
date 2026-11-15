@@ -1,9 +1,9 @@
-import { SettingsShell } from "../settings-shell";
-import { TaxdomeImportView } from "./view";
+import { redirect } from "next/navigation";
+import { requireOwner } from "@/lib/access";
 
-// Import TaxDome export (decision 43). Round 17: opened from the gear's Tools; the TaxDome account link
-// moved to Connections.
-export default async function TaxdomeImportPage({ searchParams }: PageProps<"/admin/taxdome-import">) {
-  const view = await TaxdomeImportView(await searchParams);
-  return <SettingsShell title="Import TaxDome export" help={view.help} actions={view.actions}>{view.body}</SettingsShell>;
+// Import TaxDome export (decision 43). Round 18: the import opens as a dialog on Clients, so the gear's
+// Tools entry sends owners there. The access check stays here for the gear menu test.
+export default async function TaxdomeImportPage() {
+  await requireOwner();
+  redirect("/clients?import=1");
 }

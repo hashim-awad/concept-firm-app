@@ -25,26 +25,46 @@ select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 
 -- 1. Acceptance: answers, the rules on them, and step 1's sign-off.
 reset role;
 select test.check('step 1 waits for the acceptance record', exists (select 1 from unnest(private.cb_step_problems(:'f', 'setup')) x where x = 'Answer the acceptance questions.'));
+-- Round 18: the users and the basis live on the client; the record confirms them each year.
+update public.clients set basis = 'standard', statement_users = '[{"kind":"lender","name":"Dummy Credit Union","basis_needed":"Can request further information"},{"kind":"other","name":"Dummy Landlord","basis_needed":""}]' where id = :'client';
+select test.check('the letters still read the first user', (select third_party_user = 'Dummy Credit Union' and third_party_basis = 'Can request further information' from public.clients where id = :'client'));
 set role authenticated;
-select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"no","q3":"yes","q4":"yes","q5":"no","q5_note":"","users":[{"kind":"lender","name":"Dummy Credit Union","agreed":"no"},{"kind":"other","name":"Dummy Landlord","agreed":"yes"}],"q8":"different","q8_note":"","q9":"yes"}'::jsonb);
+select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"no","q3":"yes","q4":"yes","q5":"no","q5_note":"","q9":"yes"}'::jsonb);
 reset role;
 select test.check('question 2 No: a new or amended letter', 'Acceptance question 2 is No: a new or amended engagement letter is needed before work continues.' = any (private.cb_acceptance_problems(:'f')));
-set role authenticated;
-reset role;
 select test.check('question 5 No needs a note', 'Acceptance question 5: say what affects independence.' = any (private.cb_acceptance_problems(:'f')));
+select test.check('the client''s basis and users wait for confirmation', 'Confirm the client''s basis of accounting and users of the statements (questions 6 and 8).' = any (private.cb_acceptance_problems(:'f')));
 set role authenticated;
+select public.cb_acceptance_confirm_client(:'f');
+reset role;
+select test.check('confirmed: the file keeps what the client said, with who and when',
+  (select confirmed ->> 'basis' = 'standard' and confirmed -> 'users' -> 0 ->> 'name' = 'Dummy Credit Union' and confirmed -> 'users' -> 0 ->> 'basis_needed' = 'Can request further information'
+     and confirmed ->> 'by' = :C and q8 = 'confirmed' and jsonb_array_length(users) = 2 from public.cb_acceptance where file_id = :'f'));
+select test.check('the client''s activity says it was confirmed', exists (select 1 from public.activity_log where entity_type = 'clients' and entity_id = :'client' and action = 'statements_confirmed'));
+set role authenticated;
+select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"no","q3":"yes","q4":"yes","q5":"no","q5_note":"","q9":"yes","users":[{"kind":"lender","name":"Dummy Credit Union","agreed":"no"},{"kind":"other","name":"Dummy Landlord","agreed":"yes"},{"kind":"other","name":"Not On The Client","agreed":"yes"}]}'::jsonb);
 reset role;
 select test.check('question 7 per named user', 'Acceptance question 7 must be Yes for Dummy Credit Union.' = any (private.cb_acceptance_problems(:'f'))
   and not exists (select 1 from unnest(private.cb_acceptance_problems(:'f')) x where x like '%Dummy Landlord%'));
-set role authenticated;
-reset role;
-select test.check('question 8 Different needs a note', 'Acceptance question 8: say how the basis differs.' = any (private.cb_acceptance_problems(:'f')));
-set role authenticated;
+select test.check('the form cannot add a user the client does not have', (select jsonb_array_length(users) = 2 from public.cb_acceptance where file_id = :'f'));
 select test.check('each answer records who and when', (select (answered -> 'q1' ->> 'by') = :A or (answered -> 'q1' ->> 'by') = :C from public.cb_acceptance where file_id = :'f'));
-select test.check('an outside user needs a name', test.try(format($f$select public.cb_save_acceptance(%L, '{"users":[{"kind":"lender","name":"","agreed":"yes"}]}'::jsonb)$f$, :'f')) like '%Name each outside user%');
-select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"no","q5_note":"Our bookkeeper is the shareholder''s daughter.","users":[{"kind":"lender","name":"Dummy Credit Union","agreed":"yes"}],"q8":"confirmed","q8_note":"","q9":"yes"}'::jsonb);
+-- A change on the client after confirming: the open file asks for it again.
+update public.clients set basis = 'cash' where id = :'client';
+select test.check('a later client change asks for a new confirmation', 'The client''s basis or users of the statements changed since they were confirmed: confirm them again.' = any (private.cb_acceptance_problems(:'f')));
+select test.check('the file still holds what was confirmed', (select confirmed ->> 'basis' = 'standard' from public.cb_acceptance where file_id = :'f'));
+set role authenticated;
+select public.cb_acceptance_confirm_client(:'f');
+select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"no","q5_note":"Our bookkeeper is the shareholder''s daughter.","q9":"yes","users":[{"kind":"lender","name":"Dummy Credit Union","agreed":"yes"},{"kind":"other","name":"Dummy Landlord","agreed":"yes"}]}'::jsonb);
 reset role;
 select test.check('a complete record clears the acceptance problems', cardinality(private.cb_acceptance_problems(:'f')) = 0);
+-- A locked file never compares with today's client.
+update public.cb_files set phase = 'locked' where id = :'f';
+update public.clients set basis = 'standard' where id = :'client';
+select test.check('a locked file keeps its confirmed record and raises nothing', cardinality(private.cb_acceptance_problems(:'f')) = 0 and (select confirmed ->> 'basis' = 'cash' from public.cb_acceptance where file_id = :'f'));
+set session_replication_role = replica;
+update public.cb_files set phase = 'planning' where id = :'f';
+set session_replication_role = origin;
+update public.clients set basis = 'cash' where id = :'client';
 set role authenticated;
 
 -- 2. People: only an owner changes them; the reviewer must be an owner.
@@ -68,8 +88,8 @@ select test.check('the next year is not a first year', test.try(format($f$select
 
 -- 4. The acceptance rolls forward: "Same as last year for all" confirms every answer.
 select public.cb_acceptance_same_as_last(:'f2');
-select test.check('rolled forward and confirmed', (select q1 = 'yes' and users -> 0 ->> 'name' = 'Dummy Credit Union' and (answered -> 'q9' ->> 'same')::boolean and (answered -> 'q6' ->> 'same')::boolean
-  from public.cb_acceptance where file_id = :'f2'));
+select test.check('rolled forward and confirmed from the client', (select q1 = 'yes' and users -> 0 ->> 'name' = 'Dummy Credit Union' and users -> 0 ->> 'agreed' = 'yes'
+  and (answered -> 'q9' ->> 'same')::boolean and (answered -> 'q6' ->> 'same')::boolean and confirmed ->> 'basis' = 'cash' from public.cb_acceptance where file_id = :'f2'));
 
 -- 5. The checklist has 13 questions; the first 12 are kept for files answered on them.
 select test.check('13 active questions', (select count(*) from public.cb_checklist_questions where active) = 13 and (select count(*) from public.cb_checklist_questions where not active) = 12);

@@ -38,6 +38,15 @@ export async function acceptanceSameAsLast(formData: FormData) {
   await done(id, back, error, "Every answer confirmed as last year's.");
 }
 
+// Round 18: confirm the client's basis and users of the statements for this year.
+export async function acceptanceConfirmClient(formData: FormData) {
+  const id = s(formData, "file_id");
+  const back = sameFile(id, s(formData, "back"));
+  await editor(back);
+  const { error } = await (await createClient()).rpc("cb_acceptance_confirm_client", { p_file: id });
+  await done(id, back, error, "The client's basis and users confirmed for this year.");
+}
+
 export async function setFirstYear(formData: FormData) {
   const id = s(formData, "file_id");
   const back = sameFile(id, s(formData, "back"));

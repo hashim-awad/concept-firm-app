@@ -1,7 +1,7 @@
 // TaxDome Accounts import: made-up rows only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bn9, parseYearEnd, planImport, province, readAccounts, type Existing } from "../src/lib/taxdome/accounts.ts";
+import { bn9, importPlan, parseYearEnd, planImport, province, readAccounts, yearEndChange, type Existing } from "../src/lib/taxdome/accounts.ts";
 
 const HEAD = 'id,Account Name,State,Account Type,Tags,"CRA BN ""9 digits"" (RC)",SIN #,Notes,Fiscal Year-End,Alberta Finance â€“ Corporate Income Tax (AT1),T2 Filing Deadline,Company Street Address,Company State / Province,Client contact';
 const row = (...v: string[]) => v.map((x) => (/[",]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x)).join(",");
@@ -95,4 +95,18 @@ test("the owner can tie a new account to an existing Studio client with a differ
   assert.deepEqual(tied.candidates.map((c) => c.id), ["c2"], "a chosen client is no longer offered");
   const twice = planImport([acct("601", "A", "111111111"), acct("602", "B", "222222222")], existing, { "601": "c1", "602": "c1" });
   assert.equal(twice.planned.length, 1); assert.match(twice.flags[0].reason, /same Studio client/);
+});
+
+test("round 18: a year-end change applies only when the owner ticks it; the other changes still apply", () => {
+  const existing = [client("c1", "Old Name Inc.", { taxdome_account_id: "601", year_end_md: "12-31" }), client("c2", "Blank Year Ltd.", { taxdome_account_id: "602" })];
+  const { planned } = planImport([acct("601", "New Name Inc.", "123456789", "06-30"), acct("602", "Blank Year Ltd.", "", "03-31"), acct("603", "Brand New Co.", "", "09-30")], existing);
+  assert.deepEqual(yearEndChange(planned[0]), { from: "12-31", to: "06-30" });
+  assert.equal(yearEndChange(planned[1]), undefined, "a blank year-end being filled in is not a change to tick");
+  assert.equal(yearEndChange(planned[2]), undefined, "new clients have no change to tick");
+  const unticked = importPlan(planned);
+  assert.equal(unticked[0].fye, "12-31", "unticked: the current year-end is sent, so the database keeps it");
+  assert.equal(unticked[0].legal_name, "New Name Inc."); assert.equal(unticked[0].bn, "123456789");
+  assert.equal(unticked[1].fye, "03-31"); assert.equal(unticked[2].fye, "09-30");
+  assert.deepEqual(unticked.map((r) => [r.op, r.client_id]), [["update", "c1"], ["update", "c2"], ["insert", null]]);
+  assert.equal(importPlan(planned, ["601"])[0].fye, "06-30", "ticked: the new year-end is applied");
 });

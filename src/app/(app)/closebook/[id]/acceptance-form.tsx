@@ -5,13 +5,13 @@
 // confirms every answer at once. Each answer records who confirmed it and when.
 import { useState } from "react";
 import { InfoTip } from "@/components/ds/info-tip";
-import { acceptanceSameAsLast, saveAcceptance } from "../round16-actions";
+import Link from "next/link";
+import { acceptanceConfirmClient, acceptanceSameAsLast, saveAcceptance } from "../round16-actions";
 
-import { emptyAcc, type AccRow, type AccUser, type YN } from "@/lib/closebook/acceptance";
+import { basisWords, emptyAcc, sameStatements, usersWords, type AccRow, type AccUser, type Statements } from "@/lib/closebook/acceptance";
 
 const MUST = <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-ink-2">Must be Yes</span>;
 const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Toronto" });
-const userWord = (u: AccUser) => `${u.kind === "lender" ? "A lender" : "Other"}: ${u.name}`;
 
 // One question row: number, question, answer, and an optional line under it (module level: not created during render).
 const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; ans: React.ReactNode; extra?: React.ReactNode }) => (
@@ -21,18 +21,12 @@ const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; 
   </div>
 );
 
-export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, names }: {
-  fileId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; names: Record<string, string>;
+export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, editable, locked, client, names }: {
+  fileId: string; clientId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; locked: boolean; client: Statements; names: Record<string, string>;
 }) {
   const [a, setA] = useState<AccRow>(row ?? emptyAcc());
   const set = (patch: Partial<AccRow>) => setA({ ...a, ...patch });
-  const user = (kind: AccUser["kind"]) => a.users.find((u) => u.kind === kind);
-  const setUser = (kind: AccUser["kind"], patch: Partial<AccUser> | null) => {
-    const rest = a.users.filter((u) => u.kind !== kind);
-    if (patch === null) return set({ users: rest });
-    const cur = user(kind) ?? { kind, name: "", agreed: "" as YN };
-    set({ users: [...rest, { ...cur, ...patch }].sort((x, y) => x.kind.localeCompare(y.kind)) });
-  };
+  const setAgreed = (u: AccUser, agreed: AccUser["agreed"]) => set({ users: a.users.map((x) => (x.kind === u.kind && x.name === u.name ? { ...x, agreed } : x)) });
   const radio = (name: string, value: string, label: string, on: boolean, onPick: () => void) => (
     <label className="inline-flex items-center gap-1.5 whitespace-nowrap"><input type="radio" name={name} value={value} checked={on} onChange={onPick} disabled={!editable} className="h-4 w-4" />{label}</label>
   );
@@ -54,7 +48,26 @@ export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, na
   const note = (value: string, onChange: (v: string) => void, placeholder: string) => (
     <input value={value} onChange={(e) => onChange(e.target.value)} disabled={!editable} maxLength={1000} placeholder={placeholder} className="input input-compact w-full" />
   );
-  const lender = user("lender"), other = user("other");
+  // Round 18: questions 6 and 8 read the client record. The file keeps what was confirmed for this year
+  // (read-only); a locked file shows only that record, never today's client.
+  const conf = row?.confirmed ?? null;
+  const fresh = !!conf && sameStatements(conf, client);
+  const confirmLine = conf
+    ? <span className={fresh || locked ? "text-success" : "text-warning"}>{fresh || locked ? "Confirmed" : "The client record changed since it was confirmed"} by {names[conf.by] ?? ""}, {short(conf.at)}</span>
+    : <span className="text-warning">Not confirmed for this year</span>;
+  const confirmForm = !locked && editable && !fresh && (
+    <form action={acceptanceConfirmClient} className="mt-1.5"><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
+      <button type="submit" className="btn btn-compact">{conf ? "Confirm again" : "Confirm"}</button></form>
+  );
+  const box = (label: string, now: string, then: string | null) => (
+    <div className="mt-1.5 rounded-lg bg-navy-50/70 px-2.5 py-2 text-[12.5px]">
+      {locked ? <>Confirmed for this year: <b>{then ?? "Not confirmed"}</b></> : <>From the client record: <b>{now}</b>{" "}
+        {editable && <Link href={`/clients/${clientId}?edit=statements`} className="text-navy-700 underline">Change</Link>}</>}
+      {!locked && conf && !fresh && then && <p className="mt-0.5 text-ink-3">Confirmed before: {then}</p>}
+      <p className="mt-0.5">{confirmLine}</p>
+      {!locked && <p className="mt-0.5 text-ink-3">A change is made on the client record. {label}</p>}
+    </div>
+  );
   const confirmedAll = !!last && ["q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9"].every((k) => a.answered[k]?.same);
 
   return (
@@ -76,26 +89,17 @@ export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, na
         <Q n={4} ans={yn("q4")}>We have met the ethical requirements of the CPA Ontario Code of Professional Conduct for this engagement.{MUST}{lastLine("q4", word(last?.q4 ?? ""))}</Q>
         <Q n={5} ans={yn("q5")} extra={a.q5 === "no" ? note(a.q5_note, (v) => set({ q5_note: v }), "What affects independence (for the file only)") : undefined}>
           Are we independent of the client?{lastLine("q5", word(last?.q5 ?? ""))}</Q>
-        <Q n={6} ans={<span className="flex flex-wrap gap-4">
-            <label className="inline-flex items-center gap-1.5 text-ink-3"><input type="checkbox" checked disabled className="h-4 w-4" />Management</label>
-            <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!lender} disabled={!editable} onChange={(e) => setUser("lender", e.target.checked ? {} : null)} className="h-4 w-4" />A lender</label>
-            <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={!!other} disabled={!editable} onChange={(e) => setUser("other", e.target.checked ? {} : null)} className="h-4 w-4" />Other</label>
-          </span>}
-          extra={(lender || other) && <div className="grid gap-2 md:grid-cols-2">
-            {lender && <label className="flex items-center gap-2 text-[12px] text-ink-3">Lender{note(lender.name, (v) => setUser("lender", { name: v }), "Name the lender")}</label>}
-            {other && <label className="flex items-center gap-2 text-[12px] text-ink-3">Other{note(other.name, (v) => setUser("other", { name: v }), "Name the user")}</label>}
-          </div>}>
-          Who will use the statements?{lastLine("q6", last ? ["Management", ...last.users.map(userWord)].join("; ") : "")}</Q>
-        {/* Question 7, once per outside user, with the user's name. */}
+        <Q n={6} ans={confirmForm}>
+          Who will use the statements?{box("Who and when go in the client's activity.", usersWords(client.users), conf ? usersWords(conf.users) : null)}
+          {lastLine("q6", last?.confirmed ? usersWords(last.confirmed.users) : "")}</Q>
+        {/* Question 7, once per outside user confirmed for this year, with the user's name. */}
         {a.users.map((u) => (
-          <Q key={u.kind} n={7} ans={<span className="flex gap-4">{radio(`q7_${u.kind}`, "yes", "Yes", u.agreed === "yes", () => setUser(u.kind, { agreed: "yes" }))}{radio(`q7_${u.kind}`, "no", "No", u.agreed === "no", () => setUser(u.kind, { agreed: "no" }))}</span>}>
-            Management confirmed {u.name.trim() || (u.kind === "lender" ? "the lender" : "the user")} agreed a compilation meets its needs.{MUST}
-            {/* Recorded with question 6: the user list carries each user's answer. */}
-            {lastLine("q6", word(last?.users.find((x) => x.kind === u.kind && x.name.trim() === u.name.trim())?.agreed ?? ""))}</Q>
+          <Q key={`${u.kind}:${u.name}`} n={7} ans={<span className="flex gap-4">{radio(`q7_${u.kind}_${u.name}`, "yes", "Yes", u.agreed === "yes", () => setAgreed(u, "yes"))}{radio(`q7_${u.kind}_${u.name}`, "no", "No", u.agreed === "no", () => setAgreed(u, "no"))}</span>}>
+            Management confirmed {u.name} agreed a compilation meets its needs.{MUST}</Q>
         ))}
-        <Q n={8} ans={<span className="flex gap-4">{radio("q8", "confirmed", "Confirmed", a.q8 === "confirmed", () => set({ q8: "confirmed" }))}{radio("q8", "different", "Different", a.q8 === "different", () => set({ q8: "different" }))}</span>}
-          extra={a.q8 === "different" ? note(a.q8_note, (v) => set({ q8_note: v }), "How the basis differs") : undefined}>
-          Basis of accounting: the Note 1 basis (historical cost with the listed accruals), with management&rsquo;s acknowledgment recorded.{lastLine("q8", word(last?.q8 ?? ""))}</Q>
+        <Q n={8} ans={confirmForm}>
+          The basis of accounting is the one on the client record, with management&rsquo;s acknowledgment recorded.{box("The client's activity records the change.", basisWords(client), conf ? basisWords(conf) : null)}
+          {lastLine("q8", last?.confirmed ? basisWords(last.confirmed) : "")}</Q>
         <Q n={9} ans={yn("q9")}>The basis is acceptable to everyone who will use the statements.<InfoTip>If a third party needs ASPE, this basis cannot be used.</InfoTip>{MUST}{lastLine("q9", word(last?.q9 ?? ""))}</Q>
         {editable && <div className="border-t border-sand-200 px-3.5 py-2.5"><button type="submit" className="btn btn-compact">Save</button></div>}
       </form>

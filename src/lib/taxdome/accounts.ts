@@ -146,3 +146,27 @@ export function planImport(accounts: Account[], existing: Existing[], links: Rec
     .map((c) => ({ id: c.id, legal_name: c.legal_name })).sort((x, y) => x.legal_name.localeCompare(y.legal_name));
   return { planned, flags, candidates };
 }
+
+// Round 18: a matched client whose year-end changes (from one set date to another). An owner must tick it
+// in the preview before it is applied, because deadlines and Closebook files follow the year-end.
+export function yearEndChange(p: Planned): { from: string; to: string } | undefined {
+  if (p.action !== "update") return undefined;
+  const c = p.changes.find((x) => x.field === "Year-end");
+  return c && c.from && c.to ? { from: c.from, to: c.to } : undefined;
+}
+
+export type PlanRow = { op: Planned["action"]; client_id: string | null; taxdome_id: string; legal_name: string; bn: string; fye: string; tags: string[]; province: string };
+
+// The list sent to apply_taxdome_import. The database writes the year-end only when fye is not blank, so a
+// year-end change the owner did not tick sends the client's current year-end: the other changes still apply.
+// confirmedYearEnds: the TaxDome ids whose year-end change the owner ticked.
+export function importPlan(planned: Planned[], confirmedYearEnds: string[] = []): PlanRow[] {
+  const ok = new Set(confirmedYearEnds);
+  return planned.map((p) => {
+    const change = yearEndChange(p);
+    return {
+      op: p.action, client_id: p.clientId ?? null, taxdome_id: p.account.taxdomeId, legal_name: p.account.legalName,
+      bn: p.account.bn, fye: change && !ok.has(p.account.taxdomeId) ? change.from : p.account.fye, tags: p.account.tags, province: p.account.province,
+    };
+  });
+}

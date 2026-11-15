@@ -55,7 +55,7 @@ import { loadBank } from "@/lib/closebook/bank-server";
 import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 import { InfoTip } from "@/components/ds/info-tip";
 import { AcceptanceForm } from "./acceptance-form";
-import { emptyAcc, type AccRow } from "@/lib/closebook/acceptance";
+import { emptyAcc, type AccRow, type Statements } from "@/lib/closebook/acceptance";
 import { setFirstYear } from "../round16-actions";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
@@ -222,10 +222,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       supabase.from("cb_acceptance").select("*").eq("file_id", id).maybeSingle(),
       supabase.from("cb_files").select("id, year_end").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    const { data: lastRow } = prior ? await supabase.from("cb_acceptance").select("*").eq("file_id", prior.id).maybeSingle() : { data: null };
-    const norm = (r: Record<string, unknown> | null): AccRow | null => (r ? { ...emptyAcc(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), users: (r.users as AccRow["users"]) ?? [], answered: (r.answered as AccRow["answered"]) ?? {} } : null);
-    body = <AcceptanceForm fileId={id} back={`${href("setup")}&paper=acceptance`} row={norm(accRow)} last={norm(lastRow)} lastYear={prior ? formatDate(prior.year_end as string) : null}
-      editable={editable && file.phase !== "locked"} names={Object.fromEntries(names)} />;
+    const [{ data: lastRow }, { data: cl }] = await Promise.all([
+      prior ? supabase.from("cb_acceptance").select("*").eq("file_id", prior.id).maybeSingle() : Promise.resolve({ data: null }),
+      // Round 18: the client's basis and users of the statements, confirmed here each year.
+      supabase.from("clients").select("basis, custom_basis_wording, statement_users").eq("id", file.client_id).maybeSingle(),
+    ]);
+    const norm = (r: Record<string, unknown> | null): AccRow | null => (r ? { ...emptyAcc(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), users: (r.users as AccRow["users"]) ?? [], answered: (r.answered as AccRow["answered"]) ?? {}, confirmed: (r.confirmed as AccRow["confirmed"]) ?? null } : null);
+    const client: Statements = { basis: (cl?.basis as string) ?? "standard", custom_basis_wording: (cl?.custom_basis_wording as string) ?? "", users: ((cl?.statement_users as Statements["users"]) ?? []) };
+    body = <AcceptanceForm fileId={id} clientId={file.client_id} back={`${href("setup")}&paper=acceptance`} row={norm(accRow)} last={norm(lastRow)} lastYear={prior ? formatDate(prior.year_end as string) : null}
+      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} />;
   } else if (step === "setup") {
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (
