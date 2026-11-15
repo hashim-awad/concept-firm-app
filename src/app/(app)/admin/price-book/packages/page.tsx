@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
+import { SettingsShell } from "../../settings-shell";
 import { PriceBookTabs } from "../tabs";
 import { serviceName } from "@/lib/price-book/labels";
 
@@ -20,12 +20,11 @@ export default async function PackagesPage({ searchParams }: PageProps<"/admin/p
   const offers = (data ?? []) as Offer[];
   const section = (seg: string) => offers.filter((o) => o.segment === seg);
   return (
-    <>
-      <PageHeader title="Price book" description="Packages and price floors used by the Corporate Letter and Proposal checks. Proposals below the floor are flagged. The services ticked on a package decide which catalogue items show as priced through packages." 
-        actions={editable ? <Link href="/admin/price-book/packages/new" className="btn">Add offer</Link> : undefined} />
+    <SettingsShell title="Price book" help={<p>Packages and price floors used by the Corporate Letter and Proposal checks. Proposals below the floor are flagged. The services ticked on a package decide which catalogue items show as priced through packages.</p>}
+      actions={editable ? <Link href="/admin/price-book/packages/new" className="btn">Add offer</Link> : undefined}>
       <PriceBookTabs current="/admin/price-book/packages" />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      {offers.length === 0 && <p className="card text-sm text-muted">No offers yet. They come in with the Studio import (Admin, Import from Studio).</p>}
+      {offers.length === 0 && <p className="card text-sm text-muted">No offers yet.</p>}
       {["Team or brokerage", "Agent"].map((seg) => section(seg).length > 0 && (
         <section key={seg} className="card mb-6 overflow-x-auto p-0">
           <h2 className="px-5 pt-4 pb-2 font-semibold">{seg}</h2>
@@ -42,6 +41,6 @@ export default async function PackagesPage({ searchParams }: PageProps<"/admin/p
           </table>
         </section>
       ))}
-    </>
+    </SettingsShell>
   );
 }

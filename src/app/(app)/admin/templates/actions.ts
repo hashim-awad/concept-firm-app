@@ -1,5 +1,6 @@
 "use server";
 import { allTemplates } from "@/lib/studio/samples";
+import { approvedWord } from "@/lib/studio/template-catalog";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -79,11 +80,11 @@ export async function approveTemplate(formData: FormData) {
   // Closebook completion checklist could not be approved).
   const t = (allTemplates() as { k: string; name: string; basis: string; status: string }[]).find((x) => x.k === key);
   const back = `${LIST}/${key}`;
-  if (!t || t.status !== "Trial") redirect(withMessage(back, "error", "Only a trial template needs this."));
+  if (!t || t.status !== "Trial") redirect(withMessage(back, "error", "Only a draft template needs approval."));
   if (formData.get("read") !== "on") redirect(withMessage(back, "error", "Tick the box to confirm you read it."));
   const supabase = await createClient();
   const { live } = await loadWordingState(supabase);
   const { error } = await supabase.from("template_approvals").insert({ template_key: t!.k, template_name: t!.name, el_version: live?.label ?? e.EL_VERSION, basis: t!.basis ?? "" });
   revalidatePath(LIST, "layout");
-  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can do this." : error.message) : "Marked ready for client use."));
+  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can do this." : error.message) : `${approvedWord(t!.k)}.`));
 }

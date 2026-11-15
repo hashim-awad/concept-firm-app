@@ -51,7 +51,8 @@ export async function applyTaxdome(accounts: Account[], expected: number, links:
 }
 
 export async function saveTaxdomeLink(formData: FormData): Promise<void> {
-  const page = "/admin/taxdome-import";
+  // Round 17: the link lives on Connections.
+  const page = "/admin/connections";
   const access = await getAccess();
   if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can change the TaxDome link."));
   const supabase = await createClient();

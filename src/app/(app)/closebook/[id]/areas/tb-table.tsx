@@ -126,7 +126,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
   );
   return (
     <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Trial balance">
-      <div className="sticky top-[90px] z-10 flex flex-wrap items-center gap-1.5 rounded-t-[10px] border-b border-sand-200 bg-white px-3 py-2">
+      <div className="sticky top-[146px] z-10 flex flex-wrap items-center gap-1.5 rounded-t-[10px] border-b border-sand-200 bg-white px-3 py-2">
         <Popover label="Columns" button={<span className={toolbtn}>Columns <ChevronDown className="h-3 w-3" /></span>} width="w-56">
           <div className="grid text-[12.5px]">{cols.map(([k, l]) => check(l, !hidden.has(k), (v) => setHidden((h) => { const n = new Set(h); if (v) n.delete(k); else n.add(k); return n; })))}
             <div className="mt-1 border-t border-sand-200 pt-1">{check("Pin the account column", pin, setPin)}</div></div>
@@ -153,7 +153,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           <ul className="grid gap-1"><li><a href={`${exportBase}&format=xlsx`} className="block rounded px-2 py-1 hover:bg-sand-100">Excel</a></li><li><a href={`${exportBase}&format=pdf`} className="block rounded px-2 py-1 hover:bg-sand-100">PDF</a></li></ul>
         </Popover>
       </div>
-      {grouped && path && <div className="sticky top-[136px] z-10 flex items-center gap-1.5 border-b border-navy-200 bg-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-800"><ChevronRight className="h-3 w-3" />{path}</div>}
+      {grouped && path && <div className="sticky top-[192px] z-10 flex items-center gap-1.5 border-b border-navy-200 bg-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-800"><ChevronRight className="h-3 w-3" />{path}</div>}
       <div className="overflow-x-auto">
         <table ref={tableRef} className="w-full border-collapse text-[12.5px]">
           <thead><tr className="bg-sand-50 text-[11px] text-ink-3">

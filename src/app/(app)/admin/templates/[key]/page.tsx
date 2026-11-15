@@ -1,18 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { buttonClass } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
-import { formatDate } from "@/lib/dates";
 import { loadStudioData } from "@/lib/studio/data";
 import { allTemplates, templateSample } from "@/lib/studio/samples";
 import { PIECE, toFriendly } from "@/lib/studio/wording-pieces";
 import { changedKeys, loadWordingState } from "@/lib/studio/wording-state";
 import { TemplateEditor } from "@/components/studio/template-editor";
 import { approveTemplate } from "../actions";
+import { NOT_LOADED, approveButton, whereUsed } from "@/lib/studio/template-catalog";
+import { templateStatuses } from "@/lib/studio/template-status";
+import { SettingsShell } from "../../settings-shell";
+import { StatusChip } from "../status-chip";
 
 type T = { k: string; name: string; group: string; basis: string; status: string };
 
@@ -21,10 +24,10 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   const { key } = await params;
   const sp = await searchParams;
   const t = (allTemplates() as T[]).find((x) => x.k === key);
-  if (!t || t.status === "Planned") notFound();
+  if (!t || t.status === "Planned" || NOT_LOADED.has(key)) notFound();
   const supabase = await createClient();
-  const [{ data: ap }, data, state] = await Promise.all([
-    supabase.from("template_approvals").select("approved_on").eq("template_key", key).order("approved_on", { ascending: false }).limit(1).maybeSingle(),
+  const [statuses, data, state] = await Promise.all([
+    templateStatuses(supabase),
     loadStudioData(supabase, access),
     loadWordingState(supabase),
   ]);
@@ -43,32 +46,26 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   });
   const editable = canEdit(access, "engagement_terms");
   const pending = changedKeys(state.live, state.draft).length;
-  const trial = t.status === "Trial" && !ap;
+  const status = statuses.get(key)!;
+  const trial = status.draft;
 
+  // Round 17: the title with its status; where it is used and its source in the "?" panel; the owner's
+  // approval at the bottom, after the wording.
   return (
-    <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Link href="/admin/templates" className="inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />All templates</Link>
-        {pending > 0 && <Link href="/admin/templates/publish" className={buttonClass("primary", "sm")}><Send className="h-4 w-4" aria-hidden />Review and publish ({pending})</Link>}
-      </div>
-      <header className="mb-4 border-b border-sand-200 pb-4">
-        <h1 className="text-[26px] leading-8 font-semibold tracking-tight">{t.name}</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          {trial ? "Trial: needs an owner's OK before it is used for clients." : ap ? `In use. Marked ready ${formatDate(ap.approved_on)}.` : "In use."}{" "}
-          Source: {t.basis}
-        </p>
-      </header>
+    <SettingsShell title={t.name} badge={<StatusChip s={status} />}
+      help={<><p>{whereUsed(key)}</p><p>Source: {t.basis}</p>{trial && <p>A draft needs an owner&rsquo;s approval before it is used. Read it, then approve it at the bottom of this page.</p>}</>}
+      actions={pending > 0 ? <Link href="/admin/templates/publish" className={buttonClass("primary", "sm")}><Send className="h-4 w-4" aria-hidden />Review and publish ({pending})</Link> : undefined}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      {trial && access.is_owner && (
-        <form action={approveTemplate} className="mb-5 flex flex-wrap items-center gap-3 rounded-[var(--radius-ds)] border border-[#EED9A8] bg-[#FFF8E1] px-4 py-3 text-sm">
-          <input type="hidden" name="key" value={key} />
-          <span className="text-[#5C3D00]">This template is in trial.</span>
-          <label className="flex items-center gap-2"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" />I read it</label>
-          <button className="btn h-8 px-3 text-sm" type="submit">Mark ready for clients</button>
-        </form>
-      )}
       {sample?.note && <p className="card mb-4 text-sm">{sample.note}</p>}
       {sample && sample.parts.length > 0 && <TemplateEditor parts={sample.parts} pieces={pieces} canEdit={editable} />}
-    </>
+      {trial && access.is_owner && (
+        <form action={approveTemplate} className="mt-6 flex flex-wrap items-center gap-3 rounded-[var(--radius-ds)] border border-[#EED9A8] bg-[#FFF8E1] px-4 py-3 text-sm">
+          <input type="hidden" name="key" value={key} />
+          <span className="font-semibold text-[#5C3D00]">Draft.</span>
+          <label className="flex items-center gap-2"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" />I read it</label>
+          <button className="btn h-8 px-3 text-sm" type="submit">{approveButton(key)}</button>
+        </form>
+      )}
+    </SettingsShell>
   );
 }

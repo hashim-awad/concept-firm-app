@@ -1,8 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { SettingsShell } from "../../settings-shell";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
@@ -29,9 +27,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/admin/te
       .map((k) => ({ k, before: toFriendly(k, base[k] ?? PIECE.get(k)!.text), after: toFriendly(k, mine[k] ?? PIECE.get(k)!.text) }));
   };
   return (
-    <>
-      <Link href="/admin/templates" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />All templates</Link>
-      <PageHeader title="History" description="Every published version of your wording. Each letter records the version it used. An owner can restore an earlier version with a reason." />
+    <SettingsShell title="History" help={<p>Every published version of your wording. Each letter records the version it used. An owner can restore an earlier version with a reason.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <ul className="grid gap-4">
         {versions.map((v) => {
@@ -63,6 +59,6 @@ export default async function HistoryPage({ searchParams }: PageProps<"/admin/te
           );
         })}
       </ul>
-    </>
+    </SettingsShell>
   );
 }

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader, Notice, formatDateTime } from "@/components/ui";
+import { Notice, formatDateTime } from "@/components/ui";
+import { SettingsShell } from "../../settings-shell";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
@@ -27,9 +27,10 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
   const currentId = ((prices ?? []) as Price[]).find((p) => p.effective_from <= today)?.id;
 
   return (
-    <>
-      <p className="mb-2 text-sm"><Link href="/admin/price-book" className="text-accent underline">Price book</Link></p>
-      <PageHeader title={item.name} description={`Code ${item.code}`} />
+    <SettingsShell title={`${item.name} (${item.code})`} help={<>
+      <p>One item in the price book. Code {item.code}.</p>
+      <p>A new price applies to quotes made on or after its start date. Past prices stay on record.</p>
+    </>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       <form action={updateItem} className="card mb-6">
@@ -103,8 +104,7 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
 
       {editable && (
         <form action={addPrice} className="card">
-          <h2 className="mb-1 font-semibold">Change the price</h2>
-          <p className="mb-3 text-sm text-muted">The new price applies to quotes made on or after the start date. Past prices stay on record.</p>
+          <h2 className="mb-3 font-semibold">Change the price</h2>
           <input type="hidden" name="id" value={item.id} />
           <div className="grid gap-3 md:grid-cols-[10rem_12rem_1fr_auto] md:items-end">
             <div>
@@ -123,6 +123,6 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/adm
           </div>
         </form>
       )}
-    </>
+    </SettingsShell>
   );
 }

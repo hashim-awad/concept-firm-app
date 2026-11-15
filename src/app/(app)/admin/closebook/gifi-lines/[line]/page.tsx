@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader, Notice } from "@/components/ui";
+import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
 import { addSubLine, setLineLocked, updateMasterLine } from "../../actions";
 import { InfoTip } from "@/components/ds/info-tip";
+import { SettingsShell } from "../../../settings-shell";
 
 type Line = { line_no: string; name: string; gifi_code: string; gifi_name: string; section: string; line_type: string; lead_sheet: string | null; statement_line: string | null;
   default_tax_code: string | null; mappable: boolean; pair_line: string | null; required_gifi: boolean; note: string; locked: boolean };
@@ -36,11 +37,12 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
   const field = (id: string, label: string, el: React.ReactNode, hint?: string) => (
     <div>{hint ? <span className="flex items-start"><label htmlFor={id} className="label">{label}</label><InfoTip>{hint}</InfoTip></span> : <label htmlFor={id} className="label">{label}</label>}{el}</div>
   );
+  const help = <>
+    <p>{`GIFI ${m.gifi_code} ${m.gifi_name}. ${m.section}, ${m.line_type.toLowerCase()}.${m.pair_line ? ` An opposite balance moves to ${m.pair_line}.` : ""}${m.required_gifi ? " Required in every GIFI." : ""}`}</p>
+    <p>Change the line&rsquo;s name, statement line, default tax code, lead sheet or note, with a reason. Or add a sub-line under it. The GIFI code, section and type stay as CRA defines them.</p>
+  </>;
   return (
-    <>
-      <Link href="/admin/closebook/gifi-lines" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />All GIFI lines</Link>
-      <PageHeader eyebrow="Settings › Closebook › GIFI lines · owners only" title={`${m.line_no} ${m.name}`}
-        description={`GIFI ${m.gifi_code} ${m.gifi_name}. ${m.section}, ${m.line_type.toLowerCase()}.${m.pair_line ? ` An opposite balance moves to ${m.pair_line}.` : ""}${m.required_gifi ? " Required in every GIFI." : ""}`} />
+    <SettingsShell title={`${m.line_no} ${m.name}`} help={help} actions={<Link href="/admin/chart?tab=gifi" className="text-sm text-navy-700 hover:underline">All GIFI lines</Link>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="grid gap-6 lg:grid-cols-2">
         <form action={updateMasterLine} className="card grid content-start gap-4">
@@ -102,6 +104,6 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
           ))}</ul>
         )}
       </section>
-    </>
+    </SettingsShell>
   );
 }

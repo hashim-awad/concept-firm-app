@@ -1,3 +1,4 @@
+import { CloseTabs } from "./list-tabs";
 import Link from "next/link";
 import { BookCheck, FilePlus2 } from "lucide-react";
 import { requireAccess, canEdit } from "@/lib/access";
@@ -26,8 +27,9 @@ export default async function MyFilesPage({ searchParams }: PageProps<"/closeboo
   );
   return (
     <>
-      <PageHeader title="My files"
+      <PageHeader title="Closebook"
         actions={canEdit(access, "closebook") ? <Link href="/closebook/new" className={buttonClass("primary")}><FilePlus2 className="h-4 w-4" aria-hidden />New file</Link> : undefined} />
+      <CloseTabs active="/closebook" />
       {files.length === 0 ? (
         <section className="card"><EmptyState icon={<BookCheck />} title="No files for you yet" /></section>
       ) : (

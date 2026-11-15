@@ -1,14 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3, Building2, Calculator, ClipboardCheck, FileSignature, FolderLock, Home, Landmark,
-  LogOut, Menu, Settings, Sparkles, UserPlus, Wallet, X, Briefcase, BookCheck, FolderOpen, MessageSquareWarning,
-} from "lucide-react";
-import { Sidebar, type NavGroup, type NavItem } from "@/components/ds/navigation";
-import { StudioLogo } from "@/components/ds/brand";
-import { ClientSearchDialog, useClientSearch } from "./client-search";
+import { BookCheck, Briefcase, Building2, FileSignature, FolderLock, Home, Landmark, UserPlus, X } from "lucide-react";
+import { Sidebar, type NavItem } from "@/components/ds/navigation";
 
 export type SidebarAccess = {
   fullName: string;
@@ -36,73 +31,43 @@ const OWNER: [string, string][] = [
   ["/documents/engagements", "/engagements"],
 ];
 
-// Menu sections and items follow the person's permissions. The database enforces them again on every read.
-export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess; counts: SidebarCounts; signOut: () => Promise<void> }) {
+// Round 17 (Hashim, Nov 15, 2026; benchmark QuickBooks Online): the left menu holds daily work only, in
+// one list with no headings. Find a client, the person and Sign out moved to the top bar; Settings to
+// the gear. Items follow the person's permissions; the database enforces them again on every read.
+export function AppSidebar({ access, counts }: { access: SidebarAccess; counts: SidebarCounts; signOut?: () => Promise<void> }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  const search = useClientSearch(access.clients);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("studio:open-menu", show);
+    return () => window.removeEventListener("studio:open-menu", show);
+  }, []);
   const home = OWNER.find(([p]) => path === p || path.startsWith(p + "/"))?.[1];
-  // "/" and "/closebook" (My files) are active only on their own page; their sections have other items.
-  const is = (href: string) => (home ? home === href : href === "/" || href === "/closebook" ? path === href : path === href || path.startsWith(`${href}/`));
+  const is = (href: string) => (home ? home === href : href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`));
   const item = (href: string, label: string, icon: React.ReactNode, badge?: number): NavItem => ({ href, label, icon, active: is(href), badge: badge ? String(badge) : undefined });
-  const soon = (label: string, icon: React.ReactNode): NavItem => ({ href: "", label, icon, soon: true });
-  // Pages not built yet stay out of the menu (Hashim, Nov 15, 2026, layout item 5): a group of only
-  // "Soon" pages (Work, Quality) does not show at all.
-  const group = (label: string, items: (NavItem | false)[]): NavGroup | null => {
-    const kept = (items.filter(Boolean) as NavItem[]).filter((i) => !i.soon);
-    return kept.length ? { label, items: kept, collapsible: true } : null;
-  };
-
-  const groups = [
-    { label: "Home", items: [item("/", "My day", <Home key="i" />)] } as NavGroup,
-    group("Sales", [
-      access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
-      access.leads && item("/quotes", "Quotes", <Landmark key="i" />),
-      (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
-    ]),
-    group("Clients", [
-      access.clients && item("/clients", "Clients", <Building2 key="i" />),
-      access.documents && item("/engagements", "Engagements", <Briefcase key="i" />),
-    ]),
-    // Closebook (Phase 3): the year-end files. Replaces "Year-End & T2" under Work.
-    group("Closebook", access.closebook ? [
-      item("/closebook", "My files", <BookCheck key="i" />),
-      item("/closebook/files", "All files", <FolderOpen key="i" />),
-      item("/closebook/notes", "Review notes", <MessageSquareWarning key="i" />),
-    ] : []),
-    group("Work", access.clients ? [
-      soon("Personal tax (T1)", <Calculator key="i" />),
-      soon("CFO reports", <BarChart3 key="i" />),
-      soon("Owner pay planner", <Wallet key="i" />),
-      soon("Incorporations", <Sparkles key="i" />),
-    ] : []),
-    group("Documents", [(access.documents || access.vault) && item("/documents", "Document vault", <FolderLock key="i" />)]),
-    group("Quality", [access.isOwner && soon("Reviews", <ClipboardCheck key="i" />)]),
-  ].filter(Boolean) as NavGroup[];
-
-  const signOutButton = (
-    <form action={signOut} className="shrink-0">
-      <button type="submit" className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-white/65 hover:text-white">
-        <LogOut className="h-3.5 w-3.5" aria-hidden />Sign out
-      </button>
-    </form>
-  );
-  const onSearch = access.clients ? () => { setOpen(false); search.setOpen(true); } : undefined;
-  const settings: NavItem = { href: "/admin/settings", label: "Settings", icon: <Settings key="i" />, active: path === "/admin" || path.startsWith("/admin/") };
+  const items = [
+    item("/", "My day", <Home key="i" />),
+    access.leads && item("/leads", "Leads", <UserPlus key="i" />, counts.leadsNew),
+    access.leads && item("/quotes", "Quotes", <Landmark key="i" />),
+    access.clients && item("/clients", "Clients", <Building2 key="i" />),
+    access.documents && item("/engagements", "Engagements", <Briefcase key="i" />),
+    // Engagement letters keeps its own item until round 19, when it becomes a tab under Engagements.
+    (access.documents || access.leads) && item("/engagement-letters", "Engagement letters", <FileSignature key="i" />, counts.lettersAwaiting),
+    // Closebook opens on My files; All files and Review notes are tabs on that page.
+    access.closebook && item("/closebook", "Closebook", <BookCheck key="i" />),
+    (access.documents || access.vault) && item("/documents", "Documents", <FolderLock key="i" />),
+  ].filter(Boolean) as NavItem[];
+  const groups = [{ label: "", items }];
   // Inside a Closebook file the menu folds to icons (round 15).
   const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path);
-  const sidebar = <Sidebar groups={groups} bottom={settings} user={{ name: access.fullName, role: access.roleName }} footer={signOutButton} onSearch={onSearch} />;
-  const desktop = inFile ? <Sidebar compact groups={groups} bottom={settings} footer={signOutButton} onSearch={onSearch} /> : sidebar;
+  const sidebar = <Sidebar groups={groups} />;
+  const desktop = inFile ? <Sidebar compact groups={groups} /> : sidebar;
 
   return (
     <>
-      {/* Phone and tablet: top bar with a menu button */}
-      <div className="flex h-14 items-center justify-between bg-navy-800 px-4 md:hidden">
-        <StudioLogo tone="white" height={34} />
-        <button type="button" onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-md p-2 text-white hover:bg-white/10"><Menu className="h-5 w-5" /></button>
-      </div>
+      {/* Phone and tablet: the menu opens from the top bar's menu button. */}
       {open && (
-        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="absolute inset-0 bg-navy-950/50" onClick={() => setOpen(false)} />
           <div className="absolute inset-y-0 left-0" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setOpen(false); }}>
             {sidebar}
@@ -112,7 +77,6 @@ export function AppSidebar({ access, counts, signOut }: { access: SidebarAccess;
       )}
       {/* Desktop: fixed sidebar */}
       <div className="sticky top-0 hidden h-screen shrink-0 md:block">{desktop}</div>
-      {access.clients && <ClientSearchDialog open={search.open} onClose={() => search.setOpen(false)} />}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { CloseTabs } from "../list-tabs";
 import Link from "next/link";
 import { MessageSquareWarning } from "lucide-react";
 import { requireAccess } from "@/lib/access";
@@ -26,7 +27,8 @@ export default async function ReviewNotesPage() {
   const days = (at: string) => Math.max(0, Math.round((today - Date.parse(at.slice(0, 10))) / 86400000));
   return (
     <>
-      <PageHeader title="Review notes" />
+      <PageHeader title="Closebook" />
+      <CloseTabs active="/closebook/notes" />
       {!rows.length ? <section className="card"><EmptyState icon={<MessageSquareWarning />} title="No review notes open" /></section> : (
         <section className="card overflow-x-auto p-0">
           <table className="table">

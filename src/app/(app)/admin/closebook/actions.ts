@@ -89,10 +89,15 @@ export async function updateCbSettings(formData: FormData) {
 
 // Standard entries (Hashim, Nov 15, 2026, layout item 6). Owners only.
 const STD = "/admin/closebook/standard-entries";
+// Round 17: the form has no Reason field (as the journal entry dialog in round 15b). The database still
+// keeps one (accrual, correction or tax), worked out the same way the dialog does (reasonFor): an entry
+// that reverses next year is an accrual, a TJE is tax, anything else is a correction.
 export async function saveStandardEntry(formData: FormData) {
   await owner(STD);
+  const kind = s(formData, "kind");
+  const reason = s(formData, "reason") || (formData.get("reverse") === "on" ? "accrual" : kind === "TJE" ? "tax" : "correction");
   const { error } = await (await createClient()).rpc("cb_save_standard_entry", {
-    p_id: orNull(s(formData, "id")), p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_reason: s(formData, "reason"),
+    p_id: orNull(s(formData, "id")), p_name: s(formData, "name"), p_kind: kind, p_reason: reason,
     p_debit: s(formData, "debit_account"), p_credit: s(formData, "credit_account"), p_memo: s(formData, "memo"), p_wp_ref: s(formData, "wp_ref"), p_reverse: formData.get("reverse") === "on", p_tax_mode: s(formData, "tax_mode") || "line",
   });
   revalidatePath(STD);
@@ -123,8 +128,10 @@ export async function deleteFirmVendorRule(formData: FormData) {
 }
 
 // Settings, Closebook, GST/HST (round 13): the due-date rule and the quick method's rates.
+// Round 17: the due dates and the quick method are tabs on two pages; each form says where it came from.
 export async function updateGstSettings(formData: FormData) {
-  const back = "/admin/closebook/gst";
+  const from = s(formData, "back");
+  const back = from.startsWith("/admin/") ? from : "/admin/closebook/gst";
   await owner(back);
   const num = (k: string) => { const v = s(formData, k).replace(/[$,%\s]/g, ""); return v === "" ? null : Number(v); };
   const due = [num("due_annual"), num("due_period")];
@@ -134,6 +141,6 @@ export async function updateGstSettings(formData: FormData) {
   const rates = [...formData.keys()].filter((k) => k.startsWith("rate_")).map((k) => { const v = num(k); return { province: k.slice(5), rate: v === null ? "" : v / 100 }; });
   if (rates.some((r) => r.rate !== "" && !Number.isFinite(r.rate))) redirect(withMessage(back, "error", "A remittance rate is a percentage, for example 8.8."));
   const { error } = await (await createClient()).rpc("cb_update_gst_settings", { p_due_annual: due[0], p_due_period: due[1], p_credit_rate: cr === null ? null : cr / 100, p_credit_limit: lim, p_rates: rates });
-  revalidatePath(back);
+  revalidatePath(back.split("?")[0]);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
 }
