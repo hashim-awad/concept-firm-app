@@ -81,7 +81,7 @@ test("every page under /admin is a menu entry, a tab's old address that redirect
       const p = join(dir, f);
       if (!statSync(p).isDirectory()) continue;
       const r = `${route}/${f}`;
-      if (existsSync(join(p, "page.tsx")) && !f.startsWith("[")) {
+      if (existsSync(join(p, "page.tsx")) && !r.includes("[")) {
         const code = readFileSync(join(p, "page.tsx"), "utf8");
         const redirects = /redirectKeep\(/.test(code) || (/redirect\("/.test(code) && !/return\s*\(?\s*</.test(code));
         const parentListed = [...listed].some((l) => r.startsWith(l + "/"));
@@ -93,13 +93,16 @@ test("every page under /admin is a menu entry, a tab's old address that redirect
   walk(ADMIN, "/admin");
 });
 
-test("no lock icons on the settings pages", () => {
-  assert.doesNotMatch(allCode(ADMIN), /LockIcon|<Lock\b/);
+// A lock on a GIFI line (staff pick a sub-line) is data, not a permission lock, so only the old
+// permission-lock component is checked.
+test("no permission lock icons on the settings pages", () => {
+  assert.doesNotMatch(allCode(ADMIN), /LockIcon|Only an owner can [a-z ]+<\/span>/);
 });
 
 test("the gear shows staff only what they can open; owners see the template count", () => {
   const staff = { is_owner: false, permissions: { settings: "view", engagement_terms: "view" } } as never;
-  const owner = { is_owner: true, permissions: {} } as never;
+  const all = Object.fromEntries(["settings", "engagement_terms", "pricing", "price_book", "tax_rates", "staff_accounts"].map((k) => [k, "edit"]));
+  const owner = { is_owner: true, permissions: all } as never;
   const s = gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items.map((i) => i.label));
   assert.deepEqual(s.sort(), ["Change log", "Closebook", "Data retention", "Emails", "Firm details", "Lead sources", "Letters and proposals", "Online sales", "Schedules and terms", "T1 rule values"].sort());
   assert.equal(gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items).find((i) => i.label === "Closebook")?.count, undefined);

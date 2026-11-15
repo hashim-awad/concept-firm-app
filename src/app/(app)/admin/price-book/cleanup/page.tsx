@@ -34,7 +34,7 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
         <p><b>1. PTX-129 (T1135, detailed):</b>{" "}
           {ptx129
             ? <>in the price book{ptx129.price_cents != null ? `, $${(ptx129.price_cents / 100).toFixed(0)}` : ""}. Its decimal Order (51.5) is stored as is.</>
-            : <span className="text-danger">not in the price book. Re-import the Service Catalog file (Settings, Import from Studio); it adds only this row.</span>}
+            : <span className="text-danger">not in the price book. Add it to the price book first.</span>}
         </p>
         <p><b>2. Corporate prices:</b> {perClient} item{perClient === 1 ? "" : "s"} with price type Per client and no price: shown as &ldquo;Priced per client (see packages)&rdquo; when a package lists them, otherwise &ldquo;Quoted per client&rdquo;.</p>
         <p><b>6. Fields from Notion:</b> QBO income account blank on {blank("income_account").length}{blank("income_account").length ? ` (${blank("income_account").join(", ")})` : ""};

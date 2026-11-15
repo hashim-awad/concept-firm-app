@@ -24,7 +24,7 @@ export default async function PackagesPage({ searchParams }: PageProps<"/admin/p
       actions={editable ? <Link href="/admin/price-book/packages/new" className="btn">Add offer</Link> : undefined}>
       <PriceBookTabs current="/admin/price-book/packages" />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      {offers.length === 0 && <p className="card text-sm text-muted">No offers yet. They come in with the Studio import (Admin, Import from Studio).</p>}
+      {offers.length === 0 && <p className="card text-sm text-muted">No offers yet.</p>}
       {["Team or brokerage", "Agent"].map((seg) => section(seg).length > 0 && (
         <section key={seg} className="card mb-6 overflow-x-auto p-0">
           <h2 className="px-5 pt-4 pb-2 font-semibold">{seg}</h2>
