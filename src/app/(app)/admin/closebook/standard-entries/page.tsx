@@ -6,6 +6,7 @@ import { deleteStandardEntry, saveStandardEntry } from "../actions";
 import { FIRM_TAX_MODE } from "@/lib/closebook/vendor";
 import { saveStandardEntryLine } from "../../../closebook/round9-actions";
 import { SettingsHelp } from "../settings-help";
+import { InfoTip } from "@/components/ds/info-tip";
 
 type Ln = { key: string; name: string; sort_order: number; account: string | null; tax: string; share: string; capital: boolean; to_reviewer: boolean; pick: boolean; note_required: boolean; choices: string[] };
 const LINE_TAX: [string, string][] = [["taxable", "GST/HST, client's rate"], ["meals", "Meals: 50% ITC"], ["none", "No tax normally"], ["auto", "As Auto expenses"]];
@@ -78,8 +79,7 @@ export default async function StandardEntriesPage({ searchParams }: PageProps<"/
                   return (
                     <tr key={l.key}>
                       <td className="tabular-nums text-ink-3">{l.sort_order}</td>
-                      <td>{l.name}{l.capital && <span className="ml-1 text-xs text-ink-3">(capital)</span>}{l.note_required && <span className="block text-xs text-ink-3">The preparer adds a note saying what it is.</span>}
-                        {l.pick && l.choices.length > 0 && <span className="block text-xs text-ink-3">Only {l.choices.join(", ")}.</span>}</td>
+                      <td>{l.name}{l.capital && <span className="ml-1 text-xs text-ink-3">(capital)</span>}{(l.note_required || (l.pick && l.choices.length > 0)) && <InfoTip label="The rule for this line">{l.note_required && "The preparer adds a note saying what it is. "}{l.pick && l.choices.length > 0 && `Only ${l.choices.join(", ")}.`}</InfoTip>}</td>
                       <td><form id={fid} action={saveStandardEntryLine}><input type="hidden" name="standard" value={x.id} /><input type="hidden" name="key" value={l.key} /></form>
                         <select form={fid} name="account" defaultValue={l.account ?? ""} className="input input-compact pr-8" style={{ width: "17.5rem" }} aria-label={`${l.name}: account`}>
                           {l.pick && <option value="">Preparer picks</option>}

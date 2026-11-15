@@ -49,7 +49,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="text-sm text-ink-2">{p.report === "bs" ? `As at ${dateText(yearEnd)}` : `${dateText(yearStart)} to ${dateText(yearEnd)}`} · built live from the postings</p>
+        <p className="text-sm text-ink-2">{p.report === "bs" ? `As at ${dateText(yearEnd)}` : `${dateText(yearStart)} to ${dateText(yearEnd)}`}<InfoTip label="Where these figures come from">Built live from the postings.</InfoTip></p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning">{STAMP}</span>

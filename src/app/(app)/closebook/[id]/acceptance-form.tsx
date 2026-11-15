@@ -17,6 +17,14 @@ const MUST = <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs w
 const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Toronto" });
 const userWord = (u: AccUser) => `${u.kind === "lender" ? "A lender" : "Other"}: ${u.name}`;
 
+// One question row: number, question, answer, and an optional line under it (module level: not created during render).
+const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; ans: React.ReactNode; extra?: React.ReactNode }) => (
+  <div className="grid gap-x-4 gap-y-1.5 border-t border-sand-100 px-3.5 py-2.5 first:border-0 md:grid-cols-[1.75rem_minmax(0,1fr)_auto]">
+    <span className="text-ink-3 tabular-nums">{n}.</span><div className="leading-snug">{children}</div><div className="text-[13px]">{ans}</div>
+    {extra && <div className="md:col-start-2 md:col-end-4">{extra}</div>}
+  </div>
+);
+
 export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, names }: {
   fileId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; names: Record<string, string>;
 }) {
@@ -47,12 +55,6 @@ export function AcceptanceForm({ fileId, back, row, last, lastYear, editable, na
     );
   };
   const word = (v: string) => (v === "yes" ? "Yes" : v === "no" ? "No" : v === "confirmed" ? "Confirmed" : v === "different" ? "Different" : "");
-  const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; ans: React.ReactNode; extra?: React.ReactNode }) => (
-    <div className="grid gap-x-4 gap-y-1.5 border-t border-sand-100 px-3.5 py-2.5 first:border-0 md:grid-cols-[1.75rem_minmax(0,1fr)_auto]">
-      <span className="text-ink-3 tabular-nums">{n}.</span><div className="leading-snug">{children}</div><div className="text-[13px]">{ans}</div>
-      {extra && <div className="md:col-start-2 md:col-end-4">{extra}</div>}
-    </div>
-  );
   const note = (value: string, onChange: (v: string) => void, placeholder: string) => (
     <input value={value} onChange={(e) => onChange(e.target.value)} disabled={!editable} maxLength={1000} placeholder={placeholder} className="input input-compact w-full" />
   );

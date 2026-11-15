@@ -85,7 +85,7 @@ export function ShSchedule({ fileId, sh, editable, isOwner, names }: { fileId: s
               <td colSpan={2} className="px-2 py-1.5 font-semibold whitespace-nowrap text-ink-2">{g.closingCents > 0 && g.dueOn ? `s.15(2): ${formatDate(g.dueOn)}` : g.closingCents > 0 ? "s.15(2): passed" : "s.15(2): none"}</td>
             </tr>
             {g.closingCents > 0 && <>
-              {sub(<>Reductions in the year <span className="text-ink-3">· netted across the accounts</span></>, drill(-g.reductionsCents, "Reductions in the year", g.reductions))}
+              {sub(<>Reductions in the year<InfoTip>Netted across the accounts.</InfoTip></>, drill(-g.reductionsCents, "Reductions in the year", g.reductions))}
               {sub(<>Last year&rsquo;s part <span className="text-ink-3">· s.15(2) date {formatDate(sh.yearEnd)}, passed</span></>, amt(g.lastPartCents))}
               {sub(<>This year&rsquo;s part</>, amt(g.thisPartCents), g.dueOn ? pill("bg-warning-soft text-warning", `Repay by ${formatDate(g.dueOn)}`) : null)}
             </>}
