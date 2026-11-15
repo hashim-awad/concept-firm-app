@@ -230,7 +230,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const norm = (r: Record<string, unknown> | null): AccRow | null => (r ? { ...emptyAcc(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), users: (r.users as AccRow["users"]) ?? [], answered: (r.answered as AccRow["answered"]) ?? {}, confirmed: (r.confirmed as AccRow["confirmed"]) ?? null } : null);
     const client: Statements = { basis: (cl?.basis as string) ?? "standard", custom_basis_wording: (cl?.custom_basis_wording as string) ?? "", users: ((cl?.statement_users as Statements["users"]) ?? []) };
     body = <AcceptanceForm fileId={id} clientId={file.client_id} back={`${href("setup")}&paper=acceptance`} row={norm(accRow)} last={norm(lastRow)} lastYear={prior ? formatDate(prior.year_end as string) : null}
-      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} />;
+      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} me={access.staff_id ?? ""} />;
   } else if (step === "setup") {
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (

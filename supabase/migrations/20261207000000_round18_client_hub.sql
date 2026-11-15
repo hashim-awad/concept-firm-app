@@ -56,6 +56,7 @@ alter table public.taxdome_type_tags enable row level security;
 drop policy if exists "Staff read the TaxDome type tags" on public.taxdome_type_tags;
 create policy "Staff read the TaxDome type tags" on public.taxdome_type_tags for select to authenticated using (true);
 revoke insert, update, delete on public.taxdome_type_tags from anon, authenticated;
+grant select on public.taxdome_type_tags to authenticated;
 insert into public.taxdome_type_tags (tag, entity_type) values ('PREC', 'PREC') on conflict (tag) do nothing;
 
 -- The type a set of tags gives: the first mapped type in this order, else Other.
@@ -261,6 +262,7 @@ alter table public.client_user_conflicts enable row level security;
 drop policy if exists "Owners read user conflicts" on public.client_user_conflicts;
 create policy "Owners read user conflicts" on public.client_user_conflicts for select to authenticated using (private.is_owner());
 revoke insert, update, delete on public.client_user_conflicts from anon, authenticated;
+grant select on public.client_user_conflicts to authenticated;
 
 -- Deciding: saving the client's users clears its conflict.
 create or replace function private.clients_conflict_resolved() returns trigger language plpgsql security definer set search_path = '' as $$

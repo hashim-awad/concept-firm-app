@@ -135,7 +135,7 @@ export function createStudioEngine(env = {}) {
       p(bold(__W("w8a7b4c5957", "Objective and scope. ", [])), __W("w9950f61352", "You have asked us to perform a compilation engagement for the Company for {1}. In a compilation engagement, we assist management in preparing financial information. The compiled financial information will be {2} (the “compiled financial information”).", [P.phrase, statementsList(s)]));
       var use=__W("wee5b89ff68", "The compiled financial information is intended to be used by management of the Company, and to support the Company’s corporate income tax return filed with the Canada Revenue Agency (CRA). CRA is in a position to request and obtain further information from the Company.", []);
       if(s.thirdParty){
-        use+=__W("wab7d997cf7", " It will also be provided to {1}. {2}", [trim(s.tpName), s.tpBasis==="agreed"
+        if(s.tpUsers&&s.tpUsers.length) use+=__W("wab7d997cf7", " It will also be provided to {1}. {2}", [trim(s.tpName).replace(/\.$/,""), s.tpUsers.map(function(u){ return u.basis==="agreed" ? __W("w74082d2564", "You confirm that {1} has agreed with you the basis of accounting to be applied.", [trim(u.name)]) : __W("waea8bd2901", "You confirm that {1} is in a position to request and obtain further information from the Company.", [trim(u.name)]); }).join(" ")]); else use+=__W("wab7d997cf7", " It will also be provided to {1}. {2}", [trim(s.tpName), s.tpBasis==="agreed"
           ? __W("w74082d2564", "You confirm that {1} has agreed with you the basis of accounting to be applied.", [trim(s.tpName)])
           : __W("waea8bd2901", "You confirm that {1} is in a position to request and obtain further information from the Company.", [trim(s.tpName)])]);
       }

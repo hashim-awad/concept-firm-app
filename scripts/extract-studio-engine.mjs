@@ -143,6 +143,17 @@ patched = patched
 const LASTYE = 'if(d>=letter) d=(y-1)+"-"+md; return d; }';
 if (patched.split(LASTYE).length !== 2) throw new Error("Expected exactly one lastYE.");
 patched = patched.replace(LASTYE, 'if(d>=letter) d=(y-1)+"-"+md; if(env.P_NEED){ var p=d.split("-").map(Number), mm=p[1]+6, yy=p[0]+Math.floor((mm-1)/12); mm=((mm-1)%12)+1; var dim=new Date(Date.UTC(yy,mm,0)).getUTCDate(); var due=yy+"-"+String(mm).padStart(2,"0")+"-"+String(Math.min(p[2],dim)).padStart(2,"0"); if(letter>due) d=(p[0]+1)+"-"+md; } return d; }');
+// Seventh change, app only (Hashim, round 18 fix, Nov 15, 2026): the letter names every user of the
+// statements on the client record, not one. The app passes them as s.tpUsers ([{name, basis}]); each gets
+// Studio's own sentence for the basis it needs, and the names are joined in the "provided to" sentence.
+// The wording pieces and their keys are Studio's, so Templates edits still apply. Without s.tpUsers (every
+// letter saved before this change, and Studio itself) the output is unchanged.
+const TP = 'use+=__W("wab7d997cf7", " It will also be provided to {1}. {2}", [trim(s.tpName), s.tpBasis==="agreed"';
+if (patched.split(TP).length !== 2) throw new Error("Expected exactly one third-party sentence.");
+patched = patched.replace(TP, 'if(s.tpUsers&&s.tpUsers.length) use+=__W("wab7d997cf7", " It will also be provided to {1}. {2}", [trim(s.tpName).replace(/\\.$/,""), s.tpUsers.map(function(u){ return u.basis==="agreed"'
+  + ' ? __W("w74082d2564", "You confirm that {1} has agreed with you the basis of accounting to be applied.", [trim(u.name)])'
+  + ' : __W("waea8bd2901", "You confirm that {1} is in a position to request and obtain further information from the Company.", [trim(u.name)]); }).join(" ")]);'
+  + ' else ' + TP);
 writeFileSync(OUT, patched.replace(FEETEXT, FEETEXT + ' if(env.P_NEED&&!trim(String(v==null?"":v))) return "Amount needed";').replace(POPTS, 'B.push({k:"popts",single:s.single||!!env.P_LINES,')
   .replace(LINE, 'return [l.svc,env.P_LINES&&!trim(l.amt)?"Amount needed":v.k==="num"?'));
 writeFileSync(WORDING_OUT, JSON.stringify([...pieces.values()], null, 1) + "\n");

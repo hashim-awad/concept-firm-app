@@ -8,7 +8,7 @@ import { InfoTip } from "@/components/ds/info-tip";
 import Link from "next/link";
 import { acceptanceConfirmClient, acceptanceSameAsLast, saveAcceptance } from "../round16-actions";
 
-import { basisWords, emptyAcc, sameStatements, usersWords, type AccRow, type AccUser, type Statements } from "@/lib/closebook/acceptance";
+import { basisWords, emptyAcc, sameBasis, sameUsers, usersWords, type AccRow, type AccUser, type Statements } from "@/lib/closebook/acceptance";
 
 const MUST = <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs whitespace-nowrap text-ink-2">Must be Yes</span>;
 const short = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Toronto" });
@@ -21,8 +21,8 @@ const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; 
   </div>
 );
 
-export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, editable, locked, client, names }: {
-  fileId: string; clientId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; locked: boolean; client: Statements; names: Record<string, string>;
+export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, editable, locked, client, names, me }: {
+  fileId: string; clientId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; locked: boolean; client: Statements; names: Record<string, string>; me: string;
 }) {
   const [a, setA] = useState<AccRow>(row ?? emptyAcc());
   const set = (patch: Partial<AccRow>) => setA({ ...a, ...patch });
@@ -49,24 +49,31 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
     <input value={value} onChange={(e) => onChange(e.target.value)} disabled={!editable} maxLength={1000} placeholder={placeholder} className="input input-compact w-full" />
   );
   // Round 18: questions 6 and 8 read the client record. The file keeps what was confirmed for this year
-  // (read-only); a locked file shows only that record, never today's client.
+  // (read-only); a locked file shows only that record, never today's client. Round 18 fix (Hashim): one
+  // status line on the face, next to the button; the record and the explanations sit behind the "i".
   const conf = row?.confirmed ?? null;
-  const fresh = !!conf && sameStatements(conf, client);
-  const confirmLine = conf
-    ? <span className={fresh || locked ? "text-success" : "text-warning"}>{fresh || locked ? "Confirmed" : "The client record changed since it was confirmed"} by {names[conf.by] ?? ""}, {short(conf.at)}</span>
-    : <span className="text-warning">Not confirmed for this year</span>;
-  // A button of the acceptance form that posts to its own action (forms cannot nest).
-  const confirmForm = !locked && editable && !fresh && (
-    <button type="submit" formAction={acceptanceConfirmClient} formNoValidate className="btn btn-compact mt-1.5">{conf ? "Confirm again" : "Confirm"}</button>
-  );
-  const box = (label: string, now: string, then: string | null) => (
-    <div className="mt-1.5 rounded-lg bg-navy-50/70 px-2.5 py-2 text-[12.5px]">
+  const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Toronto", ...(new Date(iso).getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) });
+  const who = conf ? (conf.by === me ? "you" : names[conf.by] ?? "someone") : "";
+  // Each question compares its own part: question 6 the users, question 8 the basis. Confirm records both.
+  const face = (same: boolean) => {
+    const status = !conf ? <span className="text-warning">Not confirmed for this year</span>
+      : same || locked ? <span className="text-success">Confirmed by {conf.by === me ? "you" : names[conf.by] ?? ""}, {short(conf.at)}</span>
+      : <span className="text-warning">Changed since {who} confirmed it on {day(conf.at)}</span>;
+    // A button of the acceptance form that posts to its own action (forms cannot nest).
+    const btn = !locked && editable && !(conf && same) && (
+      <button type="submit" formAction={acceptanceConfirmClient} formNoValidate className="btn btn-compact whitespace-nowrap">{conf ? "Confirm again" : "Confirm"}</button>
+    );
+    return <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 text-[12.5px]">{status}{btn}</span>;
+  };
+  const usersSame = sameUsers(conf, client), basisSame = sameBasis(conf, client);
+  const tip = (label: string, now: string, then: string | null, lastValue: string, same: boolean) => (
+    <InfoTip label="Details">
       {locked ? <>Confirmed for this year: <b>{then ?? "Not confirmed"}</b></> : <>From the client record: <b>{now}</b>{" "}
         {editable && <Link href={`/clients/${clientId}?edit=statements`} className="text-navy-700 underline">Change</Link>}</>}
-      {!locked && conf && !fresh && then && <p className="mt-0.5 text-ink-3">Confirmed before: {then}</p>}
-      <p className="mt-0.5">{confirmLine}</p>
-      {!locked && <p className="mt-0.5 text-ink-3">A change is made on the client record. {label}</p>}
-    </div>
+      {!locked && conf && !same && then && <span className="mt-1 block">Confirmed before: {then}</span>}
+      {!locked && <span className="mt-1 block">A change is made on the client record. {label}</span>}
+      {last && lastYear && <span className="mt-1 block text-ink-3">{lastYear} file: {lastValue || "Not answered"}</span>}
+    </InfoTip>
   );
   const confirmedAll = !!last && ["q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9"].every((k) => a.answered[k]?.same);
 
@@ -89,17 +96,15 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
         <Q n={4} ans={yn("q4")}>We have met the ethical requirements of the CPA Ontario Code of Professional Conduct for this engagement.{MUST}{lastLine("q4", word(last?.q4 ?? ""))}</Q>
         <Q n={5} ans={yn("q5")} extra={a.q5 === "no" ? note(a.q5_note, (v) => set({ q5_note: v }), "What affects independence (for the file only)") : undefined}>
           Are we independent of the client?{lastLine("q5", word(last?.q5 ?? ""))}</Q>
-        <Q n={6} ans={confirmForm}>
-          Who will use the statements?{box("Who and when go in the client's activity.", usersWords(client.users), conf ? usersWords(conf.users) : null)}
-          {lastLine("q6", last?.confirmed ? usersWords(last.confirmed.users) : "")}</Q>
+        <Q n={6} ans={face(usersSame)}>
+          Who will use the statements?{tip("Who and when go in the client's activity.", usersWords(client.users), conf ? usersWords(conf.users) : null, last?.confirmed ? usersWords(last.confirmed.users) : "", usersSame)}</Q>
         {/* Question 7, once per outside user confirmed for this year, with the user's name. */}
         {a.users.map((u) => (
           <Q key={`${u.kind}:${u.name}`} n={7} ans={<span className="flex gap-4">{radio(`q7_${u.kind}_${u.name}`, "yes", "Yes", u.agreed === "yes", () => setAgreed(u, "yes"))}{radio(`q7_${u.kind}_${u.name}`, "no", "No", u.agreed === "no", () => setAgreed(u, "no"))}</span>}>
             Management confirmed {u.name} agreed a compilation meets its needs.{MUST}</Q>
         ))}
-        <Q n={8} ans={confirmForm}>
-          The basis of accounting is the one on the client record, with management&rsquo;s acknowledgment recorded.{box("The client's activity records the change.", basisWords(client), conf ? basisWords(conf) : null)}
-          {lastLine("q8", last?.confirmed ? basisWords(last.confirmed) : "")}</Q>
+        <Q n={8} ans={face(basisSame)}>
+          The basis of accounting is the one on the client record, with management&rsquo;s acknowledgment recorded.{tip("The client's activity records the change.", basisWords(client), conf ? basisWords(conf) : null, last?.confirmed ? basisWords(last.confirmed) : "", basisSame)}</Q>
         <Q n={9} ans={yn("q9")}>The basis is acceptable to everyone who will use the statements.<InfoTip>If a third party needs ASPE, this basis cannot be used.</InfoTip>{MUST}{lastLine("q9", word(last?.q9 ?? ""))}</Q>
         {editable && <div className="border-t border-sand-200 px-3.5 py-2.5"><button type="submit" className="btn btn-compact">Save</button></div>}
       </form>

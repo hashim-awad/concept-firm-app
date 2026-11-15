@@ -53,6 +53,10 @@ export class CorporateLetter {
     for (const [k] of this.e.SVC_UI as [string][]) s.svc[k] = !!s["svc_" + k];
     s.type = this.e.deriveType(s.svc); this.f.type = s.type;
     s.thirdParty = false;
+    // Round 18 fix (Hashim): the letter names every user of the statements on the client record. Studio
+    // always left the third party out; a letter with no users from the client is unchanged.
+    const users = tpUsers(this.f.tpUsers);
+    if (users.length) { s.tpUsers = users; s.thirdParty = true; s.tpName = joinNames(users.map((u) => u.name)); s.tpBasis = users[0].basis; }
     s.yeOnly = s.fees.some((x: Fee) => x.kind === "once" && this.e.feeVal(x.amt).k === "num" && !(x.tag === "catchup" && s.catchTBD))
       && !s.fees.some((x: Fee) => (x.kind === "month" || x.kind === "quarter") && this.e.feeVal(x.amt).k === "num");
     if (s.yeOnly) { s.billOnce = "split"; this.f.billOnce = "split"; }
@@ -93,6 +97,7 @@ export class CorporateLetter {
       basisCustom: c["Custom basis wording"] || "",
       thirdParty: !!this.e.trim(c["Third-party user"]), tpName: c["Third-party user"] || "",
       tpBasis: c["Third-party basis"] === "Agreed basis of accounting" ? "agreed" : "request",
+      tpUsers: c["Users of the statements"] || "",
     });
     const ye = this.e.lastYE(c["Year end (month-day)"], String(this.f.letterDate) || todayISO());
     if (ye) this.f.ye = ye;
@@ -306,4 +311,17 @@ export class Proposal {
 }
 
 // A client record in the shape Studio's functions expect (Notion column names).
+// Round 18 fix: the users of the statements from the client record, as the letter reads them. The client
+// keeps them as [{kind, name, basis_needed}]; the letter needs the name and whether the user agreed the
+// basis ("agreed") or can request more information ("request"; Studio's default, also for a blank).
+export type TpUser = { name: string; basis: "agreed" | "request"; set: boolean };
+export function tpUsers(v: unknown): TpUser[] {
+  let a: unknown = v;
+  if (typeof v === "string") { if (!v.trim()) return []; try { a = JSON.parse(v); } catch { return []; } }
+  if (!Array.isArray(a)) return [];
+  return a.filter((u) => u && typeof u.name === "string" && u.name.trim())
+    .map((u) => ({ name: String(u.name).trim(), basis: u.basis_needed === "Agreed basis of accounting" ? "agreed" : "request", set: !!u.basis_needed }));
+}
+export const joinNames = (n: string[]) => (n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1]);
+
 export type StudioClientRow = Record<string, string | undefined> & { url?: string };

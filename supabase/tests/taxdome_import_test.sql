@@ -44,3 +44,16 @@ select test.check('the TaxDome link must contain {id}', test.try($$select public
 select test.check('owner sets the TaxDome link', test.try($$select public.update_setting('taxdome_account_url', '"https://example.taxdome.com/accounts/{id}"')$$) = 'OK');
 select test.check('all staff read it', public.taxdome_account_url() = 'https://example.taxdome.com/accounts/{id}');
 reset role;
+
+-- Round 18 fix: the Connections tag table reads the seeded PREC row (the read grant was missing, so the
+-- page showed "No tags yet" while the import still mapped PREC).
+reset role;
+insert into public.client_user_conflicts (client_id, client_users, file_users) values ('00000000-0000-0000-0000-0000000000c1', '[]', '[{"kind":"lender","name":"Test Lender"}]');
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('staff read the seeded PREC to PREC tag', (select string_agg(tag || '>' || entity_type, ',') from public.taxdome_type_tags) = 'PREC>PREC');
+select test.check('staff do not see the users conflicts list', (select count(*) from public.client_user_conflicts) = 0);
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select test.check('the owner reads the tag table too', (select count(*) from public.taxdome_type_tags where tag = 'PREC') = 1);
+select test.check('the owner reads the users conflicts list', (select count(*) from public.client_user_conflicts) = 1);
+reset role;

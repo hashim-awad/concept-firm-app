@@ -18,7 +18,7 @@ function toWording(d: unknown): Wording | null {
 }
 
 export const CLIENT_COLUMNS =
-  "id, kind, legal_name, entity_type, signing_officer, signer_title, salutation, street_address, address_line2, city, postal_code, province, year_end_md, basis, custom_basis_wording, third_party_user, third_party_basis, name_verified";
+  "id, kind, legal_name, entity_type, signing_officer, signer_title, salutation, street_address, address_line2, city, postal_code, province, year_end_md, basis, custom_basis_wording, third_party_user, third_party_basis, statement_users, name_verified";
 
 export type Signer = { name: string; title: string };
 export type StudioData = {

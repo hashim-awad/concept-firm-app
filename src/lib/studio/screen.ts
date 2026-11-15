@@ -5,7 +5,7 @@
 // "Save client" here. The screen parity test applies exactly that one change.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { StudioEngine } from "./engine.generated";
-import type { StudioClientRow } from "./controllers";
+import type { StudioClientRow, TpUser } from "./controllers";
 
 export type Check = { lvl: "err" | "warn" | "ok"; msg: string; key?: string };
 
@@ -57,6 +57,9 @@ export function corporateScreen(e: StudioEngine, s: any, ctx: ScreenContext): Sc
   const C: Check[] = e.checks(s).slice();
   const c = ctx.client;
   const diff = clientDiff(e, s, c);
+  // Round 18 fix: a user with no basis chosen on the client is named as able to request more information
+  // (Studio's default). Staff choose it on the client first; a Final letter waits for it.
+  for (const u of (s.tpUsers ?? []) as TpUser[]) if (!u.set) C.push({ lvl: s.mode === "final" ? "err" : "warn", msg: "Choose the basis " + u.name + " needs on the client record (Clients, Financial statements). Until then the letter says " + u.name + " can request further information." });
   if (c && diff.length) C.push({ lvl: "warn", msg: "This letter differs from the client record (" + diff.join(", ") + "). Update the record under Clients, Edit, so next year’s letter is right." });
   const nameBlock = s.mode === "final" && !verified(c) && ctx.loaded;
   if (ctx.loaded && !c) C.push({ lvl: "warn", msg: "No client record selected. A Final letter needs a client record with a verified legal name. Use Save client on a draft, then confirm the legal name under Clients, Edit." });
@@ -99,6 +102,7 @@ export type ClientRecord = {
   id: string; kind: "individual" | "corporation"; legal_name: string; entity_type: string; signing_officer: string; signer_title: string;
   salutation: string; street_address: string; address_line2: string; city: string; postal_code: string; province: string;
   year_end_md: string; basis: string; custom_basis_wording: string; third_party_user: string; third_party_basis: string; name_verified: boolean;
+  statement_users?: unknown;
 };
 
 export function toStudioClient(c: ClientRecord): StudioClientRow {
@@ -110,6 +114,7 @@ export function toStudioClient(c: ClientRecord): StudioClientRow {
     Province: c.province === "OTHER" ? "Other" : c.province, "Year end (month-day)": c.year_end_md,
     "Basis of accounting": ({ cash: "Cash basis", custom: "Custom", standard: "Concept standard" } as Record<string, string>)[c.basis] ?? "Concept standard",
     "Custom basis wording": c.custom_basis_wording, "Third-party user": c.third_party_user, "Third-party basis": c.third_party_basis,
+    "Users of the statements": JSON.stringify(c.statement_users ?? []),
     "Name verified": c.name_verified ? "__YES__" : "__NO__",
   };
 }

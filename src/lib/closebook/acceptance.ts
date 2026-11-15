@@ -15,5 +15,7 @@ export const basisWords = (s: Pick<Statements, "basis" | "custom_basis_wording">
 export const userWords = (u: StatementUser) => `${u.kind === "lender" ? "A lender" : "Other"}: ${u.name}${u.basis_needed ? ` (${u.basis_needed.toLowerCase()})` : ""}`;
 export const usersWords = (users: StatementUser[]) => ["Management", ...users.map(userWords)].join("; ");
 // The same record? Compares what matters, ignoring who and when.
-export const sameStatements = (a: Statements | null, b: Statements | null) => !!a && !!b && a.basis === b.basis && (a.custom_basis_wording ?? "") === (b.custom_basis_wording ?? "")
-  && JSON.stringify(a.users.map((u) => [u.kind, u.name.trim().toLowerCase(), u.basis_needed ?? ""])) === JSON.stringify(b.users.map((u) => [u.kind, u.name.trim().toLowerCase(), u.basis_needed ?? ""]));
+const userKey = (x: Statements) => JSON.stringify(x.users.map((u) => [u.kind, u.name.trim().toLowerCase(), u.basis_needed ?? ""]));
+export const sameBasis = (a: Statements | null, b: Statements | null) => !!a && !!b && a.basis === b.basis && (a.custom_basis_wording ?? "") === (b.custom_basis_wording ?? "");
+export const sameUsers = (a: Statements | null, b: Statements | null) => !!a && !!b && userKey(a) === userKey(b);
+export const sameStatements = (a: Statements | null, b: Statements | null) => sameBasis(a, b) && sameUsers(a, b);
