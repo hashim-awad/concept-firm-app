@@ -4,13 +4,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { SETTINGS, lockFor, type SettingsDef } from "../src/app/(app)/admin/settings-menu.ts";
 
 const APP = "src/app/(app)";
 const defs: SettingsDef[] = SETTINGS.flatMap(([, d]) => d);
 const live = defs.filter((d) => !d.soon);
-const pageFile = (href: string) => join(APP, href, "page.tsx");
+// A link to one template opens the dynamic template page (admin/templates/[key]).
+const pageFile = (href: string) => join(APP, href.replace(/^\/admin\/templates\/[^/]+$/, "/admin/templates/[key]"), "page.tsx");
 const allCode = (dir: string): string => readdirSync(dir).map((f) => {
   const p = join(dir, f);
   return statSync(p).isDirectory() ? allCode(p) : /\.tsx?$/.test(f) ? readFileSync(p, "utf8") : "";
@@ -60,7 +61,7 @@ test("settings pages: lock for owner-only changes matches update_setting in the 
 
 test("other pages: an owner-only action is really checked in their code", () => {
   for (const d of live.filter((x) => x.ownerOnly && !x.settingKeys)) {
-    assert.match(allCode(join(APP, d.href)), /is_owner|requireOwner/, d.label);
+    assert.match(allCode(dirname(pageFile(d.href))), /is_owner|requireOwner/, d.label);
   }
 });
 

@@ -59,8 +59,8 @@ export const SETTINGS: [string, SettingsDef[]][] = [
     { label: "Thresholds", href: "/admin/closebook/thresholds", open: ["owner"] },
     { label: "GST/HST", href: "/admin/closebook/gst", open: ["owner"] },
     // The two Closebook templates, also listed under Templates (round 16 fix: easy to find and approve).
-    { label: "Completion checklist template", href: "/admin/templates/cbchecklist", open: ["owner"] },
-    { label: "Client entry list template", href: "/admin/templates/cbclientlist", open: ["owner"] },
+    { label: "Completion checklist template", href: "/admin/templates/cbchecklist", open: ["engagement_terms"], ownerOnly: "approve or publish wording" },
+    { label: "Client entry list template", href: "/admin/templates/cbclientlist", open: ["engagement_terms"], ownerOnly: "approve or publish wording" },
     { label: "Accounting policy (Note 1)", href: "/admin/closebook/policy", open: ["owner"] },
   ]],
   ["Connections", [
