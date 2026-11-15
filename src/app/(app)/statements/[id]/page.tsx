@@ -7,7 +7,6 @@ import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/dates";
 import { getStatement, listStatements } from "@/lib/statements/server";
-import { closebookWarnings } from "@/lib/statements/checks";
 import { Verify, type Nav } from "./verify";
 
 export default async function VerifyPage({ params }: PageProps<"/statements/[id]">) {
@@ -62,9 +61,8 @@ export default async function VerifyPage({ params }: PageProps<"/statements/[id]
   }
 
   // Standalone jobs belong to the person who uploaded them: anyone with Closebook view may use the tool.
-  const warnings = file ? closebookWarnings(data, file) : [];
   return (
     <Verify id={id} row={row} initial={data} fileUrl={fileUrl} file={file} nav={nav} backHref={backHref}
-      canEdit={fileId ? canEdit(access, "closebook") : true} warnings={warnings} eyebrow={eyebrow} />
+      canEdit={fileId ? canEdit(access, "closebook") : true} eyebrow={eyebrow} />
   );
 }

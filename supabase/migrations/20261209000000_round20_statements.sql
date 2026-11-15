@@ -75,6 +75,15 @@ grant select on public.statement_tool_log to authenticated;
 -- give the same rule to a signed-in person: file/<file id>/... for Closebook, tool/<staff id>/... for the
 -- person's own standalone uploads.
 insert into storage.buckets (id, name, public) values ('statement-uploads', 'statement-uploads', false) on conflict (id) do nothing;
+-- On Supabase the bucket also refuses files over 25 MB and anything but PDFs and photos (the stand-in has no such columns).
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'storage' and table_name = 'buckets' and column_name = 'allowed_mime_types') then
+    update storage.buckets set file_size_limit = 25 * 1024 * 1024,
+           allowed_mime_types = array['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']
+     where id = 'statement-uploads';
+  end if;
+end $$;
 drop policy if exists "Closebook reads statement uploads" on storage.objects;
 create policy "Closebook reads statement uploads" on storage.objects for select to authenticated
   using (bucket_id = 'statement-uploads' and (select private.can_view('closebook'))

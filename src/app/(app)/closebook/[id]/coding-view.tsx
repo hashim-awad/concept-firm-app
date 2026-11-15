@@ -163,13 +163,39 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
     : c?.tax_default === "Check" ? "The reviewer decides the tax on this account." : "";
   // Coded straight to another of the file's accounts, outside a transfer: counted twice (round 20).
   const twice = !offer && !l.transfer && l.status !== "matched" && looksLikeTransfer(l.status === "new" ? account : l.chart_account, l.account_id, banks) ? TRANSFER_WARNING : "";
-  const warning = rowErr || live || twice || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
+  const warning = rowErr || (offer ? "" : live || twice) || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
   const locked = !editable || l.status === "done";
   const amount = money(Math.abs(cents)).replace("$", "");
+  const note = noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>;
+  // Round 20: a line in a transfer. The money-out line names the other account; the money-in line is matched,
+  // greyed, and posts nothing. Undo on either removes both.
+  if (l.status === "matched" || l.transfer?.role === "out") {
+    const t = l.transfer;
+    const text = !t ? "Matched to a transfer" : t.role === "in" ? matchedLabel(t.otherName, t.otherDate) : transferLabel({ direction: "to", otherName: t.otherName, otherDate: t.otherDate });
+    const matched = l.status === "matched";
+    return (
+      <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${matched ? "bg-sand-50 text-ink-3" : ""} ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
+        <td className="whitespace-nowrap tabular-nums text-ink-3">{formatDate(l.txn_date)}</td>
+        <td>{l.description}</td>
+        <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
+        <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
+        {matched ? <td colSpan={2} className="truncate" title={text}>{text}</td> : <>
+          <td className="truncate" title={text}>{text}</td>
+          <td className="truncate">No tax</td>
+        </>}
+        <td className="itc" />
+        <td className="text-right">
+          {editable && <button type="button" className="text-[12.5px] font-semibold text-navy-700 hover:underline" disabled={pending} onClick={() => run(() => undoTransferInline(fileId, l.id))}>Undo</button>}
+          {note}
+        </td>
+      </tr>
+    );
+  }
   return (
     <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
       <td className="whitespace-nowrap tabular-nums text-ink-2">{formatDate(l.txn_date)}</td>
-      <td>{l.description}{l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
+      <td>{l.description}{offer ? <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Transfer between your accounts</span>
+        : l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
         {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
       <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
       <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
@@ -177,6 +203,22 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {/* Round 15b (QuickBooks Online's Categorized tab): a coded line is plain text. */}
         <td className="truncate" title={c ? `${account} ${c.name}` : undefined}>{c ? `${account} ${c.name}` : account}</td>
         <td className="truncate">{tax ? codes.get(tax)?.name ?? tax : "No tax"}</td>
+      </> : offer ? <>
+      <td style={{ paddingLeft: 6, paddingRight: 6 }}>
+        {/* Round 20: the transfer offered, the closest date first; the list holds the others and "Not a transfer". */}
+        <span className="relative block">
+          <span aria-hidden title={transferLabel(offer)} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""}`}>
+            {transferLabel(offer)}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
+          <select aria-label="Transfer" value={pick} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setPick(e.target.value); setRowErr(""); }}>
+            <optgroup label="Transfer between your accounts">
+              {l.transfers.map((t) => <option key={t.otherId} value={t.otherId}>{transferLabel(t)}</option>)}
+            </optgroup>
+            <option value="">Not a transfer: choose an account</option>
+          </select>
+        </span>
+        {l.transfers.length > 1 && <span className="block text-xs text-ink-3">{l.transfers.length} lines fit. The closest date is first.</span>}
+      </td>
+      <td className="text-ink-3">No tax</td>
       </> : <>
       <td style={{ paddingLeft: 6, paddingRight: 6 }}>
         {/* The chosen account in full, never clipped: the box shows the whole name (wrapping when long) and the
@@ -184,8 +226,11 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         <span className="relative block">
           <span aria-hidden title={c ? `${account} ${c.name}` : undefined} style={{ paddingLeft: 6, paddingRight: 18, fontSize: 12.5 }} className={`input input-compact block min-h-[30px] overflow-hidden leading-snug text-ellipsis whitespace-nowrap ${locked ? "bg-sand-50 text-ink-3" : ""} ${account ? "" : "text-ink-3"}`}>
             {c ? `${account} ${c.name}` : "Choose an account"}<span className="absolute top-1.5 right-1.5 text-ink-3">▾</span></span>
-          <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" onChange={(e) => { setAccount(e.target.value); setRowErr(""); }}>
+          <select aria-label="Account" value={account} disabled={locked} className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+            onChange={(e) => { const v = e.target.value; if (v.startsWith("t:")) setPick(v.slice(2)); else setAccount(v); setRowErr(""); }}>
             <option value="">Choose an account</option>
+            {l.status === "new" && l.transfers.length > 0 && <optgroup label="Transfer between your accounts">
+              {l.transfers.map((t) => <option key={t.otherId} value={`t:${t.otherId}`}>{transferLabel(t)}</option>)}</optgroup>}
             {byType.map(([t, list]) => <optgroup key={t} label={t}>{list.map((a) => <option key={a.number} value={a.number}>{a.number} {a.name}</option>)}</optgroup>)}
           </select>
         </span>
@@ -204,15 +249,17 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
       </>}
-      <td className="itc text-right tabular-nums">{itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
+      <td className="itc text-right tabular-nums">{offer ? "" : itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">
             {/* Like the QuickBooks Online bank feed: one action button, the others under its arrow (round 4 item 6). */}
             <span className="flex whitespace-nowrap">
-              <button type="button" className="btn btn-compact rounded-r-none" disabled={pending}
+              {offer ? <button type="button" className="btn btn-compact rounded-r-none" disabled={pending} title={`Record as a transfer: ${transferLabel(offer)}`}
+                onClick={() => run(() => acceptTransferInline(fileId, l.id, offer.otherId))}>Accept</button>
+              : <button type="button" className="btn btn-compact rounded-r-none" disabled={pending}
                 onClick={() => !gstAnswered ? setRowErr("Answer the GST/HST questions in step 1 first.") : !account || !tax ? setRowErr(!account ? "Choose an account first. Nothing was saved." : "Choose a sales tax code first. Nothing was saved.") : run(() => codeLinesInline(fileId, [{ id: l.id, account, tax: tax || null, source: l.suggestion && l.suggestion.account === account ? l.suggestion.source : "manual" }],
-                  rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>
+                  rule ? [{ key: l.key, account, tax: tax || null }] : []))}>Confirm</button>}
               <details className="relative">
                 <summary aria-label="More actions" className="btn btn-compact cursor-pointer list-none rounded-l-none border-l border-white/30 px-2">▾</summary>
                 <span className="card absolute right-0 z-20 mt-1 grid w-max gap-1 p-1.5 text-left">
@@ -221,11 +268,11 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
                 </span>
               </details>
             </span>
-            {!hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
+            {!offer && !hasRule && l.key && <label className="inline-flex items-center gap-1 text-xs text-ink-2"><input type="checkbox" checked={rule} onChange={(e) => setRule(e.target.checked)} className="h-3 w-3" />Save as a rule</label>}
           </span>
         )}
         {l.status === "done" && editable && <button type="button" className="text-[12.5px] font-semibold text-navy-700 hover:underline" disabled={pending} onClick={() => run(() => undoLinesInline(fileId, [l.id]))}>Undo</button>}
-        {noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>}
+        {note}
       </td>
     </tr>
   );

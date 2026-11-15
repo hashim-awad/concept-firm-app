@@ -7,7 +7,7 @@ import { findTransfers, type TransferAccount, type TransferCandidate } from "./t
 
 export type ChartAccount = { number: string; name: string; account_type: string; tax_default: string; note: string };
 export type CodeLine = {
-  id: string; account_id: string; txn_date: string; description: string; amount: number; status: "new" | "done" | "ask_client" | "reviewer";
+  id: string; account_id: string; txn_date: string; description: string; amount: number; status: "new" | "done" | "ask_client" | "reviewer" | "matched";
   chart_account: string | null; tax_code: string | null; reviewer_reason: string; source: string;
   suggestion: Suggestion | null; key: string;
   // Round 20: the lines this one could be a transfer with (closest date first), and the transfer it is in.

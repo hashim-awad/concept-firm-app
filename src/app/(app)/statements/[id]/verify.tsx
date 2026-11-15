@@ -10,7 +10,7 @@ import { Check, ChevronLeft, ChevronRight, Download, FileText, Pencil, Plus, X }
 import type { StatementRow } from "@/lib/statements/server";
 import type { ReadResult, StatementAccount, StatementLine } from "@/lib/statements/types";
 import { typeLabel } from "@/lib/statements/types";
-import { checkAccount } from "@/lib/statements/checks";
+import { checkAccount, closebookWarnings } from "@/lib/statements/checks";
 import { validDate } from "@/lib/closebook/bank-upload";
 import { discardStatement, importStatement, saveStatementEdits } from "../actions";
 import { accountLabel, money, parseMoney, plural, shortDate } from "../format";
@@ -33,9 +33,9 @@ function suggest(acc: StatementAccount, file: FileCtx | null): string {
   return m.length === 1 ? m[0].id : "";
 }
 
-export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit, warnings, eyebrow }: {
+export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit, eyebrow }: {
   id: string; row: StatementRow; initial: ReadResult; fileUrl: string; file: FileCtx | null; nav: Nav; backHref: string;
-  canEdit: boolean; warnings: string[]; eyebrow: React.ReactNode;
+  canEdit: boolean; eyebrow: React.ReactNode;
 }) {
   const router = useRouter();
   const closebook = !!row.file_id;
@@ -177,6 +177,12 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
       if (l) problems.push(`${who}Running balance: the first line that does not match is ${shortDate(l.date)}.`);
     }
   }
+  // Closebook warnings (they do not block): last digits and kind against the account chosen, and the period.
+  const warnings = file ? live.flatMap((a) => {
+    const b = file.bankAccounts.find((x) => x.id === assign[a.key]);
+    return closebookWarnings(a, { yearStart: file.yearStart, yearEnd: file.yearEnd, chosen: b ? { last4: b.last4, kind: b.kind, name: b.name } : null })
+      .map((w) => (many ? `${nameOf(a)}: ${w}` : w));
+  }) : [];
   for (const a of unassigned) problems.push(`${plural(a.lines.length, `${nameOf(a)} line`)} ${a.lines.length === 1 ? "has" : "have"} no account.`);
 
   const doImport = async (confirm: boolean) => {

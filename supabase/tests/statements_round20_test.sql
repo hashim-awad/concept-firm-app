@@ -142,9 +142,12 @@ reset role;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select id as acc from public.cb_bank_accounts where file_id = :'f' \gset
-select public.cb_import_statement(:'j3', ('[{"key":"a1","account":"' || :'acc' || '","name":"","kind":"","last4":"9999","opening":950.00,"closing":1000.00,"period_start":"2026-03-01","period_end":"2026-03-31","rows":[{"line":1,"date":"2026-02-03","description":"SAMPLE DEPOSIT","amount":50.00}],"check":{},"edits":{}}]')::jsonb, true, '') as imp2 \gset
+select public.cb_import_statement(:'j3', ('[{"key":"a1","account":"' || :'acc' || '","name":"","kind":"","last4":"9999","opening":950.00,"closing":1000.00,"period_start":"2026-03-01","period_end":"2026-03-31","rows":[{"line":1,"date":"2026-03-02","description":"SAMPLE DEPOSIT","amount":50.00}],"check":{},"edits":{}},'
+  || '{"key":"a2","account":null,"name":"Northern Dummy Visa","kind":"card","last4":"8888","opening":0,"closing":50.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"sample deposit","amount":50.00}],"check":{},"edits":{}}]')::jsonb, true, '') as imp2 \gset
+select test.check('two accounts found: two statements, in one step', jsonb_array_length(:'imp2') = 2 and (select count(*) from public.cb_bank_statements where statement_import_id = :'j3') = 2);
 select test.check('confirmed duplicates go to the reviewer', (select count(*) from public.cb_bank_lines where file_id = :'f' and dup_confirmed and status = 'reviewer') = 1);
-select test.check('last digits already set are kept', (select last4 from public.cb_bank_accounts where id = :'acc') = '4321');
+select test.check('last digits already set are kept; a new account takes its own', (select last4 from public.cb_bank_accounts where id = :'acc') = '4321'
+  and (select last4 from public.cb_bank_accounts where file_id = :'f' and name = 'Northern Dummy Visa') = '8888');
 
 -- ---------- My day
 select test.check('My day counts my statements ready or needing a look', public.statement_ready_counts() ->> 'ready' = '0' and public.statement_ready_counts() ->> 'needs_look' = '0');
@@ -168,7 +171,8 @@ select test.check('the activity log has the line, no client details', exists (se
 -- The viewer's standalone job is 25 hours old: the runner deletes it, with a log row.
 update public.cb_statement_imports set created_at = now() - interval '25 hours' where id = :'tb';
 set role service_role;
-select test.check('standalone jobs over 24 hours are deleted', (select array_agg(p) from public.statement_purge_standalone() p) = array['tool/00000000-0000-0000-0000-00000000000b/b1.pdf']
+select array_agg(p)::text as got from public.statement_purge_standalone() p \gset
+select test.check('standalone jobs over 24 hours are deleted', :'got' = array['tool/00000000-0000-0000-0000-00000000000b/b1.pdf']::text
   and not exists (select 1 from public.cb_statement_imports where file_id is null));
 reset role;
 select test.check('their log row says expired', exists (select 1 from public.statement_tool_log where staff_id = '00000000-0000-0000-0000-00000000000b' and outcome = 'expired'));
