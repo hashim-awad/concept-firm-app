@@ -19,7 +19,7 @@ const uuid = (v: string | null) => (v && /^[0-9a-f-]{36}$/.test(v) ? v : null);
 // Saves the draft (the builder calls this a moment after each change).
 export async function saveProposalAction(input: SaveInput): Promise<Result> {
   const access = await getAccess();
-  if (!access || !canEdit(access, "documents") || !canView(access, "pricing")) return { ok: false, error: "You need Edit on Documents and the Pricing permission to work on a proposal." };
+  if (!access || !canEdit(access, "documents") || !canView(access, "pricing")) return { ok: false, error: "You need Edit on Documents and the Pricing permission to work on a monthly quote." };
   const data = { f: input.data.f, opts: input.data.opts, rec: input.data.rec };
   const { data: id, error } = await (await createClient()).rpc("save_proposal", {
     p_id: uuid(input.quoteId), p_client: uuid(input.clientId), p_lead: uuid(input.leadId), p_title: String(input.title ?? "").slice(0, 200), p_data: data,
@@ -39,11 +39,11 @@ export async function deleteProposalAction(quoteId: string): Promise<{ ok: boole
 // province needs an approved GST/HST rate (decision 22). Then the quote opens for the client for 21 days.
 export async function sendProposalAction(quoteId: string): Promise<{ ok: true; href: string } | { ok: false; error: string; problems?: string[] }> {
   const access = await getAccess();
-  if (!access?.is_owner) return { ok: false, error: "Only an owner can send a proposal." };
+  if (!access?.is_owner) return { ok: false, error: "Only an owner can send a monthly quote." };
   const supabase = await createClient();
   const { data: q } = await supabase.from("quotes").select("id, kind, status, proposal").eq("id", quoteId).maybeSingle();
-  if (!q || q.kind !== "proposal") return { ok: false, error: "Proposal not found." };
-  if (q.status !== "draft") return { ok: false, error: "This proposal was already sent." };
+  if (!q || q.kind !== "proposal") return { ok: false, error: "Monthly quote not found." };
+  if (q.status !== "draft") return { ok: false, error: "This monthly quote was already sent." };
   const data = q.proposal as ProposalInputs;
   const prov = String(data.f.province ?? "");
   const { data: rate } = ["ON", "AB", "BC"].includes(prov) ? await supabase.rpc("approved_tax_rate", { p_province: prov }) : { data: null };

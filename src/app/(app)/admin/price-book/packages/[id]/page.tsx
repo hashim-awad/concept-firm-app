@@ -23,7 +23,7 @@ export default async function OfferPage({ params, searchParams }: PageProps<"/ad
   const n = (v: number | null) => (v == null ? "" : String(Number(v)));
   const field = (name: string, label: string, v: string) => <div><label htmlFor={name} className="label">{label}</label><input id={name} name={name} defaultValue={v} inputMode="decimal" className="input" /></div>;
   return (
-    <SettingsShell title={isNew ? "Add offer" : o.offer} help={<p>Amounts are before tax. Annual floor is the lowest annual value a proposal may show without a warning.</p>}>
+    <SettingsShell title={isNew ? "Add offer" : o.offer} help={<p>Amounts are before tax. Annual floor is the lowest annual value a monthly quote may show without a warning.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form action={saveOffer} className="card max-w-3xl space-y-4">
         <input type="hidden" name="id" value={isNew ? "" : id} />

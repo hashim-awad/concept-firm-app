@@ -62,5 +62,5 @@ export async function approveAllRates() {
   const supabase = await createClient();
   const { data, error } = await supabase.from("tax_rates").update({ status: "approved" }).eq("status", "pending").select("id");
   revalidatePath(PAGE);
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Approved ${data?.length ?? 0} rate${data?.length === 1 ? "" : "s"}. Quotes and proposals now use them.`));
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : `Approved ${data?.length ?? 0} rate${data?.length === 1 ? "" : "s"}. Quotes now use them.`));
 }

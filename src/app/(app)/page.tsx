@@ -65,7 +65,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   }
   const letterHref = (r: W) => r.source === "outside" ? `/documents/engagements/${r.id}` : r.kind === "letter" ? `/engagement-letters/${r.id}`
     : r.kind === "proposal" ? `/quotes/${r.id}` : r.lead_id ? `/leads/${r.lead_id}/quote` : "/quotes";
-  const letterType = (t: string) => (t === "t1" ? "T1" : t === "proposal" ? "Proposal" : "Corporate");
+  const letterType = (t: string) => (t === "t1" ? "T1" : "Corporate");
 
   // T2 deadlines (decision 43): T2 clients from TaxDome, not excluded, active.
   const showDone = sp.done === "1";

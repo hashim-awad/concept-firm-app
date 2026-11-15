@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { FilePlus2 } from "lucide-react";
 import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader, buttonClass } from "@/components/ds/primitives";
+import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
+import { NewMenu } from "../clients/[id]/new-menu";
 import { QUOTE_KIND, QUOTE_STATUS, QUOTE_STATUS_CLASS, quoteTotal, type QuoteKind, type QuoteStatus } from "@/lib/quotes";
 
 type Row = { id: string; kind: QuoteKind; status: QuoteStatus; client: string; client_id: string | null; lead_id: string | null; source: string; total_cents: number | null;
   options: number; sent_at: string | null; valid_until: string | null; signed_at: string | null; document_id: string | null };
 
-const TYPES: [string, string][] = [["all", "All types"], ["t1", "Personal tax"], ["corporate", "Company year-end"], ["proposal", "Monthly proposal"]];
+const TYPES: [string, string][] = [["all", "All types"], ...(Object.entries(QUOTE_KIND) as [string, string][])];
 const STATUSES = Object.keys(QUOTE_STATUS) as QuoteStatus[];
 
 // Quotes (front office batch, section 3; mockup 2-Quotes): every offer in one list, from draft to
@@ -28,6 +28,11 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
   const rows = all.filter((r) => (type === "all" || r.kind === type) && (!status || r.status === status));
   const pricing = canView(access, "pricing");
   const canPropose = canEdit(access, "documents") && pricing;
+  // Round 19: "New quote" offers the three kinds, each only to people who may make it (same rules as "+ New").
+  const newQuote = [
+    ...(canEdit(access, "leads") ? [{ label: QUOTE_KIND.t1, href: "/leads/phone?form=personal" }, { label: QUOTE_KIND.corporate, href: "/leads/phone?form=company" }] : []),
+    ...(canPropose ? [{ label: QUOTE_KIND.proposal, href: "/quotes/proposal" }] : []),
+  ];
 
   const link = (k: "type" | "status", v: string) => {
     const p = new URLSearchParams();
@@ -45,8 +50,8 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
 
   return (
     <>
-      <PageHeader title="Quotes" description="Every quote in one list: personal tax, company year-end and monthly proposals, from draft to signed."
-        actions={canPropose ? <Link href="/quotes/proposal" className={buttonClass("primary")}><FilePlus2 className="h-4 w-4" aria-hidden />New proposal</Link> : undefined} />
+      <PageHeader title="Quotes" description="Every quote in one list: T1, year-end and monthly quotes, from draft to signed."
+        actions={newQuote.length ? <NewMenu label="New quote" items={newQuote} /> : undefined} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error) ?? (error ? error.message : undefined)} />
       <div className="mb-2 flex flex-wrap items-center gap-2" aria-label="Type">{TYPES.map(([k, l]) => chip(link("type", k), type === k, l))}</div>
       <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Status">
@@ -62,7 +67,7 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
                 <td><Link href={open(r)} className="font-medium text-navy-700 hover:underline">{r.client}</Link></td>
                 <td>{typeLabel(r)}</td>
                 <td>{r.source}</td>
-                {pricing && <td className="text-right tabular-nums whitespace-nowrap">{r.kind === "proposal" ? <span className="text-ink-3">In the proposal</span> : quoteTotal(r.total_cents)}</td>}
+                {pricing && <td className="text-right tabular-nums whitespace-nowrap">{r.kind === "proposal" ? <span className="text-ink-3">In the quote</span> : quoteTotal(r.total_cents)}</td>}
                 <td className="whitespace-nowrap">{r.sent_at ? formatDate(r.sent_at) : ""}</td>
                 <td className="whitespace-nowrap">{r.valid_until && r.status !== "signed" && r.status !== "declined" ? formatDate(r.valid_until) : ""}</td>
                 <td><span className={`rounded px-2 py-0.5 text-xs font-semibold ${QUOTE_STATUS_CLASS[r.status]}`}>{QUOTE_STATUS[r.status]}</span></td>

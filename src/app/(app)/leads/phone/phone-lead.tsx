@@ -13,8 +13,8 @@ import { finishPhoneCompany, finishPhonePersonal, phonePrice } from "./actions";
 export type PickClient = { id: string; name: string; contact: PhoneContact };
 const money = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: c % 100 ? 2 : 0 });
 
-export function PhoneLead({ qn, rules, taxYear, clients, pricing }: { qn: FormQuestionnaire | null; rules: T1Rules; taxYear: number; clients: PickClient[]; pricing: boolean }) {
-  const [form, setForm] = useState<"" | "personal" | "company">("");
+export function PhoneLead({ qn, rules, taxYear, clients, pricing, initialForm = "" }: { qn: FormQuestionnaire | null; rules: T1Rules; taxYear: number; clients: PickClient[]; pricing: boolean; initialForm?: "" | "personal" | "company" }) {
+  const [form, setForm] = useState<"" | "personal" | "company">(initialForm);
   const [clientId, setClientId] = useState("");
   const picked = clients.find((c) => c.id === clientId) ?? null;
   const [price, setPrice] = useState<{ total_cents: number | null; note: string } | null>(null);

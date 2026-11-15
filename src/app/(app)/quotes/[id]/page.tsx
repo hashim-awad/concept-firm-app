@@ -37,9 +37,9 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/qu
     return (
       <>
         <Link href="/quotes?type=proposal" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Quotes</Link>
-        <PageHeader eyebrow="Monthly proposal · recorded before Quotes" title={quote.title ?? legacy.prospect ?? "Proposal"} description={`Sent ${formatDate(quote.sent_at)}. Status: ${QUOTE_STATUS[quote.status]}.${legacy.chosen ? ` Option chosen: ${legacy.chosen}.` : ""}`} />
+        <PageHeader eyebrow="Monthly quote · recorded before Quotes" title={quote.title ?? legacy.prospect ?? "Monthly quote"} description={`Sent ${formatDate(quote.sent_at)}. Status: ${QUOTE_STATUS[quote.status]}.${legacy.chosen ? ` Option chosen: ${legacy.chosen}.` : ""}`} />
         <section className="card text-sm">
-          <p>This proposal was issued as a PDF before proposals were signed online. {doc?.document_id ? <Link href={`/quotes/proposal?doc=${doc.document_id}`} className="text-navy-700 underline">Open it in the proposal builder</Link> : "Its PDF is in the document vault."}</p>
+          <p>This monthly quote was issued as a PDF before monthly quotes were signed online. {doc?.document_id ? <Link href={`/quotes/proposal?doc=${doc.document_id}`} className="text-navy-700 underline">Open it in the monthly quote builder</Link> : "Its PDF is in the document vault."}</p>
           {editable && WAITING.includes(quote.status) && (
             <form action={declineQuote} className="mt-3">
               <input type="hidden" name="id" value={id} /><input type="hidden" name="back" value={`/quotes/${id}`} />
@@ -61,7 +61,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/qu
   return (
     <>
       <Link href="/quotes?type=proposal" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Quotes</Link>
-      <PageHeader eyebrow={`Monthly proposal · ${view.options.length} option${view.options.length === 1 ? "" : "s"}`} title={quote.company_name ?? quote.title ?? "Proposal"}
+      <PageHeader eyebrow={`Monthly quote · ${view.options.length} option${view.options.length === 1 ? "" : "s"}`} title={quote.company_name ?? quote.title ?? "Monthly quote"}
         description={`Sent ${formatDateTime(quote.sent_at)} by ${quote.sender?.name ?? ""}. Valid until ${formatDate(quote.valid_until)}.${quote.wording_label ? ` Wording ${quote.wording_label}.` : ""}`} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -86,7 +86,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/qu
               <a href={`/quotes/${id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary w-fit">Open the signed PDF (with the signing record)</a>
             </>
           ) : (
-            <p className="text-sm text-muted">{quote.status === "viewed" ? "The client opened the proposal and has not signed yet." : quote.status === "sent" ? "Not opened yet." : QUOTE_STATUS[quote.status] + "."}</p>
+            <p className="text-sm text-muted">{quote.status === "viewed" ? "The client opened the monthly quote and has not signed yet." : quote.status === "sent" ? "Not opened yet." : QUOTE_STATUS[quote.status] + "."}</p>
           )}
           {editable && WAITING.includes(quote.status) && (
             <form action={declineQuote}>
@@ -96,7 +96,7 @@ export default async function QuotePage({ params, searchParams }: PageProps<"/qu
           )}
         </section>
         <section className="grid content-start gap-4">
-          <h2 className="font-semibold">The proposal (client&rsquo;s copy)</h2>
+          <h2 className="font-semibold">The monthly quote (client&rsquo;s copy)</h2>
           <article className="overflow-hidden rounded-lg border border-sand-200 bg-white px-6 py-8 shadow-sm sm:px-12 sm:py-12" dangerouslySetInnerHTML={{ __html: view.partA }} />
           {view.options.map((o, i) => (
             <details key={i} open={quote.chosen_option === i} className="rounded-lg border border-sand-200 bg-white">

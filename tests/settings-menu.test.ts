@@ -104,7 +104,7 @@ test("the gear shows staff only what they can open; owners see the template coun
   const all = Object.fromEntries(["settings", "engagement_terms", "pricing", "price_book", "tax_rates", "staff_accounts"].map((k) => [k, "edit"]));
   const owner = { is_owner: true, permissions: all } as never;
   const s = gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items.map((i) => i.label));
-  assert.deepEqual(s.sort(), ["Change log", "Closebook", "Data retention", "Emails", "Firm details", "Lead sources", "Letters and proposals", "Online sales", "Schedules and terms", "T1 rule values"].sort());
+  assert.deepEqual(s.sort(), ["Change log", "Closebook", "Data retention", "Emails", "Firm details", "Lead sources", "Letters and quotes", "Online sales", "Schedules and terms", "T1 rule values"].sort());
   assert.equal(gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items).find((i) => i.label === "Closebook")?.count, undefined);
   const o = gearMenu(owner, { closebook: 2 });
   assert.deepEqual(o.map((c) => c.label), ["Your firm", "Lists", "Templates", "Tools"]);

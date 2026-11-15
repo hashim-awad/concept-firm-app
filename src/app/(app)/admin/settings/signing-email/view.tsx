@@ -14,8 +14,8 @@ export async function SigningEmailView(sp: SP): Promise<View> {
   return {
     help: <>
       <p>Studio sends the signing email from the mailbox of the person who issues it, through Microsoft 365. A copy goes to their Sent folder. If sending fails, the Copy buttons on the page still work.</p>
-      <h4>Quotes and proposals</h4>
-      <p>Their switches come after New letters are tested. Until then, staff copy their emails and send them from Outlook.</p>
+      <h4>Quotes</h4>
+      <p>The switches for T1, year-end and monthly quotes come after New letters are tested. Until then, staff copy their emails and send them from Outlook.</p>
       <p>The Test app only emails the firm&rsquo;s own addresses, never a client. Each staff mailbox must be allowed in Microsoft 365 (an application access policy) before it can send.</p>
       <p>Owners only.</p>
     </>,

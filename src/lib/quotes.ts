@@ -2,7 +2,8 @@
 export type QuoteKind = "t1" | "corporate" | "proposal";
 export type QuoteStatus = "draft" | "sent" | "viewed" | "signed" | "declined" | "expired" | "withdrawn";
 
-export const QUOTE_KIND: Record<QuoteKind, string> = { t1: "Personal tax", corporate: "Company year-end", proposal: "Monthly proposal" };
+// Round 19 (Hashim): one word for offers inside Studio. The client's monthly document stays titled "Proposal".
+export const QUOTE_KIND: Record<QuoteKind, string> = { t1: "T1 quote", corporate: "Year-end quote", proposal: "Monthly quote" };
 export const QUOTE_STATUS: Record<QuoteStatus, string> = { draft: "Draft", sent: "Sent", viewed: "Viewed", signed: "Signed", declined: "Declined", expired: "Expired", withdrawn: "Withdrawn" };
 // Fixed status colours (brief, Screen standard): waiting on the client navy, done green, closed grey or red.
 export const QUOTE_STATUS_CLASS: Record<QuoteStatus, string> = {

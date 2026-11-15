@@ -63,13 +63,13 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
           </section>
           {monthly && (
             <section className="card grid gap-3">
-              <h2 className="font-semibold">Monthly client: package and proposal</h2>
+              <h2 className="font-semibold">Monthly client: package and monthly quote</h2>
               {kind === "other"
                 ? <p className="text-sm">No package suggestion: not real estate. Hashim sets the price after the call.</p>
                 : <p className="text-sm"><b>Suggested package: {suggestion?.label ?? "none"}</b>{suggestion && <span className="text-muted"> ({suggestion.why})</span>}</p>}
               {!l.client_kind && <p className="text-xs text-muted">Client type is Studio&rsquo;s guess from &ldquo;{String(l.answers?.business ?? "")}&rdquo;. Confirm it on the right and save.</p>}
-              <p className="text-sm text-ink-2">After the call, create the proposal. It opens with the client&rsquo;s details, their answers and the suggested package filled in. Adjust it and send it through the usual proposal and engagement letter steps. Package prices and floors are the price book&rsquo;s.</p>
-              {canEdit(access, "documents") && <a href={`/documents/proposal?lead=${l.id}`} className="btn w-fit">Create proposal</a>}
+              <p className="text-sm text-ink-2">After the call, create the monthly quote. It opens with the client&rsquo;s details, their answers and the suggested package filled in. Adjust it and send it through the usual monthly quote and engagement letter steps. Package prices and floors are the price book&rsquo;s.</p>
+              {canEdit(access, "documents") && <a href={`/documents/proposal?lead=${l.id}`} className="btn w-fit">Create monthly quote</a>}
             </section>
           )}
           <LeadQuote leadId={l.id} people={Array.isArray(l.answers?.people) ? l.answers.people.length : 1} canPrepare={canEdit(access, "pricing") && canEdit(access, "leads")} route={l.route} />

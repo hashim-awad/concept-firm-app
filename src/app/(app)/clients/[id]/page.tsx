@@ -17,6 +17,7 @@ import { loadClientFiles, type ClientFile } from "./closebook";
 import { StatementsEditor } from "./statements-editor";
 import { NewMenu } from "./new-menu";
 import { STATUS_WORD, basisWords, clientChanges, statementUsers, userLabel } from "./words";
+import { QUOTE_KIND } from "@/lib/quotes";
 
 const BLANK: ClientForm = {
   kind: "corporation", legal_name: "", entity_type: "PREC", signing_officer: "", signer_title: "Director", salutation: "", email: "", street_address: "", address_line2: "",
@@ -105,7 +106,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const tdLink = tdUrl && c.taxdome_account_id ? tdUrl.replace("{id}", encodeURIComponent(c.taxdome_account_id)) : "";
   const lastYe = /^\d{2}-\d{2}$/.test(c.year_end_md ?? "") ? lastYearEnd(c.year_end_md, todayToronto()) : "";
   const letterHref = c.kind === "individual" ? `/engagement-letters/new?type=t1&client=${id}` : `/engagement-letters/new?type=corporate&client=${id}`;
-  const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Proposal" };
+  const KIND: Record<string, string> = { corporate_letter: "Corporate letter", t1_letter: "T1 letter", proposal: "Monthly quote" };
   const empty = (t: string) => <p className="p-5 text-sm text-muted">{t}</p>;
   const heading = (t: string) => <h2 className="px-5 pt-4 pb-2 font-semibold">{t}</h2>;
 
@@ -129,7 +130,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     content = <section className="card overflow-x-auto p-0">{props.length === 0 ? empty("No quotes sent to this client.") : (
       <table className="table"><thead><tr><th>Type</th><th>Sent</th><th>Status</th></tr></thead>
         <tbody>{(props as { id: string; kind: string; status: string; sent_at: string | null; lead_id: string | null }[]).map((p) => (
-          <tr key={p.id}><td><Link href={p.kind === "letter" ? `/engagement-letters/${p.id}` : p.kind === "proposal" ? `/quotes/${p.id}` : p.lead_id ? `/leads/${p.lead_id}/quote` : "/quotes"} className={LINK}>{({ t1: "Personal tax quote", corporate: "Company year-end quote", proposal: "Monthly proposal", letter: "New letter" } as Record<string, string>)[p.kind] ?? p.kind}</Link></td>
+          <tr key={p.id}><td><Link href={p.kind === "letter" ? `/engagement-letters/${p.id}` : p.kind === "proposal" ? `/quotes/${p.id}` : p.lead_id ? `/leads/${p.lead_id}/quote` : "/quotes"} className={LINK}>{({ ...QUOTE_KIND, letter: "New letter" } as Record<string, string>)[p.kind] ?? p.kind}</Link></td>
             <td>{formatDate(p.sent_at)}</td><td className="capitalize">{p.status === "sent" || p.status === "viewed" ? "Waiting for signature" : p.status}</td></tr>))}</tbody></table>)}</section>;
   } else if (tab === "closebook") {
     content = (
@@ -171,7 +172,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     // Owners only (the activity log is owner-only in the database too).
     const ids = [id, ...engs.map((e) => e.id), ...docs.map((d) => d.id), ...props.map((p) => p.id)];
     const { data: log } = await supabase.from("activity_log").select("id, occurred_at, actor_id, action, entity_type, details").in("entity_id", ids).order("occurred_at", { ascending: false }).limit(200);
-    const WHAT: Record<string, string> = { clients: "Client record", engagements: "Engagement", documents: "Document", document_versions: "Document version", proposals: "Proposal" };
+    const WHAT: Record<string, string> = { clients: "Client record", engagements: "Engagement", documents: "Document", document_versions: "Document version", proposals: "Monthly quote" };
     const what = (e: { action: string; entity_type: string; details: unknown }): React.ReactNode => {
       if (e.entity_type === "clients" && e.action === "statements_confirmed") {
         const year = (e.details as { year?: number } | null)?.year;
@@ -319,7 +320,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
 
   const newItems = [
     ...(editDocs ? [{ label: "New letter", href: letterHref }] : []),
-    ...(editDocs && pricing ? [{ label: "New proposal", href: `/quotes/proposal?client=${id}` }] : []),
+    ...(editDocs && pricing ? [{ label: "New monthly quote", href: `/quotes/proposal?client=${id}` }] : []),
     ...(editCb ? [{ label: "New Closebook file", href: `/closebook/new?client=${id}` }] : []),
   ];
   const MSG: Record<string, string> = { saved: "Client saved.", statements: "Financial statements saved." };

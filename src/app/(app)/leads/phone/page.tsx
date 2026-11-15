@@ -8,9 +8,12 @@ import { taxYearFor } from "@/lib/screening/tax-year";
 import { todayToronto } from "@/lib/dates";
 import { PhoneLead, type PickClient } from "./phone-lead";
 
-// Leads › New lead by phone (front office batch, section 2).
-export default async function PhoneLeadPage() {
+// Leads › New lead by phone (front office batch, section 2). Round 19: "+ New › New quote" opens it
+// with ?form=personal (T1 quote) or ?form=company (Year-end quote) so the right questions open directly.
+export default async function PhoneLeadPage({ searchParams }: PageProps<"/leads/phone">) {
   const access = await requireAccess("leads", "edit");
+  const sp = await searchParams;
+  const initialForm = sp.form === "personal" || sp.form === "company" ? sp.form : "";
   const supabase = await createClient();
   const [qn, rules, { data: rows }] = await Promise.all([
     loadPublished("personal"), readT1Rules(),
@@ -24,7 +27,7 @@ export default async function PhoneLeadPage() {
     <>
       <Link href="/leads" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />Leads</Link>
       <PageHeader title="New lead by phone" description="Enter the caller's answers in the same questions the client sees online. Their answers count as the client's; they do not redo them online." />
-      <PhoneLead qn={qn ? forBrowser(qn) : null} rules={rules} taxYear={taxYearFor(todayToronto())} clients={clients} pricing={canView(access, "pricing")} />
+      <PhoneLead qn={qn ? forBrowser(qn) : null} rules={rules} taxYear={taxYearFor(todayToronto())} clients={clients} pricing={canView(access, "pricing")} initialForm={initialForm} key={initialForm} />
     </>
   );
 }

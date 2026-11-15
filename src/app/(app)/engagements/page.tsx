@@ -15,7 +15,7 @@ import { LetterTypeSelect } from "./letter-type-select";
 
 type Row = { id: string; title: string; type: string; status: string; fiscal_year_end: string | null; el_signed: string | null; el_version: string; came_from: string;
   client_id: string | null; client2_id: string | null };
-type Letter = { id: string; source: "studio" | "outside"; kind: string; letter_type: "corporate" | "t1" | "proposal"; status: string; status_label: string; client: string;
+type Letter = { id: string; source: "studio" | "outside"; kind: string; letter_type: "corporate" | "t1"; status: string; status_label: string; client: string;
   client_id: string | null; letter: string; came_from: string; sent_at: string | null; signed_at: string | null; valid_until: string | null; lead_id: string | null };
 type Sp = Record<string, string | string[] | undefined>;
 
@@ -24,11 +24,11 @@ const STATUS: Record<string, [string, string]> = {
   sent: ["Waiting for signature", "bg-navy-50 text-navy-700"], viewed: ["Waiting for signature", "bg-navy-50 text-navy-700"],
   signed: ["Signed", "bg-success-soft text-success"], declined: ["Declined", "bg-danger/10 text-danger"], expired: ["Expired", "bg-sand-100 text-ink-3"],
 };
-const TYPE_LABEL: Record<string, string> = { corporate: "Corporate", t1: "T1", proposal: "Proposal" };
+const TYPE_LABEL: Record<string, string> = { corporate: "Corporate", t1: "T1" };
 const PILL = "rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap";
 
 // Engagements (front office batch, section 9; round 19): two tabs. Engagements is one per client, year and
-// service, created when a quote or letter is signed. Letters (TaxDome: one list for proposals and letters,
+// service, created when a quote or letter is signed. Letters (TaxDome: one list for quotes and letters,
 // with filters) is every letter, whatever the path, including letters sent or signed outside Studio and
 // recorded on an engagement. Each person sees the letter types their role allows.
 export default async function EngagementsPage({ searchParams }: PageProps<"/engagements">) {
@@ -119,8 +119,9 @@ async function LettersTab({ sp, access }: { sp: Sp; access: Access }) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("letter_list");
   const list = (data ?? []) as Letter[];
-  // The types this person may see: their role's letter types, and proposals with Pricing. Owners see all.
-  const allowed = [...letterTypes(access), ...(access.is_owner || canView(access, "pricing") ? ["proposal" as const] : [])];
+  // The types this person may see: their role's letter types. Owners see all. Round 19: monthly quotes are
+  // not a letter type; a signed one is listed as a Corporate letter that came from "Monthly quote".
+  const allowed = letterTypes(access);
   const type = allowed.find((t) => t === sp.type) ?? "all";
   const status = sp.status === "signed" ? "signed" : sp.status === "all" ? "all" : "waiting";
   const href = (s: string, t: string) => `/engagements?tab=letters${s === "waiting" ? "" : `&status=${s}`}${t === "all" ? "" : `&type=${t}`}`;
