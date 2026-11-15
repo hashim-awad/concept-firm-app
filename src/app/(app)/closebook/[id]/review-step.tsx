@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/dates";
 import { saveChecklist } from "../actions";
+import { ChecklistAnswer } from "./checklist-answer";
 
 export type ReviewItem = { href: string; label: string; detail: string; amount?: string };
 export type ReviewGroup = { key: string; title: string; step: string; items: ReviewItem[] };
@@ -79,15 +80,9 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
                 {MUST_YES.has(i + 1) && <span className="ml-1.5 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Must be Yes</span>}</p>
               {auto.includes(i + 1) ? (
                 <p className="text-sm font-medium">{c.answer === "yes" ? "Yes" : c.answer === "no" ? "No" : "Not answered"} <span className="ml-1 rounded bg-navy-50 px-1.5 py-0.5 text-xs font-normal text-navy-700">Filled by Closebook</span></p>
-              ) : <div className="flex flex-wrap items-center gap-3 text-sm">
-                {(MAY_NA.has(i + 1) ? (["yes", "no", "na"] as const) : (["yes", "no"] as const)).map((a) => (
-                  <label key={a} className="inline-flex items-center gap-1.5"><input type="radio" name={`a_${c.key}`} value={a} defaultChecked={c.answer === a} disabled={!editable} className="h-4 w-4" />
-                    {a === "yes" ? "Yes" : a === "no" ? "No" : "Not applicable"}</label>
-                ))}
-              </div>}
-              {auto.includes(i + 1) ? <p className="text-xs text-ink-2 md:col-span-2">{c.note}</p> :
-              <label className="md:col-span-2"><span className="sr-only">Note for question {i + 1}</span>
-                <input name={`n_${c.key}`} defaultValue={c.note} maxLength={1000} disabled={!editable} className="input input-compact w-full" placeholder="Note (needed for a No)" /></label>}
+              ) : <ChecklistAnswer qkey={c.key} n={i + 1} answer={c.answer} note={c.note} editable={editable}
+                  options={MAY_NA.has(i + 1) ? (["yes", "no", "na"] as const) : (["yes", "no"] as const)} />}
+              {auto.includes(i + 1) && <p className="text-xs text-ink-2 md:col-span-2">{c.note}</p>}
             </fieldset>
           ))}
           {editable && <div className="border-t border-sand-100 pt-3"><button type="submit" className="btn-secondary">Save the checklist</button></div>}

@@ -133,21 +133,22 @@ export function SignCircles(p: SignProps) {
 // A step's title row: the name in small capitals, the circles, the Issues chip, then add note, export
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
-export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next, addNoteFor, exports, help }: {
-  n: number; name: string; paper?: string; sub?: string; sign: SignProps | null;
+export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notesOpen = 0, next, addNoteFor, exports, help }: {
+  n: number; name: string; paper?: string; sub?: string; sign: SignProps | null; notesOpen?: number;
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
   addNoteFor: { fileId: string; step: string; back: string } | null;
   exports: [string, string][]; help: ReactNode;
 }) {
-  const count = issues.problems.length + issues.waiting.length;
+  // Round 15b fix 2: the chip shows only when something is open: problems, waiting items or open notes.
+  const count = issues.problems.length + issues.waiting.length + notesOpen;
   const icon = "grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100";
   return (
     <div className="mb-3 flex min-h-[30px] flex-wrap items-center gap-2.5">
       <h2 className="text-xs font-bold tracking-[.1em] text-navy-900 uppercase">{n} · {name}{paper && <><span className="mx-1.5 text-ink-3">›</span>{paper}</>}</h2>
       {sub && <span className="text-[12.5px] text-ink-3">{sub}</span>}
       {sign && <SignCircles {...sign} size="lg" />}
-      {(count > 0 || notesPanel || next) && (
+      {count > 0 && (
         <Drawer label="Issues" title={`Issues · ${name}`} button={
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11.5px] font-bold ${count ? "border-[#efd9a6] bg-warning-soft text-warning" : "border-sand-300 bg-white text-ink-2"}`}>
             <TriangleAlert className="h-3.5 w-3.5" aria-hidden />Issues {count}</span>}>

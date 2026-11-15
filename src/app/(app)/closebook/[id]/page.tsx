@@ -376,7 +376,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const title = (
       <StepTitle n={cur.n} name={cur.name} paper={paperName} sub={paper === "revenue" ? "W/P Revenue check" : undefined} sign={SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
         issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
-        notesPanel={stepNotesList.length ? stepNotes : null} next={step === current ? next : undefined}
+        notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
         exports={exports} help={stepHelp(step, bankFile)} />
     );
