@@ -12,7 +12,7 @@ import { changedKeys, loadWordingState } from "@/lib/studio/wording-state";
 import { allTemplates, templateKeys } from "@/lib/studio/samples";
 
 type T = { k: string; name: string; group: string; basis: string; status: string };
-const GROUPS: [string, string][] = [["Engagement letters", "Engagement letters and proposals"], ["Service schedules", "Service sections in the corporate letter"], ["Shared parts", "Appendices and terms"], ["Quality control", "Quality control"], ["Planned", "Coming later"]];
+const GROUPS: [string, string][] = [["Engagement letters", "Engagement letters and proposals"], ["Service schedules", "Service sections in the corporate letter"], ["Shared parts", "Appendices and terms"], ["Quality control", "Quality control"], ["Closebook", "Closebook"], ["Planned", "Coming later"]];
 
 export default async function TemplatesPage({ searchParams }: PageProps<"/admin/templates">) {
   const access = await requireAccess("engagement_terms", "view");

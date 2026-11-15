@@ -76,7 +76,7 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
       {problems.length > 0 && <p className="text-[12.5px] text-danger">Not yet: {problems.join(" ")}</p>}
       <section aria-label="Completion checklist" className="card">
         <h2 className="font-semibold">Completion checklist</h2>
-        {trial && isOwner && <p className="mb-2"><span className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning">Draft questions: approve them in Templates</span></p>}
+        {trial && isOwner && <p className="mb-2"><Link href="/admin/templates/cbchecklist" className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning underline">Draft questions: approve them in Templates</Link></p>}
         <form action={saveChecklist} className="grid gap-0">
           <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
           {checklist.map((c, i) => (
