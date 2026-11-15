@@ -1,0 +1,41 @@
+// Round 20 (Hashim, Nov 15, 2026): small helpers shared by the statement screens (Closebook step 3, the
+// verify screen, the standalone tool and My day). Pure, so client and server components can use them.
+import type { StatementStatus } from "@/lib/statements/types";
+
+// 1234567 cents -> "12,345.67" (no currency sign, like the statement itself). Negative shows a minus.
+export function money(cents: number): string {
+  const t = (Math.abs(cents) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return cents < 0 ? `-${t}` : t;
+}
+
+// A typed amount: "12,480.15", "-12.5", "$1,000" -> cents; anything else -> null.
+export function parseMoney(v: string): number | null {
+  const s = v.replace(/[\s,$]/g, "");
+  const m = /^(-)?(\d+)(?:\.(\d{0,2}))?$/.exec(s);
+  if (!m) return null;
+  const cents = Number(m[2]) * 100 + Number((m[3] ?? "").padEnd(2, "0") || 0);
+  return m[1] ? -cents : cents;
+}
+
+// "2026-10-01" -> "Oct 1".
+export function shortDate(d: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  if (!m) return d;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString("en-CA", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+// The status pill: blue while reading, green when ready or imported, amber for a look, red when failed.
+export const STATUS_CLS: Record<StatementStatus, string> = {
+  queued: "bg-navy-50 text-navy-700",
+  reading: "bg-navy-50 text-navy-700",
+  ready: "bg-success-soft text-success",
+  needs_look: "bg-warning-soft text-warning",
+  failed: "bg-danger-soft text-danger",
+  imported: "bg-success-soft text-success",
+  discarded: "bg-sand-100 text-ink-3",
+};
+
+// An account as people say it: "Chequing ••• 4821".
+export const accountLabel = (name: string, last4: string) => `${name || "Account"}${last4 ? ` ••• ${last4}` : ""}`;
