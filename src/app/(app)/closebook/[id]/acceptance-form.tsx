@@ -55,9 +55,9 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
   const confirmLine = conf
     ? <span className={fresh || locked ? "text-success" : "text-warning"}>{fresh || locked ? "Confirmed" : "The client record changed since it was confirmed"} by {names[conf.by] ?? ""}, {short(conf.at)}</span>
     : <span className="text-warning">Not confirmed for this year</span>;
+  // A button of the acceptance form that posts to its own action (forms cannot nest).
   const confirmForm = !locked && editable && !fresh && (
-    <form action={acceptanceConfirmClient} className="mt-1.5"><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
-      <button type="submit" className="btn btn-compact">{conf ? "Confirm again" : "Confirm"}</button></form>
+    <button type="submit" formAction={acceptanceConfirmClient} formNoValidate className="btn btn-compact mt-1.5">{conf ? "Confirm again" : "Confirm"}</button>
   );
   const box = (label: string, now: string, then: string | null) => (
     <div className="mt-1.5 rounded-lg bg-navy-50/70 px-2.5 py-2 text-[12.5px]">

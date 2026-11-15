@@ -90,7 +90,7 @@ export function TaxdomeImport({ summary, onImported }: { summary?: string; onImp
         {fye && (
           <label className="mt-1 flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft px-2 py-1.5 text-[#5C3D00]">
             <input type="checkbox" checked={yearEnds.includes(p.account.taxdomeId)} onChange={(e) => tickYearEnd(p.account.taxdomeId, e.target.checked)} className="mt-0.5 h-4 w-4 flex-none accent-navy-700" />
-            <span>Year end changes from {MD(fye.from)} to {MD(fye.to)}: check deadlines and Closebook files</span>
+            <span>Year end changes from {fye.from} to {fye.to}: check deadlines and Closebook files</span>
           </label>
         )}
         {p.notes.length > 0 && <span className="block text-warning">{p.notes.join(" ")}</span>}
