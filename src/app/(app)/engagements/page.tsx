@@ -64,6 +64,7 @@ export default async function EngagementsPage({ searchParams }: PageProps<"/enga
         title={<>Engagements<InfoTip label="About Engagements">
           One engagement per client, year and service. Created automatically when a quote or letter is signed. Owners use Update for older engagements, status changes and ending an engagement.
           {" "}Letters lists every letter, whatever the path. &ldquo;Outside Studio&rdquo; means the letter was sent or signed outside Studio and recorded on its engagement. Its dates come from the engagement.
+          {" "}&ldquo;New letter&rdquo; is for clients who never go through a quote: renewals, a new service, a changed fee. A Final letter is sent for online signing; Download PDF stays in the Letter Builder.
         </InfoTip></>}
         actions={newLetter} />
       {tabs.length > 1 && <PageTabs label="Engagements" current={tab} tabs={tabs} />}
@@ -169,7 +170,6 @@ async function LettersTab({ sp, access }: { sp: Sp; access: Access }) {
           </table>
         )}
       </section>
-      <p className="mt-2 text-xs text-muted">&ldquo;New letter&rdquo; is for clients who never go through a quote: renewals, a new service, a changed fee. A Final letter is sent for online signing; Download PDF stays in the Letter Builder.</p>
     </>
   );
 }
