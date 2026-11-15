@@ -68,12 +68,14 @@ select test.check('they are reading, on their first try', (select array_agg(id::
   and (select bool_and(attempts = 1 and started_at is not null) from public.cb_statement_imports where status = 'reading'));
 select test.check('no more than 3 read at once across the firm', (select count(*) from public.statement_claim_jobs(3)) = 0);
 -- A runner stopped: j1 has been reading for 11 minutes. It goes back in the queue and is claimed again.
-update public.cb_statement_imports set started_at = now() - interval '11 minutes' where id = :'j1';
-select test.check('a stale job is claimed again, as its second try', (select array_agg(id::text) from public.statement_claim_jobs(3)) = array[:'j1']
-  and (select attempts from public.cb_statement_imports where id = :'j1') = 2);
+reset role; update public.cb_statement_imports set started_at = now() - interval '11 minutes' where id = :'j1'; set role service_role;
+-- (A function's changes show in the next statement, so each claim is checked in two steps.)
+select array_agg(id::text)::text as got from public.statement_claim_jobs(3) \gset
+select test.check('a stale job is claimed again, as its second try', :'got' = array[:'j1']::text and (select attempts from public.cb_statement_imports where id = :'j1') = 2);
 -- After 3 tries a stale job fails.
-update public.cb_statement_imports set started_at = now() - interval '11 minutes', attempts = 3 where id = :'j1';
-select test.check('after 3 tries a stale job fails and frees its slot', (select array_agg(id::text) from public.statement_claim_jobs(3)) = array[:'j4']
+reset role; update public.cb_statement_imports set started_at = now() - interval '11 minutes', attempts = 3 where id = :'j1'; set role service_role;
+select array_agg(id::text)::text as got from public.statement_claim_jobs(3) \gset
+select test.check('after 3 tries a stale job fails and frees its slot', :'got' = array[:'j4']::text
   and (select status = 'failed' and error like 'The statement could not be read after 3 tries%' from public.cb_statement_imports where id = :'j1'));
 
 -- Finish and fail.
@@ -83,15 +85,16 @@ select test.check('finish: result, status and cost', public.statement_finish_job
 select test.check('the record is kept', (select status = 'ready' and pages = 2 and model = 'claude-sonnet-5-5' and input_tokens = 12000 and output_tokens = 900 and cost_usd = 0.0363 and finished_at is not null
   from public.cb_statement_imports where id = :'j2'));
 select test.check('a job not reading is not finished twice', not public.statement_finish_job(:'j2', 'ready', '{}', '{}', 1, 'x', 1, 1, 1, null, null));
-select test.check('a passing problem: back in the queue, the cost kept', public.statement_fail_job(:'j3', 'Busy.', true, 1, 'claude-sonnet-5-5', 100, 0, 0.0002) = 'queued'
+select public.statement_fail_job(:'j3', 'Busy.', true, 1, 'claude-sonnet-5-5', 100, 0, 0.0002) as got \gset
+select test.check('a passing problem: back in the queue, the cost kept', :'got' = 'queued'
   and (select cost_usd = 0.0002 and started_at is null from public.cb_statement_imports where id = :'j3'));
-select test.check('out of tries: failed', (select count(*) from public.statement_claim_jobs(1)) = 1
-  and (select attempts from public.cb_statement_imports where id = :'j3') = 2);
-update public.cb_statement_imports set attempts = 3 where id = :'j3';
+select count(*) as got from public.statement_claim_jobs(1) \gset
+select test.check('claimed again: its second try', :'got' = '1' and (select attempts from public.cb_statement_imports where id = :'j3') = 2);
+reset role; update public.cb_statement_imports set attempts = 3 where id = :'j3'; set role service_role;
 select test.check('a passing problem on the last try fails', public.statement_fail_job(:'j3', 'Busy.', true, null, null, null, null, null) = 'failed');
-select test.check('the converted photo replaces the stored file', public.statement_finish_job(:'j4', 'needs_look', '{"bank":"","pages":1,"accounts":[]}', '{"accounts":0,"lines":0,"difference_cents":null,"review":0}',
-  1, 'claude-sonnet-5-5', 1, 1, 0, 'file/' || :'f' || '/a4.jpg', 'image/jpeg')
-  and (select media_type = 'image/jpeg' and storage_path like '%a4.jpg' from public.cb_statement_imports where id = :'j4'));
+select public.statement_finish_job(:'j4', 'needs_look', '{"bank":"","pages":1,"accounts":[]}', '{"accounts":0,"lines":0,"difference_cents":null,"review":0}',
+  1, 'claude-sonnet-5-5', 1, 1, 0, 'file/' || :'f' || '/a4.jpg', 'image/jpeg') as got \gset
+select test.check('the converted photo replaces the stored file', :'got' = 't' and (select media_type = 'image/jpeg' and storage_path like '%a4.jpg' from public.cb_statement_imports where id = :'j4'));
 reset role;
 
 -- ---------- The person: retry, edits, discard
@@ -133,7 +136,7 @@ select test.check('CSV uploads are marked csv', (select column_default from info
 -- an account that already has last digits keeps them.
 reset role;
 set role service_role;
-update public.cb_statement_imports set status = 'reading' where id = :'j3';
+reset role; update public.cb_statement_imports set status = 'reading' where id = :'j3'; set role service_role;
 select public.statement_finish_job(:'j3', 'needs_look', '{"bank":"Northern Dummy Bank","pages":1,"accounts":[]}', '{}', 1, 'claude-sonnet-5', 1, 1, 0, null, null);
 reset role;
 set role authenticated;
