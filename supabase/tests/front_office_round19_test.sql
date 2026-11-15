@@ -56,6 +56,9 @@ reset role;
 insert into public.quotes (id, kind, status, title, client_id, proposal, chosen_option, sent_at, valid_until)
 values ('00000000-0000-0000-0000-0000000000f1', 'proposal', 'sent', 'Larch Dummy Realty Inc.', '00000000-0000-0000-0000-0000000000c4',
         '{"opts":[{"name":"Option B"}]}', 0, now(), (now() at time zone 'America/Toronto')::date + 30);
+insert into public.quotes (id, kind, status, title, client_id, proposal, chosen_option, sent_at, signed_at, valid_until)
+values ('00000000-0000-0000-0000-0000000000f2', 'proposal', 'signed', 'Spruce Dummy Realty Inc.', '00000000-0000-0000-0000-0000000000c1',
+        '{"opts":[{"name":"Option A"}]}', 0, now() - interval '5 days', now() - interval '2 days', (now() at time zone 'America/Toronto')::date + 25);
 set role authenticated;
 
 select test.check('owner: every letter, Studio and outside', (select count(*) from public.letter_list()) = 5);
@@ -66,21 +69,25 @@ select test.check('signed outside Studio: signed, with both dates',
   (select source = 'outside' and status = 'signed' and sent_at::date = '2026-01-10' and signed_at::date = '2026-01-14' from public.letter_list() where id = '00000000-0000-0000-0000-0000000000e2'));
 select test.check('an engagement a Studio letter points to is not listed twice', not exists (select 1 from public.letter_list() where id = '00000000-0000-0000-0000-0000000000e3'));
 select test.check('an engagement with no letter dates is not a letter', not exists (select 1 from public.letter_list() where id = '00000000-0000-0000-0000-0000000000e4'));
-select test.check('types: T1 letter, corporate letter, proposal',
+select test.check('a monthly quote not signed yet is a quote, not a letter', not exists (select 1 from public.letter_list() where id = '00000000-0000-0000-0000-0000000000f1'));
+select test.check('a signed monthly quote is a corporate letter that came from a monthly quote',
+  (select letter_type = 'corporate' and came_from = 'Monthly quote' and status = 'signed' from public.letter_list() where id = '00000000-0000-0000-0000-0000000000f2'));
+select test.check('types: T1 letter and corporate letter only',
   (select letter_type from public.letter_list() where id = :'t1q') = 't1' and (select letter_type from public.letter_list() where id = :'corpq') = 'corporate'
-  and (select letter_type from public.letter_list() where id = '00000000-0000-0000-0000-0000000000f1') = 'proposal');
-select test.check('the badge counts every waiting letter, outside Studio too', public.letters_waiting_count() = 4);
+  and (select array_agg(distinct letter_type order by letter_type) from public.letter_list()) = array['corporate', 't1']);
+select test.check('the badge counts every waiting letter, outside Studio too', public.letters_waiting_count() = 3);
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('T1 only: the list shows T1 letters only', (select array_agg(distinct letter_type) from public.letter_list()) = array['t1']);
 select test.check('T1 only: the badge counts T1 letters only', public.letters_waiting_count() = 1);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
-select test.check('Staff (both boxes, Pricing view): corporate, T1 and proposals',
+select test.check('Staff (both boxes): corporate and T1 letters',
   (select count(*) from public.letter_list()) = 5);
 reset role;
 update public.role_permissions set level = 'none' where area_key = 'pricing' and role_id = (select id from public.roles where name = 'Staff');
 set role authenticated;
-select test.check('without Pricing, proposals do not show', not exists (select 1 from public.letter_list() where letter_type = 'proposal') and (select count(*) from public.letter_list()) = 4);
+select test.check('a signed monthly quote follows the corporate box, not Pricing', (select count(*) from public.letter_list()) = 5
+  and exists (select 1 from public.letter_list() where id = '00000000-0000-0000-0000-0000000000f2'));
 
 -- ---------- The first-time ticks run once
 reset role;

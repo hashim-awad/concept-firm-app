@@ -1,5 +1,5 @@
--- Round 19 (Hashim, Nov 15, 2026): the front office. Benchmarks: TaxDome (one list for proposals and
--- letters, with filters) and QuickBooks Online (permissions ticked on the user role).
+-- Round 19 (Hashim, Nov 15, 2026): the front office. Benchmarks: TaxDome (one list for letters, with
+-- filters) and QuickBooks Online (permissions ticked on the user role).
 --   1. Letter permissions on each role: "Can prepare T1 letters" and "Can prepare corporate letters".
 --   2. One list of letters for Engagements > Letters, the menu badge and My day, including letters sent or
 --      signed outside Studio and recorded on an engagement.
@@ -80,10 +80,11 @@ drop trigger if exists documents_letter_permission on public.documents;
 create trigger documents_letter_permission before insert on public.documents for each row execute function private.documents_letter_permission();
 
 -- ---------- 2. One list of letters
--- Every letter, whatever the path: quotes, proposals and new letters sent from Studio, and letters sent or
+-- Every engagement letter, whatever the path: quotes and new letters sent from Studio, and letters sent or
 -- signed outside Studio and recorded on an engagement ("Outside Studio": an engagement with no Studio letter
--- and a sent or signed date, or marked sent; one a Studio letter points to is not outside). Each person sees the types their role allows; proposals
--- follow the Pricing permission, as on Quotes.
+-- and a sent or signed date, or marked sent; one a Studio letter points to is not outside). Each person sees the types their role allows (T1, Corporate). Hashim, round 19: one word for offers, "quote";
+-- proposals are not a letter type. A signed monthly quote is the client's corporate letter ("Came from: Monthly quote");
+-- an unsigned one is a quote, listed in Quotes only.
 drop function if exists public.letter_list();
 create function public.letter_list()
 returns table (id uuid, source text, kind text, letter_type text, status text, status_label text, client text, client_id uuid, letter text,
@@ -92,13 +93,12 @@ language plpgsql stable security definer set search_path = '' as $$
 declare
   v_t1 boolean := private.can_letter('t1');
   v_corp boolean := private.can_letter('corporate');
-  v_prop boolean := private.can_view('pricing');
 begin
   perform private.require(private.can_view('documents') or private.can_view('leads'), 'You do not have access to engagement letters.');
   return query
   with studio as (
     select q.id, 'studio'::text as source, q.kind,
-           case q.kind when 't1' then 't1' when 'corporate' then 'corporate' when 'proposal' then 'proposal'
+           case q.kind when 't1' then 't1' when 'corporate' then 'corporate' when 'proposal' then 'corporate'
                 else case when q.details ->> 'doc_kind' = 't1_letter' then 't1' else 'corporate' end end as letter_type,
            q.status, ''::text as status_label,
            coalesce(nullif(btrim(q.company_name), ''), c.legal_name, nullif(btrim(q.title), ''),
@@ -107,17 +107,17 @@ begin
            case q.kind
              when 't1' then 'Personal tax ' || q.tax_year
              when 'corporate' then 'Year-end ' || to_char(q.year_end, 'Mon FMDD, YYYY')
-             when 'proposal' then coalesce('Monthly: ' || (q.proposal -> 'opts' -> q.chosen_option ->> 'name'), 'Monthly proposal')
+             when 'proposal' then coalesce('Monthly: ' || (q.proposal -> 'opts' -> q.chosen_option ->> 'name'), 'Monthly quote')
              else coalesce(nullif(q.details ->> 'label', ''), 'Engagement letter') end as letter,
            case q.kind
              when 'letter' then 'New letter'
-             when 'proposal' then 'Proposal' || coalesce(' (' || (q.proposal -> 'opts' -> q.chosen_option ->> 'name') || ')', '')
+             when 'proposal' then 'Monthly quote'
              else 'Quote (' || case when l.source ilike 'phone%' then 'phone' else 'website' end || ')' end as came_from,
            q.sent_at, q.signed_at, q.valid_until, q.lead_id
     from public.quotes q
     left join public.leads l on l.id = q.lead_id
     left join public.clients c on c.id = q.client_id
-    where q.status <> 'draft' and coalesce(q.details ->> 'doc_kind', '') <> 'cb_mal' and (q.kind <> 'proposal' or jsonb_typeof(q.proposal -> 'opts') = 'array')
+    where q.status <> 'draft' and coalesce(q.details ->> 'doc_kind', '') <> 'cb_mal' and (q.kind <> 'proposal' or (q.status = 'signed' and jsonb_typeof(q.proposal -> 'opts') = 'array'))
   ), outside as (
     select e.id, 'outside'::text, 'engagement'::text,
            case when e.type = 'T1 personal' then 't1' else 'corporate' end,
@@ -134,7 +134,7 @@ begin
       and not exists (select 1 from public.quotes q2 where q2.status <> 'draft' and q2.details ->> 'engagement_id' = e.id::text)
   )
   select x.* from (select * from studio union all select * from outside) x
-  where (x.letter_type = 't1' and v_t1) or (x.letter_type = 'corporate' and v_corp) or (x.letter_type = 'proposal' and v_prop)
+  where (x.letter_type = 't1' and v_t1) or (x.letter_type = 'corporate' and v_corp)
   order by coalesce(x.signed_at, x.sent_at) desc nulls last;
 end;
 $$;
