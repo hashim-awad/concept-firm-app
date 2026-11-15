@@ -33,7 +33,7 @@ export async function uploadStatements(fd: FormData): Promise<{ ok: true; ids: s
   if (files.length > MAX_FILES) return fail(`Up to ${MAX_FILES} files at a time.`);
   for (const f of files) {
     if (!mediaTypeOf(f.name, f.type)) return fail(`${f.name} is not a PDF or a photo (JPG, PNG or HEIC). Nothing was uploaded.`);
-    if (f.size > MAX_UPLOAD_BYTES) return fail(`${f.name} is over 20 MB. Split it and upload the parts. Nothing was uploaded.`);
+    if (f.size > MAX_UPLOAD_BYTES) return fail(`${f.name} is over 30 MB. Split it, or scan it again at a lower resolution. Nothing was uploaded.`);
   }
   const supabase = await createClient();
   const store = createAdminClient().storage.from(BUCKET);
@@ -54,6 +54,72 @@ export async function uploadStatements(fd: FormData): Promise<{ ok: true; ids: s
   if (!ids.length) return fail(problems.join(" ") || "Nothing was uploaded.");
   if (problems.length) return fail(`${ids.length} uploaded. ${problems.join(" ")}`);
   return { ok: true, ids };
+}
+
+// Direct upload, for files over the 4.5 MB a request to the server can carry (scans, phone photos):
+// 1. createStatementUploads makes the jobs (status "uploading", not read yet) and a signed upload link per
+//    file in the private bucket. 2. The browser sends each file with
+//    supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType }).
+// 3. confirmStatementUploads checks each file arrived (and its size), queues it and wakes the reader.
+export async function createStatementUploads(fileId: string | null, files: { name: string; size: number; type: string }[]): Promise<
+  { ok: true; bucket: string; uploads: { id: string; name: string; path: string; token: string; contentType: string }[] } | Fail> {
+  const a = await getAccess();
+  if (!a || !canView(a, "closebook")) return fail("You need Closebook to use this tool.");
+  if (fileId && !canEdit(a, "closebook")) return fail("You need Edit on Closebook to upload.");
+  if (fileId && !/^[0-9a-f-]{36}$/i.test(fileId)) return fail("File not found.");
+  if (!Array.isArray(files) || !files.length) return fail("Choose the statements to upload (PDF, or photos: JPG, PNG or HEIC).");
+  if (files.length > MAX_FILES) return fail(`Up to ${MAX_FILES} files at a time.`);
+  for (const f of files) {
+    if (!f || typeof f.name !== "string" || !mediaTypeOf(f.name, String(f.type ?? ""))) return fail(`${f?.name ?? "A file"} is not a PDF or a photo (JPG, PNG or HEIC). Nothing was uploaded.`);
+    if (!(Number(f.size) > 0)) return fail(`${f.name} is empty. Nothing was uploaded.`);
+    if (Number(f.size) > MAX_UPLOAD_BYTES) return fail(`${f.name} is over 30 MB. Split it, or scan it again at a lower resolution. Nothing was uploaded.`);
+  }
+  const supabase = await createClient();
+  const store = createAdminClient().storage.from(BUCKET);
+  const uploads: { id: string; name: string; path: string; token: string; contentType: string }[] = [];
+  for (const f of files) {
+    const type = mediaTypeOf(f.name, String(f.type ?? ""))!;
+    const id = randomUUID();
+    const path = fileId ? `file/${fileId}/${id}.${EXTENSION[type]}` : `tool/${a.staff_id}/${id}.${EXTENSION[type]}`;
+    const { error } = await supabase.rpc("statement_begin_upload", { p_id: id, p_file: fileId, p_file_name: f.name.slice(0, 200), p_media_type: type, p_storage_path: path });
+    if (error) return fail(`${f.name}: ${error.message}`);
+    const signed = await store.createSignedUploadUrl(path);
+    if (signed.error || !signed.data) return fail(`${f.name} could not be prepared for upload: ${signed.error?.message ?? "no link"}.`);
+    uploads.push({ id, name: f.name, path: signed.data.path, token: signed.data.token, contentType: type });
+  }
+  return { ok: true, bucket: BUCKET, uploads };
+}
+
+// The browser's uploads are done. Each file must be in storage, up to 30 MB; then it is queued for reading.
+// A file that did not arrive is reported by name and stays out of the list (it is removed after 24 hours).
+export async function confirmStatementUploads(ids: string[]): Promise<{ ok: true; ids: string[] } | Fail> {
+  const a = await getAccess();
+  if (!a || !canView(a, "closebook")) return fail("You need Closebook to use this tool.");
+  if (!Array.isArray(ids) || !ids.length) return fail("Nothing to confirm.");
+  const supabase = await createClient();
+  const { data } = await supabase.from("cb_statement_imports").select("id, file_id, file_name, storage_path, status").in("id", ids.slice(0, MAX_FILES));
+  const rows = (data ?? []) as { id: string; file_id: string | null; file_name: string; storage_path: string; status: string }[];
+  const store = createAdminClient().storage.from(BUCKET);
+  const done: string[] = [], problems: string[] = [];
+  for (const r of rows) {
+    if (r.status !== "uploading") { if (r.status !== "discarded") done.push(r.id); continue; }
+    const info = await store.info(r.storage_path);
+    if (info.error || !info.data) { problems.push(`${r.file_name} did not arrive. Upload it again.`); continue; }
+    if ((info.data.size ?? 0) > MAX_UPLOAD_BYTES) {
+      await supabase.rpc("statement_discard", { p_id: r.id });
+      await store.remove([r.storage_path]);
+      problems.push(`${r.file_name} is over 30 MB and was not kept.`);
+      continue;
+    }
+    const { error } = await supabase.rpc("statement_confirm_upload", { p_id: r.id });
+    if (error) { problems.push(`${r.file_name}: ${error.message}`); continue; }
+    done.push(r.id);
+  }
+  if (rows.length < ids.length) problems.push("Some uploads were not found.");
+  if (done.length) after(() => kickRunner());
+  for (const f of new Set(rows.map((r) => r.file_id).filter((x): x is string => !!x))) revalidatePath(`/closebook/${f}`);
+  if (problems.length) return fail(`${done.length ? `${done.length} uploaded. ` : ""}${problems.join(" ")}`);
+  return { ok: true, ids: done };
 }
 
 // The list, for the screen to refresh. Wakes the runner when a job waits and none is reading, so a job

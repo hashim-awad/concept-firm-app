@@ -8,12 +8,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Download, FileText, Upload } from "lucide-react";
 import type { StatementRow } from "@/lib/statements/server";
-import { discardStatement, pollStatements, retryStatement, uploadStatements } from "./actions";
+import { createClient } from "@supabase/supabase-js";
+import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements, retryStatement } from "./actions";
 import { StatementList, type PendingUpload } from "./statement-list";
+
+// The browser's own storage client, only to send files to the signed upload links the server made.
+let storage: ReturnType<typeof createClient>["storage"] | null = null;
+const browserStorage = () => (storage ??= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } }).storage);
 
 const OK_EXT = /\.(pdf|jpe?g|png|heic|heif)$/i;
 const POLL_MS = 4000;
-// Files go up a few at a time: one request per file keeps each one under the upload size limit.
+// Files go up a few at a time.
 const AT_ONCE = 3;
 
 export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen = false, standalone = false }: {
@@ -59,25 +64,38 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
     if (!good.length) return;
     const items = good.map((f, i) => ({ f, key: `${Date.now()}-${i}-${f.name}` }));
     setPending((p) => [...items.map(({ f, key }) => ({ key, name: f.name, error: null })), ...p]);
+    const failed = (key: string, error: string) => setPending((p) => p.map((x) => (x.key === key ? { ...x, error } : x)));
+    const done = (keys: string[]) => setPending((p) => p.filter((x) => !keys.includes(x.key)));
+    // Straight to storage (no server request carries the file, so large scans work on Vercel too):
+    // 1. the server makes the jobs and a signed upload link per file; 2. the browser sends each file;
+    // 3. the server checks they arrived and queues them for reading.
+    let made: Awaited<ReturnType<typeof createStatementUploads>>;
+    try { made = await createStatementUploads(fileId, good.map((f) => ({ name: f.name, size: f.size, type: f.type }))); }
+    catch { made = { ok: false, error: "The upload could not start. Check the connection and try again." }; }
+    if (!made.ok) { const e = made.error; items.forEach(({ key }) => failed(key, e)); return; }
+    const store = browserStorage().from(made.bucket);
+    const sent: { id: string; key: string }[] = [];
     let next = 0;
     const worker = async () => {
       while (next < items.length) {
-        const { f, key } = items[next++];
-        const fd = new FormData();
-        fd.append("files", f);
-        if (fileId) fd.append("fileId", fileId);
-        let error: string | null = null;
+        const i = next++;
+        const { f, key } = items[i], u = made.ok ? made.uploads[i] : null;
+        if (!u) { failed(key, "The file could not be sent. Upload it again."); continue; }
         try {
-          const r = await uploadStatements(fd);
-          if (!r.ok) error = r.error;
-        } catch {
-          error = "The file could not be sent. It may be too large: try a smaller scan, or upload it again.";
-        }
-        setPending((p) => error ? p.map((x) => (x.key === key ? { ...x, error } : x)) : p.filter((x) => x.key !== key));
-        if (!error) await poll();
+          const r = await store.uploadToSignedUrl(u.path, u.token, f, { contentType: u.contentType });
+          if (r.error) failed(key, `The file could not be sent: ${r.error.message}. Upload it again.`);
+          else sent.push({ id: u.id, key });
+        } catch { failed(key, "The file could not be sent. Check the connection and upload it again."); }
       }
     };
     await Promise.all(Array.from({ length: Math.min(AT_ONCE, items.length) }, worker));
+    if (sent.length) {
+      try {
+        const r = await confirmStatementUploads(sent.map((x) => x.id));
+        if (!r.ok) setErr(r.error);
+      } catch { setErr("The files were sent but could not be queued. Refresh the page to see them."); }
+      done(sent.map((x) => x.key));
+    }
     await poll();
   };
 

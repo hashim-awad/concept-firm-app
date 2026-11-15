@@ -38,6 +38,11 @@ create table if not exists public.cb_statement_imports (
   imported_at   timestamptz,
   imported_by   uuid references public.staff (id)
 );
+-- 'uploading': the browser is sending the file straight to storage (signed upload URL; Vercel takes request
+-- bodies up to about 4.5 MB). Not read until the upload is confirmed; left over 24 hours, it is removed.
+alter table public.cb_statement_imports drop constraint if exists cb_statement_imports_status_check;
+alter table public.cb_statement_imports add constraint cb_statement_imports_status_check
+  check (status in ('uploading', 'queued', 'reading', 'ready', 'needs_look', 'failed', 'imported', 'discarded'));
 create index if not exists cb_statement_imports_queue on public.cb_statement_imports (status, created_at);
 create index if not exists cb_statement_imports_file on public.cb_statement_imports (file_id, created_at);
 create index if not exists cb_statement_imports_creator on public.cb_statement_imports (created_by, created_at);
@@ -75,11 +80,11 @@ grant select on public.statement_tool_log to authenticated;
 -- give the same rule to a signed-in person: file/<file id>/... for Closebook, tool/<staff id>/... for the
 -- person's own standalone uploads.
 insert into storage.buckets (id, name, public) values ('statement-uploads', 'statement-uploads', false) on conflict (id) do nothing;
--- On Supabase the bucket also refuses files over 25 MB and anything but PDFs and photos (the stand-in has no such columns).
+-- On Supabase the bucket also refuses files over 30 MB and anything but PDFs and photos (the stand-in has no such columns).
 do $$
 begin
   if exists (select 1 from information_schema.columns where table_schema = 'storage' and table_name = 'buckets' and column_name = 'allowed_mime_types') then
-    update storage.buckets set file_size_limit = 25 * 1024 * 1024,
+    update storage.buckets set file_size_limit = 30 * 1024 * 1024,
            allowed_mime_types = array['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']
      where id = 'statement-uploads';
   end if;
@@ -112,8 +117,9 @@ alter table public.cb_bank_accounts add column if not exists last4 text check (l
 
 -- ---------- 5. Functions for the signed-in person
 
--- A new job. The server stores the file first, at p_storage_path, then calls this.
-create or replace function public.statement_create_job(p_id uuid, p_file uuid, p_file_name text, p_media_type text, p_storage_path text)
+-- A new job: 'queued' when the server stored the file first (statement_create_job), 'uploading' when the
+-- browser sends it straight to storage next (statement_begin_upload, then statement_confirm_upload).
+create or replace function private.statement_new_job(p_id uuid, p_file uuid, p_file_name text, p_media_type text, p_storage_path text, p_status text)
 returns uuid language plpgsql security definer set search_path = '' as $$
 declare v_file public.cb_files;
 begin
@@ -130,14 +136,25 @@ begin
   end if;
   perform private.require(p_media_type in ('application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif'), 'Upload a PDF, or a photo (JPG, PNG or HEIC).');
   perform private.require(length(btrim(coalesce(p_file_name, ''))) between 1 and 200, 'The file needs a name.');
-  insert into public.cb_statement_imports (id, file_id, created_by, file_name, media_type, storage_path)
-  values (coalesce(p_id, gen_random_uuid()), p_file, (select auth.uid()), btrim(p_file_name), p_media_type, p_storage_path)
+  perform private.require(p_status in ('queued', 'uploading'), 'Unknown status.');
+  insert into public.cb_statement_imports (id, file_id, created_by, file_name, media_type, storage_path, status)
+  values (coalesce(p_id, gen_random_uuid()), p_file, (select auth.uid()), btrim(p_file_name), p_media_type, p_storage_path, p_status)
   returning id into p_id;
-  if p_file is not null then
+  if p_file is not null and p_status = 'queued' then
     perform private.cb_log(p_file, 'statement_uploaded', 'records', 'PDF statement uploaded: ' || btrim(p_file_name));
   end if;
   return p_id;
 end;
+$$;
+
+create or replace function public.statement_create_job(p_id uuid, p_file uuid, p_file_name text, p_media_type text, p_storage_path text)
+returns uuid language sql security definer set search_path = '' as $$
+  select private.statement_new_job(p_id, p_file, p_file_name, p_media_type, p_storage_path, 'queued')
+$$;
+
+create or replace function public.statement_begin_upload(p_id uuid, p_file uuid, p_file_name text, p_media_type text, p_storage_path text)
+returns uuid language sql security definer set search_path = '' as $$
+  select private.statement_new_job(p_id, p_file, p_file_name, p_media_type, p_storage_path, 'uploading')
 $$;
 
 -- The job, if the signed-in person may change it: Closebook Edit for a file's job, the uploader for a
@@ -163,6 +180,19 @@ declare v public.cb_statement_imports := private.statement_job_for_change(p_id);
 begin
   perform private.require(v.status = 'failed', 'Only a statement that failed can be tried again.');
   update public.cb_statement_imports set status = 'queued', attempts = 0, error = null, started_at = null, finished_at = null where id = p_id;
+end;
+$$;
+
+-- The browser's upload is in storage (the server checked): the job joins the queue.
+create or replace function public.statement_confirm_upload(p_id uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v public.cb_statement_imports := private.statement_job_for_change(p_id);
+begin
+  perform private.require(v.status = 'uploading', 'This statement is already uploaded.');
+  update public.cb_statement_imports set status = 'queued' where id = p_id;
+  if v.file_id is not null then
+    perform private.cb_log(v.file_id, 'statement_uploaded', 'records', 'PDF statement uploaded: ' || v.file_name);
+  end if;
 end;
 $$;
 
@@ -340,20 +370,28 @@ begin
 end;
 $$;
 
--- Standalone jobs left over 24 hours are deleted, with a log row. Returns the stored files' paths.
+-- Standalone jobs left over 24 hours are deleted, with a log row; so are uploads never confirmed (no log
+-- row: nothing was read). Returns the stored files' paths.
 create or replace function public.statement_purge_standalone() returns setof text
 language plpgsql security definer set search_path = '' as $$
 declare v public.cb_statement_imports;
 begin
-  for v in select * from public.cb_statement_imports where file_id is null and created_at < now() - interval '24 hours' for update skip locked loop
+  for v in select * from public.cb_statement_imports where file_id is null and status <> 'uploading' and created_at < now() - interval '24 hours' for update skip locked loop
     perform private.statement_tool_logged(v, 'expired');
+    delete from public.cb_statement_imports where id = v.id;
+    return next v.storage_path;
+  end loop;
+  for v in select * from public.cb_statement_imports where status = 'uploading' and created_at < now() - interval '24 hours' for update skip locked loop
     delete from public.cb_statement_imports where id = v.id;
     return next v.storage_path;
   end loop;
 end;
 $$;
 
-revoke all on function private.statement_job_for_change(uuid), private.statement_tool_logged(public.cb_statement_imports, text) from public, anon, authenticated;
+revoke all on function private.statement_job_for_change(uuid), private.statement_tool_logged(public.cb_statement_imports, text),
+  private.statement_new_job(uuid, uuid, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.statement_begin_upload(uuid, uuid, text, text, text), public.statement_confirm_upload(uuid) from public, anon;
+grant execute on function public.statement_begin_upload(uuid, uuid, text, text, text), public.statement_confirm_upload(uuid) to authenticated;
 revoke all on function public.statement_create_job(uuid, uuid, text, text, text), public.statement_retry(uuid), public.statement_save_edits(uuid, jsonb, jsonb, text),
   public.statement_discard(uuid), public.statement_finish_standalone(uuid), public.cb_import_statement(uuid, jsonb, boolean, text), public.statement_ready_counts() from public, anon;
 grant execute on function public.statement_create_job(uuid, uuid, text, text, text), public.statement_retry(uuid), public.statement_save_edits(uuid, jsonb, jsonb, text),

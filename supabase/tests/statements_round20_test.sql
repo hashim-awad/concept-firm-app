@@ -179,5 +179,33 @@ select test.check('their log row says expired', exists (select 1 from public.sta
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('only owners read the log', (select count(*) from public.statement_tool_log) = 0);
+
+-- ---------- Direct uploads (the browser sends the file straight to storage)
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.statement_begin_upload('00000000-0000-0000-0000-0000000001c1', :'f', 'big scan.pdf', 'application/pdf', 'file/' || :'f' || '/c1.pdf') as u1 \gset
+select test.check('a direct upload starts as uploading, not yet in the file history', (select status from public.cb_statement_imports where id = :'u1') = 'uploading'
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and detail like '%big scan.pdf'));
+reset role;
+set role service_role;
+select count(*) as got from public.statement_claim_jobs(3) \gset
+select test.check('an upload not confirmed is not read', :'got' = '0');
+reset role;
+set role authenticated;
+select public.statement_confirm_upload(:'u1');
+select test.check('confirmed: in the queue and in the file history', (select status from public.cb_statement_imports where id = :'u1') = 'queued'
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_uploaded' and detail like '%big scan.pdf'));
+select test.check('confirmed only once', test.try(format($q$select public.statement_confirm_upload(%L)$q$, :'u1')) like '%already uploaded%');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
+select test.check('a viewer cannot start a direct upload into a file', test.try(format($q$select public.statement_begin_upload(null, %L, 'x.pdf', 'application/pdf', 'file/%s/x.pdf')$q$, :'f', :'f')) like '%Edit on Closebook%');
+select test.check('a viewer cannot confirm a file''s upload', test.try(format($q$select public.statement_confirm_upload(%L)$q$, :'u1')) like '%Edit on Closebook%');
+select public.statement_begin_upload('00000000-0000-0000-0000-0000000001c2', null, 'phone.heic', 'image/heic', 'tool/00000000-0000-0000-0000-00000000000b/c2.heic') as u2 \gset
+reset role;
+update public.cb_statement_imports set created_at = now() - interval '25 hours' where id = :'u2';
+set role service_role;
+select array_agg(p)::text as got from public.statement_purge_standalone() p \gset
+select test.check('an upload never confirmed is removed after 24 hours', :'got' = array['tool/00000000-0000-0000-0000-00000000000b/c2.heic']::text
+  and not exists (select 1 from public.cb_statement_imports where id = :'u2'));
+reset role;
+select test.check('no log row for it: nothing was read', (select count(*) from public.statement_tool_log where staff_id = '00000000-0000-0000-0000-00000000000b') = 1);
 reset role;
 reset request.jwt.claims;

@@ -52,7 +52,7 @@ export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove,
             <tbody>
               {pending.map((p) => (
                 <tr key={p.key}>
-                  <td className="font-medium break-all">{p.name}</td>
+                  <td className="max-w-[15rem] truncate font-medium" title={p.name}>{p.name}</td>
                   <td>{p.error
                     ? <span className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap bg-danger-soft text-danger">Failed</span>
                     : <span className="inline-flex items-center gap-1 rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-navy-700"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />Uploading</span>}</td>
@@ -64,7 +64,7 @@ export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove,
                 const reading = r.status === "queued" || r.status === "reading";
                 return (
                   <tr key={r.id} data-status={r.status}>
-                    <td className="font-medium break-all">{r.file_name}</td>
+                    <td className="max-w-[15rem] truncate font-medium" title={r.file_name}>{r.file_name}</td>
                     <td><span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${STATUS_CLS[r.status]}`}>
                       {reading && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}{STATUS_LABEL[r.status]}</span></td>
                     <td className={`text-[13px] ${r.status === "failed" ? "text-danger" : "text-ink-2"}`}>{foundText(r)}</td>

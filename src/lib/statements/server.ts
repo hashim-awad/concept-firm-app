@@ -44,7 +44,7 @@ function toRow(r: DbRow): StatementRow {
 // been reading for over 10 minutes (its runner stopped).
 export async function listStatementsWithKick(fileId: string | null): Promise<{ rows: StatementRow[]; kick: boolean }> {
   const supabase = await createClient();
-  let q = supabase.from("cb_statement_imports").select(ROW_COLUMNS).neq("status", "discarded").order("created_at", { ascending: true }).limit(500);
+  let q = supabase.from("cb_statement_imports").select(ROW_COLUMNS).not("status", "in", "(discarded,uploading)").order("created_at", { ascending: true }).limit(500);
   if (fileId) q = q.eq("file_id", fileId);
   else {
     const { data: u } = await supabase.auth.getUser();

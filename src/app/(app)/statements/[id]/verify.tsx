@@ -25,7 +25,8 @@ type Draft = { date: string; description: string; dir: "in" | "out"; amount: str
 type Dup = { accountKey: string; lineIds: string[] };
 
 // "new:<kind>:<name>" adds the account to the file on import, named as on the statement.
-const newName = (a: StatementAccount) => `${a.name || (a.kind === "card" ? "Credit card" : "Bank account")}${a.last4 ? ` ${a.last4}` : ""}`;
+// The last digits are stored with the account, so the name is the statement's own.
+const newName = (a: StatementAccount) => a.name || (a.kind === "card" ? "Credit card" : "Bank account");
 const newValue = (a: StatementAccount) => `new:${a.kind}:${newName(a)}`;
 const lastDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
 // The file's bank account whose last digits match the statement's, when exactly one does.
@@ -175,7 +176,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
     if (c.differenceCents !== 0) bits.push(`the difference is ${money(c.differenceCents)}`);
     if (c.summaryOk.in === false) bits.push(`${ws[0]} does not match the statement's total`);
     if (c.summaryOk.out === false) bits.push(`${ws[1]} does not match the statement's total`);
-    if (bits.length) problems.push(`${who}${bits.join(", ")}.`);
+    if (bits.length) { const t = bits.join(", "); problems.push(`${who}${who ? t : t[0].toUpperCase() + t.slice(1)}.`); }
     if (c.runningBreak) {
       const l = a.lines.find((x) => x.id === c.runningBreak!.lineId);
       if (l) problems.push(`${who}Running balance: the first line that does not match is ${shortDate(l.date)}.`);
@@ -262,10 +263,11 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
             </div>
             <table className="w-full text-sm">
               <tbody>{data.accounts.map((a) => {
-                const v = assign[a.key] ?? "", sug = suggest(a, file);
+                const v = assign[a.key] ?? "";
+                const mine = lastDigits(a.last4), theirs = lastDigits(file?.bankAccounts.find((b) => b.id === v)?.last4);
                 const state = v === "skip" ? ["Skipped", "text-ink-3"] : !v ? (a.lines.length ? ["Not assigned", "text-danger"] : ["No lines", "text-ink-3"])
-                  : v.startsWith("new:") ? ["New account", "text-ink-2"] : v === sug ? ["Digits match", "text-success"]
-                  : lastDigits(a.last4) && lastDigits(file?.bankAccounts.find((b) => b.id === v)?.last4) ? ["Digits differ", "text-warning"] : ["Assigned", "text-ink-2"];
+                  : v.startsWith("new:") ? ["New account", "text-ink-2"]
+                  : mine && theirs ? ((mine.endsWith(theirs) || theirs.endsWith(mine)) ? ["Digits match", "text-success"] : ["Digits differ", "text-warning"]) : ["Assigned", "text-ink-2"];
                 return (
                   <tr key={a.key} onClick={() => pickAcc(a.key)} className={`cursor-pointer border-b border-sand-100 last:border-0 ${a.key === acc?.key ? "bg-navy-50" : "hover:bg-sand-50"}`}>
                     <td className="px-4 py-2.5"><b className="font-semibold">{nameOf(a)}</b>
@@ -277,7 +279,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
                           className={`input input-compact h-9 min-w-[14rem] font-medium ${!v ? "border-danger/50 text-danger" : ""}`}>
                           <option value="">Choose an account or Skip</option>
                           {file?.bankAccounts.map((b) => <option key={b.id} value={b.id}>{accountLabel(b.name, b.last4 ?? "")}</option>)}
-                          <option value={newValue(a)}>New account: {newName(a)}</option>
+                          <option value={newValue(a)}>New account: {accountLabel(newName(a), a.last4)}</option>
                           <option value="skip">Skip: do not import</option>
                         </select>
                       </td>
@@ -413,7 +415,8 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="min-w-[16rem] flex-1 text-[12.5px] text-ink-3">{acc?.kind === "card" ? "Card: charges are added to the balance owing, payments are taken off." : "Bank account: Money in is added, Money out is taken off."} Signs are set on {closebook ? "import and " : ""}in the CSV.</span>
+            <span className={`${closebook ? "min-w-[16rem]" : "basis-full"} flex-1 text-[12.5px] text-ink-3`}>{acc?.kind === "card" ? "Card: charges are added to the balance owing, payments are taken off." : "Bank account: Money in is added, Money out is taken off."} Signs are set on {closebook ? "import and " : ""}in the CSV.{!closebook && " The file and its lines are deleted after you download them."}</span>
+            {!closebook && <span className="flex-1" />}
             {!imported && canEdit && <button type="button" onClick={discard} disabled={busy} className="btn-danger">Discard</button>}
             <button type="button" onClick={() => go(backHref)} className="btn-secondary">Back to the list</button>
             {closebook && !imported && canEdit && (
@@ -424,7 +427,6 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
               <button type="button" onClick={() => download("xlsx")} disabled={!ready || busy} className="btn h-9"><Download className="h-4 w-4" aria-hidden />Download Excel</button>
             </>}
           </div>
-          {!closebook && <p className="text-right text-[12.5px] text-ink-3">The file and its lines are deleted after you download them.</p>}
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildRequest, fromWire, INSTRUCTION, MAX_TOKENS, MODEL, moneyCents, READ_SCHEMA, ReaderError, readStatement, type StreamClient } from "../src/lib/statements/reader.ts";
 import { costUsd, US_ONLY_MULTIPLIER } from "../src/lib/statements/pricing.ts";
 import { fixtureMode, readFixture, sha256Hex } from "../src/lib/statements/fixture-reader.ts";
-import { prepare, PrepareError } from "../src/lib/statements/prepare.ts";
+import { imageSize, prepare, PrepareError, shrinkRgba } from "../src/lib/statements/prepare.ts";
 import { OUT_OF_CREDITS } from "../src/lib/statements/types.ts";
 
 const pdf = new TextEncoder().encode("%PDF-1.4 dummy");
@@ -219,4 +219,32 @@ test("getting a PDF ready: pages counted; a PDF locked with an empty password is
   await assert.rejects(prepare(new TextEncoder().encode("not a pdf"), "application/pdf"), PrepareError);
   await assert.rejects(prepare(new Uint8Array(readFileSync(new URL("card.pdf", FIX))), "application/zip"), PrepareError);
   assert.equal(process.exitCode, undefined);
+});
+
+test("photos: a small one goes as it is; a large one is scaled to 2576 pixels on its long edge and sent as JPEG", async () => {
+  const { PNG } = (await import("pngjs")) as unknown as { PNG: { sync: { write: (p: { width: number; height: number; data: Buffer }) => Buffer } } };
+  const jpeg = await import("jpeg-js");
+  const png = (w: number, h: number) => {
+    const data = Buffer.alloc(w * h * 4, 255);
+    for (let i = 3; i < data.length; i += 4) data[i] = 255;
+    return new Uint8Array(PNG.sync.write({ width: w, height: h, data }));
+  };
+  const small = png(800, 600);
+  assert.deepEqual(imageSize(small), { width: 800, height: 600 });
+  const s = await prepare(small, "image/png");
+  assert.equal(s.converted, false);
+  assert.equal(s.mediaType, "image/png");
+  const big = await prepare(png(3000, 1200), "image/png");
+  assert.equal(big.converted, true);
+  assert.equal(big.mediaType, "image/jpeg");
+  assert.deepEqual(imageSize(big.bytes), { width: 2576, height: 1030 });
+  // A JPEG's size is read from its header.
+  const j = new Uint8Array(jpeg.encode({ width: 40, height: 30, data: Buffer.alloc(40 * 30 * 4, 200) }, 80).data);
+  assert.deepEqual(imageSize(j), { width: 40, height: 30 });
+  const sj = await prepare(j, "image/jpeg");
+  assert.equal(sj.converted, false);
+  await assert.rejects(prepare(j, "image/png"), PrepareError);
+  // Over 30 MB is refused before anything else.
+  await assert.rejects(prepare(new Uint8Array(31 * 1024 * 1024), "application/pdf"), /over 30 MB/);
+  assert.equal(shrinkRgba(new Uint8Array(4 * 4 * 4).fill(255), 4, 4, 2).width, 2);
 });
