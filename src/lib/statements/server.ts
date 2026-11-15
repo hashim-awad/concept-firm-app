@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
 import type { ReadResult, StatementStatus } from "./types";
-import { statementStatus, statementSummary, type StatementSummaryRow } from "./checks";
+import { statementStatus, statementSummary, type FoundAccount, type StatementSummaryRow } from "./checks";
 import { prepare, PrepareError, type Prepared } from "./prepare";
 import { apiClient, NOT_SET_UP, ReaderError, readerErrorFrom, readStatement, type ReadOutput } from "./reader";
 import { fixtureMode, readFixture } from "./fixture-reader";
@@ -22,6 +22,7 @@ export type StatementRow = {
   id: string; file_id: string | null; file_name: string; media_type: string; status: StatementStatus; error: string | null;
   pages: number | null; cost_usd: number | null; model: string | null; created_at: string; finished_at: string | null;
   accounts: number; lines: number; difference_cents: number | null; review: number;
+  period_start: string | null; period_end: string | null; found: FoundAccount[];   // what the upload list shows
 };
 
 type DbRow = {
@@ -37,6 +38,7 @@ function toRow(r: DbRow): StatementRow {
     id: r.id, file_id: r.file_id, file_name: r.file_name, media_type: r.media_type, status: r.status, error: r.error,
     pages: r.pages, cost_usd: r.cost_usd === null ? null : Number(r.cost_usd), model: r.model, created_at: r.created_at, finished_at: r.finished_at,
     accounts: s.accounts ?? 0, lines: s.lines ?? 0, difference_cents: s.difference_cents ?? null, review: s.review ?? 0,
+    period_start: s.period_start ?? null, period_end: s.period_end ?? null, found: Array.isArray(s.found) ? s.found : [],
   };
 }
 
@@ -89,11 +91,16 @@ export async function getStatement(id: string): Promise<StatementDetail | null> 
   return { row: toRow(r), data: r.edited ?? r.result, fileUrl: signed.data?.signedUrl ?? "", file };
 }
 
-// My day: my statements ready to check or needing a look, and the files they are on.
-export async function statementsReadyCount(): Promise<{ ready: number; needsLook: number; files: { fileId: string; client: string; n: number }[] }> {
+// My day (mock 04): my statements ready to check, needing a look or failed, per Closebook file (client and
+// year end) and one row for my standalone tool jobs (fileId null). n = ready + needs a look.
+export type ReadyFile = { fileId: string | null; client: string | null; yearEnd: string | null; ready: number; needsLook: number; failed: number; n: number };
+export async function statementsReadyCount(): Promise<{ ready: number; needsLook: number; files: ReadyFile[] }> {
   const { data } = await (await createClient()).rpc("statement_ready_counts");
-  const d = (data ?? {}) as { ready?: number; needs_look?: number; files?: { fileId: string; client: string; n: number }[] };
-  return { ready: Number(d.ready ?? 0), needsLook: Number(d.needs_look ?? 0), files: d.files ?? [] };
+  type Raw = { fileId: string | null; client: string | null; yearEnd: string | null; ready?: number; needs_look?: number; failed?: number; n?: number };
+  const d = (data ?? {}) as { ready?: number; needs_look?: number; files?: Raw[] };
+  return { ready: Number(d.ready ?? 0), needsLook: Number(d.needs_look ?? 0), files: (d.files ?? []).map((f) => ({
+    fileId: f.fileId ?? null, client: f.client ?? null, yearEnd: f.yearEnd ?? null,
+    ready: Number(f.ready ?? 0), needsLook: Number(f.needs_look ?? 0), failed: Number(f.failed ?? 0), n: Number(f.n ?? 0) })) };
 }
 
 // The stored file, read with the secret key (after the row was read with the person's client).

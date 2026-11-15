@@ -39,3 +39,12 @@ export const STATUS_CLS: Record<StatementStatus, string> = {
 
 // An account as people say it: "Chequing ••• 4821".
 export const accountLabel = (name: string, last4: string) => `${name || "Account"}${last4 ? ` ••• ${last4}` : ""}`;
+
+// A statement's account name, short, as in mock 01: "Business Chequing Account" -> "Chequing".
+export function shortName(name: string, kind: "bank" | "card"): string {
+  const s = name.replace(/\b(business|account|accounts|package|plan)\b/gi, " ").replace(/\s+/g, " ").trim();
+  return s || (kind === "card" ? "Card" : "Account");
+}
+
+// "Mar 1 to Mar 31" (the year is the file's, so it is left out).
+export const periodText = (start: string | null, end: string | null) => (start && end ? `${shortDate(start)} to ${shortDate(end)}` : "");

@@ -34,7 +34,7 @@ create table if not exists public.cb_statement_imports (
   cost_usd      numeric(10, 4),
   result        jsonb,       -- as read (ReadResult)
   edited        jsonb,       -- the person's working copy; null until edited
-  summary       jsonb,       -- {accounts, lines, difference_cents, review} of edited ?? result, for the lists
+  summary       jsonb,       -- {accounts, lines, difference_cents, review, period_start, period_end, found} of edited ?? result, for the lists
   imported_at   timestamptz,
   imported_by   uuid references public.staff (id)
 );
@@ -306,17 +306,26 @@ begin
 end;
 $$;
 
--- My day: statements I uploaded that are ready to check or need a look, with the file and client.
+-- My day (mock 04): statements I uploaded that are ready to check, need a look or failed, per Closebook
+-- file (client, year end) and one row for my standalone tool jobs (fileId null). 'n' = ready + needs a look.
+-- A row is listed while it has any of the three; the card's count is ready + needs a look.
 create or replace function public.statement_ready_counts() returns jsonb
 language sql stable security definer set search_path = '' as $$
+  with mine as (
+    select i.file_id, i.status from public.cb_statement_imports i
+     where i.created_by = (select auth.uid()) and i.status in ('ready', 'needs_look', 'failed')),
+  per as (
+    select m.file_id, count(*) filter (where m.status = 'ready') as ready, count(*) filter (where m.status = 'needs_look') as needs_look,
+           count(*) filter (where m.status = 'failed') as failed
+      from mine m group by m.file_id)
   select case when not private.can_view('closebook') then jsonb_build_object('ready', 0, 'needs_look', 0, 'files', '[]'::jsonb) else jsonb_build_object(
-    'ready', (select count(*) from public.cb_statement_imports where created_by = (select auth.uid()) and status = 'ready'),
-    'needs_look', (select count(*) from public.cb_statement_imports where created_by = (select auth.uid()) and status = 'needs_look'),
-    'files', coalesce((select jsonb_agg(jsonb_build_object('fileId', x.file_id, 'client', x.client, 'n', x.n) order by x.client)
-       from (select i.file_id, c.legal_name as client, count(*) as n
-               from public.cb_statement_imports i join public.cb_files f on f.id = i.file_id join public.clients c on c.id = f.client_id
-              where i.created_by = (select auth.uid()) and i.status in ('ready', 'needs_look')
-              group by i.file_id, c.legal_name) x), '[]'::jsonb)) end
+    'ready', (select count(*) from mine where status = 'ready'),
+    'needs_look', (select count(*) from mine where status = 'needs_look'),
+    'files', coalesce((select jsonb_agg(jsonb_build_object('fileId', p.file_id, 'client', c.legal_name, 'yearEnd', f.year_end,
+                'ready', p.ready, 'needs_look', p.needs_look, 'failed', p.failed, 'n', p.ready + p.needs_look)
+                order by p.file_id is null, c.legal_name, f.year_end)
+       from per p left join public.cb_files f on f.id = p.file_id left join public.clients c on c.id = f.client_id
+      where p.file_id is null or f.id is not null), '[]'::jsonb)) end
 $$;
 
 -- ---------- 6. The runner (secret key only)
@@ -411,3 +420,13 @@ revoke all on function public.statement_claim_jobs(int), public.statement_finish
   public.statement_fail_job(uuid, text, boolean, int, text, int, int, numeric), public.statement_purge_standalone() from public, anon, authenticated;
 grant execute on function public.statement_claim_jobs(int), public.statement_finish_job(uuid, text, jsonb, jsonb, int, text, int, int, numeric, text, text),
   public.statement_fail_job(uuid, text, boolean, int, text, int, int, numeric), public.statement_purge_standalone() to service_role;
+
+-- The upload list's period and accounts found (summary.period_start, period_end, found), for rows read
+-- before the summary carried them. Only rows without them, so running this again changes nothing.
+update public.cb_statement_imports i set summary = coalesce(i.summary, '{}'::jsonb) || jsonb_build_object(
+    'period_start', (select min(a ->> 'periodStart') from jsonb_array_elements(coalesce(i.edited, i.result) -> 'accounts') a),
+    'period_end', (select max(a ->> 'periodEnd') from jsonb_array_elements(coalesce(i.edited, i.result) -> 'accounts') a),
+    'found', coalesce((select jsonb_agg(jsonb_build_object('name', coalesce(a ->> 'name', ''), 'last4', coalesce(a ->> 'last4', ''), 'kind', coalesce(a ->> 'kind', 'bank')) order by o)
+               from jsonb_array_elements(coalesce(i.edited, i.result) -> 'accounts') with ordinality x(a, o)), '[]'::jsonb))
+ where coalesce(i.edited, i.result) is not null and jsonb_typeof(coalesce(i.edited, i.result) -> 'accounts') = 'array'
+   and not coalesce(i.summary ? 'found', false);

@@ -12,6 +12,7 @@ import type { ReadResult, StatementAccount, StatementLine } from "@/lib/statemen
 import { typeLabel } from "@/lib/statements/types";
 import { checkAccount, closebookWarnings } from "@/lib/statements/checks";
 import { validDate } from "@/lib/closebook/bank-upload";
+import { formatDate } from "@/lib/dates";
 import { discardStatement, importStatement, saveStatementEdits } from "../actions";
 import { accountLabel, money, parseMoney, plural, shortDate } from "../format";
 import { StatementViewer, type Focus } from "./statement-viewer";
@@ -188,7 +189,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
     return closebookWarnings(a, { yearStart: file.yearStart, yearEnd: file.yearEnd, chosen: b ? { last4: b.last4, kind: b.kind, name: b.name } : null })
       .map((w) => (many ? `${nameOf(a)}: ${w}` : w));
   }) : [];
-  for (const a of unassigned) problems.push(`${plural(a.lines.length, `${nameOf(a)} line`)} ${a.lines.length === 1 ? "has" : "have"} no account.`);
+  for (const a of unassigned) problems.push(`Choose an account for ${nameOf(a)} (${plural(a.lines.length, "line")}), or Skip it.`);
 
   const doImport = async (confirm: boolean) => {
     if (!ready || busy) return;
@@ -360,7 +361,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
                       <tr key={l.id} data-line={l.id} onClick={() => show(l)} className={`cursor-pointer ${why ? "bg-warning-soft/70 hover:bg-warning-soft" : ""} ${focus && l.page === focus.page && l.amountCents === focus.amountCents && l.description === focus.description ? "outline-2 -outline-offset-2 outline-[#e8b100]" : ""}`}>
                         <td onClick={(e) => e.stopPropagation()}>{!readOnly && <input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)}
                           onChange={() => { const t = new Set(ticked); if (t.has(l.id)) t.delete(l.id); else t.add(l.id); setTicked(t); }} className="h-4 w-4" />}</td>
-                        <td className="whitespace-nowrap tabular-nums">{l.date}</td>
+                        <td className="whitespace-nowrap tabular-nums">{formatDate(l.date)}</td>
                         <td>{l.description}
                           {l.source !== "read" && <span className="ml-1.5 rounded bg-sand-100 px-1 text-[10.5px] font-semibold text-ink-3">{l.source === "added" ? "Added" : "Edited"}</span>}
                           {why && <div className={`text-[12px] leading-snug ${isBreak ? "text-danger" : "text-warning"}`}>{why}</div>}</td>
@@ -404,7 +405,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
               <div className="max-h-48 overflow-y-auto"><table className="w-full text-xs">
                 <thead><tr className="text-left text-ink-3"><th className="pr-2">Account</th><th className="pr-2">Date</th><th className="pr-2">Description</th><th className="text-right">Amount</th></tr></thead>
                 <tbody>{dups.flatMap((d) => { const a = data.accounts.find((x) => x.key === d.accountKey); return d.lineIds.map((lid) => { const l = a?.lines.find((x) => x.id === lid); return l && a ? (
-                  <tr key={`${d.accountKey}-${lid}`}><td className="pr-2">{nameOf(a)}</td><td className="pr-2 tabular-nums">{l.date}</td><td className="pr-2">{l.description}</td><td className="text-right tabular-nums">{money(l.amountCents)}</td></tr>) : null; }); })}</tbody>
+                  <tr key={`${d.accountKey}-${lid}`}><td className="pr-2">{nameOf(a)}</td><td className="pr-2 tabular-nums">{formatDate(l.date)}</td><td className="pr-2">{l.description}</td><td className="text-right tabular-nums">{money(l.amountCents)}</td></tr>) : null; }); })}</tbody>
               </table></div>
               <p className="text-ink-2">Most often the same statement was imported twice, or a CSV of the same month is already in. Skip the account, or if these are real (two equal charges on the same day), confirm:</p>
               <label className="flex items-center gap-2"><input type="checkbox" checked={dupOk} onChange={(e) => setDupOk(e.target.checked)} className="h-4 w-4" />These are real transactions: import them</label>

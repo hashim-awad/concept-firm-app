@@ -14,7 +14,18 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   // pdfmake (Studio's PDF library) reads its font data files at run time; load it as is.
-  serverExternalPackages: ["pdfmake"],
+  // Round 20, the statement reader's file preparation (src/lib/statements/prepare.ts): qpdf (WebAssembly)
+  // unlocks PDFs, heic-convert turns phone photos into JPEG, pngjs and jpeg-js read images. They load
+  // their own files at run time, so they are required as is from node_modules, not bundled.
+  serverExternalPackages: ["pdfmake", "@neslinesli93/qpdf-wasm", "heic-convert", "pngjs", "jpeg-js"],
+  // prepare.ts finds qpdf.wasm by its path in node_modules, which the file tracer cannot see: add it (and
+  // the photo converter) to the functions that read statements. The runner route reads them; the pages
+  // whose server actions upload, retry or poll can run the reader too when the route cannot be reached.
+  outputFileTracingIncludes: Object.fromEntries(["/api/statements/run", "/closebook/\\[id\\]", "/admin/bank-pdf", "/statements/\\[id\\]"].map((r) => [r, [
+    "./node_modules/@neslinesli93/qpdf-wasm/dist/**/*",
+    "./node_modules/heic-convert/**/*", "./node_modules/heic-decode/**/*", "./node_modules/libheif-js/**/*",
+    "./node_modules/pngjs/**/*", "./node_modules/jpeg-js/**/*",
+  ]])),
   // Signature image and the owner's Notion CSV imports are sent to server actions.
   // Vercel accepts request bodies up to 4.5 MB.
   experimental: { serverActions: { bodySizeLimit: "4mb" } },

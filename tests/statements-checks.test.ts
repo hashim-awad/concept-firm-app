@@ -120,8 +120,12 @@ test("Closebook warnings: last digits, kind, and a period outside the file's yea
 test("the list summary: the account furthest off sets the difference; review lines add up", () => {
   const off = { ...bank(), key: "a2", closing: 124900 };
   const s = statementSummary({ accounts: [bank(), off] });
-  assert.deepEqual(s, { accounts: 2, lines: 6, difference_cents: -75, review: 0 });
-  assert.deepEqual(statementSummary(null), { accounts: 0, lines: 0, difference_cents: null, review: 0 });
+  assert.deepEqual({ ...s, found: undefined, period_start: undefined, period_end: undefined }, { accounts: 2, lines: 6, difference_cents: -75, review: 0, found: undefined, period_start: undefined, period_end: undefined });
+  // The period and the accounts found, for the upload list.
+  assert.equal(s.period_start, bank().periodStart);
+  assert.equal(s.period_end, bank().periodEnd);
+  assert.deepEqual(s.found, [{ name: bank().name, last4: bank().last4, kind: "bank" }, { name: bank().name, last4: bank().last4, kind: "bank" }]);
+  assert.deepEqual(statementSummary(null), { accounts: 0, lines: 0, difference_cents: null, review: 0, period_start: null, period_end: null, found: [] });
   assert.equal(statementStatus({ accounts: [] }), "needs_look");
 });
 

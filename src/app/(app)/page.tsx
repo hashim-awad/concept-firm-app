@@ -120,9 +120,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   // Round 20: bank statements read in the background and waiting to be checked (Closebook files and the
   // standalone tool).
   const stReady = seeCb ? await statementsReadyCount() : null;
-  // The counts cover all my statements; the files list only Closebook files, so the rest are the tool's.
   const stTotal = stReady ? stReady.ready + stReady.needsLook : 0;
-  const stTool = stReady ? Math.max(0, stTotal - stReady.files.reduce((n, x) => n + x.n, 0)) : 0;
   const noYearEnd = t2.filter((c) => !/^\d{2}-\d{2}$/.test(c.year_end_md));
 
   return (
@@ -131,23 +129,25 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {!seeDocs && !seeClients && !seeLeads && !seeCb ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* Round 20 (mock 04): first while any statement waits to be checked; hidden when none. */}
-          {stReady && stTotal > 0 && (
+          {/* Round 20 (mock 04): first while any statement is ready, needs a look or failed; hidden when none. */}
+          {stReady && stReady.files.length > 0 && (
             <Card title="Statements ready to check" count={stTotal}
               info={<>Bank and card statements you uploaded as PDF or photos are read in the background. Each one shows here once it is read, until it is imported (Closebook) or downloaded (Bank statement PDF to CSV).</>}>
               <ul className="grid gap-2 text-sm">
-                {stReady.files.map((x) => (
-                  <li key={x.fileId} className="flex flex-wrap items-baseline gap-x-2">
-                    <Link href={`/closebook/${x.fileId}?step=records`} className="font-medium text-navy-700 hover:underline">{x.client}</Link>
-                    <span className="text-muted">{x.n} ready to check</span>
-                  </li>
-                ))}
-                {stTool > 0 && (
-                  <li className="flex flex-wrap items-baseline gap-x-2">
-                    <Link href="/admin/bank-pdf" className="font-medium text-navy-700 hover:underline">Bank statement PDF to CSV</Link>
-                    <span className="text-muted">your {stTool === 1 ? "statement is" : `${stTool} statements are`} ready to check and download</span>
-                  </li>
-                )}
+                {stReady.files.map((x) => {
+                  const parts = [x.ready && `${x.ready} ready`, x.needsLook && `${x.needsLook} need${x.needsLook === 1 ? "s" : ""} a look`, x.failed && `${x.failed} failed`].filter(Boolean).join(", ");
+                  return x.fileId ? (
+                    <li key={x.fileId} className="flex flex-wrap items-baseline gap-x-2">
+                      <Link href={`/closebook/${x.fileId}?step=records`} className="font-medium text-navy-700 hover:underline">{x.client}{x.yearEnd ? ` ${x.yearEnd.slice(0, 4)}` : ""}</Link>
+                      <span className="text-muted">{parts}</span>
+                    </li>
+                  ) : (
+                    <li key="tool" className="flex flex-wrap items-baseline gap-x-2">
+                      <Link href="/admin/bank-pdf" className="font-medium text-navy-700 hover:underline">Bank statement PDF to CSV</Link>
+                      <span className="text-muted">{x.ready && !x.needsLook && !x.failed ? `your ${x.ready === 1 ? "statement is" : `${x.ready} statements are`} ready to download` : `your statements: ${parts}`}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           )}

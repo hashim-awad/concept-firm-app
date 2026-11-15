@@ -160,7 +160,14 @@ select test.check('My day counts my statements ready or needing a look', public.
 reset role;
 update public.cb_statement_imports set status = 'ready' where id = :'t1';
 set role authenticated;
-select test.check('My day: the standalone one counts; no file listed for it', public.statement_ready_counts() ->> 'ready' = '1' and public.statement_ready_counts() -> 'files' = '[]'::jsonb);
+select test.check('My day: the standalone one counts, on its own row with no file, listed last',
+  public.statement_ready_counts() ->> 'ready' = '1'
+  and (select (e ->> 'ready')::int = 1 and (e ->> 'n')::int = 1 and e ->> 'client' is null
+         from jsonb_array_elements(public.statement_ready_counts() -> 'files') e where e ->> 'fileId' is null)
+  and public.statement_ready_counts() -> 'files' -> -1 ->> 'fileId' is null);
+select test.check('My day: a file row has the client, the year end and its failed statements',
+  (select e ->> 'client' is not null and e ->> 'yearEnd' = '2026-12-31' and (e ->> 'failed')::int >= 1
+     from jsonb_array_elements(public.statement_ready_counts() -> 'files') e where e ->> 'fileId' = :'f'));
 
 -- ---------- The standalone tool
 select test.check('a standalone job cannot be imported', test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'t1', '[' || :'acc1' || ']')) like '%does not belong to a file%');

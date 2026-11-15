@@ -58,8 +58,9 @@ export function AppSidebar({ access, counts }: { access: SidebarAccess; counts: 
     (access.documents || access.vault) && item("/documents", "Documents", <FolderLock key="i" />),
   ].filter(Boolean) as NavItem[];
   const groups = [{ label: "", items }];
-  // Inside a Closebook file the menu folds to icons (round 15).
-  const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path);
+  // Inside a Closebook file the menu folds to icons (round 15); so does a statement's verify screen
+  // (round 20), which needs the width for the statement beside its lines.
+  const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path) || /^\/statements\/[0-9a-f-]{36}$/.test(path);
   const sidebar = <Sidebar groups={groups} />;
   const desktop = inFile ? <Sidebar compact groups={groups} /> : sidebar;
 

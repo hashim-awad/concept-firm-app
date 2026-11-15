@@ -106,18 +106,25 @@ export function closebookWarnings(acc: StatementAccount, ctx: CloseBookContext):
   return out;
 }
 
-// The figures the lists show for a whole statement: the account furthest off sets the difference.
-export type StatementSummaryRow = { accounts: number; lines: number; difference_cents: number | null; review: number };
+// The figures the lists show for a whole statement: the account furthest off sets the difference. The
+// period (earliest start, latest end) and each account found (name, last digits, kind) let the upload list
+// say what was found, as in mock 01: "Mar 1 to Mar 31 · Chequing ••• 4821".
+export type FoundAccount = { name: string; last4: string; kind: StatementAccount["kind"] };
+export type StatementSummaryRow = { accounts: number; lines: number; difference_cents: number | null; review: number;
+  period_start: string | null; period_end: string | null; found: FoundAccount[] };
 export function statementSummary(data: { accounts: StatementAccount[] } | null): StatementSummaryRow {
-  if (!data) return { accounts: 0, lines: 0, difference_cents: null, review: 0 };
-  let diff: number | null = null, review = 0, lines = 0;
+  if (!data) return { accounts: 0, lines: 0, difference_cents: null, review: 0, period_start: null, period_end: null, found: [] };
+  let diff: number | null = null, review = 0, lines = 0, start: string | null = null, end: string | null = null;
   for (const a of data.accounts) {
     const c = checkAccount(a);
     if (diff === null || Math.abs(c.differenceCents) > Math.abs(diff)) diff = c.differenceCents;
     review += c.review.length;
     lines += a.lines.length;
+    if (a.periodStart && (start === null || a.periodStart < start)) start = a.periodStart;
+    if (a.periodEnd && (end === null || a.periodEnd > end)) end = a.periodEnd;
   }
-  return { accounts: data.accounts.length, lines, difference_cents: diff, review };
+  return { accounts: data.accounts.length, lines, difference_cents: diff, review, period_start: start, period_end: end,
+    found: data.accounts.map((a) => ({ name: a.name, last4: a.last4, kind: a.kind })) };
 }
 
 // All good: every account ties and nothing is in For review. A statement with no lines at all needs a look.

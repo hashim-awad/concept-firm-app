@@ -6,23 +6,24 @@ import Link from "next/link";
 import { Loader2, RotateCcw, X } from "lucide-react";
 import type { StatementRow } from "@/lib/statements/server";
 import { STATUS_LABEL } from "@/lib/statements/types";
-import { money, plural, STATUS_CLS } from "./format";
+import { accountLabel, money, periodText, plural, shortName, STATUS_CLS } from "./format";
 
 export type PendingUpload = { key: string; name: string; error: string | null };
 
-// What the reader found, in one line. The row carries counts only, so the line says those.
+// What the reader found, in one line (mock 01): "Mar 1 to Mar 31 · Chequing ••• 4821 · 38 lines".
 export function foundText(r: StatementRow): string {
-  const pages = r.pages ? plural(r.pages, "page") : "";
-  const accts = r.accounts > 1 ? `${r.accounts} accounts found` : "";
   const join = (...p: string[]) => p.filter(Boolean).join(" · ");
+  const period = periodText(r.period_start, r.period_end);
+  const names = r.found.map((a) => accountLabel(shortName(a.name, a.kind), a.last4));
+  const accts = names.length > 1 ? `${names.length} accounts found (${names.join(", ")})` : names[0] ?? (r.accounts > 1 ? `${r.accounts} accounts found` : "");
   switch (r.status) {
     case "queued": return "Waiting its turn";
     case "reading": return r.pages ? `Reading ${plural(r.pages, "page")}` : "Reading";
     case "failed": return r.error || "The statement could not be read.";
-    case "imported": return join(pages, `${plural(r.lines, "line")} imported`);
-    case "needs_look": return join(pages, accts, r.review ? `${plural(r.review, "line")} for review` : "",
-      r.difference_cents ? `difference ${money(r.difference_cents)}` : "", plural(r.lines, "line"));
-    default: return join(pages, accts, plural(r.lines, "line"));
+    case "imported": return join(period, `${plural(r.lines, "line")} imported`);
+    case "needs_look": return join(period, names.length > 1 ? accts : "", r.review ? `${plural(r.review, "line")} for review` : "",
+      r.difference_cents ? `difference ${money(r.difference_cents)}` : "", names.length > 1 ? "" : plural(r.lines, "line"));
+    default: return join(period, accts, names.length > 1 ? "" : plural(r.lines, "line"));
   }
 }
 
