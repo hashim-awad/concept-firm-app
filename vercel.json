@@ -9,6 +9,10 @@
       "schedule": "17 7 * * *"
     },
     {
+      "path": "/api/cron/purge-statements",
+      "schedule": "23 * * * *"
+    },
+    {
       "path": "/api/cron/lead-alerts",
       "schedule": "*/5 * * * *"
     }

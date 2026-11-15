@@ -213,8 +213,8 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
     a.href = `/api/statements/${id}/download?format=${format}`;
     a.download = "";
     document.body.appendChild(a); a.click(); a.remove();
-    // The statement is deleted after the download: back to the list once it has started.
-    setTimeout(() => { router.push(backHref); router.refresh(); }, 2500);
+    // The statement stays after a download (fix, Hashim, Nov 15, 2026): download the other format, or again.
+    setBusy(false);
   };
   const discard = async () => {
     if (!confirm(closebook ? "Discard this statement? The file and what was read are deleted. Nothing is imported." : "Discard this statement? The file and what was read are deleted.")) return;
@@ -416,7 +416,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`${closebook ? "min-w-[16rem]" : "basis-full"} flex-1 text-[12.5px] text-ink-3`}>{acc?.kind === "card" ? "Card: charges are added to the balance owing, payments are taken off." : "Bank account: Money in is added, Money out is taken off."} Signs are set on {closebook ? "import and " : ""}in the CSV.{!closebook && " The file and its lines are deleted after you download them."}</span>
+            <span className={`${closebook ? "min-w-[16rem]" : "basis-full"} flex-1 text-[12.5px] text-ink-3`}>{acc?.kind === "card" ? "Card: charges are added to the balance owing, payments are taken off." : "Bank account: Money in is added, Money out is taken off."} Signs are set on {closebook ? "import and " : ""}in the CSV.{!closebook && " Statements are deleted when you click Done, or after 24 hours."}</span>
             {!closebook && <span className="flex-1" />}
             {!imported && canEdit && <button type="button" onClick={discard} disabled={busy} className="btn-danger">Discard</button>}
             <button type="button" onClick={() => go(backHref)} className="btn-secondary">Back to the list</button>

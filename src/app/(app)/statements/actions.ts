@@ -156,6 +156,17 @@ export async function discardStatement(id: string): Promise<{ ok: true } | Fail>
   return { ok: true };
 }
 
+// Bank statement PDF to CSV, "Done" (fix, Hashim, Nov 15, 2026): deletes every statement on the person's
+// page at once. The log keeps only who, when, pages and cost.
+export async function doneStatements(): Promise<{ ok: true; deleted: number } | Fail> {
+  const { data, error } = await (await createClient()).rpc("statement_done_standalone");
+  if (error) return fail(error.message);
+  const paths = (data ?? []) as string[];
+  await removeStored(paths);
+  revalidatePath("/admin/bank-pdf");
+  return { ok: true, deleted: paths.length };
+}
+
 // The verify screen's working copy. The status follows the checks: all good is "Ready to check".
 export async function saveStatementEdits(id: string, data: ReadResult): Promise<{ ok: true; status: "ready" | "needs_look" } | Fail> {
   const problem = resultProblem(data);
