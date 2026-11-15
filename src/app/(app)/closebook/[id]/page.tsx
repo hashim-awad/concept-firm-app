@@ -38,7 +38,7 @@ import { GstSection } from "./gst-section";
 import { gstFor } from "@/lib/closebook/gst-server";
 import type { Line } from "@/lib/closebook/gst-return";
 import { loadClose } from "@/lib/closebook/close-server";
-import { OpeningS125 } from "./opening-s125";
+import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
@@ -59,7 +59,6 @@ import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 import { InfoTip } from "@/components/ds/info-tip";
 import { AcceptanceForm } from "./acceptance-form";
 import { emptyAcc, type AccRow, type Statements } from "@/lib/closebook/acceptance";
-import { setFirstYear } from "../round16-actions";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
@@ -173,33 +172,28 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   let body: React.ReactNode;
   let pk: PackageData | null = null;
   if (step === "opening") {
-    // Round 16: a company with no prior T2 goes through step 2 as "First year: no opening balances"; the
-    // reviewer confirms it by signing step 2. Offered only when the client has no earlier file.
-    const { count: earlier } = await supabase.from("cb_files").select("id", { count: "exact", head: true }).eq("client_id", file.client_id).lt("year_end", file.year_end);
-    const fyEdit = editable && file.phase !== "locked";
-    const fyForm = (on: boolean, label: string, cls: string) => (
-      <form action={setFirstYear}><input type="hidden" name="file_id" value={id} /><input type="hidden" name="back" value={href("opening")} /><input type="hidden" name="on" value={on ? "1" : "0"} />
-        <button type="submit" className={cls}>{label}</button></form>
-    );
-    const firstYearCard = file.first_year ? (
-      <section aria-label="First year" className="mb-3.5 flex flex-wrap items-center gap-3 rounded-[10px] border border-sand-200 bg-white px-3.5 py-3 text-[13px]">
-        <span className="rounded bg-navy-50 px-2 py-0.5 text-[12px] font-semibold text-navy-700">First year: no opening balances</span>
-        <InfoTip>The company has no prior T2. Last year&rsquo;s columns stay empty and the statements have no prior-year column. The reviewer confirms it by signing step 2.</InfoTip>
-        <span className="flex-1" />{fyEdit && fyForm(false, "Take back", "btn-secondary btn-compact")}
-      </section>
-    ) : !earlier && fyEdit ? (
-      <div className="mb-3 flex items-center gap-2">{fyForm(true, "First year: no opening balances", "btn-secondary btn-compact")}
-        <InfoTip>For a company with no prior T2. There is nothing to enter on this step; the reviewer confirms it by signing step 2.</InfoTip></div>
-    ) : null;
-    if (file.first_year) body = firstYearCard;
-    else if (!bankFile) body = <>{firstYearCard}{soon("Last year's balances come with the trial balance import, in its last-year column.")}</>;
+    // Round 21 (Hashim, Nov 15, 2026, item 7): one question first, worded as on the T2 (line 070):
+    // "Is this the first year of filing after incorporation?" Yes: no opening balances, the step is one
+    // confirmation the reviewer signs. No: last year's T2 (Schedule 100 and 125). Never both. Unanswered
+    // until chosen, unless the file already has last year's figures or an earlier file exists (then No).
+    const [{ count: earlier }, { data: ffs }, { data: ob }, { data: s125 }] = await Promise.all([
+      supabase.from("cb_files").select("id", { count: "exact", head: true }).eq("client_id", file.client_id).lt("year_end", file.year_end),
+      supabase.from("cb_file_fs").select("first_year").eq("file_id", id).maybeSingle(),
+      supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", id).order("code"),
+      supabase.from("cb_opening_s125").select("code, amount").eq("file_id", id).order("code"),
+    ]);
+    const hasData = (ob ?? []).length > 0 || (s125 ?? []).length > 0 || !!file.opening_source || file.opening_re_stated != null;
+    const answer: "yes" | "no" | null = file.first_year ? "yes" : ffs?.first_year === false || !!earlier || hasData || (!bankFile && accounts.some((a) => Number(a.last_year) !== 0)) ? "no" : null;
+    const question = <FirstYearQuestion fileId={id} back={href("opening")} answer={answer} earlier={!!earlier} hasData={hasData} editable={editable && file.phase !== "locked"} />;
+    if (answer !== "no") body = question;
+    else if (!bankFile) body = <>{question}{soon("Last year's balances come with the trial balance import, in its last-year column.")}</>;
     else {
       const { info } = await gifiCodeInfo(supabase);
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", id).order("code");
-      // GIFI lines with more than one standard chart account: the row shows the choice (QuickBooks practice).
+      // Each GIFI line's standard chart accounts, in chart order (3660 takes those on 3600): the Account
+      // column's choice on every Schedule 100 line (item 13).
       const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
       const onCode = new Map<string, { number: string; name: string }[]>();
       for (const c of (ch ?? []) as { number: string; name: string; line_no: string | null }[]) {
@@ -207,7 +201,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         const code = c.line_no.slice(0, 4);
         for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
       }
-      // Every line's standard chart accounts: a choice in the Account column when there is more than one.
       // A bank or card line lists the file's own bank accounts instead (round 4b), so last year's balance
       // sits on the account the statements post to.
       const { data: bas } = await supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number");
@@ -221,20 +214,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[])
         .filter((o) => o.chart_account || o.bank_account).map((o) => [o.code, o.bank_account ? `bank:${o.bank_account}` : o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
-      body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
-        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
+      const pairs = (rows: { code: string; amount: number }[] | null) => (rows ?? []).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number]);
+      // Item 8: one place for last year's income statement, the Schedule 125 tab. A Schedule 125 saved in
+      // the old separate box (cb_opening_s125) before Nov 15 shows in the tab until saved with the rest.
+      body = <>{question}<OpeningSchedule fileId={id} codes={codes} initial={pairs(ob as { code: string; amount: number }[] | null)} s125Before={pairs(s125 as { code: string; amount: number }[] | null)}
+        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""} savedAt={file.opening_set_at ?? null}
         pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
         signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
-        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
-      // Round 11: last year's Schedule 125, for step 9's prior-year column. Rows: the codes saved, and the
-      // revenue and expense codes this year's accounts post to.
-      const { data: s125 } = await supabase.from("cb_opening_s125").select("code, amount").eq("file_id", id);
-      const { data: ffs } = await supabase.from("cb_file_fs").select("first_year").eq("file_id", id).maybeSingle();
-      const pl = new Map([...info.entries()].filter(([, i]) => i.type === "Revenue" || i.type === "Expense"));
-      const used = new Set(accounts.map((a) => a.line_no?.slice(0, 4) ?? "").filter((c) => pl.has(c)));
-      const saved = new Map(((s125 ?? []) as { code: string; amount: number }[]).map((x) => [x.code, Number(x.amount)]));
-      const rows = [...new Set([...used, ...saved.keys()])].sort().map((c) => ({ code: c, name: gname.get(c) ?? pl.get(c)?.name ?? c, amount: saved.get(c) ?? null }));
-      body = <>{firstYearCard}{body}<OpeningS125 fileId={id} rows={rows} editable={editable && file.phase !== "locked"} needed={!saved.size && (ob ?? []).length > 0 && ffs?.first_year !== true} /></>;
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} /></>;
     }
   } else if (step === "setup" && pickPaper(stepPapers("setup", { full: true, shareholders: false, ownerPaid: false, gst: false })) === "acceptance") {
     // Round 16: the acceptance and continuance record (CSRS 4200), rolled forward from the client's last file.
@@ -250,7 +237,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const norm = (r: Record<string, unknown> | null): AccRow | null => (r ? { ...emptyAcc(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), users: (r.users as AccRow["users"]) ?? [], answered: (r.answered as AccRow["answered"]) ?? {}, confirmed: (r.confirmed as AccRow["confirmed"]) ?? null } : null);
     const client: Statements = { basis: (cl?.basis as string) ?? "standard", custom_basis_wording: (cl?.custom_basis_wording as string) ?? "", users: ((cl?.statement_users as Statements["users"]) ?? []) };
     body = <AcceptanceForm fileId={id} clientId={file.client_id} back={`${href("setup")}&paper=acceptance`} row={norm(accRow)} last={norm(lastRow)} lastYear={prior ? formatDate(prior.year_end as string) : null}
-      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} me={access.staff_id ?? ""} />;
+      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} me={access.staff_id ?? ""} signed={!!review.status.setup?.prepared_at} />;
   } else if (step === "setup") {
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (

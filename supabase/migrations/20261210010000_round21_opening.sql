@@ -288,6 +288,7 @@ alter table public.cb_opening_balances disable trigger cb_changed_opening;
 update public.cb_opening_balances o set chart_account = (private.cb_chart_on_code(o.code))[1]
  where o.chart_account is null and o.bank_account is null and cardinality(private.cb_chart_on_code(o.code)) = 1
    and coalesce(private.cb_gifi_type(o.code), '') not in ('Revenue', 'Expense')
+   and exists (select 1 from public.cb_files f where f.id = o.file_id and f.phase <> 'locked')   -- a locked file stays as delivered
    and not exists (select 1 from public.cb_bank_accounts b join public.cb_chart_accounts c on c.number = b.chart_account
                     where b.file_id = o.file_id and left(c.line_no, 4) = o.code);
 alter table public.cb_opening_balances enable trigger cb_changed_opening;
