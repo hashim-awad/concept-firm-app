@@ -7,14 +7,55 @@ export type CbFileRow = { id: string; client_id: string; year_start: string; yea
   preparer_id: string; reviewer_id: string; phase: string; created_at: string; setup?: Record<string, unknown>; opening_source?: string | null; opening_re_stated?: number | null; opening_set_at?: string | null;
   opening_note?: string; opening_pdf?: string | null; opening_ni_typed?: number | null; opening_signed_by?: string | null; opening_signed_at?: string | null; first_year?: boolean };
 
-export const FILE_TYPE: Record<string, string> = { monthly: "Monthly", full: "Full" };
-export const BOOKS: Record<string, string> = {
-  concept_qbo: "Concept's QuickBooks (monthly client)",
-  client_software: "The client's own QuickBooks or Xero",
-  bookkeeper: "A bookkeeper's file",
-  statements: "Bank and card statements",
-  paper: "Paper records, after data entry",
+// Data source (CaseWare Cloud's term; Hashim, Nov 15, 2026): one question on the New year-end file
+// screen, shown with the same words wherever it appears (file header, step 1, My files). It maps to the
+// stored file_type and books, which drive how the file works; those values never show on screen.
+// "Paper records" and "A bookkeeper's file" are no longer offered: older files with them read as their
+// nearest choice (paper as statements; a bookkeeper's file as the client's books).
+export type DataSource = "ours" | "client" | "statements";
+export const DATA_SOURCE: Record<DataSource, { label: string; line: string; file_type: "monthly" | "full"; books: string }> = {
+  ours: { label: "Our QuickBooks file (monthly client)", line: "We book the entries in QuickBooks and import the final trial balance.", file_type: "monthly", books: "concept_qbo" },
+  client: { label: "The client's books", line: "Kept by the client or their bookkeeper. We import their trial balance, and Closebook lists our entries for them to book.", file_type: "full", books: "client_software" },
+  statements: { label: "Bank and card statements", line: "The client has no books. We upload the statements and code each line.", file_type: "full", books: "statements" },
 };
+// The monthly route (our QuickBooks file) is not built end to end yet: no "bank and cards reconciled in
+// QuickBooks" confirmation, and step 8's T2 tie-out refuses monthly files. Hidden until it is.
+export const MONTHLY_READY = false;
+export function dataSourceOf(f: { file_type: string; books: string }): DataSource {
+  if (f.file_type === "monthly") return "ours";
+  return f.books === "statements" || f.books === "paper" ? "statements" : "client";
+}
+export const dataSourceLabel = (f: { file_type: string; books: string }) => DATA_SOURCE[dataSourceOf(f)].label;
+
+// The year: the start is the day after the previous year end. Dates as YYYY-MM-DD, in UTC.
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const utc = (s: string) => new Date(`${s}T00:00:00Z`);
+const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+// The same day a number of months on, kept inside the month (Jan 31 + 1 month is Feb 28 or 29).
+export function addMonths(date: string, n: number): string {
+  const d = utc(date), y = d.getUTCFullYear(), m = d.getUTCMonth() + n;
+  const ty = y + Math.floor(m / 12), tm = ((m % 12) + 12) % 12;
+  return iso(new Date(Date.UTC(ty, tm, Math.min(d.getUTCDate(), daysIn(ty, tm)))));
+}
+export const nextDay = (date: string) => iso(new Date(utc(date).getTime() + 86_400_000));
+// A full year's start for a year end: the day after the same date a year before (month ends stay month ends).
+export function fullYearStart(yearEnd: string): string {
+  const d = utc(yearEnd), y = d.getUTCFullYear() - 1, m = d.getUTCMonth();
+  const lastDay = d.getUTCDate() === daysIn(d.getUTCFullYear(), m);
+  return nextDay(iso(new Date(Date.UTC(y, m, lastDay ? daysIn(y, m) : Math.min(d.getUTCDate(), daysIn(y, m))))));
+}
+// Whole months and days from start to end (both included), and whether it is a full 12-month year.
+export function yearPeriod(start: string, end: string): { months: number; days: number; full: boolean; text: string } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return { months: 0, days: 0, full: false, text: "check the dates" };
+  const after = nextDay(end);
+  let months = 0;
+  while (addMonths(start, months + 1) <= after) months++;
+  const days = Math.round((utc(after).getTime() - utc(addMonths(start, months)).getTime()) / 86_400_000);
+  const full = start === fullYearStart(end);
+  const part = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const text = full ? "12 months" : [months ? part(months, "month") : "", days ? part(days, "day") : ""].filter(Boolean).join(" ");
+  return { months, days, full, text };
+}
 export const PHASES = ["planning", "fieldwork", "conclusion"] as const;
 export const PHASE_NAME: Record<string, string> = { planning: "Planning", fieldwork: "Fieldwork", conclusion: "Conclusion", locked: "Locked" };
 

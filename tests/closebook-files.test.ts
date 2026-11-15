@@ -25,3 +25,36 @@ test("phases open in order; the Next line names the action and the person", () =
   assert.equal(nextLine(docs, { preparer: "Asmaa", reviewer: "Hashim" }, 2).text, "Next: reviewer, 2 review notes open");
   assert.equal(currentPhase(docs.map((d) => ({ ...d, status: "signed" as const }))), "locked");
 });
+
+// New year-end file (Hashim, Nov 15, 2026): the year line and the data source.
+import { DATA_SOURCE, MONTHLY_READY, addMonths, dataSourceLabel, dataSourceOf, fullYearStart, yearPeriod } from "../src/lib/closebook/files.ts";
+
+test("year: a full year starts the day after the same date last year", () => {
+  assert.equal(fullYearStart("2026-08-31"), "2025-09-01");
+  assert.equal(fullYearStart("2026-12-31"), "2026-01-01");
+  assert.equal(fullYearStart("2026-02-28"), "2025-03-01");
+  assert.equal(fullYearStart("2028-02-29"), "2027-03-01");
+  assert.equal(fullYearStart("2026-06-15"), "2025-06-16");
+});
+
+test("year: 12 months, a short first year, and months with days", () => {
+  assert.deepEqual(yearPeriod("2025-09-01", "2026-08-31"), { months: 12, days: 0, full: true, text: "12 months" });
+  assert.equal(yearPeriod("2026-01-01", "2026-12-31").text, "12 months");
+  assert.deepEqual(yearPeriod("2026-05-15", "2026-12-31"), { months: 7, days: 17, full: false, text: "7 months 17 days" });
+  assert.equal(yearPeriod("2026-06-01", "2026-12-31").text, "7 months");
+  assert.equal(yearPeriod("2026-12-01", "2026-12-01").text, "1 day");
+  assert.equal(yearPeriod("2027-01-01", "2026-12-31").text, "check the dates");
+  assert.equal(addMonths("2026-01-31", 1), "2026-02-28");
+});
+
+test("data source: three choices, mapped to how the file works; Full and Monthly never shown", () => {
+  assert.equal(DATA_SOURCE.client.file_type, "full");
+  assert.equal(DATA_SOURCE.client.books, "client_software");
+  assert.equal(DATA_SOURCE.statements.books, "statements");
+  assert.equal(DATA_SOURCE.ours.file_type, "monthly");
+  assert.equal(dataSourceOf({ file_type: "full", books: "bookkeeper" }), "client");
+  assert.equal(dataSourceOf({ file_type: "full", books: "paper" }), "statements");
+  assert.equal(dataSourceLabel({ file_type: "monthly", books: "concept_qbo" }), "Our QuickBooks file (monthly client)");
+  for (const v of Object.values(DATA_SOURCE)) assert.ok(!/\b(Full|Monthly)\b/.test(v.label + v.line));
+  assert.equal(MONTHLY_READY, false, "the monthly route stays hidden until it works end to end");
+});

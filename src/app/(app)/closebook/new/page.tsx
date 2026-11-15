@@ -2,10 +2,12 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader, Notice } from "@/components/ui";
+import { Notice } from "@/components/ui";
+import { PageHeader } from "@/components/ds/primitives";
 import { messageFrom } from "@/lib/messages";
 import { todayToronto } from "@/lib/dates";
-import { BOOKS } from "@/lib/closebook/files";
+import { DATA_SOURCE, MONTHLY_READY, fullYearStart, nextDay, type DataSource } from "@/lib/closebook/files";
+import { YearLine } from "./year-line";
 import { createFile } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
 
@@ -19,8 +21,9 @@ function lastYearEnd(md: string, today: string): string {
   return fix(y) <= today ? fix(y) : fix(y - 1);
 }
 
-// All files, New file (Phase 3 batch, section 1): 1 pick the client, 2 confirm the year-end,
-// 3 file type and how the books are kept, 4 preparer and reviewer. (5, roll forward, comes with step 3.)
+// New year-end file (Phase 3 batch, section 1; labels Hashim, Nov 15, 2026, benchmark CaseWare Cloud's
+// "Create engagement" and ProFile's tax year dates): 1 pick the client, 2 the year (one line, Change
+// for the dates), 3 data source, 4 preparer and reviewer.
 export default async function NewFilePage({ searchParams }: PageProps<"/closebook/new">) {
   const access = await requireAccess("closebook", "edit");
   const sp = await searchParams;
@@ -36,13 +39,19 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
   const all = (staff ?? []) as unknown as Person[];
   const reviewers = all.filter((p) => p.role?.is_owner);
   const people = all.filter((p) => p.role?.is_owner || p.role?.role_permissions.some((x) => x.area_key === "closebook" && x.level === "edit"));
-  const monthly = !!chosen?.taxdome_tags?.includes("BK");
   const yearEnd = chosen ? lastYearEnd(chosen.year_end_md, todayToronto()) : "";
+  // The start is the day after the previous year end: the client's last file before this one, or a full year.
+  const { data: prior } = chosen && yearEnd
+    ? await supabase.from("cb_files").select("year_end").eq("client_id", chosen.id).lt("year_end", yearEnd).order("year_end", { ascending: false }).limit(1).maybeSingle()
+    : { data: null };
+  const yearStart = yearEnd ? (prior?.year_end ? nextDay(prior.year_end as string) : fullYearStart(yearEnd)) : "";
+  // Our QuickBooks file (monthly) is offered only once that route works end to end.
+  const sources = (Object.keys(DATA_SOURCE) as DataSource[]).filter((k) => k !== "ours" || MONTHLY_READY);
 
   return (
     <>
       <Link href="/closebook/files" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />All files</Link>
-      <PageHeader title="New file" description="One file per client per year-end. Pick the client first: their legal name, Business Number, year-end and TaxDome tags fill in." />
+      <PageHeader title={<span className="inline-flex items-start">New year-end file<InfoTip>One file per client per year-end. Pick the client first: their legal name, Business Number, year-end and TaxDome tags fill in.</InfoTip></span>} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form action="/closebook/new" className="card mb-6 flex flex-wrap items-end gap-3">
         <div className="min-w-72 flex-1"><label htmlFor="client" className="label">1. Client</label>
@@ -62,24 +71,16 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
             <dt className="text-muted">Year-end</dt><dd>{chosen.year_end_md || "Not in TaxDome yet"}</dd>
             <dt className="text-muted">TaxDome tags</dt><dd>{chosen.taxdome_tags?.length ? chosen.taxdome_tags.join(", ") : "None"}</dd>
           </dl>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div><label htmlFor="year_end" className="label">2. Year-end</label>
-              <input id="year_end" name="year_end" type="date" defaultValue={yearEnd} required className="input" /></div>
-            <div><label htmlFor="year_start" className="label">Year started (only if not a full 12 months)</label>
-              <input id="year_start" name="year_start" type="date" className="input" />
-              <span className="text-xs text-muted">Leave blank for a full year.</span></div>
-          </div>
-          <div><label htmlFor="reason" className="label">Reason, if the year is not 12 months</label>
-            <input id="reason" name="reason" maxLength={300} placeholder="For example: short first year, incorporated May 15" className="input" /></div>
+          <YearLine key={chosen.id} defaultStart={yearStart} defaultEnd={yearEnd} />
           <fieldset className="grid gap-2">
-            <legend className="label">3. File type{monthly ? " (tag BK: monthly suggested)" : ""}</legend>
-            <label className="flex items-start gap-2 text-sm"><input type="radio" name="file_type" value="monthly" defaultChecked={monthly} required className="mt-0.5 h-4 w-4 accent-navy-700" /><span><b>Monthly</b>: Concept keeps the books in QuickBooks. The trial balance is imported and read-only; entries are made in QuickBooks.</span></label>
-            <label className="flex items-start gap-2 text-sm"><input type="radio" name="file_type" value="full" defaultChecked={!monthly} className="mt-0.5 h-4 w-4 accent-navy-700" /><span><b>Full</b>: year-end only. The trial balance is built or imported in Closebook, with entries here.</span></label>
+            <legend className="label">3. Data source</legend>
+            {sources.map((k) => (
+              <label key={k} className="flex items-start gap-2 text-sm">
+                <input type="radio" name="data_source" value={k} required className="mt-0.5 h-4 w-4 accent-navy-700" />
+                <span><b className="font-semibold">{DATA_SOURCE[k].label}</b><span className="block text-ink-2">{DATA_SOURCE[k].line}</span></span>
+              </label>
+            ))}
           </fieldset>
-          <div><label htmlFor="books" className="label">How the books are kept (full files)</label>
-            <select id="books" name="books" defaultValue="statements" className="input">
-              {Object.entries(BOOKS).filter(([k]) => k !== "concept_qbo").map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label htmlFor="preparer" className="label">4. Preparer</label>
               <select id="preparer" name="preparer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>

@@ -58,8 +58,8 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   );
 }
 
-export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, area, history, left, folded, toast, notes, people, children }: {
-  fileId: string; client: string; yearEnd: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
+export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, toast, notes, people, children }: {
+  fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
   history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; people?: PeopleProps; children: ReactNode;
 }) {
   return (
@@ -68,6 +68,7 @@ export function FileShell({ fileId, client, yearEnd, status, netCents, t2Due, ar
         <Link href="/closebook" className="text-xs text-[#9fb0d4] hover:text-white">My files ›</Link>
         <h1 className="truncate text-[15px] font-bold">{client}</h1>
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
+        {source && <span className="hidden truncate text-[12.5px] text-[#9fb0d4] lg:inline">{source}</span>}
         <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${STATUS_CLS[status]}`}>{status}</span>
         <span className="flex-1" />
         {people && <PeopleChip fileId={fileId} p={people} />}

@@ -6,7 +6,7 @@ import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
-import { BOOKS, fileBy, firstName } from "@/lib/closebook/files";
+import { dataSourceLabel, fileBy, firstName } from "@/lib/closebook/files";
 import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, stepPapers, STEP_KEYS, type Paper, type PaperKey, type StepKey } from "@/lib/closebook/steps";
 import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, CB_CHECKLIST_V1, cbText } from "@/lib/closebook/client-wording";
@@ -241,7 +241,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <h2 className="mb-2 font-semibold">File settings</h2>
           <dl className="grid gap-3 sm:grid-cols-4">
             <div><dt className="text-xs text-muted">Year</dt><dd>{formatDate(file.year_start)} to {formatDate(file.year_end)}</dd></div>
-            <div><dt className="text-xs text-muted">Books</dt><dd>{BOOKS[file.books]}</dd></div>
+            <div><dt className="text-xs text-muted">Data source</dt><dd>{dataSourceLabel(file)}</dd></div>
             <div><dt className="text-xs text-muted">Preparer</dt><dd>{people.preparer}</dd></div>
             <div><dt className="text-xs text-muted">Reviewer</dt><dd>{people.reviewer}</dd></div>
           </dl>
@@ -549,7 +549,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), error: messageFrom(sp.error) } });
 
   return (
-    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} area={area}
+    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
       history={access.is_owner} left={left} folded={folded} notes={openNotes}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
       {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
