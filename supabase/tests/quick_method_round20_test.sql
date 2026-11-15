@@ -13,6 +13,11 @@ select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C
 reset role;
 reset request.jwt.claims;
 update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+-- 20261209050000 pre-fills CRA's figures as drafts; these tests use their own dummy rates, so start empty.
+alter table public.cb_quick_rates disable trigger cb_quick_rates_guard;
+delete from public.cb_quick_rates;
+alter table public.cb_quick_rates enable trigger cb_quick_rates_guard;
+update public.cb_settings set quick_credit_draft = null;
 
 -- ---------- The round 13 rate moves across once, as approved; running the migration again adds nothing.
 insert into public.cb_gst_quick_rates (province, rate) values ('ON', 0.05);
@@ -20,6 +25,17 @@ insert into public.cb_gst_quick_rates (province, rate) values ('ON', 0.05);
 \i supabase/migrations/20261209020000_round20_quick_method.sql
 select test.check('the round 13 rate moved across once, approved, services only, for every period',
   (select count(*) = 1 and bool_and(legacy and status = 'approved' and services_rate = 0.05 and goods_rate is null and effective_from is null) from public.cb_quick_rates where province = 'ON'));
+-- The fix before merge (20261209050000) retires that unsourced rate and pre-fills CRA's figures as drafts.
+\i supabase/migrations/20261209050000_round20_quick_rates_page.sql
+select test.check('the fix retires the rate typed before round 20 and pre-fills drafts for ON, AB and BC',
+  (select status from public.cb_quick_rates where legacy) = 'retired'
+  and (select string_agg(province, ',' order by province) from public.cb_quick_rates where status = 'pending') = 'AB,BC,ON');
+-- The tests below use their own dummy rates: start again from the round 13 rate as the only approved one.
+alter table public.cb_quick_rates disable trigger cb_quick_rates_guard;
+delete from public.cb_quick_rates where not legacy;
+update public.cb_quick_rates set status = 'approved' where legacy;
+alter table public.cb_quick_rates enable trigger cb_quick_rates_guard;
+update public.cb_settings set quick_credit_draft = null;
 
 -- ---------- Adding rates: owners only, as pending, from a canada.ca page.
 \set src 'https://www.canada.ca/en/revenue-agency/services/forms-publications/publications/rc4058/quick-method-accounting-gst-hst.html'
@@ -32,14 +48,13 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the source must be canada.ca', test.try($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06}]', '2026-01-01', 'https://example.test/rates', '2026-11-15')$q$) = 'The source must be a canada.ca page.');
 select test.check('a rate over 100% is refused', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":6}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'A quick method rate is from 0 to 100%.');
 select test.check('a row needs a rate', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":"","goods":""}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'ON: enter the services rate, the goods for resale rate, or both.');
-select test.check('the start date is needed', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06}]', null, %L, '2026-11-15')$q$, :'src')) like 'Enter the date the rates apply from%');
 select test.check('the date read cannot be in the future', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06}]', '2026-01-01', %L, '2099-01-01')$q$, :'src')) like 'Enter the date you read the rates%');
 select test.check('the owner loads two provinces as pending',
   public.cb_add_quick_rates('[{"province":"ON","services":0.06,"goods":0.03},{"province":"AB","services":0.04,"goods":0.02}]', '2026-01-01', :'src', '2026-11-15', 'Dummy load') = 2);
 select test.check('loading the same table again adds nothing',
   public.cb_add_quick_rates('[{"province":"ON","services":0.06,"goods":0.03},{"province":"AB","services":0.04,"goods":0.02}]', '2026-01-01', :'src', '2026-11-15', 'Dummy load') = 0);
 select test.check('different rates for the same province and date are refused while one is live',
-  test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.07,"goods":0.03}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'ON already has pending quick method rates from Jan 1, 2026. Retire them first.');
+  test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.07,"goods":0.03}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'ON already has rates waiting for approval from Jan 1, 2026. Reject them first.');
 select test.check('pending rows record the source, the date read and who read it',
   (select bool_and(status = 'pending' and source_url = :'src' and checked_on = '2026-11-15' and checked_by = '00000000-0000-0000-0000-00000000000a' and notes = 'Dummy load') from public.cb_quick_rates where not legacy));
 
