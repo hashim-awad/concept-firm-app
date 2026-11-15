@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { getAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
+import { rebuildTb } from "@/lib/closebook/tb-build-server";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const sameFile = (id: string, v: string) => (v.startsWith(`/closebook/${id}?`) ? v : `/closebook/${id}`);
@@ -42,7 +43,10 @@ export async function setFirstYear(formData: FormData) {
   const back = sameFile(id, s(formData, "back"));
   await editor(back);
   const on = s(formData, "on") === "1";
-  const { error } = await (await createClient()).rpc("cb_set_first_year", { p_file: id, p_on: on });
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_set_first_year", { p_file: id, p_on: on });
+  // The trial balance rebuilds at once, so "Opening balances to enter" follows the choice.
+  if (!error) await rebuildTb(supabase, id);
   await done(id, back, error, on ? "First year: no opening balances. The reviewer confirms it by signing step 2." : "First year taken back.");
 }
 

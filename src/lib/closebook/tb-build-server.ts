@@ -39,12 +39,12 @@ async function carryFromLastYear(supabase: SupabaseClient, fileId: string, clien
   return !error;
 }
 
-type FileRow = { id: string; books: string; setup: unknown; year_start: string; year_end: string; client_id: string; opening_re_stated: unknown; opening_ni_typed: unknown; client: unknown };
+type FileRow = { id: string; books: string; setup: unknown; year_start: string; year_end: string; client_id: string; opening_re_stated: unknown; opening_ni_typed: unknown; first_year?: boolean | null; client: unknown };
 type Inputs = { banks: BuildBank[]; lines: BuildLine[]; chart: Map<string, BuildChart>; codes: Map<string, TaxCode>; ctx: TaxContext; opening: BuildOpening | null; yearStart: string; fileNumbers: Map<string, string> };
 const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
 
 async function loadFileRow(supabase: SupabaseClient, fileId: string): Promise<FileRow | null> {
-  const { data } = await supabase.from("cb_files").select("id, books, setup, year_start, year_end, client_id, opening_re_stated, opening_ni_typed, client:client_id(province)").eq("id", fileId).maybeSingle();
+  const { data } = await supabase.from("cb_files").select("id, books, setup, year_start, year_end, client_id, opening_re_stated, opening_ni_typed, first_year, client:client_id(province)").eq("id", fileId).maybeSingle();
   return data as FileRow | null;
 }
 
@@ -75,6 +75,10 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
     const { opening: o } = openingFrom((ob as { code: string; amount: number }[]).map((x) => [x.code, Math.round(Number(x.amount) * 100)]), info, cents(f.opening_ni_typed));
     const chosen = new Map(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[]).map((x) => [x.code, x]));
     opening = { lines: o.lines.map((l) => ({ ...l, account: chosen.get(l.code)?.chart_account ?? null, bank: chosen.get(l.code)?.bank_account ?? null })), reClosingCents: o.reClosingCents, reStatedCents: reStated };
+  } else if (f.first_year) {
+    // Round 16: a first-year file has no last year. Nothing waits in "Opening balances to enter"; a first
+    // statement that opens above zero still goes to the reviewer ("last year has no balance on this line").
+    opening = { lines: [], reClosingCents: 0, reStatedCents: null };
   }
   // File accounts already numbered for GIFI lines with no standard chart account keep their numbers.
   const { data: own } = await supabase.from("cb_accounts").select("account_key, number").eq("file_id", fileId).like("account_key", "gifi:%");
