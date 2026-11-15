@@ -13,7 +13,8 @@ import { ReaderError, type ReadOutput } from "./reader.ts";
 
 export const FIXTURE_MODEL = "fixture";
 export const fixtureMode = (env: Record<string, string | undefined> = process.env) => env.STATEMENT_READER === "fixture" && env.VERCEL_ENV !== "production";
-export const defaultFixtureDir = () => path.join(process.cwd(), "tests", "fixtures", "statements");
+// turbopackIgnore keeps the build from tracing the whole project for this test-only read.
+export const defaultFixtureDir = () => path.join(/* turbopackIgnore: true */ process.cwd(), "tests", "fixtures", "statements");
 
 type Entry = { file?: string; result?: string; error?: "out_of_credits" | "unreadable" };
 
