@@ -34,8 +34,12 @@ export const TEMPLATE_INFO: Record<string, [TemplateTab, string]> = {
   propemail: ["emails", "The email that sends a monthly proposal for signing."],
   cbchecklist: ["closebook", "Answered on step 10 of each Closebook file, before the file is locked. Not sent to clients."],
   cbclientlist: ["closebook", "The list of our entries, for clients who keep their own books."],
-  memo: ["closebook", "Kept in the client's file for each compilation. Not sent to clients. Its wording is not in Studio yet."],
+  memo: ["closebook", "Kept in the client's file for each compilation. Not sent to clients."],
 };
+
+// Templates whose wording is not loaded in Studio yet: not listed until it is (Hashim, round 17 acceptance;
+// same rule as no "Coming later").
+export const NOT_LOADED = new Set(["memo"]);
 
 // Templates that never go to a client: approved "for use", not "for clients".
 export const INTERNAL_TEMPLATES = new Set(["cbchecklist", "memo"]);
@@ -45,10 +49,10 @@ export const approvedWord = (key: string) => (INTERNAL_TEMPLATES.has(key) ? "App
 export const approveButton = (key: string) => (INTERNAL_TEMPLATES.has(key) ? "Approve for use" : "Mark ready for clients");
 
 // A template's status: a draft until an owner approves it. Templates in use before approvals were recorded
-// (status "Live" or "In use" in the code) have no approval record, so they show the word without a name.
+// (status "Live" or "In use" in the code) have no approval record: they say so.
 export type TemplateStatus = { draft: boolean; word: string; by?: string; on?: string };
 export function templateStatus(t: { k: string; status: string }, approval?: { by?: string | null; on: string } | null): TemplateStatus {
   if (approval) return { draft: false, word: approvedWord(t.k), by: approval.by ?? undefined, on: approval.on };
   if (t.status === "Trial") return { draft: true, word: "Draft" };
-  return { draft: false, word: approvedWord(t.k) };
+  return { draft: false, word: "Approved before approval records began" };
 }

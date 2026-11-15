@@ -12,7 +12,7 @@ import { PIECE, toFriendly } from "@/lib/studio/wording-pieces";
 import { changedKeys, loadWordingState } from "@/lib/studio/wording-state";
 import { TemplateEditor } from "@/components/studio/template-editor";
 import { approveTemplate } from "../actions";
-import { approveButton, whereUsed } from "@/lib/studio/template-catalog";
+import { NOT_LOADED, approveButton, whereUsed } from "@/lib/studio/template-catalog";
 import { templateStatuses } from "@/lib/studio/template-status";
 import { SettingsShell } from "../../settings-shell";
 import { StatusChip } from "../status-chip";
@@ -24,7 +24,7 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   const { key } = await params;
   const sp = await searchParams;
   const t = (allTemplates() as T[]).find((x) => x.k === key);
-  if (!t || t.status === "Planned") notFound();
+  if (!t || t.status === "Planned" || NOT_LOADED.has(key)) notFound();
   const supabase = await createClient();
   const [statuses, data, state] = await Promise.all([
     templateStatuses(supabase),

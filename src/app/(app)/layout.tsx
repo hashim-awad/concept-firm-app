@@ -19,7 +19,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { data: lettersAwaiting } = seeDocs || canView(access, "leads") ? await supabase.rpc("letters_waiting_count") : { data: 0 };
   // The gear's count: templates waiting for an owner's approval (owners only).
   const drafts = access.is_owner && canView(access, "engagement_terms") ? await draftsByTab(supabase) : { letters: 0, schedules: 0, emails: 0, closebook: 0 };
-  const draftTotal = access.is_owner ? Object.values(drafts).reduce((a, b) => a + b, 0) : 0;
+  // The badge is the sum of the counts the gear menu shows, so the two always agree.
+  const gear = gearMenu(access, drafts);
+  const draftTotal = gear.flatMap((c) => c.items).reduce((n, i) => n + (i.count ?? 0), 0);
   // "+ New" (QuickBooks Online's Create): each item only for people who can do it.
   const newItems = ([
     canEdit(access, "leads") && { key: "lead", label: "New lead by phone", href: "/leads/phone" },
@@ -54,7 +56,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar name={access.full_name} role={access.role_name} initials={initials} clients={canView(access, "clients")} newItems={newItems}
-            gear={gearMenu(access, drafts)} drafts={draftTotal} signOut={signOut} />
+            gear={gear} drafts={draftTotal} signOut={signOut} />
           <MainArea>{children}</MainArea>
         </div>
       </div>

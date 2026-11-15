@@ -3,12 +3,13 @@ import "server-only";
 // Templates tab, for the gear menu's count and the tabs.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { allTemplates } from "./samples";
-import { tabOf, templateStatus, type TemplateStatus, type TemplateTab } from "./template-catalog";
+import { NOT_LOADED, tabOf, templateStatus, type TemplateStatus, type TemplateTab } from "./template-catalog";
 
 export type CatalogTemplate = { k: string; name: string; group: string; basis: string; status: string };
 
-// Every template on the Templates page: the planned ones ("Coming later") are not listed (round 17).
-export const listedTemplates = () => (allTemplates() as CatalogTemplate[]).filter((t) => t.status !== "Planned");
+// Every template on the Templates page: the planned ones ("Coming later") and those whose wording is not
+// loaded yet are not listed (round 17).
+export const listedTemplates = () => (allTemplates() as CatalogTemplate[]).filter((t) => t.status !== "Planned" && !NOT_LOADED.has(t.k));
 
 export async function templateStatuses(supabase: SupabaseClient): Promise<Map<string, TemplateStatus>> {
   const { data } = await supabase.from("template_approvals").select("template_key, approved_on, created_by, by:created_by(full_name)").order("approved_on");
