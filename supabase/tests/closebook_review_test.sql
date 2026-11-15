@@ -43,7 +43,8 @@ select public.cb_save_setup(:'f', '{"gst_frequency":"annual","quick_method":fals
 -- Round 16: step 1 also needs the acceptance record.
 select test.check('step 1: the acceptance record is needed too',
   test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'Not yet: Answer the acceptance questions.');
-select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q5_note":"","users":[],"q8":"confirmed","q8_note":"","q9":"yes"}'::jsonb);
+select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q5_note":"","q9":"yes"}'::jsonb);
+select public.cb_acceptance_confirm_client(:'f');
 select public.cb_sign_step(:'f', 'setup', 'prepared');
 select test.check('the preparer cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) like 'Only the reviewer signs as reviewer%');
 select test.check('the preparer cannot add a review note', test.try(format($q$select public.cb_add_note(%L, 'setup', 'step', null, 'x')$q$, :'f')) like 'Only the reviewer adds review notes%');

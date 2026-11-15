@@ -1,21 +1,24 @@
 "use client";
 // Studio's client editor: same fields and checks. The registry check must be re-ticked after
-// the legal name changes.
+// the legal name changes. Round 18: this is the "Client details" form on the client page; the basis of
+// accounting and the users of the statements moved to the Financial statements form.
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Card } from "@/components/ds/primitives";
-import { Hint, Labelled, Row, SelectIn, TextIn, Tick } from "@/components/studio/kit";
-import { clientErrors, ENTITY_TYPES, THIRD_PARTY_BASIS, type ClientForm } from "@/lib/clients";
+import Link from "next/link";
+import { Alert, Button, Card, buttonClass } from "@/components/ds/primitives";
+import { Labelled, Row, SelectIn, TextIn, Tick } from "@/components/studio/kit";
+import { clientErrors, ENTITY_TYPES, type ClientForm } from "@/lib/clients";
 import { saveClientRecord } from "./actions";
 
-export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged = false }: { id: string | null; initial: ClientForm; verifiedOn: string; editable: boolean; taxdomeManaged?: boolean }) {
+export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged = false, cancelHref }: { id: string | null; initial: ClientForm; verifiedOn: string; editable: boolean; taxdomeManaged?: boolean; cancelHref?: string }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [reticked, setReticked] = useState(false);
   const [msg, setMsg] = useState("");
   const [pending, start] = useTransition();
   const set = <K extends keyof ClientForm>(k: K, v: ClientForm[K]) => setF((x) => ({ ...x, [k]: v }));
-  const errors = clientErrors(f, { wasVerified: initial.name_verified, oldName: initial.legal_name, retickedAfterChange: reticked });
+  // An existing client's basis is checked by the Financial statements form, not here.
+  const errors = clientErrors(id ? { ...f, basis: "standard" } : f, { wasVerified: initial.name_verified, oldName: initial.legal_name, retickedAfterChange: reticked });
   const person = f.kind === "individual";
   const txt = (k: keyof ClientForm, label: string) => (
     <Labelled id={"cl_" + k} label={label}><TextIn id={"cl_" + k} value={String(f[k])} onValue={(v) => set(k, v as never)} disabled={!editable || (taxdomeManaged && (k === "legal_name" || k === "year_end_md"))} /></Labelled>
@@ -34,6 +37,7 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
   return (
     <Card>
       <form className="grid gap-4" onSubmit={(ev) => { ev.preventDefault(); if (!errors.length) save(); }}>
+        {id && <h2 className="font-semibold">Client details</h2>}
         <p className="text-sm text-ink-2">Changes here update the client record. Next year&rsquo;s letters use them.</p>
         {taxdomeManaged && <p className="text-xs text-muted">The legal name and year-end come from TaxDome. Change them in TaxDome, then import again.</p>}
         {!id && (
@@ -67,27 +71,6 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
             <SelectIn id="cl_status" value={f.status} onValue={(v) => set("status", v)} disabled={!editable}><option value="active">Active</option><option value="waiting_taxdome">Waiting for TaxDome</option><option value="inactive">Inactive</option></SelectIn>
           </Labelled>
         </Row>
-        {!person && (
-          <>
-            <Labelled id="cl_basis" label="Basis of accounting">
-              <SelectIn id="cl_basis" value={f.basis} onValue={(v) => set("basis", v)} disabled={!editable}>
-                <option value="standard">Concept standard</option><option value="cash">Cash basis</option><option value="custom">Custom</option>
-              </SelectIn>
-            </Labelled>
-            <Hint>Concept standard = cash basis with selected accruals. Custom = contractually prescribed basis.</Hint>
-            <Labelled id="cl_custom" label="Contractually prescribed basis: agreement and what it requires">
-              <textarea id="cl_custom" value={f.custom_basis_wording} onChange={(e) => set("custom_basis_wording", e.target.value)} disabled={!editable} className="min-h-20 w-full rounded-lg border border-sand-300 bg-surface px-3 py-2 text-[15px]" />
-            </Labelled>
-            <Row>
-              {txt("third_party_user", "Third-party user (blank if none)")}
-              <Labelled id="cl_tpb" label="Third-party basis">
-                <SelectIn id="cl_tpb" value={f.third_party_basis} onValue={(v) => set("third_party_basis", v)} disabled={!editable}>
-                  <option value="">Not set</option>{THIRD_PARTY_BASIS.map((x) => <option key={x}>{x}</option>)}
-                </SelectIn>
-              </Labelled>
-            </Row>
-          </>
-        )}
         <Tick id="cl_verified" checked={f.name_verified} disabled={!editable} onValue={(v) => { setReticked(true); set("name_verified", v); }}>
           {person ? "I checked the name against government ID or CRA records, letter for letter" : "I checked the legal name against the corporate registry, letter for letter"}
           {initial.name_verified && verifiedOn ? ` (verified ${verifiedOn})` : ""}
@@ -97,7 +80,12 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
         </Labelled>
         {errors.length > 0 && <Alert tone="danger">{errors.map((x) => <p key={x}>Fix: {x}</p>)}</Alert>}
         {msg && <p role="status" className="text-sm text-ink-2">{msg}</p>}
-        {editable && <div><Button type="submit" disabled={errors.length > 0} loading={pending}>Save</Button></div>}
+        {(editable || cancelHref) && (
+          <div className="flex flex-wrap gap-2">
+            {editable && <Button type="submit" disabled={errors.length > 0} loading={pending}>Save</Button>}
+            {cancelHref && <Link href={cancelHref} className={buttonClass("secondary")}>Cancel</Link>}
+          </div>
+        )}
       </form>
     </Card>
   );
