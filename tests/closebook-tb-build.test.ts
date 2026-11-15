@@ -230,3 +230,15 @@ test("a prior period adjustment never reverses next year", () => {
   assert.equal(p.reason, "prior_period");
   assert.deepEqual(p.problems, ["A prior period adjustment never reverses next year."]);
 });
+
+// Round 16: a first-year file builds with an empty last year (no opening balances to enter).
+test("first year: a statement opening at zero leaves nothing for the reviewer; above zero still goes to the reviewer", () => {
+  const empty = { lines: [], reClosingCents: 0, reStatedCents: null };
+  const lines = [{ account_id: "b", cents: 565000, status: "done" as const, chart_account: "40200", tax_code: "OUT_OF_SCOPE" }];
+  const zero = buildTrialBalance([{ id: "b", name: "TD chequing", kind: "bank", chart: "10000", openingCents: 0 }], lines, chart, codes, ctx, empty);
+  assert.equal(sum(zero), 0);
+  assert.equal(zero.find((r) => r.key === OPENING), undefined);
+  const some = buildTrialBalance([{ id: "b", name: "TD chequing", kind: "bank", chart: "10000", openingCents: 10000 }], lines, chart, codes, ctx, empty);
+  assert.equal(sum(some), 0);
+  assert.ok(some.find((r) => r.key === OPENING)?.reviewer);
+});

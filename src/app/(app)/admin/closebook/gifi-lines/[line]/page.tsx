@@ -7,6 +7,7 @@ import { PageHeader, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
 import { addSubLine, setLineLocked, updateMasterLine } from "../../actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 type Line = { line_no: string; name: string; gifi_code: string; gifi_name: string; section: string; line_type: string; lead_sheet: string | null; statement_line: string | null;
   default_tax_code: string | null; mappable: boolean; pair_line: string | null; required_gifi: boolean; note: string; locked: boolean };
@@ -33,7 +34,7 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
   const sheetList = (sheets ?? []) as { code: string; name: string }[];
   const history = (log ?? []) as unknown as Log[];
   const field = (id: string, label: string, el: React.ReactNode, hint?: string) => (
-    <div><label htmlFor={id} className="label">{label}</label>{el}{hint && <span className="text-xs text-muted">{hint}</span>}</div>
+    <div>{hint ? <span className="flex items-start"><label htmlFor={id} className="label">{label}</label><InfoTip>{hint}</InfoTip></span> : <label htmlFor={id} className="label">{label}</label>}{el}</div>
   );
   return (
     <>
@@ -67,8 +68,7 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
 
         {m.mappable && (
           <form action={addSubLine} className="card grid content-start gap-4">
-            <h2 className="font-semibold">{m.line_no.endsWith(".00") ? `Add a sub-line under ${m.line_no}` : `Add another sub-line to GIFI ${m.gifi_code}`}</h2>
-            <p className="text-sm text-ink-2">Same GIFI code ({m.gifi_code}) and lead sheet, with its own name and tax treatment. It takes the next number (.10, .20 and so on).</p>
+            <h2 className="font-semibold">{m.line_no.endsWith(".00") ? `Add a sub-line under ${m.line_no}` : `Add another sub-line to GIFI ${m.gifi_code}`}<InfoTip>Same GIFI code ({m.gifi_code}) and lead sheet, with its own name and tax treatment. It takes the next number (.10, .20 and so on).</InfoTip></h2>
             <input type="hidden" name="parent" value={m.line_no} />
             {field("sub_name", "Name *", <input id="sub_name" name="name" required minLength={2} maxLength={200} className="input" />)}
             {field("sub_statement", "Statement line", <input id="sub_statement" name="statement_line" placeholder={m.statement_line ?? ""} className="input" />, "Leave blank to use the main line's.")}
@@ -82,10 +82,9 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
 
       {m.mappable && m.line_no.endsWith(".00") && (subs ?? 0) > 0 && (
         <form action={setLineLocked} className="card mt-6 grid gap-4">
-          <h2 className="flex items-center gap-2 font-semibold">{m.locked && <Lock className="h-4 w-4 text-ink-3" aria-hidden />}{m.locked ? "This line is locked" : "Lock this line"}</h2>
-          <p className="text-sm text-ink-2">{m.locked
+          <h2 className="flex items-center gap-2 font-semibold">{m.locked && <Lock className="h-4 w-4 text-ink-3" aria-hidden />}{m.locked ? "This line is locked" : "Lock this line"}<InfoTip>{m.locked
             ? "Staff see it with a lock and must pick one of its sub-lines. Nobody can match an account or post an entry to it."
-            : "Locking makes staff pick one of its sub-lines. Lock a line when its sub-lines are the real choice. Leave it open when the main line is a normal answer too (meals at 50%, for example)."}</p>
+            : "Locking makes staff pick one of its sub-lines. Lock a line when its sub-lines are the real choice. Leave it open when the main line is a normal answer too (meals at 50%, for example)."}</InfoTip></h2>
           <input type="hidden" name="line" value={m.line_no} />
           <input type="hidden" name="locked" value={m.locked ? "false" : "true"} />
           {field("lock_reason", "Reason *", <input id="lock_reason" name="reason" required minLength={3} maxLength={500} className="input" />)}

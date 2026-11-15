@@ -71,12 +71,17 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl, paper }
             <label>{label("Email (for the MAL)", !f.officer_email)}<input className="input" type="email" name="officer_email" defaultValue={f.officer_email} /></label>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
+            {/* Round 16: a first year chosen on step 2 decides it here too. */}
+            {pk.data.file.first_year ? (
+              <div><span className="label">First year of the company</span><input type="hidden" name="first_year" value="yes" />
+                <p className="py-1.5 text-[13px]">Yes: no prior-year column <span className="text-ink-3">(step 2)</span></p></div>
+            ) : (
             <label>{label("First year of the company", f.first_year === null)}
               <select className="input" name="first_year" defaultValue={f.first_year === null ? "" : f.first_year ? "yes" : "no"}>
                 <option value="">Choose</option><option value="yes">Yes: no prior-year column</option><option value="no">No: show last year</option>
               </select>
               {f.first_year === null && <span className="mt-1 block text-xs text-ink-3">Suggested: {pk.firstYearSuggested ? "Yes" : "No"}</span>}
-            </label>
+            </label>)}
             <label>{label("Audit waiver", false)}
               <select className="input" name="audit_waiver" defaultValue={f.audit_waiver ? "yes" : "no"}><option value="yes">Yes</option><option value="no">No</option></select>
             </label>

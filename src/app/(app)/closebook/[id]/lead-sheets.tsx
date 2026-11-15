@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Pencil, X } from "lucide-react";
 import { explainFlagInline } from "../actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 export const REASONS: Record<string, string> = {
   new_asset: "New asset", new_loan: "New loan", revenue_grew: "Revenue grew", one_time: "One-time expense", reclassified: "Reclassified", error_fixed: "Error found and fixed",
@@ -96,9 +97,8 @@ function ExplainPanel({ fileId, r, onClose }: { fileId: string; r: LeadAcc; onCl
             </label>
           ))}
         </fieldset>
-        <div className="grid gap-1"><label htmlFor="note" className="text-sm font-semibold">Note</label>
+        <div className="grid gap-1"><span className="flex items-center"><label htmlFor="note" className="text-sm font-semibold">Note</label><InfoTip>The reviewer judges each explanation when signing &ldquo;Compare to last year&rdquo;.</InfoTip></span>
           <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} placeholder="For example: bought a new laptop in March, invoice in the file" className="input" /></div>
-        <p className="text-xs text-muted">The reviewer judges each explanation when signing &ldquo;Compare to last year&rdquo;.</p>
         {err && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{err}</p>}
         <div className="mt-auto flex gap-3">
           <button type="button" onClick={save} disabled={pending || !reason || note.trim().length < 3} className="btn">{pending ? "Saving..." : "Save"}</button>

@@ -43,7 +43,8 @@ export async function answerShFlag(formData: FormData) {
 
 export async function acceptShFlag(formData: FormData) {
   const id = s(formData, "file_id");
-  const { error } = await (await createClient()).rpc("cb_accept_sh_flag", { p_file: id, p_account: s(formData, "account"), p_flag: s(formData, "flag"), p_why: s(formData, "why") });
+  const { error } = await (await createClient()).rpc("cb_accept_sh_flag", { p_file: id, p_account: s(formData, "account"), p_flag: s(formData, "flag"), p_why: s(formData, "why"),
+    p_kind: s(formData, "kind"), p_year: Number(s(formData, "year")) || null });
   done(id, error, "Flag accepted.");
 }
 

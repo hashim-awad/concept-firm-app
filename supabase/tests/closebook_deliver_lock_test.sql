@@ -33,11 +33,11 @@ reset role;
 reset request.jwt.claims;
 update public.cb_files set year_end = (now() at time zone 'America/Toronto')::date - 1, year_start = (now() at time zone 'America/Toronto')::date - 365 where id = :'f';
 -- An answer saved before the checklist opened (round 8b allowed it).
-insert into public.cb_checklist_answers (file_id, question, answer) values (:'f', 'wb200000002', 'yes');
+insert into public.cb_checklist_answers (file_id, question, answer) values (:'f', 'wb20000000e', 'yes');
 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the checklist is closed before the MAL is signed', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000001","answer":"yes"}]')$q$, :'f'))
+select test.check('the checklist is closed before the MAL is signed', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000d","answer":"yes"}]')$q$, :'f'))
   = 'The checklist opens once the MAL is signed (step 9).');
 select test.check('step 10 waits for the MAL', (public.cb_close_status(:'f') -> 'step10') = '["The MAL is not signed yet (step 9)."]');
 select public.cb_send_mal(:'f', 'MAL', '<p>' || repeat('MAL text ', 30) || '</p>', '[{"text":"MAL"}]') as mal \gset
@@ -45,25 +45,25 @@ reset role;
 reset request.jwt.claims;
 select public.record_t1_signature(:'mal', 0, 'Pat Dummy', '127.0.0.1', 'test', repeat('a', 64), false, 'President', null);
 select test.check('the MAL is signed: the checklist opens, the answer saved before is cleared',
-  not exists (select 1 from public.cb_checklist_answers where file_id = :'f' and question = 'wb200000002')
+  not exists (select 1 from public.cb_checklist_answers where file_id = :'f' and question = 'wb20000000e')
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'checklist_opened'));
-select test.check('questions 10 and 11 are filled by Closebook from the signing record', (
-  select count(*) = 2 and bool_and(a.answer = 'yes' and a.answered_by is null) and bool_or(a.note like 'Filled by Closebook from the signing record: the MAL was signed by Pat Dummy, President, on %')
-    from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.sort_order in (10, 11)));
+select test.check('questions 6, 10, 11 and 12 are filled by Closebook (round 16)', (
+  select count(*) = 4 and bool_and(a.answer = 'yes' and a.answered_by is null) and bool_or(a.note like 'Filled by Closebook from the signing record: the MAL was signed by Pat Dummy, President, on %')
+    from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.active and q.sort_order in (6, 10, 11, 12)));
 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_save_checklist(:'f', '[{"question":"wb20000000a","answer":"no","note":"x"},{"question":"wb200000001","answer":"yes"}]');
+select public.cb_save_checklist(:'f', '[{"question":"wb200000016","answer":"no","note":"x"},{"question":"wb20000000d","answer":"yes"}]');
 reset role;
 reset request.jwt.claims;
-select test.check('question 10 is read-only: an answer typed for it is ignored', (select answer from public.cb_checklist_answers where file_id = :'f' and question = 'wb20000000a') = 'yes');
-select test.check('the other rules stay: 9 questions still to answer', private.cb_checklist_problems(:'f') = array['9 checklist questions to answer.']);
+select test.check('question 10 is read-only: an answer typed for it is ignored', (select answer from public.cb_checklist_answers where file_id = :'f' and question = 'wb200000016') = 'yes');
+select test.check('the other rules stay: 8 questions still to answer', private.cb_checklist_problems(:'f') = array['8 checklist questions to answer.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000002","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
-select test.check('Not applicable only on 8 and 9', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000003","answer":"na"}]')$q$, :'f')) like 'Question 3 cannot be Not applicable%');
+select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000e","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
+select test.check('Not applicable only on 8 and 9', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000f","answer":"na"}]')$q$, :'f')) like 'Question 3 cannot be Not applicable%');
 select public.cb_save_checklist(:'f', (select jsonb_agg(jsonb_build_object('question', key, 'answer', case when sort_order in (8, 9) then 'na' else 'yes' end))
-  from public.cb_checklist_questions where sort_order not in (1, 10, 11)));
+  from public.cb_checklist_questions where active and sort_order not in (1, 6, 10, 11, 12)));
 select test.check('step 10: the email figures are "To fill"', (public.cb_close_status(:'f') -> 'step10') @> '["To fill: the corporate tax balance owing or refund (A).", "To fill: federal and provincial tax for the year filed (C)."]');
 select test.check('the preparer cannot sign step 10 yet', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) like 'Not yet: To fill:%');
 select test.check('an instalment needs a date and an amount', test.try(format($q$select public.cb_save_close_fields(%L, '{"instalments":[{"date":"","amount":5}]}')$q$, :'f')) = 'Each instalment needs a due date and an amount.');
@@ -131,8 +131,8 @@ select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb2.csv', '[
   {"number":"10100","name":"Chequing","amount":10500},{"number":"41000","name":"Commission income","amount":-20500},{"number":"64250","name":"Accounting fees","amount":10000}]');
 reset role;
 reset request.jwt.claims;
-select test.check('a TB change after delivery: MAL taken back, questions 10 and 11 empty, delivery cleared',
+select test.check('a TB change after delivery: MAL taken back, the questions Closebook fills empty, delivery cleared',
   (select mal_quote_id is null from public.cb_file_fs where file_id = :'f')
-  and not exists (select 1 from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.sort_order in (10, 11))
+  and not exists (select 1 from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.active and q.sort_order in (6, 10, 11, 12))
   and (select delivered_at is null from public.cb_file_close where file_id = :'f'));
 select test.check('the instalment threshold is a setting (3,000)', (select instalment_threshold from public.cb_settings) = 3000);

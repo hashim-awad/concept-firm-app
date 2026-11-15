@@ -137,3 +137,35 @@ test("two shareholders are tested apart", () => {
   assert.equal(g.find((x) => x.shareholder === 1)!.thisPartCents, 100_000);
   assert.equal(g.find((x) => x.shareholder === 2)!.dueOn, null);
 });
+
+// Round 16 fix (Hashim): an amount the reviewer decided in an earlier file sits on its own line until
+// repaid: outside last year's part and this year's part, no new s.15(2) date, not in "Repaid by".
+// Repayments go against it first (oldest first).
+test("a decided amount carries forward on its own line", () => {
+  const k = "chart:13000";
+  const yr = { yearStart: "2027-01-01", yearEnd: "2027-12-31", windowDays: 30, own: false };
+  const sched = (postings: Posting[]) => buildSchedules({ accounts: [A(k, "13000", "1301.10", 0)], postings, entries, own: false, yearEnd: "2027-12-31" });
+  const inc = { kind: "included" as const, incomeYear: 2025 }, not = { kind: "not_included" as const, why: "Repaid in March 2027." };
+  const carry = new Map([["sh:1", [{ cents: 300_000, year: 2026, decision: not }]]]);
+  // Poplar 2027: opening 3,000.00, all decided in 2026: last year's part 0.00, no date, no "Repaid by", no flag.
+  const [p] = buildGroups(sched([P(k, 300_000, "2027-01-01", "opening")]), owners1([k]), { ...yr, carry });
+  assert.equal(p.lastPartCents, 0); assert.equal(p.thisPartCents, 0); assert.equal(p.dueOn, null);
+  assert.equal(p.prior, null); assert.deepEqual(p.flags, []);
+  assert.deepEqual(p.decided, [{ year: 2026, decision: not, startCents: 300_000, leftCents: 300_000, repaidCents: 0 }]);
+  // Owes 5,000.00 at the start (3,000.00 decided): only the 2,000.00 arose last year undecided.
+  const [a] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening")]), owners1([k]), { ...yr, carry });
+  assert.equal(a.lastPartCents, 200_000); assert.equal(a.earlierDebitCents, 200_000); assert.deepEqual(a.flags, ["earlier_debit"]);
+  assert.deepEqual(a.prior, { dueOn: "2027-12-31", openingCents: 200_000, repaidCents: 0, unpaidCents: 200_000 });
+  // 3,500.00 repaid: the decided amount first (all of it), then 500.00 of the rest.
+  const [c] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening"), P(k, -350_000, "2027-04-01", "bank")]), owners1([k]), { ...yr, carry });
+  assert.equal(c.decided[0].repaidCents, 300_000); assert.equal(c.decided[0].leftCents, 0);
+  assert.equal(c.lastPartCents, 150_000); assert.deepEqual(c.prior, { dueOn: "2027-12-31", openingCents: 200_000, repaidCents: 50_000, unpaidCents: 150_000 });
+  // Two decided amounts: repayments go against the oldest first; a new loan this year is this year's part.
+  const two = new Map([["sh:1", [{ cents: 100_000, year: 2026, decision: not }, { cents: 200_000, year: 2025, decision: inc }]]]);
+  const [t] = buildGroups(sched([P(k, 300_000, "2027-01-01", "opening"), P(k, -150_000, "2027-04-01", "bank"), P(k, 40_000, "2027-06-01", "bank")]), owners1([k]), { ...yr, carry: two });
+  assert.deepEqual(t.decided.map((d) => [d.year, d.repaidCents, d.leftCents]), [[2025, 150_000, 50_000], [2026, 0, 100_000]]);
+  assert.equal(t.lastPartCents, 0); assert.equal(t.thisPartCents, 40_000); assert.equal(t.dueOn, "2028-12-31");
+  // No carry: round 14 unchanged.
+  const [d] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening")]), owners1([k]), yr);
+  assert.deepEqual(d.decided, []); assert.equal(d.earlierDebitCents, 500_000);
+});

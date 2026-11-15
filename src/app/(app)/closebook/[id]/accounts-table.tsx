@@ -10,6 +10,7 @@ import { useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
 import { askReviewerInline, confirmSideInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
 import { NoteOnItem } from "./note-on-item";
+import { InfoTip } from "@/components/ds/info-tip";
 
 export type Row = {
   id: string; number: string; name: string; last: string; current: string; final: string; finalNum: number; change: string;
@@ -44,9 +45,9 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
   const lineCell = (r: Row) => (
     <>
       {r.lineLabel || <span className={r.needsReviewer ? "text-danger" : "text-ink-3"}>{r.needsReviewer ? "Waiting for the reviewer" : "Not matched yet"}</span>}
+      {r.movedFrom && <InfoTip label="Opposite balance">Opposite balance: shown on its paired line (matched to {r.movedFrom}).</InfoTip>}
       <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted">
         {r.needsReviewer && <Reason r={r} />}
-        {r.movedFrom && <span>Opposite balance: shown on its paired line (matched to {r.movedFrom})</span>}
         {r.mismatch && <span className={r.mismatch.startsWith("Check") ? "font-semibold text-warning" : ""}>{r.mismatch}</span>}
         {r.notChecked && <span>Type not checked</span>}
       </span>
@@ -81,14 +82,14 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
       {view === "lines" ? (
         <section className="card overflow-x-auto p-0">
           <table className="table table-compact min-w-[900px]">
-            <thead><tr><th>GIFI line</th><th>Accounts</th><th className="w-8"></th><th className="text-right">This year</th></tr></thead>
+            <thead><tr><th>GIFI line<InfoTip>An account whose balance flips sign moves to its paired line automatically.</InfoTip></th><th>Accounts</th><th className="w-8"></th><th className="text-right">This year<InfoTip align="right">Debits show as positive, credits in brackets.</InfoTip></th></tr></thead>
             <tbody>{groups.map((g) => <GroupRows key={g.lineNo} g={g} byId={byId} accountCell={accountCell} pencil={pencil} />)}</tbody>
           </table>
         </section>
       ) : (
         <section className="card overflow-x-auto p-0">
           <table className="table table-compact min-w-[1000px]">
-            <thead><tr><th>Account</th><th className="w-[36%]">GIFI line</th><th className="w-24">Source</th><th>Tax code</th><th className="text-right">Last year</th><th className="text-right">This year</th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
+            <thead><tr><th>Account</th><th className="w-[36%]">GIFI line<InfoTip>An account whose balance flips sign moves to its paired line automatically.</InfoTip></th><th className="w-24">Source</th><th>Tax code<InfoTip>Only the reviewer changes a tax code.</InfoTip></th><th className="text-right">Last year</th><th className="text-right">This year<InfoTip align="right">Debits show as positive, credits in brackets.</InfoTip></th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
             <tbody>
               {rows.filter((r) => !r.unused).map((r) => (
                 <tr key={r.id} className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>

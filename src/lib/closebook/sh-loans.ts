@@ -52,7 +52,20 @@ export type ShGroup = {
   prior: { dueOn: string; openingCents: number; repaidCents: number; unpaidCents: number } | null;
   flags: ShFlag[];
   datesKnown: boolean;                 // own books give one line a year: the 30-day test needs dates
+  // Round 16 (Hashim, round 16 fix): amounts the reviewer decided in an earlier file. Each sits on its own
+  // line until repaid, outside last year's part and this year's part, with no new s.15(2) date and no
+  // "Repaid by" question. Repayments go against them first, oldest first.
+  decided: ShDecidedLine[];
+  earlierDebitCents: number;           // last year's part not yet decided (the flag's amount)
 };
+// The reviewer's decision on last year's part: included in the shareholder's income for a year, or not
+// included, with a reason. Only "included" makes a repayment a note for the T1 (s.20(1)(j)).
+export type ShDecision = { kind: "included"; incomeYear: number } | { kind: "not_included"; why: string };
+// What an earlier file decided, per shareholder group: each amount still owed, the file year it was
+// decided in, and the decision.
+export type ShCarry = { cents: number; year: number; decision: ShDecision };
+export type ShDecidedLine = { year: number; decision: ShDecision; startCents: number; leftCents: number; repaidCents: number };
+export const decisionText = (d: ShDecision) => (d.kind === "included" ? `Included in the shareholder's income for ${d.incomeYear}` : `Not included: ${d.why}`);
 
 const money = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const longDate = (iso: string) => { const d = new Date(`${iso}T12:00:00Z`); return `${d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; };
@@ -130,7 +143,7 @@ export function buildSchedules(inp: ShInput): ShSchedule[] {
 }
 
 // Each shareholder's accounts together. owners: the shareholder of each account (null: not picked).
-export function buildGroups(schedules: ShSchedule[], owners: Map<string, number | null>, o: { yearStart: string; yearEnd: string; windowDays: number; own: boolean }): ShGroup[] {
+export function buildGroups(schedules: ShSchedule[], owners: Map<string, number | null>, o: { yearStart: string; yearEnd: string; windowDays: number; own: boolean; carry?: Map<string, ShCarry[]> }): ShGroup[] {
   const by = new Map<string, ShSchedule[]>();
   for (const s of schedules) {
     const n = owners.get(s.key) ?? null;
@@ -155,20 +168,34 @@ export function buildGroups(schedules: ShSchedule[], owners: Map<string, number 
     const reductions = netted.filter((i) => i.cents < 0);
     const reductionsCents = -reductions.reduce((t, i) => t + i.cents, 0);
     const openingDebit = Math.max(0, openingCents), closingDebit = Math.max(0, closingCents);
-    // Repayments go against the oldest balance first: last year's part is what is left of the opening
-    // debit after every reduction in the year, never below nil and never more than the closing debit.
     const live = shareholder !== null;
-    const lastPartCents = live ? Math.min(closingDebit, Math.max(0, openingDebit - reductionsCents)) : 0;
-    const thisPartCents = live ? closingDebit - lastPartCents : 0;
+    // Amounts decided in earlier files come first: repayments go against them, oldest first.
+    let left = live ? Math.max(0, reductionsCents) : 0, room = openingDebit;
+    const decided: ShDecidedLine[] = [];
+    for (const c of [...((live && o.carry?.get(k)) || [])].sort((x, y) => x.year - y.year)) {
+      const startCents = Math.min(c.cents, room); room -= startCents;
+      if (startCents <= 0) continue;
+      const repaidCents = Math.min(startCents, left); left -= repaidCents;
+      decided.push({ year: c.year, decision: c.decision, startCents, leftCents: startCents - repaidCents, repaidCents });
+    }
+    const decidedLeft = decided.reduce((t, d) => t + d.leftCents, 0);
+    const undecidedOpening = openingDebit - decided.reduce((t, d) => t + d.startCents, 0);
+    // What is left of the undecided opening debit after the rest of the reductions is last year's part:
+    // never below nil and never more than the closing debit outside the decided amounts.
+    const owing = Math.max(0, closingDebit - decidedLeft);
+    const lastPartCents = live ? Math.min(owing, Math.max(0, undecidedOpening - left)) : 0;
+    const thisPartCents = live ? owing - lastPartCents : 0;
+    const earlierDebitCents = lastPartCents;
     const flags: ShFlag[] = [];
-    if (lastPartCents > 0) flags.push("earlier_debit");
+    if (earlierDebitCents > 0) flags.push("earlier_debit");
     const datesKnown = !o.own;
     if (live && datesKnown && closingCents <= 0 && lateRepayment(openingCents, netted, o.yearEnd, o.windowDays)) flags.push("late_repayment");
     out.push({
       shareholder, keys: list.map((s) => s.key), openingCents, closingCents, reductionsCents, reductions,
       lastPartCents, thisPartCents, dueOn: thisPartCents > 0 ? addYear(o.yearEnd) : null,
-      prior: live && openingDebit > 0 ? { dueOn: priorDueOn(o.yearStart), openingCents: openingDebit, repaidCents: openingDebit - lastPartCents, unpaidCents: lastPartCents } : null,
-      flags, datesKnown,
+      // "Repaid by" asks only about the undecided balance owed at the start.
+      prior: live && undecidedOpening > 0 ? { dueOn: priorDueOn(o.yearStart), openingCents: undecidedOpening, repaidCents: undecidedOpening - lastPartCents, unpaidCents: lastPartCents } : null,
+      flags, datesKnown, decided, earlierDebitCents,
     });
   }
   return out.sort((x, y) => (x.shareholder ?? 99) - (y.shareholder ?? 99) || x.keys[0].localeCompare(y.keys[0]));

@@ -13,6 +13,7 @@ import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { blankLine, netOfTax, planEntry, type AcctOpt, type FormHead, type FormLine, type StdOpt } from "@/lib/closebook/entry-form";
 import type { TaxCode, TaxContext } from "@/lib/closebook/sales-tax";
 import { addEntry } from "../actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
@@ -188,7 +189,7 @@ function Attachments({ kept }: { kept: string[] }) {
           <button type="button" aria-label={`Remove ${f.name}`} onClick={() => sync(files.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger">×</button></span>
       ))}
       <button type="button" onClick={() => input.current?.click()} className="font-semibold text-navy-700 hover:underline">Add attachment</button>
-      <span className="text-[11.5px] text-ink-3">PDF, image, Excel or CSV. Up to 10, 20 MB each.</span>
+      <InfoTip label="Files allowed">PDF, image, Excel or CSV. Up to 10, 20 MB each.</InfoTip>
     </div>
   );
 }

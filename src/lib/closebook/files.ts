@@ -5,7 +5,7 @@ export type CbDoc = { code: string; phase: "planning" | "fieldwork" | "conclusio
   prepared_by: string | null; prepared_at: string | null; reviewed_by: string | null; reviewed_at: string | null };
 export type CbFileRow = { id: string; client_id: string; year_start: string; year_end: string; year_change_reason: string; file_type: "monthly" | "full"; books: string;
   preparer_id: string; reviewer_id: string; phase: string; created_at: string; setup?: Record<string, unknown>; opening_source?: string | null; opening_re_stated?: number | null; opening_set_at?: string | null;
-  opening_note?: string; opening_pdf?: string | null; opening_ni_typed?: number | null; opening_signed_by?: string | null; opening_signed_at?: string | null };
+  opening_note?: string; opening_pdf?: string | null; opening_ni_typed?: number | null; opening_signed_by?: string | null; opening_signed_at?: string | null; first_year?: boolean };
 
 export const FILE_TYPE: Record<string, string> = { monthly: "Monthly", full: "Full" };
 export const BOOKS: Record<string, string> = {

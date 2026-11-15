@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { blockOf, BLOCK_TITLE, fromGifi, isDividend, scheduleTotals, toGifi, type Block } from "@/lib/closebook/schedule";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { saveOpeningInline, signOpeningInline, uploadOpeningPdf } from "../actions";
+import { InfoTip } from "@/components/ds/info-tip";
 
 type Row = { id: number; block: Block; code: string; amount: string; account: string };
 type Code = { name: string; type: string };
@@ -112,8 +113,7 @@ export function OpeningSchedule({ fileId, codes, initial, reStated, niTyped, not
     <div className="form-col grid gap-4">
       <section className="card grid gap-3">
         <div>
-          <h2 className="font-semibold">Last year&rsquo;s closing balances</h2>
-          {source === "closebook" && <p className="text-sm text-ink-2">From last year&rsquo;s file</p>}
+          <h2 className="font-semibold">Last year&rsquo;s closing balances{source === "closebook" && <InfoTip label="Where these come from">From last year&rsquo;s file.</InfoTip>}</h2>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="grid flex-1 gap-1 text-sm">Source

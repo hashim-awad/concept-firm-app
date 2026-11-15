@@ -33,7 +33,7 @@ export type StepFacts = {
   entries: number;
   bankGaps?: string;           // bank files: how many months are still missing ("4 months missing"; "" when complete)
   coding?: { lines: number; open: number; reviewer: number; ask: number };   // bank files: step 3
-  opening?: { signed: boolean; entered: boolean };   // bank files: step 2, last year's balance sheet
+  opening?: { signed: boolean; entered: boolean; firstYear?: boolean };   // bank files: step 2, last year's balance sheet (round 16: or a first year)
   people: { preparer: string; reviewer: string };
   // Round 8: each step's sign-offs and open review notes. With them, a step is done when reviewed.
   signs?: Partial<Record<StepKey, StepSign>>;
@@ -69,7 +69,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
       note: f.setupOpen !== undefined ? (f.setupOpen ? `${s(f.setupOpen, "question")} to answer` : "Questions answered") : setupDone ? "Done" : `${s(planning.filter((d) => d.status !== "signed").length, "item")} open` },
     { key: "opening", n: 2, name: "Opening balances", who: f.people.preparer,
       // Round 8b: the step's sign-off is its Prepared by; the sub-line only says what the step is.
-      note: bank ? "Last year's balance sheet" : "From the trial balance import" },
+      note: op.firstYear ? "First year: no opening balances" : bank ? "Last year's balance sheet" : "From the trial balance import" },
     { key: "records", n: 3, name: bank ? "Bank statements" : "Get the records", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
@@ -100,7 +100,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
 
   const next: Record<StepKey, string> = {
     setup: "Answer the setup questions.",
-    opening: !bank ? "Import this year's trial balance; last year's column comes with it." : op.entered
+    opening: op.firstYear ? "First year: sign step 2; the reviewer confirms it." : !bank ? "Import this year's trial balance; last year's column comes with it." : op.entered
       ? "Check last year's balance sheet: sign as preparer when no total is highlighted."
       : "Enter last year's closing balance sheet from the prior T2 or the CRA assessment. Sign off when no total is highlighted.",
     records: !bank ? "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks." : f.statements && f.bankGaps ? `${f.bankGaps}: they show on each account below. You can start coding the lines already in.`
@@ -136,12 +136,14 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
 // Round 15b (Hashim; CaseWare Cloud's document map): a step holds one or more working papers, each its
 // own screen, listed under the step when it is open. A paper shows only when it applies. Sign-offs stay
 // on the step.
-export type PaperKey = "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
+export type PaperKey = "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
 export type Paper = { key: PaperKey; name: string };
 export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean };
 export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
   const p = (key: PaperKey, name: string, on = true): Paper[] => (on ? [{ key, name }] : []);
   switch (step) {
+    // Round 16: the acceptance and continuance record (CSRS 4200) beside the setup questions.
+    case "setup": return [...p("questions", "Setup questions"), ...p("acceptance", "Acceptance")];
     case "entries": return [...p("revenue", "Revenue check", f.full), ...p("sh", "Shareholder loans", f.shareholders), ...p("expenses", "Expenses paid personally", f.full && f.ownerPaid)];
     case "t2": return [...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
     case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];
