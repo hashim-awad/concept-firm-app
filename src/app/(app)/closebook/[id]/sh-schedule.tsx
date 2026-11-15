@@ -11,7 +11,7 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { formatDate } from "@/lib/dates";
-import { flagText, KIND_LABEL, KIND_ORDER, shareholderLabel, type ShGroup, type ShItem, type ShKind } from "@/lib/closebook/sh-loans";
+import { decisionText, flagText, KIND_LABEL, KIND_ORDER, shareholderLabel, type ShGroup, type ShItem, type ShKind } from "@/lib/closebook/sh-loans";
 import { groupKey, type ShData } from "@/lib/closebook/sh-server";
 import { acceptShFlag, answerShFlag, confirmShRepaid, prepareShSchedule, setShOwner } from "../sh-actions";
 import { Popover } from "./shell/ui";
@@ -43,6 +43,7 @@ export function ShSchedule({ fileId, sh, editable, isOwner, names }: { fileId: s
   const th = "px-2 py-1.5 text-right font-semibold whitespace-nowrap";
 
   const group = (g: ShGroup) => {
+    const YEAR = Number(sh.yearEnd.slice(0, 4));
     const key = groupKey(g);
     const accts = sh.rows.filter((r) => g.keys.includes(r.key));
     const conf = sh.repaid.find((x) => x.account_key === key);
@@ -82,19 +83,20 @@ export function ShSchedule({ fileId, sh, editable, isOwner, names }: { fileId: s
               <td className="px-2 py-1.5">Net, {g.closingCents > 0 ? "owed by the shareholder" : g.closingCents < 0 ? "owed to the shareholder" : "nil"}</td>
               <td className="px-2 py-1.5 text-right tabular-nums">{amt(g.openingCents)}</td><td colSpan={kinds.length} />
               <td className="px-2 py-1.5 text-right tabular-nums">{amt(g.closingCents)}</td>
-              <td colSpan={2} className="px-2 py-1.5 font-semibold whitespace-nowrap text-ink-2">{g.closingCents > 0 && g.dueOn ? `s.15(2): ${formatDate(g.dueOn)}` : g.closingCents > 0 ? "s.15(2): passed" : "s.15(2): none"}</td>
+              <td colSpan={2} className="px-2 py-1.5 font-semibold whitespace-nowrap text-ink-2">{g.closingCents > 0 && g.dueOn ? `s.15(2): ${formatDate(g.dueOn)}` : g.lastPartCents > 0 ? "s.15(2): passed" : g.closingCents > 0 && g.decided.some((d) => d.leftCents > 0) ? "s.15(2): decided" : "s.15(2): none"}</td>
             </tr>
             {g.closingCents > 0 && <>
-              {sub(<>Reductions in the year<InfoTip>Netted across the accounts.</InfoTip></>, drill(-g.reductionsCents, "Reductions in the year", g.reductions))}
-              {sub(<>Last year&rsquo;s part <span className="text-ink-3">· s.15(2) date {formatDate(sh.yearEnd)}, passed</span></>, amt(g.lastPartCents))}
+              {sub(<>Reductions in the year<InfoTip>Netted across the accounts. Repayments go against amounts decided in earlier files first, oldest first.</InfoTip></>, drill(-g.reductionsCents, "Reductions in the year", g.reductions))}
+              {/* Round 16 fix: each amount decided in an earlier file on its own line until repaid, outside the two parts. */}
+              {g.decided.filter((d) => d.leftCents > 0).map((d) => sub(<>Decided in the {d.year} file <span className="text-ink-3">· {decisionText(d.decision)}</span></>, amt(d.leftCents),
+                pill("bg-sand-100 text-ink-2", "Decided")))}
+              {sub(<>Last year&rsquo;s part{g.lastPartCents > 0 && <span className="text-ink-3"> · s.15(2) date {formatDate(sh.yearEnd)}, passed</span>}</>, amt(g.lastPartCents))}
               {sub(<>This year&rsquo;s part</>, amt(g.thisPartCents), g.dueOn ? pill("bg-warning-soft text-warning", `Repay by ${formatDate(g.dueOn)}`) : null)}
             </>}
-            {/* Round 16: a part the reviewer decided in an earlier file: shown, not flagged again, until repaid. */}
-            {g.carried && g.carried.leftCents > 0 && sub(<>Flagged in the {g.carried.year} file <span className="text-ink-3">· {g.carried.why || "Decided by the reviewer"}</span></>, amt(g.carried.leftCents),
-              pill("bg-sand-100 text-ink-2", "Decided"))}
-            {g.carried && g.carried.repaidCents > 0 && sub(<>Repaid this year from the part flagged in the {g.carried.year} file
-              <InfoTip>For the shareholder&rsquo;s T1: the repayment may give a deduction under s.20(1)(j) for the amount included in income under s.15(2).</InfoTip></>,
-              amt(g.carried.repaidCents), pill("bg-navy-50 text-navy-700", "Note for the T1"))}
+            {/* A repayment of a decided amount: for the T1 only when it was included in income (s.20(1)(j)). */}
+            {g.decided.filter((d) => d.repaidCents > 0).map((d) => sub(<>Repaid this year from the amount decided in the {d.year} file <span className="text-ink-3">· {decisionText(d.decision)}</span>
+              {d.decision.kind === "included" && <InfoTip>For the shareholder&rsquo;s T1: the repayment may give a deduction under s.20(1)(j) for the amount included in income under s.15(2).</InfoTip>}</>,
+              amt(d.repaidCents), d.decision.kind === "included" ? pill("bg-navy-50 text-navy-700", "Note for the T1") : null))}
             {!g.datesKnown && sub(<span className="text-ink-3">Own books: no dates, so no {sh.windowDays}-day check.</span>, "")}
             {g.prior && sub(<>Repaid by {formatDate(g.prior.dueOn)}? <span className="text-ink-3">Owed at the start {fmt(g.prior.openingCents)} · repaid {fmt(g.prior.repaidCents)} · not repaid {fmt(g.prior.unpaidCents)}</span></>, "",
               confirmed ? pill("bg-success-soft text-success", "Confirmed", `${names.get(conf!.answered_by ?? "") ?? "Staff"}, ${formatDate(conf!.answered_at)}`)
@@ -108,12 +110,21 @@ export function ShSchedule({ fileId, sh, editable, isOwner, names }: { fileId: s
                   {!a || !current ? <p className="mt-1 text-[11px] text-ink-3">Prepare the schedule to answer.</p> : (
                     <div className="mt-1.5 grid gap-1.5">
                       {a.note && <p>Preparer: <i>{a.note}</i> <span className="text-[11px] text-ink-3">{names.get(a.noted_by ?? "") ?? ""} {formatDate(a.noted_at)}</span></p>}
-                      {a.accepted_at ? <p>{pill("bg-success-soft text-success", "Accepted", `${names.get(a.accepted_by ?? "") ?? "The reviewer"}, ${formatDate(a.accepted_at)}`)} <i>{a.accepted_why}</i></p>
-                        : a.note && isOwner && editable ? (
+                      {a.accepted_at ? <p>{pill("bg-success-soft text-success", "Accepted", `${names.get(a.accepted_by ?? "") ?? "The reviewer"}, ${formatDate(a.accepted_at)}`)}{" "}
+                          <i>{a.accepted_kind === "included" && a.accepted_year ? decisionText({ kind: "included", incomeYear: a.accepted_year }) : a.accepted_kind === "not_included" ? decisionText({ kind: "not_included", why: a.accepted_why }) : a.accepted_why}</i></p>
+                        : a.note && isOwner && editable ? (f === "earlier_debit" ? (
+                          // Round 16 fix: the reviewer's decision is a choice. Only "Included" makes a later repayment a note for the T1.
+                          <form action={acceptShFlag} className="grid gap-1.5">{hidden("file_id", fileId)}{hidden("account", key)}{hidden("flag", f)}
+                            <label className="inline-flex flex-wrap items-center gap-1.5"><input type="radio" name="kind" value="included" required className="h-3.5 w-3.5" />Included in the shareholder&rsquo;s income for
+                              <select name="year" defaultValue={YEAR - 1} aria-label="Year included" className="rounded border border-sand-300 px-1 py-0.5">{[YEAR - 3, YEAR - 2, YEAR - 1, YEAR].map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
+                            <label className="inline-flex flex-wrap items-center gap-1.5"><input type="radio" name="kind" value="not_included" className="h-3.5 w-3.5" />Not included, because
+                              <input name="why" maxLength={300} aria-label="Why not included" placeholder="Reason (needed for Not included)" className="min-w-72 flex-1 rounded border border-sand-300 px-1.5 py-0.5" /></label>
+                            <span><button type="submit" className="btn-secondary btn-compact">Accept</button></span></form>
+                        ) : (
                           <form action={acceptShFlag} className="flex flex-wrap items-center gap-2">{hidden("file_id", fileId)}{hidden("account", key)}{hidden("flag", f)}
                             <input name="why" required minLength={3} maxLength={300} aria-label="Reviewer's reason" placeholder="Reviewer: what was decided" className="min-w-72 flex-1 rounded border border-sand-300 px-1.5 py-0.5" />
                             <button type="submit" className="btn-secondary btn-compact">Accept</button></form>
-                        ) : null}
+                        )) : null}
                       {editable && !a.accepted_at && (
                         <form action={answerShFlag} className="flex flex-wrap items-center gap-2">{hidden("file_id", fileId)}{hidden("account", key)}{hidden("flag", f)}
                           <input name="note" required minLength={3} maxLength={500} defaultValue={a.note} aria-label="Answer for the reviewer" placeholder="Answer for the reviewer" className="min-w-72 flex-1 rounded border border-sand-300 px-1.5 py-0.5" />

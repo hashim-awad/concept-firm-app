@@ -2,7 +2,7 @@
 // Round 16 (Hashim; CaseWare Cloud's info icon): secondary explanation sits behind a small "i" in a circle.
 // It opens on hover, on click or tap, and from the keyboard (focus, Enter or Space; Escape closes). Only
 // text the user must act on stays on the face of the screen; the amber warning icon is for those.
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export function InfoTip({ children, label = "More detail", align = "left", className = "" }: {
   children: ReactNode; label?: string; align?: "left" | "right"; className?: string;
@@ -12,6 +12,19 @@ export function InfoTip({ children, label = "More detail", align = "left", class
   const id = useId();
   const ref = useRef<HTMLSpanElement>(null);
   const open = hover || pinned;
+  // Fixed to the viewport, so a scrolling table or card never clips it (round 16 fix).
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const place = () => {
+      const r = ref.current!.getBoundingClientRect(), w = 288, vw = window.innerWidth;
+      const left = align === "right" ? r.right - w : r.left;
+      setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(left, vw - w - 8)) });
+    };
+    place();
+    window.addEventListener("scroll", place, true); window.addEventListener("resize", place);
+    return () => { window.removeEventListener("scroll", place, true); window.removeEventListener("resize", place); };
+  }, [open, align]);
   useEffect(() => {
     if (!pinned) return;
     const out = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setPinned(false); };
@@ -26,7 +39,7 @@ export function InfoTip({ children, label = "More detail", align = "left", class
         onKeyDown={(e) => { if (e.key === "Escape") { setPinned(false); setHover(false); } }}
         className="ml-1 grid h-[15px] w-[15px] flex-none place-items-center rounded-full border-[1.3px] border-ink-3 text-[9.5px] leading-none font-bold tracking-normal text-ink-3 normal-case italic hover:border-navy-700 hover:text-navy-700 focus-visible:outline-2 focus-visible:outline-navy-700">i</button>
       {open && (
-        <span id={id} role="tooltip" className={`absolute top-5 z-50 w-72 rounded-lg border border-sand-300 bg-white px-3 py-2 text-left text-[12.5px] leading-snug font-normal tracking-normal text-ink-2 normal-case shadow-[0_10px_28px_rgba(15,35,80,.18)] ${align === "right" ? "right-0" : "left-0"}`}>{children}</span>
+        <span id={id} role="tooltip" style={pos ? { top: pos.top, left: pos.left } : { visibility: "hidden" }} className={`fixed z-50 w-72 rounded-lg border border-sand-300 bg-white px-3 py-2 text-left text-[12.5px] leading-snug font-normal tracking-normal text-ink-2 normal-case shadow-[0_10px_28px_rgba(15,35,80,.18)]`}>{children}</span>
       )}
     </span>
   );

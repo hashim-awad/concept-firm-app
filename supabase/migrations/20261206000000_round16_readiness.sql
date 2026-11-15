@@ -4,7 +4,8 @@
 --     already answered on them).
 --  3. People: the owner changes the preparer and reviewer; the reviewer is always an owner.
 --  4. First-year files: no opening balances, confirmed by the reviewer with step 2.
---  5. Shareholder loans: a part the reviewer already decided carries forward, not flagged again.
+--  5. Shareholder loans: the reviewer decides last year's part (included in income for a year, or not
+--     included with a reason); a decided amount carries forward on its own line until repaid.
 
 
 alter table public.cb_checklist_questions add column if not exists active boolean not null default true;
@@ -504,10 +505,53 @@ revoke all on function public.cb_set_people(uuid, uuid, uuid) from public, anon;
 grant execute on function public.cb_set_people(uuid, uuid, uuid) to authenticated, service_role;
 
 -- ---------- 5. Shareholder loans: what the reviewer decided carries forward (round 14's deferred item).
+-- The reviewer's decision on last year's part is a choice: included in the shareholder's income for a
+-- year, or not included with a reason. Only "included" makes a later repayment a note for the T1.
+alter table public.cb_sh_flags add column if not exists accepted_kind text not null default '';
+alter table public.cb_sh_flags add column if not exists accepted_year int;
+do $$ begin
+  alter table public.cb_sh_flags add constraint cb_sh_flags_accepted_kind check (accepted_kind in ('', 'included', 'not_included'));
+exception when duplicate_object then null; end $$;
+-- Each group keeps the decided amounts it carries: [{year, kind, income_year, why, start, left, repaid}],
+-- each on its own line until repaid, outside last year's part and this year's part.
 alter table public.cb_sh_groups add column if not exists decided_left numeric(14,2) not null default 0;
-alter table public.cb_sh_groups add column if not exists decided_year int;
-alter table public.cb_sh_groups add column if not exists decided_why text not null default '';
-alter table public.cb_sh_groups add column if not exists decided_repaid numeric(14,2) not null default 0;
+alter table public.cb_sh_groups add column if not exists decided jsonb not null default '[]';
+
+drop function if exists public.cb_accept_sh_flag(uuid, text, text, text);
+CREATE OR REPLACE FUNCTION public.cb_accept_sh_flag(p_file uuid, p_account text, p_flag text, p_why text, p_kind text default '', p_year int default null)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_file public.cb_files; g public.cb_sh_flags; v_why text := btrim(coalesce(p_why, '')); v_kind text := coalesce(p_kind, '');
+begin
+  perform private.require(private.is_owner(), 'Only the reviewer accepts a shareholder loan flag. Reviewers are owners.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
+  select * into g from public.cb_sh_flags where file_id = p_file and account_key = p_account and flag = p_flag;
+  perform private.require(g.file_id is not null and g.note <> '', 'The preparer answers the flag first.');
+  if p_flag = 'earlier_debit' then
+    perform private.require(v_kind in ('included', 'not_included'), 'Pick the decision: included in the shareholder''s income, or not included.');
+    if v_kind = 'included' then
+      perform private.require(p_year between 1990 and extract(year from v_file.year_end)::int, 'Pick the year the amount is included in the shareholder''s income.');
+      v_why := format('Included in the shareholder''s income for %s', p_year);
+    else
+      perform private.require(length(v_why) >= 3, 'Say why the amount is not included.');
+    end if;
+  else
+    perform private.require(length(v_why) >= 3, 'Say why the flag is accepted.');
+    v_kind := '';
+  end if;
+  update public.cb_sh_flags set accepted_by = (select auth.uid()), accepted_at = now(), accepted_why = v_why, accepted_kind = v_kind,
+         accepted_year = case when v_kind = 'included' then p_year end
+   where file_id = p_file and account_key = p_account and flag = p_flag;
+  perform private.cb_log(p_file, 'sh_flag_accepted', 'entries', format('%s accepted: %s', p_account,
+    case when v_kind = 'not_included' then 'Not included: ' || v_why else v_why end));
+end;
+$function$;
+revoke all on function public.cb_accept_sh_flag(uuid, text, text, text, text, int) from public, anon;
+grant execute on function public.cb_accept_sh_flag(uuid, text, text, text, text, int) to authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.cb_prepare_sh_schedule(p_file uuid, p_rows jsonb, p_groups jsonb)
  RETURNS void
@@ -537,15 +581,15 @@ begin
   for x in select * from jsonb_array_elements(p_groups) loop
     perform private.require(case when (x ->> 'this_part')::numeric > 0 then (x ->> 'due_on')::date = (v_file.year_end + interval '1 year')::date else coalesce(x ->> 'due_on', '') = '' end,
       'The s.15(2) date of this year''s part is one year after the year end.');
-    perform private.require(round((x ->> 'last_part')::numeric + (x ->> 'this_part')::numeric, 2) = greatest(round((x ->> 'closing')::numeric, 2), 0) or x ->> 'group_key' like 'none:%',
-      'Last year''s part and this year''s part add up to the balance owed at year end.');
-    insert into public.cb_sh_groups (file_id, group_key, shareholder, accounts, opening, closing, reductions, last_part, this_part, due_on, prior_due_on, prior_opening, prior_repaid, prior_unpaid, flags, decided_left, decided_year, decided_why, decided_repaid)
+    perform private.require(round((x ->> 'last_part')::numeric + (x ->> 'this_part')::numeric + coalesce((x ->> 'decided_left')::numeric, 0), 2) = greatest(round((x ->> 'closing')::numeric, 2), 0) or x ->> 'group_key' like 'none:%',
+      'Decided amounts, last year''s part and this year''s part add up to the balance owed at year end.');
+    insert into public.cb_sh_groups (file_id, group_key, shareholder, accounts, opening, closing, reductions, last_part, this_part, due_on, prior_due_on, prior_opening, prior_repaid, prior_unpaid, flags, decided_left, decided)
     values (p_file, x ->> 'group_key', nullif(x ->> 'shareholder', '')::smallint, coalesce(array(select jsonb_array_elements_text(x -> 'accounts')), '{}'),
       round((x ->> 'opening')::numeric, 2), round((x ->> 'closing')::numeric, 2), round(coalesce((x ->> 'reductions')::numeric, 0), 2),
       round((x ->> 'last_part')::numeric, 2), round((x ->> 'this_part')::numeric, 2), nullif(x ->> 'due_on', '')::date,
       nullif(x ->> 'prior_due_on', '')::date, round((x ->> 'prior_opening')::numeric, 2), round((x ->> 'prior_repaid')::numeric, 2), round((x ->> 'prior_unpaid')::numeric, 2),
       coalesce(array(select jsonb_array_elements_text(x -> 'flags')), '{}'),
-      round(coalesce((x ->> 'decided_left')::numeric, 0), 2), nullif(x ->> 'decided_year', '')::int, left(coalesce(x ->> 'decided_why', ''), 500), round(coalesce((x ->> 'decided_repaid')::numeric, 0), 2));
+      round(coalesce((x ->> 'decided_left')::numeric, 0), 2), case when jsonb_typeof(x -> 'decided') = 'array' then x -> 'decided' else '[]' end);
     -- Each flag keeps its answer while its amount is the same; a changed amount needs it again.
     for f in select jsonb_array_elements_text(x -> 'flags') loop
       v_amt := round(coalesce((x -> 'flag_amounts' ->> f)::numeric, (x ->> 'closing')::numeric), 2);
@@ -556,7 +600,9 @@ begin
         noted_at = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.noted_at end,
         accepted_by = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_by end,
         accepted_at = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_at end,
-        accepted_why = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_why else '' end;
+        accepted_why = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_why else '' end,
+        accepted_kind = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_kind else '' end,
+        accepted_year = case when public.cb_sh_flags.closing = excluded.closing then public.cb_sh_flags.accepted_year end;
     end loop;
   end loop;
   delete from public.cb_sh_flags g where g.file_id = p_file

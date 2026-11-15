@@ -6,9 +6,9 @@ import type { CbAccount, CbEntry } from "./server";
 import type { CbFileRow } from "./files";
 import { loadReportData } from "./report-data";
 import { keepsOwnBooks } from "./books";
-import { buildGroups, buildSchedules, CHART_SHAREHOLDER, type ShCarry, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
+import { buildGroups, buildSchedules, CHART_SHAREHOLDER, type ShCarry, type ShDecision, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
 
-export type ShFlagRow = { account_key: string; flag: ShFlag; closing: number; note: string; noted_by: string | null; noted_at: string | null; accepted_by: string | null; accepted_at: string | null; accepted_why: string };
+export type ShFlagRow = { account_key: string; flag: ShFlag; closing: number; note: string; noted_by: string | null; noted_at: string | null; accepted_by: string | null; accepted_at: string | null; accepted_why: string; accepted_kind: "" | "included" | "not_included"; accepted_year: number | null };
 export type ShRepaidRow = { account_key: string; due_on: string; opening: number; repaid: number; unpaid: number; answered_by: string | null; answered_at: string };
 export type ShStatus = { applies: boolean; prepared_at: string | null; prepared_by: string | null; stale: boolean; problems: string[]; waiting: string[] };
 export type OwnerSource = "chart" | "picked" | "rolled" | "none";
@@ -24,7 +24,7 @@ export async function loadShLoans(supabase: SupabaseClient, file: CbFileRow, acc
     loadReportData(supabase, file, accounts, entries, lines, sheets),
     supabase.rpc("cb_sh_status", { p_file: file.id }),
     supabase.from("cb_settings").select("sh_repay_window_days").maybeSingle(),
-    supabase.from("cb_sh_flags").select("account_key, flag, closing, note, noted_by, noted_at, accepted_by, accepted_at, accepted_why").eq("file_id", file.id),
+    supabase.from("cb_sh_flags").select("account_key, flag, closing, note, noted_by, noted_at, accepted_by, accepted_at, accepted_why, accepted_kind, accepted_year").eq("file_id", file.id),
     supabase.from("cb_sh_repaid").select("account_key, due_on, opening, repaid, unpaid, answered_by, answered_at").eq("file_id", file.id),
     supabase.from("cb_sh_schedules").select("account_key").eq("file_id", file.id),
     // This file's picks, then the client's earlier files', newest first: the first pick per account wins.
@@ -59,22 +59,27 @@ export async function loadShLoans(supabase: SupabaseClient, file: CbFileRow, acc
     owners[r.key] = chart ? { shareholder: chart, source: "chart" } : here ? { shareholder: here.shareholder, source: "picked" }
       : before ? { shareholder: before.shareholder, source: "rolled" } : { shareholder: null, source: "none" };
   }
-  // Round 16: what the client's last file decided carries forward: the reviewer's accepted "last year's
-  // part" plus anything still carried there.
-  const carry = new Map<string, ShCarry>();
+  // Round 16: what the client's last file decided carries forward: the amounts it still carried, each
+  // with its decision, plus last year's part the reviewer decided there.
+  const carry = new Map<string, ShCarry[]>();
   const { data: prev } = await supabase.from("cb_files").select("id, year_end").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle();
   if (prev) {
     const [{ data: pg }, { data: pf }] = await Promise.all([
-      supabase.from("cb_sh_groups").select("group_key, decided_left, decided_year, decided_why").eq("file_id", prev.id),
-      supabase.from("cb_sh_flags").select("account_key, closing, accepted_at, accepted_why").eq("file_id", prev.id).eq("flag", "earlier_debit").not("accepted_at", "is", null),
+      supabase.from("cb_sh_groups").select("group_key, decided").eq("file_id", prev.id),
+      supabase.from("cb_sh_flags").select("account_key, closing, accepted_kind, accepted_year, accepted_why").eq("file_id", prev.id).eq("flag", "earlier_debit").not("accepted_at", "is", null),
     ]);
     const prevYear = Number(String(prev.year_end).slice(0, 4));
-    for (const g of (pg ?? []) as { group_key: string; decided_left: number; decided_year: number | null; decided_why: string }[]) {
-      if (Number(g.decided_left) > 0) carry.set(g.group_key, { cents: Math.round(Number(g.decided_left) * 100), year: g.decided_year ?? prevYear, why: g.decided_why });
+    const add = (k: string, c: ShCarry) => carry.set(k, [...(carry.get(k) ?? []), c]);
+    type Saved = { year: number; kind: string; income_year: number | null; why: string; left: number };
+    for (const g of (pg ?? []) as { group_key: string; decided: Saved[] | null }[]) {
+      for (const d of g.decided ?? []) {
+        const decision = toDecision(d.kind, d.income_year, d.why);
+        if (Number(d.left) > 0 && decision) add(g.group_key, { cents: Math.round(Number(d.left) * 100), year: d.year, decision });
+      }
     }
-    for (const f of (pf ?? []) as { account_key: string; closing: number; accepted_why: string }[]) {
-      const before = carry.get(f.account_key);
-      carry.set(f.account_key, { cents: (before?.cents ?? 0) + Math.round(Number(f.closing) * 100), year: prevYear, why: f.accepted_why || before?.why || "" });
+    for (const f of (pf ?? []) as { account_key: string; closing: number; accepted_kind: string; accepted_year: number | null; accepted_why: string }[]) {
+      const decision = toDecision(f.accepted_kind, f.accepted_year, f.accepted_why);
+      if (decision) add(f.account_key, { cents: Math.round(Number(f.closing) * 100), year: prevYear, decision });
     }
   }
   const groups = buildGroups(rows, new Map(rows.map((r) => [r.key, owners[r.key].shareholder])), { yearStart: file.year_start, yearEnd: file.year_end, windowDays, own, carry });
@@ -103,6 +108,13 @@ export const toSavedGroup = (g: ShGroup) => ({
   prior_due_on: g.prior?.dueOn ?? "", prior_opening: g.prior ? g.prior.openingCents / 100 : null,
   prior_repaid: g.prior ? g.prior.repaidCents / 100 : null, prior_unpaid: g.prior ? g.prior.unpaidCents / 100 : null,
   flags: g.flags, flag_amounts: { earlier_debit: g.earlierDebitCents / 100, late_repayment: g.closingCents / 100 },
-  decided_left: g.carried ? g.carried.leftCents / 100 : 0, decided_year: g.carried?.year ?? "", decided_why: g.carried?.why ?? "",
-  decided_repaid: g.carried ? g.carried.repaidCents / 100 : 0,
+  decided_left: g.decided.reduce((t, d) => t + d.leftCents, 0) / 100,
+  decided: g.decided.map((d) => ({ year: d.year, kind: d.decision.kind, income_year: d.decision.kind === "included" ? d.decision.incomeYear : null,
+    why: d.decision.kind === "not_included" ? d.decision.why : "", start: d.startCents / 100, left: d.leftCents / 100, repaid: d.repaidCents / 100 })),
 });
+// A decision as saved. A flag accepted before the decision was a choice has no kind: it is not carried.
+function toDecision(kind: string, year: number | null, why: string): ShDecision | null {
+  if (kind === "included" && year) return { kind: "included", incomeYear: year };
+  if (kind === "not_included") return { kind: "not_included", why };
+  return null;
+}

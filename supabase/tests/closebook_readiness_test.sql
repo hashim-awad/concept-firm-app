@@ -73,3 +73,16 @@ select test.check('rolled forward and confirmed', (select q1 = 'yes' and users -
 
 -- 5. The checklist has 13 questions; the first 12 are kept for files answered on them.
 select test.check('13 active questions', (select count(*) from public.cb_checklist_questions where active) = 13 and (select count(*) from public.cb_checklist_questions where not active) = 12);
+
+-- 6. Shareholder loans (round 16 fix): an amount decided in an earlier file sits outside last year's
+-- part and this year's part; the three add up to the balance owed.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('decided amount outside the two parts: refused when it does not add up',
+  test.try(format($q$select public.cb_prepare_sh_schedule(%L, '[]', '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:13000"],"opening":3000,"closing":3000,"last_part":3000,"this_part":0,"due_on":"","decided_left":3000,"decided":[],"flags":[]}]')$q$, :'f2')) like 'Decided amounts, last year''s part and this year''s part add up%');
+select public.cb_prepare_sh_schedule(:'f2', '[]', '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:13000"],"opening":3000,"closing":3000,"last_part":0,"this_part":0,"due_on":"","prior_due_on":"","decided_left":3000,
+  "decided":[{"year":2026,"kind":"not_included","income_year":null,"why":"Repaid in March.","start":3000,"left":3000,"repaid":0}],"flags":[]}]');
+reset role;
+reset request.jwt.claims;
+select test.check('all decided: no date, no "Repaid by", the decision kept', (select last_part = 0 and due_on is null and prior_due_on is null and decided_left = 3000 and decided -> 0 ->> 'kind' = 'not_included'
+  from public.cb_sh_groups where file_id = :'f2'));

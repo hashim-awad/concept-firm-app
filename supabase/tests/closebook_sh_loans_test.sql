@@ -38,7 +38,7 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('this year''s part is dated one year after the year end', test.try(format($q$select public.cb_prepare_sh_schedule(%L, %L, '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:23000"],"opening":5000,"closing":8000,"last_part":4000,"this_part":4000,"due_on":"2027-06-30","flags":["earlier_debit"]}]')$q$, :'f', :'rows'))
   = 'The s.15(2) date of this year''s part is one year after the year end.');
 select test.check('the two parts add up to the debit at year end', test.try(format($q$select public.cb_prepare_sh_schedule(%L, %L, '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:23000"],"opening":5000,"closing":8000,"last_part":4000,"this_part":3000,"due_on":"2027-12-31","flags":["earlier_debit"]}]')$q$, :'f', :'rows'))
-  = 'Last year''s part and this year''s part add up to the balance owed at year end.');
+  = 'Decided amounts, last year''s part and this year''s part add up to the balance owed at year end.');
 select public.cb_prepare_sh_schedule(:'f', :'rows', '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:23000"],"opening":5000,"closing":8000,"reductions":1000,"last_part":4000,"this_part":4000,"due_on":"2027-12-31",
   "prior_due_on":"2026-12-31","prior_opening":5000,"prior_repaid":1000,"prior_unpaid":4000,"flags":["earlier_debit"],"flag_amounts":{"earlier_debit":4000}}]');
 reset role;
@@ -59,9 +59,16 @@ select test.check('answered and confirmed: nothing open for the preparer', priva
 select test.check('last year''s part waits for the reviewer', private.cb_sh_waiting(:'f') = array['1 shareholder loan flag for the reviewer.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_accept_sh_flag(:'f', 'sh:1', 'earlier_debit', 'Include 4,000.00 in the shareholder''s 2025 income.');
+-- Round 16 fix: the decision is a choice: included for a year, or not included with a reason.
+select test.check('a decision must be picked', test.try(format($q$select public.cb_accept_sh_flag(%L, 'sh:1', 'earlier_debit', 'ok then')$q$, :'f')) like 'Pick the decision%');
+select test.check('not included needs a reason', test.try(format($q$select public.cb_accept_sh_flag(%L, 'sh:1', 'earlier_debit', '', 'not_included')$q$, :'f')) = 'Say why the amount is not included.');
+select test.check('included needs the year', test.try(format($q$select public.cb_accept_sh_flag(%L, 'sh:1', 'earlier_debit', '', 'included')$q$, :'f')) like 'Pick the year%');
+select test.check('included cannot be a year after the file', test.try(format($q$select public.cb_accept_sh_flag(%L, 'sh:1', 'earlier_debit', '', 'included', 2027)$q$, :'f')) like 'Pick the year%');
+select public.cb_accept_sh_flag(:'f', 'sh:1', 'earlier_debit', '', 'included', 2025);
 reset role;
 reset request.jwt.claims;
+select test.check('included: kept as a choice with its year and plain wording',
+  (select accepted_kind = 'included' and accepted_year = 2025 and accepted_why = 'Included in the shareholder''s income for 2025' from public.cb_sh_flags where file_id = :'f' and flag = 'earlier_debit'));
 select test.check('accepted: nothing waits', private.cb_sh_waiting(:'f') = '{}');
 
 -- A changed figure needs the confirmation again; the books changing needs the schedule again.
