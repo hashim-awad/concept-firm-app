@@ -9,7 +9,17 @@ import { formatAmount, parseAmount } from "./amount.ts";
 // books of a client who keeps their own, named on the line).
 export type AcctOpt = { value: string; label: string; type: string; line_no: string; group: string };
 export type FormLine = { acct: string; dr: string; cr: string; desc: string; tax: string; newName: string; newType: string; newLine: string };
-export type FormHead = { kind: string; reason: string; wpRef: string; memo: string; reverse: boolean };
+// Round 15b: the dialog has no Reason field. The reason is worked out from the entry (reasonFor); "inclusive"
+// is QuickBooks Online's "Amounts are: including tax".
+export type FormHead = { kind: string; reason?: string; wpRef: string; memo: string; reverse: boolean; inclusive?: boolean };
+// The reason the database's rules use, from what the dialog shows (round 15b). A standard entry keeps its
+// own reason while its type and reverse box are unchanged, so it can still skip review.
+export function reasonFor(head: FormHead, ppaLine: boolean, std?: { kind: string; reason: string; reverse: boolean } | null): string {
+  if (ppaLine) return "prior_period";
+  if (std && std.kind === head.kind && std.reverse === head.reverse) return std.reason;
+  if (head.reverse) return "accrual";
+  return head.kind === "TJE" ? "tax" : head.kind === "RJE" ? "reclassification" : "correction";
+}
 export type RpcLine = { account?: string; chart?: string; line?: string; new_name?: string; new_type?: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
 export type TaxRow = { label: string; cents: number };
 
@@ -24,7 +34,8 @@ export const blankLine = (): FormLine => ({ acct: "", dr: "", cr: "", desc: "", 
 const taxCode = (t: string) => (t && t !== "none" ? t : "");
 const isPpa = (line: string) => line.startsWith("3720") || line.startsWith("3600");
 
-export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, AcctOpt>, codes: Map<string, TaxCode>, ctx: TaxContext, lineTypes: Map<string, string> = new Map()) {
+export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, AcctOpt>, codes: Map<string, TaxCode>, ctx: TaxContext, lineTypes: Map<string, string> = new Map(),
+  std?: { kind: string; reason: string; reverse: boolean } | null) {
   const out: RpcLine[] = [];
   let gst = 0, pst = 0, dr = 0, cr = 0;
   const problems: string[] = [];
@@ -44,9 +55,12 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
     const type = l.acct === "new" ? lineTypes.get(l.newLine) ?? "" : o?.type ?? "";
     if (l.acct === "new" && (l.newName.trim().length < 3 || !l.newType || !l.newLine)) problems.push(`Line ${n}: name the new account, with its QuickBooks type and GIFI line.`);
     if (isPpa(lineNo)) ppaLine = true;
-    const net = d - c;
+    const code = taxCode(l.tax) ? codes.get(l.tax) ?? null : null;
+    // Amounts including tax: the amount before tax is the one that, with its tax, gives what was typed.
+    const typed = d - c;
+    const net = head.inclusive && code ? Math.sign(typed) * netOfTax(Math.abs(typed), code, type, ctx) : typed;
     if (ctx.registered && !l.tax) problems.push(`Line ${n}: choose the sales tax.`);
-    const t = entryLineTax(net, taxCode(l.tax) ? codes.get(l.tax) ?? null : null, type, ctx);
+    const t = entryLineTax(net, code, type, ctx);
     gst += t.gstHst; pst += t.pst;
     const amount = net + t.toLine;
     const target: Partial<RpcLine> = l.acct === "new" ? { line: l.newLine, new_name: l.newName.trim(), new_type: l.newType }
@@ -62,12 +76,14 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
   // Each rule shows only when it is broken (item 11), in the order a preparer fills the form.
   if (out.filter((r) => !r.is_tax).length < 2 && !problems.length) problems.push("Enter at least two lines.");
   if (diff && !problems.length) problems.push(`Debits and credits differ by ${formatAmount(Math.abs(diff))}.`);
-  if (ppaLine && head.reason !== "prior_period") problems.push("A line on 31500 Prior period adjustments needs the reason “Prior period adjustment”.");
-  if (!ppaLine && head.reason === "prior_period") problems.push("The reason “Prior period adjustment” needs a line on 31500 Prior period adjustments.");
-  if (head.reverse && head.reason !== "accrual") problems.push("Only an accrual reverses next year.");
+  const reason = head.reason ?? reasonFor(head, ppaLine, std);
+  if (ppaLine && reason !== "prior_period") problems.push("A line on 31500 Prior period adjustments needs the reason “Prior period adjustment”.");
+  if (!ppaLine && reason === "prior_period") problems.push("The reason “Prior period adjustment” needs a line on 31500 Prior period adjustments.");
+  if (head.reverse && reason === "prior_period") problems.push("A prior period adjustment never reverses next year.");
+  else if (head.reverse && reason !== "accrual") problems.push("Only an accrual reverses next year.");
   if (head.wpRef.trim().length < 3) problems.push("Add the W/P reference.");
-  if (head.memo.trim().length < 3) problems.push("Add the memo.");
-  return { rpc: out, taxRows, dr, cr, diff, problems };
+  if (head.memo.trim().length < 3) problems.push("Add the description.");
+  return { rpc: out, taxRows, dr, cr, diff, problems, reason };
 }
 
 // A standard entry's amount is the total paid, including tax (round 3 item 2; QuickBooks Online's "amounts

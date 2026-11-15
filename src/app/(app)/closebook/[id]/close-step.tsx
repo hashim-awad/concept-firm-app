@@ -20,9 +20,12 @@ const CARD = "overflow-hidden rounded-[10px] border border-sand-200 bg-white";
 const HEAD = "flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5";
 const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 
-export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOwner, names }: {
-  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>;
+// Round 15b: the step's papers, Checklist, Client email, Documents, Filing and lock (CaseWare's document
+// map). Without a paper, all of them.
+export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOwner, names, paper }: {
+  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>; paper?: string;
 }) {
+  const show = (k: string) => !paper || paper === k;
   const c = d.close, s = d.status, locked = d.locked, open = !!s.mal_signed_at;
   const can = editable && !locked;
   const delivered = !!c.delivered_at;
@@ -36,6 +39,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         <p role="status" className="text-[12.5px] text-navy-800"><b>Locked</b> {c.locked_at ? when(c.locked_at) : ""}, {names.get(c.locked_by ?? "") ?? ""}</p>
       )}
 
+      {show("checklist") && <>
       {/* 7. The completion checklist: open once the MAL is signed; 10 and 11 filled by Closebook. */}
       {open ? (
         <Checklist fileId={fileId} checklist={checklist} problems={s.lock.filter((x) => x.startsWith("Checklist: ")).map((x) => x.slice(11))} editable={can}
@@ -46,6 +50,8 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         </section>
       )}
 
+      </>}
+      {show("email") && <>
       {/* 8. The email's figures, typed from ProFile. */}
       <form action={saveCloseFields} className={CARD} aria-label="Email figures">
         <input type="hidden" name="file_id" value={fileId} />
@@ -133,6 +139,8 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         </div>
       </section>
 
+      </>}
+      {show("documents") && <>
       {/* 9. The documents for TaxDome. */}
       <section aria-label="Documents for TaxDome" className={CARD}>
         <div className={HEAD}><h3 className={H}>Documents for TaxDome</h3></div>
@@ -156,6 +164,8 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         </div>
       </section>
 
+      </>}
+      {show("filing") && <>
       {/* 10. Filing record. */}
       <form action={saveFilingRecord} className={CARD} aria-label="Filing record">
         <input type="hidden" name="file_id" value={fileId} />
@@ -211,6 +221,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, editable, isOw
         </>)}
         </div>
       </section>
+      </>}
     </div>
   );
 }

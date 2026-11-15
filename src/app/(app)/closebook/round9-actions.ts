@@ -15,10 +15,11 @@ import { defaultTaxCode } from "@/lib/closebook/sales-tax";
 import { keepsOwnBooks } from "@/lib/closebook/books";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const back = (id: string) => `/closebook/${id}?step=entries`;
-const done = (id: string, error: { message: string } | null, ok: string): never => {
+// Round 15b: each action lands back on its own paper of step 5.
+const back = (id: string, paper = "revenue") => `/closebook/${id}?step=entries&paper=${paper}`;
+const done = (id: string, error: { message: string } | null, ok: string, paper = "revenue"): never => {
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back(id), error ? "error" : "msg", error ? error.message : ok));
+  redirect(withMessage(back(id, paper), error ? "error" : "msg", error ? error.message : ok));
 };
 async function editor(id: string) {
   const a = await getAccess();
@@ -94,20 +95,20 @@ export async function addPersonalExpenses(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(id);
   let form: { inputs: ExpenseInput[]; head: ExpenseHead };
-  try { form = JSON.parse(s(formData, "form")); } catch { redirect(withMessage(back(id), "error", "The entry could not be read. Nothing was saved.")); }
+  try { form = JSON.parse(s(formData, "form")); } catch { redirect(withMessage(back(id, "expenses"), "error", "The entry could not be read. Nothing was saved.")); }
   const supabase = await createClient();
   const f = await loadFile(supabase, id);
-  if (!f) redirect(withMessage(back(id), "error", "File not found."));
+  if (!f) redirect(withMessage(back(id, "expenses"), "error", "File not found."));
   const data = await loadExpenses(supabase, f!.file);
-  if (!data) redirect(withMessage(back(id), "error", "The \"Expenses paid personally\" standard entry is missing. Ask an owner."));
-  if (!data!.shareholders.some((h) => h.value === form!.head.shareholder)) redirect(withMessage(back(id), "error", "Choose the shareholder from the list. Nothing was saved."));
+  if (!data) redirect(withMessage(back(id, "expenses"), "error", "The \"Expenses paid personally\" standard entry is missing. Ask an owner."));
+  if (!data!.shareholders.some((h) => h.value === form!.head.shareholder)) redirect(withMessage(back(id, "expenses"), "error", "Choose the shareholder from the list. Nothing was saved."));
   // Round 9b: an account chosen on a line must be one the form offered (or a named new account on a client
   // who keeps their own books).
   for (const i of form!.inputs) {
     const d = data!.defs.find((x) => x.key === i.key);
     if (!d || d.pick || !i.account) continue;
     const ok = (data!.options[i.key] ?? []).some((o) => o.value === i.account) || i.account === data!.defaults[i.key] || (data!.own && i.account.startsWith("new:"));
-    if (!ok) redirect(withMessage(back(id), "error", `${d.name}: choose an account from the list. Nothing was saved.`));
+    if (!ok) redirect(withMessage(back(id, "expenses"), "error", `${d.name}: choose an account from the list. Nothing was saved.`));
   }
   const sheet = fileOf(formData, "sheet");
   const receipts = new Map(form!.inputs.map((i) => [i.key, formData.getAll(`receipts_${i.key}`).filter((x): x is File => x instanceof File && x.size > 0)]));
@@ -115,9 +116,9 @@ export async function addPersonalExpenses(formData: FormData) {
   const province = f!.client?.province ?? "ON";
   const plan = planExpenses(data!.defs, inputs, { ...form!.head, sheet: !!sheet, autoEntry: data!.autoEntry },
     { registered: data!.registered, quick: data!.quick, autoTax: data!.autoTax, taxCode: (a) => defaultTaxCode("GST/HST", province, a) });
-  if (plan.problems.length) redirect(withMessage(back(id), "error", `Nothing was saved. ${plan.problems[0]}`));
+  if (plan.problems.length) redirect(withMessage(back(id, "expenses"), "error", `Nothing was saved. ${plan.problems[0]}`));
   const files = [...receipts.values()].flat();
-  if (files.length + 1 > 10) redirect(withMessage(back(id), "error", "Up to 10 attachments: the sheet and 9 receipts. Nothing was saved."));
+  if (files.length + 1 > 10) redirect(withMessage(back(id, "expenses"), "error", "Up to 10 attachments: the sheet and 9 receipts. Nothing was saved."));
   // A client who keeps their own books: their account on the same GIFI line, as any entry; when they have
   // none, a new account in their books named after the standard chart account (round 2 item 2).
   let lines: Record<string, unknown>[] = plan.rpc;
@@ -138,8 +139,8 @@ export async function addPersonalExpenses(formData: FormData) {
   const paths = [await store(id, "entries", sheet!)];
   for (const r of files) paths.push(await store(id, "entries", r));
   const { error } = await supabase.rpc("cb_add_personal_expenses", { p_file: id, p_lines: lines, p_check: plan.check, p_attachments: paths, p_to_reviewer: plan.toReviewer });
-  if (error) done(id, { message: `Nothing was saved. ${error.message}` }, "");
-  done(id, null, plan.toReviewer ? "Expenses paid personally: entry added. It goes to the reviewer." : "Expenses paid personally: entry added.");
+  if (error) done(id, { message: `Nothing was saved. ${error.message}` }, "", "expenses");
+  done(id, null, plan.toReviewer ? "Expenses paid personally: entry added. It goes to the reviewer." : "Expenses paid personally: entry added.", "expenses");
 }
 
 // Round 9b: one line's account on this file, saved as soon as it is picked (rolls forward to next year).

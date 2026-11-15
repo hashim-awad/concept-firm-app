@@ -25,7 +25,7 @@ export function ShSchedule({ fileId, sh, editable, isOwner, names }: { fileId: s
   const st = sh.status;
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const link = (i: ShItem) => i.kind === "bank" && i.acct ? `/closebook/${fileId}?step=code&account=${i.acct}&line=${i.ref}`
-    : i.kind === "entry" ? `/closebook/${fileId}?step=entries#entry-${i.ref}` : null;
+    : i.kind === "entry" ? `/closebook/${fileId}?area=entries&open=${i.ref}` : null;
   const items = (title: string, list: ShItem[]) => (
     <div><p className="mb-1.5 text-xs font-bold">{title}</p>
       <table className="w-full text-xs"><tbody>{list.map((i, n) => {

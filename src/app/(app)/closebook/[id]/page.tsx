@@ -1,12 +1,13 @@
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
 import { BOOKS, fileBy, firstName } from "@/lib/closebook/files";
-import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, STEP_KEYS, type StepKey } from "@/lib/closebook/steps";
+import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, stepPapers, STEP_KEYS, type Paper, type PaperKey, type StepKey } from "@/lib/closebook/steps";
 import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, cbText } from "@/lib/closebook/client-wording";
 import { loadWordingState } from "@/lib/studio/wording-state";
@@ -23,7 +24,7 @@ import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type Revi
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
-import { EntriesTab } from "./entries-tab";
+import { entryDialog } from "./areas/entry-dialog";
 import { RevenueCheck } from "./revenue-check";
 import { ShSchedule } from "./sh-schedule";
 import { loadShLoans } from "@/lib/closebook/sh-server";
@@ -80,6 +81,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const { file, client, docs, accounts, imports, names, entries } = data;
   const ref = await loadReference(supabase);
   const isReviewer = access.staff_id === file.reviewer_id;
+  // Notes by role (round 15b): the file's reviewer, or an owner who does not prepare it, reviews; everyone
+  // else prepares (replies and marks fixed).
+  const preparerRole = !isReviewer && (!access.is_owner || access.staff_id === file.preparer_id);
   const editable = canEdit(access, "closebook");
   // Full names (round 8b item 9): two staff can share a first name.
   const people = { preparer: names.get(file.preparer_id) ?? "", reviewer: names.get(file.reviewer_id) ?? "" };
@@ -121,6 +125,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const showHistory = access.is_owner && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
+  // Round 15b (CaseWare's document map): a step's working papers, each its own screen. The step's branch
+  // below sets which papers apply; the one asked for, or the first.
+  const pp: { list: Paper[]; key?: PaperKey } = { list: [] };
+  const pickPaper = (list: Paper[]) => { pp.list = list; pp.key = (list.find((x) => x.key === str(sp.paper))?.key ?? list[0]?.key) as PaperKey | undefined; return pp.key; };
+  const paperHref = (k: StepKey, p: PaperKey) => `${href(k)}&paper=${p}`;
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
@@ -235,36 +244,31 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: `${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}` } : undefined} />
       : tb("code", ["accounts", "lines"], "accounts", false);   // the uploads stay on step 3 (round 8b item 8)
   } else if (step === "entries") {
-    // Bank-statement files: an entry line on a GIFI line shows the chart account on that line, as the reports do.
-    const onLine: Record<string, { number: string; name: string }> = {};
-    if (bankFile) for (const c of ((await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order")).data ?? []) as { number: string; name: string; line_no: string }[]) onLine[c.line_no] ??= { number: c.number, name: c.name };
-    // The entry form's choices: accounts, sales tax, standard entries resolved to this file (round 2 item 11).
-    const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
-    // Round 9: the revenue check (CaseWare's tie-out working paper) and, when the setup says the owner paid
-    // business costs personally, the "Expenses paid personally" entry (QuickBooks Online's journal entry).
-    const rev = file.file_type === "full" ? await loadRevenue(supabase, id) : null;
-    const exp = file.file_type === "full" && setup.owner_paid === true ? await loadExpenses(supabase, file) : null;
-    const open = editable && file.phase !== "locked";
-    const booked = entries.filter((e) => e.origin === "expenses_personal").length;
-    // Round 14: the shareholder loan schedule (CaseWare's continuity working paper), beside the revenue check.
+    // Step 5, Checks (round 15b): the revenue check, the shareholder loans and the expenses paid personally,
+    // each a working paper. Entries themselves live on the Entries tab.
+    const full = file.file_type === "full";
     const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
-    body = <>
-      {rev && <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
-        isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} />}
-      {(sh.rows.length > 0 || sh.status.applies) && <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />}
-      {exp && (
-        <details id="expenses-personal" className="mb-3.5 rounded-[10px] border border-sand-200 bg-white" open={open && !booked}>
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-3.5 py-2.5 [&::-webkit-details-marker]:hidden"><span className="text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Expenses paid personally</span>
-            <span className="text-[12.5px] text-ink-3">{booked ? `${booked} entr${booked === 1 ? "y" : "ies"} booked` : "Not booked"}</span></summary>
-          {open ? <div className="border-t border-sand-200 px-3.5 py-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
-            clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders}
-            options={exp.options} defaults={exp.defaults} chosen={exp.chosen} rolledFrom={exp.rolledFrom} /></div>
-            : <p className="border-t border-sand-200 px-3.5 py-2.5 text-[12.5px] text-ink-3">Read-only.</p>}
-        </details>
-      )}
-      <EntriesTab file={file} entries={entries} accounts={accounts} editable={editable} isReviewer={isReviewer} names={names} clientList={keepsOwnBooks(file)} chartOnLine={onLine} form={form}
-        noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: href("entries") } : undefined} prefill={str(sp.newfor)} />
-    </>;
+    const p = pickPaper(stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false }));
+    const open = editable && file.phase !== "locked";
+    if (!full) body = soon("Monthly file: entries are made in QuickBooks.");
+    else if (p === "revenue") {
+      const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
+      const rev = await loadRevenue(supabase, id);
+      body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
+        isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
+    } else if (p === "sh") body = <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />;
+    else if (p === "expenses") {
+      const exp = await loadExpenses(supabase, file);
+      const booked = entries.filter((e) => e.origin === "expenses_personal");
+      body = exp ? <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Expenses paid personally">
+        {booked.length > 0 && <p className="border-b border-sand-200 px-3.5 py-2 text-[12.5px] text-ink-2">Booked: {booked.map((e) => (
+          <Link key={e.id} href={`/closebook/${id}?area=entries&open=${e.id}`} className="font-semibold text-navy-700 hover:underline">{entryNo(file.year_end, e)}</Link>))}</p>}
+        {open ? <div className="px-3.5 py-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
+          clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders}
+          options={exp.options} defaults={exp.defaults} chosen={exp.chosen} rolledFrom={exp.rolledFrom} /></div>
+          : <p className="px-3.5 py-2.5 text-[12.5px] text-ink-3">Read-only.</p>}
+      </section> : soon("The \"Expenses paid personally\" standard entry is missing. Ask an owner.");
+    } else body = soon("No checks apply to this file.");
   } else if (step === "review") {
     // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
     // are one click away, where the preparer explains the flagged changes for step 5.
@@ -280,19 +284,19 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         { key: "code", title: "Lines for the reviewer", step: "step 4", items: ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
         { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
-          { href: `${href("entries")}#entry-${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
+          { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
         { key: "revenue", title: "Revenue check", step: "step 5", items: await (async () => {
           const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
-          return r ? revenueWaiting(r).map((w) => ({ href: `${href("entries")}#revenue-check`, label: w.label,
+          return r ? revenueWaiting(r).map((w) => ({ href: paperHref("entries", "revenue"), label: w.label,
             detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
         })() },
         { key: "sh", title: "Shareholder loans", step: "step 5", items: await (async () => {
           // Round 14: flags the preparer answered, per shareholder (last year's part not repaid; repaid near year end).
           const { data: fl } = await supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null);
-          return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: `${href("entries")}#sh-loans`,
+          return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: paperHref("entries", "sh"),
             label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: f.note, amount: amt(Number(f.closing)) }));
         })() },
-        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
+        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 6", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
             detail: a.needs_reviewer ? a.reviewer_reason : [typeFlag(a, lineOf(a.line_no)) === "open" ? typeFlagText(a, lineOf(a.line_no)) : "", sideFlagText(a, lineOf(a.line_no), finalOf(a))].filter(Boolean).join(" "),
@@ -316,13 +320,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // Round 13: the GST/HST return beside the T2.
     const gst = await gstFor(supabase, id);
     const dl = /^\d+$/.test(str(sp.gst) ?? "") && /^1\d\d$/.test(str(sp.line) ?? "") ? { period: Number(str(sp.gst)), line: str(sp.line) as Line } : null;
-    body = g ? <><T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} />
-      {gst && <div className="mt-4"><GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} /></div>}</>
+    // Round 15b: the papers GIFI file, Tax workpaper, T2 tie-out and, for a registrant's full file, GST/HST return.
+    const p = pickPaper(stepPapers("t2", { full: file.file_type === "full", shareholders: false, ownerPaid: false, gst: !!gst }));
+    body = p === "gst" && gst ? <GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} />
+      : g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} paper={p} />
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Step 9 (round 11): the year-end package, its fields and the MAL's signing.
     pk = accounts.length ? await loadPackage(supabase, id) : null;
-    body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} siteUrl={env.siteUrl()} />
+    const p = pickPaper(stepPapers("statements", { full: true, shareholders: false, ownerPaid: false, gst: false }));
+    body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} siteUrl={env.siteUrl()} paper={p} />
       : soon("The package opens once there is a trial balance.");
   } else {
     // Step 10 (round 8b, round 12): the completion checklist, then delivery and the lock.
@@ -341,18 +348,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // Round 12: step 10, "Deliver and lock": the checklist, the client email, the documents, the filing
     // record and the lock.
     const cd = accounts.length ? await loadClose(supabase, id) : null;
-    body = cd ? <CloseStep fileId={id} d={cd} checklist={checklist} checklistTrial={!appr} editable={editable} isOwner={access.is_owner} names={names} />
+    const p = pickPaper(stepPapers("lock", { full: true, shareholders: false, ownerPaid: false, gst: false }));
+    body = cd ? <CloseStep fileId={id} d={cd} checklist={checklist} checklistTrial={!appr} editable={editable} isOwner={access.is_owner} names={names} paper={p} />
       : soon("Step 10 opens once there is a trial balance.");
   }
 
   // Round 15 (CaseWare Cloud): the sign-offs are circles in the title row and the step rail; what is open
   // and waiting, and the step's review notes, sit in the Issues panel; explanations in the help panel.
-  const stepBack = `${href(step)}${view ? `&view=${view}` : ""}`;
+  const papers = pp.list, paper = pp.key;
+  const stepBack = `${href(step)}${paper ? `&paper=${paper}` : ""}${view ? `&view=${view}` : ""}`;
+  const paperName = papers.find((x) => x.key === paper)?.name;
   // Step 9: a stopped package (a failed tie-out, named) blocks the sign-off like the database's own checks.
   const stStep = step === "statements" && pk?.blocked.length && review.status[step] ? { ...review.status[step], problems: [...new Set([...pk.blocked, ...(review.status[step].problems ?? [])])] } : review.status[step];
   const stepNotesList = review.notes.filter((n) => n.step === step);
   const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} isOwner={access.is_owner}
-    canFix={!access.is_owner || access.staff_id === file.preparer_id} editable={editable && file.phase !== "locked"} back={stepBack} />;
+    canFix={preparerRole} editable={editable && file.phase !== "locked"} back={stepBack} />;
   const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
     editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile });
   if (showHistory) {
@@ -364,9 +374,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
       ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];
     const title = (
-      <StepTitle n={cur.n} name={cur.name} sign={SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
+      <StepTitle n={cur.n} name={cur.name} paper={paperName} sub={paper === "revenue" ? "W/P Revenue check" : undefined} sign={SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
         issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
-        notesPanel={stepNotesList.length ? stepNotes : null} next={step === current ? next : undefined}
+        notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
         exports={exports} help={stepHelp(step, bankFile)} />
     );
@@ -393,15 +403,19 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const stepRail = (
     <>
       <PanelHead>Steps</PanelHead>
-      {steps.map((x) => (
-        <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
+      {steps.flatMap((x) => [
+        <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
           <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3.5 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
-            <span className="w-4 text-right text-[11.5px] text-ink-3 tabular-nums">{x.n}</span><span className="truncate">{x.name}</span>
+            <span className="w-4 flex-none text-right text-[11.5px] text-ink-3 tabular-nums">{x.n}</span><span className="leading-snug">{x.name}</span>
           </Link>
           {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
           <SignCircles {...signFor(x.key)} />
-        </div>
-      ))}
+        </div>,
+        ...(x.key === step && area === "steps" && !showHistory ? papers.map((pp) => (
+          <Link key={`${x.key}-${pp.key}`} href={paperHref(x.key, pp.key)} aria-current={pp.key === paper ? "page" : undefined}
+            className={`flex items-center gap-2 py-1.5 pr-3 pl-10 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "text-ink-2 hover:bg-sand-50"}`}>
+            <FileText className="h-3.5 w-3.5 flex-none text-ink-3" aria-hidden />{pp.name}</Link>)) : []),
+      ])}
     </>
   );
   const stepRailFolded = (
@@ -437,10 +451,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag} />;
   } else if (area === "entries") {
-    const ea = await entriesArea({ supabase, file, entries, accounts, names, sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
+    const std = file.file_type === "full" ? (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name })) : [];
+    const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std,
+      sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {
-    const na = notesArea({ fileId: id, notes: review.notes, steps, names, isOwner: access.is_owner, canFix: !access.is_owner || access.staff_id === file.preparer_id,
+    const na = notesArea({ fileId: id, notes: review.notes, steps, names, isOwner: access.is_owner, canFix: preparerRole,
       editable: editable && file.phase !== "locked", sp: { status: str(sp.status), step: str(sp.nstep), who: str(sp.who) } });
     left = na.left; folded = null; content = na.content;
   } else if (area === "statements") {
@@ -448,12 +464,22 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     left = sa.left; folded = null; content = sa.content;
   }
 
+  // Round 15b: the journal entry dialog, over whichever tab opened it.
+  const keep = new URLSearchParams(Object.entries(sp).filter(([k, v]) => typeof v === "string" && !["new", "open", "edit", "acct", "msg", "error"].includes(k)) as [string, string][]);
+  const closeHref = `/closebook/${id}${keep.toString() ? `?${keep}` : ""}`;
+  const dialogQ = new URLSearchParams(keep);
+  for (const k of ["new", "open", "acct"]) if (str(sp[k])) dialogQ.set(k, str(sp[k])!);
+  const dialog = await entryDialog({ supabase, file, province: client?.province ?? "ON", clientName: client?.legal_name ?? "The client", entries, accounts, names,
+    me: access.staff_id ?? "", isReviewer: isReviewer || access.is_owner, editable, closeHref, here: `/closebook/${id}?${dialogQ}`,
+    sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), error: messageFrom(sp.error) } });
+
   return (
     <FileShell fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} area={area}
       history={access.is_owner} left={left} folded={folded} notes={openNotes}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
       {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}
+      {dialog}
     </FileShell>
   );
 }

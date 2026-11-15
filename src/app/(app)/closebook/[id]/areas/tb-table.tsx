@@ -94,7 +94,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
   const icons = (r: TbRow) => (
     <td className="w-[1%] px-2 text-right whitespace-nowrap text-[#9aa0ae]">
       {r.id && editable ? <span className="inline-flex items-center gap-2">
-        <Link href={`/closebook/${fileId}?step=entries&newfor=${r.id}#new-entry`} title="New entry on this account" aria-label={`New entry on ${r.name}`} className="hover:text-navy-700"><Plus className="h-3.5 w-3.5" /></Link>
+        <Link href={`/closebook/${fileId}?area=tb&tbv=${view}&new=journal&acct=${r.id}`} scroll={false} title="New entry on this account" aria-label={`New entry on ${r.name}`} className="hover:text-navy-700"><Plus className="h-3.5 w-3.5" /></Link>
         {isOwner ? (
           <Popover align="right" width="w-80" label={r.notes ? `${r.notes} review note${r.notes === 1 ? "" : "s"}` : "Add review note"}
             button={<span className={`relative ${r.notes ? "text-danger" : "hover:text-navy-700"}`}><MessageSquare className="h-3.5 w-3.5" fill={r.notes ? "currentColor" : "none"} />{r.notes > 0 && <span className="absolute -top-2 -right-1.5 text-[9px] font-bold">{r.notes}</span>}</span>}>

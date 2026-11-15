@@ -1,27 +1,32 @@
-// Round 15: the Entries tab, as CaseWare Cloud's Adjustments page. Every entry on the file with its
-// number, type, date, description, W/P ref, amount and status; each opens to its lines. Filters by type,
-// status and source in the left panel. Entries are made on step 5; an entry reached from the trial
-// balance is marked with a blue bar, with the path back at the top.
+// Round 15b: the Entries tab, as CaseWare Cloud's Adjustments page: every entry on the file, filtered by
+// type, review and source in the left panel. Sign-off circles replace the status chips: a preparer circle
+// on every entry, a reviewer circle only on entries that need review. A row opens the entry in its dialog;
+// "New entry" is a menu (QuickBooks Online's + New): a journal entry, a standard entry, or the Expenses
+// paid personally paper. An entry reached from the trial balance is marked with a blue bar.
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import { entryNo } from "@/lib/closebook/reports";
-import { PageTitle, PanelHead, PanelLink } from "../shell/shell";
+import { PageTitle, PanelHead, PanelLink, initials } from "../shell/shell";
+import { Popover } from "../shell/ui";
+import { reviewEntry } from "../../actions";
+import { Circle } from "./entry-dialog";
 
-export type EntryStatus = "For the reviewer" | "Approved" | "Posted";
-export const entryStatus = (e: CbEntry): EntryStatus => (e.reviewed_at ? "Approved" : e.needs_review ? "For the reviewer" : "Posted");
-const STATUS_CLS: Record<EntryStatus, string> = { "For the reviewer": "bg-warning-soft text-warning", Approved: "bg-success-soft text-success", Posted: "bg-sand-100 text-ink-2" };
+export type EntryStatus = "Needs review" | "Reviewed" | "No review needed";
+export const entryStatus = (e: CbEntry): EntryStatus => (!e.needs_review ? "No review needed" : e.reviewed_at ? "Reviewed" : "Needs review");
 type Source = "Typed" | "Standard entry" | "Revenue check" | "Expenses paid personally";
 const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.origin === "revenue_check" ? "Revenue check" : e.origin === "expenses_personal" ? "Expenses paid personally"
   : /^Standard entry/.test(e.wp_ref ?? "") || e.standard_id ? "Standard entry" : "Typed");
+const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px]";
 const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `(${t})` : t; };
 
-export async function entriesArea({ supabase, file, entries, accounts, names, sp }: {
+export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard }: {
   supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; names: Map<string, string>;
   sp: { type?: string; status?: string; source?: string; entry?: string; back?: string };
+  editable: boolean; isReviewer: boolean; standard: { id: string; name: string }[];
 }) {
   const base = `/closebook/${file.id}`;
   const { data: std } = await supabase.from("cb_entries").select("id, standard_id").eq("file_id", file.id);
@@ -33,15 +38,14 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
     <>
       <PanelHead>Type</PanelHead>
       <PanelLink href={q({ type: undefined })} on={!sp.type} count={rows.length}>All</PanelLink>
-      {["AJE", "RJE", "TJE"].map((t) => <PanelLink key={t} href={q({ type: t })} on={sp.type === t} count={count((r) => r.type === t)}>{t}</PanelLink>)}
-      <PanelHead>Status</PanelHead>
-      {(["For the reviewer", "Approved", "Posted"] as EntryStatus[]).map((s) => <PanelLink key={s} href={q({ status: sp.status === s ? undefined : s })} on={sp.status === s} count={count((r) => r.status === s)}>{s}</PanelLink>)}
+      {([["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax (TJE)"]] as const).map(([t, l]) => <PanelLink key={t} href={q({ type: t })} on={sp.type === t} count={count((r) => r.type === t)}>{l}</PanelLink>)}
+      <PanelHead>Review</PanelHead>
+      {(["Needs review", "Reviewed", "No review needed"] as EntryStatus[]).map((s) => <PanelLink key={s} href={q({ status: sp.status === s ? undefined : s })} on={sp.status === s} count={count((r) => r.status === s)}>{s}</PanelLink>)}
       <PanelHead>Source</PanelHead>
       {(["Typed", "Standard entry", "Revenue check", "Expenses paid personally"] as Source[]).map((s) => <PanelLink key={s} href={q({ source: sp.source === s ? undefined : s })} on={sp.source === s} count={count((r) => r.source === s)}>{s}</PanelLink>)}
     </>
   );
   const shown = rows.filter((r) => (!sp.type || r.type === sp.type) && (!sp.status || r.status === sp.status) && (!sp.source || r.source === sp.source));
-  const byId = new Map(accounts.map((a) => [a.id, a]));
   const marked = sp.entry;
   // The path back: the trial balance and the account the entry was reached from.
   const backAcct = sp.back && /drill=([^&]+)/.exec(sp.back)?.[1];
@@ -57,41 +61,46 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         </p>
       )}
       <PageTitle right={<>
-        {(file.setup as Record<string, unknown> | null)?.owner_paid === true && <Link href={`${base}?step=entries#expenses-personal`} className="btn-secondary btn-compact">Expenses paid personally</Link>}
-        <Link href={`${base}?step=entries#new-entry`} className="btn btn-compact"><Plus className="h-3.5 w-3.5" />New entry</Link>
+        {file.books !== "statements" && file.books !== "paper" && entries.length > 0 && <a href={`/closebook/${file.id}/client-entries`} className="btn-secondary btn-compact">Client entry list (PDF)</a>}
+        {editable && file.phase !== "locked" && file.file_type === "full" && (
+          <Popover align="right" width="w-64" label="New entry" button={<span className="btn btn-compact"><Plus className="h-3.5 w-3.5" />New entry<ChevronDown className="h-3.5 w-3.5" /></span>}>
+            <ul className="-mx-3 -my-1.5 grid text-[13px]">
+              <li><Link href={`${base}?area=entries&new=journal`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-navy-50"><Plus className="h-3.5 w-3.5" />Journal entry</Link></li>
+              {standard.length > 0 && <><li className="mt-1 border-t border-sand-200 px-3 pt-2 pb-0.5 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">From a standard entry</li>
+                {standard.map((x) => <li key={x.id}><Link href={`${base}?area=entries&new=std:${x.id}`} className="block py-1.5 pr-3 pl-6 hover:bg-navy-50">{x.name}</Link></li>)}</>}
+              {(file.setup as Record<string, unknown> | null)?.owner_paid === true && <li className="mt-1 border-t border-sand-200 pt-1"><Link href={`${base}?step=entries&paper=expenses`} className="block px-3 py-1.5 hover:bg-navy-50">Expenses paid personally</Link></li>}
+            </ul>
+          </Popover>
+        )}
       </>}>Entries <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
       <section className="overflow-hidden rounded-[10px] border border-sand-200 bg-white" aria-label="Entries">
-        <div className="grid grid-cols-[22px_92px_44px_104px_minmax(0,1fr)_minmax(0,180px)_110px_128px] gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3">
-          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span>Status</span>
+        <div className={`grid ${COLS} gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3`}>
+          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span>Sign-off</span>
         </div>
-        {shown.map(({ e, status }) => {
+        {shown.map(({ e }) => {
           const total = e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
           const on = e.id === marked;
+          const open = `${base}?area=entries${["type", "status", "source"].map((k) => (sp as Record<string, string | undefined>)[k] ? `&${k}=${encodeURIComponent((sp as Record<string, string>)[k])}` : "").join("")}&open=${e.id}`;
+          const prep = names.get(e.created_by ?? "") ?? "";
+          const rev = e.reviewed_by ? names.get(e.reviewed_by) ?? "" : "";
           return (
-            <details key={e.id} id={`entry-${e.id}`} open={on} className={`group border-b border-sand-100 last:border-0 ${on ? "bg-[#eef4ff] shadow-[inset_4px_0_0_#2f6fd6]" : ""}`}>
-              <summary className="grid cursor-pointer list-none grid-cols-[22px_92px_44px_104px_minmax(0,1fr)_minmax(0,180px)_110px_128px] items-center gap-x-2 px-3 py-[7px] text-[12.5px] hover:bg-sand-50 [&::-webkit-details-marker]:hidden">
-                <ChevronRight className="h-3.5 w-3.5 text-navy-600 transition group-open:rotate-90" aria-hidden />
-                <span className="tabular-nums">{entryNo(file.year_end, e).split(" ")[0]}</span><span className="text-ink-3">{e.kind}</span>
-                <span className="whitespace-nowrap">{formatDate(e.entry_date ?? file.year_end)}</span>
-                <span className="truncate" title={e.note}>{e.note}</span><span className="truncate text-ink-3">{e.wp_ref || "–"}</span>
-                <span className="text-right tabular-nums">{money(total)}</span>
-                <span><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_CLS[status]}`}>{status}</span></span>
-              </summary>
-              <div className="px-3 pt-0.5 pb-2.5 pl-[34px]">
-                <table className="w-full max-w-4xl text-[12.5px]"><tbody>
-                  {e.lines.map((l, i) => {
-                    const a = byId.get(l.account_id);
-                    const hit = backAcct && a?.account_key === decodeURIComponent(backAcct);
-                    return <tr key={i} className="border-t border-sand-100"><td className="w-16 py-1 text-[11px] text-ink-3">{l.amount > 0 ? "Debit" : "Credit"}</td>
-                      <td className="py-1"><span className={hit ? "rounded bg-[#dbe7ff] px-1" : ""}>{a?.number ? `${a.number} ` : ""}{a?.name ?? ""}</span>{l.memo && <span className="ml-2 text-ink-3">{l.memo}</span>}</td>
-                      <td className="w-28 py-1 text-right tabular-nums">{money(l.amount)}</td></tr>;
-                  })}
-                </tbody></table>
-                <p className="mt-1.5 flex flex-wrap items-center gap-3 text-[11.5px] text-ink-3">{names.get(e.created_by ?? "") ?? ""} · {formatDate(e.created_at)}
-                  {!!e.attachments?.length && <span>{e.attachments.length} attachment{e.attachments.length === 1 ? "" : "s"}</span>}
-                  <Link href={`${base}?step=entries#entry-${e.id}`} className="font-semibold text-navy-700 hover:underline">Open on step 5</Link></p>
-              </div>
-            </details>
+            <div key={e.id} id={`entry-${e.id}`} className={`grid ${COLS} items-center gap-x-2 border-b border-sand-100 px-3 py-[6px] text-[12.5px] last:border-0 hover:bg-sand-50 ${on ? "bg-[#eef4ff] shadow-[inset_4px_0_0_#2f6fd6]" : ""}`}>
+              <ChevronRight className="h-3.5 w-3.5 text-navy-600" aria-hidden />
+              <Link href={open} scroll={false} className="tabular-nums font-medium text-navy-700 hover:underline">{entryNo(file.year_end, e).split(" ")[0]}</Link><span className="text-ink-3">{e.kind}</span>
+              <span className="whitespace-nowrap">{formatDate(e.entry_date ?? file.year_end)}</span>
+              <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.note}</Link><span className="truncate text-ink-3">{e.wp_ref || "–"}</span>
+              <span className="text-right tabular-nums">{money(total)}</span>
+              <span className="flex items-center gap-1">
+                <Circle kind="p" text={initials(prep)} title={`Prepared by ${prep} · ${formatDate(e.created_at)}`} />
+                {!e.needs_review ? <Circle kind="none" title="No review needed: a standard entry at or under the threshold" />
+                  : e.reviewed_at ? <Circle kind="r" text={initials(rev)} title={`Reviewed by ${rev} · ${formatDate(e.reviewed_at)}`} />
+                  : isReviewer && editable && file.phase !== "locked" ? (
+                    <Popover align="right" width="w-60" label="Review" button={<Circle kind="no" title="Not reviewed" />}>
+                      <p className="font-semibold">Reviewer</p><p className="mb-2 text-ink-3">Not reviewed.</p>
+                      <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button type="submit" className="btn btn-compact">Approve</button></form>
+                    </Popover>) : <Circle kind="no" title="Not reviewed" />}
+              </span>
+            </div>
           );
         })}
         {!shown.length && <p className="px-3 py-3 text-[12.5px] text-ink-3">No entries.</p>}

@@ -166,41 +166,59 @@ export async function taxCodeInline(fileId: string, account: string, code: strin
 
 
 // ---------- Entries (batch 5.4, full files) ----------
-const enBack = (id: string) => `/closebook/${id}?tab=entries`;
+// Round 15b: entries live on the Entries tab (CaseWare's Adjustments page) and open in a dialog.
+const enBack = (id: string) => `/closebook/${id}?area=entries`;
+const sameFile = (id: string, v: string) => (v.startsWith(`/closebook/${id}?`) ? v : "");
 
 export async function addEntry(formData: FormData) {
   const id = s(formData, "file_id");
-  await editor(enBack(id));
+  // Where a refusal lands: the dialog it came from, so the reason shows by its Save button.
+  const dialog = sameFile(id, s(formData, "back")) || enBack(id);
+  await editor(dialog);
   // The form sends what the preparer typed; the lines and the sales tax are worked out again here, from
   // the database's own rates (round 2 item 11), and the database checks every rule again.
-  let form: { head: FormHead; date: string; lines: FormLine[]; standard: string | null };
-  try { form = JSON.parse(s(formData, "form")); } catch { redirect(withMessage(enBack(id), "error", "The entry could not be read. Nothing was saved.")); }
+  let form: { head: FormHead; date: string; lines: FormLine[]; standard: string | null; seq?: string; origin?: string; edit?: string };
+  try { form = JSON.parse(s(formData, "form")); } catch { redirect(withMessage(dialog, "error", "The entry could not be read. Nothing was saved.")); }
   const supabase = await createClient();
   const f = await loadFile(supabase, id);
-  if (!f) redirect(withMessage(enBack(id), "error", "File not found."));
+  if (!f) redirect(withMessage(dialog, "error", "File not found."));
   const data = await loadEntryForm(supabase, f!.file, f!.client?.province ?? "ON", f!.client?.legal_name ?? "The client");
-  const plan = planEntry(form!.head, form!.lines, new Map(data.opts.map((o) => [o.value, o])), new Map(data.codes.map((c) => [c.code, c])), data.ctx,
-    new Map(data.gifiLines.map(([no, , type]) => [no, type])));
-  if (plan.problems.length) redirect(withMessage(enBack(id), "error", `Nothing was saved. ${plan.problems[0]}`));
+  const std = form!.standard ? data.standard.find((x) => x.id === form!.standard) ?? null : null;
+  const plan = planEntry({ ...form!.head, reason: undefined }, form!.lines, new Map(data.opts.map((o) => [o.value, o])), new Map(data.codes.map((c) => [c.code, c])), data.ctx,
+    new Map(data.gifiLines.map(([no, , type]) => [no, type])), std);
+  if (plan.problems.length) redirect(withMessage(dialog, "error", `Nothing was saved. ${plan.problems[0]}`));
+  const seq = /^\d{1,3}$/.test(String(form!.seq ?? "").trim()) ? Number(String(form!.seq).trim()) : null;
   // Attachments: kept in the private documents store, listed on the entry.
   const paths: string[] = [];
   const files = formData.getAll("attachments").filter((x): x is File => x instanceof File && x.size > 0);
-  if (files.length > 10) redirect(withMessage(enBack(id), "error", "Up to 10 attachments. Nothing was saved."));
+  if (files.length > 10) redirect(withMessage(dialog, "error", "Up to 10 attachments. Nothing was saved."));
   for (const file of files) {
-    if (file.size > 20 * 1024 * 1024) redirect(withMessage(enBack(id), "error", `${file.name} is over 20 MB. Nothing was saved.`));
+    if (file.size > 20 * 1024 * 1024) redirect(withMessage(dialog, "error", `${file.name} is over 20 MB. Nothing was saved.`));
     const path = `closebook/${id}/entries/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
     const up = await createAdminClient().storage.from("documents").upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type || "application/octet-stream", upsert: false });
-    if (up.error) redirect(withMessage(enBack(id), "error", `${file.name} was not saved: ${up.error.message}. Nothing was saved.`));
+    if (up.error) redirect(withMessage(dialog, "error", `${file.name} was not saved: ${up.error.message}. Nothing was saved.`));
     paths.push(path);
   }
-  const { data: entryId, error } = await supabase.rpc("cb_add_entry", {
-    p_file: id, p_kind: form!.head.kind, p_reason: form!.head.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
-    p_date: /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null, p_standard: form!.standard, p_attachments: paths,
-  });
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null;
+  const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
+    p_date: date, p_standard: form!.standard, p_seq: seq };
+  let res: { data: unknown; error: { message: string } | null };
+  if (form!.edit) {
+    // Edit (CaseWare): the entry is replaced in one step, keeping its number and its attachments.
+    const { data: old } = await supabase.from("cb_entries").select("attachments").eq("id", form!.edit).eq("file_id", id).maybeSingle();
+    res = await supabase.rpc("cb_edit_entry", { p_entry: form!.edit, ...args, p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
+  } else if (form!.origin === "revenue_check") {
+    // Fix with an entry (round 9): an AJE with W/P ref "Revenue check", marked as made from the check.
+    res = await supabase.rpc("cb_add_revenue_entry", { p_file: id, p_note: form!.head.memo, p_lines: plan.rpc, p_reverse: form!.head.reverse, p_seq: seq });
+  } else {
+    res = await supabase.rpc("cb_add_entry", { p_file: id, ...args, p_attachments: paths });
+  }
   revalidatePath(`/closebook/${id}`);
-  if (error) redirect(withMessage(enBack(id), "error", `Nothing was saved. ${error.message}`));
-  const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", entryId as string).maybeSingle();
-  redirect(withMessage(enBack(id), "msg", e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer."));
+  if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
+  const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
+  const msg = form!.edit ? "Entry changed. It goes to the reviewer again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer.";
+  const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
+  redirect(withMessage(after, "msg", msg));
 }
 
 export async function reviewEntry(formData: FormData) {
@@ -427,7 +445,7 @@ export async function findDuplicatesInline(fileId: string, rows: { line: number;
 // ---------- Round 8: sign-offs, review notes, the completion checklist (Hashim, Nov 24, 2026) ----------
 // Every form names the page to come back to; only a page of the same file is accepted.
 const backTo = (f: FormData, id: string) => { const b = s(f, "back"); return b.startsWith(`/closebook/${id}?`) ? b : `/closebook/${id}`; };
-const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", records: "Step 3", code: "Step 4", entries: "Step 5", review: "Step 6", mapping: "Step 7" };
+const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", records: "Step 3", code: "Step 4", entries: "Step 5", mapping: "Step 6", review: "Step 7", t2: "Step 8", statements: "Step 9", lock: "Step 10" };
 
 export async function signStep(formData: FormData) {
   const id = s(formData, "file_id"), step = s(formData, "step"), role = s(formData, "role");
