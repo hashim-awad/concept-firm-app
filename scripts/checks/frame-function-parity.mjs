@@ -34,7 +34,7 @@ const PAGES = [
   "/admin/email-sending", "/admin/closebook-rules", "/admin/closebook-rules?tab=thresholds", "/admin/closebook-rules?tab=policy", "/admin/closebook-rules?tab=due-dates",
   "/admin/connections", "/admin/retention", "/admin/sales-tax", "/admin/sales-tax?tab=rates", "/admin/sales-tax?tab=quick", "/admin/t1-rules", "/admin/lead-sources",
   "/admin/chart", "/admin/chart?tab=gifi", "/admin/chart?tab=tax-codes", "/admin/chart?tab=lead-sheets", "/admin/standard-entries", "/admin/vendor-rules",
-  "/admin/templates?tab=letters", "/admin/templates?tab=schedules", "/admin/templates?tab=emails", "/admin/templates?tab=closebook",
+  "/admin/templates/cbchecklist", "/admin/templates?tab=letters", "/admin/templates?tab=schedules", "/admin/templates?tab=emails", "/admin/templates?tab=closebook",
 ];
 const DETAIL = [/^\/admin\/price-book\/(packages\/)?[0-9a-f-]{36}$/, /^\/admin\/screening\/[0-9a-f-]{36}$/, /^\/admin\/closebook\/gifi-lines\/[^/?]+$/, /^\/admin\/templates\/(?!history|publish)[A-Za-z0-9]+$/, /^\/admin\/roles\/[0-9a-f-]{36}$/];
 
@@ -107,7 +107,8 @@ function compare(a, b, allowed = []) {
     for (const [id, f] of Object.entries(x.acts)) {
       if (allowed.includes(id)) { console.log(`REMOVED BY DECISION ${who}: ${id} (${f.join(", ")})`); continue; }
       if (!y.acts[id]) { console.log(`MISSING ACTION ${who}: ${id} (${f.join(", ")})`); missing++; continue; }
-      const lost = f.filter((n) => !y.acts[id].includes(n));
+      const lost = f.filter((n) => !y.acts[id].includes(n) && !allowed.includes(`${id}:${n}`));
+      f.filter((n) => allowed.includes(`${id}:${n}`) && !y.acts[id].includes(n)).forEach((n) => console.log(`FIELD REMOVED BY DECISION ${who}: ${id} (${n})`));
       if (lost.length) { console.log(`FIELDS LOST ${who}: ${id} (${lost.join(", ")})`); missing++; }
     }
     for (const e of x.exps) if (!y.exps.has(e)) { console.log(`MISSING EXPORT ${who}: ${e}`); missing++; }
@@ -126,4 +127,4 @@ function compare(a, b, allowed = []) {
 const [cmd, x, y, ...rest] = process.argv.slice(2);
 if (cmd === "capture") await capture(x);
 else if (cmd === "compare") compare(x, y, rest);
-else { console.log("usage: capture <out.json> | compare <before.json> <after.json> [removed action ids]"); process.exit(2); }
+else { console.log("usage: capture <out.json> | compare <before.json> <after.json> [removed action ids, or id:field]"); process.exit(2); }

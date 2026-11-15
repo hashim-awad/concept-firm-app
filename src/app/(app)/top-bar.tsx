@@ -2,7 +2,8 @@
 // Round 17 (Hashim, Nov 15, 2026): the top bar on every page, Studio and Closebook alike. Benchmark:
 // QuickBooks Online: search on the left; "+ New" (its Create), Help, the gear and the person on the right.
 // The gear opens one menu in columns (QuickBooks' company settings, lists, tools; TaxDome keeps templates
-// as their own area). Help opens the page's own "?" panel; a page without one gets the SOP links.
+// as their own area). Help opens the page's own "?" panel; a page without one gets the SOP links. The
+// menus stay in the page and are hidden when closed, so Sign out and every link are there from the start.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { BookCheck, Building2, ChevronDown, FileSignature, HelpCircle, Landmark, LogOut, Menu, Plus, Search, Settings, UserPlus } from "lucide-react";
@@ -63,8 +64,8 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
         <div className="relative">
           <button type="button" onClick={() => toggle("new")} aria-expanded={open === "new"} aria-haspopup="menu"
             className="flex h-9 items-center gap-1.5 rounded-lg bg-navy-800 px-3 text-[13.5px] font-bold text-white hover:bg-navy-700"><Plus className="h-4 w-4" aria-hidden />New</button>
-          {open === "new" && (
-            <div role="menu" className={`${panel} right-0 w-60 py-1.5`}>
+          {(
+            <div role="menu" hidden={open !== "new"} className={`${panel} right-0 w-60 py-1.5`}>
               {newItems.map((i) => <Link key={i.key} role="menuitem" href={i.href} onClick={() => setOpen(null)} className="flex items-center gap-2.5 px-4 py-2 text-[13.5px] hover:bg-navy-50">{NEW_ICON[i.key]}{i.label}</Link>)}
             </div>
           )}
@@ -85,8 +86,8 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
             <Settings className="h-[19px] w-[19px]" />
             {drafts > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-[#c2410c] px-1.5 text-[10px] leading-4 font-bold text-white" title={`${drafts} template${drafts === 1 ? "" : "s"} to approve`}>{drafts}</span>}
           </button>
-          {open === "gear" && (
-            <nav aria-label="Settings" className={`${panel} -right-2 grid max-w-[calc(100vw-1.5rem)] gap-2 overflow-x-auto p-4`} style={{ gridTemplateColumns: `repeat(${gear.length}, minmax(190px, 1fr))` }}>
+          {(
+            <nav aria-label="Settings" hidden={open !== "gear"} className={`${panel} -right-2 grid max-w-[calc(100vw-1.5rem)] gap-x-6 gap-y-2 overflow-x-auto p-4`} style={{ gridTemplateColumns: `repeat(${gear.length}, max-content)` }}>
               {gear.map((c) => (
                 <div key={c.label}>
                   <p className="px-3 pb-2 text-[11px] font-extrabold tracking-[.1em] text-ink-3 uppercase">{c.label}</p>
@@ -106,8 +107,8 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           <span className="grid h-7 w-7 place-items-center rounded-full bg-navy-100 text-[11px] font-extrabold text-navy-800">{initials}</span>
           <span className="hidden max-w-40 truncate md:inline">{name}</span><ChevronDown className="h-3.5 w-3.5 text-ink-3" aria-hidden />
         </button>
-        {open === "me" && (
-          <div className={`${panel} right-0 w-56 p-3`}>
+        {(
+          <div hidden={open !== "me"} className={`${panel} right-0 w-56 p-3`}>
             <p className="truncate font-semibold">{name}</p><p className="truncate text-xs text-ink-3">{role}</p>
             <form action={signOut} className="mt-3 border-t border-sand-200 pt-2">
               <button type="submit" className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-[13.5px] hover:bg-sand-100"><LogOut className="h-4 w-4" aria-hidden />Sign out</button>
