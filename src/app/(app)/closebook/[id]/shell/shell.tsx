@@ -216,10 +216,10 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notes
           <ul className="grid gap-1">{exports.map(([href, label]) => <li key={href}><a href={href} className="block rounded px-2 py-1 hover:bg-sand-100">{label}</a></li>)}</ul>
         </Popover>
       )}
-      <Drawer label="Help" title={`Help · ${name}`} button={<span className={icon}><HelpCircle className="h-[17px] w-[17px]" aria-hidden /></span>}>
+      <span data-page-help className="inline-flex"><Drawer label="Help" title={`Help · ${name}`} button={<span className={icon}><HelpCircle className="h-[17px] w-[17px]" aria-hidden /></span>}>
         <div className="grid gap-3 leading-relaxed text-ink-2 [&_h4]:text-[11px] [&_h4]:font-bold [&_h4]:tracking-[.08em] [&_h4]:text-ink-3 [&_h4]:uppercase">{help}</div>
         <p className="mt-6 rounded-md border border-dashed border-sand-300 px-3 py-2 text-xs text-ink-3">An assistant will answer questions here later.</p>
-      </Drawer>
+      </Drawer></span>
     </div>
   );
 }
@@ -230,8 +230,8 @@ export function PageTitle({ children, right, help }: { children: ReactNode; righ
     <div className="mb-3 flex min-h-[30px] flex-wrap items-center gap-2.5">
       <h2 className="text-xs font-bold tracking-[.1em] text-navy-900 uppercase">{children}</h2>
       <span className="flex-1" />{right}
-      {help && <Drawer label="Help" title="Help" button={<span className="grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100"><HelpCircle className="h-[17px] w-[17px]" aria-hidden /></span>}>
-        <div className="grid gap-3 leading-relaxed text-ink-2 [&_h4]:text-[11px] [&_h4]:font-bold [&_h4]:tracking-[.08em] [&_h4]:text-ink-3 [&_h4]:uppercase">{help}</div></Drawer>}
+      {help && <span data-page-help className="inline-flex"><Drawer label="Help" title="Help" button={<span className="grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100"><HelpCircle className="h-[17px] w-[17px]" aria-hidden /></span>}>
+        <div className="grid gap-3 leading-relaxed text-ink-2 [&_h4]:text-[11px] [&_h4]:font-bold [&_h4]:tracking-[.08em] [&_h4]:text-ink-3 [&_h4]:uppercase">{help}</div></Drawer></span>}
     </div>
   );
 }

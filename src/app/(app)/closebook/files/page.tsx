@@ -1,3 +1,4 @@
+import { CloseTabs } from "../list-tabs";
 import Link from "next/link";
 import { FolderOpen, FilePlus2 } from "lucide-react";
 import { requireAccess, canEdit } from "@/lib/access";
@@ -16,8 +17,9 @@ export default async function AllFilesPage({ searchParams }: PageProps<"/closebo
   const [files, names] = await Promise.all([loadFileList(supabase), staffNames(supabase)]);
   return (
     <>
-      <PageHeader title="All files"
+      <PageHeader title="Closebook"
         actions={canEdit(access, "closebook") ? <Link href="/closebook/new" className={buttonClass("primary")}><FilePlus2 className="h-4 w-4" aria-hidden />New file</Link> : undefined} />
+      <CloseTabs active="/closebook/files" />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {files.length === 0
         ? <section className="card"><EmptyState icon={<FolderOpen />} title="No files yet" /></section>

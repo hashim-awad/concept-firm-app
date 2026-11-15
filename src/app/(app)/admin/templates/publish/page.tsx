@@ -1,8 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { SettingsShell } from "../../settings-shell";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ds/primitives";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { loadStudioData } from "@/lib/studio/data";
@@ -28,9 +26,7 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
   const editable = canEdit(access, "engagement_terms");
 
   return (
-    <>
-      <Link href="/admin/templates" className="mb-3 inline-flex items-center gap-1 text-sm text-navy-700 hover:underline"><ArrowLeft className="h-4 w-4" aria-hidden />All templates</Link>
-      <PageHeader title="Review and publish" description="Every unpublished change, before and after. Publishing puts them into new letters and proposals. Letters already made keep the wording they used." />
+    <SettingsShell title="Review and publish" help={<p>Every unpublished change, before and after. Publishing puts them into new letters and proposals. Letters already made keep the wording they used.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {keys.length === 0 ? <p className="card text-sm text-muted">No unpublished changes.</p> : (
         <>
@@ -64,6 +60,6 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
           </div>
         </>
       )}
-    </>
+    </SettingsShell>
   );
 }

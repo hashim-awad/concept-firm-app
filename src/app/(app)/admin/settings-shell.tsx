@@ -21,14 +21,17 @@ export function PageHelp({ title, children }: { title: string; children: ReactNo
 // A field's explanation, listed in the help panel under the field's label.
 export const fieldHelp = (fields: { label: string; hint: string }[]) => fields.map((x) => <div key={x.label}><h4>{x.label}</h4><p>{x.hint}</p></div>);
 
-export function SettingsShell({ title, help, actions, tabs, active, href, children }: {
-  title: string; help?: ReactNode; actions?: ReactNode; tabs?: GearTab[]; active?: string; href?: string; children: ReactNode;
+export type ShellTab = Pick<GearTab, "key" | "label"> & { count?: number };
+
+export function SettingsShell({ title, help, actions, badge, tabs, active, href, children }: {
+  title: string; help?: ReactNode; actions?: ReactNode; badge?: ReactNode; tabs?: ShellTab[]; active?: string; href?: string; children: ReactNode;
 }) {
   return (
     <>
       <BackLink />
       <header className={`flex flex-wrap items-center gap-3 ${tabs ? "mb-0" : "mb-6"}`}>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        {badge}
         {help && <PageHelp title={title}>{help}</PageHelp>}
         <span className="flex-1" />
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -37,7 +40,7 @@ export function SettingsShell({ title, help, actions, tabs, active, href, childr
         <nav aria-label={title} className="mt-4 mb-6 flex gap-1 overflow-x-auto border-b border-sand-200">
           {tabs.map((t) => (
             <Link key={t.key} href={`${href}?tab=${t.key}`} aria-current={t.key === active ? "page" : undefined}
-              className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap ${t.key === active ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>{t.label}</Link>
+              className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm font-semibold whitespace-nowrap ${t.key === active ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>{t.label}{t.count ? <span className="ml-1.5 rounded-full bg-warning-soft px-1.5 text-[11px] font-bold text-warning">{t.count}</span> : null}</Link>
           ))}
         </nav>
       )}
