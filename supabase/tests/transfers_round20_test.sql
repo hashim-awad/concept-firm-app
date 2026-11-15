@@ -137,7 +137,7 @@ update public.cb_files set phase = 'fieldwork' where id = :'f';
 select set_config('cb.unlock', '', false) as unlock \gset
 
 -- ---------- Safe to run twice; a file with transfers can still be deleted
-\ir ../migrations/20261209010000_round20_transfers.sql
+\ir ../migrations/20261209040000_round20_transfers.sql
 select test.check('a second run keeps one status and one source value each',
   (select count(*) from pg_constraint where conrelid = 'public.cb_bank_lines'::regclass and conname in ('cb_bank_lines_status_check', 'cb_bank_lines_source_check')) = 2
   and (select pg_get_constraintdef(oid) from pg_constraint where conname = 'cb_bank_lines_status_check') like '%''reviewer''::text, ''matched''::text]%'
