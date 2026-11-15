@@ -274,7 +274,7 @@ begin
     r := public.cb_upload_bank(v.file_id, nullif(a ->> 'account', '')::uuid, a ->> 'name', a ->> 'kind', v.file_name,
       (a ->> 'opening')::numeric, (a ->> 'closing')::numeric, a -> 'rows', (a ->> 'period_start')::date, (a ->> 'period_end')::date);
     update public.cb_bank_statements set statement_import_id = v.id, source = 'pdf', converted_by = v.created_by, converted_at = coalesce(v.finished_at, v.created_at),
-           model = v.model, pages = v.pages, input_tokens = v.input_tokens, output_tokens = v.output_tokens, cost_usd = v.cost_usd,
+           model = v.model, pages = v.pages,
            check_result = a -> 'check', edits = a -> 'edits', attachment_path = nullif(p_attachment, '')
      where id = (r ->> 'statement')::uuid;
     v_acc := (r ->> 'account_id')::uuid;
@@ -287,6 +287,17 @@ begin
     v_lines := v_lines + (r ->> 'lines')::int;
     v_out := v_out || jsonb_build_array(r || jsonb_build_object('key', a ->> 'key'));
   end loop;
+  -- Tokens and cost: split across the statements by line count (cost to 4 decimals), any remainder on the
+  -- first, so they add up to the job's figures. The job keeps the full figures.
+  with s as (select (e ->> 'statement')::uuid as id, (e ->> 'lines')::int as n, o from jsonb_array_elements(v_out) with ordinality x(e, o)),
+  sh as (select id, o, floor(coalesce(v.input_tokens, 0)::numeric * n / v_lines)::int as it, floor(coalesce(v.output_tokens, 0)::numeric * n / v_lines)::int as ot,
+                round(coalesce(v.cost_usd, 0) * n / v_lines, 4) as c from s),
+  tot as (select sum(it) as it, sum(ot) as ot, sum(c) as c from sh)
+  update public.cb_bank_statements b set
+         input_tokens = case when v.input_tokens is null then null else sh.it + case when sh.o = 1 then v.input_tokens - tot.it else 0 end end,
+         output_tokens = case when v.output_tokens is null then null else sh.ot + case when sh.o = 1 then v.output_tokens - tot.ot else 0 end end,
+         cost_usd = case when v.cost_usd is null then null else sh.c + case when sh.o = 1 then v.cost_usd - tot.c else 0 end end
+    from sh, tot where b.id = sh.id;
   update public.cb_statement_imports set status = 'imported', imported_at = now(), imported_by = (select auth.uid()) where id = v.id;
   perform private.cb_log(v.file_id, 'statement_imported', 'records',
     format('PDF statement imported: %s, %s account%s, %s line%s.', v.file_name, jsonb_array_length(p_accounts),

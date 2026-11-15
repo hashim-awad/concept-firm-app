@@ -138,13 +138,19 @@ reset role;
 set role service_role;
 reset role; update public.cb_statement_imports set status = 'reading' where id = :'j3'; set role service_role;
 select public.statement_finish_job(:'j3', 'needs_look', '{"bank":"Northern Dummy Bank","pages":1,"accounts":[]}', '{}', 1, 'claude-sonnet-5', 1, 1, 0, null, null);
+reset role; update public.cb_statement_imports set input_tokens = 1001, output_tokens = 333, cost_usd = 0.0101 where id = :'j3'; set role service_role;
 reset role;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select id as acc from public.cb_bank_accounts where file_id = :'f' \gset
-select public.cb_import_statement(:'j3', ('[{"key":"a1","account":"' || :'acc' || '","name":"","kind":"","last4":"9999","opening":950.00,"closing":1000.00,"period_start":"2026-03-01","period_end":"2026-03-31","rows":[{"line":1,"date":"2026-03-02","description":"SAMPLE DEPOSIT","amount":50.00}],"check":{},"edits":{}},'
+select public.cb_import_statement(:'j3', ('[{"key":"a1","account":"' || :'acc' || '","name":"","kind":"","last4":"9999","opening":950.00,"closing":990.00,"period_start":"2026-03-01","period_end":"2026-03-31","rows":[{"line":1,"date":"2026-03-02","description":"SAMPLE DEPOSIT","amount":50.00},{"line":2,"date":"2026-03-05","description":"SAMPLE FEE","amount":-10.00}],"check":{},"edits":{}},'
   || '{"key":"a2","account":null,"name":"Northern Dummy Visa","kind":"card","last4":"8888","opening":0,"closing":50.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"sample deposit","amount":50.00}],"check":{},"edits":{}}]')::jsonb, true, '') as imp2 \gset
 select test.check('two accounts found: two statements, in one step', jsonb_array_length(:'imp2') = 2 and (select count(*) from public.cb_bank_statements where statement_import_id = :'j3') = 2);
+select test.check('tokens and cost split by line count (2 and 1), the remainder on the first, adding up to the job''s',
+  (select array_agg(array[input_tokens, output_tokens, cost_usd * 10000] order by (select count(*) from public.cb_bank_lines l where l.statement_id = b.id) desc)
+     from public.cb_bank_statements b where statement_import_id = :'j3') = array[array[668, 222, 67], array[333, 111, 34]]::numeric[]
+  and (select sum(input_tokens) = 1001 and sum(output_tokens) = 333 and sum(cost_usd) = 0.0101 from public.cb_bank_statements where statement_import_id = :'j3')
+  and (select input_tokens = 1001 and output_tokens = 333 and cost_usd = 0.0101 from public.cb_statement_imports where id = :'j3'));
 select test.check('confirmed duplicates go to the reviewer', (select count(*) from public.cb_bank_lines where file_id = :'f' and dup_confirmed and status = 'reviewer') = 1);
 select test.check('last digits already set are kept; a new account takes its own', (select last4 from public.cb_bank_accounts where id = :'acc') = '4321'
   and (select last4 from public.cb_bank_accounts where file_id = :'f' and name = 'Northern Dummy Visa') = '8888');
