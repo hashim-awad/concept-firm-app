@@ -37,6 +37,8 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
         <span className="text-xs text-ink-2">{g.quick ? "Quick method" : "Regular method"} · {g.freq === "annual" ? "Annual" : g.freq === "quarterly" ? "Quarterly" : "Monthly"} · {g.rt} · {g.province}
           {g.returns.some((r) => r.notes.some((x) => !x.includes("Check"))) && <InfoTip align="right" label="How the figures were worked out"><span className="grid gap-1">{[...new Set(g.returns.flatMap((r) => r.notes.filter((x) => !x.includes("Check"))))].map((x) => <span key={x}>{x}</span>)}</span></InfoTip>}</span>
       </div>
+      {/* Round 20: the quick method rate each return used, in words. */}
+      {g.quick && [...new Set(g.returns.map((r) => r.rateUsed).filter((x): x is string => !!x))].map((x) => <p key={x} className="text-sm">{x}</p>)}
       {problems.length > 0 && <ul role="alert" className="ml-4 list-disc text-sm text-danger">{problems.map((x) => <li key={x}>{x}</li>)}</ul>}
       <div className="overflow-x-auto">
         <table className="table table-compact">
@@ -63,7 +65,8 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
       {d && drill && (
         <div id="gst-drill" className="rounded-lg border border-navy-200 bg-navy-50/40 p-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-medium">Line {drill.line}, {LINE_NAMES.find(([k]) => k === drill.line)?.[1]}: {d.period.label} ({items.length} posting{items.length === 1 ? "" : "s"})</p>
+            <p className="font-medium">Line {drill.line}, {LINE_NAMES.find(([k]) => k === drill.line)?.[1]}: {d.period.label} ({items.length} posting{items.length === 1 ? "" : "s"})
+              {g.quick && drill.line === "103" && <span className="block text-sm font-normal">{d.rateUsed ? `${d.rateUsed}, applied to line 101.` : "No approved quick method rate: line 103 is not worked out."}</span>}</p>
             <Link href={`/closebook/${fileId}?step=t2#gst`} className="text-sm text-navy-700 underline">Close</Link>
           </div>
           <table className="table table-compact mt-2">

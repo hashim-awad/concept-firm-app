@@ -36,16 +36,6 @@ drop policy if exists "Closebook viewers read quick rates" on public.cb_quick_ra
 create policy "Closebook viewers read quick rates" on public.cb_quick_rates for select to authenticated using ((select private.can_view('closebook')));
 grant select on public.cb_quick_rates to authenticated;
 
--- The round 13 rates (services only, typed by an owner) move across once, as approved: an owner set them.
--- Before the guard triggers exist, so the first run can insert them as approved.
-insert into public.cb_quick_rates (province, services_rate, status, approved_by, approved_at, checked_by, checked_on, legacy, notes, created_at)
-select q.province, q.rate, 'approved', q.updated_by, q.updated_at, q.updated_by, q.updated_at::date, true,
-       'Typed by an owner in Settings before round 20. Source not recorded. Goods for resale not set.', q.updated_at
-  from public.cb_gst_quick_rates q
- where q.province in ('AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT')
-   and not exists (select 1 from public.cb_quick_rates r where r.legacy and r.province = q.province);
-comment on table public.cb_gst_quick_rates is 'Round 13 quick method rates (services only). Replaced by cb_quick_rates in round 20; no longer read by the app.';
-
 -- New rows start as pending; only an owner approves or retires; an approved row is never changed; rows are
 -- kept as a record (retire, never delete). As tax_rates (private.guard_tax_rate).
 create or replace function private.cb_quick_rate_guard() returns trigger
@@ -78,6 +68,18 @@ end;
 $$;
 drop trigger if exists cb_quick_rates_guard on public.cb_quick_rates;
 create trigger cb_quick_rates_guard before insert or update or delete on public.cb_quick_rates for each row execute function private.cb_quick_rate_guard();
+
+-- The round 13 rates (services only, typed by an owner) move across once, as approved: an owner set them.
+-- The guard is off for this one insert (a new row otherwise starts as pending), so a second run works too.
+alter table public.cb_quick_rates disable trigger cb_quick_rates_guard;
+insert into public.cb_quick_rates (province, services_rate, status, approved_by, approved_at, checked_by, checked_on, legacy, notes, created_at)
+select q.province, q.rate, 'approved', q.updated_by, q.updated_at, q.updated_by, q.updated_at::date, true,
+       'Typed by an owner in Settings before round 20. Source not recorded. Goods for resale not set.', q.updated_at
+  from public.cb_gst_quick_rates q
+ where q.province in ('AB','BC','MB','NB','NL','NS','NT','NU','ON','PE','QC','SK','YT')
+   and not exists (select 1 from public.cb_quick_rates r where r.legacy and r.province = q.province);
+alter table public.cb_quick_rates enable trigger cb_quick_rates_guard;
+comment on table public.cb_gst_quick_rates is 'Round 13 quick method rates (services only). Replaced by cb_quick_rates in round 20; no longer read by the app.';
 
 -- Owner only: add rates as pending, from the CRA table in the app (Load from CRA) or typed from CRA's page.
 -- p_rows: [{"province":"ON","services":0.088,"goods":0.044}], rates as fractions; a blank rate is not set.

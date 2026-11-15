@@ -1,0 +1,90 @@
+{
+  "e2d93bdee5f46ba3ef58438dc786277c4ec5a83ea78921e545d8ccebf4a1ba2c": {
+    "file": "chequing-savings.pdf",
+    "result": "chequing-savings.json"
+  },
+  "5ef8479809e77d0a2b3bba4dbadcd04553795154a796ca24377967370216f1cd": {
+    "file": "card.pdf",
+    "result": "card.json"
+  },
+  "d64b2957794b580aaa02680b18c07cf71ee0be13bb4765e4fd12bdc2436bba9d": {
+    "file": "locked.pdf",
+    "result": "locked.json"
+  },
+  "e020abaae5ead7effb7ae3e8dca0aadbe2275cd1bf9f2ad65cc7a69624f7feb5": {
+    "file": "two-page.pdf",
+    "result": "two-page.json"
+  },
+  "42707105ac3e8a90c43efac2a71adb0585c307d7d011c0d5b3b83eee74043090": {
+    "file": "scanned.pdf",
+    "result": "scanned.json"
+  },
+  "d1054885ad9baf426601bf99069b0892624cbe359dd344012a392a48ac498974": {
+    "file": "scanned-photo.jpg",
+    "result": "scanned-photo.json"
+  },
+  "5c8d2d2d63729dc05ded83041f5abaa26e6439aa7d74112b2505a0608d84da4a": {
+    "file": "batch/Statement-Jan-2026.pdf",
+    "result": "batch/Statement-Jan-2026.json"
+  },
+  "d4224282d9ffa8571eebace212a5cf61c9f599a96f5492707b7e8119a5b00f9e": {
+    "file": "batch/Statement-Feb-2026.pdf",
+    "result": "batch/Statement-Feb-2026.json"
+  },
+  "a3adcd49af7752eb87e3feaf8e2d5de19cc0a1c0a027b6348b2198dc7ef30d14": {
+    "file": "batch/Statement-Mar-2026.pdf",
+    "result": "batch/Statement-Mar-2026.json"
+  },
+  "0016e786802c118d076f35a8a872a95d032efc0c0a569c61abb2a2c3f2e3b4e9": {
+    "file": "batch/Statement-Apr-2026.pdf",
+    "result": "batch/Statement-Apr-2026.json"
+  },
+  "3e5e0fc28823c52facfab0ce5ac7d158c268e9093b151c4ad7fa3aa078344387": {
+    "file": "batch/Statement-May-2026.pdf",
+    "result": "batch/Statement-May-2026.json"
+  },
+  "5b7174db4a1c590b6a4128e8f228860722dbf406a662ccbf4b1b3e83895c1f64": {
+    "file": "batch/Statement-Jun-2026.pdf",
+    "result": "batch/Statement-Jun-2026.json"
+  },
+  "151600c42463dfa33a335c0c028e24b799ec88999c774d30cb613ad91e6b489a": {
+    "file": "batch/Statement-Jul-2026.pdf",
+    "result": "batch/Statement-Jul-2026.json"
+  },
+  "40ac32257acc126c1c562d2e8f118936572c1bdc147d3b990b7f04773b0dca0f": {
+    "file": "batch/Statement-Aug-2026.pdf",
+    "result": "batch/Statement-Aug-2026.json"
+  },
+  "f5845ffd01b9d3ad2bf22b2f88076023f5d164513cb1f9baacd2e006d8a3e72a": {
+    "file": "batch/Statement-Sep-2026.pdf",
+    "result": "batch/Statement-Sep-2026.json"
+  },
+  "d9e703b1b42224b469a4e45c1379252451ffc9d67bdb0395e31f5675cac9ae6e": {
+    "file": "batch/Statement-Oct-2026.pdf",
+    "result": "batch/Statement-Oct-2026.json"
+  },
+  "dae9d7ec23e2852986282ee11b9b209f45314fbec0ae31769c85e06c7d128b27": {
+    "file": "batch/Statement-Nov-2026.pdf",
+    "result": "batch/Statement-Nov-2026.json"
+  },
+  "6b4f520ccce368c41d1cc8e67b577d2cfee0765ea968f2c2d91a97bd55a2499e": {
+    "file": "batch/Statement-Dec-2026.pdf",
+    "result": "batch/Statement-Dec-2026.json"
+  },
+  "a695cdb8c40654b295feb0f697c5441bb3418afd20e8c8cadd93f139e5a9d22d": {
+    "file": "long-400.pdf",
+    "result": "long-400.json"
+  },
+  "96de55cd9133a6b90ff94acfa6296086c9ef3e5f8f38577b9474777b79a2e75a": {
+    "file": "mismatch.pdf",
+    "result": "mismatch.json"
+  },
+  "2b2dca7b3bbcc9032fb9dc986b28da98ac6529e27082a10c6c315947cb192a18": {
+    "file": "out-of-credits.pdf",
+    "error": "out_of_credits"
+  },
+  "5c79ba227fcb3605bad29e5cc06e0048753389d6487ce18a4817ef5c415a5cc6": {
+    "file": "unreadable.pdf",
+    "error": "unreadable"
+  }
+}

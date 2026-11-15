@@ -14,6 +14,7 @@ import { undoDeadlineBatch } from "./my-day-actions";
 import { after } from "next/server";
 import { readBusinessHours, runLeadAlerts } from "@/lib/leads/alerts";
 import { LeadTimer } from "./leads/lead-timer";
+import { statementsReadyCount } from "@/lib/statements/server";
 
 const AHEAD_DAYS = 90;
 
@@ -116,6 +117,9 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
   const seeCb = canView(access, "closebook");
   type S = { file_id: string; client_name: string; year_end: string; shareholder: number; accounts: string; amount: number; due_on: string; next_file: string | null; unpaid: number | null };
   const s152 = seeCb ? (((await supabase.rpc("cb_sh_due_list")).data ?? []) as S[]) : [];
+  // Round 20: bank statements read in the background and waiting to be checked (Closebook files and the
+  // standalone tool).
+  const stReady = seeCb ? await statementsReadyCount() : null;
   const noYearEnd = t2.filter((c) => !/^\d{2}-\d{2}$/.test(c.year_end_md));
 
   return (
@@ -124,6 +128,23 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {!seeDocs && !seeClients && !seeLeads && !seeCb ? <p className="card text-sm text-muted">Nothing to show for your role yet.</p> : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Round 20 (mock 04): first while any statement waits to be checked; hidden when none. */}
+          {stReady && stReady.files.length > 0 && (
+            <Card title="Statements ready to check" count={stReady.ready + stReady.needsLook}
+              info={<>Bank and card statements uploaded as PDF or photos are read in the background. Each one shows here once it is read, until it is imported (Closebook) or downloaded (Bank statement PDF to CSV).</>}>
+              <ul className="grid gap-2 text-sm">{stReady.files.map((x) => (
+                  <li key={x.fileId ?? "tool"} className="flex flex-wrap items-baseline gap-x-2">
+                    {x.fileId ? <>
+                      <Link href={`/closebook/${x.fileId}?step=records`} className="font-medium text-navy-700 hover:underline">{x.client}</Link>
+                      <span className="text-muted">{x.n} ready to check</span>
+                    </> : <>
+                      <Link href="/admin/bank-pdf" className="font-medium text-navy-700 hover:underline">Bank statement PDF to CSV</Link>
+                      <span className="text-muted">your {x.n === 1 ? "statement is" : `${x.n} statements are`} ready to download</span>
+                    </>}
+                  </li>
+                ))}</ul>
+            </Card>
+          )}
           {seeLeads ? (
             <Card title="Leads to review" count={leadsNew.length}>
               {leadsNew.length === 0 ? <p className="text-sm text-muted">None.</p> : (

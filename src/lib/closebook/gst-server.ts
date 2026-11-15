@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { gstInputs } from "./tb-build-server";
 import { loadFile } from "./server";
 import { splitLine } from "./sales-tax";
-import { buildYearPrefilled, checkAgainstBooks, gstPeriods, itemsFromEntry, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line } from "./gst-return";
+import { buildYearPrefilled, checkAgainstBooks, gstPeriods, itemsFromEntry, quickType, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line, type QuickRate, type QuickSettings } from "./gst-return";
 
 // The standard chart account the quick method gain is booked to (round 13 fix): 42400, GIFI 8230.
 export const QUICK_GAIN = "42400";
@@ -40,15 +40,20 @@ export async function gstFor(supabase: SupabaseClient, fileId: string, instalmen
   const inp = await gstInputs(supabase, fileId);
   if (!inp) return { applies: false as const, reason: "Clients who keep their own books file their GST/HST return from their own software." };
   const quick = setup.quick_method === true, freq = setup.gst_frequency as Frequency;
-  const [{ data: set }, { data: rate }, { data: stored }, { data: chk }] = await Promise.all([
+  // Round 20: the client's quick method rate (services when step 1 has no answer), from the approved rates.
+  const type = quickType(setup.quick_method_type);
+  const [{ data: set }, { data: rateRows }, { data: stored }, { data: chk }] = await Promise.all([
     supabase.from("cb_settings").select("gst_due_months_annual, gst_due_months_period, quick_credit_rate, quick_credit_limit, entry_review_amount").maybeSingle(),
-    supabase.from("cb_gst_quick_rates").select("rate").eq("province", inp.province).maybeSingle(),
+    supabase.from("cb_quick_rates").select("province, services_rate, goods_rate, effective_from").eq("province", inp.province).eq("status", "approved"),
     supabase.from("cb_gst_returns").select("period_no, label, period_start, period_end, due_on, instalments, lines, prepared_by, prepared_at, filed_on, confirmation").eq("file_id", fileId).order("period_no"),
     supabase.from("cb_gst_check").select("owing, book, diff, note, noted_by, accepted_by, accepted_at, accepted_why, instalment_entries").eq("file_id", fileId).maybeSingle(),
   ]);
   const st = (set ?? {}) as { gst_due_months_annual?: number; gst_due_months_period?: number; quick_credit_rate?: number | null; quick_credit_limit?: number | null; entry_review_amount?: number };
   const periods = gstPeriods(f.file.year_start, f.file.year_end, freq, { annual: st.gst_due_months_annual ?? 3, period: st.gst_due_months_period ?? 1 });
-  const q = { rate: (rate as { rate?: number } | null)?.rate != null ? Number((rate as { rate: number }).rate) : null,
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+  const rates: QuickRate[] = ((rateRows ?? []) as { province: string; services_rate: unknown; goods_rate: unknown; effective_from: string | null }[])
+    .map((r) => ({ province: r.province, services: num(r.services_rate), goods: num(r.goods_rate), from: r.effective_from }));
+  const q: QuickSettings = { rate: null, type, province: inp.province, rates,
     creditRate: st.quick_credit_rate != null ? Number(st.quick_credit_rate) : null, creditLimitCents: st.quick_credit_limit != null ? Math.round(Number(st.quick_credit_limit) * 100) : null };
 
   // The items: coded bank and card lines with a sales tax code, split as the trial balance splits them.
@@ -103,7 +108,7 @@ export async function gstFor(supabase: SupabaseClient, fileId: string, instalmen
   const check = checkAgainstBooks(opening, returns, inYear, book);
   const changed = returns.filter((r) => { const s = prepared.find((x) => x.period_no === r.period.n); return s && JSON.stringify(s.lines) !== JSON.stringify(storedLines(r)); }).map((r) => r.period.n);
   return {
-    applies: true as const, quick, freq, rt: rtLabel(setup.gst_rt), province: inp.province, periods, returns, prepared, changed, items, payments, prefill: pre,
+    applies: true as const, quick, quickType: type, freq, rt: rtLabel(setup.gst_rt), province: inp.province, periods, returns, prepared, changed, items, payments, prefill: pre,
     check, checkRow: (chk ?? null) as GstCheckRow | null, other21500, candidates, gainAccount: QUICK_GAIN, threshold: Number(st.entry_review_amount ?? 5000), quickSettings: q,
     fileName: f.client?.legal_name ?? "", yearEnd: f.file.year_end,
   };

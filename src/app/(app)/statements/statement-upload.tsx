@@ -31,7 +31,8 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
   const polling = useRef(false);
 
   // The server's list is the truth; a fresh render (router.refresh) brings it in.
-  useEffect(() => { setRows(initial); }, [initial]);
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) { setSeen(initial); setRows(initial); }
 
   const poll = useCallback(async () => {
     if (polling.current) return;

@@ -104,3 +104,43 @@ test("quick method: the sales before tax for step 5 are the eligible sales witho
   assert.equal(r.salesNetCents, 1000000);
   assert.equal(r.lines["101"], 1130000);
 });
+
+// Round 20 (Hashim, Nov 15, 2026): two quick method rates, Services and Goods for resale. The client's step 1
+// answer picks one; the return says which rate it used; a missing rate is named and never guessed. The
+// rates below are dummy figures for the tests, not CRA's.
+test("quick method, round 20: the client's type picks the rate, and the return says which one it used", async () => {
+  const { quickRateFor, quickType } = await import("../src/lib/closebook/gst-return.ts");
+  const rates = [{ province: "ON", services: 0.05, goods: 0.02, from: "2025-01-01" }, { province: "ON", services: 0.06, goods: 0.03, from: "2026-07-01" }, { province: "AB", services: 0.04, goods: null, from: null }];
+  const base = { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "ON", rates };
+  const year = gstPeriods("2026-01-01", "2026-12-31", "annual", DUE)[0];
+  const items = [sale("2026-02-01", 1000000, 130000)];   // 11,300 of eligible sales with the HST
+  const services = buildReturn(items, year, true, { ...base, type: "services" }, 0);
+  assert.equal(services.lines["103"], 56500, "11,300 x 5%: the rate in effect on the period's first day");
+  assert.equal(services.rateUsed, "Quick method rate, services, Ontario: 5%");
+  const goods = buildReturn(items, year, true, { ...base, type: "goods" }, 0);
+  assert.equal(goods.lines["103"], 22600, "11,300 x 2%");
+  assert.equal(goods.rateUsed, "Quick method rate, goods for resale, Ontario: 2%");
+  assert.deepEqual(goods.problems, []);
+  // No answer in step 1: services.
+  assert.equal(buildReturn(items, year, true, base, 0).rateUsed, "Quick method rate, services, Ontario: 5%");
+  assert.equal(quickType(undefined), "services");
+  assert.equal(quickType("goods"), "goods");
+  // A later period takes the later rate; a row with no start date applies to every period.
+  const q3 = gstPeriods("2026-01-01", "2026-12-31", "quarterly", DUE)[2];
+  assert.equal(quickRateFor(rates, "ON", "services", q3.start), 0.06);
+  assert.equal(quickRateFor(rates, "ON", "goods", "2024-12-31"), null, "before the first rate starts: none");
+  assert.equal(quickRateFor(rates, "AB", "services", "2020-01-01"), 0.04);
+});
+
+test("quick method, round 20: a missing rate is named and line 103 is not guessed", () => {
+  const rates = [{ province: "AB", services: 0.04, goods: null, from: null }];
+  const year = gstPeriods("2026-01-01", "2026-12-31", "annual", DUE)[0];
+  const r = buildReturn([sale("2026-02-01", 1000000, 50000, "GST")], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "AB", type: "goods", rates }, 0);
+  assert.equal(r.lines["103"], 0);
+  assert.equal(r.rateUsed, null);
+  assert.deepEqual(r.problems, ["No approved quick method rate for goods for resale in Alberta for the period from Jan 1, 2026. An owner loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates."]);
+  // No approved rows at all (another province): missing too.
+  const none = buildReturn([sale("2026-02-01", 1000000, 130000)], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "ON", type: "services", rates }, 0);
+  assert.equal(none.lines["103"], 0);
+  assert.match(none.problems[0], /^No approved quick method rate for services in Ontario/);
+});

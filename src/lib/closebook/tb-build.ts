@@ -7,6 +7,8 @@
 //   purchases: net + non-recoverable tax to the account, ITC to 21500 GST/HST payable;
 //   sales (Revenue accounts): net to the account, GST/HST collected to 21500, PST collected to 21550.
 // - Lines not yet coded (or waiting for the reviewer or the client) sit in "Transactions not yet coded".
+// - A transfer between two of the file's accounts (round 20) posts once, on its money-out line: Dr the
+//   other account, Cr this one. Its money-in line ("matched") posts nothing.
 // - The opening balances sit in "Opening balances to enter" until last year's closing balances are in.
 // So the trial balance always balances; the two holding accounts show what is left to do.
 //
@@ -19,7 +21,10 @@ import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 // number: the bank or card account's own number in the file (round 4b): the first on a chart account takes
 // its number, others the next free one (10010). Optional for older callers: the chart number then.
 export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string };
-export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string };
+// transfer_bank (round 20): on the money-out line of a matched transfer, the other bank or card account; its
+// other side posts to that account's own row. The money-in line of the transfer has status "matched".
+export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string;
+  transfer_bank?: string | null };
 export type BuildChart = { name: string; account_type: string; line_no: string | null };
 export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
 // Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
@@ -178,9 +183,14 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   for (const l of lines) {
     const b = byId.get(l.account_id);
     if (!b) continue;
+    // Round 20: the money-in line of a matched transfer posts nothing. Its money is the other side of the
+    // money-out line, so the transfer posts once (QuickBooks Online's "Record as transfer").
+    if (l.status === "matched") continue;
     const m: Meta = { date: l.date ?? "", kind: "bank", ref: l.id ?? "", acct: b.id, label: l.description ?? "" };
     const debit = b.kind === "bank" ? l.cents : -l.cents;   // the bank or card side
     add(bankKey(b), numberOf(b), "", null, debit, m);
+    const to = l.status === "done" && l.transfer_bank ? byId.get(l.transfer_bank) : undefined;
+    if (to) { add(bankKey(to), numberOf(to), "", null, -debit, m); continue; }
     const c = l.status === "done" && l.chart_account ? chart.get(l.chart_account) : undefined;
     if (!c) { add(UNCODED, "", "Transactions not yet coded", null, -debit, m, "Lines still to code, or waiting for the reviewer or the client."); continue; }
     const code = l.tax_code ? codes.get(l.tax_code) ?? null : null;

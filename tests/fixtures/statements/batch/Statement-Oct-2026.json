@@ -1,0 +1,228 @@
+{
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4521",
+      "name": "Business Chequing Account",
+      "kind": "bank",
+      "periodStart": "2026-10-01",
+      "periodEnd": "2026-10-31",
+      "opening": 14025948,
+      "closing": 13496075,
+      "summary": {
+        "inTotal": 1805888,
+        "inCount": 3,
+        "outTotal": 2335761,
+        "outCount": 14
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-10-01",
+          "description": "E-TRANSFER SENT DUMMY ASSISTANT",
+          "amountCents": 51031,
+          "dir": "out",
+          "balanceCents": 13974917,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-10-07",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 312366,
+          "dir": "out",
+          "balanceCents": 13662551,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-10-08",
+          "description": "PAYROLL DUMMY PAYROLL SERVICE",
+          "amountCents": 382140,
+          "dir": "out",
+          "balanceCents": 13280411,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-10-09",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 307187,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-10-09",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 1447423,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-10-09",
+          "description": "MOBILE CHEQUE DEPOSIT",
+          "amountCents": 229438,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-10-09",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 14897,
+          "dir": "out",
+          "balanceCents": 14635188,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l8",
+          "date": "2026-10-13",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY MLS BOARD",
+          "amountCents": 35274,
+          "dir": "out",
+          "balanceCents": 14599914,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l9",
+          "date": "2026-10-16",
+          "description": "CRA PAYMENT GST/HST",
+          "amountCents": 237874,
+          "dir": "out",
+          "balanceCents": 14362040,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l10",
+          "date": "2026-10-17",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY HYDRO",
+          "amountCents": 9629,
+          "dir": "out",
+          "balanceCents": 14352411,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l11",
+          "date": "2026-10-19",
+          "description": "E-TRANSFER RECEIVED DUMMY CLIENT",
+          "amountCents": 129027,
+          "dir": "in",
+          "balanceCents": 14481438,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l12",
+          "date": "2026-10-21",
+          "description": "PRE-AUTHORIZED DEBIT DUMMY MLS BOARD",
+          "amountCents": 47471,
+          "dir": "out",
+          "balanceCents": 14433967,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l13",
+          "date": "2026-10-22",
+          "description": "POS PURCHASE DUMMY PRINT SHOP",
+          "amountCents": 45976,
+          "dir": "out",
+          "balanceCents": 14387991,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l14",
+          "date": "2026-10-23",
+          "description": "ONLINE TRANSFER TO SAVINGS 7730",
+          "amountCents": 381405,
+          "dir": "out",
+          "balanceCents": 14006586,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l15",
+          "date": "2026-10-25",
+          "description": "PAYROLL DUMMY PAYROLL SERVICE",
+          "amountCents": 324945,
+          "dir": "out",
+          "balanceCents": 13681641,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l16",
+          "date": "2026-10-29",
+          "description": "ONLINE BILL PAYMENT NORTHERN DUMMY VISA",
+          "amountCents": 182571,
+          "dir": "out",
+          "balanceCents": 13499070,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l17",
+          "date": "2026-10-31",
+          "description": "MONTHLY ACCOUNT FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 13496075,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ],
+  "pages": 1,
+  "bank": "Northern Dummy Bank"
+}

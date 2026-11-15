@@ -42,6 +42,8 @@ import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankView } from "./bank-view";
+import { StatementImport } from "../../statements/statement-upload";
+import { listStatements } from "@/lib/statements/server";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
@@ -246,7 +248,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </section>
         <section className="card mt-4">
           <h2 className="font-semibold">Setup questions</h2>
-          <form action={saveSetup} className="grid gap-1">
+          <form action={saveSetup} className="group grid gap-1">
             <input type="hidden" name="file_id" value={id} />
               <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
               <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
@@ -261,6 +263,18 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               </select>
             </div>
               <SetupQ name="quick_method" q="Does it use the quick method?" adds="Yes: no ITCs on operating expenses, meals included; capital purchases still claim them" value={setup.quick_method as boolean | undefined} />
+            {/* Round 20: which quick method rate applies, shown while the quick method is Yes. Services by default. */}
+            <fieldset className="hidden items-center gap-2 border-t border-sand-100 py-2 group-has-[#setup-quick-method-yes:checked]:grid sm:grid-cols-[30rem_auto]">
+              <legend className="sr-only">Which quick method rate applies?</legend>
+              <span className="text-sm">Which quick method rate applies?<InfoTip>The GST/HST return uses this rate for the client&rsquo;s province, from Settings, Sales tax rates, Quick method rates</InfoTip></span>
+              <span className="inline-flex w-fit overflow-hidden rounded-md border border-sand-300">
+                {([["services", "Services (most real estate businesses)"], ["goods", "Goods for resale"]] as const).map(([v, label]) => (
+                  <label key={v} className="cursor-pointer px-3 py-1 text-sm has-[:checked]:bg-navy-700 has-[:checked]:text-white [&:not(:first-child)]:border-l [&:not(:first-child)]:border-sand-300">
+                    <input type="radio" name="quick_method_type" value={v} defaultChecked={(setup.quick_method_type === "goods" ? "goods" : "services") === v} className="sr-only" />{label}
+                  </label>
+                ))}
+              </span>
+            </fieldset>
             <div className="grid items-center gap-2 border-t border-sand-100 py-2 sm:grid-cols-[30rem_auto]">
               <label htmlFor="gst_rt" className="text-sm">GST/HST account</label>
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
@@ -273,7 +287,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     );
   } else if (step === "records") {
     body = bankFile
-      ? <div className="grid gap-4"><BankView dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+      ? <div className="grid gap-4">
+          {/* Round 20: PDF statements and photos, read in the background, beside the CSV upload. */}
+          <StatementImport fileId={id} initial={await listStatements(id)} canEdit={editable && file.phase !== "locked"} startOpen={str(sp.pdf) === "1"}
+            csvHref={`/closebook/${id}?step=records${bank!.selected ? `&account=${bank!.selected}&upload=${bank!.selected}` : "&upload=new"}`} />
+          <BankView dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
       : tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
@@ -551,7 +569,7 @@ function SetupQ({ name, q, adds, value }: { name: string; q: string; adds: strin
       <span className="inline-flex w-fit overflow-hidden rounded-md border border-sand-300">
         {(["yes", "no"] as const).map((v) => (
           <label key={v} className="cursor-pointer px-3 py-1 text-sm has-[:checked]:bg-navy-700 has-[:checked]:text-white [&:not(:first-child)]:border-l [&:not(:first-child)]:border-sand-300">
-            <input type="radio" name={name} value={v} defaultChecked={value === (v === "yes")} className="sr-only" />{v === "yes" ? "Yes" : "No"}
+            <input type="radio" id={`setup-${name.replace(/_/g, "-")}-${v}`} name={name} value={v} defaultChecked={value === (v === "yes")} className="sr-only" />{v === "yes" ? "Yes" : "No"}
           </label>
         ))}
       </span>
