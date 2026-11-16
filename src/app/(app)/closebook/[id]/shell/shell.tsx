@@ -10,6 +10,7 @@ import { formatDate, formatDateTime } from "@/lib/dates";
 import type { Progress } from "@/lib/closebook/step-progress";
 import type { StepStatus } from "@/lib/closebook/review-server";
 import { addNote, signStep, unsignStep } from "../../actions";
+import { signSubstep, unsignSubstep } from "../../banking-actions";
 import { setPeople } from "../../round16-actions";
 import { Drawer, FileToast, LeftPanel, Popover } from "./ui";
 import { StepMenu, type StepMenuProps } from "./step-menu";
@@ -120,7 +121,8 @@ export function PanelLink({ href, on, children, count, title }: { href: string; 
 // Sign-off circles.
 // ---------------------------------------------------------------------------------------------------
 type SignProps = { fileId: string; step: string; st: StepStatus | undefined; names: Map<string, string>; me: string; isOwner: boolean; editable: boolean; back: string;
-  preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right"; side?: "below" | "right" };
+  preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right"; side?: "below" | "right";
+  sub?: string };   // round 23: a Banking sub-step (3.1, 3.2, 3.3), signed on its own
 
 function Circle({ kind, who, size }: { kind: "none" | "prepared" | "reviewed"; who?: string; size: "sm" | "lg" }) {
   const dim = size === "lg" ? "h-[26px] w-[26px] text-[10px]" : "h-[22px] w-[22px] text-[9px]";
@@ -144,11 +146,11 @@ export function SignCircles(p: SignProps) {
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const name = (id: string | null | undefined) => (id ? names.get(id) ?? "" : "");
   const signForm = (role: "prepared" | "reviewed", label: string) => (
-    <form action={signStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{hidden("role", role)}{hidden("back", back)}
+    <form action={p.sub ? signSubstep : signStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{p.sub && hidden("sub", p.sub)}{hidden("role", role)}{hidden("back", back)}
       <button type="submit" className="btn btn-compact">{label}</button></form>
   );
   const undo = (role: "prepared" | "reviewed") => (
-    <form action={unsignStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{hidden("role", role)}{hidden("back", back)}
+    <form action={p.sub ? unsignSubstep : unsignStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{p.sub && hidden("sub", p.sub)}{hidden("role", role)}{hidden("back", back)}
       <button type="submit" className="btn-secondary btn-compact">Take back my sign-off</button></form>
   );
   const problems = st?.problems ?? [];
@@ -178,8 +180,9 @@ export function SignCircles(p: SignProps) {
 // A step's title row: the name in small capitals, the circles, the Issues chip, then add note, export
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
-export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next, addNoteFor, exports, help, menu }: {
+export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next, addNoteFor, exports, help, menu, action }: {
   n: number; name: string; paper?: string; sub?: ReactNode; sign: SignProps | null; notesOpen?: number;
+  action?: ReactNode;   // round 23: the page's one button, top right (Banking: "+ Add account", "Upload statements")
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
   addNoteFor: { fileId: string; step: string; back: string } | null;
@@ -236,6 +239,7 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next,
         <p className="mt-6 rounded-md border border-dashed border-sand-300 px-3 py-2 text-xs text-ink-3">An assistant will answer questions here later.</p>
       </Drawer></span>
       {menu && <StepMenu {...menu} />}
+      {action}
     </div>
     {signedBy && sign && (
       <p className="-mt-1.5 mb-3 inline-flex items-center gap-1.5 text-[12.5px] text-success" data-signed-line>

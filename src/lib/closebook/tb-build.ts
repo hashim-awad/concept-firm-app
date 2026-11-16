@@ -98,6 +98,8 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
 
   const lineOf = (b: BuildBank) => b.lineNo ?? chart.get(b.chart)?.line_no ?? null;
   const gifiOf = (b: BuildBank) => (lineOf(b) ?? "").slice(0, 4);
+  // Round 23: an account overdrawn at last year end ties to last year's Bank overdraft (2600), as on the T2.
+  const tieOf = (b: BuildBank) => (b.kind === "bank" && b.fromBooks && b.openingCents < 0 ? "2600" : gifiOf(b));
   for (const b of banks) {
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
     const m = openMeta(`stmt:${b.id}`, b.fromBooks ? `Balance in the books at the start of the year, ${b.name}` : `Opening balance on the first statement, ${b.name}`);
@@ -112,7 +114,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     // closes to retained earnings (closing = 3660 + net income − dividends + adjustments).
     const bankOpen = new Map<string, number>(), banksOn = new Map<string, BuildBank[]>();
     for (const b of banks) {
-      const g = gifiOf(b);
+      const g = tieOf(b);
       bankOpen.set(g, (bankOpen.get(g) ?? 0) + (b.kind === "bank" ? b.openingCents : -b.openingCents));
       banksOn.set(g, [...(banksOn.get(g) ?? []), b]);
     }
@@ -127,7 +129,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       return debitCents <= 0 ? `${dollars(-debitCents)} owing` : `${dollars(debitCents)} in credit`;
     };
     const hasRe = opening.lines.some((l) => l.code === "3660");
-    const bankCode = (l: { code: string; bank?: string | null }) => { const b = l.bank ? banks.find((x) => x.id === l.bank) : undefined; return b ? gifiOf(b) || l.code : l.code; };
+    const bankCode = (l: { code: string; bank?: string | null }) => { const b = l.bank ? banks.find((x) => x.id === l.bank) : undefined; return b ? tieOf(b) || l.code : l.code; };
     for (const l of opening.lines) {
       const n = Number(l.code);
       const ch = l.account && chart.has(l.account) ? l.account : chartForLine(chart, l.line_no, l.code);
@@ -150,7 +152,13 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
         const home = on.find((b) => b.id === l.bank) ?? on.find((b) => numberOf(b) === b.chart) ?? on[0];
         add(bankKey(home), numberOf(home), "", null, 0, null, undefined, l.debitCents);
         const d = bankOpen.get(bankCode(l))! - l.debitCents;
-        if (d) {
+        // Round 23 (Hashim): last year's T2 is in whole dollars. Under 1.00 is rounding: it posts by itself to
+        // retained earnings at the start of the year, one entry per T2 line, so the opening trial balance is 0.00.
+        if (d && Math.abs(d) < 100) {
+          const re = chartForLine(chart, "3600.00", "3600");
+          add(re ? `chart:${re}` : "gifi:3660", re ?? fileAccountNumber("Equity", taken), re ? chart.get(re)!.name : "Retained earnings", re ? chart.get(re)!.line_no : "3600.00", -d,
+            openMeta(`rounding:${bankCode(l)}`, `Opening balance rounding, GIFI ${bankCode(l)}`));
+        } else if (d) {
           const t = `GIFI ${l.code}: the first statements open at ${inStatementTerms(bankCode(l), bankOpen.get(bankCode(l))!)}, last year closed at ${inStatementTerms(bankCode(l), l.debitCents)}`;
           diffs.push(t); causes.push({ text: t, cents: -d });
         }

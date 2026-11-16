@@ -73,13 +73,16 @@ test("every result has the ReadResult shape: ids in order, keys a1.., cents, dat
 
 test("every statement but mismatch ties to the cent: total, summary, running balance", () => {
   for (const { file, r } of results) {
-    if (file === "mismatch.pdf") continue;
+    // Round 23: one statement read with an amount wrong, on purpose (the fix screen).
+    if (file === "mismatch.pdf" || file === "round23/rbc-sav-2026-03-misread.pdf") continue;
     // Round 22: two lines the reader was not sure of, on purpose ("Needs a look"); the figures still tie.
     const unsureOnPurpose = file === "round22/mdb-visa-2025-11.pdf";
     for (const a of r.accounts) {
       const t = tie(a);
       assert.equal(t.difference, 0, `${file} ${a.key} difference`);
       assert.equal(t.runningBreak, null, `${file} ${a.key} running balance`);
+      // Round 23: these statements print no summary, on purpose ("Find it" works without one).
+      if (file.startsWith("round23/")) { assert.equal(a.summary, null, `${file} prints no summary`); continue; }
       assert.ok(a.summary, `${file} ${a.key} summary`);
       assert.equal(a.summary.inTotal, t.inTotal, `${file} ${a.key} money in`);
       assert.equal(a.summary.outTotal, t.outTotal, `${file} ${a.key} money out`);

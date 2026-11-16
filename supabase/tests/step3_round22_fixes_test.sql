@@ -33,20 +33,20 @@ select test.check('Feb 2 to Mar 2 goes in', test.add(:'f', :'chq', '2026-02-02',
 select test.check('Apr 2 to May 1 goes in', test.add(:'f', :'chq', '2026-04-02', '2026-05-01', 800.00, 900.00) = 'added');
 select test.check('Jun 2 to Jul 2 goes in', test.add(:'f', :'chq', '2026-06-02', '2026-07-02', 1000.00, 1100.00) = 'added');
 select test.check('Aug 3 to Sep 2 goes in', test.add(:'f', :'chq', '2026-08-03', '2026-09-02', 1200.00, 1300.00) = 'added');
-select test.check('six gaps, counted as the page counts them', test.rp(:'f') like '%10000 Chequing · RBC ••• 4321: 6 gaps in the statements.%');
+select test.check('six gaps, counted as the page counts them', test.rp(:'f') like '%10000 Chequing · RBC ••• 4321: 6 missing.%');
 select test.check('Sep 2 to Oct 2 shares one day with each neighbour: it goes in', test.add(:'f', :'chq', '2025-09-02', '2025-10-02', 150.00, 200.00) = 'added');
 select test.check('two shared days are an overlap', test.add(:'f', :'chq', '2025-11-02', '2025-12-02', 300.00, 400.00) like 'This period (Nov 2, 2025 to Dec 2, 2025) overlaps%');
 select test.check('the same period again is an overlap', test.add(:'f', :'chq', '2025-10-02', '2025-11-03', 200.00, 300.00) like '%overlaps%');
-select test.check('five gaps now', test.rp(:'f') like '%: 5 gaps in the statements.%');
+select test.check('five gaps now', test.rp(:'f') like '%: 5 missing.%');
 select test.add(:'f', :'chq', '2025-11-03', '2025-12-02', 300.00, 400.00);
 select test.add(:'f', :'chq', '2026-01-02', '2026-02-02', 500.00, 600.00);
 select test.add(:'f', :'chq', '2026-03-02', '2026-04-02', 700.00, 800.00);
 select test.add(:'f', :'chq', '2026-05-01', '2026-06-02', 900.00, 1000.00);
 select test.add(:'f', :'chq', '2026-07-02', '2026-08-03', 1100.00, 1200.00);
-select test.check('all thirteen in: no gap', (select count(*) from public.cb_bank_statements where account_id = :'chq') = 13 and test.rp(:'f') not like '%gap%');
+select test.check('all thirteen in: no gap', (select count(*) from public.cb_bank_statements where account_id = :'chq') = 13 and test.rp(:'f') not like '%missing%');
 -- A break with nothing missing is one gap.
 update public.cb_bank_statements set opening = 1199.00, plus_total = plus_total + 1 where account_id = :'chq' and period_start = '2026-08-03';
-select test.check('a statement that does not follow the one before is one gap', test.rp(:'f') like '%: 1 gap in the statements.%');
+select test.check('a statement that does not follow the one before is one gap', test.rp(:'f') like '%: 1 missing.%');
 update public.cb_bank_statements set opening = 1200.00, plus_total = plus_total - 1 where account_id = :'chq' and period_start = '2026-08-03';
 
 -- The CSV path follows the same rule.
@@ -87,20 +87,20 @@ insert into public.cb_opening_balances (file_id, code, amount) values (:'f', '10
 update public.cb_files set opening_source = 'manual' where id = :'f';
 select test.check('books 100.52 against the T2''s 100: within 1.00, it ties', test.rp(:'f') not like '%GIFI 1002%');
 update public.cb_opening_balances set amount = 99.00 where file_id = :'f' and code = '1002';
-select test.check('1.52 off does not tie', test.rp(:'f') like '%GIFI 1002: the accounts open at 100.52, last year''s T2 has 99.00.%');
+select test.check('1.52 off does not tie', test.rp(:'f') like '%GIFI 1002: the accounts total 100.52, last year''s T2 has 99.00 (1.52 too much).%');
 update public.cb_opening_balances set amount = 100.00 where file_id = :'f' and code = '1002';
 -- The books take the T2's whole dollars: the statements show 100.52 on Aug 31, 2025.
 set role authenticated;
 select public.cb_save_bank_account(:'f', :'chq', 'chequing', 'RBC', '4321', 100.00, false, false);
-select test.check('the start edge is 0.52 off', test.rp(:'f') like '%the statements show 100.52 on Aug 31, 2025 and the books 100.00. Explain the difference of (0.52)%');
+-- Round 23: under 1.00 at the start of the year is rounding: no start band, and the year's DIFFERENCE leaves it out.
+select test.check('the start edge 0.52 off is rounding: nothing to explain', test.rp(:'f') not like '%start of the year%' and test.rp(:'f') not like '%DIFFERENCE%');
 select public.cb_add_outstanding(:'chq', 'start', null, null, null, null, null, 'rounding') as r1 \gset
 select test.check('rounding takes the whole difference left, posts nothing, and explains the start',
   (select kind = 'rounding' and dir = 'out' and amount = 0.52 and item_date = '2025-08-31' and description = 'Rounding (the T2 is in whole dollars)' and cleared_line is null
      from public.cb_bank_outstanding where id = :'r1')
-  and test.rp(:'f') not like '%Aug 31, 2025 and the books%');
-select test.check('the end edge carries the same 0.52', test.rp(:'f') like '%differ by (0.52) on Aug 31, 2026%');
+  and test.rp(:'f') not like '%start of the year%');
 select public.cb_add_outstanding(:'chq', 'end', null, null, null, null, null, 'rounding');
-select test.check('rounding at the year end too: nothing left', test.rp(:'f') not like '%differ by%');
+select test.check('rounding at the year end too: nothing left', test.rp(:'f') not like '%DIFFERENCE%');
 select test.check('rounding with nothing left is refused', test.try(format($q$select public.cb_add_outstanding(%L, 'end', null, null, null, null, null, 'rounding')$q$, :'chq')) like 'Rounding is only for a difference left under 1.00.');
 select public.cb_remove_outstanding(:'r1');
 select public.cb_save_bank_account(:'f', :'chq', 'chequing', 'RBC', '4321', 98.00, false, false);

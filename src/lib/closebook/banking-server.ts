@@ -1,0 +1,93 @@
+import "server-only";
+// Step 3 "Banking" (round 23, Hashim, Nov 16, 2026): what its three sub-steps show, read with the signed-in
+// person's client (row level security applies). Built on the round 22 loader (accounts, statements, uploads,
+// coverage) with the rules in banking.ts.
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadStep3, type S3Account, type S3Upload, type Step3 } from "./step3-server";
+import { band, calendarMonths, feedWord, findIt, findStatement, misread, roundingOf, tieBoxes, type Band, type FeedWord, type FindMonth, type FindStatement, type Misread, type MonthState, type TieBox } from "./banking";
+import type { ReadResult, StatementAccount } from "../statements/types";
+
+export type SubKey = "3.1" | "3.2" | "3.3";
+export const SUBS: { key: SubKey; paper: "accounts" | "feeds" | "reconcile"; name: string }[] = [
+  { key: "3.1", paper: "accounts", name: "3.1 Bank accounts & T2 tie-out" },
+  { key: "3.2", paper: "feeds", name: "3.2 Bank feeds" },
+  { key: "3.3", paper: "reconcile", name: "3.3 Reconcile" },
+];
+export type SubStatus = { prepared_by: string | null; prepared_at: string | null; reviewed_by: string | null; reviewed_at: string | null; problems: string[] };
+export type BankingAccount = S3Account & {
+  feed: FeedWord; months: { label: string; from: string; to: string; state: MonthState }[]; toFix: S3Upload[]; band: Band; waiting: number;
+};
+export type Banking = Omit<Step3, "accounts"> & { accounts: BankingAccount[]; boxes: TieBox[]; rounding: { gifi: string; title: string; cents: number }[];
+  subs: Record<SubKey, SubStatus>; pending: S3Upload[] };
+
+export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Promise<Record<SubKey, SubStatus>> {
+  const { data } = await supabase.rpc("cb_substep_status", { p_file: fileId });
+  const none: SubStatus = { prepared_by: null, prepared_at: null, reviewed_by: null, reviewed_at: null, problems: [] };
+  const d = (data ?? {}) as Partial<Record<SubKey, SubStatus>>;
+  return { "3.1": d["3.1"] ?? none, "3.2": d["3.2"] ?? none, "3.3": d["3.3"] ?? none };
+}
+
+export async function loadBanking(supabase: SupabaseClient, file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null },
+  names: Map<string, string>, signed: boolean): Promise<Banking> {
+  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), loadSubsteps(supabase, file.id),
+    supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id)]);
+  const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
+  const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books })), t2);
+  // Statements read and waiting. Those that add up (opening + lines = closing) go in by themselves (the page imports
+  // them); one that does not is "to fix" (a misread line).
+  const open = d.uploads.filter((u) => u.state.status === "ready" || u.state.status === "needs_look" || u.state.status === "no_digits");
+  const passes = (u: S3Upload) => u.difference_cents === 0 && !!u.account;
+  const accounts: BankingAccount[] = d.accounts.map((a) => {
+    const toFix = open.filter((u) => u.account === a.id && !passes(u));
+    const waived = !a.opened && !a.closed && !!a.note;
+    const start = a.statements.find((s) => s.at_start !== null)?.at_start ?? null;
+    const end = [...a.statements].reverse().find((s) => s.at_end !== null)?.at_end ?? null;
+    const items = (edge: "start" | "end") => d.outstanding.filter((i) => i.account_id === a.id && i.edge === edge).reduce((n, i) => n + (i.dir === "in" ? i.amount : -i.amount), 0);
+    const missing = a.statements.length ? a.gaps.length : 0;
+    // The 12 month boxes: green covered, red missing, grey nothing uploaded (statements read and not imported are missing).
+    return { ...a, toFix, feed: feedWord({ statements: a.statements.length, toFix: toFix.length, missing, waived }),
+      months: calendarMonths(d.yearStart, d.yearEnd, waived ? [] : a.gaps, a.statements.length > 0 && !waived, { opened: a.opened, closed: a.closed }),
+      band: band({ opening: a.books, lines: a.lines, bankStart: start, bankEnd: end, startItems: items("start"), endItems: items("end"), waiting: missing > 0 || toFix.length > 0 }),
+      waiting: open.filter((u) => u.account === a.id).length };
+  });
+  return { ...d, accounts, boxes, rounding: d.t2Entered || d.firstYear ? roundingOf(boxes) : [], subs, pending: open.filter(passes) };
+}
+
+// The fix screen: the statement as read (or as edited), the account on it, and the line that looks misread.
+export async function loadFix(supabase: SupabaseClient, importId: string): Promise<{ data: ReadResult; acc: StatementAccount; miss: Misread | null; fileName: string } | null> {
+  const { data: row } = await supabase.from("cb_statement_imports").select("id, file_name, result, edited").eq("id", importId).maybeSingle();
+  const data = (row?.edited ?? row?.result) as ReadResult | null;
+  if (!row || !data?.accounts?.length) return null;
+  const acc = data.accounts.find((x) => misread(x)) ?? data.accounts[0];
+  return { data, acc, miss: misread(acc), fileName: row.file_name as string };
+}
+
+// "Find it": the bank month by month from the statements as read, against the file's lines.
+export async function loadFindIt(supabase: SupabaseClient, a: BankingAccount, yearStart: string, yearEnd: string): Promise<{ months: FindMonth[]; statements: FindStatement[] }> {
+  const ids = a.statements.map((s) => s.statement_import_id).filter((x): x is string => !!x);
+  const { data } = ids.length ? await supabase.from("cb_statement_imports").select("id, result, edited").in("id", ids) : { data: [] };
+  const read = new Map(((data ?? []) as { id: string; result: ReadResult | null; edited: ReadResult | null }[]).map((r) => [r.id, r.edited ?? r.result]));
+  const sts = a.statements.map((s) => {
+    const r = s.statement_import_id ? read.get(s.statement_import_id) : null;
+    const acc = r?.accounts.find((x) => x.periodStart === s.period_start && x.periodEnd === s.period_end) ?? (r?.accounts.length === 1 ? r.accounts[0] : null);
+    // A CSV keeps no reading of its own: its lines in the file stand for the bank.
+    return acc ? findStatement(acc) : { periodStart: s.period_start, periodEnd: s.period_end, opening: s.opening,
+      lines: a.lines.filter((l) => l.statement === s.id).map((l) => ({ date: l.date, cents: l.cents, description: l.description })) };
+  });
+  return { months: findIt(yearStart, yearEnd, sts, a.lines.map((l) => ({ date: l.date, cents: l.cents }))), statements: sts };
+}
+
+// The automatic "Opening balance rounding" (3.1): one per T2 line under 1.00, for the Entries tab.
+export async function loadRounding(supabase: SupabaseClient, file: { id: string; opening_source: string | null; first_year: boolean | null }) {
+  if (!file.opening_source && !file.first_year) return [];
+  const [{ data: accs }, { data: chart }, { data: ob }] = await Promise.all([
+    supabase.from("cb_bank_accounts").select("id, name, number, kind, gifi_line, chart_account, books_opening").eq("file_id", file.id),
+    supabase.from("cb_chart_accounts").select("number, line_no"),
+    supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id),
+  ]);
+  const line = new Map(((chart ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no ?? ""]));
+  const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
+  type A = { id: string; name: string; number: string; kind: "bank" | "card"; gifi_line: string | null; chart_account: string; books_opening: number | null };
+  return roundingOf(tieBoxes(((accs ?? []) as A[]).map((a) => ({ id: a.id, label: `${a.number} ${a.name}`, kind: a.kind, gifi: (a.gifi_line ?? line.get(a.chart_account) ?? "").slice(0, 4),
+    books: a.books_opening === null ? null : Math.round(Number(a.books_opening) * 100) })), t2));
+}

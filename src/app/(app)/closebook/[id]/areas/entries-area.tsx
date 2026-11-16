@@ -23,10 +23,11 @@ const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.or
 const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px]";
 const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `(${t})` : t; };
 
-export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard }: {
+export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard, rounding = [] }: {
   supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; names: Map<string, string>;
   sp: { type?: string; status?: string; source?: string; entry?: string; back?: string };
   editable: boolean; isReviewer: boolean; standard: { id: string; name: string }[];
+  rounding?: { gifi: string; title: string; cents: number }[];   // round 23: posted by itself from 3.1, one per T2 line under 1.00
 }) {
   const base = `/closebook/${file.id}`;
   const { data: std } = await supabase.from("cb_entries").select("id, standard_id").eq("file_id", file.id);
@@ -103,7 +104,14 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
             </div>
           );
         })}
-        {!shown.length && <p className="px-3 py-3 text-[12.5px] text-ink-3">No entries.</p>}
+        {!sp.type && !sp.status && !sp.source && rounding.map((r) => (
+          <div key={`rounding-${r.gifi}`} className={`grid ${COLS} items-center gap-x-2 border-b border-sand-100 px-3 py-[6px] text-[12.5px] text-ink-2 last:border-0`}>
+            <span /><span>–</span><span className="text-ink-3">Opening</span><span className="whitespace-nowrap">{formatDate(new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) - 1)).toISOString().slice(0, 10))}</span>
+            <span className="truncate">Opening balance rounding · GIFI {r.gifi} {r.title}, to retained earnings</span><span className="truncate text-ink-3">3.1</span>
+            <span className="text-right tabular-nums">{money(Math.abs(r.cents) / 100)}</span><span className="text-[11.5px] text-ink-3">Automatic</span>
+          </div>
+        ))}
+        {!shown.length && !rounding.length && <p className="px-3 py-3 text-[12.5px] text-ink-3">No entries.</p>}
       </section>
     </>
   );

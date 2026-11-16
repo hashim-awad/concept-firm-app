@@ -1,0 +1,91 @@
+{
+  "bank": "RBC Royal Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "5678",
+      "name": "Business savings",
+      "kind": "bank",
+      "periodStart": "2026-03-01",
+      "periodEnd": "2026-03-31",
+      "opening": 742888,
+      "closing": 749984,
+      "summary": null,
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-03-03",
+          "description": "Monthly fee",
+          "amountCents": 600,
+          "dir": "out",
+          "balanceCents": 742288,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-03-05",
+          "description": "e-Transfer received",
+          "amountCents": 50000,
+          "dir": "in",
+          "balanceCents": 792288,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-03-09",
+          "description": "Cheque #118",
+          "amountCents": 32550,
+          "dir": "out",
+          "balanceCents": 759738,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-03-16",
+          "description": "PAD telecom",
+          "amountCents": 8962,
+          "dir": "out",
+          "balanceCents": 750776,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-03-24",
+          "description": "Deposit",
+          "amountCents": 75000,
+          "dir": "in",
+          "balanceCents": 825776,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-03-28",
+          "description": "Transfer to chequing",
+          "amountCents": 75792,
+          "dir": "out",
+          "balanceCents": 749984,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}
