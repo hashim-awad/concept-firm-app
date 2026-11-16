@@ -64,7 +64,7 @@ export function gifiFileName(legalName: string, yearEnd: string, kind: ExportKin
 
 // The tax workpaper (Appendix B, Tax codes): for each tax code in use, its accounts, their amounts and
 // the Schedule 1 effect. Amounts: the account's final balance as GIFI shows it (expenses and revenue
-// positive). Effect: + adds to net income for tax, − deducts from it.
+// positive). Effect: positive adds to net income for tax, negative (brackets) deducts from it.
 export type WpAccount = { label: string; line_no: string; gifi: string; lineType: string; code: string; amount: number };
 export type Treatment = "add100" | "add50" | "deduct100" | "none";
 export const TREATMENT: Record<Treatment, string> = { add100: "Add back 100%", add50: "Add back 50%", deduct100: "Deduct 100%", none: "No Schedule 1 effect" };

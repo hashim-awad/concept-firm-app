@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/dates";
 import { saveChecklist } from "../actions";
 import { ChecklistAnswer } from "./checklist-answer";
 import { InfoTip } from "@/components/ds/info-tip";
+import { isNegativeText } from "@/lib/closebook/amount";
 import { CHECKLIST_RULES } from "@/lib/closebook/client-wording";
 
 export type ReviewItem = { href: string; label: string; detail: string; amount?: string };
@@ -34,7 +35,7 @@ export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: Re
                 <li key={it.href + it.label} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 text-sm">
                   <span className="min-w-0"><Link href={it.href} className="font-medium text-navy-700 underline">{it.label}</Link>
                     {it.detail && <span className="block text-xs text-ink-2">{it.detail}</span>}</span>
-                  {it.amount && <span className="tabular-nums">{it.amount}</span>}
+                  {it.amount && <span className={`tabular-nums ${isNegativeText(it.amount) ? "text-danger" : ""}`}>{it.amount}</span>}
                 </li>
               ))}
             </ul>

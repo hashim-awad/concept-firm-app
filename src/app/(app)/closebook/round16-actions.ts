@@ -27,7 +27,7 @@ export async function saveAcceptance(formData: FormData) {
   let p: unknown;
   try { p = JSON.parse(s(formData, "answers")); } catch { redirect(withMessage(back, "error", "The answers could not be read. Nothing was saved.")); }
   const { error } = await (await createClient()).rpc("cb_save_acceptance", { p_file: id, p });
-  await done(id, back, error, "Acceptance saved.");
+  await done(id, back, error, "Saved");
 }
 
 export async function acceptanceSameAsLast(formData: FormData) {
@@ -56,7 +56,7 @@ export async function setFirstYear(formData: FormData) {
   const { error } = await supabase.rpc("cb_set_first_year", { p_file: id, p_on: on });
   // The trial balance rebuilds at once, so "Opening balances to enter" follows the choice.
   if (!error) await rebuildTb(supabase, id);
-  await done(id, back, error, on ? "First year: no opening balances. The reviewer confirms it by signing step 2." : "First year taken back.");
+  await done(id, back, error, on ? "First year of filing: no opening balances. The reviewer confirms it by signing step 2." : "Not a first year: enter last year's balances.");
 }
 
 export async function setPeople(formData: FormData) {

@@ -19,6 +19,7 @@ import { acceptTransferInline, undoTransferInline } from "../transfer-actions";
 import { looksLikeTransfer, matchedLabel, transferLabel, TRANSFER_WARNING, type TransferAccount } from "@/lib/closebook/transfers";
 import { NoteOnItem } from "./note-on-item";
 import { formatDate } from "@/lib/dates";
+import { negativeTone } from "@/lib/closebook/amount";
 
 type Filter = "needs" | "suggested" | "reviewer" | "ask" | "done" | "all";
 const FILTERS: [Filter, string][] = [["needs", "Needs you"], ["suggested", "Suggested"], ["reviewer", "For the reviewer"], ["ask", "Ask the client"], ["done", "Done"], ["all", "All"]];
@@ -249,7 +250,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
         {noItc && <span className="block text-xs text-ink-3">{noItc}</span>}
       </td>
       </>}
-      <td className="itc text-right tabular-nums">{offer ? "" : itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
+      <td className={`itc text-right tabular-nums ${offer ? "" : negativeTone(itc)}`}>{offer ? "" : itc ? (itc < 0 ? `(${money(-itc).replace("$", "")})` : money(itc).replace("$", "")) : noItc ? "0.00" : ""}</td>
       <td className="text-right">
         {editable && l.status !== "done" && (
           <span className="inline-flex flex-col items-end gap-1">

@@ -11,13 +11,16 @@ import Link from "next/link";
 import { acceptRevenueDifference, addRevenueSource, removeRevenueSource, saveRevenueCheck } from "../round9-actions";
 import { FilePick } from "./file-pick";
 import { Popover } from "./shell/ui";
+import { AmountField } from "@/components/amount";
+import { bracketAmount, negativeTone } from "@/lib/closebook/amount";
 
 const KIND: Record<string, string> = {
   commission_statement: "Brokerage commission statement (tax worksheet)", t4a: "T4A slip", sales_report: "Sales or invoice report",
   processor_report: "Card or online processor's annual report", slips: "T5018 or other slips", gst_returns: "GST/HST returns for the year",
 };
-const fmt = (n: number) => n.toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const neg = (n: number) => (n < 0 ? `(${fmt(-n)})` : fmt(n));
+// Dollars: a negative in brackets; on screen in red (Hashim, Nov 15, 2026, item C).
+const neg = (n: number) => bracketAmount(Math.round(n * 100));
+const Num = ({ n }: { n: number }) => <span className={negativeTone(n)}>{neg(n)}</span>;
 const fileName = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
 
 export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, hasFix, fixHref }: {
@@ -54,7 +57,7 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
       <span className="ml-1.5 text-ink-3">· {fileName(x.attachment)}</span>
       {editable && <form action={removeRevenueSource} className="ml-2 inline"><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="source" value={x.id} />
         <button type="submit" className="text-[11px] text-danger underline">Remove</button></form>}</td>
-      <td /><td className="px-2.5 py-0.5 text-right tabular-nums">{fmt(x.amount)}</td><td colSpan={3} /></tr>
+      <td /><td className="px-2.5 py-0.5 text-right tabular-nums">{<Num n={x.amount} />}</td><td colSpan={3} /></tr>
   );
   const kinds = st.realtor ? ["commission_statement", "t4a", "sales_report", "processor_report", "slips"] : ["sales_report", "processor_report", "slips", "t4a", "commission_statement"];
   const th = "px-2.5 py-1.5 font-semibold";
@@ -74,7 +77,7 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
               <label className="grid gap-1 text-xs font-semibold">T4A paid by<select name="payer" defaultValue={st.realtor ? "brokerage" : "other"} className="input input-compact">
                 <option value="brokerage">The brokerage</option><option value="other">Another payer</option></select></label>
               <label className="grid gap-1 text-xs font-semibold">Label<input name="label" maxLength={120} className="input input-compact" /></label>
-              <label className="grid gap-1 text-xs font-semibold">Total<input name="amount" required inputMode="decimal" className="input input-compact text-right tabular-nums" /></label>
+              <label className="grid gap-1 text-xs font-semibold">Total<AmountField name="amount" required className="input input-compact" /></label>
               <div className="col-span-2"><FilePick id="rev-report" name="report" label="Report" add="Attach the report" accept=".pdf,.xlsx,.xls,.csv,.png,.jpg" hint="Required." /></div>
               <button type="submit" className="btn-secondary btn-compact justify-self-start">Add the source</button>
             </form>
@@ -89,23 +92,23 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
           <thead><tr className="bg-sand-50 text-left text-[11px] text-ink-3"><th className={th}>Check</th><th className={`${th} text-right`}>Trial balance</th><th className={`${th} text-right`}>Source</th>
             <th className={`${th} text-right`}>Difference</th><th className={th}>Status</th><th className={th}>Explanation</th></tr></thead>
           <tbody>
-            <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">Revenue to its source</td><td className="px-2.5 py-1.5 text-right tabular-nums">{fmt(st.tb)}</td>
-              <td className="px-2.5 py-1.5 text-right tabular-nums">{hasSrc ? fmt(st.sources) : "–"}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{hasSrc ? neg(st.diff) : "–"}</td>
+            <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">Revenue to its source</td><td className="px-2.5 py-1.5 text-right tabular-nums">{<Num n={st.tb} />}</td>
+              <td className="px-2.5 py-1.5 text-right tabular-nums">{hasSrc ? <Num n={st.sources} /> : "–"}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{hasSrc ? <Num n={st.diff} /> : "–"}</td>
               <td className="px-2.5 py-1.5">{status(hasSrc, st.realtor ? "No statement" : "No source", st.diff, st.explanation, st.explained, st.explained_diff, st.waiting, st.accepted_by, st.accepted_at, st.accepted_diff)}{accept("revenue", st.waiting, st.explained)}</td>
               <td className="px-2.5 py-1.5">{explainCell("explanation", st.explanation, st.diff, hasSrc)}{hasFix && <span className="block text-[11px] text-ink-3">Entry made: W/P Revenue check</span>}</td></tr>
             {primary.map(sourceRow)}
             {st.registrant && <>
               <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">GST/HST {fromReturn ? "return" : "returns"}</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{fmt(fromReturn ? st.tb_gst ?? st.tb : st.tb)}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{gstSrc === null ? "–" : fmt(gstSrc)}</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{hasGst ? neg(st.gst_diff) : "–"}</td>
+                <td className="px-2.5 py-1.5 text-right tabular-nums">{<Num n={fromReturn ? st.tb_gst ?? st.tb : st.tb} />}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{gstSrc === null ? "–" : <Num n={gstSrc} />}</td>
+                <td className="px-2.5 py-1.5 text-right tabular-nums">{hasGst ? <Num n={st.gst_diff} /> : "–"}</td>
                 <td className="px-2.5 py-1.5">{status(hasGst, fromReturn ? "Prepare in step 8" : "Not entered", st.gst_diff, st.gst_explanation, st.gst_explained, st.gst_explained_diff, st.gst_waiting, st.gst_accepted_by, st.gst_accepted_at, st.gst_accepted_diff)}{accept("gst", st.gst_waiting, st.gst_explained)}</td>
                 <td className="px-2.5 py-1.5">{explainCell("gst_explanation", st.gst_explanation, st.gst_diff, hasGst)}</td></tr>
               {!fromReturn && gst.map(sourceRow)}
             </>}
             {st.realtor && <>
               <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">T4A to commission statement</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{comm.length ? fmt(st.commission) : "–"}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{t4a.length ? fmt(st.t4a) : "–"}</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{hasT4a ? neg(st.t4a_diff) : "–"}</td>
+                <td className="px-2.5 py-1.5 text-right tabular-nums">{comm.length ? <Num n={st.commission} /> : "–"}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{t4a.length ? <Num n={st.t4a} /> : "–"}</td>
+                <td className="px-2.5 py-1.5 text-right tabular-nums">{hasT4a ? <Num n={st.t4a_diff} /> : "–"}</td>
                 <td className="px-2.5 py-1.5">{st.t4a_none && !t4a.length ? pill("bg-success-soft text-success", "No T4A") : status(hasT4a, t4a.length ? "No statement" : "No T4A yet", st.t4a_diff, st.t4a_explanation, st.t4a_explained, st.t4a_explained_diff, st.t4a_waiting, st.t4a_accepted_by, st.t4a_accepted_at, st.t4a_accepted_diff)}{accept("t4a", st.t4a_waiting, st.t4a_explained)}</td>
                 <td className="px-2.5 py-1.5">{t4a.length ? explainCell("t4a_explanation", st.t4a_explanation, st.t4a_diff, hasT4a)
                   : <label className="inline-flex items-center gap-1.5 text-[12px]"><input form="rev-explain" type="checkbox" name="t4a_none" defaultChecked={st.t4a_none} disabled={!editable} className="h-3.5 w-3.5" />No T4A this year</label>}</td></tr>

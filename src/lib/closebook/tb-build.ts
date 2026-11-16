@@ -114,7 +114,8 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       banksOn.set(g, [...(banksOn.get(g) ?? []), b]);
     }
     const diffs: string[] = [];
-    const dollars = (c: number) => (c / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+    // A negative in brackets, ($1,234.00) (Hashim, Nov 15, 2026, item C).
+    const dollars = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" }); return c < 0 ? `(${t})` : t; };
     const taken = new Set<string>([...chart.keys(), ...fileNumbers.values()]);
     // A card or line of credit in the statement's own terms (round 3 item 7): a balance owing is positive.
     const inStatementTerms = (g: string, debitCents: number) => {
@@ -123,6 +124,7 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       return debitCents <= 0 ? `${dollars(-debitCents)} owing` : `${dollars(debitCents)} in credit`;
     };
     const hasRe = opening.lines.some((l) => l.code === "3660");
+    const bankCode = (l: { code: string; bank?: string | null }) => { const b = l.bank ? banks.find((x) => x.id === l.bank) : undefined; return b ? gifiOf(b) || l.code : l.code; };
     for (const l of opening.lines) {
       const n = Number(l.code);
       const ch = l.account && chart.has(l.account) ? l.account : chartForLine(chart, l.line_no, l.code);
@@ -136,19 +138,20 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
       if (l.type === "Revenue" || l.type === "Expense" || (n >= 3700 && n <= 3848)) add(key, number, name, line_no, 0, null, undefined, l.debitCents);
       else if (l.code === "3660") add(key, number, ch ? name : "Retained earnings", line_no, -opening.reClosingCents,
         openMeta("gifi:3849", "Retained earnings at the start of the year (last year's 3849)"), undefined, l.debitCents);
-      else if (bankOpen.has(l.code)) {
+      // Round 21 (Recommendation A): a summary line (1000) can sit on a bank account on its detail line (1002).
+      else if (bankOpen.has(bankCode(l))) {
         // A bank, card or line of credit line: this year starts from the statements; last year's closing must match.
-        const on = banksOn.get(l.code)!;
+        const on = banksOn.get(bankCode(l))!;
         // Last year's balance sits on the bank account it belongs to (chosen in step 2), else the one holding
         // the chart account's number, so the year-over-year comparison is on one line (round 4b).
         const home = on.find((b) => b.id === l.bank) ?? on.find((b) => numberOf(b) === b.chart) ?? on[0];
         add(bankKey(home), numberOf(home), "", null, 0, null, undefined, l.debitCents);
-        const d = bankOpen.get(l.code)! - l.debitCents;
+        const d = bankOpen.get(bankCode(l))! - l.debitCents;
         if (d) {
-          const t = `GIFI ${l.code}: the first statements open at ${inStatementTerms(l.code, bankOpen.get(l.code)!)}, last year closed at ${inStatementTerms(l.code, l.debitCents)}`;
+          const t = `GIFI ${l.code}: the first statements open at ${inStatementTerms(bankCode(l), bankOpen.get(bankCode(l))!)}, last year closed at ${inStatementTerms(bankCode(l), l.debitCents)}`;
           diffs.push(t); causes.push({ text: t, cents: -d });
         }
-        bankOpen.delete(l.code);
+        bankOpen.delete(bankCode(l));
       } else add(key, number, name, line_no, l.debitCents, m, undefined, l.debitCents);
     }
     for (const [g, c] of bankOpen) if (c) {

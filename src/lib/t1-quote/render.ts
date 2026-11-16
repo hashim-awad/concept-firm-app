@@ -26,7 +26,8 @@ export const LETTERHEAD_URL = "/studio/letterhead.jpg";
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 export const longDate = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? DATE.format(new Date(`${iso}T00:00:00Z`)) : iso);
-export const money = (cents: number) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
+// Client documents: a negative in black brackets, ($1,234.00), never a minus sign (Hashim, Nov 15, 2026, item C).
+export const money = (cents: number) => { const t = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Math.abs(cents) / 100); return cents < 0 ? `(${t})` : t; };
 export const fullName = (p: { first: string; last: string }) => `${p.first} ${p.last}`.trim();
 
 // One piece of wording with its fill-ins, escaped. With mark, wrapped for the Templates editor.

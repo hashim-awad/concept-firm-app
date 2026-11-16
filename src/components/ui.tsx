@@ -2,14 +2,19 @@
 import type { ReactNode } from "react";
 import { PageHeader as DsPageHeader, Alert } from "@/components/ds/primitives";
 import { StudioLogo } from "@/components/ds/brand";
+import { UrlNote } from "@/components/save-state";
 
 export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: string; actions?: ReactNode; eyebrow?: string }) {
   return <DsPageHeader title={title} description={description} actions={actions} eyebrow={eyebrow} />;
 }
 
-export function Notice({ msg, error }: { msg?: string | null; error?: string | null }) {
+// A refusal stays on the page until the next action. Round 21 (Hashim; Dext): "Saved" and other
+// messages after an action are the short note in the bottom-left corner, and leave the address.
+// Pages outside the app (sign-in) have no note host: `inline` keeps the message on the page.
+export function Notice({ msg, error, inline }: { msg?: string | null; error?: string | null; inline?: boolean }) {
   if (error) return <div className="mb-5"><Alert tone="danger">{error}</Alert></div>;
-  if (msg) return <div className="mb-5"><Alert tone="success">{msg}</Alert></div>;
+  if (msg && inline) return <div className="mb-5"><Alert tone="success">{msg}</Alert></div>;
+  if (msg) return <UrlNote text={msg} />;
   return null;
 }
 

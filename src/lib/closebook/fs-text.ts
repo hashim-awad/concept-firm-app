@@ -73,7 +73,8 @@ export const lawyerGroups = (l: Lawyer): [string, Dividend[]][] => [
   ["Declaration and payment of eligible dividends", l.dividends.filter((d) => d.eligible)],
   ["Declaration and payment of dividends other than eligible dividends", l.dividends.filter((d) => !d.eligible)],
 ];
-export const money = (v: number) => `$${Number(v).toLocaleString("en-US")}`;
+// Client documents: a negative in black brackets, ($1,234), never a minus sign (Hashim, Nov 15, 2026, item C).
+export const money = (v: number) => (Number(v) < 0 ? `($${Math.abs(Number(v)).toLocaleString("en-US")})` : `$${Number(v).toLocaleString("en-US")}`);
 
 // The MAL as the signing officer reads it on the signing page (the same words as the PDF). The date is
 // left as {{DATE}}: the signing page fills in the day it is signed.

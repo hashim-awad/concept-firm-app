@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { Notice } from "@/components/ui";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -46,10 +47,10 @@ export async function ConnectionsView(sp: SP): Promise<View> {
       <div className="grid max-w-3xl gap-5">
         <section className="card">
           <h2 className="mb-3 font-semibold">Link to a TaxDome account</h2>
-          <form action={saveTaxdomeLink} className="flex flex-wrap gap-2">
+          <SaveForm action={saveTaxdomeLink} aria-label="TaxDome link" className="flex flex-wrap gap-2">
             <input name="url" defaultValue={(url as string | null) ?? ""} placeholder="https://…taxdome.com/…/{id}" className="input min-w-[20rem] flex-1" aria-label="TaxDome account link" />
-            <button type="submit" className="btn-secondary">Save link</button>
-          </form>
+            <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn-secondary" /><SaveFormDiscard /></span>
+          </SaveForm>
         </section>
         <section className="card">
           <h2 className="mb-3 font-semibold">Type from TaxDome tags</h2>

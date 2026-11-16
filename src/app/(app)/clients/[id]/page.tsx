@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { notFound, redirect } from "next/navigation";
 import { requireAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -293,7 +294,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
                 </ul>
               ) : <p className="mb-3 text-sm text-muted">Not linked to TaxDome. Linked clients come from the TaxDome import.</p>}
               {lastYe && <p className="mb-3 text-sm">Year ending {formatDate(lastYe)}: balance due {formatDate(t2BalanceDue(lastYe, c.t2_balance_due_months === 3 ? 3 : 2))}, T2 due {formatDate(t2FilingDeadline(lastYe))}.</p>}
-              <form action={saveT2Settings} className="grid gap-2 text-sm">
+              <SaveForm action={saveT2Settings} className="grid gap-2 text-sm" aria-label="T2 deadlines">
                 <input type="hidden" name="id" value={id} />
                 <fieldset disabled={!editable} className="grid gap-2">
                   <label className="flex items-center gap-2">Balance due
@@ -302,9 +303,9 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
                     </select>
                   </label>
                   <label className="flex items-center gap-2"><input type="checkbox" name="exclude" defaultChecked={c.t2_exclude_deadlines} className="h-4 w-4 accent-navy-700" />Exclude from deadlines (inactive corporation)</label>
-                  {editable && <button type="submit" className="btn-secondary w-fit">Save</button>}
+                  {editable && <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn-secondary" /><SaveFormDiscard /></span>}
                 </fieldset>
-              </form>
+              </SaveForm>
             </section>
           )}
           <section className="card">

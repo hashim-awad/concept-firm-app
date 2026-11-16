@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { Notice } from "@/components/ui";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
@@ -19,11 +20,11 @@ export async function StartPageView(sp: SP): Promise<View> {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card">
         {access.is_owner ? (
-          <form action={saveStartPage} className="flex flex-wrap items-center gap-4 text-sm">
+          <SaveForm action={saveStartPage} aria-label="Start page" className="flex flex-wrap items-center gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={startOpen} className="h-4 w-4 accent-navy-700" />Open to the public</label>
-            <button type="submit" className="btn-secondary">Save</button>
+            <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn-secondary" /><SaveFormDiscard /></span>
             {status}
-          </form>
+          </SaveForm>
         ) : <p className="text-sm">{status}</p>}
       </section>
     </>,

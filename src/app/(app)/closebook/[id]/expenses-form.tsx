@@ -7,6 +7,7 @@
 // credit. A rule shows only when it is broken, beside Save.
 import { useMemo, useState } from "react";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
+import { Amount, amountTone } from "@/components/amount";
 import { OVER_RECEIPTS, planExpenses, type ExpenseDef, type ExpenseInput } from "@/lib/closebook/expenses";
 import { defaultTaxCode } from "@/lib/closebook/sales-tax";
 import { addPersonalExpenses, saveExpenseLineInline } from "../round9-actions";
@@ -49,10 +50,10 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
   const vehicle = defs.some((d) => d.share === "km" && rowOf.has(d.key)), phone = defs.some((d) => d.share === "phone" && rowOf.has(d.key));
   const pickChoices = (d: ExpenseDef) => (d.choices.length ? d.choices : chart.filter((c) => c.type === "Expense" || c.type === "Asset").map((c) => c.number));
   const cell = "px-2 py-1";
-  const money = (c: number) => (c ? formatAmount(c) : "");
+  const money = (c: number) => (c ? <Amount cents={c} /> : "");
   const amountBox = (k: string, field: "before" | "tax", label: string) => (
     <input aria-label={label} inputMode="decimal" value={t(k)[field]} onChange={(e) => set(k, { [field]: e.target.value })} onBlur={(e) => set(k, { [field]: tidyAmount(e.target.value) })}
-      style={{ width: "6.25rem" }} className={`input input-compact text-right tabular-nums ${t(k)[field] && parseAmount(t(k)[field]) === null ? "border-danger" : ""}`} />
+      style={{ width: "6.25rem" }} className={`input input-compact text-right tabular-nums ${t(k)[field] && parseAmount(t(k)[field]) === null ? "border-danger" : amountTone(t(k)[field])}`} />
   );
 
   return (
@@ -122,11 +123,11 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
           })}</tbody>
           <tfoot><tr className="font-semibold">
             <td /><td className={cell}>Total typed</td><td />
-            <td className={`${cell} text-right tabular-nums`} colSpan={2}>{formatAmount(plan.typed)}</td><td />
+            <td className={`${cell} text-right tabular-nums`} colSpan={2}><Amount cents={plan.typed} /></td><td />
             {/* Totals only when every line is worked out: a line waiting for its km has no figures yet. */}
-            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : formatAmount(plan.credit - plan.itcTotal)}</td>
-            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : formatAmount(plan.itcTotal)}</td>
-            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : formatAmount(plan.leftOut)}</td></tr></tfoot>
+            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : <Amount cents={plan.credit - plan.itcTotal} />}</td>
+            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : <Amount cents={plan.itcTotal} />}</td>
+            <td className={`${cell} text-right tabular-nums`}>{plan.rows.some((r) => r.needs) ? "–" : <Amount cents={plan.leftOut} />}</td></tr></tfoot>
         </table>
       </div>
 
@@ -155,30 +156,30 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
         <aside aria-label="Tie-out" className="grid content-start gap-2 rounded-lg border border-sand-200 bg-surface p-3 text-sm">
           <label className="grid gap-1 font-medium">Summary total, with tax
             <input inputMode="decimal" value={head.summary} onChange={(e) => setHead({ ...head, summary: e.target.value })} onBlur={(e) => setHead({ ...head, summary: tidyAmount(e.target.value) })}
-              className="input input-compact text-right tabular-nums" /></label>
+              className={`input input-compact text-right tabular-nums ${amountTone(head.summary)}`} /></label>
           {/* Only true figures (fix 3): until the lines typed add up to the Summary total, the box shows the
               difference and no shareholder loan credit; until every vehicle line has its km, no credit either. */}
           {formHead.summaryTotal === null ? (
-            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums"><dt>Lines typed</dt><dd className="text-right">{formatAmount(plan.typed)}</dd>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums"><dt>Lines typed</dt><dd className="text-right"><Amount cents={plan.typed} /></dd>
               <dt className="col-span-2 text-xs text-ink-3">Type the Summary total to tie out.</dt></dl>
           ) : !plan.balanced ? (
             <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums">
-              <dt>Lines typed</dt><dd className="text-right">{formatAmount(plan.typed)}</dd>
-              <dt>Summary total</dt><dd className="text-right">{formatAmount(formHead.summaryTotal)}</dd>
-              <dt className="border-t border-ink pt-1 font-semibold text-danger">Difference</dt><dd className="border-t border-ink pt-1 text-right font-semibold text-danger">{formatAmount(plan.summaryDiff ?? 0)}</dd>
+              <dt>Lines typed</dt><dd className="text-right"><Amount cents={plan.typed} /></dd>
+              <dt>Summary total</dt><dd className="text-right"><Amount cents={formHead.summaryTotal} /></dd>
+              <dt className="border-t border-ink pt-1 font-semibold text-danger">Difference</dt><dd className="border-t border-ink pt-1 text-right font-semibold text-danger"><Amount cents={plan.summaryDiff ?? 0} /></dd>
               <dt className="col-span-2 text-xs text-ink-2">No shareholder loan credit until the lines add up to the Summary total.</dt>
             </dl>
           ) : !plan.complete ? (
             <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums">
-              <dt>Lines typed</dt><dd className="text-right">{formatAmount(plan.typed)}</dd>
-              <dt>Summary total</dt><dd className="text-right">{formatAmount(formHead.summaryTotal)}</dd>
+              <dt>Lines typed</dt><dd className="text-right"><Amount cents={plan.typed} /></dd>
+              <dt>Summary total</dt><dd className="text-right"><Amount cents={formHead.summaryTotal} /></dd>
               <dt className="col-span-2 text-xs text-ink-2">The personal share and the shareholder loan credit show once every vehicle line has its km{plan.rows.some((r) => r.needs === "share") ? " and phone has its business share" : ""}.</dt>
             </dl>
           ) : (<>
             <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 tabular-nums">
-              <dt>Summary total</dt><dd className="text-right">{formatAmount(formHead.summaryTotal)}</dd>
+              <dt>Summary total</dt><dd className="text-right"><Amount cents={formHead.summaryTotal} /></dd>
               <dt>Less the personal share</dt><dd className="text-right">({formatAmount(plan.leftOut)})</dd>
-              <dt className="border-t border-ink pt-1 font-semibold">Shareholder loan credit</dt><dd className="border-t border-ink pt-1 text-right font-semibold">{formatAmount(plan.credit)}</dd>
+              <dt className="border-t border-ink pt-1 font-semibold">Shareholder loan credit</dt><dd className="border-t border-ink pt-1 text-right font-semibold"><Amount cents={plan.credit} /></dd>
             </dl>
             <p className="rounded bg-success-soft px-2 py-1 text-xs font-medium text-success">Ties out: the lines typed add up to the Summary total.</p>
           </>)}
@@ -191,8 +192,8 @@ export function ExpensesForm({ fileId, yearEnd, defs, chart, ctx, province, auto
           <table className="w-full min-w-[560px]"><tbody>
             {plan.rpc.map((l, i) => (
               <tr key={i} className={l.is_tax ? "text-[#5B6475]" : ""}><td className="px-3 py-0.5">{l.account ? holder.get(l.account) ?? Object.values(options).flat().find((o) => o.value === `acct:${l.account}`)?.label : l.new_name ? `New account: ${l.new_name}` : name.get(l.chart ?? "") ?? l.chart}<span className="ml-2 text-xs text-muted">{l.memo}</span></td>
-                <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount > 0 ? formatAmount(Math.round(l.amount * 100)) : ""}</td>
-                <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount < 0 ? formatAmount(-Math.round(l.amount * 100)) : ""}</td></tr>
+                <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount > 0 ? <Amount cents={Math.round(l.amount * 100)} /> : ""}</td>
+                <td className="w-32 px-3 py-0.5 text-right tabular-nums">{l.amount < 0 ? <Amount cents={-Math.round(l.amount * 100)} /> : ""}</td></tr>
             ))}
           </tbody></table>
           <p className="px-3 py-1.5"><i>Memo:</i> Business costs the shareholder paid personally during the year.</p>

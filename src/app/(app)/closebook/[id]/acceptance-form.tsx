@@ -3,7 +3,13 @@
 // engagement acceptance form. Nine questions; the preparer answers, the reviewer signs it with step 1. It
 // rolls forward each year: last year's answer shows under each question, and "Same as last year for all"
 // confirms every answer at once. Each answer records who confirmed it and when.
-import { useState } from "react";
+// Round 21 fix (Hashim): Enter after ticking a radio submitted the form through its first submit button,
+// question 6's "Confirm", so questions 6 and 8 were confirmed by a key press. Now Enter never submits the
+// form, and each "Confirm" posts its own small form (the form="" attribute), so it is never the form's
+// default button. The form shows "Save changes" while what is ticked differs from what is saved, also
+// after another action reloads the page.
+import { useCallback, useMemo, useState } from "react";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { InfoTip } from "@/components/ds/info-tip";
 import Link from "next/link";
 import { acceptanceConfirmClient, acceptanceSameAsLast, saveAcceptance } from "../round16-actions";
@@ -21,12 +27,24 @@ const Q = ({ n, children, ans, extra }: { n: number; children: React.ReactNode; 
   </div>
 );
 
-export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, editable, locked, client, names, me }: {
+export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, editable, locked, client, names, me, signed = false }: {
   fileId: string; clientId: string; back: string; row: AccRow | null; last: AccRow | null; lastYear: string | null; editable: boolean; locked: boolean; client: Statements; names: Record<string, string>; me: string;
+  signed?: boolean;
 }) {
-  const [a, setA] = useState<AccRow>(row ?? emptyAcc());
-  const set = (patch: Partial<AccRow>) => setA({ ...a, ...patch });
-  const setAgreed = (u: AccUser, agreed: AccUser["agreed"]) => set({ users: a.users.map((x) => (x.kind === u.kind && x.name === u.name ? { ...x, agreed } : x)) });
+  // What is saved comes from the page; the form keeps only the changes typed since (so an action that
+  // reloads the page, such as Confirm, keeps them and they still show as not saved).
+  const saved = row ?? emptyAcc();
+  type Edits = Partial<Pick<AccRow, "q1" | "q2" | "q3" | "q4" | "q5" | "q5_note" | "q9">> & { agreed?: Record<string, AccUser["agreed"]> };
+  const [e, setE] = useState<Edits>({});
+  const ukey = (u: AccUser) => `${u.kind}:${u.name}`;
+  const a: AccRow = useMemo(() => ({ ...saved, ...e, agreed: undefined,
+    users: saved.users.map((u) => (e.agreed && ukey(u) in e.agreed ? { ...u, agreed: e.agreed[ukey(u)]! } : u)) }) as AccRow, [saved, e]);
+  const dirty = (["q1", "q2", "q3", "q4", "q5", "q5_note", "q9"] as const).some((k) => k in e && e[k] !== saved[k])
+    || a.users.some((u, i) => u.agreed !== saved.users[i]?.agreed);
+  const set = (patch: Edits) => setE((x) => ({ ...x, ...patch }));
+  const setAgreed = (u: AccUser, agreed: AccUser["agreed"]) => setE((x) => ({ ...x, agreed: { ...x.agreed, [ukey(u)]: agreed } }));
+  const discard = useCallback(() => setE({}), []);
+  const confirmForm = `acc-confirm-${fileId}`;
   const radio = (name: string, value: string, label: string, on: boolean, onPick: () => void) => (
     <label className="inline-flex items-center gap-1.5 whitespace-nowrap"><input type="radio" name={name} value={value} checked={on} onChange={onPick} disabled={!editable} className="h-4 w-4" />{label}</label>
   );
@@ -35,7 +53,7 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
   );
   // Last year's answer under the question, and who confirmed it this year.
   const lastLine = (k: string, value: string) => {
-    const c = a.answered[k];
+    const c = saved.answered[k];
     if (!last && !c) return null;
     return (
       <p className="mt-0.5 text-[12px] text-ink-3">
@@ -62,7 +80,7 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
       : <span className="text-warning">Changed since {who} confirmed it on {day(conf.at)}</span>;
     // A button of the acceptance form that posts to its own action (forms cannot nest).
     const btn = !locked && editable && !(conf && same) && (
-      <button type="submit" formAction={acceptanceConfirmClient} formNoValidate className="btn btn-compact whitespace-nowrap">{conf ? "Confirm again" : "Confirm"}</button>
+      <button type="submit" form={confirmForm} className="btn btn-compact whitespace-nowrap">{conf ? "Confirm again" : "Confirm"}</button>
     );
     return <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5 text-[12.5px]">{status}{btn}</span>;
   };
@@ -77,7 +95,7 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
     </InfoTip>
   );
   const answer = (v: string) => <p className="mt-0.5 font-semibold">{v}</p>;
-  const confirmedAll = !!last && ["q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9"].every((k) => a.answered[k]?.same);
+  const confirmedAll = !!last && ["q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9"].every((k) => saved.answered[k]?.same);
 
   return (
     <section className="rounded-[10px] border border-sand-200 bg-white text-[13px]" aria-label="Acceptance and continuance">
@@ -88,7 +106,11 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
           <button type="submit" className="btn-secondary btn-compact">Same as last year for all</button>
         </form>
       )}
-      <form action={saveAcceptance}>
+      {/* Questions 6 and 8: "Confirm" posts this form, outside the answers form. Leaving the answers unsaved is fine. */}
+      <form id={confirmForm} action={acceptanceConfirmClient} data-no-guard>
+        <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
+      </form>
+      <SaveForm action={saveAcceptance} dirty={dirty} onDiscard={discard} enterSubmits={false} aria-label="Acceptance answers" signed={signed ? "Step 1 is signed." : null}>
         <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
         <input type="hidden" name="answers" value={JSON.stringify({ ...a, answered: undefined })} />
         <Q n={1} ans={yn("q1")}>The engagement letter on file covers this year-end.<InfoTip>A letter valid for future years counts. We do not ask for a new letter each year.</InfoTip>{MUST}{lastLine("q1", word(last?.q1 ?? ""))}</Q>
@@ -110,8 +132,8 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
           The basis of accounting is the one on the client record, with management&rsquo;s acknowledgment recorded.{tip("The client's activity records the change.", conf ? basisWords(conf) : null, last?.confirmed ? basisWords(last.confirmed) : "", basisSame)}
           {answer(locked ? (conf ? basisWords(conf) : "Not confirmed") : basisWords(client))}</Q>
         <Q n={9} ans={yn("q9")}>The basis is acceptable to everyone who will use the statements.<InfoTip>If a third party needs ASPE, this basis cannot be used.</InfoTip>{MUST}{lastLine("q9", word(last?.q9 ?? ""))}</Q>
-        {editable && <div className="border-t border-sand-200 px-3.5 py-2.5"><button type="submit" className="btn btn-compact">Save</button></div>}
-      </form>
+        {editable && <div className="flex items-center gap-2 border-t border-sand-200 px-3.5 py-2.5"><SaveFormButton /><SaveFormDiscard /></div>}
+      </SaveForm>
     </section>
   );
 }

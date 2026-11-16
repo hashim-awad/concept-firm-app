@@ -3,6 +3,11 @@
 // GIFI code, CRLF line endings, 2 decimals, no total lines. Closebook checks the required totals first
 // and refuses to export when they do not tie. Pure: tests check it against the sample.
 import { effectiveLine, type Line } from "./matching.ts";
+import { bracketAmount } from "./amount.ts";
+
+// Dollars in a message people read: a negative in brackets (Hashim, Nov 15, 2026, item C). The GIFI file
+// itself (gifiFile) keeps a minus: ProFile reads it.
+const shown = (d: number) => bracketAmount(Math.round(d * 100));
 
 export type GifiAccount = { id: string; number: string; name: string; line_no: string | null; this_year: number; needs_reviewer: boolean };
 export type GifiTotals = { "2599": number; "3499": number; "3620": number; "3640": number; "8299": number; "9368": number; "9999": number; "3660": number; "3849": number };
@@ -45,7 +50,7 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     byCode.set(code, cents((byCode.get(code) ?? 0) + gifiAmount({ line_type: l.line_type, gifi_code: code }, fin)));
   }
   problems.push(...issues);
-  if (Math.abs(cents(tb)) >= 0.01) problems.push(`The trial balance is out by ${cents(tb).toFixed(2)}.`);
+  if (Math.abs(cents(tb)) >= 0.01) problems.push(`The trial balance is out by ${shown(tb)}.`);
 
   const typeOf = (code: string) => [...lines.values()].find((l) => l.gifi_code === code)?.line_type ?? "";
   let assets = 0, liabilities = 0, shareEquity = 0, revenue = 0, opExpenses = 0, allExpenses = 0, reMoves = 0, dividends = 0, ppa = 0, other = 0;
@@ -71,7 +76,7 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     "8299": cents(revenue), "9368": cents(opExpenses), "9999": netIncome, "3660": cents(byCode.get("3660") ?? 0), "3849": reEnd,
   };
   if (Math.abs(cents(totals["2599"] - totals["3640"])) >= 0.01) {
-    problems.push(`Total assets (2599) ${totals["2599"].toFixed(2)} do not equal total liabilities and equity (3640) ${totals["3640"].toFixed(2)}: a difference of ${cents(totals["2599"] - totals["3640"]).toFixed(2)}.`);
+    problems.push(`Total assets (2599) ${shown(totals["2599"])} do not equal total liabilities and equity (3640) ${shown(totals["3640"])}: a difference of ${shown(totals["2599"] - totals["3640"])}.`);
   }
   const codes = [...byCode.entries()].filter(([, v]) => v !== 0).sort(([a], [b]) => a.localeCompare(b));
   return { codes, totals, problems, tbOutBy: cents(tb), issues, re: { dividends: cents(dividends), ppa: cents(ppa), other: cents(other), shareEquity: cents(shareEquity) } };

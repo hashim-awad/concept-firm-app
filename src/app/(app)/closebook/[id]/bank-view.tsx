@@ -10,12 +10,15 @@ import { accountCoverage, type MonthState } from "@/lib/closebook/coverage";
 import { deleteBankStatement } from "../actions";
 import { BankUploadForm } from "./bank-upload-form";
 import { SidePanel } from "./side-panel";
+import { bracketAmount, negativeTone } from "@/lib/closebook/amount";
 
-const money = (v: number) => v.toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+// Dollars: a negative in brackets, ($1,234.00); in a table cell in red too (Hashim, Nov 15, 2026, item C).
+const money = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { style: "currency", currency: "CAD" }); return v < 0 ? `(${t})` : t; };
+const Money = ({ v }: { v: number }) => <span className={negativeTone(v)}>{money(v)}</span>;
 // Round 20: the conversion record of a statement read from a PDF or photo (benchmark: QuickBooks Online keeps
 // the PDF with the imported statement; we also keep who, when, model, pages, cost and the checks at import).
 const MODEL_NAME: Record<string, string> = { "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-sonnet-5": "Claude Sonnet 5", fixture: "the test reader" };
-const cents = (c: number) => (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const cents = (c: number) => bracketAmount(c);
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 function ConversionRecord({ s }: { s: BankStatement }) {
   if (s.source !== "pdf") return null;
@@ -102,7 +105,7 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
                 ))}
               </span>
               <span className="flex justify-between gap-2 text-xs text-ink-2"><span>{c.inCount} of {c.months.length} months in</span>
-                <span>{c.latestClosing === null ? "" : `Closing ${money(c.latestClosing)}`}</span></span>
+                <span>{c.latestClosing === null ? "" : <>Closing <Money v={c.latestClosing} /></>}</span></span>
             </Link>
           );
         })}
@@ -142,8 +145,8 @@ export function BankView({ fileId, bank, editable, locked, yearStart, yearEnd, u
                       <td className="whitespace-nowrap">{formatDate(s.period_start)} to {formatDate(s.period_end)}
                         {gap && <div className="text-xs text-warning">Opening differs from the last closing ({money(prev.closing)}) by {money(s.opening - prev.closing)}. A statement may be missing.</div>}</td>
                       <td className="whitespace-nowrap text-sm">{s.file_name}{s.source === "pdf" && <div className="text-xs text-ink-3">PDF</div>}</td><td className="text-right tabular-nums">{s.lines}</td>
-                      <td className="text-right tabular-nums">{money(s.opening)}</td><td className="text-right tabular-nums">{money(s.plus_total)}</td>
-                      <td className="text-right tabular-nums">{money(-s.minus_total)}</td><td className="text-right tabular-nums">{money(s.closing)}</td>
+                      <td className="text-right tabular-nums"><Money v={s.opening} /></td><td className="text-right tabular-nums"><Money v={s.plus_total} /></td>
+                      <td className="text-right tabular-nums"><Money v={-s.minus_total} /></td><td className="text-right tabular-nums"><Money v={s.closing} /></td>
                       <td className="whitespace-nowrap text-sm text-ink-2">{s.who?.full_name ?? ""} · {formatDateTime(s.uploaded_at)}</td>
                       <td className="text-right">{canUpload && (
                         <form action={deleteBankStatement}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="statement" value={s.id} />

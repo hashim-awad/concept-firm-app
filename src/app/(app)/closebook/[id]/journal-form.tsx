@@ -9,11 +9,13 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useUnsavedGuard } from "@/components/save-state";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { blankLine, netOfTax, planEntry, type AcctOpt, type FormHead, type FormLine, type StdOpt } from "@/lib/closebook/entry-form";
 import type { TaxCode, TaxContext } from "@/lib/closebook/sales-tax";
 import { addEntry } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
+import { amountTone } from "@/components/amount";
 
 const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
@@ -66,12 +68,19 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
     setLines([{ ...lines[0], dr: net === null ? "" : formatAmount(net) }, { ...lines[1], cr: g === null ? "" : formatAmount(g) }, ...lines.slice(2)]);
   };
   const ok = plan.problems.length === 0;
+  // Round 21 (QuickBooks Online): Save closes the dialog with the note; leaving with changes (Cancel, the X,
+  // another link) asks "Save your changes?" first.
+  const formRef = useRef<HTMLFormElement>(null), saveRef = useRef<HTMLButtonElement>(null);
+  const snap = JSON.stringify({ head, date, lines, seq, stdAmount });
+  const [first] = useState(snap);
+  useUnsavedGuard(snap !== first, { form: () => formRef.current,
+    save: () => { if (ok) formRef.current?.requestSubmit(saveRef.current); return false; } });
   const stdCents = parseAmount(stdAmount) ?? 0;
   const fld = "grid gap-1 text-[11.5px] font-semibold text-ink-2";
   const box = "input input-compact text-[13px] font-normal text-ink";
 
   return (
-    <form action={addEntry} encType="multipart/form-data" className="flex max-h-[calc(100vh-96px)] flex-col">
+    <form ref={formRef} action={addEntry} encType="multipart/form-data" className="flex max-h-[calc(100vh-96px)] flex-col">
       <input type="hidden" name="file_id" value={fileId} />
       <input type="hidden" name="back" value={backHref} />
       <input type="hidden" name="done" value={closeHref} />
@@ -98,7 +107,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
 
         {(s0 || ctx.registered) && (
           <div className="flex flex-wrap items-end gap-4">
-            {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums`} /></label>}
+            {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums ${amountTone(stdAmount)}`} /></label>}
             {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: needs review` : "No review needed"}</span>}
             <span className="flex-1" />
             {ctx.registered && !s0 && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
@@ -128,8 +137,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                   )}
                 </td>
                 <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} description`} value={l.desc} onChange={(e) => setLine(i, { desc: e.target.value })} maxLength={200} className={`${box} w-full`} /></td>
-                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} debit`} inputMode="decimal" value={l.dr} onChange={(e) => setLine(i, { dr: e.target.value })} onBlur={(e) => setLine(i, { dr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums`} /></td>
-                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums`} /></td>
+                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} debit`} inputMode="decimal" value={l.dr} onChange={(e) => setLine(i, { dr: e.target.value })} onBlur={(e) => setLine(i, { dr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.dr)}`} /></td>
+                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.cr)}`} /></td>
                 {ctx.registered && <td className="py-1 pl-2"><select aria-label={`Line ${i + 1} sales tax`} value={l.tax} onChange={(e) => setLine(i, { tax: e.target.value })} className={`${box} w-full`}>
                   <option value="" disabled>Choose</option><option value="none">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>}
                 <td className="py-1.5 text-center">{lines.length > 2 && <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger"><X className="h-3.5 w-3.5" /></button>}</td>
@@ -162,7 +171,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         <span className="flex-1" />
         {(problem || !ok) && <span role="status" className="text-[12.5px] text-danger">{problem ?? plan.problems[0]}</span>}
         {!edit && <button type="submit" name="then" value="new" className="btn-secondary btn-compact" disabled={!ok}>Save and new</button>}
-        <button type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
+        <button ref={saveRef} type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
       </div>
     </form>
   );

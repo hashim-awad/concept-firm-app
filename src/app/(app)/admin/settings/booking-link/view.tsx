@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -13,10 +14,10 @@ export async function BookingLinkView(sp: SP): Promise<View> {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card">
         {!booking && <p className="mb-4 text-sm text-warning">Not set yet.</p>}
-        <form action={saveBookingLink} className="flex flex-wrap gap-2">
+        <SaveForm action={saveBookingLink} aria-label="Booking link" className="flex flex-wrap gap-2">
           <input name="url" defaultValue={booking} placeholder="https://…" disabled={!editable} aria-label="Booking link" className="input min-w-[20rem] flex-1" />
-          {editable && <button type="submit" className="btn-secondary">Save link</button>}
-        </form>
+          {editable && <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn-secondary" /><SaveFormDiscard /></span>}
+        </SaveForm>
       </section>
     </>,
   };

@@ -205,8 +205,10 @@ export function Meta({ items }: { items: { label: string; value: ReactNode }[] }
   );
 }
 
+// A negative in brackets, ($1,234.00), never a minus sign (Hashim, Nov 15, 2026, item C).
 export function money(cents: number) {
-  return new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
+  const t = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(Math.abs(cents) / 100);
+  return cents < 0 ? `(${t})` : t;
 }
 
 // File picker shown as a secondary button ("Choose file"), with the chosen file name beside it.

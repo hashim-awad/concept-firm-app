@@ -169,3 +169,25 @@ test("a decided amount carries forward on its own line", () => {
   const [d] = buildGroups(sched([P(k, 500_000, "2027-01-01", "opening")]), owners1([k]), yr);
   assert.deepEqual(d.decided, []); assert.equal(d.earlierDebitCents, 500_000);
 });
+
+// Round 21 (Hashim, Nov 16, 2026): 17500 Due from shareholder (long-term) is shareholder 1's, with 13000,
+// 23000 and 25400, so a long-term amount owed by the shareholder gets the s.15(2) check. The director
+// accounts 13100, 23150 and 25450 stay out of the schedule.
+test("17500: a long-term amount the shareholder owes is shareholder 1's and gets the s.15(2) check; director accounts stay out", async () => {
+  const { CHART_SHAREHOLDER, isShAccount } = await import("../src/lib/closebook/sh-loans.ts");
+  assert.equal(CHART_SHAREHOLDER["chart:17500"], 1);
+  const accounts = [A("chart:17500", "17500", "2181.00", 800_000), A("chart:23000", "23000", "2781.10", -100_000), A("chart:13100", "13100", "1303.00", 50_000), A("chart:25450", "25450", "3263.00", -40_000)];
+  const postings = [P("chart:17500", 800_000, YS, "opening"), P("chart:23000", -100_000, "2026-03-01", "bank"), P("chart:13100", 50_000, YS, "opening"), P("chart:25450", -40_000, YS, "opening")];
+  assert.equal(isShAccount({ key: "chart:17500", line_no: "2181.00" }), true);
+  assert.equal(isShAccount({ key: "chart:13100", line_no: "1303.00" }), false);
+  const s = buildSchedules({ accounts, postings, entries, own: false, yearEnd: YE });
+  assert.deepEqual(s.map((x) => x.key), ["chart:17500", "chart:23000"]);
+  // Owners as sh-server sets them: the standard chart's first.
+  const g = buildGroups(s, new Map(s.map((x) => [x.key, CHART_SHAREHOLDER[x.key] ?? null])), { yearStart: YS, yearEnd: YE, windowDays: 30, own: false });
+  assert.equal(g.length, 1);
+  assert.equal(g[0].shareholder, 1);
+  // Owed 8,000.00 at the start, 1,000.00 owed to the shareholder: 7,000.00 of last year's balance not repaid.
+  assert.equal(g[0].closingCents, 700_000);
+  assert.equal(g[0].lastPartCents, 700_000);
+  assert.deepEqual(g[0].flags, ["earlier_debit"]);
+});

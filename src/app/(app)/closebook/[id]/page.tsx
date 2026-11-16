@@ -1,6 +1,5 @@
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import Link from "next/link";
-import { FileText } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +11,9 @@ import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, CB_CHECKLIST_V1, cbText } from "@/lib/closebook/client-wording";
 import { loadWordingState } from "@/lib/studio/wording-state";
 import { entryNo } from "@/lib/closebook/reports";
-import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, SignCircles, StepTitle, type Area, type FileStatus } from "./shell/shell";
+import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, PaperMark, SignCircles, StepMark, StepTitle, type Area, type FileStatus } from "./shell/shell";
+import { paperProgress, stepProgress, stepsDone, type ProgressFacts } from "@/lib/closebook/step-progress";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { stepHelp } from "./shell/help";
 import { TbArea } from "./areas/tb-area";
 import { entriesArea } from "./areas/entries-area";
@@ -37,7 +38,7 @@ import { GstSection } from "./gst-section";
 import { gstFor } from "@/lib/closebook/gst-server";
 import type { Line } from "@/lib/closebook/gst-return";
 import { loadClose } from "@/lib/closebook/close-server";
-import { OpeningS125 } from "./opening-s125";
+import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
@@ -49,6 +50,7 @@ import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
+import { accountChoices } from "@/lib/closebook/schedule";
 import { loadReportData } from "@/lib/closebook/report-data";
 import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
@@ -58,7 +60,6 @@ import { accountCoverage, missingCount } from "@/lib/closebook/coverage";
 import { InfoTip } from "@/components/ds/info-tip";
 import { AcceptanceForm } from "./acceptance-form";
 import { emptyAcc, type AccRow, type Statements } from "@/lib/closebook/acceptance";
-import { setFirstYear } from "../round16-actions";
 
 // A Closebook file (Hashim, Nov 13, 2026; BRIEF.md "Closebook file page", 10 steps since Nov 14; mockup
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
@@ -116,6 +117,23 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const review = await loadReview(supabase, id);
   let setupOpen = ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered"].filter((k) => !(k in setup)).length;
   if (setup.gst_registered === true) setupOpen += ("gst_frequency" in setup ? 0 : 1) + ("quick_method" in setup ? 0 : 1);
+  // Round 21 (ProFile, TurboTax): each step's progress in the list, from what the file already holds.
+  const head = (t: string) => supabase.from(t).select("file_id", { count: "exact", head: true }).eq("file_id", id);
+  const [accN, obN, revN, shN, gifiN, tieN, gstN, chkN, closeN, { data: fsRow }] = await Promise.all([
+    head("cb_acceptance"), head("cb_opening_balances"), head("cb_revenue_checks"), head("cb_sh_flags").not("noted_at", "is", null), head("cb_gifi_exports"),
+    head("cb_t2_tieouts"), head("cb_gst_returns").not("prepared_at", "is", null), head("cb_checklist_answers"), head("cb_file_close"),
+    supabase.from("cb_file_fs").select("first_year, dividends, mal_sent_at").eq("file_id", id).maybeSingle(),
+  ]);
+  const signMap = stepSigns(review);
+  const progress: ProgressFacts = { bank: bankFile, setupAnswers: Object.keys(setup).length, acceptance: !!accN.count, openingRows: obN.count ?? 0,
+    openingTyped: !!file.opening_source || !!file.first_year || (fsRow?.first_year !== null && fsRow?.first_year !== undefined) || file.opening_re_stated !== null && file.opening_re_stated !== undefined, imported: imports.some((i) => i.target === "this_year"),
+    statements, coded: coding.lines - coding.open, matched: accounts.filter((a) => a.mapping_source === "preparer").length,
+    entries: entries.length, revenueCheck: !!revN.count, shNotes: shN.count ?? 0, expensesBooked: entries.some((e) => e.origin === "expenses_personal"),
+    mappingDecisions: accounts.filter((a) => a.mapping_source === "reviewer" || a.type_confirmed_by || a.side_confirmed_by).length,
+    reviewNotes: review.notes.length, reviewedSteps: Object.values(signMap).filter((x) => x?.reviewed).length,
+    gifiExports: gifiN.count ?? 0, t2Tieout: !!tieN.count, gstReturn: !!gstN.count, fsTyped: (() => { const d = fsRow?.dividends as unknown; return Array.isArray(d) ? d.length > 0 : !!d && typeof d === "object" && Object.keys(d).length > 0; })(), malSent: !!fsRow?.mal_sent_at,
+    checklistAnswers: chkN.count ?? 0, closeTyped: !!closeN.count,
+    signs: Object.fromEntries(Object.entries(signMap).map(([k, v]) => [k, { prepared: !!v?.prepared, reviewed: !!v?.reviewed }])) };
   const { steps, current, next } = fileSteps({ bankGaps, coding, opening, signs: stepSigns(review), setupOpen,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
@@ -155,68 +173,50 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   let body: React.ReactNode;
   let pk: PackageData | null = null;
   if (step === "opening") {
-    // Round 16: a company with no prior T2 goes through step 2 as "First year: no opening balances"; the
-    // reviewer confirms it by signing step 2. Offered only when the client has no earlier file.
-    const { count: earlier } = await supabase.from("cb_files").select("id", { count: "exact", head: true }).eq("client_id", file.client_id).lt("year_end", file.year_end);
-    const fyEdit = editable && file.phase !== "locked";
-    const fyForm = (on: boolean, label: string, cls: string) => (
-      <form action={setFirstYear}><input type="hidden" name="file_id" value={id} /><input type="hidden" name="back" value={href("opening")} /><input type="hidden" name="on" value={on ? "1" : "0"} />
-        <button type="submit" className={cls}>{label}</button></form>
-    );
-    const firstYearCard = file.first_year ? (
-      <section aria-label="First year" className="mb-3.5 flex flex-wrap items-center gap-3 rounded-[10px] border border-sand-200 bg-white px-3.5 py-3 text-[13px]">
-        <span className="rounded bg-navy-50 px-2 py-0.5 text-[12px] font-semibold text-navy-700">First year: no opening balances</span>
-        <InfoTip>The company has no prior T2. Last year&rsquo;s columns stay empty and the statements have no prior-year column. The reviewer confirms it by signing step 2.</InfoTip>
-        <span className="flex-1" />{fyEdit && fyForm(false, "Take back", "btn-secondary btn-compact")}
-      </section>
-    ) : !earlier && fyEdit ? (
-      <div className="mb-3 flex items-center gap-2">{fyForm(true, "First year: no opening balances", "btn-secondary btn-compact")}
-        <InfoTip>For a company with no prior T2. There is nothing to enter on this step; the reviewer confirms it by signing step 2.</InfoTip></div>
-    ) : null;
-    if (file.first_year) body = firstYearCard;
-    else if (!bankFile) body = <>{firstYearCard}{soon("Last year's balances come with the trial balance import, in its last-year column.")}</>;
+    // Round 21 (Hashim, Nov 15, 2026, item 7): one question first, worded as on the T2 (line 070):
+    // "Is this the first year of filing after incorporation?" Yes: no opening balances, the step is one
+    // confirmation the reviewer signs. No: last year's T2 (Schedule 100 and 125). Never both. Unanswered
+    // until chosen, unless the file already has last year's figures or an earlier file exists (then No).
+    const [{ count: earlier }, { data: ffs }, { data: ob }, { data: s125 }] = await Promise.all([
+      supabase.from("cb_files").select("id", { count: "exact", head: true }).eq("client_id", file.client_id).lt("year_end", file.year_end),
+      supabase.from("cb_file_fs").select("first_year").eq("file_id", id).maybeSingle(),
+      supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", id).order("code"),
+      supabase.from("cb_opening_s125").select("code, amount").eq("file_id", id).order("code"),
+    ]);
+    const hasData = (ob ?? []).length > 0 || (s125 ?? []).length > 0 || !!file.opening_source || file.opening_re_stated != null;
+    const answer: "yes" | "no" | null = file.first_year ? "yes" : ffs?.first_year === false || !!earlier || hasData || (!bankFile && accounts.some((a) => Number(a.last_year) !== 0)) ? "no" : null;
+    const question = <FirstYearQuestion fileId={id} back={href("opening")} answer={answer} earlier={!!earlier} hasData={hasData} editable={editable && file.phase !== "locked"} />;
+    if (answer !== "no") body = question;
+    else if (!bankFile) body = <>{question}{soon("Last year's balances come with the trial balance import, in its last-year column.")}</>;
     else {
       const { info } = await gifiCodeInfo(supabase);
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      const { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", id).order("code");
-      // GIFI lines with more than one standard chart account: the row shows the choice (QuickBooks practice).
-      const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
-      const onCode = new Map<string, { number: string; name: string }[]>();
-      for (const c of (ch ?? []) as { number: string; name: string; line_no: string | null }[]) {
-        if (!c.line_no) continue;
-        const code = c.line_no.slice(0, 4);
-        for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
-      }
-      // Every line's standard chart accounts: a choice in the Account column when there is more than one.
-      // A bank or card line lists the file's own bank accounts instead (round 4b), so last year's balance
-      // sits on the account the statements post to.
-      const { data: bas } = await supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number");
-      const lineOfChart = new Map(((ch ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no]));
-      const onBank = new Map<string, { number: string; name: string; label: string }[]>();
-      for (const b of (bas ?? []) as { id: string; name: string; number: string; chart_account: string }[]) {
-        const code = (lineOfChart.get(b.chart_account) ?? "").slice(0, 4);
-        if (code) onBank.set(code, [...(onBank.get(code) ?? []), { number: `bank:${b.id}`, name: b.name, label: `${b.number} ${b.name}` }]);
-      }
-      const choices = Object.fromEntries([...onCode, ...onBank]);
+      // The Account column's choice on every Schedule 100 line (item 13): the standard chart accounts on the
+      // GIFI line, then on its detail lines when it is a summary line (Recommendation A, Nov 16), or the
+      // file's own bank accounts on a bank line (round 4b). src/lib/closebook/schedule.ts accountChoices.
+      const [{ data: ch }, { data: bas }, { data: gp }] = await Promise.all([
+        supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order"),
+        supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number"),
+        supabase.from("cb_gifi_parts").select("summary, detail"),
+      ]);
+      const chart = (ch ?? []) as { number: string; name: string; line_no: string | null }[];
+      const lineOfChart = new Map(chart.map((c) => [c.number, c.line_no]));
+      const choices = accountChoices(chart,
+        ((bas ?? []) as { id: string; name: string; number: string; chart_account: string }[]).map((b) => ({ ...b, code: (lineOfChart.get(b.chart_account) ?? "").slice(0, 4) })),
+        ((gp ?? []) as { summary: string; detail: string }[]).map((x) => [x.summary, x.detail] as [string, string]));
       const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[])
         .filter((o) => o.chart_account || o.bank_account).map((o) => [o.code, o.bank_account ? `bank:${o.bank_account}` : o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));
-      body = <OpeningSchedule fileId={id} codes={codes} initial={((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number])}
-        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""}
+      const pairs = (rows: { code: string; amount: number }[] | null) => (rows ?? []).map((o) => [o.code, Math.round(Number(o.amount) * 100)] as [string, number]);
+      // Item 8: one place for last year's income statement, the Schedule 125 tab. A Schedule 125 saved in
+      // the old separate box (cb_opening_s125) before Nov 15 shows in the tab until saved with the rest.
+      body = <>{question}<OpeningSchedule fileId={id} codes={codes} initial={pairs(ob as { code: string; amount: number }[] | null)} s125Before={pairs(s125 as { code: string; amount: number }[] | null)}
+        reStated={cents(file.opening_re_stated)} niTyped={cents(file.opening_ni_typed)} note={file.opening_note ?? ""} savedAt={file.opening_set_at ?? null}
         pdf={file.opening_pdf ? { href: `/closebook/${id}/opening-pdf`, name: "Source PDF" } : null}
         signed={file.opening_signed_at ? { by: firstName(names.get(file.opening_signed_by ?? "") ?? ""), at: formatDate(file.opening_signed_at) } : null}
-        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} />;
-      // Round 11: last year's Schedule 125, for step 9's prior-year column. Rows: the codes saved, and the
-      // revenue and expense codes this year's accounts post to.
-      const { data: s125 } = await supabase.from("cb_opening_s125").select("code, amount").eq("file_id", id);
-      const { data: ffs } = await supabase.from("cb_file_fs").select("first_year").eq("file_id", id).maybeSingle();
-      const pl = new Map([...info.entries()].filter(([, i]) => i.type === "Revenue" || i.type === "Expense"));
-      const used = new Set(accounts.map((a) => a.line_no?.slice(0, 4) ?? "").filter((c) => pl.has(c)));
-      const saved = new Map(((s125 ?? []) as { code: string; amount: number }[]).map((x) => [x.code, Number(x.amount)]));
-      const rows = [...new Set([...used, ...saved.keys()])].sort().map((c) => ({ code: c, name: gname.get(c) ?? pl.get(c)?.name ?? c, amount: saved.get(c) ?? null }));
-      body = <>{firstYearCard}{body}<OpeningS125 fileId={id} rows={rows} editable={editable && file.phase !== "locked"} needed={!saved.size && (ob ?? []).length > 0 && ffs?.first_year !== true} /></>;
+        source={file.opening_source ?? null} bankIssue={openingRow?.reviewer_reason ?? ""} editable={editable && file.phase !== "locked"} choices={choices} initialAccounts={initialAccounts} /></>;
     }
   } else if (step === "setup" && pickPaper(stepPapers("setup", { full: true, shareholders: false, ownerPaid: false, gst: false })) === "acceptance") {
     // Round 16: the acceptance and continuance record (CSRS 4200), rolled forward from the client's last file.
@@ -232,7 +232,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const norm = (r: Record<string, unknown> | null): AccRow | null => (r ? { ...emptyAcc(), ...Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v ?? ""])), users: (r.users as AccRow["users"]) ?? [], answered: (r.answered as AccRow["answered"]) ?? {}, confirmed: (r.confirmed as AccRow["confirmed"]) ?? null } : null);
     const client: Statements = { basis: (cl?.basis as string) ?? "standard", custom_basis_wording: (cl?.custom_basis_wording as string) ?? "", users: ((cl?.statement_users as Statements["users"]) ?? []) };
     body = <AcceptanceForm fileId={id} clientId={file.client_id} back={`${href("setup")}&paper=acceptance`} row={norm(accRow)} last={norm(lastRow)} lastYear={prior ? formatDate(prior.year_end as string) : null}
-      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} me={access.staff_id ?? ""} />;
+      editable={editable && file.phase !== "locked"} locked={file.phase === "locked"} client={client} names={Object.fromEntries(names)} me={access.staff_id ?? ""} signed={!!review.status.setup?.prepared_at} />;
   } else if (step === "setup") {
     // A form: one column about 1,100 px wide, each Yes/No right after its question (round 2 items 9 and 13).
     body = (
@@ -248,7 +248,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </section>
         <section className="card mt-4">
           <h2 className="font-semibold">Setup questions</h2>
-          <form action={saveSetup} className="group grid gap-1">
+          {/* Round 21: "Saved 2:14 PM", Discard changes, and a question before leaving or changing a signed step. */}
+          <SaveForm action={saveSetup} className="group grid gap-1" aria-label="Setup questions"
+            signed={review.status.setup?.prepared_at ? "Step 1 is signed." : null}>
             <input type="hidden" name="file_id" value={id} />
               <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
               <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
@@ -280,8 +282,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
             </div>
               <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
-            {editable && <div className="pt-3"><button type="submit" className="btn">Save answers</button></div>}
-          </form>
+            {editable && <div className="flex items-center gap-2 pt-3"><SaveFormButton className="btn" /><SaveFormDiscard className="btn-secondary" /></div>}
+          </SaveForm>
         </section>
       </div>
     );
@@ -440,7 +442,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
         notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
-        exports={exports} help={stepHelp(step, bankFile)} />
+        exports={exports} help={stepHelp(step, bankFile)}
+        menu={editable && file.phase !== "locked" ? { fileId: id, step, n: cur.n, back: stepBack,
+          clear: step === "records" || step === "review" ? "nothing" : stStep?.prepared_at ? "signed" : "ok" } : null} />
     );
     body = <>{title}
       {step === "review" && (
@@ -468,7 +472,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       {steps.flatMap((x) => [
         <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
           <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3.5 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
-            <span className="w-4 flex-none text-right text-[11.5px] text-ink-3 tabular-nums">{x.n}</span><span className="leading-snug">{x.name}</span>
+            <StepMark n={x.n} p={stepProgress(x.key, progress)} /><span className="leading-snug">{x.name}</span>
           </Link>
           {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
           <SignCircles {...signFor(x.key)} />
@@ -476,15 +480,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         ...(x.key === step && area === "steps" && !showHistory ? papers.map((pp) => (
           <Link key={`${x.key}-${pp.key}`} href={paperHref(x.key, pp.key)} aria-current={pp.key === paper ? "page" : undefined}
             className={`flex items-center gap-2 py-1.5 pr-3 pl-10 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "text-ink-2 hover:bg-sand-50"}`}>
-            <FileText className="h-3.5 w-3.5 flex-none text-ink-3" aria-hidden />{pp.name}</Link>)) : []),
+            <PaperMark p={paperProgress(x.key, pp.key, progress)} />{pp.name}</Link>)) : []),
       ])}
     </>
   );
   const stepRailFolded = (
     <>{steps.map((x) => (
       <Link key={x.key} href={href(x.key)} title={x.name} className={`relative flex justify-center py-2 text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2"}`}>
-        {x.n}{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
-        <span className={`absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full ${x.word === "signed" ? "bg-success" : x.word === "prepared" ? "bg-[#2f6fd6]" : "bg-[#b9bcc6]"}`} />
+        <StepMark n={x.n} p={stepProgress(x.key, progress)} />{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
+        {x.word === "signed" && <span className="absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full bg-success" title="Reviewed" />}
       </Link>))}</>
   );
   const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
@@ -550,7 +554,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
-      history={access.is_owner} left={left} folded={folded} notes={openNotes}
+      history={access.is_owner} left={left} folded={folded} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
       {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}

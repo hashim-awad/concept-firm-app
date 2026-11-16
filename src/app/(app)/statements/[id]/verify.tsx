@@ -15,6 +15,8 @@ import { validDate } from "@/lib/closebook/bank-upload";
 import { formatDate } from "@/lib/dates";
 import { discardStatement, importStatement, saveStatementEdits } from "../actions";
 import { accountLabel, money, parseMoney, plural, shortDate } from "../format";
+import { amountTone } from "@/components/amount";
+import { tidyAmount } from "@/lib/closebook/amount";
 import { StatementViewer, type Focus } from "./statement-viewer";
 
 export type FileCtx = { id: string; yearStart: string; yearEnd: string; bankAccounts: { id: string; name: string; kind: "bank" | "card"; last4: string | null }[] };
@@ -437,7 +439,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
 function Total({ label, cents, ok, printed, printedCount, count }: { label: string; cents: number; ok: boolean | null; printed: number | null; printedCount: number | null; count: number }) {
   return (
     <div className="px-4 py-2.5"><div className="text-[12.5px] text-ink-3">{label}</div>
-      <b className="text-[17px] tabular-nums">{money(cents)}</b>{" "}
+      <b className={`text-[17px] tabular-nums ${cents < 0 ? "text-danger" : ""}`}>{money(cents)}</b>{" "}
       {ok === true && <span className="inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-success"><Check className="h-3.5 w-3.5" aria-hidden />matches the statement</span>}
       {ok === false && <span className="inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-danger"><X className="h-3.5 w-3.5" aria-hidden />statement: {printed !== null ? money(printed) : ""}{printedCount !== null && printedCount !== count ? ` (${printedCount})` : ""}</span>}
       {ok === null && <span className="text-[12.5px] text-ink-3">no total printed</span>}
@@ -462,7 +464,7 @@ function MoneyField({ label, cents, disabled, onChange }: { label: string; cents
       <input inputMode="decimal" value={text} disabled={disabled} aria-invalid={bad || undefined}
         onChange={(e) => { setText(e.target.value); const c = parseMoney(e.target.value); if (c !== null) onChange(c); }}
         onBlur={() => { const c = parseMoney(text); if (c !== null) setText(money(c)); }}
-        className={`input input-compact h-9 tabular-nums ${bad ? "border-danger text-danger" : ""}`} />
+        className={`input input-compact h-9 tabular-nums ${bad ? "border-danger text-danger" : amountTone(text)}`} />
     </label>
   );
 }
@@ -477,7 +479,7 @@ function EditRow({ draft, setDraft, kind, err, onSave, onCancel }: { draft: Draf
         {err && <div className="mt-1 text-[12px] text-danger">{err}</div>}</td>
       <td><select aria-label="Type" value={draft.dir} onChange={(e) => setDraft({ ...draft, dir: e.target.value as "in" | "out" })} className="input input-compact w-[8.5rem]">
         <option value="in">{typeLabel(kind, "in")}</option><option value="out">{typeLabel(kind, "out")}</option></select></td>
-      <td><input aria-label="Amount" inputMode="decimal" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} className="input input-compact w-[7.5rem] text-right tabular-nums" placeholder="0.00" /></td>
+      <td><input aria-label="Amount" inputMode="decimal" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} onBlur={(e) => setDraft({ ...draft, amount: tidyAmount(e.target.value) })} className={`input input-compact w-[7.5rem] text-right tabular-nums ${amountTone(draft.amount)}`} placeholder="0.00" /></td>
       <td className="text-right whitespace-nowrap">
         <button type="button" onClick={onSave} className="btn h-7 px-2.5 text-[12.5px]">Save</button>
         <button type="button" onClick={onCancel} className="ml-1 text-[12.5px] text-ink-2 underline">Cancel</button>

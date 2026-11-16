@@ -7,8 +7,12 @@ import { LINE_NAMES, type Line } from "@/lib/closebook/gst-return";
 import type { GstData } from "@/lib/closebook/gst-server";
 import { acceptGstCheck, bookQuickGain, confirmGstEntry, prepareGstReturns } from "../gst-actions";
 import { InfoTip } from "@/components/ds/info-tip";
+import { negativeTone } from "@/lib/closebook/amount";
+import { AmountField } from "@/components/amount";
 
-const m = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 }));
+const mt = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 }));
+// On screen a negative (a refund, a credit) shows in red brackets (Hashim, Nov 15, 2026, item C).
+const m = (c: number) => <span className={negativeTone(c)}>{mt(c)}</span>;
 const plain = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const TOTAL: Line[] = ["105", "108", "109", "112", "113"];
 const chip = (ok: boolean, yes: string, no: string) => <span className={`rounded px-2 py-0.5 text-xs font-semibold ${ok ? "bg-success-soft text-success" : "bg-danger/10 text-danger"}`}>{ok ? yes : no}</span>;
@@ -143,7 +147,7 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
           <div className="flex flex-wrap gap-3">
             {g.periods.map((p) => (
               <label key={p.n}><span className="label">{g.periods.length > 1 ? p.label.split(":")[0] : "The year"}</span>
-                <input name={`inst_${p.n}`} className="input text-right tabular-nums" style={{ width: "9rem" }} defaultValue={plain(g.returns.find((r) => r.period.n === p.n)!.lines["110"])} /></label>
+                <AmountField name={`inst_${p.n}`} className="input" style={{ width: "9rem" }} defaultValue={plain(g.returns.find((r) => r.period.n === p.n)!.lines["110"])} /></label>
             ))}
           </div>
           <p className="text-xs text-ink-2">Confirm them against the CRA account.</p>
