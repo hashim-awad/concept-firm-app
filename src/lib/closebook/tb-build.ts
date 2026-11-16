@@ -41,6 +41,10 @@ export type PostingKind = "opening" | "bank" | "entry" | "import";
 export type Posting = { key: string; cents: number; date: string; kind: PostingKind; ref: string; acct?: string; label: string; entryKind?: "AJE" | "RJE" | "TJE" };
 
 export const UNCODED = "uncoded";
+// Round 24: a line posts only once it has an account (coded). New lines, matched transfer money-in lines, lines that
+// clear an outstanding item and excluded lines post nothing.
+export const linePosts = (l: { status: string; chart_account: string | null }) =>
+  !!l.chart_account && (l.status === "done" || l.status === "reviewer" || l.status === "ask_client");
 export const OPENING = "opening";
 
 // The standard chart account a GIFI line's balance lands on: the account on that exact line, else the
@@ -197,16 +201,20 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   for (const l of lines) {
     const b = byId.get(l.account_id);
     if (!b) continue;
-    // Round 20: the money-in line of a matched transfer posts nothing. Its money is the other side of the
-    // money-out line, so the transfer posts once (QuickBooks Online's "Record as transfer").
-    if (l.status === "matched") continue;
+    // Round 24 (Hashim, Nov 16, 2026; QuickBooks Online's bank feed, where "For review" lines are not in the books):
+    // an imported line is in the bank feed, outside the ledger, until it is coded. A coded line posts its account
+    // against the bank account; a flag (client question list, reviewer) does not change that. Round 20: the
+    // money-in line of a matched transfer posts nothing (the transfer posts once, from the money-out line); a line
+    // that clears last year's outstanding item posts nothing either.
+    if (!linePosts(l)) continue;
     const m: Meta = { date: l.date ?? "", kind: "bank", ref: l.id ?? "", acct: b.id, label: l.description ?? "" };
     const debit = b.kind === "bank" ? l.cents : -l.cents;   // the bank or card side
-    add(bankKey(b), numberOf(b), "", null, debit, m);
     const to = l.status === "done" && l.transfer_bank ? byId.get(l.transfer_bank) : undefined;
+    const c = to ? undefined : chart.get(l.chart_account!);
+    if (!to && !c) continue;
+    add(bankKey(b), numberOf(b), "", null, debit, m);
     if (to) { add(bankKey(to), numberOf(to), "", null, -debit, m); continue; }
-    const c = l.status === "done" && l.chart_account ? chart.get(l.chart_account) : undefined;
-    if (!c) { add(UNCODED, "", "Transactions not yet coded", null, -debit, m, "Lines still to code, or waiting for the reviewer or the client."); continue; }
+    if (!c) continue;
     const code = l.tax_code ? codes.get(l.tax_code) ?? null : null;
     if (c.account_type === "Revenue") {
       const s = splitLine(debit, code, "sale", ctx);

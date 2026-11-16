@@ -101,26 +101,28 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
 
 // File history (round 8 item 8): every sign-off, cleared sign-off, note, reply and checklist save, with
 // who and when. Owners only; the database lets no one else read it.
-export type HistoryRow = { at: string; who: string; action: string; step: string; detail: string };
-const ACTION: Record<string, string> = {
-  prepared: "Signed as preparer", reviewed: "Signed as reviewer", unsigned_prepared: "Took back the preparer sign-off", unsigned_reviewed: "Took back the reviewer sign-off",
-  signoff_cleared: "Sign-offs cleared by a change", note_added: "Review note added", note_replied: "Replied to a note", note_fixed: "Marked a note fixed",
-  note_cleared: "Cleared a note", note_reopened: "Reopened a note", checklist_saved: "Saved the completion checklist",
-  revenue_accepted: "Accepted a revenue difference", gifi_exported: "Exported the GIFI file", t2_accepted: "Accepted a T2 tie-out difference", side_confirmed: "Kept a balance on the other side of its line",
-  mal_sent: "Sent the MAL for signing", mal_signed: "The MAL was signed", mal_withdrawn: "The MAL was withdrawn",
-  checklist_opened: "The checklist opened (MAL signed)", close_fields_saved: "Saved the email figures", filing_recorded: "Saved the filing record",
-  delivered: "Uploaded to TaxDome and email sent", delivery_cleared: "Delivery cleared by a change", locked: "Locked the file", reopened: "Reopened the file",
-};
-export function HistoryView({ rows, stepName }: { rows: HistoryRow[]; stepName: (k: string) => string }) {
+export type { HistoryRow } from "@/lib/closebook/history";
+import { actionLabel, type HistoryRow } from "@/lib/closebook/history";
+// Round 24 (rule 20): when, who, what, the statement or line, the reason, old and new; filtered by step.
+export function HistoryView({ rows, stepName, steps, current, base, exportBase }: { rows: HistoryRow[]; stepName: (k: string) => string; steps: { key: string; label: string }[];
+  current: string | null; base: string; exportBase: string }) {
+  const chip = (on: boolean, href: string, label: string) => <Link key={href} href={href} className={`rounded-full border px-3 py-1 text-[12.5px] ${on ? "border-navy-700 bg-navy-700 font-semibold text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{label}</Link>;
   return (
     <section className="card overflow-x-auto p-0">
-      <h2 className="px-5 pt-4 pb-2 font-semibold">File history</h2>
+      <div className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-2">
+        {chip(!current, base, "All steps")}
+        {steps.map((s) => chip(current === s.key, `${base}&hstep=${s.key}`, s.label))}
+        <span className="flex-1" />
+        <a href={`${exportBase}&format=xlsx${current ? `&step=${current}` : ""}`} className="text-[12.5px] text-navy-700 underline">Excel</a>
+        <a href={`${exportBase}&format=pdf${current ? `&step=${current}` : ""}`} className="text-[12.5px] text-navy-700 underline">PDF</a>
+      </div>
       {!rows.length ? <p className="px-5 pb-4 text-sm text-ink-2">Nothing yet.</p> : (
         <table className="table table-compact">
-          <thead><tr><th>When</th><th>Who</th><th>What</th><th>Step</th><th>Detail</th></tr></thead>
+          <thead><tr><th>When</th><th>Who</th><th>What</th><th>Step</th><th>Statement or line</th><th>Detail</th><th>Reason</th><th>Old</th><th>New</th></tr></thead>
           <tbody>{rows.map((r, i) => (
-            <tr key={i}><td className="whitespace-nowrap">{formatDate(r.at)} {new Date(r.at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}</td>
-              <td>{r.who}</td><td>{ACTION[r.action] ?? r.action}</td><td className="whitespace-nowrap">{stepName(r.step)}</td><td className="text-ink-2">{r.detail}</td></tr>
+            <tr key={i} className={r.erased ? "text-ink-3" : ""}><td className="whitespace-nowrap">{formatDate(r.at)} {new Date(r.at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}</td>
+              <td>{r.who}</td><td>{actionLabel(r.action)}</td><td className="whitespace-nowrap">{stepName(r.step)}</td><td>{r.ref}</td><td className="text-ink-2">{r.detail}</td>
+              <td>{r.reason}</td><td className="text-ink-2">{r.old}</td><td>{r.new}</td></tr>
           ))}</tbody>
         </table>
       )}

@@ -21,6 +21,7 @@ import { notesArea } from "./areas/notes-area";
 import { statementsArea } from "./areas/statements-area";
 import { statements as fsStatements, trialBalance } from "@/lib/closebook/reports";
 import { ReviewNotes } from "./review-notes";
+import { loadHistory } from "@/lib/closebook/history";
 import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
@@ -43,7 +44,8 @@ import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankingPage } from "./step3/banking-page";
-import { loadRounding, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
+import { LineWindow } from "./step3/feed-windows";
+import { feedLock, loadRounding, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
@@ -72,12 +74,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // render, so a read after the rebuild returned the rows from before it (round 4b, found on Birch).
   const { data: meta } = await supabase.from("cb_files").select("books, phase").eq("id", id).maybeSingle();
   if (meta && fromStatements(meta.books as string) && canEdit(access, "closebook") && meta.phase !== "locked") {
-    const [{ count: built }, { count: stmts }] = await Promise.all([
+    const [{ count: built }, { count: stmts }, { count: stale }] = await Promise.all([
       supabase.from("cb_accounts").select("id", { count: "exact", head: true }).eq("file_id", id).or("account_key.like.chart:%,account_key.like.bank:%,account_key.eq.opening"),
-      supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id)]);
-    // Bank-statement files coded before the trial balance was built from them: build it once now. Steps 6
-    // and 7 read the stored trial balance: build it fresh first, so a fix to the build shows at once.
-    if ((!built && stmts) || ["mapping", "review"].includes(String(sp.step ?? ""))) {
+      supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id),
+      supabase.from("cb_accounts").select("id", { count: "exact", head: true }).eq("file_id", id).eq("account_key", "uncoded").neq("this_year", 0)]);
+    // Bank-statement files coded before the trial balance was built from them: build it once now. Round 24
+    // (Hashim, Nov 16, 2026): the trial balance rebuilds only when something posts, so steps 6 and 7 no longer
+    // rebuild on every visit. A file built before round 24 still holds "Transactions not yet coded": built once.
+    if ((!built && stmts) || stale) {
       const e = await rebuildTb(supabase, id);
       if (e) console.error(e);
     }
@@ -306,7 +310,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       pp.list = stepPapers("records", { full: true, shareholders: false, ownerPaid: false, gst: false, bank: true });
       pp.key = first.paper;
       body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
-        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} />;
+        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} isOwner={access.is_owner}
+        lock={feedLock(subs, access.is_owner || access.staff_id === file.reviewer_id, access.staff_id)} />;
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
@@ -314,6 +319,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
           noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: `${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}` } : undefined} />
       : tb("code", ["accounts", "lines"], "accounts", false);   // the uploads stay on step 3 (round 8b item 8)
+    // Round 24: a line's accounting date and memo, from step 4 (the date opens it).
+    if (bankFile && str(sp.ln) && editable && file.phase !== "locked") {
+      const { data: ln } = await supabase.from("cb_bank_lines").select("id, txn_date, acct_date, description, amount, memo, account:account_id(name)").eq("id", str(sp.ln)!).eq("file_id", id).maybeSingle();
+      if (ln) body = <>{body}<LineWindow fileId={id} closeHref={`${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}`} yearStart={file.year_start} yearEnd={file.year_end}
+        line={{ id: ln.id as string, bankDate: ln.txn_date as string, acctDate: (ln.acct_date ?? ln.txn_date) as string, description: ln.description as string,
+          cents: Math.round(Number(ln.amount) * 100), memo: (ln.memo ?? "") as string, account: ((ln.account as unknown as { name: string } | null)?.name ?? "") }} /></>;
+    }
   } else if (step === "entries") {
     // Step 5, Checks (round 15b): the revenue check, the shareholder loans and the expenses paid personally,
     // each a working paper. Entries themselves live on the Entries tab.
@@ -443,10 +455,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
     editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year });
   if (showHistory) {
-    const { data: hist } = await supabase.from("cb_file_history").select("at, actor_id, action, step, detail").eq("file_id", id).order("at", { ascending: false }).limit(500);
+    const hstep = str(sp.hstep) ?? null;
+    const hist = await loadHistory(supabase, id, names, hstep);
     const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
-    body = <><PageTitle>File history</PageTitle><HistoryView stepName={stepName} rows={((hist ?? []) as { at: string; actor_id: string | null; action: string; step: string | null; detail: string }[]).map((h) => (
-      { at: h.at, who: h.actor_id ? names.get(h.actor_id) ?? "" : "System", action: h.action, step: h.step ?? "", detail: h.detail }))} /></>;
+    body = <><PageTitle>File history</PageTitle><HistoryView stepName={stepName} rows={hist} current={hstep} base={`/closebook/${id}?history=1`}
+      exportBase={`/closebook/${id}/report-export?report=history`} steps={steps.map((x) => ({ key: x.key, label: `${x.n}. ${x.name}` }))} /></>;
   } else {
     const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
       ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];

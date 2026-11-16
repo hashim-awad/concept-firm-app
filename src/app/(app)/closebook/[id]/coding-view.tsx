@@ -32,6 +32,13 @@ const isDone = (l: CodeLine) => l.status === "done" || l.status === "matched";
 const inFilter = (l: CodeLine, f: Filter) => f === "all" ? true : f === "needs" ? l.status === "new" && !suggested(l) : f === "suggested" ? l.status === "new" && suggested(l)
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : isDone(l);
 
+// Round 24: the bank date, and the accounting date under it when they differ; the date opens the line's window
+// (accounting date and memo). The bank's own date, description and amount never change.
+function DateCell({ l, href, className }: { l: CodeLine; href: string | null; className: string }) {
+  const d = <>{formatDate(l.txn_date)}{l.acct_date && l.acct_date !== l.txn_date && <span className="block text-[11.5px] text-ink-3">Posted {formatDate(l.acct_date)}</span>}</>;
+  return <td className={className}>{href ? <Link href={href} scroll={false} title="Change the date or add a memo" className="hover:underline">{d}</Link> : d}</td>;
+}
+
 export function CodingView({ fileId, data, accounts, selected, editable, isReviewer, focusLine = null, noteBy }: {
   fileId: string; data: CodingData; accounts: BankAccount[]; selected: string; editable: boolean; isReviewer: boolean; focusLine?: string | null; noteBy?: { back: string };
 }) {
@@ -167,6 +174,7 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   const warning = rowErr || (offer ? "" : live || twice) || l.reviewer_reason || (usd ? "Charged in US dollars: check the amount and the tax." : "");
   const locked = !editable || l.status === "done";
   const amount = money(Math.abs(cents)).replace("$", "");
+  const lineHref = editable ? `/closebook/${fileId}?step=code&account=${l.account_id}&ln=${l.id}` : null;
   const note = noteBy && <span className="ml-2 inline-block align-middle"><NoteOnItem fileId={fileId} step="code" targetType="bank_line" targetId={l.id} back={noteBy.back} icon /></span>;
   // Round 20: a line in a transfer. The money-out line names the other account; the money-in line is matched,
   // greyed, and posts nothing. Undo on either removes both.
@@ -176,8 +184,8 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
     const matched = l.status === "matched";
     return (
       <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${matched ? "bg-sand-50 text-ink-3" : ""} ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
-        <td className="whitespace-nowrap tabular-nums text-ink-3">{formatDate(l.txn_date)}</td>
-        <td>{l.description}</td>
+        <DateCell l={l} href={lineHref} className="whitespace-nowrap tabular-nums text-ink-3" />
+        <td>{l.description}{l.memo && <span className="block text-xs text-ink-3">Memo: {l.memo}</span>}</td>
         <td className="text-right tabular-nums">{outflow ? amount : ""}</td>
         <td className="text-right tabular-nums">{outflow ? "" : amount}</td>
         {matched ? <td colSpan={2} className="truncate" title={text}>{text}</td> : <>
@@ -194,8 +202,8 @@ function Row({ l, kind, fileId, chart, codes, byType, ctx, editable, pending, ha
   }
   return (
     <tr id={`line-${l.id}`} className={`h-[42px] align-middle ${focused ? "bg-navy-50 outline-2 -outline-offset-2 outline-navy-700" : ""}`}>
-      <td className="whitespace-nowrap tabular-nums text-ink-2">{formatDate(l.txn_date)}</td>
-      <td>{l.description}{offer ? <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Transfer between your accounts</span>
+      <DateCell l={l} href={lineHref} className="whitespace-nowrap tabular-nums text-ink-2" />
+      <td>{l.description}{l.memo && <span className="block text-xs text-ink-3">Memo: {l.memo}</span>}{offer ? <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">Transfer between your accounts</span>
         : l.suggestion && <span className="ml-2 rounded bg-sand-100 px-1.5 py-0.5 text-xs text-ink-2">{suggestionLabel(l.suggestion)}</span>}
         {warning && <span role={rowErr ? "alert" : undefined} className={`block text-xs ${rowErr ? "font-semibold text-danger" : "text-warning"}`}>{warning}</span>}</td>
       <td className="text-right tabular-nums">{outflow ? amount : ""}</td>

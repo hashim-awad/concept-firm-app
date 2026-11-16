@@ -14,8 +14,9 @@ import { typeLabel, type ReadResult } from "@/lib/statements/types";
 import { amt, type Misread } from "@/lib/closebook/banking";
 import { StatementViewer } from "../../../statements/[id]/statement-viewer";
 import { parseMoney } from "../../../statements/format";
-import { discardStatement, saveStatementEdits } from "../../../statements/actions";
-import { importChecked } from "../../step3-actions";
+import { saveStatementEdits } from "../../../statements/actions";
+import { importChecked, skipStatement } from "../../step3-actions";
+import { guarded } from "./guard";
 import { Menu } from "./banking-ui";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -44,7 +45,9 @@ export function FixScreen({ id, title, data, accKey, miss, fileUrl, mediaType, p
     try {
       const saved = await saveStatementEdits(id, { ...data, accounts: data.accounts.map((a) => (a.key === acc.key ? acc : a)) });
       if (!saved.ok) { notify(saved.error, "error"); return; }
-      const r = await importChecked(id, target, true);
+      const r = await guarded((confirm) => importChecked(id, target, true, confirm).then((x) => (!x.ok && /^Nothing was imported\. This removes/.test(x.error)
+        ? { ...x, confirm: x.error.replace(/^Nothing was imported\. /, "") } : x)));
+      if (!r) return;
       if (!r.ok) { notify(r.error, "error"); return; }
       notify("Imported.");
       router.push(backHref); router.refresh();
@@ -57,9 +60,10 @@ export function FixScreen({ id, title, data, accKey, miss, fileUrl, mediaType, p
           <Link href={backHref} scroll={false} className="inline-flex items-center gap-1 text-[14px] font-semibold text-navy-700"><ArrowLeft className="h-4 w-4" />Back</Link>
           <h2 className="text-[19px] font-semibold">{title}</h2><span className="flex-1" />
           {editable && <Menu label="More for this statement">
-            <button type="button" className="block w-full rounded px-3 py-2 text-left text-danger hover:bg-sand-50"
-              onClick={async () => { if (await confirmAction({ title: "Delete this statement?", body: "The file and what was read are deleted. Nothing from it is in the books.", confirm: "Delete", danger: true })) { await discardStatement(id); router.push(backHref); router.refresh(); } }}>
-              Delete statement</button>
+            {/* Round 24: nothing uploaded is deleted here. A statement not needed is skipped; it stays in the list. */}
+            <button type="button" className="block w-full rounded px-3 py-2 text-left hover:bg-sand-50"
+              onClick={async () => { if (await confirmAction({ title: "Skip this statement?", body: "It is not imported. It stays in the upload list as Skipped.", confirm: "Skip" })) { const r = await skipStatement(id, true, null); if (!r.ok) notify(r.error, "error"); else { router.push(backHref); router.refresh(); } } }}>
+              Skip statement</button>
           </Menu>}
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">

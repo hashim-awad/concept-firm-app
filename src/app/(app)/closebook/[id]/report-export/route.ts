@@ -9,9 +9,12 @@ import { reportTable } from "@/lib/closebook/report-table";
 import { reportXlsx } from "@/lib/closebook/xlsx-write";
 import { buildReportPdf } from "@/lib/closebook/wp-build";
 import { formatDate } from "@/lib/dates";
+import { actionLabel, loadHistory } from "@/lib/closebook/history";
+import { historySection, wpDocument } from "@/lib/closebook/wp-doc";
+import { generatedAt, renderWpPdf } from "@/lib/closebook/wp-pdf";
 
 const STAMP = "Working paper: not for the client";
-const REPORTS = ["tb", "bs", "pl", "gl", "journal"];
+const REPORTS = ["tb", "bs", "pl", "gl", "journal", "history"];
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAccess("closebook", "view");
@@ -23,6 +26,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const supabase = await createClient();
   const f = await loadFile(supabase, id);
   if (!f) return new Response("Not found", { status: 404 });
+  // Round 24 (rule 20): the file history in the working papers (owners read it).
+  if (report === "history") {
+    const rows = await loadHistory(supabase, id, f.names, q.get("step"));
+    const when = (iso: string) => `${formatDate(iso)} ${new Date(iso).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
+    const cells = rows.map((r) => [when(r.at), r.who, [actionLabel(r.action), r.detail].filter(Boolean).join(": "), r.step, r.ref, r.reason, r.old, r.new]);
+    const client = f.client?.legal_name ?? "";
+    const base = `${client} File history ${f.file.year_end}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim();
+    if (format === "xlsx") {
+      const t = { title: "File history", columns: ["When", "Who", "What", "Step", "Statement or line", "Reason", "Old", "New"], numeric: Array(8).fill(false), rows: cells.map((c) => ({ cells: c })) };
+      return new Response(new Uint8Array(reportXlsx(t, [client, `${formatDate(f.file.year_start)} to ${formatDate(f.file.year_end)}`], STAMP)), { headers: {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": `attachment; filename="${base}.xlsx"`, "cache-control": "private, no-store" } });
+    }
+    const ctx = { client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "File history", stamp: STAMP,
+      preparedBy: f.names.get(f.file.preparer_id) ?? "", reviewedBy: "", wpBox: true };
+    const bytes = await renderWpPdf(wpDocument(ctx, [historySection(ctx, cells)]));
+    return new Response(new Uint8Array(bytes), { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${base}.pdf"`, "cache-control": "private, no-store" } });
+  }
   const ref = await loadReference(supabase);
   const data = await loadReportData(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
   const t = reportTable(data, { report, view: q.get("view") ?? undefined, yearEnd: f.file.year_end, account: q.get("account") ?? undefined, from: q.get("from") ?? undefined, to: q.get("to") ?? undefined, source: q.get("source") ?? undefined });

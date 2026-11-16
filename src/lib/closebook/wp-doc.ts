@@ -217,3 +217,11 @@ export function wpDocument(ctx: WpCtx, sections: any[][]): any {
     content,
   };
 }
+
+// Round 24 (Hashim, Nov 16, 2026, rule 20): the file history in the working papers, append-only, as kept.
+export function historySection(ctx: WpCtx, rows: string[][]): any[] {
+  const cols = ["When", "Who", "What", "Step", "Statement or line", "Reason", "Old", "New"];
+  const body: any[] = [cols.map((c) => head(c)), ...rows.map((r) => r.map((v) => ({ text: v, border: NO })))];
+  return [headerBlock(ctx, "File history", "HIST"),
+    { table: { headerRows: 1, widths: [62, 58, 110, 52, 150, 70, 80, 80], body }, layout: { ...tableLayout(), hLineWidth: (i: number) => (i > 1 ? 0.4 : 0), hLineColor: () => C.border }, fontSize: 7.5 }];
+}

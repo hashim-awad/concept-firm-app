@@ -20,6 +20,16 @@ export type BankingAccount = S3Account & {
 export type Banking = Omit<Step3, "accounts"> & { accounts: BankingAccount[]; boxes: TieBox[]; rounding: { gifi: string; title: string; cents: number }[];
   subs: Record<SubKey, SubStatus>; pending: S3Upload[] };
 
+// Round 24 (rule 17): what a signed 3.2 or 3.3 locks. canRemove: the person may remove it (a preparer's sign-off,
+// or a reviewer's when they are the reviewer or an owner). The database decides again on every change.
+export function feedLock(subs: Record<SubKey, SubStatus> | null, reviewerOrOwner: boolean, me: string | null): { label: string; canRemove: boolean } | null {
+  if (!subs) return null;
+  const on = (["3.2", "3.3"] as const).filter((k) => subs[k].prepared_at);
+  if (!on.length) return null;
+  const reviewed = on.filter((k) => subs[k].reviewed_at);
+  return { label: on.join(" and "), canRemove: !reviewed.length || reviewerOrOwner || on.some((k) => !!me && subs[k].reviewed_by === me) };
+}
+
 export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Promise<Record<SubKey, SubStatus>> {
   const { data } = await supabase.rpc("cb_substep_status", { p_file: fileId });
   const none: SubStatus = { prepared_by: null, prepared_at: null, reviewed_by: null, reviewed_at: null, problems: [] };

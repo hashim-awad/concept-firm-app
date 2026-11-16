@@ -402,5 +402,13 @@
   "bf16e9c6787816a9215167e8ca69ab69062e864b5d47aed6e5a3194a46e70f9c": {
     "file": "round23/rbc-sav-2026-08.pdf",
     "result": "round23/rbc-sav-2026-08.json"
+  },
+  "ad2d5ecc9261e7cbfd20bc68095fb222c5b6388c1206e9f1542747ca8a76122f": {
+    "file": "round24/rbc-sav-2025-09-clearer.pdf",
+    "result": "round24/rbc-sav-2025-09-clearer.json"
+  },
+  "8cde9e2dc8bd29ddb0f2034eceee6476829fb87c01b3d9dc592554f1c154820c": {
+    "file": "round24/rbc-sav-2025-09-other.pdf",
+    "result": "round24/rbc-sav-2025-09-other.json"
   }
 }

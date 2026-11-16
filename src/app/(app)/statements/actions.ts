@@ -10,7 +10,6 @@ import { revalidatePath } from "next/cache";
 import { getAccess, canEdit, canView } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { BUCKET, kickRunner, listStatementsWithKick, removeStored, storedBytes, type StatementRow } from "@/lib/statements/server";
 import { EXTENSION, MAX_UPLOAD_BYTES, mediaTypeOf } from "@/lib/statements/prepare";
 import { checkAccount, closebookWarnings, money, resultProblem, statementStatus, statementSummary } from "@/lib/statements/checks";
@@ -190,7 +189,7 @@ function editsOf(acc: StatementAccount, asRead: StatementAccount | undefined) {
 type Assign = Record<string, string>; // account key -> bank account id | "skip" | "new:<bank|card>:<name>"
 
 // Import into the file: per account, the CSV path (cb_upload_bank, then cb_flag_uploaded_duplicates when
-// confirmed), all in one step; then the trial balance is rebuilt. The first call without confirmation
+// confirmed), all in one step (round 24: to the bank feed; nothing posts until coded). The first call without confirmation
 // returns the lines already in the file, if any, and imports nothing.
 export async function importStatement(id: string, assign: Assign, confirmDuplicates: boolean): Promise<
   { ok: true; imported: true; statements: number; lines: number; warnings: string[]; duplicates?: undefined } |
@@ -273,9 +272,11 @@ export async function importStatement(id: string, assign: Assign, confirmDuplica
   const { data: res, error } = await supabase.rpc("cb_import_statement", { p_import: id, p_accounts: payload, p_confirm_dups: confirmDuplicates, p_attachment: attachment });
   if (error) {
     await docs.remove([attachment]);
+    // Round 24: a signed 3.2 or 3.3 is locked; the upload window in 3.2 asks before removing the sign-off.
+    if (/sign-off/.test(error.message)) return fail(`Nothing was imported. 3.2 or 3.3 is signed. ${/^Ask the reviewer/.test(error.message) ? error.message : "Upload it in step 3.2, which asks before removing the sign-off."}`);
     return fail(`Nothing was imported. ${error.message}`);
   }
-  await rebuildTb(supabase, fileId);
+  // Round 24: the lines go to the bank feed; nothing posts until they are coded, so no rebuild.
   revalidatePath(`/closebook/${fileId}`);
   const out = (res ?? []) as { lines: number }[];
   return { ok: true, imported: true, statements: out.length, lines: out.reduce((n, r) => n + Number(r.lines), 0), warnings };

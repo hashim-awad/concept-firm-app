@@ -155,28 +155,23 @@ select public.cb_set_not_ours(:'f', '4455', 'MC ••• 4455', true);
 select test.check('Not ours is recorded with who and when', (select decided_by = :A::uuid and label = 'MC ••• 4455' from public.cb_bank_not_ours where file_id = :'f' and last4 = '4455')
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'bank_not_ours'));
 
--- ---------- Undo import
-select test.check('the type cannot change between bank and card once statements are in', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'card', 'MDB', '2201', 0, false, false)$q$, :'f', :'chq1')) like '%Undo its imports%');
-select test.check('an account with statements cannot be removed', test.try(format($q$select public.cb_remove_bank_account(%L)$q$, :'chq1')) like '%Undo its imports first%');
-select public.cb_delete_bank_statement((select id from public.cb_bank_statements where account_id = :'chq2'));
-select test.check('undo: the lines go with their cleared item link; the added account stays', not exists (select 1 from public.cb_bank_lines where account_id = :'chq2')
-  and (select cleared_line is null from public.cb_bank_outstanding where id = :'item') and exists (select 1 from public.cb_bank_accounts where id = :'chq2'));
-select test.check('the PDF goes back to "Ready to check" (its checks passed when read); the undo is in the history', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022b1') = 'ready'
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_undone'));
+-- ---------- Exclude (round 24: replaces Undo import; a statement is never deleted)
+select test.check('the type cannot change between bank and card once statements are in', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'card', 'MDB', '2201', 0, false, false)$q$, :'f', :'chq1')) like '%has statements%');
+select test.check('an account with statements cannot be removed', test.try(format($q$select public.cb_remove_bank_account(%L)$q$, :'chq1')) like '%can''t be deleted%');
+select id as st2 from public.cb_bank_statements where account_id = :'chq2' \gset
+select public.cb_exclude_statement(:'st2', 'wrong_account', '') as ex \gset
+select test.check('a statement whose line clears an outstanding item is not excluded: the line is listed', (:'ex'::jsonb ->> 'ok') = 'false'
+  and (:'ex'::jsonb -> 'blockers' -> 0 ->> 'kind') = 'outstanding' and (:'ex'::jsonb -> 'blockers' -> 0 ->> 'id') = :'l204');
+select public.cb_remove_outstanding(:'item');
+select public.cb_exclude_statement(:'st2', 'wrong_account', '') as ex \gset
+select test.check('then it is excluded: its lines leave the feed, the account stays, the history has the reason', (:'ex'::jsonb ->> 'ok') = 'true'
+  and not exists (select 1 from public.cb_bank_lines where account_id = :'chq2') and exists (select 1 from public.cb_bank_accounts where id = :'chq2')
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_excluded' and reason = 'Wrong account' and statement_id = :'st2'::uuid));
+select public.cb_restore_statement(:'st2');
+select test.check('restore puts it back as it was', exists (select 1 from public.cb_bank_lines where id = :'l204' and status = 'new') and not exists (select 1 from public.cb_excluded_statements where id = :'st2'));
 
 -- ---------- Step status uses the new rules
 select test.check('cb_step_status shows step 3''s problems', (public.cb_step_status(:'f') -> 'records' -> 'problems')::text like '%to fix%');
-
--- An undone statement whose checks did not pass goes back to "Needs a look".
-reset role;
-update public.cb_statement_imports set status = 'ready' where id = '00000000-0000-0000-0000-0000000022b1';
-set role authenticated;
-select public.cb_import_statement('00000000-0000-0000-0000-0000000022b1', ('[{"key":"a1","account":"' || :'chq2' || '","opening":5860.00,"closing":5410.00,"period_start":"2025-09-01","period_end":"2025-09-30","at_start":5860.00,"at_end":null,"rows":[{"line":1,"date":"2025-09-04","description":"CHEQUE #204","amount":-450.00}],"check":{},"edits":{}}]')::jsonb, false, '');
-reset role;
-update public.cb_statement_imports set summary = summary || '{"review":2}' where id = '00000000-0000-0000-0000-0000000022b1';
-set role authenticated;
-select public.cb_delete_bank_statement((select id from public.cb_bank_statements where account_id = :'chq2'));
-select test.check('an undone statement with lines for review goes back to "Needs a look"', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022b1') = 'needs_look');
 
 -- ---------- Safe to run twice
 reset role;

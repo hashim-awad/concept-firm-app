@@ -47,15 +47,27 @@ test("a card: a charge is a credit; a payment from chequing nets on the card lin
   assert.equal(get(rows, "chart:21500"), 1300);
 });
 
-test("lines not yet coded, for the reviewer or the client sit in one holding account", () => {
+// Round 24 (Hashim, Nov 16, 2026; QuickBooks Online's bank feed): a line is in the feed, not the books, until it has
+// an account. A coded line posts whatever its flag (with the reviewer, on the client question list); nothing sits in
+// a holding account.
+test("only coded lines post; a flag does not change that; nothing waits in a holding account", () => {
   const rows = buildTrialBalance([{ id: "b", name: "Chequing", kind: "bank", chart: "10000", openingCents: 0 }], [
     { account_id: "b", cents: -2000, status: "new", chart_account: null, tax_code: null },
     { account_id: "b", cents: -3000, status: "reviewer", chart_account: "60200", tax_code: "HST_ON" },
     { account_id: "b", cents: -500, status: "ask_client", chart_account: null, tax_code: null },
+    { account_id: "b", cents: -700, status: "matched", chart_account: null, tax_code: null },
   ], chart, codes, ctx);
   assert.equal(sum(rows), 0);
-  assert.equal(get(rows, UNCODED), 5500);
-  assert.equal(rows.find((r) => r.key === UNCODED)!.line_no, null);
+  assert.equal(rows.find((r) => r.key === UNCODED), undefined);
+  assert.equal(get(rows, "chart:10000"), -3000);
+});
+test("uncoding a line takes out exactly its posting", () => {
+  const banks = [{ id: "b", name: "Chequing", kind: "bank" as const, chart: "10000", openingCents: 51240 }];
+  const before = buildTrialBalance(banks, [{ account_id: "b", cents: -4000, status: "new", chart_account: null, tax_code: null }], chart, codes, ctx);
+  const coded = buildTrialBalance(banks, [{ account_id: "b", cents: -4000, status: "done", chart_account: "60200", tax_code: "OUT_OF_SCOPE" }], chart, codes, ctx);
+  assert.equal(get(before, "chart:10000"), 51240);
+  assert.equal(get(coded, "chart:10000"), 51240 - 4000);
+  assert.equal(get(coded, "chart:60200"), 4000);
 });
 
 test("two cards on the same chart account: each its own row, number and name (round 4b)", () => {

@@ -35,11 +35,15 @@ select test.check('the next statement for the account', (select count(*) from pu
 -- Staff without Closebook Edit cannot upload or remove; viewers read.
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff without Closebook edit cannot upload', test.try(format($f$select public.cb_upload_bank(%L, null, 'TD', 'bank', 'b.csv', 0, 1, '[{"date":"2026-03-01","description":"X","amount":1}]', '2026-03-01', '2026-03-31')$f$, :'f')) like '%Edit on Closebook%');
-select test.check('or remove', test.try(format($f$select public.cb_delete_bank_statement(%L)$f$, :'s1')) like '%Edit on Closebook%');
+select test.check('or exclude', test.try(format($f$select public.cb_exclude_statement(%L, 'wrong_period', '')$f$, :'s1')) like '%Edit on Closebook%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_delete_bank_statement(:'s1');
-select test.check('removing a statement removes its lines; the account stays while it has one', (select count(*) from public.cb_bank_lines where file_id = :'f') = 1
-  and exists (select 1 from public.cb_bank_accounts where id = :'acc'));
-select public.cb_delete_bank_statement((select id from public.cb_bank_statements where account_id = :'acc'));
-select test.check('the last statement takes the account with it', not exists (select 1 from public.cb_bank_accounts where file_id = :'f'));
+-- Round 24 (P2): a statement is never deleted. It is excluded, with a reason; its lines leave the feed.
+select test.check('delete is refused for everyone', test.try(format($f$select public.cb_delete_bank_statement(%L)$f$, :'s1')) like '%not deleted%Exclude%');
+reset role;
+select test.check('a direct delete is refused too, even by the database owner', test.try(format($f$delete from public.cb_bank_statements where id = %L$f$, :'s1')) like '%not deleted%');
+set role authenticated;
+select public.cb_exclude_statement(:'s1', 'wrong_period', '');
+select test.check('excluding a statement takes its lines out of the feed; the account stays', (select count(*) from public.cb_bank_lines where file_id = :'f') = 1
+  and exists (select 1 from public.cb_bank_accounts where id = :'acc') and exists (select 1 from public.cb_excluded_statements where id = :'s1' and lines = 3));
+select test.check('an account with an excluded statement cannot be deleted', test.try(format($f$select public.cb_remove_bank_account(%L)$f$, :'acc')) like '%imported or excluded%');
 reset role;
