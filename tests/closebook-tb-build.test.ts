@@ -256,3 +256,11 @@ test("a summary line on a bank account (round 21, Recommendation A): last year's
   assert.ok(!rows.some((r) => r.key === OPENING && r.reviewer), "nothing waits in Opening balances to enter");
   assert.equal(sum(rows), 0);
 });
+
+// Round 22 (Hashim, Nov 16, 2026): a long-term line of credit sits on GIFI 3149 with its own file number.
+test("round 22: a long-term line of credit on 3149 with its own number, opening at the books balance", () => {
+  const ch = new Map(chart); ch.set("25200", { name: "Other long-term loan", account_type: "Liability", line_no: "3140.00" });
+  const rows = buildTrialBalance([{ id: "l", name: "Line of credit · MDB ••• 6602", kind: "card", chart: "25200", number: "25300", lineNo: "3149.00", fromBooks: true, openingCents: 250000 }], [], ch, codes, ctx);
+  const r = rows.find((x) => x.key === "bank:l")!;
+  assert.deepEqual([r.number, r.name, r.line_no, r.cents], ["25300", "Line of credit · MDB ••• 6602", "3149.00", -250000]);
+});
