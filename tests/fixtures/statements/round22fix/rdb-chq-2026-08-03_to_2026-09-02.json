@@ -1,0 +1,84 @@
+{
+  "bank": "Rideau Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4321",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-08-03",
+      "periodEnd": "2026-09-02",
+      "opening": 1664055,
+      "closing": 1792413,
+      "summary": {
+        "inTotal": 163438,
+        "inCount": 1,
+        "outTotal": 35080,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-08-06",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 4248,
+          "dir": "out",
+          "balanceCents": 1659807,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-08-11",
+          "description": "E-TRANSFER DUMMY CLIENT",
+          "amountCents": 163438,
+          "dir": "in",
+          "balanceCents": 1823245,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-08-18",
+          "description": "DUMMY SOFTWARE SUBSCRIPTION",
+          "amountCents": 11249,
+          "dir": "out",
+          "balanceCents": 1811996,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-08-25",
+          "description": "DUMMY PRINT SHOP",
+          "amountCents": 17588,
+          "dir": "out",
+          "balanceCents": 1794408,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-08-29",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 1995,
+          "dir": "out",
+          "balanceCents": 1792413,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

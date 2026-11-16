@@ -242,5 +242,57 @@
   "8cbce7722f1f45295bab933beed20d37f09b944cdc698a848a3100c344d240cb": {
     "file": "round22/mdb-visa-2026-08.pdf",
     "result": "round22/mdb-visa-2026-08.json"
+  },
+  "b8069160aa8beca0c29952c8bab6cab297f785b3c29cd19b9f90099995086dbd": {
+    "file": "round22fix/rdb-chq-2025-08-01_to_2025-09-02.pdf",
+    "result": "round22fix/rdb-chq-2025-08-01_to_2025-09-02.json"
+  },
+  "0b899e6ae9a7864632e4631cda1ce2636283526ece3aa28c8337620b68ba0261": {
+    "file": "round22fix/rdb-chq-2025-09-02_to_2025-10-02.pdf",
+    "result": "round22fix/rdb-chq-2025-09-02_to_2025-10-02.json"
+  },
+  "c1d9fed5b541d843e4f71e4ef7a5442221f0238b2ae22a595c9e860440e54369": {
+    "file": "round22fix/rdb-chq-2025-10-02_to_2025-11-03.pdf",
+    "result": "round22fix/rdb-chq-2025-10-02_to_2025-11-03.json"
+  },
+  "295d01b43d0bfbebedcf98b43b4a009e6678c4ad62eddd3bed52da072d08581f": {
+    "file": "round22fix/rdb-chq-2025-11-03_to_2025-12-02.pdf",
+    "result": "round22fix/rdb-chq-2025-11-03_to_2025-12-02.json"
+  },
+  "5a986f3c3aa4ae1b1e4eea97dea59977af1dd79c8ee4a82ea742fd25c8592d16": {
+    "file": "round22fix/rdb-chq-2025-12-02_to_2026-01-02.pdf",
+    "result": "round22fix/rdb-chq-2025-12-02_to_2026-01-02.json"
+  },
+  "307705a064e7adf5eb00f924257c3792048f5a160c0d729e0f4ca427c24e8f3d": {
+    "file": "round22fix/rdb-chq-2026-01-02_to_2026-02-02.pdf",
+    "result": "round22fix/rdb-chq-2026-01-02_to_2026-02-02.json"
+  },
+  "4594a09c83da7737bde110e30d8da46559b5d3e61897fc4d15ae8657c41129d3": {
+    "file": "round22fix/rdb-chq-2026-02-02_to_2026-03-02.pdf",
+    "result": "round22fix/rdb-chq-2026-02-02_to_2026-03-02.json"
+  },
+  "9dfaa59c2cc4776697f7e1038b4af0a478be7013795e099aabaaf5367b652f98": {
+    "file": "round22fix/rdb-chq-2026-03-02_to_2026-04-02.pdf",
+    "result": "round22fix/rdb-chq-2026-03-02_to_2026-04-02.json"
+  },
+  "af2ea38a134769f92f369fc5fcd3a4e973b22fefb5d9ed89869fb18016831de2": {
+    "file": "round22fix/rdb-chq-2026-04-02_to_2026-05-01.pdf",
+    "result": "round22fix/rdb-chq-2026-04-02_to_2026-05-01.json"
+  },
+  "6b4ec45706806385ee0826fb620d8baf6d49a2d64a5861f4c3e3e78a11f57469": {
+    "file": "round22fix/rdb-chq-2026-05-01_to_2026-06-02.pdf",
+    "result": "round22fix/rdb-chq-2026-05-01_to_2026-06-02.json"
+  },
+  "0cb0ce7822691bf27e5f69b32d84f22344c4cc8a3ad95e09148ba60e1ac29b00": {
+    "file": "round22fix/rdb-chq-2026-06-02_to_2026-07-02.pdf",
+    "result": "round22fix/rdb-chq-2026-06-02_to_2026-07-02.json"
+  },
+  "d647fde7c6209274416ab34dd4bebd7d2d99b796a496678f0bc3d4fd2cd0eac9": {
+    "file": "round22fix/rdb-chq-2026-07-02_to_2026-08-03.pdf",
+    "result": "round22fix/rdb-chq-2026-07-02_to_2026-08-03.json"
+  },
+  "91906f4b1b2118f51637d816d8b9f33252f1bf00e3a74c0071a696af78ef74d9": {
+    "file": "round22fix/rdb-chq-2026-08-03_to_2026-09-02.pdf",
+    "result": "round22fix/rdb-chq-2026-08-03_to_2026-09-02.json"
   }
 }

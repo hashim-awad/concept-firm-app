@@ -1,0 +1,84 @@
+{
+  "bank": "Rideau Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4321",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-12-02",
+      "periodEnd": "2026-01-02",
+      "opening": 496304,
+      "closing": 649803,
+      "summary": {
+        "inTotal": 201528,
+        "inCount": 1,
+        "outTotal": 48029,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-12-05",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 3847,
+          "dir": "out",
+          "balanceCents": 492457,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-12-10",
+          "description": "E-TRANSFER DUMMY CLIENT",
+          "amountCents": 201528,
+          "dir": "in",
+          "balanceCents": 693985,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-12-17",
+          "description": "DUMMY SOFTWARE SUBSCRIPTION",
+          "amountCents": 11406,
+          "dir": "out",
+          "balanceCents": 682579,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2025-12-24",
+          "description": "DUMMY PRINT SHOP",
+          "amountCents": 30781,
+          "dir": "out",
+          "balanceCents": 651798,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2025-12-28",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 1995,
+          "dir": "out",
+          "balanceCents": 649803,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "bank": "Rideau Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4321",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-06-02",
+      "opening": 1119981,
+      "closing": 1297798,
+      "summary": {
+        "inTotal": 228484,
+        "inCount": 1,
+        "outTotal": 50667,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-05-04",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 4250,
+          "dir": "out",
+          "balanceCents": 1115731,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-05-09",
+          "description": "E-TRANSFER DUMMY CLIENT",
+          "amountCents": 228484,
+          "dir": "in",
+          "balanceCents": 1344215,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-05-16",
+          "description": "DUMMY SOFTWARE SUBSCRIPTION",
+          "amountCents": 9954,
+          "dir": "out",
+          "balanceCents": 1334261,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-05-23",
+          "description": "DUMMY PRINT SHOP",
+          "amountCents": 34468,
+          "dir": "out",
+          "balanceCents": 1299793,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-05-27",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 1995,
+          "dir": "out",
+          "balanceCents": 1297798,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

@@ -128,7 +128,8 @@ export async function Step3Page({ supabase, file, names, sp, editable, signed, e
               <table className="w-full text-[13.5px]"><tbody>
                 {items.map((i) => (
                   <tr key={i.id} className="border-b border-sand-100">
-                    <td className="py-2">{longDate(i.item_date)} · {i.description}<span className="ml-1 text-[12px] text-ink-3">({i.dir === "out" ? word.out : word.in}{i.cleared_line ? "; cleared in the year by a line that now posts nothing" : ""})</span></td>
+                    <td className="py-2">{i.kind === "rounding" ? <>{i.description}<span className="ml-1 text-[12px] text-ink-3">(posts nothing)</span></>
+                      : <>{longDate(i.item_date)} · {i.description}<span className="ml-1 text-[12px] text-ink-3">({i.dir === "out" ? word.out : word.in}{i.cleared_line ? "; cleared in the year by a line that now posts nothing" : ""})</span></>}</td>
                     <td className="py-2 text-right tabular-nums">{money(i.dir === "out" ? -i.amount : i.amount)}</td>
                     <td className="w-20 text-right">{editable && <form action={removeOutstanding}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={a.id} />
                       <input type="hidden" name="item" value={i.id} /><input type="hidden" name="back" value={back} /><button type="submit" className="text-[12.5px] text-danger underline">Remove</button></form>}</td>
@@ -140,6 +141,15 @@ export async function Step3Page({ supabase, file, names, sp, editable, signed, e
           {editable && (
             <details className="rounded-[10px] border border-sand-200 bg-sand-50/60 px-4 py-3" open={left !== 0}>
               <summary className="cursor-pointer text-[13.5px] font-semibold text-navy-700">+ Add item</summary>
+              {/* Round 22 fixes: last year's T2 is in whole dollars, so a difference left under 1.00 can be rounding. */}
+              {left !== 0 && Math.abs(left) < 100 && (
+                <form action={addOutstanding} className="mt-3 flex flex-wrap items-center gap-3 rounded-[8px] border border-sand-200 bg-white px-3 py-2.5 text-[13.5px]">
+                  <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={a.id} /><input type="hidden" name="edge" value={side} />
+                  <input type="hidden" name="back" value={back} /><input type="hidden" name="kind" value="rounding" />
+                  <span><b>Rounding (the T2 is in whole dollars)</b> · {money(Math.abs(left))} · posts nothing</span><span className="flex-1" />
+                  <button type="submit" className="btn h-8 px-3 text-[13px]">Add rounding</button>
+                </form>
+              )}
               <form action={addOutstanding} className="mt-3 grid gap-3 sm:grid-cols-[10rem_1fr]">
                 <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={a.id} /><input type="hidden" name="edge" value={side} /><input type="hidden" name="back" value={back} />
                 <label className="grid gap-1 text-[12.5px] text-ink-2">Date<input type="date" name="date" required className="input h-9" /></label>

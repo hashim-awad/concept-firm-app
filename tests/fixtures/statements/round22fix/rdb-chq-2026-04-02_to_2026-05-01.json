@@ -1,0 +1,84 @@
+{
+  "bank": "Rideau Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4321",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-04-02",
+      "periodEnd": "2026-05-01",
+      "opening": 933549,
+      "closing": 1119981,
+      "summary": {
+        "inTotal": 226617,
+        "inCount": 1,
+        "outTotal": 40185,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-04-05",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 3989,
+          "dir": "out",
+          "balanceCents": 929560,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-04-10",
+          "description": "E-TRANSFER DUMMY CLIENT",
+          "amountCents": 226617,
+          "dir": "in",
+          "balanceCents": 1156177,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-04-17",
+          "description": "DUMMY SOFTWARE SUBSCRIPTION",
+          "amountCents": 9898,
+          "dir": "out",
+          "balanceCents": 1146279,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-04-24",
+          "description": "DUMMY PRINT SHOP",
+          "amountCents": 24303,
+          "dir": "out",
+          "balanceCents": 1121976,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-04-28",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 1995,
+          "dir": "out",
+          "balanceCents": 1119981,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

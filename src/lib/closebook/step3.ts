@@ -76,13 +76,14 @@ export function cardSummary(acc: StatementAccount, inTotal: number, outTotal: nu
 
 // ---------- The upload list's status (point 9)
 export type FileAccount = { id: string; number: string; name: string; kind: "bank" | "card"; last4: string | null };
-export type UploadStatus = "reading" | "ready" | "needs_look" | "outside" | "already" | "wrong_account" | "no_account" | "no_digits" | "failed" | "skipped" | "imported";
+export type UploadStatus = "reading" | "ready" | "needs_look" | "outside" | "already" | "copy" | "wrong_account" | "no_account" | "no_digits" | "failed" | "skipped" | "imported";
+// One short word per row (round 22 fixes); the reason shows on its own line only when something is wrong.
 export const UPLOAD_LABEL: Record<UploadStatus, string> = {
-  reading: "Reading", ready: "Ready to check", needs_look: "Needs a look", outside: "Outside the year: not needed", already: "Already imported",
+  reading: "Reading", ready: "Ready to check", needs_look: "Needs a look", outside: "Outside the year", already: "Already imported", copy: "Copy",
   wrong_account: "Wrong account", no_account: "Wrong account", no_digits: "Needs a look", failed: "Failed", skipped: "Skipped", imported: "Imported",
 };
 export type UploadRowIn = { id: string; status: string; period_start: string | null; period_end: string | null; found: { name: string; last4: string; kind: "bank" | "card" }[];
-  file_sha256?: string | null; target_account?: string | null };
+  file_sha256?: string | null; target_account?: string | null; created_at?: string };
 export type UploadState = { status: UploadStatus; match: FileAccount | null; other: FileAccount | null; reason: string };
 
 const digitsMatch = (a: string, b: string) => !!a && !!b && (a.endsWith(b) || b.endsWith(a));
@@ -95,8 +96,9 @@ export function accountFor(last4: string, accounts: FileAccount[]): FileAccount 
 }
 
 export function uploadState(r: UploadRowIn, ctx: { yearStart: string; yearEnd: string; accounts: FileAccount[]; target: FileAccount | null;
-  importedShas: Set<string>; importedPeriods: { account_id: string; period_start: string; period_end: string }[] }): UploadState {
+  importedShas: Set<string>; importedPeriods: { account_id: string; period_start: string; period_end: string }[]; copies?: Set<string> }): UploadState {
   const none = { match: null, other: null, reason: "" };
+  if (ctx.copies?.has(r.id)) return { status: "copy", ...none, reason: "Another copy of this statement is already in the list. Remove this one." };
   if (r.status === "queued" || r.status === "reading" || r.status === "uploading") return { status: "reading", ...none };
   if (r.status === "failed") return { status: "failed", ...none };
   if (r.status === "imported") return { status: "imported", ...none };
@@ -119,15 +121,32 @@ export function uploadState(r: UploadRowIn, ctx: { yearStart: string; yearEnd: s
     const f = found.find((x) => digitsOnly(x.last4));
     return { status: "no_account", match: null, other: null, reason: f ? `No account in this file ends in ${digitsOnly(f.last4)}.` : "" };
   }
-  // Point 14: the same period already imported for the account.
-  if (match && r.period_start && r.period_end && ctx.importedPeriods.some((p) => p.account_id === match.id && p.period_start <= r.period_end! && p.period_end >= r.period_start!)) {
+  // Point 14: the same period already imported for the account. Sharing one day is not the same period:
+  // some banks print the day a statement ends as the first day of the next (round 22 fixes).
+  if (match && r.period_start && r.period_end && ctx.importedPeriods.some((p) => p.account_id === match.id && p.period_start < r.period_end! && p.period_end > r.period_start!)) {
     return { status: "already", match, other: null, reason: "A statement for this period is already imported." };
   }
   return { status: r.status === "ready" ? "ready" : "needs_look", match, other: null, reason: "" };
 }
 
+// One copy of each statement (round 22 fixes): uploads not imported that are the same statement as an earlier one
+// in the list (the same file, or the same account and period). The earliest stays; the ids returned are the others.
+export function copiesOf(rows: (UploadRowIn & { created_at: string })[]): Set<string> {
+  const open = rows.filter((r) => ["queued", "reading", "ready", "needs_look"].includes(r.status)).sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const digits = (r: UploadRowIn) => (r.found ?? []).map((f) => digitsOnly(f.last4).slice(-4)).filter((d) => d.length >= 2);
+  const out = new Set<string>();
+  open.forEach((r, i) => {
+    if (open.slice(0, i).some((o) => !out.has(o.id) && ((r.file_sha256 && o.file_sha256 === r.file_sha256)
+      || (r.period_start && o.period_start === r.period_start && o.period_end === r.period_end && (!o.target_account || !r.target_account || o.target_account === r.target_account)
+        && digits(r).some((d) => digits(o).includes(d)))))) out.add(r.id);
+  });
+  return out;
+}
+
 // ---------- Coverage strip (point 2): bank months, or a card's own cycles
-export type Cell = { label: string; from: string; to: string; state: "in" | "part" | "missing" | "check" | "na" | "wait" };
+// Four states only (round 22 fixes, Hashim, Nov 16, 2026): green covered, red missing, amber waiting to check,
+// grey outside the year (or before the account opened, after it closed).
+export type Cell = { label: string; from: string; to: string; state: "in" | "missing" | "wait" | "na" };
 const DAY = 86400000;
 const toDay = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / DAY;
 const fromDay = (d: number) => new Date(d * DAY).toISOString().slice(0, 10);
@@ -136,45 +155,47 @@ const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 const addMonth = (s: string, k: number) => { const t = new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1 + k, +s.slice(8, 10))); return t.toISOString().slice(0, 10); };
 export type CovStatement = { period_start: string; period_end: string; opening: number; closing: number };
 
-// pending: statements uploaded and waiting to check (yellow); they also tell a card's cycle before any import.
+// pending: statements uploaded and waiting to check (amber); they also tell a card's cycle before any import.
 export function coverageStrip(yearStart: string, yearEnd: string, sts: CovStatement[], window: { opened?: string | null; closed?: string | null } = {},
-  pending: { period_start: string; period_end: string }[] = []): { cells: Cell[]; missing: Cell[]; breaks: { after: CovStatement; before: CovStatement }[]; cycleDay: number } {
+  pending: { period_start: string; period_end: string }[] = []): { cells: Cell[]; gaps: Gap[]; cycleDay: number } {
   const sorted = [...sts].sort((a, b) => a.period_start.localeCompare(b.period_start));
   // The cycle: the day the statements start on (1 = calendar months).
   const days = [...sorted, ...pending].map((s) => +s.period_start.slice(8, 10));
   const cycleDay = days.length ? days.sort((a, b) => days.filter((x) => x === a).length - days.filter((x) => x === b).length).pop()! : 1;
-  const cells: Cell[] = [];
-  let from = cycleDay === 1 ? yearStart.slice(0, 8) + "01" : `${yearStart.slice(0, 7)}-${String(cycleDay).padStart(2, "0")}`;
+  const raw: { from: string; to: string; name: string }[] = [];
+  let from = cycleDay === 1 ? yearStart.slice(0, 8) + "01" : `${yearStart.slice(0, 7)}-${String(Math.min(cycleDay, 28)).padStart(2, "0")}`;
   if (from > yearStart) from = addMonth(from, -1);
   while (from <= yearEnd) {
     const to = fromDay(toDay(addMonth(from, 1)) - 1);
-    const end = to;
-    cells.push({ label: MON[+end.slice(5, 7) - 1], from: from < yearStart ? yearStart : from, to: to > yearEnd ? yearEnd : to, state: "missing" });
+    // Named by the month it starts in; a cycle starting after mid-month by the month it ends in.
+    raw.push({ from: from < yearStart ? yearStart : from, to: to > yearEnd ? yearEnd : to, name: cycleDay > 15 ? to : from });
     from = addMonth(from, 1);
   }
-  const spans = sorted.map((s) => [toDay(s.period_start), toDay(s.period_end)] as const);
-  const covered = (a: number, b: number) => {
-    let at = a;
-    for (const [x, y] of spans) { if (x > at) break; if (y >= at) at = y + 1; if (at > b) return "all"; }
-    return spans.some(([x, y]) => x <= b && y >= a) ? "some" : "none";
-  };
-  const breaks: { after: CovStatement; before: CovStatement }[] = [];
-  for (let i = 1; i < sorted.length; i++) if (sorted[i].opening !== sorted[i - 1].closing) breaks.push({ after: sorted[i - 1], before: sorted[i] });
-  for (const c of cells) {
-    const a = Math.max(toDay(c.from), window.opened ? toDay(window.opened) : -Infinity), b = Math.min(toDay(c.to), window.closed ? toDay(window.closed) : Infinity);
-    if (a > b) { c.state = "na"; continue; }
-    const k = covered(a, b);
-    c.state = k === "all" ? "in" : k === "some" ? "part" : "missing";
-    if (c.state !== "in" && pending.some((x) => toDay(x.period_start) <= b && toDay(x.period_end) >= a)) c.state = "wait";
-    if (c.state !== "missing" && breaks.some((x) => x.before.period_start >= c.from && x.before.period_start <= c.to)) c.state = "check";
-  }
-  return { cells, missing: cells.filter((c) => c.state === "missing" || c.state === "part"), breaks, cycleDay };
+  // A sliver of a cycle at either end of the year joins its neighbour (so a year has 12 cells, not 13).
+  const len = (c: { from: string; to: string }) => toDay(c.to) - toDay(c.from) + 1;
+  if (raw.length > 1 && len(raw[0]) < 15) { raw[1].from = raw[0].from; raw.shift(); }   // keeps its neighbour's name
+  if (raw.length > 1 && len(raw[raw.length - 1]) < 15) { raw[raw.length - 2].to = raw[raw.length - 1].to; raw.pop(); }
+  const winFrom = window.opened && window.opened > yearStart ? window.opened : yearStart;
+  const winTo = window.closed && window.closed < yearEnd ? window.closed : yearEnd;
+  const gaps = winFrom <= winTo ? gapSegments(sorted, winFrom, winTo) : [];
+  const meets = (a1: string, b1: string, a2: string, b2: string) => a1 <= b2 && b1 >= a2;
+  const cells: Cell[] = raw.map((c) => {
+    const cell: Cell = { label: MON[+c.name.slice(5, 7) - 1], from: c.from, to: c.to, state: "in" };
+    if (!meets(c.from, c.to, winFrom, winTo)) return { ...cell, state: "na" };
+    const hit = gaps.filter((g) => g.kind === "missing" ? meets(c.from, c.to, g.from, g.to) : g.from >= c.from && g.from <= c.to);
+    if (!hit.length) return cell;
+    // Amber when an upload waiting to check covers what is missing in this cell.
+    const waiting = hit.every((g) => { const a = g.from > c.from ? g.from : c.from, b = g.to < c.to ? g.to : c.to; return pending.some((x) => meets(x.period_start, x.period_end, a, b)); });
+    return { ...cell, state: waiting ? "wait" : "missing" };
+  });
+  return { cells, gaps, cycleDay };
 }
 export const monthName = (iso: string) => `${MONTH[+iso.slice(5, 7) - 1]} ${iso.slice(0, 4)}`;
 export const longDate = (iso: string) => `${MONTH[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}, ${iso.slice(0, 4)}`;
 
 // ---------- The year edges (point 22): the statements' balance beside the books, explained by outstanding items
-export type Outstanding = { id: string; account_id: string; edge: "start" | "end"; item_date: string; description: string; dir: "in" | "out"; amount: number; cleared_line: string | null };
+export type Outstanding = { id: string; account_id: string; edge: "start" | "end"; item_date: string; description: string; dir: "in" | "out"; amount: number; cleared_line: string | null;
+  kind?: "item" | "rounding" };
 export type Edge = { statements: number | null; books: number | null; items: number; difference: number | null; explained: boolean };
 // In the account's own terms (a bank's money; what is owed on a card). An "in" item raises the statement's
 // balance (a deposit, or a card charge): books = statements + in items - out items.
@@ -187,14 +208,15 @@ export function edge(statements: number | null, books: number | null, items: Out
 
 // ---------- The tie to step 2 (point 4), per GIFI line
 export type TieAccount = { number: string; gifi: string; books: number | null };
-export type Tie = { gifi: string; numbers: string[]; books: number; t2: number; ties: boolean };
+// The T2 is in whole dollars: a line within 1.00 ties, and the cents show as rounding (round 22 fixes).
+export type Tie = { gifi: string; numbers: string[]; books: number; t2: number; ties: boolean; rounding: number };
 export function ties(accounts: TieAccount[], t2: Map<string, number>, entered: boolean): Tie[] {
   if (!entered) return [];
   const by = new Map<string, TieAccount[]>();
   for (const a of accounts) by.set(a.gifi, [...(by.get(a.gifi) ?? []), a]);
   return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([gifi, as]) => {
     const books = as.reduce((n, a) => n + (a.books ?? 0), 0), t = t2.get(gifi) ?? 0;
-    return { gifi, numbers: as.map((a) => a.number).sort(), books, t2: t, ties: books === t };
+    return { gifi, numbers: as.map((a) => a.number).sort(), books, t2: t, ties: Math.abs(books - t) < 100, rounding: Math.abs(books - t) < 100 ? books - t : 0 };
   });
 }
 
@@ -221,10 +243,10 @@ export function possibleAccounts(lines: { date: string; description: string; cen
 // ---------- The to-do list (round 22 correction, Hashim, Nov 16, 2026): the Next bar is the only to-do list on
 // the page. Its first item is the "Next:" line; "Show all" opens the whole list, each item with its own button.
 // The order: accounts, statements to check, gaps, the tie to step 2, the year edges, possible accounts, sign.
-export type TodoKind = "add" | "books" | "check" | "wrong" | "failed" | "none" | "gap" | "break" | "tie" | "edge" | "possible" | "reading" | "sign" | "done";
+export type TodoKind = "add" | "books" | "check" | "wrong" | "failed" | "none" | "gap" | "tie" | "edge" | "possible" | "reading" | "sign" | "done";
 export type Todo = { key: string; kind: TodoKind; text: string; account?: string | null; edge?: "start" | "end"; possible?: Possible };
 export type TodoFacts = {
-  accounts: { id: string; label: string; statements: number; gaps: string[]; breaks: number; books: number | null; reason: boolean;
+  accounts: { id: string; label: string; statements: number; gaps: number; books: number | null; reason: boolean;
     start: Edge; end: Edge; startDay: string; endDay: string }[];
   waiting: { account: string | null; label: string | null; n: number }[];   // statements ready or needing a look, per account
   reading: number; failed: number; wrong: number; ties: Tie[]; possible: Possible[]; signed: boolean;
@@ -242,9 +264,8 @@ export function todoList(f: TodoFacts): Todo[] {
   for (const a of f.accounts) {
     if (a.reason) continue;
     if (!a.statements) out.push({ key: `none-${a.id}`, kind: "none", account: a.id, text: `Upload statements for ${a.label}, or record why there are none.` });
-    else if (a.gaps.length) out.push({ key: `gap-${a.id}`, kind: "gap", account: a.id,
-      text: `Upload ${a.gaps.length === 1 ? `the ${a.gaps[0]} statement` : `${a.gaps.length} missing statements`} for ${a.label}, or record why there is none.` });
-    else if (a.breaks) out.push({ key: `break-${a.id}`, kind: "break", account: a.id, text: `A statement for ${a.label} does not follow the one before. Look for a missing statement.` });
+    else if (a.gaps) out.push({ key: `gap-${a.id}`, kind: "gap", account: a.id,
+      text: `${a.label} has ${s_(a.gaps, "gap")} in its statements. Upload the missing ${a.gaps === 1 ? "statement" : "statements"}, or record why.` });
   }
   for (const t of f.ties) if (!t.ties) out.push({ key: `tie-${t.gifi}`, kind: "tie",
     text: `GIFI ${t.gifi}: the accounts open at ${fmt(t.books)}, last year's T2 has ${fmt(t.t2)}, a difference of ${fmt(Math.abs(t.books - t.t2))}. Check each account's balance in the books, or step 2.` });
@@ -259,27 +280,32 @@ export function todoList(f: TodoFacts): Todo[] {
   return out;
 }
 
-// ---------- Gaps (point 6): consecutive months or cycles with no statement, as one red row each
-export type Gap = { from: string; to: string; after: CovStatement | null; before: CovStatement | null; waiting?: { id: string; file_name: string } | null };
-export function gapSegments(cells: Cell[], sts: CovStatement[], breaks: { after: CovStatement; before: CovStatement }[]): Gap[] {
-  const sorted = [...sts].sort((a, b) => a.period_start.localeCompare(b.period_start));
+// ---------- Gaps (point 6; round 22 fixes): one red row per gap, quoting the statement just before it and the
+// one just after. A gap is a run of days no statement covers (two statements that share a day, as some banks
+// print, leave none), or a break: two statements that meet but the opening is not the closing before.
+export type Gap = { kind: "missing" | "break"; from: string; to: string; after: CovStatement | null; before: CovStatement | null; waiting?: { id: string; file_name: string } | null };
+export function gapSegments(sts: CovStatement[], winFrom: string, winTo: string): Gap[] {
+  const sorted = [...sts].sort((a, b) => a.period_start.localeCompare(b.period_start) || a.period_end.localeCompare(b.period_end));
   const out: Gap[] = [];
-  for (const c of cells) {
-    if (c.state !== "missing" && c.state !== "part") continue;
-    const last = out[out.length - 1];
-    if (last && cells.indexOf(c) > 0 && ["missing", "part"].includes(cells[cells.indexOf(c) - 1].state)) last.to = c.to;
-    else out.push({ from: c.from, to: c.to, after: null, before: null });
+  const end = toDay(winTo);
+  let at = toDay(winFrom);
+  for (const s of sorted) {
+    if (at > end) break;
+    const a = toDay(s.period_start), b = toDay(s.period_end);
+    if (b < at) continue;
+    if (a > at) out.push({ kind: "missing", from: fromDay(at), to: fromDay(Math.min(a - 1, end)), after: null, before: null });
+    at = Math.max(at, b + 1);
   }
+  if (at <= end) out.push({ kind: "missing", from: fromDay(at), to: winTo, after: null, before: null });
   for (const g of out) {
-    g.after = [...sorted].reverse().find((x) => x.period_end < g.from) ?? null;
+    g.after = sorted.filter((x) => x.period_end < g.from).sort((x, y) => x.period_end.localeCompare(y.period_end)).pop() ?? null;
     g.before = sorted.find((x) => x.period_start > g.to) ?? null;
   }
-  // A break with no month missing: the period between the two statements (or, when they meet, the days
-  // around the join), as its own row.
-  const shift = (iso: string, n: number) => fromDay(toDay(iso) + n);
-  for (const b of breaks) if (!out.some((g) => g.after === b.after)) {
-    const from = shift(b.after.period_end, 1), to = shift(b.before.period_start, -1);
-    out.push(from <= to ? { from, to, after: b.after, before: b.before } : { from: b.after.period_end, to: b.before.period_start, after: b.after, before: b.before });
+  for (let i = 1; i < sorted.length; i++) {
+    const p = sorted[i - 1], n = sorted[i];
+    if (n.opening === p.closing || n.period_start > winTo || p.period_end < winFrom) continue;
+    if (out.some((g) => g.after === p && g.before === n)) continue;   // the missing row already quotes both
+    out.push({ kind: "break", from: n.period_start, to: n.period_start, after: p, before: n });
   }
   return out.sort((a, b) => a.from.localeCompare(b.from));
 }
