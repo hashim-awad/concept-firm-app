@@ -42,9 +42,7 @@ import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
-import { BankView } from "./bank-view";
-import { StatementImport } from "../../statements/statement-upload";
-import { listStatements } from "@/lib/statements/server";
+import { Step3Page } from "./step3/step3-page";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
@@ -288,12 +286,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       </div>
     );
   } else if (step === "records") {
+    // Round 22 (Hashim, Nov 16, 2026): step 3 reworked: accounts added here, a window per task, one "Next:".
     body = bankFile
-      ? <div className="grid gap-4">
-          {/* Round 20: PDF statements and photos, read in the background, beside the CSV upload. */}
-          <StatementImport fileId={id} initial={await listStatements(id)} canEdit={editable && file.phase !== "locked"} startOpen={str(sp.pdf) === "1"}
-            csvHref={`/closebook/${id}?step=records${bank!.selected ? `&account=${bank!.selected}&upload=${bank!.selected}` : "&upload=new"}`} />
-          <BankView dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} fileId={id} bank={bank!} editable={editable} locked={file.phase === "locked"} yearStart={file.year_start} yearEnd={file.year_end} upload={str(sp.upload) ?? null} error={str(sp.upload) ? messageFrom(sp.error) ?? null : null} /></div>
+      ? <Step3Page supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }} names={names} sp={sp} editable={editable && file.phase !== "locked"} signed={!!review.status.records?.prepared_at}
+          problems={review.status.records?.problems ?? []} error={messageFrom(sp.error) ?? null}
+          dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} />
       : tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile

@@ -2,7 +2,7 @@
 // Closebook step 3 or from the standalone tool (gear > Tools > Bank statement PDF to CSV). The reads go
 // through the user's own Supabase client, so the statement's row-level security decides who sees it.
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/dates";
@@ -17,6 +17,16 @@ export default async function VerifyPage({ params }: PageProps<"/statements/[id]
   if (!st) notFound();
   const { row, data, fileUrl, file } = st;
   const fileId = row.file_id;
+  // Round 22: a Closebook statement is checked in step 3's upload window (the standalone tool stays here).
+  if (fileId) {
+    const supabase = await createClient();
+    const [{ data: imp }, { data: done }] = await Promise.all([
+      supabase.from("cb_statement_imports").select("target_account").eq("id", id).maybeSingle(),
+      supabase.from("cb_bank_statements").select("account_id").eq("statement_import_id", id).limit(1).maybeSingle(),
+    ]);
+    const acc = (done?.account_id as string | undefined) ?? (imp?.target_account as string | null | undefined) ?? null;
+    redirect(`/closebook/${fileId}?step=records${acc ? `&account=${acc}` : ""}&upload=${acc ?? "all"}&check=${id}`);
+  }
 
   // "Statement 10 of 13": this file's (or my standalone) statements still to check, in the list's order.
   const list = await listStatements(fileId);

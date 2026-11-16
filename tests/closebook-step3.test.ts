@@ -112,3 +112,8 @@ test("Next: one action, in order", () => {
   assert.equal(nextAction({ ...base, accounts: [a()], possible: 1 }).action, "possible");
   assert.equal(nextAction({ ...base, accounts: [a()] }).text, "sign as preparer.");
 });
+
+test("coverage: statements waiting to check show yellow and give a card its cycle before any import", () => {
+  const c = coverageStrip("2025-09-01", "2026-08-31", [], {}, [{ period_start: "2025-08-16", period_end: "2025-09-15" }, { period_start: "2025-09-16", period_end: "2025-10-15" }]);
+  assert.deepEqual([c.cycleDay, c.cells.length, c.cells.slice(0, 3).map((x) => x.state), c.missing.length], [16, 13, ["wait", "wait", "missing"], 11]);
+});

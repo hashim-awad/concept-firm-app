@@ -269,7 +269,8 @@ export async function uploadBankStatement(formData: FormData) {
   const id = s(formData, "file_id");
   // A problem keeps the side panel open on the same account (or on "Add an account").
   const acct = s(formData, "account") || "new";
-  const back = `/closebook/${id}?step=records${acct !== "new" ? `&account=${acct}` : ""}&upload=${acct}`;
+  // Round 22: the CSV upload opens from the account's upload window (csv=<account>).
+  const back = `/closebook/${id}?step=records${acct !== "new" ? `&account=${acct}` : ""}&csv=${acct}`;
   const done = `/closebook/${id}?step=records`;
   await editor(back);
   const upload = formData.get("upload");

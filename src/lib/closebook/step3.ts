@@ -127,7 +127,7 @@ export function uploadState(r: UploadRowIn, ctx: { yearStart: string; yearEnd: s
 }
 
 // ---------- Coverage strip (point 2): bank months, or a card's own cycles
-export type Cell = { label: string; from: string; to: string; state: "in" | "part" | "missing" | "check" | "na" };
+export type Cell = { label: string; from: string; to: string; state: "in" | "part" | "missing" | "check" | "na" | "wait" };
 const DAY = 86400000;
 const toDay = (s: string) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / DAY;
 const fromDay = (d: number) => new Date(d * DAY).toISOString().slice(0, 10);
@@ -136,10 +136,12 @@ const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "O
 const addMonth = (s: string, k: number) => { const t = new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1 + k, +s.slice(8, 10))); return t.toISOString().slice(0, 10); };
 export type CovStatement = { period_start: string; period_end: string; opening: number; closing: number };
 
-export function coverageStrip(yearStart: string, yearEnd: string, sts: CovStatement[], window: { opened?: string | null; closed?: string | null } = {}): { cells: Cell[]; missing: Cell[]; breaks: { after: CovStatement; before: CovStatement }[]; cycleDay: number } {
+// pending: statements uploaded and waiting to check (yellow); they also tell a card's cycle before any import.
+export function coverageStrip(yearStart: string, yearEnd: string, sts: CovStatement[], window: { opened?: string | null; closed?: string | null } = {},
+  pending: { period_start: string; period_end: string }[] = []): { cells: Cell[]; missing: Cell[]; breaks: { after: CovStatement; before: CovStatement }[]; cycleDay: number } {
   const sorted = [...sts].sort((a, b) => a.period_start.localeCompare(b.period_start));
   // The cycle: the day the statements start on (1 = calendar months).
-  const days = sorted.map((s) => +s.period_start.slice(8, 10));
+  const days = [...sorted, ...pending].map((s) => +s.period_start.slice(8, 10));
   const cycleDay = days.length ? days.sort((a, b) => days.filter((x) => x === a).length - days.filter((x) => x === b).length).pop()! : 1;
   const cells: Cell[] = [];
   let from = cycleDay === 1 ? yearStart.slice(0, 8) + "01" : `${yearStart.slice(0, 7)}-${String(cycleDay).padStart(2, "0")}`;
@@ -163,6 +165,7 @@ export function coverageStrip(yearStart: string, yearEnd: string, sts: CovStatem
     if (a > b) { c.state = "na"; continue; }
     const k = covered(a, b);
     c.state = k === "all" ? "in" : k === "some" ? "part" : "missing";
+    if (c.state !== "in" && pending.some((x) => toDay(x.period_start) <= b && toDay(x.period_end) >= a)) c.state = "wait";
     if (c.state !== "missing" && breaks.some((x) => x.before.period_start >= c.from && x.before.period_start <= c.to)) c.state = "check";
   }
   return { cells, missing: cells.filter((c) => c.state === "missing" || c.state === "part"), breaks, cycleDay };
