@@ -3,22 +3,26 @@
 //   3.2 Bank feeds: one row per account with 12 month boxes and one status word; a row opens View statements.
 //   3.3 Reconcile: one tab per account; OPENING + MONEY IN − MONEY OUT = CLOSING against the BANK; the start
 //       band with Explain; the year's lines, 50 a page; "Find it" for any other difference.
-// Windows over the page, named by the address: add (and edit), upload, view, del, fix, find, explain.
+// Windows over the page, named by the address: add (and edit), upload, view, fix, find, explain. Round 24 (control
+// rules): excl (Exclude statement), repl (Replace file), line (a line's date and memo); View statements has
+// Imported and Excluded (vx=1). Nothing is deleted.
 // Rules for every screen: no sentences in rows, each action once, numbers right-aligned with negatives in brackets.
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { getStatement } from "@/lib/statements/server";
-import { loadBanking, loadFindIt, loadFix, type BankingAccount, type SubKey } from "@/lib/closebook/banking-server";
+import { loadBanking, loadFindIt, loadFix, loadSubsteps, type BankingAccount, type SubKey } from "@/lib/closebook/banking-server";
 import { typeLabel } from "@/lib/statements/types";
 import { formatDate } from "@/lib/dates";
 import type { AccountType } from "@/lib/closebook/step3";
 import { AddAccountWindow, Win } from "./windows";
 import { AutoImport, BankingUpload, type UploadSummary } from "./banking-upload";
 import { FixScreen } from "./fix-screen";
-import { Pill, date, money, span } from "./banking-ui";
+import { Menu, Pill, date, money, span } from "./banking-ui";
 import { addOutstanding, removeOutstanding, setCoverage } from "../../step3-actions";
-import { deleteStatement } from "../../banking-actions";
+import { ExcludeWindow, ExcludedActions, LineWindow, ReplaceWindow } from "./feed-windows";
+import { reasonLabel } from "@/lib/closebook/feed";
+import type { Lock } from "./guard";
 
 type Sp = Record<string, string | string[] | undefined>;
 const str = (v: unknown) => (typeof v === "string" ? v : undefined);
@@ -26,12 +30,14 @@ const PAPER: Record<SubKey, string> = { "3.1": "accounts", "3.2": "feeds", "3.3"
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const PAGE = 50;
 
-export async function BankingPage({ supabase, file, names, sp, editable, sub }: {
+export async function BankingPage({ supabase, file, names, sp, editable, sub, subs, isOwner = false, lock = null }: {
   supabase: SupabaseClient; file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null };
   names: Map<string, string>; sp: Sp; editable: boolean; sub: SubKey;
+  subs?: Awaited<ReturnType<typeof loadSubsteps>>;   // already read by the file page
+  isOwner?: boolean; lock?: Lock;                    // round 24: Purge is for owners; a signed 3.2 or 3.3 asks first
 }) {
   const fileId = file.id;
-  const d = await loadBanking(supabase, file, names, false);
+  const d = await loadBanking(supabase, file, names, false, subs);
   const base = `/closebook/${fileId}?step=records&paper=${PAPER[sub]}`;
   const accountId = str(sp.account);
   const tab = d.accounts.find((a) => a.id === accountId) ?? d.accounts[0] ?? null;
@@ -43,7 +49,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub }: 
   // ---------- Add or edit an account (3.1)
   if (editable && str(sp.add) === "1") {
     const e = d.accounts.find((a) => a.id === str(sp.edit)) ?? null;
-    win = <AddAccountWindow c={{ fileId, closeHref: base, then: "", dayBefore: formatDate(d.dayBefore), chartNumbers: d.chartNumbers, taken: d.taken, t2: {}, t2Entered: false,
+    win = <AddAccountWindow lock={lock} c={{ fileId, closeHref: base, then: "", dayBefore: formatDate(d.dayBefore), chartNumbers: d.chartNumbers, taken: d.taken, t2: {}, t2Entered: false,
       others: [], edit: e ? { id: e.id, number: e.number, type: (e.accountType ?? (e.kind === "bank" ? "chequing" : "card")) as AccountType, bank: e.bank, last4: e.last4 ?? "", books: e.books, longTerm: e.longTerm, hasStatements: e.statements.length > 0 } : null,
       prefill: { type: str(sp.type), last4: str(sp.last4), bank: str(sp.bank) } }} />;
   }
@@ -52,35 +58,65 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub }: 
   if (str(sp.upload) === "1" && editable && !win) {
     const a = d.accounts.find((x) => x.id === str(sp.acc)) ?? (d.accounts.length === 1 ? d.accounts[0] : null);
     win = <BankingUpload fileId={fileId} accounts={d.accounts.map((x) => ({ id: x.id, label: x.label }))} account={a?.id ?? null} opening={a?.books ?? null}
-      closeHref={`/closebook/${fileId}?step=records&paper=feeds`} summary={a ? uploadSummary(d, a) : null} fixBase={base} />;
+      closeHref={`/closebook/${fileId}?step=records&paper=feeds`} summary={a ? uploadSummary(d, a) : null} fixBase={base} lock={lock} />;
   }
 
-  // ---------- View statements (one line per statement, with delete; QuickBooks Online's)
+  // ---------- View statements (one line per statement; QuickBooks Online's). Round 24: Imported and Excluded; each
+  // imported statement's "..." menu: Download, Replace file, Exclude statement. Nothing is deleted.
   const viewing = d.accounts.find((a) => a.id === str(sp.view));
   if (viewing && !win) {
     const back = `${here}&view=${viewing.id}`;
+    const vx = str(sp.vx) === "1";
     const reason = [viewing.opened && `Opened ${date(viewing.opened)}`, viewing.closed && `Closed ${date(viewing.closed)}`, viewing.note].filter(Boolean).join(". ");
+    const tab = (on: boolean, href: string, label: string) => <Link href={href} scroll={false} className={`px-3 py-1 ${on ? "bg-navy-700 font-semibold text-white" : "text-ink-2 hover:bg-sand-50"}`}>{label}</Link>;
     win = (
-      <Win title="View statements" sub={viewing.label} closeHref={here} width={720}>
-        <table className="w-full text-[14px]">
-          <thead><tr className="border-b border-sand-200 text-left text-[11.5px] font-semibold tracking-[.06em] text-ink-3 uppercase"><th className="py-2">Period</th><th className="py-2">Uploaded on</th><th className="w-24" /></tr></thead>
-          <tbody>
-            {viewing.statements.map((s) => (
-              <tr key={s.id} className="border-b border-sand-100">
-                <td className="py-2.5">{span(s.period_start, s.period_end)}</td><td className="py-2.5 text-ink-2">{formatDate(s.uploaded_at)}</td>
-                <td className="py-2.5 text-right">{editable && <Link href={`${back}&del=${s.id}`} scroll={false} className="text-[13px] text-danger underline">Delete</Link>}</td>
-              </tr>
-            ))}
-            {viewing.toFix.map((u) => (
-              <tr key={u.id} className="border-b border-sand-100">
-                <td className="py-2.5">{u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name}</td><td className="py-2.5"><Pill tone="bad">1 to fix</Pill></td>
-                <td className="py-2.5 text-right"><Link href={`${base}&fix=${u.id}`} scroll={false} className="text-[13px] text-navy-700 underline">Fix it</Link></td>
-              </tr>
-            ))}
-            {!viewing.statements.length && !viewing.toFix.length && <tr><td colSpan={3} className="py-4 text-center text-ink-3">None uploaded.</td></tr>}
-          </tbody>
-        </table>
-        {editable && (viewing.gaps.length > 0 || !viewing.statements.length || reason) && (
+      <Win title="View statements" sub={viewing.label} closeHref={here} width={760}>
+        <div className="inline-flex w-fit overflow-hidden rounded-md border border-sand-300 text-[13px]">
+          {tab(!vx, back, "Imported")}<span className="border-l border-sand-300" />{tab(vx, `${back}&vx=1`, `Excluded (${viewing.excluded.length})`)}</div>
+        {!vx ? (
+          <table className="w-full text-[14px]">
+            <thead><tr className="border-b border-sand-200 text-left text-[11.5px] font-semibold tracking-[.06em] text-ink-3 uppercase"><th className="py-2">Period</th><th className="py-2">Uploaded on</th><th className="w-12" /></tr></thead>
+            <tbody>
+              {viewing.statements.map((s) => (
+                <tr key={s.id} className="border-b border-sand-100 align-top">
+                  <td className="py-2.5">{span(s.period_start, s.period_end)}
+                    {s.earlier.map((h) => <span key={h.id} className="block text-[12.5px] text-ink-3">Earlier file: {h.hasFile ? <a href={`/closebook/${fileId}/statement-pdf?h=${h.id}`} className="underline">{h.file_name}</a> : h.file_name}, replaced {formatDate(h.replaced_at)}{h.by ? ` by ${h.by}` : ""}</span>)}</td>
+                  <td className="py-2.5 text-ink-2">{formatDate(s.uploaded_at)}</td>
+                  <td className="py-1.5 text-right">
+                    <Menu label={`More for ${span(s.period_start, s.period_end)}`}>
+                      {s.attachment_path && <a href={`/closebook/${fileId}/statement-pdf?s=${s.id}`} className="block rounded px-3 py-2 hover:bg-sand-50">Download file</a>}
+                      {editable && s.source !== "csv" && <Link href={`${back}&repl=${s.id}`} scroll={false} className="block rounded px-3 py-2 hover:bg-sand-50">Replace file</Link>}
+                      {editable && <Link href={`${back}&excl=${s.id}`} scroll={false} className="block rounded px-3 py-2 hover:bg-sand-50">Exclude statement</Link>}
+                    </Menu>
+                  </td>
+                </tr>
+              ))}
+              {viewing.toFix.map((u) => (
+                <tr key={u.id} className="border-b border-sand-100">
+                  <td className="py-2.5">{u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name}</td><td className="py-2.5"><Pill tone="bad">1 to fix</Pill></td>
+                  <td className="py-2.5 text-right"><Link href={`${base}&fix=${u.id}`} scroll={false} className="text-[13px] text-navy-700 underline">Fix it</Link></td>
+                </tr>
+              ))}
+              {!viewing.statements.length && !viewing.toFix.length && <tr><td colSpan={3} className="py-4 text-center text-ink-3">None uploaded.</td></tr>}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-[14px]">
+            <thead><tr className="border-b border-sand-200 text-left text-[11.5px] font-semibold tracking-[.06em] text-ink-3 uppercase"><th className="py-2">Period</th><th className="py-2">Reason</th><th className="py-2">Excluded by</th><th /></tr></thead>
+            <tbody>
+              {viewing.excluded.map((x) => (
+                <tr key={x.id} className="border-b border-sand-100 align-top">
+                  <td className="py-2.5">{span(x.period_start, x.period_end)}<span className="block text-[12.5px] text-ink-3">{x.lines} line{x.lines === 1 ? "" : "s"}{x.hasFile ? <> · <a href={`/closebook/${fileId}/statement-pdf?x=${x.id}`} className="underline">file</a></> : null}</span></td>
+                  <td className="py-2.5">{reasonLabel(x.reason, x.note)}</td>
+                  <td className="py-2.5 text-ink-2">{x.by}<span className="block text-[12.5px] text-ink-3">{formatDate(x.at)}</span></td>
+                  <td className="py-2.5 text-right">{editable && <ExcludedActions fileId={fileId} statement={x.id} canPurge={isOwner && x.reason === "wrong_client"} />}</td>
+                </tr>
+              ))}
+              {!viewing.excluded.length && <tr><td colSpan={4} className="py-4 text-center text-ink-3">None excluded.</td></tr>}
+            </tbody>
+          </table>
+        )}
+        {editable && !vx && (viewing.gaps.length > 0 || !viewing.statements.length || reason) && (
           <details className="rounded-[10px] border border-sand-200 px-4 py-3" open={!!reason}>
             <summary className="cursor-pointer text-[13.5px] font-semibold text-navy-700">Record why a period has no statement</summary>
             <form action={setCoverage} className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -96,18 +132,23 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub }: 
     );
   }
 
-  // ---------- Delete a statement: how many of its lines are coded, first
-  const del = d.accounts.flatMap((a) => a.statements.map((s) => ({ a, s }))).find((x) => x.s.id === str(sp.del));
-  if (del && editable) {
-    const back = `${here}&view=${del.a.id}`;
-    win = (
-      <Win title="Delete statement" sub={`${del.a.label} · ${span(del.s.period_start, del.s.period_end)}`} closeHref={back} width={560} footer={<>
-        <span className="flex-1" /><Link href={back} scroll={false} className="btn-secondary">Cancel</Link>
-        <button type="submit" form="del-statement" className="btn h-9 bg-danger hover:bg-danger/90">Delete</button></>}>
-        <form id="del-statement" action={deleteStatement}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="statement" value={del.s.id} /><input type="hidden" name="back" value={back} /></form>
-        <p className="text-[14.5px]">{del.s.coded ? <><b>{del.s.coded} of its {del.s.lines} lines are coded in step 4.</b> Deleting the statement removes its lines and their coding.</> : <>Deleting the statement removes its {del.s.lines} line{del.s.lines === 1 ? "" : "s"}.</>}</p>
-      </Win>
-    );
+  // ---------- Exclude statement, Replace file (round 24)
+  const pick = (k: string) => d.accounts.flatMap((a) => a.statements.map((s) => ({ a, s }))).find((x) => x.s.id === str(sp[k]));
+  const excl = pick("excl"), repl = pick("repl");
+  if (excl && editable) {
+    const back = `${here}&view=${excl.a.id}`;
+    win = <ExcludeWindow fileId={fileId} statement={excl.s.id} title="Exclude statement" sub={`${excl.a.label} · ${span(excl.s.period_start, excl.s.period_end)}`} closeHref={back}
+      lineHref={`/closebook/${fileId}?step=code&account=${excl.a.id}&line=`} explainHref={`/closebook/${fileId}?step=records&paper=reconcile&account=${excl.a.id}&explain=${excl.a.id}&edge=start`} />;
+  } else if (repl && editable) {
+    win = <ReplaceWindow fileId={fileId} statement={repl.s.id} sub={`${repl.a.label} · ${span(repl.s.period_start, repl.s.period_end)}`} closeHref={`${here}&view=${repl.a.id}`} />;
+  }
+
+  // ---------- A line: its date and memo (round 24)
+  const lineAcc = str(sp.line) ? d.accounts.find((a) => a.lines.some((l) => l.id === str(sp.line))) : undefined;
+  const lineOne = lineAcc?.lines.find((l) => l.id === str(sp.line));
+  if (lineAcc && lineOne && editable && !win) {
+    win = <LineWindow fileId={fileId} closeHref={here} yearStart={d.yearStart} yearEnd={d.yearEnd}
+      line={{ id: lineOne.id, bankDate: lineOne.date, acctDate: lineOne.acctDate, description: lineOne.description, cents: lineOne.cents, memo: lineOne.memo, account: lineAcc.label }} />;
   }
 
   // ---------- Fix a misread line (image 5)
@@ -217,14 +258,14 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub }: 
       </section>
     );
   } else {
-    body = tab ? reconcile(d, tab, base, here, opening, closingDay, Math.max(1, Number(str(sp.page) ?? "1") || 1)) : <p className="text-[14.5px] text-ink-3">Add the accounts in 3.1 first.</p>;
+    body = tab ? reconcile(d, tab, base, here, opening, closingDay, Math.max(1, Number(str(sp.page) ?? "1") || 1), editable) : <p className="text-[14.5px] text-ink-3">Add the accounts in 3.1 first.</p>;
   }
 
   return (
     <>
       {body}
       {win}
-      {editable && sub !== "3.1" && !str(sp.upload) && <AutoImport items={d.pending.map((u) => ({ id: u.id, account: u.account! }))} />}
+      {editable && sub !== "3.1" && !str(sp.upload) && <AutoImport fileId={fileId} locked={!!lock} items={d.pending.map((u) => ({ id: u.id, account: u.account!, file: u.file_name }))} />}
     </>
   );
 }
@@ -241,12 +282,12 @@ function uploadSummary(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
     reading: mine.filter((u) => u.state.status === "reading").length,
     refused: mine.filter((u) => ["wrong_account", "no_account", "already", "copy", "outside"].includes(u.state.status))
       .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" || u.state.status === "copy" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
-    pending: d.pending.filter((u) => u.account === a.id).map((u) => u.id),
+    pending: d.pending.filter((u) => u.account === a.id).map((u) => ({ id: u.id, file: u.file_name })),
   };
 }
 
 // 3.3: the tabs, the band, the start band, the year's lines.
-function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount, base: string, here: string, opening: string, closingDay: string, page: number) {
+function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount, base: string, here: string, opening: string, closingDay: string, page: number, editable: boolean) {
   const b = a.band;
   const missing = a.statements.length ? a.gaps.length : 0;
   const word = (x: BankingAccount) => (x.toFix.length ? `${x.toFix.length} to fix` : !x.statements.length ? "Not uploaded" : x.gaps.length ? `${x.gaps.length} missing` : null);
@@ -299,16 +340,18 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
       <section aria-label="Transactions" className="overflow-hidden rounded-[14px] border border-sand-200 bg-white">
         <table className="w-full text-[14.5px]">
           <thead><tr className="border-b border-sand-200 text-[12px] font-semibold tracking-[.06em] text-ink-3 uppercase">
-            <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th></tr></thead>
+            <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th><th className="w-10" /></tr></thead>
           <tbody>
             {shown.map((l) => (
               <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding ? "text-ink-3" : ""}`}>
-                <td className="px-6 py-3 whitespace-nowrap">{date(l.date)}</td><td className="px-3 py-3">{l.description}</td>
+                <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}</td>
+                <td className="px-3 py-3">{l.description}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{l.cents > 0 ? money(l.cents) : ""}</td><td className="px-3 py-3 text-right tabular-nums">{l.cents < 0 ? money(-l.cents) : ""}</td>
                 <td className="px-6 py-3 text-right tabular-nums">{money(l.bal)}</td>
+                <td className="pr-3 text-right">{editable && <Link href={`${base}&account=${a.id}&page=${p}&line=${l.id}`} scroll={false} aria-label={`Date and memo for ${l.description}`} className="text-[12.5px] text-navy-700 underline">Edit</Link>}</td>
               </tr>
             ))}
-            {!shown.length && <tr><td colSpan={5} className="px-6 py-5 text-ink-3">No transactions yet.</td></tr>}
+            {!shown.length && <tr><td colSpan={6} className="px-6 py-5 text-ink-3">No transactions yet.</td></tr>}
           </tbody>
         </table>
         <div className="flex flex-wrap items-center gap-5 px-6 py-3.5 text-[14px]">

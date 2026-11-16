@@ -65,9 +65,9 @@ select test.check('the money-in line is matched and carries no account',
   (select status || '|' || coalesce(chart_account, '-') || '|' || coalesce(tax_code, '-') || '|' || source from public.cb_bank_lines where id = :'s_in') = 'matched|-|-|transfer');
 select test.check('one transfer row, out and in', (select out_line::text || in_line::text from public.cb_bank_transfers where id = :'t1') = :'c_tfr' || :'s_in');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the activity log names both accounts (owners read it)',
-  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'transfer_matched' and step = 'code'
-           and detail = 'Transfer of 500.00 from Chequing 4521 on Mar 13 to Savings 7788 on Mar 14'));
+select test.check('the activity log names both accounts and lines, once (owners read it)',
+  (select count(*) from public.cb_file_history where file_id = :'f' and action = 'transfer_matched' and step = 'code'
+           and new_value like 'Chequing 4521 (Mar 13, 2026 · % · -500.00) to Savings 7788 (Mar 14, 2026 · % · 500.00)' and line_id = :'c_tfr'::uuid) = 1);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 
 -- ---------- One line in one transfer
@@ -104,8 +104,8 @@ select test.check('both lines are back to code, cleared',
   (select string_agg(status || '|' || coalesce(chart_account, '-') || '|' || coalesce(tax_code, '-') || '|' || source, ',' order by txn_date) from public.cb_bank_lines where id in (:'c_tfr', :'s_in')) = 'new|-|-|,new|-|-|'
   and not exists (select 1 from public.cb_bank_transfers where id = :'t1'));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the undo is in the activity log', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'transfer_undone'
-  and detail = 'Transfer of 500.00 from Chequing 4521 on Mar 13 to Savings 7788 on Mar 14'));
+select test.check('the undo is in the activity log (round 24: with both lines)', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'transfer_unmatched'
+  and old_value like 'Chequing 4521 (Mar 13, 2026 · % · -500.00) to Savings 7788 (Mar 14, 2026 · % · 500.00)'));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('undo on a line not in a transfer says so', test.try(format($q$select public.cb_undo_transfer(%L, %L)$q$, :'f', :'c_coffee')) like '%not part of a transfer%');
 select public.cb_uncode_lines(:'f', array[:'c_visa']::uuid[]) as undone \gset
@@ -113,13 +113,19 @@ select test.check('Undo on a coded transfer line (the round 2 Undo) undoes the w
   (select string_agg(status, ',') from public.cb_bank_lines where id in (:'c_visa', :'v_pay')) = 'new,new' and not exists (select 1 from public.cb_bank_transfers where file_id = :'f'));
 select test.check('accept again after undo', public.cb_accept_transfer(:'f', :'c_tfr', :'s_in') is not null);
 
--- ---------- Removing a statement removes its transfers; the other line goes back to code
-select public.cb_delete_bank_statement((select statement_id from public.cb_bank_lines where id = :'s_in'));
-select test.check('the chequing line is back to code', (select status || '|' || coalesce(chart_account, '-') || '|' || source from public.cb_bank_lines where id = :'c_tfr') = 'new|-|'
+-- ---------- Round 24: a statement in a transfer is not excluded until the transfer is undone
+select (public.cb_exclude_statement((select statement_id from public.cb_bank_lines where id = :'s_in'), 'wrong_account', '') -> 'blockers' -> 0 ->> 'kind') as kind \gset
+select test.check('a statement with a matched transfer line is not excluded', :'kind' = 'transfer');
+select public.cb_undo_transfer(:'f', :'s_in');
+-- Its other line is coded to Clearing: uncoded first (each undo is logged).
+select public.cb_uncode_lines(:'f', array(select id from public.cb_bank_lines where statement_id = (select statement_id from public.cb_bank_lines where id = :'s_in') and status = 'done'));
+select (public.cb_exclude_statement((select statement_id from public.cb_bank_lines where id = :'s_in'), 'wrong_account', '') ->> 'ok') as ok \gset
+select test.check('after the undo it is excluded; the chequing line is back to code', :'ok' = 'true'
+  and (select status || '|' || coalesce(chart_account, '-') || '|' || source from public.cb_bank_lines where id = :'c_tfr') = 'new|-|'
   and not exists (select 1 from public.cb_bank_transfers where file_id = :'f'));
 
--- ---------- A locked file
-select (public.cb_upload_bank(:'f', null, 'Savings 7788', 'bank', 'sav.csv', 0, 500,
+-- ---------- A locked file (round 24: the excluded statement's account stays, so the new one is another account)
+select (public.cb_upload_bank(:'f', null, 'Savings 7799', 'bank', 'sav.csv', 0, 500,
   '[{"line":2,"date":"2026-03-14","description":"TFR FROM CHQ 4521","amount":500}]', '2026-03-01', '2026-03-31')) ->> 'account_id' as sav2 \gset
 select id as s_in2 from public.cb_bank_lines where account_id = :'sav2' \gset
 select public.cb_accept_transfer(:'f', :'c_tfr', :'s_in2') as t3 \gset

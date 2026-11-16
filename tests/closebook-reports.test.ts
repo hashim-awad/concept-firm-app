@@ -43,8 +43,8 @@ test("trial balance columns: prelim, adjust (AJE and TJE), reclass (RJE), final,
   const tb = trialBalance(accounts.map((a) => (a.key === "chart:10000" ? { ...a, lastCents: 480000 } : a)),
     [...postings, e("chart:65100", 5000, "AJE", "e1"), e("chart:10000", -5000, "AJE", "e1"), e("chart:65100", 700, "TJE", "e2"), e("chart:10000", -700, "TJE", "e2"), e("chart:21500", 300, "RJE", "e3"), e("chart:10000", -300, "RJE", "e3")]);
   const bank = tb.find((t) => t.key === "chart:10000")!;
-  assert.deepEqual([bank.prelim, bank.adjust, bank.reclass, bank.final, bank.last, bank.diff], [500000 + 113000 - 11300 - 2000, -5700, -300, 593700, 480000, 113700]);
-  assert.deepEqual(tb.map((t) => t.number), ["10000", "21500", "40200", "65100", "", "", ""], "by account number; holding accounts and last year's net income last");
+  assert.deepEqual([bank.prelim, bank.adjust, bank.reclass, bank.final, bank.last, bank.diff], [500000 + 113000 - 11300, -5700, -300, 595700, 480000, 115700]);   // round 24: the uncoded line (l3) is in the feed, not the books
+  assert.deepEqual(tb.map((t) => t.number), ["10000", "21500", "40200", "65100", "", ""], "by account number; the opening holding account and last year's net income last (round 24: no uncoded row)");
   assert.equal(tb.reduce((n, t) => n + t.final, 0), 0);
   // Last year's column balances: what is missing (here 4,800.00 debit) shows as last year's net income.
   const ni = tb.find((t) => t.key === NI_LAST)!;
@@ -107,14 +107,14 @@ test("statements: grouped by lead sheet, net income in equity, not yet sorted un
   assert.equal(s.pl.revenue.now, 100000);
   assert.equal(s.pl.expenses.now, 10000);
   assert.equal(s.pl.net.now, 90000);
-  assert.deepEqual(s.bs.assets.groups.map((g) => [g.name, g.now]), [["A Cash and bank", 599700]]);
+  assert.deepEqual(s.bs.assets.groups.map((g) => [g.name, g.now]), [["A Cash and bank", 601700]]);
   assert.deepEqual(s.bs.equity.groups.map((g) => [g.code, g.now]), [["SC", 0], ["RE", 0], ["PPA", 0], ["net-income", 90000], ["DIV", 0]]);
-  // Opening balances to enter (5,000.00 credit) and the uncoded payment (20.00 debit) are not yet sorted.
-  assert.equal(s.bs.unsorted!.now, 500000 - 2000);   // shown on the credit side: the uncoded payment is a debit
+  // Opening balances to enter (5,000.00 credit) are not yet sorted. Round 24: an uncoded line posts nothing.
+  assert.equal(s.bs.unsorted!.now, 500000);
   assert.ok(s.bs.balanced);
   // Everything sorted: the section goes.
   const sorted = postings.filter((p) => p.key !== "uncoded" && p.key !== "opening");
-  const fixed: Posting[] = [...sorted, { key: "chart:65100", cents: 2000, date: "2026-04-01", kind: "bank", ref: "l3", label: "" }, { key: "chart:31000", cents: -500000, date: "2026-01-01", kind: "opening", ref: "gifi:3849", label: "" }];
+  const fixed: Posting[] = [...sorted, { key: "chart:31000", cents: -500000, date: "2026-01-01", kind: "opening", ref: "gifi:3849", label: "" }];
   const s2 = statements(trialBalance([...accounts, { key: "chart:31000", number: "31000", name: "Retained earnings", line_no: "3600.00", lastCents: 0 }], fixed), (l) => info(l) ?? (l === "3600.00" ? { type: "Equity", sheet: "GG", sheetName: "Retained earnings and dividends" } : null));
   assert.equal(s2.bs.unsorted, null);
 });
@@ -122,7 +122,7 @@ test("statements: grouped by lead sheet, net income in equity, not yet sorted un
 test("general ledger: date order, running balance, date filter carries the balance before", () => {
   const { postings, accounts } = sample();
   const [bank] = ledger(accounts, postings, { key: "chart:10000" });
-  assert.deepEqual(bank.lines.map((l) => [l.date, l.kind, l.running]), [["2026-01-01", "opening", 500000], ["2026-02-03", "bank", 613000], ["2026-03-09", "bank", 601700], ["2026-04-01", "bank", 599700]]);
+  assert.deepEqual(bank.lines.map((l) => [l.date, l.kind, l.running]), [["2026-01-01", "opening", 500000], ["2026-02-03", "bank", 613000], ["2026-03-09", "bank", 601700]]);   // round 24: l3 is not coded
   const [march] = ledger(accounts, postings, { key: "chart:10000", from: "2026-03-01", to: "2026-03-31" });
   assert.equal(march.before, 613000);
   assert.deepEqual(march.lines.map((l) => [l.ref, l.running]), [["l2", 601700]]);
@@ -133,9 +133,9 @@ test("journal: one transaction per source, filter by source", () => {
   const { postings } = sample();
   const all = journal(postings);
   assert.equal(all[0].label, "Opening balances");
-  assert.deepEqual(all.map((t) => t.kind), ["opening", "bank", "bank", "bank"]);
+  assert.deepEqual(all.map((t) => t.kind), ["opening", "bank", "bank"]);
   for (const t of all) assert.equal(t.lines.reduce((n, l) => n + l.cents, 0), 0, "every transaction balances");
-  assert.deepEqual(journal(postings, "bank").map((t) => t.ref), ["l1", "l2", "l3"]);
+  assert.deepEqual(journal(postings, "bank").map((t) => t.ref), ["l1", "l2"], "round 24: an uncoded line is not in the journal");
   assert.deepEqual(journal(postings, "entry"), []);
 });
 
@@ -155,12 +155,12 @@ test("exports: the same table as the page, and an Excel file with the stamp that
   assert.equal(sheet.rows[0][0], "Trial balance by group");
   assert.equal(sheet.rows[3][0], "Working paper: not for the client");
   assert.deepEqual(sheet.rows[5].slice(0, 3), ["Number", "Account", "GIFI"]);
-  assert.equal(sheet.rows[7][6], 5997, "amounts in dollars, as numbers");
+  assert.equal(sheet.rows[7][6], 6017, "amounts in dollars, as numbers");
   assert.equal(reportTable(d, { report: "tb", view: "flat" }).rows[0].cells[0], "10000", "flat: no groups");
   const j = reportTable(d, { report: "journal" });
   assert.deepEqual(j.rows.slice(-4).map((r) => [r.cells[2], r.cells[4]]), [["Net income before entries", 90000], ["Adjusting and tax entries (AJE, TJE)", 0], ["Reclassifying entries (RJE)", 0], ["Adjusted net income", 90000]]);
   for (const r of ["bs", "pl", "gl", "journal"]) assert.ok(reportTable(d, { report: r }).rows.length > 0, r);
-  assert.deepEqual(reportTable(d, { report: "journal", source: "bank" }).rows.filter((r) => r.bold).map((r) => r.cells[2]).slice(0, 3), ["SAMPLE COMMISSION", "SAMPLE STAPLES", "SAMPLE UNKNOWN"]);
+  assert.deepEqual(reportTable(d, { report: "journal", source: "bank" }).rows.filter((r) => r.bold).map((r) => r.cells[2]).slice(0, 2), ["SAMPLE COMMISSION", "SAMPLE STAPLES"]);
 });
 
 test("last year without Schedule 125: net income is the figure that ties last year's balance sheet", () => {

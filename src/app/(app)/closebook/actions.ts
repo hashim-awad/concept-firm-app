@@ -8,7 +8,6 @@ import { readXlsx } from "@/lib/closebook/xlsx";
 import { parseCsv } from "@/lib/closebook/seed";
 import { readAccountList, readTrialBalance } from "@/lib/closebook/tb-import";
 import { suggestLine, type Line } from "@/lib/closebook/matching";
-import { balanceCheck, dollars, flipRows, looksReversed, readBankUpload, REVERSED, typedCents } from "@/lib/closebook/bank-upload";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadFile } from "@/lib/closebook/server";
@@ -263,74 +262,8 @@ export async function explainFlagInline(fileId: string, account: string, reason:
 
 // ---------- Bank and card statements (part 2b; Hashim, Nov 13, 2026) ----------
 
-// Upload one statement in Concept's bank upload template. The file is read here (every problem named by
-// line), the balance is checked here and again in the database, which refuses anything that does not tie.
-export async function uploadBankStatement(formData: FormData) {
-  const id = s(formData, "file_id");
-  // A problem keeps the side panel open on the same account (or on "Add an account").
-  const acct = s(formData, "account") || "new";
-  // Round 22: the CSV upload opens from the account's upload window (csv=<account>).
-  const back = `/closebook/${id}?step=records${acct !== "new" ? `&account=${acct}` : ""}&csv=${acct}`;
-  const done = `/closebook/${id}?step=records`;
-  await editor(back);
-  const upload = formData.get("upload");
-  if (!(upload instanceof File) || upload.size === 0) redirect(withMessage(back, "error", "Choose the statement file (CSV, in Concept's bank upload template)."));
-  const f = upload as File;
-  if (!/\.csv$/i.test(f.name)) redirect(withMessage(back, "error", "Upload a CSV file in Concept's bank upload template (Date, Description, Amount). Save Excel files as CSV first."));
-  const read0 = readBankUpload(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer())));
-  // "Flip signs and re-check": the signs turned over; the flipped lines must still tie to the cent.
-  const read = s(formData, "flip") === "1" ? { ...read0, rows: flipRows(read0.rows) } : read0;
-  if (read.errors.length) {
-    const more = read.errors.length > 5 ? ` And ${read.errors.length - 5} more.` : "";
-    redirect(withMessage(back, "error", `Nothing was uploaded. ${read.errors.slice(0, 5).join(" ")}${more}`));
-  }
-  const opening = typedCents(s(formData, "opening")), closing = typedCents(s(formData, "closing"));
-  if (opening === null || closing === null) redirect(withMessage(back, "error", "Enter the statement's opening and closing balances, as shown on the statement (up to 2 decimals)."));
-  const chk = balanceCheck(opening!, closing!, read.rows);
-  if (!chk.ok && looksReversed(opening!, closing!, read.rows)) redirect(withMessage(back, "error", `Nothing was uploaded. ${REVERSED}`));
-  if (!chk.ok) {
-    redirect(withMessage(back, "error", `Nothing was uploaded: the statement does not balance. Opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = ${dollars(chk.expectedCents)}, but the closing balance is ${dollars(closing!)}. Difference: ${dollars(chk.differenceCents)}. Check the balances, the signs (account type) and the file.`));
-  }
-  const account = s(formData, "account");
-  // The same lines already in the file, on any account (round 2 item 5): stop before saving, unless the
-  // preparer confirmed they are real (two equal charges on one day happen).
-  const rowsJson = read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 }));
-  if (s(formData, "dup_ok") !== "1") {
-    const { data: dups } = await (await createClient()).rpc("cb_duplicate_lines", { p_file: id, p_rows: rowsJson });
-    const list = (dups ?? []) as { row_no: number; account_name: string }[];
-    const rowsHit = new Set(list.map((d) => d.row_no)).size;
-    if (list.length) redirect(withMessage(back, "error", `Nothing was uploaded: ${rowsHit} of ${read.rows.length} lines are already in this file (${[...new Set(list.map((d) => d.account_name))].join(", ")}). Choose the file again to see them.`));
-  }
-  // The statement period: as the preparer confirmed it, else the file's first and last dates.
-  const dates = read.rows.map((r) => r.date).sort();
-  const pStart = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_start")) ? s(formData, "period_start") : dates[0];
-  const pEnd = /^\d{4}-\d{2}-\d{2}$/.test(s(formData, "period_end")) ? s(formData, "period_end") : dates[dates.length - 1];
-  const { data, error } = await (await createClient()).rpc("cb_upload_bank", {
-    p_period_start: pStart, p_period_end: pEnd,
-    p_file: id, p_account: account && account !== "new" ? account : null, p_name: s(formData, "name"), p_kind: s(formData, "kind"), p_file_name: f.name,
-    p_opening: opening! / 100, p_closing: closing! / 100,
-    p_rows: rowsJson,
-  });
-  if (error) redirect(withMessage(back, "error", `Nothing was uploaded. ${error.message}`));
-  const d = data as { statement: string; account: string; account_id: string; lines: number; first: string; last: string; outside_year: number };
-  // Uploaded although already in the file (the preparer confirmed): those lines go to the reviewer (round 3 item 4).
-  if (s(formData, "dup_ok") === "1") await (await createClient()).rpc("cb_flag_uploaded_duplicates", { p_file: id, p_statement: d.statement });
-  await rebuildTb(await createClient(), id);
-  revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(`${done}&account=${encodeURIComponent(d.account_id)}`, "msg",
-    `Uploaded ${d.lines} transactions for ${d.account}, ${d.first} to ${d.last}. Balanced: opening ${dollars(opening!)} + transactions ${dollars(chk.totalCents)} = closing ${dollars(closing!)}.${d.outside_year ? ` ${d.outside_year} fall outside the file's year.` : ""}`));
-}
-
-export async function deleteBankStatement(formData: FormData) {
-  const id = s(formData, "file_id");
-  const back = `/closebook/${id}?step=records`;
-  await editor(back);
-  const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(formData, "statement") });
-  if (error) redirect(withMessage(back, "error", error.message));
-  await rebuildTb(await createClient(), id);
-  revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, "msg", "Statement removed, with its transactions."));
-}
+// Round 24 (Hashim, Nov 16, 2026): the old CSV upload and "Remove statement" are gone. Statements go in through
+// step 3.2 (the upload window) and are never deleted: a wrong one is excluded, with a reason, in View statements.
 
 // ---------- Step 3, coding (Hashim, Nov 13, 2026) ----------
 
@@ -467,17 +400,6 @@ export async function uploadOpeningPdfInline(formData: FormData): Promise<string
 
 
 // The lines of an upload already in the file (round 2 item 5), shown before Upload.
-export async function findDuplicatesInline(fileId: string, rows: { line: number; date: string; description: string; cents: number }[]) {
-  const { data } = await (await createClient()).rpc("cb_duplicate_lines", { p_file: fileId, p_rows: rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })) });
-  // One row per statement line, with every account it is already on (the same line can sit on two).
-  const byRow = new Map<number, { row_no: number; txn_date: string; description: string; amount: number; account_name: string }>();
-  for (const d of (data ?? []) as { row_no: number; txn_date: string; description: string; amount: number; account_name: string }[]) {
-    const cur = byRow.get(d.row_no);
-    if (!cur) byRow.set(d.row_no, { ...d });
-    else if (!cur.account_name.split(", ").includes(d.account_name)) cur.account_name += `, ${d.account_name}`;
-  }
-  return [...byRow.values()];
-}
 
 // ---------- Round 8: sign-offs, review notes, the completion checklist (Hashim, Nov 24, 2026) ----------
 // Every form names the page to come back to; only a page of the same file is accepted.

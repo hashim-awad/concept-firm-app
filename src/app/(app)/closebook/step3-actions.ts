@@ -1,6 +1,6 @@
 "use server";
 // Closebook step 3 (round 22, Hashim, Nov 16, 2026): accounts, coverage reasons, outstanding items, "Not ours",
-// Undo import, the upload window's target account and Skip, and the import of a checked statement (only its
+// the upload window's target account and Skip, and the import of a checked statement (only its
 // lines inside the year; the whole statement checked). The database checks every rule again.
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -36,7 +36,7 @@ export async function saveBankAccount(f: FormData) {
   const c = parseAmount(s(f, "balance") || "0");
   if (c === null || c < 0) redirect(withMessage(back, "error", "Enter the balance as a positive number, for example 1,957.62."));
   const { data, error } = await (await createClient()).rpc("cb_save_bank_account", { p_file: id, p_id: acc, p_type: s(f, "type"), p_bank: s(f, "bank"), p_last4: s(f, "last4"),
-    p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on" });
+    p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on", p_confirm: s(f, "confirm") === "1" });
   // Back where it was opened from (the main page, or the check stage after "Add it").
   // "__new__" in the address stands for the account just added (the upload window's "+ Add account").
   const then = s(f, "then").startsWith(`/closebook/${id}?`) ? s(f, "then").replaceAll("__new__", String(data ?? acc ?? "")) : `${base(id)}&account=${data ?? acc ?? ""}`;
@@ -69,20 +69,25 @@ export async function addOutstanding(f: FormData) {
   if (s(f, "kind") === "rounding") {
     const { error } = await (await createClient()).rpc("cb_add_outstanding", { p_account: acc, p_edge: s(f, "edge"), p_date: null, p_description: null,
       p_dir: null, p_amount: null, p_cleared_line: null, p_kind: "rounding" });
-    return done(id, back, error, "Rounding added.", true);
+    return done(id, back, error, "Rounding added.");
   }
   const c = parseAmount(s(f, "amount"));
   if (c === null || c <= 0) redirect(withMessage(back, "error", "Enter the amount as a positive number."));
   const { error } = await (await createClient()).rpc("cb_add_outstanding", { p_account: acc, p_edge: s(f, "edge"), p_date: s(f, "date") || null, p_description: s(f, "description"),
     p_dir: s(f, "dir"), p_amount: c! / 100, p_cleared_line: s(f, "cleared_line") || null, p_kind: "item" });
-  await done(id, back, error, "Outstanding item added.", true);
+  // Round 24: an item that names its line takes that line's posting out (it is last year's): the trial balance
+  // changes only then.
+  await done(id, back, error, "Outstanding item added.", !!s(f, "cleared_line"));
 }
 export async function removeOutstanding(f: FormData) {
   const id = s(f, "file_id"), acc = s(f, "account");
   const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
   await editor(back);
-  const { error } = await (await createClient()).rpc("cb_remove_outstanding", { p_id: s(f, "item") });
-  await done(id, back, error, "Outstanding item removed.", true);
+  const supabase = await createClient();
+  const { data: item } = await supabase.from("cb_bank_outstanding").select("cleared_line").eq("id", s(f, "item")).maybeSingle();
+  const { error } = await supabase.rpc("cb_remove_outstanding", { p_id: s(f, "item") });
+  // Its line gets its coding back: the posting returns.
+  await done(id, back, error, "Outstanding item removed.", !!item?.cleared_line);
 }
 
 // ---------- "Possible account not set up" (point 18): Not ours
@@ -91,15 +96,6 @@ export async function setNotOurs(f: FormData) {
   await editor(base(id));
   const { error } = await (await createClient()).rpc("cb_set_not_ours", { p_file: id, p_last4: s(f, "last4"), p_label: s(f, "label"), p_not_ours: s(f, "undo") !== "1" });
   await done(id, base(id), error, s(f, "undo") === "1" ? "Not ours taken back." : `${s(f, "label")} marked Not ours.`);
-}
-
-// ---------- Undo import (point 5): the coded lines are listed first, on the window.
-export async function undoImport(f: FormData) {
-  const id = s(f, "file_id"), acc = s(f, "account");
-  const back = `${base(id)}&account=${acc}`;
-  await editor(back);
-  const { error } = await (await createClient()).rpc("cb_delete_bank_statement", { p_statement: s(f, "statement") });
-  await done(id, back, error, "Import undone. The statement is back in the upload list to check.", true);
 }
 
 // ---------- The upload window
@@ -123,8 +119,9 @@ export async function skipStatement(id: string, skip: boolean, status: "ready" |
 // Import one checked statement into the file: each account found goes to the file's account it is for (the
 // upload window's account, or the one its last digits match). Every line is sent; the database keeps only
 // those inside the year and checks the whole statement. The first call without confirmation returns the
-// lines already in the file and imports nothing.
-export async function importChecked(id: string, target: string | null, confirmDuplicates: boolean): Promise<
+// lines already in the file and imports nothing. Round 24: an import goes to the bank feed only; nothing posts,
+// so the trial balance is not rebuilt. confirm: the person agreed to remove a 3.2 or 3.3 sign-off (rule 17).
+export async function importChecked(id: string, target: string | null, confirmDuplicates: boolean, confirm = false): Promise<
   { ok: true; imported: true; lines: number; outside: number; accounts: string[]; warnings: string[] } | { ok: true; imported: false; duplicates: { accountKey: string; lineIds: string[] }[] } | Fail> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return fail("You need Edit on Closebook to import.");
@@ -194,11 +191,11 @@ export async function importChecked(id: string, target: string | null, confirmDu
         deleted: asReadAcc ? asReadAcc.lines.filter((l) => !ids.has(l.id)).length : 0 },
     };
   });
-  const { data: res, error } = await supabase.rpc("cb_import_statement", { p_import: id, p_accounts: payload, p_confirm_dups: confirmDuplicates, p_attachment: attachment });
+  const { data: res, error } = await supabase.rpc("cb_import_statement", { p_import: id, p_accounts: payload, p_confirm_dups: confirmDuplicates, p_attachment: attachment, p_confirm: confirm });
   if (error) { await docs.remove([attachment]); return fail(`Nothing was imported. ${error.message}`); }
-  await rebuildTb(supabase, fileId);
   revalidatePath(`/closebook/${fileId}`);
   const out = (res ?? []) as { lines: number; outside: number; account: string }[];
   return { ok: true, imported: true, lines: out.reduce((n, r) => n + Number(r.lines), 0), outside: out.reduce((n, r) => n + Number(r.outside), 0),
     accounts: chosen.map((c) => `${c.to.number} ${c.to.name}`), warnings };
 }
+

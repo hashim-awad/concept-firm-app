@@ -45,9 +45,12 @@ select test.add(:'f', :'chq', '2026-05-01', '2026-06-02', 900.00, 1000.00);
 select test.add(:'f', :'chq', '2026-07-02', '2026-08-03', 1100.00, 1200.00);
 select test.check('all thirteen in: no gap', (select count(*) from public.cb_bank_statements where account_id = :'chq') = 13 and test.rp(:'f') not like '%missing%');
 -- A break with nothing missing is one gap.
+-- (Round 24: a statement's figures are read-only; the fixture turns the guard off to make the break.)
+alter table public.cb_bank_statements disable trigger cb_statement_readonly;
 update public.cb_bank_statements set opening = 1199.00, plus_total = plus_total + 1 where account_id = :'chq' and period_start = '2026-08-03';
 select test.check('a statement that does not follow the one before is one gap', test.rp(:'f') like '%: 1 missing.%');
 update public.cb_bank_statements set opening = 1200.00, plus_total = plus_total - 1 where account_id = :'chq' and period_start = '2026-08-03';
+alter table public.cb_bank_statements enable trigger cb_statement_readonly;
 
 -- The CSV path follows the same rule.
 select test.check('the CSV path: a shared day is not an overlap',

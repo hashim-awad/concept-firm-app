@@ -8,6 +8,7 @@ import { findTransfers, type TransferAccount, type TransferCandidate } from "./t
 export type ChartAccount = { number: string; name: string; account_type: string; tax_default: string; note: string };
 export type CodeLine = {
   id: string; account_id: string; txn_date: string; description: string; amount: number; status: "new" | "done" | "ask_client" | "reviewer" | "matched";
+  acct_date: string; memo: string;   // round 24: the accounting date (the posting's) and the preparer's memo
   chart_account: string | null; tax_code: string | null; reviewer_reason: string; source: string;
   suggestion: Suggestion | null; key: string;
   // Round 20: the lines this one could be a transfer with (closest date first), and the transfer it is in.
@@ -30,7 +31,7 @@ export async function loadCoding(supabase: SupabaseClient, fileId: string, clien
     supabase.from("cb_sales_tax_codes").select("code, name, provinces").order("sort_order"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", yearEnd).order("effective_from"),
     supabase.from("cb_vendor_rules").select("vendor_key, chart_account, tax_code").eq("client_id", clientId),
-    supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, tax_code, reviewer_reason, source").eq("file_id", fileId).order("txn_date").order("row_no").limit(20000),
+    supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, memo, description, amount, status, chart_account, tax_code, reviewer_reason, source").eq("file_id", fileId).order("txn_date").order("row_no").limit(20000),
     // How this client's file coded each vendor: this year's file and last year's.
     // Transfers (round 20) are left out: they are matched, not coded by vendor.
     supabase.from("cb_bank_lines").select("description, chart_account, tax_code, coded_at, file:file_id!inner(client_id, year_end)").eq("status", "done").neq("source", "transfer").eq("file.client_id", clientId)

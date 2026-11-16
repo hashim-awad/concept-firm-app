@@ -131,7 +131,8 @@ select test.check('the conversion record is on the statement', (select source = 
 select test.check('the lines are in, signed', (select array_agg(amount order by row_no) from public.cb_bank_lines where file_id = :'f') = array[50.00, -100.00]::numeric[]);
 select test.check('the account keeps the last digits it was added with', (select last4 from public.cb_bank_accounts where id = :'acc0') = '4321');
 select test.check('the job is imported, by whom and when', (select status = 'imported' and imported_by = :A::uuid and imported_at is not null from public.cb_statement_imports where id = :'j2'));
-select test.check('the import is in the file history', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_imported' and detail like '%1 account, 2 lines%'));
+select test.check('the import is in the file history (round 24: one entry per statement, with the statement)', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_imported'
+  and detail = 'Statement imported: 2 lines in the year.' and statement_id is not null and import_id = :'j2'::uuid));
 select test.check('an imported job is not imported twice', test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'j2', '[' || :'acc1' || ']')) like '%not ready%');
 select test.check('an imported job is not discarded', test.try(format($q$select public.statement_discard(%L)$q$, :'j2')) like '%is imported%');
 select test.check('CSV uploads are marked csv', (select column_default from information_schema.columns where table_name = 'cb_bank_statements' and column_name = 'source') like '''csv''%');

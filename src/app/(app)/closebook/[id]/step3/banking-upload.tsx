@@ -12,7 +12,8 @@ import { notify } from "@/components/save-state";
 import { AmountInput } from "@/components/amount";
 import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements } from "../../../statements/actions";
 import { importChecked, setStatementTarget } from "../../step3-actions";
-import { importCsv } from "../../banking-actions";
+import { importCsv, unlockFeed } from "../../banking-actions";
+import { guarded, lockMessage, type Lock } from "./guard";
 
 let storage: ReturnType<typeof createClient>["storage"] | null = null;
 const browserStorage = () => (storage ??= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } }).storage);
@@ -24,7 +25,7 @@ export type UploadSummary = {
   lines: number; yearLabel: string; outside: number; closing: number | null; bank: number | null; matches: boolean | null; startOff: number | null;
   missing: string[]; toFix: { id: string; label: string }[]; reading: number;
   refused: { id: string; file: string; why: string }[];      // statements for another account, or already in
-  pending: string[];                                           // read and passing: imported here by themselves
+  pending: { id: string; file: string }[];                     // read and passing: imported here by themselves
 };
 
 // Refusals stay listed after the file is removed, for this session.
@@ -35,9 +36,32 @@ const addRefused = (f: string, a: string, x: { file: string; why: string }) => {
 };
 const subscribe = (cb: () => void) => { window.addEventListener("banking-refused", cb); return () => window.removeEventListener("banking-refused", cb); };
 
-export function BankingUpload({ fileId, accounts, account, opening, closeHref, summary, fixBase }: {
+// Speed (Hashim, Nov 16, 2026): each statement is tried once per session. A server call in progress makes every
+// click wait (Next.js runs them in turn), so a statement that keeps failing must not be tried on every visit.
+// A failure is listed with its reason. Round 24: an import goes to the bank feed; nothing posts, so the trial
+// balance is not rebuilt.
+const TRIED = (f: string) => `banking-tried:${f}`;
+const triedIds = (f: string): Set<string> => { try { return new Set(JSON.parse(sessionStorage.getItem(TRIED(f)) || "[]") as string[]); } catch { return new Set(); } };
+async function importOnce(fileId: string, items: { id: string; account: string; file: string }[]): Promise<number> {
+  const tried = triedIds(fileId);
+  let n = 0;
+  for (const x of items) {
+    if (tried.has(x.id)) continue;
+    tried.add(x.id);
+    try { sessionStorage.setItem(TRIED(fileId), JSON.stringify([...tried])); } catch { /* tried this time only */ }
+    try {
+      const r = await importChecked(x.id, x.account, false);
+      if (r.ok && r.imported) n++;
+      else addRefused(fileId, x.account, { file: x.file, why: r.ok ? "Not imported: some of its lines are already in this file. Check it in View statements." : `Not imported: ${r.error}` });
+    } catch { addRefused(fileId, x.account, { file: x.file, why: "Not imported: the import did not finish. Upload it again." }); }
+  }
+  return n;
+}
+
+export function BankingUpload({ fileId, accounts, account, opening, closeHref, summary, fixBase, lock }: {
   fileId: string; accounts: { id: string; label: string }[]; account: string | null; opening: number | null; closeHref: string; summary: UploadSummary | null;
   fixBase: string;   // the address the fix screen opens on, with &fix=<id> added
+  lock: Lock;        // round 24: 3.2 or 3.3 signed; nothing is uploaded until the sign-off is removed
 }) {
   const router = useRouter();
   const [sending, setSending] = useState(0);
@@ -60,12 +84,12 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
   // Everything that passes goes in by itself; refusals are removed and listed.
   const work = (summary?.pending.length ?? 0) + (summary?.refused.length ?? 0);
   useEffect(() => {
-    if (!summary || !account || busy || !work) return;
+    if (!summary || !account || busy || !work || lock) return;
     let stop = false;
     (async () => {
       setBusy(true);
       for (const r of summary.refused) { if (stop) break; addRefused(fileId, account, { file: r.file, why: r.why }); await discardStatement(r.id); }
-      for (const id of summary.pending) { if (stop) break; try { await importChecked(id, account, false); } catch { /* it stays to fix */ } }
+      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })));
       setBusy(false);
       router.refresh();
     })();
@@ -99,8 +123,9 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
   const done = async () => {
     if (csv && account) {
       setBusy(true);
-      const r = await importCsv(fileId, account, csv.name, csv.text, open, close);
+      const r = await guarded((confirm) => importCsv(fileId, account, csv.name, csv.text, open, close, confirm));
       setBusy(false);
+      if (!r) return;
       if (!r.ok) { setError(r.error); return; }
       setCsv(null);
     }
@@ -120,13 +145,23 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
         <div className="flex items-center gap-3 border-b border-sand-200 px-7 py-5"><h2 className="text-[19px] font-semibold">Upload statements</h2><span className="flex-1" />
           <Link href={closeHref} scroll={false} aria-label="Close" className="grid h-8 w-8 place-items-center rounded hover:bg-sand-100"><X className="h-5 w-5" /></Link></div>
         <div className="grid gap-4 px-7 py-6">
-          <label className="grid gap-2"><span className="text-[14px] font-semibold">Account</span>
+          {!lock && <label className="grid gap-2"><span className="text-[14px] font-semibold">Account</span>
             <select aria-label="Account" value={account ?? ""} className="input h-11 text-[15px]"
               onChange={(e) => router.push(`/closebook/${fileId}?step=records&paper=feeds&upload=1&acc=${e.target.value}`)}>
               {!account && <option value="">Choose the account</option>}
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select></label>
-          {account && !csv && (
+            </select></label>}
+          {lock && (
+            <div className="grid gap-2 rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14px]" role="alert">
+              <span>{lock.label} {lock.label.includes(" and ") ? "are" : "is"} signed. {lockMessage(lock)}</span>
+              {lock.canRemove && <span><button type="button" className="btn h-9" disabled={busy} onClick={async () => {
+                setBusy(true); const r = await unlockFeed(fileId); setBusy(false);
+                if (!r.ok) notify(r.error, "error"); router.refresh();
+              }}>Continue</button></span>}
+            </div>
+          )}
+          {/* Round 24 (Hashim, Nov 16, 2026): refused by a sign-off lock, the window shows only the refusal. */}
+          {!lock && account && !csv && (
             <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); send([...e.dataTransfer.files]); }}
               className="block cursor-pointer rounded-[10px] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
               Drop all the year&rsquo;s statements (PDF), or one CSV file. <span className="text-navy-700 underline">Choose files</span>
@@ -134,7 +169,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
                 className="sr-only" onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; send(f); }} />
             </label>
           )}
-          {csv && (
+          {!lock && csv && (
             <div className="grid gap-3 rounded-[10px] border border-sand-200 bg-sand-50/60 px-4 py-3.5">
               <p className="text-[14px]"><b>{csv.name}</b></p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -145,8 +180,8 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
               </div>
             </div>
           )}
-          {error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
-          {s && (
+          {!lock && error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
+          {!lock && s && (
             <ul className="grid gap-3">
               {(reading > 0 || busy) && row("busy", reading ? `Reading ${reading} statement${reading === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
               {s.lines > 0 && row("ok", <><b>{s.lines.toLocaleString("en-CA")} transactions</b> added for {s.yearLabel}</>, "lines")}
@@ -161,23 +196,24 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
           )}
         </div>
         <div className="flex justify-end border-t border-sand-200 px-7 py-4">
-          <button type="button" onClick={done} disabled={busy || (!!csv && (!open || !close))} className="btn h-11 px-8 text-[15px]">Done</button>
+          <button type="button" onClick={done} disabled={busy || (!!csv && (!open || !close))} className="btn h-11 px-8 text-[15px]">{lock ? "Close" : "Done"}</button>
         </div>
       </div>
     </div>
   );
 }
 
-// On the 3.2 and 3.3 pages: statements read in the background that pass go in by themselves.
-export function AutoImport({ items }: { items: { id: string; account: string }[] }) {
+// On the 3.2 and 3.3 pages: statements read in the background that pass go in by themselves (each tried once).
+// Round 24: not while 3.2 or 3.3 is signed (the upload window asks first).
+export function AutoImport({ fileId, items, locked }: { fileId: string; items: { id: string; account: string; file: string }[]; locked: boolean }) {
   const router = useRouter();
   const key = items.map((x) => x.id).join(",");
   useEffect(() => {
-    if (!items.length) return;
+    if (!items.length || locked) return;
     let stop = false;
     (async () => {
-      for (const x of items) { if (stop) break; try { await importChecked(x.id, x.account, false); } catch { /* it stays to fix */ } }
-      if (!stop) router.refresh();
+      const n = await importOnce(fileId, items);
+      if (!stop && n) router.refresh();
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

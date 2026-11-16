@@ -8,6 +8,9 @@ import { X } from "lucide-react";
 import { AmountInput } from "@/components/amount";
 import { accountName, nextNumber, placement, type AccountType } from "@/lib/closebook/step3";
 import { saveBankAccount } from "../../step3-actions";
+import { confirmAction } from "@/components/save-state";
+import { parseAmount } from "@/lib/closebook/amount";
+import { lockMessage, type Lock } from "./guard";
 
 export function Win({ title, sub, closeHref, width = 620, children, footer }: { title: string; sub?: string; closeHref: string; width?: number; children: React.ReactNode; footer?: React.ReactNode }) {
   return (
@@ -37,8 +40,11 @@ export type AddCtx = {
   prefill: { type?: string; last4?: string; bank?: string };
 };
 
-export function AddAccountWindow({ c }: { c: AddCtx }) {
+// Round 24 (rule 17): changing the balance at last year end while 3.2 or 3.3 is signed asks first.
+export function AddAccountWindow({ c, lock = null }: { c: AddCtx; lock?: Lock }) {
   const e = c.edit;
+  const [confirmed, setConfirmed] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
   const pre = (c.prefill.type === "card" || c.prefill.type === "loc" || c.prefill.type === "loan") ? c.prefill.type : c.prefill.type === "savings" ? "savings" : "chequing";
   const [type, setType] = useState<AccountType>(e?.type ?? (pre as AccountType));
   const [bank, setBank] = useState(e?.bank ?? c.prefill.bank ?? "");
@@ -58,14 +64,29 @@ export function AddAccountWindow({ c }: { c: AddCtx }) {
   const ready = bank.trim() && digits.length >= 2;
   const neg = p.kind === "bank" ? `Overdrawn on ${c.dayBefore}` : `In credit on ${c.dayBefore} (the bank owed the company)`;
   const fixed = !!e?.hasStatements;
+  // Refused by a sign-off lock: the window shows only the refusal (Hashim, Nov 16, 2026).
+  if (refused) return (
+    <Win title="Edit account" closeHref={c.closeHref} width={520} footer={<><span className="flex-1" /><Link href={c.closeHref} scroll={false} className="btn h-9">Close</Link></>}>
+      <p className="rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{refused}</p>
+    </Win>
+  );
   return (
     <Win title={e ? "Edit account" : "Add account"} closeHref={c.closeHref} footer={<>
       <span className="flex-1" />
       <Link href={c.closeHref} scroll={false} className="btn-secondary">Cancel</Link>
       <button type="submit" form="add-account" disabled={!ready} className="btn h-9">{e ? "Save" : "Add account"}</button>
     </>}>
-      <form id="add-account" action={saveBankAccount} className="grid gap-4">
+      <form id="add-account" action={saveBankAccount} className="grid gap-4" onSubmit={async (ev) => {
+        const typed = parseAmount(balance || "0"), was = e?.books ?? null;
+        const now = typed === null ? null : negative ? -typed : typed;
+        if (!lock || !e || confirmed || now === was) return;
+        ev.preventDefault();
+        if (!lock.canRemove) { setRefused(lockMessage(lock)); return; }
+        const form = ev.currentTarget;
+        if (await confirmAction({ title: lockMessage(lock), confirm: "Continue" })) { setConfirmed(true); setTimeout(() => form.requestSubmit(), 0); }
+      }}>
         <input type="hidden" name="file_id" value={c.fileId} />
+        {confirmed && <input type="hidden" name="confirm" value="1" />}
         {e && <input type="hidden" name="account" value={e.id} />}
         <input type="hidden" name="back" value={`${c.closeHref}${c.closeHref.includes("?") ? "&" : "?"}add=1${e ? `&edit=${e.id}` : ""}`} />
         <input type="hidden" name="then" value={c.then} />

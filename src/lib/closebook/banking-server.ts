@@ -20,6 +20,16 @@ export type BankingAccount = S3Account & {
 export type Banking = Omit<Step3, "accounts"> & { accounts: BankingAccount[]; boxes: TieBox[]; rounding: { gifi: string; title: string; cents: number }[];
   subs: Record<SubKey, SubStatus>; pending: S3Upload[] };
 
+// Round 24 (rule 17): what a signed 3.2 or 3.3 locks. canRemove: the person may remove it (a preparer's sign-off,
+// or a reviewer's when they are the reviewer or an owner). The database decides again on every change.
+export function feedLock(subs: Record<SubKey, SubStatus> | null, reviewerOrOwner: boolean, me: string | null): { label: string; canRemove: boolean } | null {
+  if (!subs) return null;
+  const on = (["3.2", "3.3"] as const).filter((k) => subs[k].prepared_at);
+  if (!on.length) return null;
+  const reviewed = on.filter((k) => subs[k].reviewed_at);
+  return { label: on.join(" and "), canRemove: !reviewed.length || reviewerOrOwner || on.some((k) => !!me && subs[k].reviewed_by === me) };
+}
+
 export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Promise<Record<SubKey, SubStatus>> {
   const { data } = await supabase.rpc("cb_substep_status", { p_file: fileId });
   const none: SubStatus = { prepared_by: null, prepared_at: null, reviewed_by: null, reviewed_at: null, problems: [] };
@@ -28,8 +38,8 @@ export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Pr
 }
 
 export async function loadBanking(supabase: SupabaseClient, file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null },
-  names: Map<string, string>, signed: boolean): Promise<Banking> {
-  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), loadSubsteps(supabase, file.id),
+  names: Map<string, string>, signed: boolean, known?: Record<SubKey, SubStatus> | null): Promise<Banking> {
+  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id)]);
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
   const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books })), t2);

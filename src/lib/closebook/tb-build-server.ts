@@ -1,5 +1,6 @@
 // Rebuilds the trial balance of a bank-statement file from its coded lines (src/lib/closebook/tb-build.ts)
-// and saves it. Called after every upload, removal, coding, undo and "Ask client". The reports read the
+// and saves it. Round 24: called only when something posts (coding, uncoding, a transfer, an outstanding item on
+// a coded line, an accounting date, an entry, the opening balances, an account's balance), never on upload. The reports read the
 // same inputs live (livePostings), so they never depend on a stored copy.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildLedger, type BuildBank, type BuildChart, type BuildLine, type BuildOpening } from "./tb-build";
@@ -53,10 +54,9 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const fileId = f.id, yearEnd = f.year_end;
   const province = ((f.client as { province: string } | null)?.province ?? "ON");
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
-  const [{ data: banks }, { data: sts }, { data: lines }, { data: chart }, { data: codes }, { data: parts }, { data: transfers }] = await Promise.all([
+  const [{ data: banks }, { data: lines }, { data: chart }, { data: codes }, { data: parts }, { data: transfers }] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number, books_opening, gifi_line").eq("file_id", fileId),
-    supabase.from("cb_bank_statements").select("account_id, period_start, opening").eq("file_id", fileId).order("period_start"),
-    supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("txn_date").limit(50000),
+    supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("acct_date").limit(50000),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", yearEnd).order("effective_from"),
@@ -85,8 +85,6 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   // File accounts already numbered for GIFI lines with no standard chart account keep their numbers.
   const { data: own } = await supabase.from("cb_accounts").select("account_key, number").eq("file_id", fileId).like("account_key", "gifi:%");
   const fileNumbers = new Map<string, string>(((own ?? []) as { account_key: string; number: string }[]).filter((a) => /^\d{5}$/.test(a.number)).map((a) => [a.account_key.slice(5), a.number]));
-  const firstOpening = new Map<string, number>();
-  for (const s of (sts ?? []) as { account_id: string; opening: number }[]) if (!firstOpening.has(s.account_id)) firstOpening.set(s.account_id, Math.round(Number(s.opening) * 100));
   const latest = new Map<string, TaxPart & { code: string }>();
   for (const p of (parts ?? []) as (TaxPart & { code: string })[]) latest.set(`${p.code}|${p.name}`, { ...p, rate: Number(p.rate) });
   const codeMap = new Map<string, TaxCode>(((codes ?? []) as { code: string; name: string; provinces: string[] | null }[])
@@ -95,13 +93,15 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const lineAccount = new Map(((lines ?? []) as { id: string; account_id: string }[]).map((l) => [l.id, l.account_id]));
   const transferTo = new Map(((transfers ?? []) as { out_line: string; in_line: string }[]).map((t) => [t.out_line, lineAccount.get(t.in_line) ?? null]));
   return {
-    // Round 22: an account added in step 3 opens at its balance in the books; one made on import before
-    // round 22 still opens at its first statement's opening.
+    // Round 22: an account added in step 3 opens at its balance in the books. Round 24: never at a statement's
+    // opening (uploading must not move the trial balance); an account with no balance yet opens at 0.00, and 3.1
+    // asks for it.
     banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string; number: string; books_opening: number | null; gifi_line: string | null }[]).map((b) => ({
       id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, lineNo: b.gifi_line,
-      fromBooks: b.books_opening !== null, openingCents: b.books_opening !== null ? Math.round(Number(b.books_opening) * 100) : firstOpening.get(b.id) ?? 0 })),
-    lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
-      .map((l) => ({ ...l, date: l.txn_date, cents: Math.round(Number(l.amount) * 100), transfer_bank: transferTo.get(l.id) ?? null })),
+      fromBooks: b.books_opening !== null, openingCents: b.books_opening !== null ? Math.round(Number(b.books_opening) * 100) : 0 })),
+    // Round 24: a posting carries the line's accounting date (the bank date until the preparer changes it).
+    lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; acct_date: string | null; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
+      .map((l) => ({ ...l, date: l.acct_date ?? l.txn_date, cents: Math.round(Number(l.amount) * 100), transfer_bank: transferTo.get(l.id) ?? null })),
     chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),
     codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start, fileNumbers,
   };

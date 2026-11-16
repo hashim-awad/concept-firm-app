@@ -92,9 +92,14 @@ update public.cb_bank_lines set status = 'done', chart_account = '65100', coded_
 set role authenticated;
 select id as mar from public.cb_bank_statements where account_id = :'chq' and period_start = '2026-03-01' \gset
 select test.check('H11: the statement has 1 coded line (the screen says so first)', (select count(*) from public.cb_bank_lines where statement_id = :'mar' and status <> 'new') = 1);
-select public.cb_delete_bank_statement(:'mar');
-select test.check('H11: deleting it removes its lines, coded or not; 3.2 clears and shows March missing',
-  not exists (select 1 from public.cb_bank_lines where statement_id = :'mar') and test.sp(:'f', '3.2') = array['10000 Chequing · RBC ••• 2468: 1 missing.']::text
+-- Round 24: a statement is not deleted; with a coded line it is not excluded either, until the line is uncoded.
+select public.cb_exclude_statement(:'mar', 'wrong_period', '') as ex \gset
+select test.check('H11 (round 24): excluding it is refused while its line is coded; the line is listed', (:'ex'::jsonb ->> 'ok') = 'false'
+  and jsonb_array_length(:'ex'::jsonb -> 'blockers') = 1 and (:'ex'::jsonb -> 'blockers' -> 0 ->> 'kind') = 'coded');
+select public.cb_uncode_lines(:'f', array(select id from public.cb_bank_lines where statement_id = :'mar' and status <> 'new'));
+select (public.cb_exclude_statement(:'mar', 'wrong_period', '', true) ->> 'ok') as ok \gset
+select test.check('H11: after the uncode it is excluded; its lines leave the feed; 3.2 clears and shows March missing', :'ok' = 'true'
+  and not exists (select 1 from public.cb_bank_lines where statement_id = :'mar') and test.sp(:'f', '3.2') = array['10000 Chequing · RBC ••• 2468: 1 missing.']::text
   and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.2'));
 
 -- ---------- H9: one CSV for the whole year, on a second account
