@@ -544,6 +544,14 @@ begin
       end if;
     end if;
   end loop;
+  -- Months a statement covers with no transactions (round 8): check the statements are complete.
+  select count(*) into v_n from (
+    select ba.id, mo from public.cb_bank_accounts ba
+     cross join generate_series(date_trunc('month', v_file.year_start::timestamp), v_file.year_end::timestamp, interval '1 month') mo
+     where ba.file_id = p_file
+       and exists (select 1 from public.cb_bank_statements s where s.account_id = ba.id and s.period_start <= (mo + interval '1 month - 1 day')::date and s.period_end >= mo::date)
+       and not exists (select 1 from public.cb_bank_lines l where l.file_id = p_file and l.account_id = ba.id and date_trunc('month', l.txn_date::timestamp) = mo)) x;
+  if v_n > 0 then v_out := v_out || format('%s month%s with no transactions: check the statements are complete.', v_n, case when v_n = 1 then '' else 's' end); end if;
   -- Nothing waiting to check: statements read or reading, not outside the year and not already imported.
   select count(*) into v_n from public.cb_statement_imports i
    where i.file_id = p_file and i.status in ('queued', 'reading', 'ready', 'needs_look', 'failed')
