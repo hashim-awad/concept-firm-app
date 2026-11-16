@@ -218,32 +218,79 @@ export function possibleAccounts(lines: { date: string; description: string; cen
   return [...out.values()].sort((a, b) => b.count - a.count);
 }
 
-// ---------- The "Next:" line (point 1): one action, in this order
-export type NextFacts = {
-  accounts: { id: string; label: string; statements: number; missing: string[]; breaks: number; books: number | null; reason: boolean; edgeOff: boolean }[];
+// ---------- The to-do list (round 22 correction, Hashim, Nov 16, 2026): the Next bar is the only to-do list on
+// the page. Its first item is the "Next:" line; "Show all" opens the whole list, each item with its own button.
+// The order: accounts, statements to check, gaps, the tie to step 2, the year edges, possible accounts, sign.
+export type TodoKind = "add" | "books" | "check" | "wrong" | "failed" | "none" | "gap" | "break" | "tie" | "edge" | "possible" | "reading" | "sign" | "done";
+export type Todo = { key: string; kind: TodoKind; text: string; account?: string | null; edge?: "start" | "end"; possible?: Possible };
+export type TodoFacts = {
+  accounts: { id: string; label: string; statements: number; gaps: string[]; breaks: number; books: number | null; reason: boolean;
+    start: Edge; end: Edge; startDay: string; endDay: string }[];
   waiting: { account: string | null; label: string | null; n: number }[];   // statements ready or needing a look, per account
-  reading: number; failed: number; wrong: number; tiesOff: string[]; possible: number; signed: boolean;
+  reading: number; failed: number; wrong: number; ties: Tie[]; possible: Possible[]; signed: boolean;
 };
-export type Next = { text: string; action: "add" | "check" | "upload" | "books" | "gap" | "tie" | "edge" | "failed" | "wrong" | "possible" | "sign" | "done"; account?: string };
-export function nextAction(f: NextFacts): Next {
-  if (!f.accounts.length) return { text: "add the bank and card accounts. Start with the one on last year's T2.", action: "add" };
-  const noBooks = f.accounts.find((a) => a.books === null);
-  if (noBooks) return { text: `enter the balance in the books for ${noBooks.label}.`, action: "books", account: noBooks.id };
-  const w = [...f.waiting].sort((a, b) => b.n - a.n)[0];
-  if (w && w.n) return { text: `check ${w.n} statement${w.n === 1 ? "" : "s"}${w.label ? ` for ${w.label}` : ""}.`, action: "check", account: w.account ?? undefined };
-  if (f.wrong) return { text: `move ${f.wrong} statement${f.wrong === 1 ? "" : "s"} uploaded to the wrong account.`, action: "wrong" };
-  if (f.failed) return { text: `retry or remove ${f.failed} statement${f.failed === 1 ? "" : "s"} that could not be read.`, action: "failed" };
-  const none = f.accounts.find((a) => !a.statements && !a.reason);
-  if (none) return { text: `upload statements for ${none.label}.`, action: "upload", account: none.id };
-  const gap = f.accounts.find((a) => a.missing.length && !a.reason);
-  if (gap) return { text: `upload ${gap.missing.length === 1 ? `the ${gap.missing[0]} statement` : `${gap.missing.length} missing statements`} for ${gap.label}, or record why there is none.`, action: "gap", account: gap.id };
-  const br = f.accounts.find((a) => a.breaks);
-  if (br) return { text: `a statement for ${br.label} does not follow the one before. Look for a missing statement.`, action: "gap", account: br.id };
-  if (f.tiesOff.length) return { text: `fix the difference on GIFI ${f.tiesOff.join(" and ")}: check each account's balance in the books, or last year's T2 in step 2.`, action: "tie" };
-  const ed = f.accounts.find((a) => a.edgeOff);
-  if (ed) return { text: `explain the year-edge difference on ${ed.label} with outstanding items.`, action: "edge", account: ed.id };
-  if (f.reading) return { text: `wait for ${f.reading} statement${f.reading === 1 ? "" : "s"} still reading.`, action: "check" };
-  if (f.possible) return { text: "look at the possible account not set up below: add it, or mark it Not ours.", action: "possible" };
-  if (!f.signed) return { text: "sign as preparer.", action: "sign" };
-  return { text: "step 3 is signed. Go on to step 4, Code transactions.", action: "done" };
+const s_ = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+export function todoList(f: TodoFacts): Todo[] {
+  const out: Todo[] = [];
+  if (!f.accounts.length) return [{ key: "add", kind: "add", text: "Add the bank and card accounts. Start with the ones on last year's T2." }];
+  for (const a of f.accounts) if (a.books === null) out.push({ key: `books-${a.id}`, kind: "books", account: a.id, text: `Enter the balance in the books for ${a.label}.` });
+  for (const w of [...f.waiting].filter((x) => x.n).sort((x, y) => y.n - x.n)) {
+    out.push({ key: `check-${w.account ?? "all"}`, kind: "check", account: w.account, text: `Check ${s_(w.n, "statement")}${w.label ? ` for ${w.label}` : ""}.` });
+  }
+  if (f.wrong) out.push({ key: "wrong", kind: "wrong", text: `Move ${s_(f.wrong, "statement")} uploaded to the wrong account.` });
+  if (f.failed) out.push({ key: "failed", kind: "failed", text: `Retry or remove ${s_(f.failed, "statement")} that could not be read.` });
+  for (const a of f.accounts) {
+    if (a.reason) continue;
+    if (!a.statements) out.push({ key: `none-${a.id}`, kind: "none", account: a.id, text: `Upload statements for ${a.label}, or record why there are none.` });
+    else if (a.gaps.length) out.push({ key: `gap-${a.id}`, kind: "gap", account: a.id,
+      text: `Upload ${a.gaps.length === 1 ? `the ${a.gaps[0]} statement` : `${a.gaps.length} missing statements`} for ${a.label}, or record why there is none.` });
+    else if (a.breaks) out.push({ key: `break-${a.id}`, kind: "break", account: a.id, text: `A statement for ${a.label} does not follow the one before. Look for a missing statement.` });
+  }
+  for (const t of f.ties) if (!t.ties) out.push({ key: `tie-${t.gifi}`, kind: "tie",
+    text: `GIFI ${t.gifi}: the accounts open at ${fmt(t.books)}, last year's T2 has ${fmt(t.t2)}, a difference of ${fmt(Math.abs(t.books - t.t2))}. Check each account's balance in the books, or step 2.` });
+  for (const a of f.accounts) for (const [k, e, day] of [["start", a.start, a.startDay], ["end", a.end, a.endDay]] as const) {
+    if (!e.explained && e.difference !== null) out.push({ key: `edge-${k}-${a.id}`, kind: "edge", account: a.id, edge: k,
+      text: `${a.label}: the statements show ${fmt(e.statements!)} on ${day} and the books ${fmt(e.books!)}. Explain the difference of ${fmt(Math.abs(e.difference - e.items))}.` });
+  }
+  for (const p of f.possible) out.push({ key: `possible-${p.last4}`, kind: "possible", possible: p,
+    text: `Possible account not set up: ${p.label}. ${s_(p.count, "payment")} from a bank account go${p.count === 1 ? "es" : ""} to it, for example ${longDate(p.example.date)} "${p.example.description}" ${fmt(p.example.cents)}.` });
+  if (f.reading) out.push({ key: "reading", kind: "reading", text: `Wait for ${s_(f.reading, "statement")} still reading.` });
+  if (!out.length) out.push(f.signed ? { key: "done", kind: "done", text: "Step 3 is signed. Go on to step 4, Code transactions." } : { key: "sign", kind: "sign", text: "Sign as preparer." });
+  return out;
+}
+
+// ---------- Gaps (point 6): consecutive months or cycles with no statement, as one red row each
+export type Gap = { from: string; to: string; after: CovStatement | null; before: CovStatement | null; waiting?: { id: string; file_name: string } | null };
+export function gapSegments(cells: Cell[], sts: CovStatement[], breaks: { after: CovStatement; before: CovStatement }[]): Gap[] {
+  const sorted = [...sts].sort((a, b) => a.period_start.localeCompare(b.period_start));
+  const out: Gap[] = [];
+  for (const c of cells) {
+    if (c.state !== "missing" && c.state !== "part") continue;
+    const last = out[out.length - 1];
+    if (last && cells.indexOf(c) > 0 && ["missing", "part"].includes(cells[cells.indexOf(c) - 1].state)) last.to = c.to;
+    else out.push({ from: c.from, to: c.to, after: null, before: null });
+  }
+  for (const g of out) {
+    g.after = [...sorted].reverse().find((x) => x.period_end < g.from) ?? null;
+    g.before = sorted.find((x) => x.period_start > g.to) ?? null;
+  }
+  // A break with no month missing: the period between the two statements (or, when they meet, the days
+  // around the join), as its own row.
+  const shift = (iso: string, n: number) => fromDay(toDay(iso) + n);
+  for (const b of breaks) if (!out.some((g) => g.after === b.after)) {
+    const from = shift(b.after.period_end, 1), to = shift(b.before.period_start, -1);
+    out.push(from <= to ? { from, to, after: b.after, before: b.before } : { from: b.after.period_end, to: b.before.period_start, after: b.after, before: b.before });
+  }
+  return out.sort((a, b) => a.from.localeCompare(b.from));
+}
+
+// ---------- One status word per card (point 3)
+export type CardStatus = { word: string; tone: "ok" | "warn" | "bad" | "" };
+export function cardStatus(a: { waiting: number; gaps: number; notExplained: boolean; books: number | null; statements: number; reason: boolean }): CardStatus {
+  if (a.waiting) return { word: `${a.waiting} to check`, tone: "warn" };
+  if (a.gaps) return { word: `${a.gaps} gap${a.gaps === 1 ? "" : "s"}`, tone: "bad" };
+  if (a.books === null) return { word: "No balance", tone: "bad" };
+  if (a.notExplained) return { word: "Not explained", tone: "bad" };
+  if (!a.statements && !a.reason) return { word: "None yet", tone: "" };
+  return { word: "Complete", tone: "ok" };
 }

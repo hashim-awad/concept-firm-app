@@ -38,7 +38,8 @@ export async function saveBankAccount(f: FormData) {
   const { data, error } = await (await createClient()).rpc("cb_save_bank_account", { p_file: id, p_id: acc, p_type: s(f, "type"), p_bank: s(f, "bank"), p_last4: s(f, "last4"),
     p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on" });
   // Back where it was opened from (the main page, or the check stage after "Add it").
-  const then = s(f, "then").startsWith(`/closebook/${id}?`) ? s(f, "then") : `${base(id)}&account=${data ?? acc ?? ""}`;
+  // "__new__" in the address stands for the account just added (the upload window's "+ Add account").
+  const then = s(f, "then").startsWith(`/closebook/${id}?`) ? s(f, "then").replaceAll("__new__", String(data ?? acc ?? "")) : `${base(id)}&account=${data ?? acc ?? ""}`;
   await done(id, error ? back : then, error, acc ? "Account saved." : "Account added.", true);
 }
 
@@ -52,7 +53,7 @@ export async function removeBankAccount(f: FormData) {
 // ---------- Coverage reason (point 23)
 export async function setCoverage(f: FormData) {
   const id = s(f, "file_id"), acc = s(f, "account");
-  const back = `${base(id)}&account=${acc}`;
+  const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
   await editor(back);
   const clear = s(f, "clear") === "1";
   const { error } = await (await createClient()).rpc("cb_set_bank_coverage", { p_id: acc, p_opened: clear ? null : s(f, "opened") || null, p_closed: clear ? null : s(f, "closed") || null, p_note: clear ? "" : s(f, "note") });
@@ -62,7 +63,7 @@ export async function setCoverage(f: FormData) {
 // ---------- Outstanding items at the year edges (point 22)
 export async function addOutstanding(f: FormData) {
   const id = s(f, "file_id"), acc = s(f, "account");
-  const back = `${base(id)}&account=${acc}`;
+  const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
   await editor(back);
   const c = parseAmount(s(f, "amount"));
   if (c === null || c <= 0) redirect(withMessage(back, "error", "Enter the amount as a positive number."));
@@ -72,7 +73,7 @@ export async function addOutstanding(f: FormData) {
 }
 export async function removeOutstanding(f: FormData) {
   const id = s(f, "file_id"), acc = s(f, "account");
-  const back = `${base(id)}&account=${acc}`;
+  const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
   await editor(back);
   const { error } = await (await createClient()).rpc("cb_remove_outstanding", { p_id: s(f, "item") });
   await done(id, back, error, "Outstanding item removed.", true);

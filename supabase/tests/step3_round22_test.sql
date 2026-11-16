@@ -123,7 +123,7 @@ select test.check('fixing the balance ties 1002', test.rp(:'f') not like '%GIFI 
 -- Outstanding items at the start: 10010's statements show 5,860.00, the books 5,410.00
 reset role;
 insert into public.cb_statement_imports (id, file_id, created_by, file_name, media_type, storage_path, status, file_sha256, summary, result, finished_at)
-values ('00000000-0000-0000-0000-0000000022b1', :'f', :A::uuid, 'ndb-2025-09.pdf', 'application/pdf', 'file/x/b1.pdf', 'ready', 'sha-b1', '{"period_start":"2025-09-01","period_end":"2025-09-30"}', '{"bank":"","pages":1,"accounts":[]}', now());
+values ('00000000-0000-0000-0000-0000000022b1', :'f', :A::uuid, 'ndb-2025-09.pdf', 'application/pdf', 'file/x/b1.pdf', 'ready', 'sha-b1', '{"period_start":"2025-09-01","period_end":"2025-09-30","review":0,"difference_cents":0}', '{"bank":"","pages":1,"accounts":[]}', now());
 set role authenticated;
 select public.cb_set_bank_coverage(:'chq2', null, null, '');
 select public.cb_import_statement('00000000-0000-0000-0000-0000000022b1', ('[{"key":"a1","account":"' || :'chq2' || '","opening":5860.00,"closing":5410.00,"period_start":"2025-09-01","period_end":"2025-09-30","at_start":5860.00,"at_end":null,"rows":[{"line":1,"date":"2025-09-04","description":"CHEQUE #204","amount":-450.00}],"check":{},"edits":{}}]')::jsonb, false, '');
@@ -160,14 +160,26 @@ select test.check('an account with statements cannot be removed', test.try(forma
 select public.cb_delete_bank_statement((select id from public.cb_bank_statements where account_id = :'chq2'));
 select test.check('undo: the lines go with their cleared item link; the added account stays', not exists (select 1 from public.cb_bank_lines where account_id = :'chq2')
   and (select cleared_line is null from public.cb_bank_outstanding where id = :'item') and exists (select 1 from public.cb_bank_accounts where id = :'chq2'));
-select test.check('the PDF goes back to checking; the undo is in the history', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022b1') = 'needs_look'
+select test.check('the PDF goes back to "Ready to check" (its checks passed when read); the undo is in the history', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022b1') = 'ready'
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_undone'));
 
 -- ---------- Step status uses the new rules
 select test.check('cb_step_status shows step 3''s problems', (public.cb_step_status(:'f') -> 'records' -> 'problems')::text like '%waiting to check%');
 
+-- An undone statement whose checks did not pass goes back to "Needs a look".
+reset role;
+update public.cb_statement_imports set status = 'ready' where id = '00000000-0000-0000-0000-0000000022b1';
+set role authenticated;
+select public.cb_import_statement('00000000-0000-0000-0000-0000000022b1', ('[{"key":"a1","account":"' || :'chq2' || '","opening":5860.00,"closing":5410.00,"period_start":"2025-09-01","period_end":"2025-09-30","at_start":5860.00,"at_end":null,"rows":[{"line":1,"date":"2025-09-04","description":"CHEQUE #204","amount":-450.00}],"check":{},"edits":{}}]')::jsonb, false, '');
+reset role;
+update public.cb_statement_imports set summary = summary || '{"review":2}' where id = '00000000-0000-0000-0000-0000000022b1';
+set role authenticated;
+select public.cb_delete_bank_statement((select id from public.cb_bank_statements where account_id = :'chq2'));
+select test.check('an undone statement with lines for review goes back to "Needs a look"', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022b1') = 'needs_look');
+
 -- ---------- Safe to run twice
 reset role;
 \i supabase/migrations/20261211010000_round22_step3_accounts.sql
+\i supabase/migrations/20261211020000_round22_undo_status.sql
 select test.check('a second run keeps the accounts and their numbers', (select count(*) from public.cb_bank_accounts where file_id = :'f') = 4
   and (select number from public.cb_bank_accounts where id = :'chq2') = '10010');

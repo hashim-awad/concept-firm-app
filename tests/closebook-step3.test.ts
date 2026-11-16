@@ -4,7 +4,7 @@
 // Dummy data only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { accountName, cardSummary, coverageStrip, edge, nextAction, nextNumber, placement, possibleAccounts, ties, uploadState, yearCut, type FileAccount, type NextFacts } from "../src/lib/closebook/step3.ts";
+import { accountName, cardStatus, cardSummary, coverageStrip, edge, gapSegments, nextNumber, placement, possibleAccounts, ties, todoList, uploadState, yearCut, type FileAccount, type TodoFacts } from "../src/lib/closebook/step3.ts";
 import type { StatementAccount, StatementLine } from "../src/lib/statements/types.ts";
 
 const Y0 = "2025-09-01", Y1 = "2026-08-31";
@@ -99,18 +99,42 @@ test("edges, ties and possible accounts", () => {
   assert.deepEqual(possibleAccounts([{ date: "2025-12-24", description: "ONLINE PAYMENT MC 4455", cents: -1, bank: true }], accts, new Set(["4455"])), []);
 });
 
-test("Next: one action, in order", () => {
-  const base: NextFacts = { accounts: [], waiting: [], reading: 0, failed: 0, wrong: 0, tiesOff: [], possible: 0, signed: false };
-  const a = (o: Partial<NextFacts["accounts"][number]> = {}) => ({ id: "a", label: "10000 Chequing · MDB ••• 2201", statements: 13, missing: [], breaks: 0, books: 195762, reason: false, edgeOff: false, ...o });
-  assert.equal(nextAction(base).action, "add");
-  assert.equal(nextAction({ ...base, accounts: [a({ books: null })] }).action, "books");
-  assert.equal(nextAction({ ...base, accounts: [a()], waiting: [{ account: "c", label: "22000 Credit card · MDB ••• 4405", n: 3 }] }).text, "check 3 statements for 22000 Credit card · MDB ••• 4405.");
-  assert.equal(nextAction({ ...base, accounts: [a({ statements: 0 })] }).text, "upload statements for 10000 Chequing · MDB ••• 2201.");
-  assert.equal(nextAction({ ...base, accounts: [a({ missing: ["Feb 2026"] })] }).text, "upload the Feb 2026 statement for 10000 Chequing · MDB ••• 2201, or record why there is none.");
-  assert.equal(nextAction({ ...base, accounts: [a()], tiesOff: ["1002"] }).action, "tie");
-  assert.equal(nextAction({ ...base, accounts: [a({ edgeOff: true })] }).action, "edge");
-  assert.equal(nextAction({ ...base, accounts: [a()], possible: 1 }).action, "possible");
-  assert.equal(nextAction({ ...base, accounts: [a()] }).text, "sign as preparer.");
+test("the to-do list: the first item is Next; each item in order", () => {
+  const ok = { statements: null, books: null, items: 0, difference: null, explained: true };
+  const base: TodoFacts = { accounts: [], waiting: [], reading: 0, failed: 0, wrong: 0, ties: [], possible: [], signed: false };
+  const a = (o: Partial<TodoFacts["accounts"][number]> = {}) => ({ id: "a", label: "10000 Chequing · MDB ••• 2201", statements: 13, gaps: [], breaks: 0, books: 195762, reason: false,
+    start: ok, end: ok, startDay: "Aug 31, 2025", endDay: "Aug 31, 2026", ...o });
+  assert.equal(todoList(base)[0].kind, "add");
+  assert.equal(todoList({ ...base, accounts: [a({ books: null })] })[0].kind, "books");
+  assert.equal(todoList({ ...base, accounts: [a()], waiting: [{ account: "c", label: "22000 Credit card · MDB ••• 4405", n: 3 }] })[0].text, "Check 3 statements for 22000 Credit card · MDB ••• 4405.");
+  assert.equal(todoList({ ...base, accounts: [a({ statements: 0 })] })[0].text, "Upload statements for 10000 Chequing · MDB ••• 2201, or record why there are none.");
+  assert.equal(todoList({ ...base, accounts: [a({ gaps: ["February 2026"] })] })[0].text, "Upload the February 2026 statement for 10000 Chequing · MDB ••• 2201, or record why there is none.");
+  assert.equal(todoList({ ...base, accounts: [a({ gaps: ["February 2026"], reason: true })] })[0].kind, "sign", "a reason recorded clears the gap");
+  const tie = { gifi: "1002", numbers: ["10000"], books: 706762, t2: 736762, ties: false };
+  assert.equal(todoList({ ...base, accounts: [a()], ties: [tie] })[0].text, "GIFI 1002: the accounts open at 7,067.62, last year's T2 has 7,367.62, a difference of 300.00. Check each account's balance in the books, or step 2.");
+  const off = { statements: 586000, books: 511000, items: 0, difference: -75000, explained: false };
+  const e = todoList({ ...base, accounts: [a({ start: off })] })[0];
+  assert.deepEqual([e.kind, e.edge, e.text], ["edge", "start", "10000 Chequing · MDB ••• 2201: the statements show 5,860.00 on Aug 31, 2025 and the books 5,110.00. Explain the difference of 750.00."]);
+  const p = { last4: "4455", label: "MC ••• 4455", count: 3, example: { date: "2025-11-24", description: "ONLINE PAYMENT MC 4455", cents: 121000 } };
+  assert.equal(todoList({ ...base, accounts: [a()], possible: [p] })[0].kind, "possible");
+  // Everything at once: one list, in order.
+  const all = todoList({ ...base, accounts: [a({ gaps: ["February 2026"], start: off })], waiting: [{ account: "a", label: "10000", n: 1 }], ties: [tie], possible: [p], failed: 1 });
+  assert.deepEqual(all.map((x) => x.kind), ["check", "failed", "gap", "tie", "edge", "possible"]);
+  assert.equal(todoList({ ...base, accounts: [a()] })[0].text, "Sign as preparer.");
+  assert.equal(todoList({ ...base, accounts: [a()], signed: true })[0].kind, "done");
+});
+
+test("gap rows and card status words", () => {
+  const sts = [{ period_start: "2026-01-01", period_end: "2026-01-31", opening: 0, closing: 10 }, { period_start: "2026-03-01", period_end: "2026-03-31", opening: 20, closing: 30 }];
+  const c = coverageStrip("2025-09-01", "2026-08-31", sts);
+  const g = gapSegments(c.cells, sts, c.breaks);
+  assert.deepEqual(g.map((x) => [x.from, x.to, x.after?.period_end ?? null, x.before?.period_start ?? null]),
+    [["2025-09-01", "2025-12-31", null, "2026-01-01"], ["2026-02-01", "2026-02-28", "2026-01-31", "2026-03-01"], ["2026-04-01", "2026-08-31", "2026-03-31", null]]);
+  assert.deepEqual(cardStatus({ waiting: 3, gaps: 1, notExplained: true, books: 1, statements: 2, reason: false }).word, "3 to check");
+  assert.deepEqual(cardStatus({ waiting: 0, gaps: 1, notExplained: true, books: 1, statements: 2, reason: false }).word, "1 gap");
+  assert.deepEqual(cardStatus({ waiting: 0, gaps: 0, notExplained: true, books: 1, statements: 2, reason: false }).word, "Not explained");
+  assert.deepEqual(cardStatus({ waiting: 0, gaps: 0, notExplained: false, books: 1, statements: 0, reason: false }).word, "None yet");
+  assert.deepEqual(cardStatus({ waiting: 0, gaps: 0, notExplained: false, books: 1, statements: 0, reason: true }).word, "Complete");
 });
 
 test("coverage: statements waiting to check show yellow and give a card its cycle before any import", () => {

@@ -3,8 +3,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listStatementsWithKick, type StatementRow } from "@/lib/statements/server";
 import type { Conversion } from "./bank-server";
-import { accountLabel, coverageStrip, edge, nextAction, placement, possibleAccounts, ties, toCents, uploadState, type AccountType, type Cell, type Edge, type FileAccount,
-  type Next, type Outstanding, type Possible, type Tie, type UploadState } from "./step3";
+import { accountLabel, cardStatus, coverageStrip, edge, gapSegments, longDate, placement, possibleAccounts, ties, todoList, toCents, uploadState, type AccountType, type CardStatus, type Cell,
+  type Edge, type FileAccount, type Gap, type Outstanding, type Possible, type Tie, type Todo, type UploadState } from "./step3";
 
 export type S3Account = FileAccount & {
   label: string; chart: string; gifi: string; accountType: AccountType | null; bank: string; longTerm: boolean; books: number | null;
@@ -12,15 +12,16 @@ export type S3Account = FileAccount & {
   cells: Cell[]; missing: Cell[]; breaks: { after: S3Statement; before: S3Statement }[]; cycleDay: number;
   statements: S3Statement[]; start: Edge; end: Edge; endBooks: number | null; waiting: number; status: { text: string; tone: "ok" | "warn" | "bad" | "" };
   early: { id: string; label: string }[];   // lines in the first 90 days, to name the one that cleared an outstanding item
+  gaps: Gap[]; card: CardStatus;            // round 22 correction: red rows in the list, one status word on the card
 };
 export type S3Statement = { id: string; account_id: string; file_name: string; period_start: string; period_end: string; opening: number; closing: number; lines: number;
   outside_lines: number; at_start: number | null; at_end: number | null; statement_import_id: string | null; source: string; uploaded_at: string; who: string;
-  coded: number; transfers: number; cleared: number; conversion: Conversion };
+  coded: number; transfers: number; cleared: number; conversion: Conversion; attachment_path: string | null };
 export type S3Upload = StatementRow & { file_sha256: string | null; target_account: string | null; state: UploadState; account: string | null };
 export type Step3 = {
   yearStart: string; yearEnd: string; dayBefore: string; accounts: S3Account[]; uploads: S3Upload[]; outstanding: Outstanding[];
   ties: Tie[]; t2Entered: boolean; possible: Possible[]; notOurs: { last4: string; label: string; by: string; at: string }[];
-  next: Next; chartNumbers: string[]; taken: string[]; kick: boolean; firstYear: boolean;
+  todo: Todo[]; chartNumbers: string[]; taken: string[]; kick: boolean; firstYear: boolean;
 };
 
 const dayBefore = (iso: string) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10) - 1)).toISOString().slice(0, 10);
@@ -30,7 +31,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   const fileId = file.id;
   const [{ data: accs }, { data: sts }, { data: chart }, { data: ob }, { data: items }, { data: no }, { data: lines }, { data: tr }, { data: extra }, list] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, number, kind, chart_account, gifi_line, account_type, bank, last4, long_term, books_opening, opened_on, closed_on, coverage_note, coverage_by, coverage_at, origin").eq("file_id", fileId).order("number"),
-    supabase.from("cb_bank_statements").select("id, account_id, file_name, period_start, period_end, opening, closing, lines, outside_lines, at_start, at_end, statement_import_id, source, uploaded_at, uploaded_by, "
+    supabase.from("cb_bank_statements").select("id, account_id, file_name, period_start, period_end, opening, closing, lines, outside_lines, at_start, at_end, statement_import_id, source, uploaded_at, uploaded_by, attachment_path, "
       + "model, pages, cost_usd, input_tokens, output_tokens, converted_at, check_result, edits, conv:converted_by(full_name)").eq("file_id", fileId).order("period_start"),
     supabase.from("cb_chart_accounts").select("number, line_no"),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId),
@@ -100,7 +101,14 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     const limit = new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) + 90)).toISOString().slice(0, 10);
     const early = ls.filter((l) => l.account_id === a.id && l.txn_date <= limit && (l.status === "new" || l.source === "outstanding"))
       .sort((x, y) => x.txn_date.localeCompare(y.txn_date)).map((l) => ({ id: l.id, label: `${shortDate(l.txn_date)} · ${l.description} · ${money(toCents(l.amount)!)}` }));
-    return { ...fileAccounts.find((f) => f.id === a.id)!, label, early, chart: a.chart_account, gifi: (a.gifi_line ?? lineNo.get(a.chart_account) ?? "").slice(0, 4),
+    // A statement already uploaded for the gap, waiting to check: the row says so and offers "Check".
+    const gaps = gapSegments(cov.cells, mine, cov.breaks).map((g) => ({ ...g, waiting: uploads.find((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")
+      && u.period_start && u.period_end && u.period_start <= g.to && u.period_end >= g.from) ?? null }))
+      .map((g) => ({ ...g, waiting: g.waiting ? { id: g.waiting.id, file_name: g.waiting.file_name } : null }));
+    const shownGaps = waived ? [] : gaps;
+    const card = cardStatus({ waiting, gaps: mine.length ? gaps.length : 0, notExplained: (!start.explained && start.difference !== null) || (!end.explained && end.difference !== null),
+      books, statements: mine.length, reason: waived || !!a.opened_on || !!a.closed_on });
+    return { ...fileAccounts.find((f) => f.id === a.id)!, label, early, gaps: shownGaps, card, chart: a.chart_account, gifi: (a.gifi_line ?? lineNo.get(a.chart_account) ?? "").slice(0, 4),
       accountType: a.account_type, bank: a.bank ?? "", longTerm: a.long_term, books, opened: a.opened_on, closed: a.closed_on, note: a.coverage_note,
       reasonBy: a.coverage_by ? names.get(a.coverage_by) ?? "" : null, reasonAt: a.coverage_at, origin: a.origin,
       cells: waived ? cov.cells.map((c) => ({ ...c, state: "na" as const })) : cov.cells, missing, breaks: cov.breaks as S3Account["breaks"], cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting, status };
@@ -114,20 +122,21 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   const possible = possibleAccounts(ls.map((l) => ({ date: l.txn_date, description: l.description, cents: toCents(l.amount)!, bank: bankIds.has(l.account_id) })), fileAccounts, new Set(notOurs.map((n) => n.last4)));
   const byAccount = new Map<string | null, number>();
   for (const u of uploads) if (u.state.status === "ready" || u.state.status === "needs_look" || u.state.status === "no_account" || u.state.status === "no_digits") byAccount.set(u.account, (byAccount.get(u.account) ?? 0) + 1);
-  const next = nextAction({
-    accounts: accounts.map((a) => ({ id: a.id, label: a.label, statements: a.statements.length, missing: a.missing.map(monthOf), breaks: a.breaks.length, books: a.books,
-      reason: !!(a.note || a.opened || a.closed) && !a.missing.length, edgeOff: !a.start.explained || !a.end.explained })),
+  const todo = todoList({
+    accounts: accounts.map((a) => ({ id: a.id, label: a.label, statements: a.statements.length, gaps: a.missing.map(monthOf), breaks: a.breaks.length, books: a.books,
+      reason: !!(a.note || a.opened || a.closed) && !a.missing.length, start: a.start, end: a.end, startDay: longDate(dayBefore(file.year_start)), endDay: longDate(file.year_end) })),
     waiting: [...byAccount.entries()].map(([k, n]) => ({ account: k, label: accounts.find((a) => a.id === k)?.label ?? null, n })),
     reading: uploads.filter((u) => u.state.status === "reading").length, failed: uploads.filter((u) => u.state.status === "failed").length,
-    wrong: uploads.filter((u) => u.state.status === "wrong_account").length, tiesOff: tieList.filter((t) => !t.ties).map((t) => t.gifi), possible: possible.length, signed,
+    wrong: uploads.filter((u) => u.state.status === "wrong_account").length, ties: tieList, possible, signed,
   });
   const chartNumbers = [...lineNo.keys()];
   return { yearStart: file.year_start, yearEnd: file.year_end, dayBefore: dayBefore(file.year_start), accounts, uploads, outstanding: its, ties: tieList, t2Entered: entered,
-    possible, notOurs, next, chartNumbers, taken: accounts.map((a) => a.number), kick: list.kick, firstYear: !!file.first_year };
+    possible, notOurs, todo, chartNumbers, taken: accounts.map((a) => a.number), kick: list.kick, firstYear: !!file.first_year };
 }
 
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const shortDate = (iso: string) => `${MONTH[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}, ${iso.slice(0, 4)}`;
-const monthOf = (c: Cell) => `${MONTH[+c.to.slice(5, 7) - 1]} ${c.to.slice(0, 4)}`;
+const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const monthOf = (c: Cell) => `${MONTH_LONG[+c.to.slice(5, 7) - 1]} ${c.to.slice(0, 4)}`;
 export const money = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 export { placement };

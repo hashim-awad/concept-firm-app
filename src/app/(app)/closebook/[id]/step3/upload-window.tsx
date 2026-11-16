@@ -46,8 +46,9 @@ function useSession(fileId: string, acc: string): Session {
 
 export type Target = { id: string; label: string; kind: "bank" | "card"; last4: string | null } | null;
 
-export function UploadWindow({ fileId, target, uploads, href, closeHref, editable, done, csvHref }: {
+export function UploadWindow({ fileId, target, uploads, href, closeHref, editable, done, csvHref, accounts, addHref }: {
   fileId: string; target: Target; uploads: S3Upload[]; href: string; closeHref: string; editable: boolean; done: boolean; csvHref: string | null;
+  accounts: { id: string; label: string }[]; addHref: string;   // "Which account?" (round 22 correction)
 }) {
   const router = useRouter();
   const accKey = target?.id ?? "all";
@@ -133,7 +134,25 @@ export function UploadWindow({ fileId, target, uploads, href, closeHref, editabl
           <span className="text-[13px] text-ink-3">{target ? target.label : "All accounts"}</span><span className="flex-1" />
           <Link href={closeHref} scroll={false} aria-label="Close" className="grid h-8 w-8 place-items-center rounded hover:bg-sand-100"><X className="h-5 w-5" /></Link></div>
         <div className="grid content-start gap-3.5 px-5 py-4">
+          {/* Round 22 correction: the first question. Statements go to the account chosen; a statement for another
+              account is still stopped after reading. */}
           {editable && (
+            <label className="flex flex-wrap items-center gap-3 rounded-[10px] border border-navy-100 bg-navy-50 px-4 py-3 text-[14px]">
+              <b>Which account?</b>
+              <select aria-label="Which account?" value={target?.id ?? ""} className="input h-9 min-w-[22rem] font-medium"
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "__add__") router.push(addHref);
+                  else if (v) router.push(`/closebook/${fileId}?step=records&account=${v}&upload=${v}`);
+                }}>
+                {!target && <option value="">Choose the account the statements are for</option>}
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                <option value="__add__">+ Add account</option>
+              </select>
+              {!target && <span className="text-[12.5px] text-ink-3">Choose it to upload. The list below shows every statement waiting.</span>}
+            </label>
+          )}
+          {editable && target && (
             <label onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={(e) => { e.preventDefault(); setOver(false); send([...e.dataTransfer.files]); }}
               className={`flex cursor-pointer flex-wrap items-center gap-3.5 rounded-[10px] border-2 border-dashed px-4 py-3.5 text-[13.5px] ${over ? "border-navy-600 bg-navy-50" : "border-sand-300 hover:border-navy-300"}`}>
               <Upload className="h-5 w-5 text-ink-2" aria-hidden />
