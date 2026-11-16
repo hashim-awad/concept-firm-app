@@ -55,7 +55,8 @@ export type Totals = {
 };
 export type Flag = { code: string; text: string };
 
-const money = (c: number) => (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// People read these messages: a negative in brackets, as everywhere on screen (round 21).
+const money = (c: number) => bracketAmount(c);
 
 // lines: [code, stored cents]; type: the master line type of each code. typed9999 is 3680 as typed (used
 // when the Schedule 125 tab has no lines).

@@ -25,7 +25,7 @@ export function StepMenu({ fileId, step, n, back, clear }: StepMenuProps) {
       <form ref={form} action={clearStep} data-no-guard>
         <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="step" value={step} /><input type="hidden" name="back" value={back} />
       </form>
-      <button type="button" disabled={clear !== "ok"} onClick={go}
+      <button type="button" disabled={clear !== "ok"} onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); go(); }}
         className="block w-full rounded px-2 py-1.5 text-left text-[13px] text-danger hover:bg-danger-soft disabled:cursor-not-allowed disabled:text-ink-3 disabled:hover:bg-transparent">Clear this step</button>
       {clear === "signed" && <p className="px-2 pt-1 text-xs text-ink-3">This step is signed. Take back the sign-off first.</p>}
       {clear === "nothing" && <p className="px-2 pt-1 text-xs text-ink-3">Nothing is typed on this step. Imports and uploads are removed where they are listed.</p>}

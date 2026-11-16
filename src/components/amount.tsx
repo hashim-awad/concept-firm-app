@@ -12,7 +12,8 @@ export function Amount({ cents, credit = false, className = "" }: { cents: numbe
 }
 
 // The class for a typed amount: red when it reads as negative.
-export const amountTone = (text: string) => (isNegativeText(text) ? "text-danger" : "");
+// "!" wins over the .input class colour.
+export const amountTone = (text: string) => (isNegativeText(text) ? "!text-danger" : "");
 
 // A controlled amount box: accepts a minus sign or brackets, tidies to 1,234.00 or (1,234.00) on leaving,
 // red when negative. value and onValue carry the typed text.

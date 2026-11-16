@@ -63,7 +63,8 @@ export function Popover({ button, label, children, align = "left", width = "w-72
   return (
     <details ref={ref} open={open} className={`relative ${className}`}>
       <summary aria-label={label} title={label} onClick={() => { if (!ref.current?.open) place(true); }} className="flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">{button}</summary>
-      <div ref={card} style={pos ? { top: pos.top, left: pos.left } : undefined}
+      {/* Round 21: a sign-off (or any form) inside closes the box, so it never stays open over the next step. */}
+      <div ref={card} style={pos ? { top: pos.top, left: pos.left } : undefined} onSubmitCapture={() => setTimeout(() => { if (ref.current) ref.current.open = false; }, 0)}
         className={`${pos ? "fixed" : `absolute mt-2 ${align === "right" ? "right-0" : "left-0"}`} z-50 ${width} max-w-[calc(100vw-16px)] rounded-lg border border-sand-300 bg-white p-3 text-sm text-ink shadow-[0_10px_28px_rgba(15,35,80,.18)]`}>{children}</div>
     </details>
   );

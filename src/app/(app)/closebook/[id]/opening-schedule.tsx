@@ -274,7 +274,7 @@ export function OpeningSchedule({ fileId, codes, initial, s125Before = [], reSta
           {editable && (
             <span className="flex gap-2">
               <DiscardButton dirty={st.dirty} onDiscard={discard} />
-              <SaveButton type="button" dirty={st.dirty} savedAt={st.savedAt} saving={pending} onClick={onSave} className="btn-secondary btn-compact" />
+              <SaveButton type="button" dirty={st.dirty} savedAt={st.savedAt} saving={pending} onClick={onSave} className="btn btn-compact" />
               <button type="button" className="btn btn-compact" disabled={pending || issues > 0 || (!!signed && !st.dirty)} onClick={onSign}>Sign as preparer</button>
             </span>
           )}
