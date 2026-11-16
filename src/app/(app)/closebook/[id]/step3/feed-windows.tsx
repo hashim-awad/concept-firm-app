@@ -12,7 +12,7 @@ import { confirmStatementUploads, createStatementUploads, pollStatements } from 
 import { excludeStatement, markReplacement, purgeStatement, replaceStatementFile, restoreStatement, setLineDate, setLineMemo, type Blocker } from "../../banking-actions";
 import { Win } from "./windows";
 import { date, money } from "./banking-ui";
-import { guarded } from "./guard";
+import { guarded, isLockRefusal } from "./guard";
 import { REASONS } from "@/lib/closebook/feed";
 
 let storage: ReturnType<typeof createClient>["storage"] | null = null;
@@ -30,16 +30,18 @@ export function ExcludeWindow({ fileId, statement, title, sub, closeHref, lineHr
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [blockers, setBlockers] = useState<Blocker[] | null>(null);
+  const [locked, setLocked] = useState<string | null>(null);
   const go = async () => {
     setBusy(true);
     try {
       const r = await guarded((confirm) => excludeStatement(fileId, statement, reason, note, confirm));
       if (!r) return;
-      if (!r.ok) { if ("blockers" in r && r.blockers.length) setBlockers(r.blockers); else notify(r.error, "error"); return; }
+      if (!r.ok) { if ("blockers" in r && r.blockers.length) setBlockers(r.blockers); else if (isLockRefusal(r.error)) setLocked(r.error); else notify(r.error, "error"); return; }
       notify(`Statement excluded. ${r.lines} line${r.lines === 1 ? "" : "s"} left the feed.`);
       router.push(closeHref); router.refresh();
     } finally { setBusy(false); }
   };
+  if (locked) return <LockedWindow title={title} sub={sub} closeHref={closeHref} text={locked} />;
   const what = (b: Blocker) => (b.kind === "transfer" ? "Transfer" : b.kind === "outstanding" ? "Clears an outstanding item" : "Coded");
   return (
     <Win title={title} sub={sub} closeHref={closeHref} width={600} footer={<>
@@ -139,6 +141,7 @@ export function ReplaceWindow({ fileId, statement, sub, closeHref }: { fileId: s
     if (!c.ok) { setError(c.error); setState("error"); return; }
     job.current = u.id;
   };
+  if (state === "error" && isLockRefusal(error)) return <LockedWindow title="Replace file" sub={sub} closeHref={closeHref} text={error} />;
   return (
     <Win title="Replace file" sub={sub} closeHref={closeHref} width={560}>
       <p className="text-[14px] text-ink-2">Upload a clearer copy of the same statement. It must read to the same account, period, opening and closing, and the same lines. The lines in the file do not change.</p>
@@ -165,37 +168,48 @@ export function LineWindow({ fileId, line, closeHref, yearStart, yearEnd }: {
   const [d, setD] = useState(line.acctDate);
   const [memo, setMemo] = useState(line.memo);
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState<string | null>(null);
   const save = async () => {
     setBusy(true);
     try {
       if (d !== line.acctDate) {
         const r = await guarded((confirm) => setLineDate(fileId, line.id, d, confirm));
         if (!r) return;
-        if (!r.ok) { notify(r.error, "error"); return; }
+        if (!r.ok) { if (isLockRefusal(r.error)) setLocked(r.error); else notify(r.error, "error"); return; }
       }
       if (memo.trim() !== line.memo) {
         const r = await guarded((confirm) => setLineMemo(fileId, line.id, memo, confirm));
         if (!r) return;
-        if (!r.ok) { notify(r.error, "error"); return; }
+        if (!r.ok) { if (isLockRefusal(r.error)) setLocked(r.error); else notify(r.error, "error"); return; }
       }
       notify("Saved."); router.push(closeHref); router.refresh();
     } finally { setBusy(false); }
   };
+  if (locked) return <LockedWindow title="Line" sub={line.account} closeHref={closeHref} text={locked} />;
   const row = (k: string, v: React.ReactNode) => <div className="grid grid-cols-[9rem_1fr] gap-3 border-b border-sand-100 py-2 text-[14px]"><span className="text-ink-3">{k}</span><span>{v}</span></div>;
   return (
     <Win title="Line" sub={line.account} closeHref={closeHref} width={560} footer={<>
       <span className="flex-1" /><Link href={closeHref} scroll={false} className="btn-secondary">Cancel</Link>
       <button type="button" onClick={save} disabled={busy || (d === line.acctDate && memo.trim() === line.memo)} className="btn h-9">Save</button></>}>
+      <label className="grid gap-1 text-[13px] font-semibold text-ink-2">Date (the posting uses it)
+        <input type="date" value={d} min={yearStart} max={yearEnd} onChange={(e) => setD(e.target.value)} className="input h-9 w-[12rem]" aria-label="Date" />
+        <span className="text-[12px] font-normal text-ink-3">Bank: {date(line.bankDate)}</span></label>
       <div>
-        {row("Bank date", date(line.bankDate))}
         {row("Description", line.description)}
         {row("Amount", <span className="tabular-nums">{money(line.cents)}</span>)}
       </div>
-      <label className="grid gap-1 text-[13px] font-semibold text-ink-2">Date (the posting uses it)
-        <input type="date" value={d} min={yearStart} max={yearEnd} onChange={(e) => setD(e.target.value)} className="input h-9 w-[12rem]" aria-label="Date" /></label>
       <label className="grid gap-1 text-[13px] font-semibold text-ink-2">Memo
         <input value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={300} className="input h-9" aria-label="Memo" /></label>
       <p className="text-[12.5px] text-ink-3">The bank&rsquo;s date, description and amount do not change. Each change is in the file history.</p>
+    </Win>
+  );
+}
+
+// Refused by a sign-off lock: the refusal, and Close.
+function LockedWindow({ title, sub, closeHref, text }: { title: string; sub: string; closeHref: string; text: string }) {
+  return (
+    <Win title={title} sub={sub} closeHref={closeHref} width={520} footer={<><span className="flex-1" /><Link href={closeHref} scroll={false} className="btn h-9">Close</Link></>}>
+      <p className="rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{text}</p>
     </Win>
   );
 }

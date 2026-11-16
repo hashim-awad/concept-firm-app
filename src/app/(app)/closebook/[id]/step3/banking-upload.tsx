@@ -145,12 +145,12 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
         <div className="flex items-center gap-3 border-b border-sand-200 px-7 py-5"><h2 className="text-[19px] font-semibold">Upload statements</h2><span className="flex-1" />
           <Link href={closeHref} scroll={false} aria-label="Close" className="grid h-8 w-8 place-items-center rounded hover:bg-sand-100"><X className="h-5 w-5" /></Link></div>
         <div className="grid gap-4 px-7 py-6">
-          <label className="grid gap-2"><span className="text-[14px] font-semibold">Account</span>
+          {!lock && <label className="grid gap-2"><span className="text-[14px] font-semibold">Account</span>
             <select aria-label="Account" value={account ?? ""} className="input h-11 text-[15px]"
               onChange={(e) => router.push(`/closebook/${fileId}?step=records&paper=feeds&upload=1&acc=${e.target.value}`)}>
               {!account && <option value="">Choose the account</option>}
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-            </select></label>
+            </select></label>}
           {lock && (
             <div className="grid gap-2 rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14px]" role="alert">
               <span>{lock.label} {lock.label.includes(" and ") ? "are" : "is"} signed. {lockMessage(lock)}</span>
@@ -160,7 +160,8 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
               }}>Continue</button></span>}
             </div>
           )}
-          {account && !csv && !lock && (
+          {/* Round 24 (Hashim, Nov 16, 2026): refused by a sign-off lock, the window shows only the refusal. */}
+          {!lock && account && !csv && (
             <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); send([...e.dataTransfer.files]); }}
               className="block cursor-pointer rounded-[10px] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
               Drop all the year&rsquo;s statements (PDF), or one CSV file. <span className="text-navy-700 underline">Choose files</span>
@@ -168,7 +169,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
                 className="sr-only" onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; send(f); }} />
             </label>
           )}
-          {csv && (
+          {!lock && csv && (
             <div className="grid gap-3 rounded-[10px] border border-sand-200 bg-sand-50/60 px-4 py-3.5">
               <p className="text-[14px]"><b>{csv.name}</b></p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -179,8 +180,8 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
               </div>
             </div>
           )}
-          {error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
-          {s && (
+          {!lock && error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
+          {!lock && s && (
             <ul className="grid gap-3">
               {(reading > 0 || busy) && row("busy", reading ? `Reading ${reading} statement${reading === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
               {s.lines > 0 && row("ok", <><b>{s.lines.toLocaleString("en-CA")} transactions</b> added for {s.yearLabel}</>, "lines")}
@@ -195,7 +196,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
           )}
         </div>
         <div className="flex justify-end border-t border-sand-200 px-7 py-4">
-          <button type="button" onClick={done} disabled={busy || (!!csv && (!open || !close))} className="btn h-11 px-8 text-[15px]">Done</button>
+          <button type="button" onClick={done} disabled={busy || (!!csv && (!open || !close))} className="btn h-11 px-8 text-[15px]">{lock ? "Close" : "Done"}</button>
         </div>
       </div>
     </div>

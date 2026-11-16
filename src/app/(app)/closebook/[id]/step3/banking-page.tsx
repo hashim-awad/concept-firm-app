@@ -344,7 +344,7 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
           <tbody>
             {shown.map((l) => (
               <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding ? "text-ink-3" : ""}`}>
-                <td className="px-6 py-3 whitespace-nowrap">{date(l.date)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Posted {date(l.acctDate)}</span>}</td>
+                <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}</td>
                 <td className="px-3 py-3">{l.description}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{l.cents > 0 ? money(l.cents) : ""}</td><td className="px-3 py-3 text-right tabular-nums">{l.cents < 0 ? money(-l.cents) : ""}</td>
                 <td className="px-6 py-3 text-right tabular-nums">{money(l.bal)}</td>

@@ -32,10 +32,12 @@ const isDone = (l: CodeLine) => l.status === "done" || l.status === "matched";
 const inFilter = (l: CodeLine, f: Filter) => f === "all" ? true : f === "needs" ? l.status === "new" && !suggested(l) : f === "suggested" ? l.status === "new" && suggested(l)
   : f === "reviewer" ? l.status === "reviewer" : f === "ask" ? l.status === "ask_client" : isDone(l);
 
-// Round 24: the bank date, and the accounting date under it when they differ; the date opens the line's window
-// (accounting date and memo). The bank's own date, description and amount never change.
+// Round 24: the date the posting uses, and the bank's date small under it when they differ ("Bank: Sep 3, 2025";
+// Hashim, Nov 16, 2026: in banking "posted" is the bank's date). The date opens the line's window (date and memo).
+// The bank's own date, description and amount never change.
 function DateCell({ l, href, className }: { l: CodeLine; href: string | null; className: string }) {
-  const d = <>{formatDate(l.txn_date)}{l.acct_date && l.acct_date !== l.txn_date && <span className="block text-[11.5px] text-ink-3">Posted {formatDate(l.acct_date)}</span>}</>;
+  const on = l.acct_date || l.txn_date;
+  const d = <>{formatDate(on)}{on !== l.txn_date && <span className="block text-[11.5px] text-ink-3">Bank: {formatDate(l.txn_date)}</span>}</>;
   return <td className={className}>{href ? <Link href={href} scroll={false} title="Change the date or add a memo" className="hover:underline">{d}</Link> : d}</td>;
 }
 

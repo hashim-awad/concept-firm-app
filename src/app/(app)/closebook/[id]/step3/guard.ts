@@ -14,3 +14,6 @@ export async function guarded<R extends { ok: boolean }>(run: (confirm: boolean)
   if (!(await confirmAction({ title: ask, confirm: "Continue" }))) return null;
   return run(true);
 }
+
+// A refusal because a reviewer signed: the window then shows only that refusal (Hashim, Nov 16, 2026).
+export const isLockRefusal = (m: string) => /^Ask the reviewer to remove the .+ sign-off\.$/.test(m);
