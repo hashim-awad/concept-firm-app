@@ -81,8 +81,9 @@ test("every statement but mismatch ties to the cent: total, summary, running bal
       const t = tie(a);
       assert.equal(t.difference, 0, `${file} ${a.key} difference`);
       assert.equal(t.runningBreak, null, `${file} ${a.key} running balance`);
-      // Round 23: these statements print no summary, on purpose ("Find it" works without one).
-      if (file.startsWith("round23/")) { assert.equal(a.summary, null, `${file} prints no summary`); continue; }
+      // Round 23: these statements print no summary, on purpose ("Find it" works without one). Round 24's are
+      // copies of a round 23 statement (Replace file).
+      if (file.startsWith("round23/") || file.startsWith("round24/")) { assert.equal(a.summary, null, `${file} prints no summary`); continue; }
       assert.ok(a.summary, `${file} ${a.key} summary`);
       assert.equal(a.summary.inTotal, t.inTotal, `${file} ${a.key} money in`);
       assert.equal(a.summary.outTotal, t.outTotal, `${file} ${a.key} money out`);
