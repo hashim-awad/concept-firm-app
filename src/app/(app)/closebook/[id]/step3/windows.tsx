@@ -25,7 +25,8 @@ export function Win({ title, sub, closeHref, width = 620, children, footer }: { 
   );
 }
 
-const TYPES: [string, string][] = [["bank", "Bank account"], ["card", "Credit card"], ["loc", "Line of credit"], ["loan", "Loan"]];
+// Round 23 (Hashim): five types in one row.
+const TYPES: [AccountType, string][] = [["chequing", "Chequing"], ["savings", "Savings"], ["card", "Credit card"], ["loc", "Line of credit"], ["loan", "Loan"]];
 const fmt = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export type AddCtx = {
@@ -43,13 +44,10 @@ export function AddAccountWindow({ c }: { c: AddCtx }) {
   const [bank, setBank] = useState(e?.bank ?? c.prefill.bank ?? "");
   const [last4, setLast4] = useState(e?.last4 ?? c.prefill.last4 ?? "");
   const [long, setLong] = useState(e?.longTerm ?? false);
-  const group = type === "chequing" || type === "savings" ? "bank" : type;
+  const isBank = (t: AccountType) => t === "chequing" || t === "savings";
   const p = placement(type, long);
-  // What is left on the GIFI line once the other accounts on it are counted: the balance to start from.
-  const onLine = c.others.filter((o) => o.gifi === p.gifi && o.id !== e?.id).reduce((n, o) => n + (o.books ?? 0), 0);
-  const t2 = c.t2[p.gifi] ?? 0;
-  const left = t2 - onLine;
-  const [balance, setBalance] = useState(e?.books !== null && e?.books !== undefined ? fmt(Math.abs(e.books)) : c.t2Entered && left > 0 ? fmt(left) : "");
+  // Round 23: the balance is typed to the cent from last year's statement (no pre-fill from the T2's whole dollars).
+  const [balance, setBalance] = useState(e?.books !== null && e?.books !== undefined ? fmt(Math.abs(e.books)) : "");
   const [negative, setNegative] = useState(!!e && (e.books ?? 0) < 0);
   const number = useMemo(() => {
     const own = e && placement(e.type, e.longTerm).base === p.base ? e.number : null;
@@ -75,16 +73,10 @@ export function AddAccountWindow({ c }: { c: AddCtx }) {
         <div className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Type</span>
           <span className="inline-flex w-fit overflow-hidden rounded-lg border border-sand-300" role="radiogroup" aria-label="Type">
             {TYPES.map(([k, l]) => (
-              <button key={k} type="button" role="radio" aria-checked={group === k} disabled={fixed && (k === "bank") !== (group === "bank")}
-                onClick={() => setType(k === "bank" ? (type === "savings" ? "savings" : "chequing") : (k as AccountType))}
-                className={`px-3.5 py-2 text-[13.5px] font-semibold [&:not(:first-child)]:border-l [&:not(:first-child)]:border-sand-200 ${group === k ? "bg-navy-800 text-white" : "text-ink-2 hover:bg-sand-50"} disabled:opacity-40`}>{l}</button>
+              <button key={k} type="button" role="radio" aria-checked={type === k} disabled={fixed && isBank(k) !== isBank(type)} onClick={() => setType(k)}
+                className={`px-3.5 py-2 text-[13.5px] font-semibold [&:not(:first-child)]:border-l [&:not(:first-child)]:border-sand-200 ${type === k ? "bg-navy-800 text-white" : "text-ink-2 hover:bg-sand-50"} disabled:opacity-40`}>{l}</button>
             ))}
           </span>
-          {group === "bank" && (
-            <span className="mt-1 inline-flex gap-4 text-[13.5px]" role="radiogroup" aria-label="Chequing or savings">
-              {(["chequing", "savings"] as const).map((k) => <label key={k} className="inline-flex items-center gap-1.5"><input type="radio" checked={type === k} onChange={() => setType(k)} className="h-4 w-4" />{k === "chequing" ? "Chequing" : "Savings"}</label>)}
-            </span>
-          )}
           {(type === "loc" || type === "loan") && (
             <label className="mt-1 inline-flex items-center gap-2 text-[13.5px]"><input type="checkbox" name="long_term" checked={long} onChange={(x) => setLong(x.target.checked)} className="h-4 w-4" />
               Long-term (not due within a year)</label>
@@ -93,22 +85,15 @@ export function AddAccountWindow({ c }: { c: AddCtx }) {
         <div className="grid gap-3.5 sm:grid-cols-[1fr_10rem]">
           <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Bank</span>
             <input name="bank" value={bank} onChange={(x) => setBank(x.target.value)} maxLength={40} required placeholder="For example: RBC" className="input h-9" /></label>
-          <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Last digits</span>
+          <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Last 4 digits</span>
             <input name="last4" value={last4} onChange={(x) => setLast4(x.target.value)} maxLength={12} required inputMode="numeric" placeholder="1234" className="input h-9" /></label>
         </div>
-        <div className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Balance in the books on {c.dayBefore}</span>
-          <AmountInput name="balance" value={balance} onValue={setBalance} className="input h-9 w-[14rem] text-right" placeholder="0.00" aria-label={`Balance in the books on ${c.dayBefore}`} />
-          <span className="text-[12px] text-ink-3">Enter it as a positive number. {p.kind === "bank" ? "If the account was overdrawn, tick below." : "Enter what was owed."}</span>
+        <div className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Balance at last year end ({c.dayBefore}), to the cent</span>
+          <AmountInput name="balance" value={balance} onValue={setBalance} className="input h-9 w-[14rem] text-right" placeholder="0.00" aria-label="Balance at last year end" />
           <label className="inline-flex items-center gap-2 text-[13.5px]"><input type="checkbox" name="negative" checked={negative} onChange={(x) => setNegative(x.target.checked)} className="h-4 w-4" />{neg}</label>
         </div>
-        {c.t2Entered && (
-          <p className="rounded-[10px] border border-navy-100 bg-navy-50 px-3.5 py-2.5 text-[13px] leading-relaxed">
-            Step 2 has <b>{fmt(t2)}</b> on T2 line {p.gifi}. {onLine ? <>The other accounts on it hold <b>{fmt(onLine)}</b>. Left for this one: <b>{fmt(Math.max(left, 0))}</b>.</> : <>No other account is on it yet.</>}
-            {" "}If the accounts do not add up to {fmt(t2)}, the {p.gifi} tie line on the page shows the difference.</p>
-        )}
-        <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13px] text-[#14532d]">
-          {e ? "Saves as" : "Creates"} <b>{number} {accountName(type, long, bank || "Bank", digits || "0000")}</b> under GIFI {p.gifi} {p.gifiName}.{p.kind === "bank" ? " If its balance is negative at year end, it moves to 2600 Bank overdraft." : ""}</p>
-        <p className="text-[12.5px] text-ink-3">This adds the account to this file only. The standard chart does not change.</p>
+        <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13.5px] text-[#14532d]">
+          {e ? "Saves as" : "Creates"} <b>{number} {accountName(type, long, bank || "Bank", digits || "0000")}</b></p>
         {fixed && <p className="text-[12.5px] text-ink-3">This account has statements: it can change between chequing and savings, or among card, line of credit and loan, but not between a bank account and the others.</p>}
       </form>
     </Win>

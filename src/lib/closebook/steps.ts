@@ -47,7 +47,7 @@ const s = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : 
 export function stepTitle(key: string, books: string): string {
   const bank = fromStatements(books);
   const names: Record<string, [number, string]> = { setup: [1, "Set up"], opening: [2, "Opening balances"],
-    records: [3, bank ? "Bank statements" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
+    records: [3, bank ? "Banking" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
     entries: [5, "Checks"], mapping: [6, "GIFI mapping"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
   const n = names[key];
   return n ? `${n[0]}. ${n[1]}` : key;
@@ -70,7 +70,8 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     { key: "opening", n: 2, name: "Opening balances", who: f.people.preparer,
       // Round 8b: the step's sign-off is its Prepared by; the sub-line only says what the step is.
       note: op.firstYear ? "First year: no opening balances" : bank ? "Last year's balance sheet" : "From the trial balance import" },
-    { key: "records", n: 3, name: bank ? "Bank statements" : "Get the records", who: f.people.preparer,
+    // Round 23 (Hashim): step 3 on a bank file is "Banking", with sub-steps 3.1 to 3.3.
+    { key: "records", n: 3, name: bank ? "Banking" : "Get the records", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
@@ -136,14 +137,16 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
 // Round 15b (Hashim; CaseWare Cloud's document map): a step holds one or more working papers, each its
 // own screen, listed under the step when it is open. A paper shows only when it applies. Sign-offs stay
 // on the step.
-export type PaperKey = "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
+export type PaperKey = "accounts" | "feeds" | "reconcile" | "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
 export type Paper = { key: PaperKey; name: string };
-export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean };
+export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean; bank?: boolean };
 export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
   const p = (key: PaperKey, name: string, on = true): Paper[] => (on ? [{ key, name }] : []);
   switch (step) {
     // Round 16: the acceptance and continuance record (CSRS 4200) beside the setup questions.
     case "setup": return [...p("questions", "Setup questions"), ...p("acceptance", "Acceptance")];
+    // Round 23: Banking's sub-steps, each with its own sign-offs (bank and card files).
+    case "records": return [...p("accounts", "3.1 Bank accounts & T2 tie-out", !!f.bank), ...p("feeds", "3.2 Bank feeds", !!f.bank), ...p("reconcile", "3.3 Reconcile", !!f.bank)];
     case "entries": return [...p("revenue", "Revenue check", f.full), ...p("sh", "Shareholder loans", f.shareholders), ...p("expenses", "Expenses paid personally", f.full && f.ownerPaid)];
     case "t2": return [...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
     case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];

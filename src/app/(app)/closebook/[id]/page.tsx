@@ -42,7 +42,8 @@ import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
 import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
-import { Step3Page } from "./step3/step3-page";
+import { BankingPage } from "./step3/banking-page";
+import { loadRounding, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
 import { CodingView } from "./coding-view";
 import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
@@ -113,6 +114,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source || !!file.first_year, firstYear: !!file.first_year };
   // Round 8: each step's sign-offs, open items and review notes, from the database's own rules.
   const review = await loadReview(supabase, id);
+  // Round 23: Banking's sub-steps (3.1 to 3.3), each with its own sign-offs.
+  const subs = bankFile ? await loadSubsteps(supabase, id) : null;
   let setupOpen = ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered"].filter((k) => !(k in setup)).length;
   if (setup.gst_registered === true) setupOpen += ("gst_frequency" in setup ? 0 : 1) + ("quick_method" in setup ? 0 : 1);
   // Round 21 (ProFile, TurboTax): each step's progress in the list, from what the file already holds.
@@ -131,7 +134,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     reviewNotes: review.notes.length, reviewedSteps: Object.values(signMap).filter((x) => x?.reviewed).length,
     gifiExports: gifiN.count ?? 0, t2Tieout: !!tieN.count, gstReturn: !!gstN.count, fsTyped: (() => { const d = fsRow?.dividends as unknown; return Array.isArray(d) ? d.length > 0 : !!d && typeof d === "object" && Object.keys(d).length > 0; })(), malSent: !!fsRow?.mal_sent_at,
     checklistAnswers: chkN.count ?? 0, closeTyped: !!closeN.count,
-    signs: Object.fromEntries(Object.entries(signMap).map(([k, v]) => [k, { prepared: !!v?.prepared, reviewed: !!v?.reviewed }])) };
+    signs: Object.fromEntries(Object.entries(signMap).map(([k, v]) => [k, { prepared: !!v?.prepared, reviewed: !!v?.reviewed }])),
+    banking: subs ? { accounts: !!subs["3.1"].prepared_at, feeds: !!subs["3.2"].prepared_at, reconcile: !!subs["3.3"].prepared_at } : undefined,
+    bankAccounts: bank?.accounts.length ?? 0 };
   const { steps, current, next } = fileSteps({ bankGaps, coding, opening, signs: stepSigns(review), setupOpen,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     unmatched: accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900"
@@ -286,12 +291,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       </div>
     );
   } else if (step === "records") {
-    // Round 22 (Hashim, Nov 16, 2026): step 3 reworked: accounts added here, a window per task, one "Next:".
-    body = bankFile
-      ? <Step3Page supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }} names={names} sp={sp} editable={editable && file.phase !== "locked"} signed={!!review.status.records?.prepared_at}
-          problems={review.status.records?.problems ?? []} error={messageFrom(sp.error) ?? null}
-          dups={((await supabase.rpc("cb_file_duplicates", { p_file: id })).data ?? []) as never} />
-      : tb("records", [], "accounts", true, { importOnly: true });
+    // Round 23 (Hashim, Nov 16, 2026): step 3 is "Banking" on a bank file, with sub-steps 3.1 to 3.3. Without a
+    // sub-step asked for, the first one the preparer has not signed opens.
+    if (bankFile && subs) {
+      const asked = SUBS.find((x) => x.paper === str(sp.paper));
+      const first = asked ?? SUBS.find((x) => !subs[x.key].prepared_at) ?? SUBS[0];
+      pp.list = stepPapers("records", { full: true, shareholders: false, ownerPaid: false, gst: false, bank: true });
+      pp.key = first.paper;
+      body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
+        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} />;
+    } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
       ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
@@ -434,9 +443,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   } else {
     const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
       ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];
+    // Round 23: on Banking the circles, the issues and the one button are the sub-step's.
+    const sub = step === "records" && subs ? SUBS.find((x) => x.paper === paper) : undefined;
+    const subSt = sub && subs ? { ...subs[sub.key], waiting: [], notes: 0 } : undefined;
+    const subAction = sub && editable && file.phase !== "locked" ? (sub.key === "3.1" ? <Link href={`${href("records")}&paper=accounts&add=1`} scroll={false} className="btn h-10 px-5">+ Add account</Link>
+      : sub.key === "3.2" ? <Link href={`${href("records")}&paper=feeds&upload=1`} scroll={false} className="btn h-10 px-5">Upload statements</Link> : null) : null;
     const title = (
-      <StepTitle n={cur.n} name={cur.name} paper={paperName} sub={paper === "revenue" ? "W/P Revenue check" : paper === "acceptance" ? <InfoTip>CSRS 4200, acceptance and continuance: the preparer answers; the reviewer signs it with step 1. It rolls forward each year for confirmation.</InfoTip> : undefined} sign={SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
-        issues={{ problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
+      <StepTitle n={cur.n} name={cur.name} paper={paperName} action={subAction} sub={paper === "revenue" ? "W/P Revenue check" : paper === "acceptance" ? <InfoTip>CSRS 4200, acceptance and continuance: the preparer answers; the reviewer signs it with step 1. It rolls forward each year for confirmation.</InfoTip> : undefined} sign={sub && subSt ? { ...signFor(step, subSt, stepBack), sub: sub.key as SubKey } : SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
+        issues={sub && subSt ? { problems: subSt.reviewed_at ? [] : subSt.problems, waiting: [], review: false } : { problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
         notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
         exports={exports} help={stepHelp(step, bankFile)}
@@ -515,7 +529,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag} />;
   } else if (area === "entries") {
     const std = file.file_type === "full" ? (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name })) : [];
-    const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std,
+    const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {

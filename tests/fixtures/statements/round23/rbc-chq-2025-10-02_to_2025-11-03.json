@@ -1,0 +1,103 @@
+{
+  "bank": "RBC Royal Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2468",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-10-02",
+      "periodEnd": "2025-11-03",
+      "opening": 276915,
+      "closing": 383553,
+      "summary": null,
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-10-05",
+          "description": "Monthly fee",
+          "amountCents": 600,
+          "dir": "out",
+          "balanceCents": 276315,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-10-07",
+          "description": "e-Transfer received",
+          "amountCents": 67021,
+          "dir": "in",
+          "balanceCents": 343336,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-10-11",
+          "description": "PAD telecom",
+          "amountCents": 7025,
+          "dir": "out",
+          "balanceCents": 336311,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2025-10-15",
+          "description": "Deposit",
+          "amountCents": 155966,
+          "dir": "in",
+          "balanceCents": 492277,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2025-10-19",
+          "description": "Loan payment",
+          "amountCents": 39787,
+          "dir": "out",
+          "balanceCents": 452490,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2025-10-23",
+          "description": "e-Transfer sent",
+          "amountCents": 66437,
+          "dir": "out",
+          "balanceCents": 386053,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2025-10-27",
+          "description": "Activity fee",
+          "amountCents": 2500,
+          "dir": "out",
+          "balanceCents": 383553,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

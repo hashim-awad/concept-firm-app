@@ -294,5 +294,113 @@
   "91906f4b1b2118f51637d816d8b9f33252f1bf00e3a74c0071a696af78ef74d9": {
     "file": "round22fix/rdb-chq-2026-08-03_to_2026-09-02.pdf",
     "result": "round22fix/rdb-chq-2026-08-03_to_2026-09-02.json"
+  },
+  "ea635fed2316ab5ac1430ddcfe34b2856419b596fd12b0f51f06eb4fd34b2b60": {
+    "file": "round23/rbc-chq-2025-07-02_to_2025-08-01.pdf",
+    "result": "round23/rbc-chq-2025-07-02_to_2025-08-01.json"
+  },
+  "c0fa00a8cdc3a6f73eb01bede73a6f2b21b9e962c4a7007a72fb216609086499": {
+    "file": "round23/rbc-chq-2025-08-01_to_2025-09-02.pdf",
+    "result": "round23/rbc-chq-2025-08-01_to_2025-09-02.json"
+  },
+  "b0090d52b1b68d4541768d1ac603d4d52f846ad515ef7ac5adca286cf2fa259a": {
+    "file": "round23/rbc-chq-2025-09-02_to_2025-10-02.pdf",
+    "result": "round23/rbc-chq-2025-09-02_to_2025-10-02.json"
+  },
+  "eed290d28f399c03d562c2f1c246919ff7e3bc11de73de07d964ff34aeb20f94": {
+    "file": "round23/rbc-chq-2025-10-02_to_2025-11-03.pdf",
+    "result": "round23/rbc-chq-2025-10-02_to_2025-11-03.json"
+  },
+  "2d5ef186c59b335e36a10ec9ef9dce462d866328e5295c792deeea33f7460dc0": {
+    "file": "round23/rbc-chq-2025-11-03_to_2025-12-02.pdf",
+    "result": "round23/rbc-chq-2025-11-03_to_2025-12-02.json"
+  },
+  "dbd54ce9602c1fea418c878e1918971821716906bafa1c707b0f8a72faa14d84": {
+    "file": "round23/rbc-chq-2025-12-02_to_2026-01-02.pdf",
+    "result": "round23/rbc-chq-2025-12-02_to_2026-01-02.json"
+  },
+  "722ea087ac53f637dc4d853a5cc73d385165ef4156facb1188f0f159adba817c": {
+    "file": "round23/rbc-chq-2026-01-02_to_2026-02-02.pdf",
+    "result": "round23/rbc-chq-2026-01-02_to_2026-02-02.json"
+  },
+  "d36a9ad7724916bcc73a3a2edbe6a95702aececc3970707f20d057c92569f675": {
+    "file": "round23/rbc-chq-2026-02-02_to_2026-03-02.pdf",
+    "result": "round23/rbc-chq-2026-02-02_to_2026-03-02.json"
+  },
+  "2d71403ecf14c55a65dd7143c682d41e8065d098dae73469d0a79225f603e7e0": {
+    "file": "round23/rbc-chq-2026-03-02_to_2026-04-02.pdf",
+    "result": "round23/rbc-chq-2026-03-02_to_2026-04-02.json"
+  },
+  "f916eb84f6c127e76e63032bc0c15c3d8d32de624cfcdb869525bac3a33b7bd3": {
+    "file": "round23/rbc-chq-2026-04-02_to_2026-05-01.pdf",
+    "result": "round23/rbc-chq-2026-04-02_to_2026-05-01.json"
+  },
+  "262122172e8ba91219a8f140a6143fec22765f04ec69c45ad4f6548cee0085f3": {
+    "file": "round23/rbc-chq-2026-05-01_to_2026-06-02.pdf",
+    "result": "round23/rbc-chq-2026-05-01_to_2026-06-02.json"
+  },
+  "d0225c87acfbedf0e438a0121e09f68265de84374d4de336418612a0112383d3": {
+    "file": "round23/rbc-chq-2026-06-02_to_2026-07-02.pdf",
+    "result": "round23/rbc-chq-2026-06-02_to_2026-07-02.json"
+  },
+  "7c5ce96764158f5f605e7acd48b9f6d387ef320bdb9fa0f0dceb4d36b66e1ceb": {
+    "file": "round23/rbc-chq-2026-07-02_to_2026-08-03.pdf",
+    "result": "round23/rbc-chq-2026-07-02_to_2026-08-03.json"
+  },
+  "7c6434803f20890ca88fa255a879b1db091057a242b7906672dc5e77bc084f94": {
+    "file": "round23/rbc-chq-2026-08-03_to_2026-09-02.pdf",
+    "result": "round23/rbc-chq-2026-08-03_to_2026-09-02.json"
+  },
+  "70f3fea70b99b603a7732e0e6e90c1ca90c75ede4166b9d83ed5564bb41b136d": {
+    "file": "round23/rbc-sav-2025-09.pdf",
+    "result": "round23/rbc-sav-2025-09.json"
+  },
+  "bc507ede0d876a32547e83575f4649df597097da74a4929e01887f92539fa4c3": {
+    "file": "round23/rbc-sav-2025-10.pdf",
+    "result": "round23/rbc-sav-2025-10.json"
+  },
+  "11561cb20ec1ba5b26255ac795c25876a3479b2098a2b122dcdb73b1c7cd5201": {
+    "file": "round23/rbc-sav-2025-11.pdf",
+    "result": "round23/rbc-sav-2025-11.json"
+  },
+  "6bffc8a05479b43dce8c35c19ed86d86df91e14137e75cc9bb47f73e0a191b26": {
+    "file": "round23/rbc-sav-2025-12.pdf",
+    "result": "round23/rbc-sav-2025-12.json"
+  },
+  "a9535a78a86c34957231f70acbe28c5878f010247746131ee55c01e8382c107c": {
+    "file": "round23/rbc-sav-2026-01.pdf",
+    "result": "round23/rbc-sav-2026-01.json"
+  },
+  "548974661825c3450cb402ef72f2b6a52df92cf13fc13e3c161c027d789c0d92": {
+    "file": "round23/rbc-sav-2026-02.pdf",
+    "result": "round23/rbc-sav-2026-02.json"
+  },
+  "93a56000c50caaf3659999741552f1cf9980d2ff114b6c8bec4a1dd418448eb9": {
+    "file": "round23/rbc-sav-2026-03.pdf",
+    "result": "round23/rbc-sav-2026-03.json"
+  },
+  "670a89f3860162c3c10982b87829d5405744dda3b3b14fc17d29a37b1d3812db": {
+    "file": "round23/rbc-sav-2026-03-misread.pdf",
+    "result": "round23/rbc-sav-2026-03-misread.json"
+  },
+  "17f09a349698150828653fdf54ba872eb504b417e495375ebcfbde856f2bcc8a": {
+    "file": "round23/rbc-sav-2026-04.pdf",
+    "result": "round23/rbc-sav-2026-04.json"
+  },
+  "c3a6c2626d89beffea3f107ef2bbbd29fabd5be18d9b917e5d407e1162277bb7": {
+    "file": "round23/rbc-sav-2026-05.pdf",
+    "result": "round23/rbc-sav-2026-05.json"
+  },
+  "0b6021b7ae69c6ae9169bfba4481f11de58a60ce428f2974a21d5ea5d11c21b0": {
+    "file": "round23/rbc-sav-2026-06.pdf",
+    "result": "round23/rbc-sav-2026-06.json"
+  },
+  "e67b7a50d271b79cf051cd902f421bb5255083fe6c86fef4bc0bf86557b264f1": {
+    "file": "round23/rbc-sav-2026-07.pdf",
+    "result": "round23/rbc-sav-2026-07.json"
+  },
+  "bf16e9c6787816a9215167e8ca69ab69062e864b5d47aed6e5a3194a46e70f9c": {
+    "file": "round23/rbc-sav-2026-08.pdf",
+    "result": "round23/rbc-sav-2026-08.json"
   }
 }

@@ -1,0 +1,103 @@
+{
+  "bank": "RBC Royal Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2468",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-06-02",
+      "opening": 1624338,
+      "closing": 1931359,
+      "summary": null,
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-05-04",
+          "description": "Monthly fee",
+          "amountCents": 600,
+          "dir": "out",
+          "balanceCents": 1623738,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-05-06",
+          "description": "e-Transfer received",
+          "amountCents": 138993,
+          "dir": "in",
+          "balanceCents": 1762731,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-05-10",
+          "description": "PAD telecom",
+          "amountCents": 9186,
+          "dir": "out",
+          "balanceCents": 1753545,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-05-14",
+          "description": "Deposit",
+          "amountCents": 253233,
+          "dir": "in",
+          "balanceCents": 2006778,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-05-18",
+          "description": "Loan payment",
+          "amountCents": 33019,
+          "dir": "out",
+          "balanceCents": 1973759,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-05-22",
+          "description": "e-Transfer sent",
+          "amountCents": 39900,
+          "dir": "out",
+          "balanceCents": 1933859,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l7",
+          "date": "2026-05-26",
+          "description": "Activity fee",
+          "amountCents": 2500,
+          "dir": "out",
+          "balanceCents": 1931359,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

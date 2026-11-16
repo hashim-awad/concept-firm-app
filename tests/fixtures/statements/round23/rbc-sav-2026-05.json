@@ -1,0 +1,67 @@
+{
+  "bank": "RBC Royal Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "5678",
+      "name": "Business savings",
+      "kind": "bank",
+      "periodStart": "2026-05-01",
+      "periodEnd": "2026-05-31",
+      "opening": 842478,
+      "closing": 841857,
+      "summary": null,
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-05-03",
+          "description": "Monthly fee",
+          "amountCents": 600,
+          "dir": "out",
+          "balanceCents": 841878,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-05-12",
+          "description": "Interest",
+          "amountCents": 161,
+          "dir": "in",
+          "balanceCents": 842039,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-05-20",
+          "description": "Deposit",
+          "amountCents": 52917,
+          "dir": "in",
+          "balanceCents": 894956,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-05-27",
+          "description": "Transfer to chequing",
+          "amountCents": 53099,
+          "dir": "out",
+          "balanceCents": 841857,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

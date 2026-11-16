@@ -35,6 +35,8 @@ export type ProgressFacts = {
   checklistAnswers: number;      // completion checklist answers (step 10)
   closeTyped: boolean;           // the filing record saved (step 10)
   signs: Partial<Record<StepKey, { prepared: boolean; reviewed: boolean }>>;
+  banking?: Partial<Record<"accounts" | "feeds" | "reconcile", boolean>>;   // round 23: Banking's sub-steps signed by the preparer
+  bankAccounts?: number;         // round 23: bank and card accounts added (3.1)
 };
 
 // Work started on a step, from its own data.
@@ -84,6 +86,11 @@ export function paperStarted(paper: PaperKey, f: ProgressFacts): boolean {
 }
 
 export function paperProgress(step: StepKey, paper: PaperKey, f: ProgressFacts): Progress {
+  // Round 23: Banking's sub-steps carry their own sign-offs.
+  if (paper === "accounts" || paper === "feeds" || paper === "reconcile") {
+    if (f.banking?.[paper] || stepSigned(step, f)) return "signed";
+    return (paper === "accounts" ? (f.bankAccounts ?? 0) > 0 : f.statements > 0) ? "started" : "not_started";
+  }
   if (stepSigned(step, f)) return "signed";
   return paperStarted(paper, f) ? "started" : "not_started";
 }

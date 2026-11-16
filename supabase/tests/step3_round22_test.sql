@@ -23,7 +23,7 @@ insert into public.clients (kind, legal_name, province) values ('corporation', '
 select public.cb_create_file(:'client', '2026-08-31', '2025-09-01', '', 'full', 'statements', :A::uuid, :A::uuid) as f \gset
 
 -- ---------- Accounts: placement, numbers and names (decisions 2 and 3)
-select test.check('no accounts: step 3 asks for them', test.rp(:'f') = array['Add the bank and card accounts and upload their statements.']::text);
+select test.check('no accounts: step 3 asks for them', test.rp(:'f') = array['Add the bank and card accounts.']::text);
 select public.cb_save_bank_account(:'f', null, 'chequing', 'MDB', '2201', 1957.62, false, false) as chq1 \gset
 select public.cb_save_bank_account(:'f', null, 'chequing', 'NDB', '3302', 5110.00, false, false) as chq2 \gset
 select public.cb_save_bank_account(:'f', null, 'savings', 'MDB', '7001', 0, false, false) as sav1 \gset
@@ -96,17 +96,18 @@ select test.check('4 lines by purchase date; the posting date is kept', (:'imp_c
 
 -- ---------- Step 3's problems
 select test.rp(:'f') as probs \gset
-select test.check('gaps are listed per account (a run of days with no statement is one gap); the year-end edge waits for them', :'probs' like '%10010 Chequing · NDB ••• 3302: 1 gap in the statements%'
-  and :'probs' like '%22010 Credit card · NDB ••• 5506: 1 gap in the statements%' and :'probs' like '%22000 Credit card · MDB ••• 4405: 1 gap in the statements%'
-  and :'probs' not like '%22000 Credit card · MDB ••• 4405: the statements show%');
-select test.check('the start edge ties for 10000 (statements 1,957.62, books 1,957.62)', :'probs' not like '%10000 Chequing · MDB ••• 2201: the statements show%');
-select test.check('statements waiting: the copy and the old one are not counted', :'probs' not like '%waiting to check%');
+-- Round 23: step 3's list is its three sub-steps' lists (3.2: "not uploaded", "N missing"; 3.3: the year end waits).
+select test.check('missing periods are listed per account; the year end waits for them', :'probs' like '%10010 Chequing · NDB ••• 3302: not uploaded.%'
+  and :'probs' like '%22010 Credit card · NDB ••• 5506: not uploaded.%' and :'probs' like '%22000 Credit card · MDB ••• 4405: 1 missing.%'
+  and :'probs' not like '%22000 Credit card · MDB ••• 4405: DIFFERENCE%');
+select test.check('the start edge ties for 10000 (statements 1,957.62, books 1,957.62)', :'probs' not like '%10000 Chequing · MDB ••• 2201: the start of the year%');
+select test.check('statements waiting: the copy and the old one are not counted', :'probs' not like '%to fix%');
 select test.check('no tie yet: step 2 is not entered', :'probs' not like '%GIFI 1002%');
 -- Coverage reasons
 select public.cb_set_bank_coverage(:'card2', null, null, 'No statements: the card was cancelled before the year.');
 select public.cb_set_bank_coverage(:'chq2', '2026-08-01', null, '');
 select test.rp(:'f') as probs \gset
-select test.check('a note with no dates waives the months; an opening date limits them', :'probs' not like '%22010%' and :'probs' like '%10010 Chequing · NDB ••• 3302: 1 gap in the statements%');
+select test.check('a note with no dates waives the months; an opening date limits them', :'probs' not like '%22010%' and :'probs' like '%10010 Chequing · NDB ••• 3302: not uploaded.%');
 select test.check('a reason outside the year is refused', test.try(format($q$select public.cb_set_bank_coverage(%L, '2024-01-01', null, '')$q$, :'chq2')) like '%inside the year%');
 select test.check('the reason is recorded with who and when', (select coverage_by = :A::uuid and coverage_at is not null from public.cb_bank_accounts where id = :'card2'));
 
@@ -116,7 +117,7 @@ insert into public.cb_opening_balances (file_id, code, amount) values (:'f', '10
 update public.cb_files set opening_source = 'manual' where id = :'f';
 set role authenticated;
 select test.rp(:'f') as probs \gset
-select test.check('GIFI 1002 off by 300.00 shows; 2707 ties', :'probs' like '%GIFI 1002: the accounts open at 7,067.62, last year''s T2 has 7,367.62%' and :'probs' not like '%GIFI 2707%');
+select test.check('GIFI 1002 off by 300.00 shows; 2707 ties', :'probs' like '%GIFI 1002: the accounts total 7,067.62, last year''s T2 has 7,367.62 (300.00 to add).%' and :'probs' not like '%GIFI 2707%');
 select public.cb_save_bank_account(:'f', :'chq2', 'chequing', 'NDB', '3302', 5410.00, false, false);
 select test.check('fixing the balance ties 1002', test.rp(:'f') not like '%GIFI 1002%');
 
@@ -127,11 +128,11 @@ values ('00000000-0000-0000-0000-0000000022b1', :'f', :A::uuid, 'ndb-2025-09.pdf
 set role authenticated;
 select public.cb_set_bank_coverage(:'chq2', null, null, '');
 select public.cb_import_statement('00000000-0000-0000-0000-0000000022b1', ('[{"key":"a1","account":"' || :'chq2' || '","opening":5860.00,"closing":5410.00,"period_start":"2025-09-01","period_end":"2025-09-30","at_start":5860.00,"at_end":null,"rows":[{"line":1,"date":"2025-09-04","description":"CHEQUE #204","amount":-450.00}],"check":{},"edits":{}}]')::jsonb, false, '');
-select test.check('an unexplained difference at the start blocks', test.rp(:'f') like '%10010 Chequing · NDB ••• 3302: the statements show 5,860.00 on Aug 31, 2025 and the books 5,410.00. Explain the difference of (450.00)%');
+select test.check('an unexplained difference at the start blocks', test.rp(:'f') like '%10010 Chequing · NDB ••• 3302: the start of the year differs from the bank by (450.00). Explain it.%');
 select id as l204 from public.cb_bank_lines where account_id = :'chq2' \gset
 select test.check('the clearing line must be for the same amount', test.try(format($q$select public.cb_add_outstanding(%L, 'start', '2025-08-28', 'Cheque #204', 'out', 45, %L)$q$, :'chq2', :'l204')) like '%same amount%');
 select public.cb_add_outstanding(:'chq2', 'start', '2025-08-28', 'Cheque #204', 'out', 450, :'l204') as item \gset
-select test.check('explained: the difference is gone', test.rp(:'f') not like '%10010 Chequing · NDB ••• 3302: the statements show%');
+select test.check('explained: the difference is gone', test.rp(:'f') not like '%10010 Chequing · NDB ••• 3302: the start of the year%');
 select test.check('the line that cleared it posts nothing', (select status = 'matched' and source = 'outstanding' from public.cb_bank_lines where id = :'l204'));
 select public.cb_remove_outstanding(:'item');
 select test.check('removing the item frees the line to code', (select status = 'new' and source = '' from public.cb_bank_lines where id = :'l204'));
@@ -142,7 +143,7 @@ reset role;
 insert into public.cb_statement_imports (id, file_id, created_by, file_name, media_type, storage_path, status, summary, result, finished_at)
 values ('00000000-0000-0000-0000-0000000022c1', :'f', :A::uuid, 'ndb-2025-10.pdf', 'application/pdf', 'file/x/c1.pdf', 'needs_look', '{"period_start":"2025-10-01","period_end":"2025-10-31"}', '{"bank":"","pages":1,"accounts":[]}', now());
 set role authenticated;
-select test.check('a statement in the year waiting to check blocks', test.rp(:'f') like '%1 statement waiting to check%');
+select test.check('a statement in the year waiting to check blocks', test.rp(:'f') like '%1 statement to fix%');
 select public.cb_skip_statement('00000000-0000-0000-0000-0000000022a3', true, null);
 select test.check('Skip keeps it listed, as skipped', (select status from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000022a3') = 'skipped');
 select public.cb_skip_statement('00000000-0000-0000-0000-0000000022a3', false, 'ready');
@@ -164,7 +165,7 @@ select test.check('the PDF goes back to "Ready to check" (its checks passed when
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_undone'));
 
 -- ---------- Step status uses the new rules
-select test.check('cb_step_status shows step 3''s problems', (public.cb_step_status(:'f') -> 'records' -> 'problems')::text like '%waiting to check%');
+select test.check('cb_step_status shows step 3''s problems', (public.cb_step_status(:'f') -> 'records' -> 'problems')::text like '%to fix%');
 
 -- An undone statement whose checks did not pass goes back to "Needs a look".
 reset role;
