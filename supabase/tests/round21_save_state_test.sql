@@ -148,7 +148,7 @@ values (:'tb', 'confirmed', '{"basis":"standard","custom_basis_wording":"","user
 insert into public.cb_acceptance (file_id, q8, confirmed, answered)
 values (:'prior', 'confirmed', '{"basis":"standard","custom_basis_wording":"","users":[],"by":"00000000-0000-0000-0000-00000000000c","at":"2026-11-15T01:40:00+00:00"}', '{"q6":{"by":"x","at":"2026-11-15T01:40:00+00:00"}}');
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:'prior', 'setup', :C, now());
-\i supabase/migrations/20261210000000_round21_save_state.sql
+\i supabase/migrations/20261210020000_round21_save_state.sql
 select test.check('repair: 6 and 8 back to not confirmed', (select confirmed is null and q8 is null and not answered ? 'q6' and not answered ? 'q8' from public.cb_acceptance where file_id = :'f'));
 select test.check('repair: other answers and the users'' question 7 stay', (select q1 = 'yes' and answered ? 'q1' and users -> 0 ->> 'agreed' = 'yes' from public.cb_acceptance where file_id = :'f'));
 select test.check('repair: logged in the file history', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'acceptance_reset'
@@ -157,6 +157,6 @@ select test.check('repair: a file with an earlier file is left alone', (select c
 select test.check('repair: a file whose step 1 is signed is left alone', (select confirmed is not null from public.cb_acceptance where file_id = :'prior'));
 -- Confirmed again by the preparer, then the migration runs a second time: nothing changes.
 update public.cb_acceptance set confirmed = '{"basis":"standard","custom_basis_wording":"","users":[],"by":"00000000-0000-0000-0000-00000000000c","at":"2026-11-15T20:00:00+00:00"}', q8 = 'confirmed' where file_id = :'f';
-\i supabase/migrations/20261210000000_round21_save_state.sql
+\i supabase/migrations/20261210020000_round21_save_state.sql
 select test.check('run twice: a file reset once is not reset again', (select confirmed is not null from public.cb_acceptance where file_id = :'f')
   and (select count(*) = 1 from public.cb_file_history where file_id = :'f' and action = 'acceptance_reset'));
