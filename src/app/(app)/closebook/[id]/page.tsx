@@ -50,6 +50,7 @@ import { saveSetup } from "../actions";
 import { loadCoding } from "@/lib/closebook/coding-server";
 import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
+import { accountChoices } from "@/lib/closebook/schedule";
 import { loadReportData } from "@/lib/closebook/report-data";
 import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
@@ -192,25 +193,19 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);
       const gname = new Map(((gn ?? []) as { code: string; name: string }[]).map((g) => [g.code, g.name]));
       const codes: [string, { name: string; type: string }][] = [...info.entries()].map(([c, i]) => [c, { name: c === "3660" ? "Retained earnings, start of last year" : gname.get(c) ?? i.name, type: i.type }]);
-      // Each GIFI line's standard chart accounts, in chart order (3660 takes those on 3600): the Account
-      // column's choice on every Schedule 100 line (item 13).
-      const { data: ch } = await supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order");
-      const onCode = new Map<string, { number: string; name: string }[]>();
-      for (const c of (ch ?? []) as { number: string; name: string; line_no: string | null }[]) {
-        if (!c.line_no) continue;
-        const code = c.line_no.slice(0, 4);
-        for (const k of code === "3600" ? ["3600", "3660"] : [code]) onCode.set(k, [...(onCode.get(k) ?? []), { number: c.number, name: c.name }]);
-      }
-      // A bank or card line lists the file's own bank accounts instead (round 4b), so last year's balance
-      // sits on the account the statements post to.
-      const { data: bas } = await supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number");
-      const lineOfChart = new Map(((ch ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no]));
-      const onBank = new Map<string, { number: string; name: string; label: string }[]>();
-      for (const b of (bas ?? []) as { id: string; name: string; number: string; chart_account: string }[]) {
-        const code = (lineOfChart.get(b.chart_account) ?? "").slice(0, 4);
-        if (code) onBank.set(code, [...(onBank.get(code) ?? []), { number: `bank:${b.id}`, name: b.name, label: `${b.number} ${b.name}` }]);
-      }
-      const choices = Object.fromEntries([...onCode, ...onBank]);
+      // The Account column's choice on every Schedule 100 line (item 13): the standard chart accounts on the
+      // GIFI line, then on its detail lines when it is a summary line (Recommendation A, Nov 16), or the
+      // file's own bank accounts on a bank line (round 4b). src/lib/closebook/schedule.ts accountChoices.
+      const [{ data: ch }, { data: bas }, { data: gp }] = await Promise.all([
+        supabase.from("cb_chart_accounts").select("number, name, line_no").order("sort_order"),
+        supabase.from("cb_bank_accounts").select("id, name, number, chart_account").eq("file_id", id).order("number"),
+        supabase.from("cb_gifi_parts").select("summary, detail"),
+      ]);
+      const chart = (ch ?? []) as { number: string; name: string; line_no: string | null }[];
+      const lineOfChart = new Map(chart.map((c) => [c.number, c.line_no]));
+      const choices = accountChoices(chart,
+        ((bas ?? []) as { id: string; name: string; number: string; chart_account: string }[]).map((b) => ({ ...b, code: (lineOfChart.get(b.chart_account) ?? "").slice(0, 4) })),
+        ((gp ?? []) as { summary: string; detail: string }[]).map((x) => [x.summary, x.detail] as [string, string]));
       const initialAccounts = Object.fromEntries(((ob ?? []) as { code: string; chart_account: string | null; bank_account: string | null }[])
         .filter((o) => o.chart_account || o.bank_account).map((o) => [o.code, o.bank_account ? `bank:${o.bank_account}` : o.chart_account!]));
       const cents = (v: unknown) => (v === null || v === undefined ? null : Math.round(Number(v) * 100));

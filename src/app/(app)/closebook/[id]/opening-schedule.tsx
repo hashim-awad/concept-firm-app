@@ -101,8 +101,9 @@ export function OpeningSchedule({ fileId, codes, initial, s125Before = [], reSta
   const onSign = () => run(async () => {
     setErr(null);
     if (st.dirty && !(await save())) return;
-    const e = await signOpeningInline(fileId);
-    if (e) { setErr(e); notify(e, "error"); } else { notify("Step 2 signed as preparer."); router.refresh(); }
+    const r = await signOpeningInline(fileId);
+    // As every step's "Sign as preparer" (round 21): a note naming the next step, which opens by itself.
+    if ("error" in r) { setErr(r.error); notify(r.error, "error"); } else { notify(r.note); router.push(r.next); }
   });
   function discard() {
     const s = fromSaved();

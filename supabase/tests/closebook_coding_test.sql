@@ -21,7 +21,7 @@ select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 
 select (public.cb_upload_bank(:'f', null, 'Visa 1234', 'card', 'v.csv', 0, 452.4,
   '[{"line":2,"date":"2026-01-02","description":"SAMPLE PIZZA","amount":113},{"line":3,"date":"2026-01-05","description":"SAMPLE SOFTWARE","amount":226},{"line":4,"date":"2026-01-09","description":"SAMPLE RENT","amount":113.4}]',
   '2026-01-01', '2026-01-31')) ->> 'account_id' as acc \gset
-select test.check('the standard chart and the tax codes are in Settings', (select count(*) from public.cb_chart_accounts) = 148  -- 147, plus 42400 GST/HST quick method gain (round 13)
+select test.check('the standard chart and the tax codes are in Settings', (select count(*) from public.cb_chart_accounts) = 164  -- 147, plus 42400 GST/HST quick method gain (round 13), plus 16 (round 21, Nov 16)
   and (select sum(rate) from public.cb_sales_tax_parts where code = 'MEALS_HST_50') = 0.13
   and (select count(*) from public.cb_sales_tax_codes where provinces is null) = 3);
 select test.check('the standard chart is numbered in 5 digits, apart from the GIFI codes', not exists (select 1 from public.cb_chart_accounts where number !~ '^\d{5}$')
@@ -92,7 +92,7 @@ select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210},{"code":"10
 select test.check('an account must be on the row''s GIFI line', test.try(format($f$select public.cb_save_opening(%L, '[{"code":"2680","amount":1,"account":"10000"}]', 1, 1, '')$f$, :'f')) like '%not on GIFI line 2680%');
 select test.check('a total cannot be typed as a line', test.try(format($f$select public.cb_save_opening(%L, '[{"code":"2599","amount":1}]', 1, 1, '')$f$, :'f')) like '%is a total%');
 select test.check('sign-off refused while 3640 is out', test.try(format($f$select public.cb_sign_opening(%L)$f$, :'f')) like '%3640%does not equal total assets%');
-select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210,"account":"10000"},{"code":"1062","amount":6500},{"code":"1774","amount":9800},{"code":"1775","amount":-3920},{"code":"2620","amount":4250},{"code":"2680","amount":2110,"account":"21500"},{"code":"2781","amount":12400,"account":"23000"},{"code":"3500","amount":100},{"code":"3660","amount":29480},{"code":"3700","amount":8000}]', 41730, 20250, 'Prior T2, year ended Oct 31, 2025');
+select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210,"account":"10000"},{"code":"1062","amount":6500},{"code":"1774","amount":9800},{"code":"1775","amount":-3920},{"code":"2620","amount":4250,"account":"21100"},{"code":"2680","amount":2110,"account":"21500"},{"code":"2781","amount":12400,"account":"23000"},{"code":"3500","amount":100},{"code":"3660","amount":29480},{"code":"3700","amount":8000,"account":"32200"}]', 41730, 20250, 'Prior T2, year ended Oct 31, 2025');
 select test.check('the chosen account is kept with the opening balance', (select chart_account from public.cb_opening_balances where file_id = :'f' and code = '2680') = '21500');
 select test.check('a dividend typed as printed (positive) is stored negative', (select amount from public.cb_opening_balances where file_id = :'f' and code = '3700') = -8000);
 select public.cb_sign_opening(:'f');

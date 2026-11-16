@@ -10,14 +10,21 @@
 // year end, has passed: the reviewer) and this year's part (its date is next year end: My day).
 import type { Posting } from "./tb-build";
 
-export const SH_LINES = ["1301", "1302", "1303", "2780", "2781", "2782", "2783", "3260", "3261", "3262", "3263"];
+// Round 21 (Hashim, Nov 16, 2026): the long-term due from shareholder lines (2180 to 2183) too, so a
+// long-term amount the shareholder owes gets the s.15(2) check.
+export const SH_LINES = ["1301", "1302", "1303", "2180", "2181", "2182", "2183", "2780", "2781", "2782", "2783", "3260", "3261", "3262", "3263"];
+// The standard chart's director accounts (Nov 16, 2026): for directors who are not shareholders, so outside
+// the schedule though they sit on the shareholder/director lines.
+export const CHART_DIRECTOR = new Set(["chart:13100", "chart:23150", "chart:25450"]);
 export const isShLine = (line_no: string | null | undefined) => !!line_no && SH_LINES.includes(line_no.slice(0, 4));
+export const isShAccount = (a: { key: string; line_no: string | null | undefined }) => isShLine(a.line_no) && !CHART_DIRECTOR.has(a.key);
 // GIFI lines whose entries credit the shareholder: dividends declared (3700 to 3719) and salary or bonus.
 const DIVIDEND = (g: number) => g >= 3700 && g <= 3719;
 const SALARY = new Set([9060, 9063, 9065, 9066]);
 // The standard chart's shareholder accounts. Any other account on a shareholder line is picked by the
 // preparer on the schedule, and the choice rolls forward to the client's next file.
-export const CHART_SHAREHOLDER: Record<string, number> = { "chart:13000": 1, "chart:23000": 1, "chart:25400": 1, "chart:13050": 2, "chart:23050": 2 };
+// 17500 Due from shareholder (long-term) is shareholder 1's (Hashim, Nov 16, 2026).
+export const CHART_SHAREHOLDER: Record<string, number> = { "chart:13000": 1, "chart:23000": 1, "chart:25400": 1, "chart:17500": 1, "chart:13050": 2, "chart:23050": 2 };
 
 export type ShKind = "paid" | "repaid" | "expenses" | "dividends" | "salary" | "books" | "other";
 export const KIND_LABEL: Record<ShKind, string> = {
@@ -107,7 +114,7 @@ export type ShInput = { accounts: ShAccountIn[]; postings: Posting[]; entries: M
 // The continuity of each account.
 export function buildSchedules(inp: ShInput): ShSchedule[] {
   const out: ShSchedule[] = [];
-  for (const a of inp.accounts.filter((x) => isShLine(x.line_no))) {
+  for (const a of inp.accounts.filter(isShAccount)) {
     const ps = inp.postings.filter((p) => p.key === a.key);
     const item = (p: Posting): ShItem => ({ date: p.date, kind: p.kind, ref: p.ref, acct: p.acct, label: p.label, cents: p.cents });
     const groups = new Map<ShKind, ShMovement>();

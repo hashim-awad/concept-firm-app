@@ -3,7 +3,7 @@
 // (item 9), one sign rule for both tabs (item 12) and the account rule (item 13). Dummy figures.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blockOf, needsAccount, RE_BLOCK, reTieMessage, scheduleTotals, toGifi } from "../src/lib/closebook/schedule.ts";
+import { accountChoices, blockOf, needsAccount, RE_BLOCK, reTieMessage, scheduleTotals, toGifi } from "../src/lib/closebook/schedule.ts";
 import { openingFrom, type CodeInfo } from "../src/lib/closebook/opening.ts";
 import { parseAmount } from "../src/lib/closebook/amount.ts";
 
@@ -84,4 +84,26 @@ test("accounts: every Schedule 100 line with an amount needs one; Schedule 125 l
   assert.equal(needsAccount(blockOf("1744", "Asset"), 0), false);
   assert.equal(needsAccount(blockOf("1744", "Asset"), null), false);
   assert.equal(needsAccount(blockOf("8120", "Revenue"), 100), false);
+});
+
+test("Recommendation A (Nov 16): a summary line offers the accounts on its detail lines; a bank summary offers the file's bank accounts", () => {
+  const chart = [
+    { number: "10000", name: "Chequing", line_no: "1002.00" }, { number: "10500", name: "Petty cash", line_no: "1001.00" },
+    { number: "13000", name: "Due from shareholder 1", line_no: "1301.10" }, { number: "13050", name: "Due from shareholder 2", line_no: "1301.20" },
+    { number: "13100", name: "Due from director", line_no: "1303.00" }, { number: "15200", name: "Equipment", line_no: "1740.00" },
+    { number: "15700", name: "Tools and dies", line_no: "1744.00" }, { number: "25400", name: "Loan from shareholder (long-term)", line_no: "3261.00" },
+    { number: "25450", name: "Due to director (long-term)", line_no: "3263.00" }, { number: "31000", name: "Retained earnings", line_no: "3600.00" },
+  ];
+  const parts: [string, string][] = [["1000", "1001"], ["1000", "1002"], ["1300", "1301"], ["1300", "1303"], ["1740", "1744"], ["3260", "3261"], ["3260", "3263"]];
+  const n = (r: Record<string, { number: string }[]>, c: string) => (r[c] ?? []).map((x) => x.number);
+  const noBanks = accountChoices(chart, [], parts);
+  assert.deepEqual(n(noBanks, "3260"), ["25400", "25450"]);           // 3260 offers 25400 (and the director's 25450)
+  assert.deepEqual(n(noBanks, "1300"), ["13000", "13050", "13100"]);
+  assert.deepEqual(n(noBanks, "1740"), ["15200", "15700"]);           // its own account first, then its detail lines'
+  assert.deepEqual(n(noBanks, "1744"), ["15700"]);                    // a detail line keeps only its own
+  assert.deepEqual(n(noBanks, "3660"), ["31000"]);
+  assert.deepEqual(n(noBanks, "1000"), ["10000", "10500"]);   // chart order
+  const withBank = accountChoices(chart, [{ id: "td", name: "TD chequing", number: "10000", code: "1002" }], parts);
+  assert.deepEqual(n(withBank, "1000"), ["bank:td"]);                 // 1000 sits on the file's bank account
+  assert.deepEqual(n(withBank, "1002"), ["bank:td"]);
 });

@@ -82,3 +82,33 @@ export function scheduleTotals(lines: [string, number][], typeOf: (code: string)
   }
   return { totals: { t2599, t3499, equityLines, t3600, t3620, t3640, t8299, tExpenses, t9999, t3849calc, t3849: typed3849, ni9999From125: has125, reDifference }, flags };
 }
+
+// Item 13, Recommendation A (Hashim, Nov 16, 2026): the accounts a step 2 line can sit on. A code's own
+// standard chart accounts first, then those on its detail lines when it is a summary line (3260 offers
+// 25400 on 3261; 1300 offers 13000 and 13050), each in chart order; 3660 takes those on 3600. A bank or card
+// line, or a summary over one (1000 over 1001 to 1007), lists the file's own bank accounts instead, so last
+// year's balance sits on the account the statements post to. The database checks the same
+// (private.cb_chart_on_code, cb_save_opening). parts: [summary, detail] pairs (cb_gifi_parts).
+export type Choice = { number: string; name: string; label?: string };
+export function accountChoices(chart: { number: string; name: string; line_no: string | null }[], banks: { id: string; name: string; number: string; code: string }[],
+  parts: [string, string][]): Record<string, Choice[]> {
+  const own = new Map<string, Choice[]>(), bank = new Map<string, Choice[]>();
+  const pos = new Map(chart.map((c, i) => [c.number, i]));   // chart order (the list comes sorted)
+  for (const c of chart) {
+    if (!c.line_no) continue;
+    const code = c.line_no.slice(0, 4);
+    for (const k of code === "3600" ? ["3600", "3660"] : [code]) own.set(k, [...(own.get(k) ?? []), { number: c.number, name: c.name }]);
+  }
+  for (const b of banks) if (b.code) bank.set(b.code, [...(bank.get(b.code) ?? []), { number: `bank:${b.id}`, name: b.name, label: `${b.number} ${b.name}` }]);
+  const details = new Map<string, string[]>();
+  for (const [s, d] of parts) details.set(s, [...(details.get(s) ?? []), d]);
+  const out: Record<string, Choice[]> = {};
+  for (const code of new Set([...own.keys(), ...bank.keys(), ...details.keys()])) {
+    const family = [code, ...(details.get(code) ?? []).sort()];
+    const banks = family.flatMap((c) => bank.get(c) ?? []);
+    const fromDetails = family.slice(1).flatMap((c) => own.get(c) ?? []).sort((x, y) => (pos.get(x.number) ?? 0) - (pos.get(y.number) ?? 0));
+    const list = (banks.length ? banks : [...(own.get(code) ?? []), ...fromDetails]).filter((x, i, a) => a.findIndex((y) => y.number === x.number) === i);
+    if (list.length) out[code] = list;
+  }
+  return out;
+}

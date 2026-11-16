@@ -413,13 +413,19 @@ export async function saveOpeningInline(fileId: string, lines: [string, number][
   return tb;
 }
 
-export async function signOpeningInline(fileId: string): Promise<string | null> {
+// Round 21: as signStep does after "Sign as preparer": the next step opens by itself, with a note naming it.
+// The screen shows the note and goes to `next` (no redirect, so the note shows from the client).
+export async function signOpeningInline(fileId: string): Promise<{ error: string } | { next: string; note: string }> {
   const a = await getAccess();
-  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
-  const { error } = await (await createClient()).rpc("cb_sign_opening", { p_file: fileId });
-  if (error) return error.message;
+  if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_sign_opening", { p_file: fileId });
+  if (error) return { error: error.message };
   revalidatePath(`/closebook/${fileId}`);
-  return null;
+  const nextKey = STEP_KEYS[STEP_KEYS.indexOf("opening") + 1];
+  const { data: f } = await supabase.from("cb_files").select("books").eq("id", fileId).maybeSingle();
+  const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
+  return { next: `/closebook/${fileId}?step=${nextKey}`, note: `${STEP_WORD.opening} signed. Next: ${nextName}` };
 }
 
 // The source PDF: the prior T2 or the CRA assessment, kept in the private documents store.

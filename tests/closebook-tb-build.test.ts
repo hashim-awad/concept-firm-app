@@ -242,3 +242,17 @@ test("first year: a statement opening at zero leaves nothing for the reviewer; a
   assert.equal(sum(some), 0);
   assert.ok(some.find((r) => r.key === OPENING)?.reviewer);
 });
+
+test("a summary line on a bank account (round 21, Recommendation A): last year's 1000 Cash and deposits sits on TD chequing (1002), no difference", () => {
+  const opening = { lines: [
+    { code: "1000", line_no: "1000.00", name: "Cash and deposits", type: "Asset", debitCents: 6267900, bank: "td" },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: -6267900 },
+  ], reClosingCents: 6267900, reStatedCents: 6267900 };
+  const chart2 = new Map<string, BuildChart>([...chart, ["31000", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" }]]);
+  const rows = buildTrialBalance([{ id: "td", name: "TD chequing", kind: "bank", chart: "10000", number: "10000", openingCents: 6267900 }], [], chart2, codes, ctx, opening);
+  const td = rows.find((r) => r.name === "TD chequing")!;
+  assert.deepEqual([td.lastCents, td.cents], [6267900, 6267900]);
+  assert.equal(get(rows, OPENING), 0);
+  assert.ok(!rows.some((r) => r.key === OPENING && r.reviewer), "nothing waits in Opening balances to enter");
+  assert.equal(sum(rows), 0);
+});
