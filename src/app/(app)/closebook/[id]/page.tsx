@@ -64,17 +64,17 @@ import { emptyAcc, type AccRow, type Statements } from "@/lib/closebook/acceptan
 // https://claude.ai/artifact/XkgKhoP3v9jG395A5Meqho): the steps down the left, the page opens on the
 // current step with one "next job" bar. Each step shows the work built so far; the rest says what comes.
 export default async function FilePage({ params, searchParams }: PageProps<"/closebook/[id]">) {
-  const access = await requireAccess("closebook", "view");
-  const { id } = await params;
-  const sp = await searchParams;
+  // Speed (Hashim, Nov 16, 2026): what does not depend on something else loads at the same time. On Live each
+  // read crosses the network; one after another, twenty of them made every click slow.
+  const [access, { id }, sp, supabase] = await Promise.all([requireAccess("closebook", "view"), params, searchParams, createClient()]);
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const supabase = await createClient();
   // Rebuild the stored trial balance BEFORE reading the file: Next.js memoizes identical reads within one
   // render, so a read after the rebuild returned the rows from before it (round 4b, found on Birch).
   const { data: meta } = await supabase.from("cb_files").select("books, phase").eq("id", id).maybeSingle();
   if (meta && fromStatements(meta.books as string) && canEdit(access, "closebook") && meta.phase !== "locked") {
-    const { count: built } = await supabase.from("cb_accounts").select("id", { count: "exact", head: true }).eq("file_id", id).or("account_key.like.chart:%,account_key.like.bank:%,account_key.eq.opening");
-    const { count: stmts } = await supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id);
+    const [{ count: built }, { count: stmts }] = await Promise.all([
+      supabase.from("cb_accounts").select("id", { count: "exact", head: true }).eq("file_id", id).or("account_key.like.chart:%,account_key.like.bank:%,account_key.eq.opening"),
+      supabase.from("cb_bank_statements").select("id", { count: "exact", head: true }).eq("file_id", id)]);
     // Bank-statement files coded before the trial balance was built from them: build it once now. Steps 6
     // and 7 read the stored trial balance: build it fresh first, so a fix to the build shows at once.
     if ((!built && stmts) || ["mapping", "review"].includes(String(sp.step ?? ""))) {
@@ -82,10 +82,28 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       if (e) console.error(e);
     }
   }
-  const data = await loadFile(supabase, id);
+  // Everything the steps list and the header need, at once (after the rebuild above: Next.js memoizes reads).
+  const isBank = !!meta && fromStatements(meta.books as string);
+  const head = (t: string) => supabase.from(t).select("file_id", { count: "exact", head: true }).eq("file_id", id);
+  const [data, ref, bankPre, { data: st }, review, subs, [accN, obN, revN, shN, gifiN, tieN, gstN, chkN, closeN, { data: fsRow }]] = await Promise.all([
+    loadFile(supabase, id), loadReference(supabase),
+    isBank ? loadBank(supabase, id, typeof sp.account === "string" ? sp.account : undefined) : Promise.resolve(null),
+    isBank ? supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : Promise.resolve({ data: [] }),
+    // Round 8: each step's sign-offs, open items and review notes, from the database's own rules.
+    loadReview(supabase, id),
+    // Round 23: Banking's sub-steps (3.1 to 3.3), each with its own sign-offs.
+    isBank ? loadSubsteps(supabase, id) : Promise.resolve(null),
+    Promise.all([
+      head("cb_acceptance"), head("cb_opening_balances"), head("cb_revenue_checks"), head("cb_sh_flags").not("noted_at", "is", null), head("cb_gifi_exports"),
+      head("cb_t2_tieouts"), head("cb_gst_returns").not("prepared_at", "is", null), head("cb_checklist_answers"), head("cb_file_close"),
+      supabase.from("cb_file_fs").select("first_year, dividends, mal_sent_at").eq("file_id", id).maybeSingle(),
+    ]),
+  ]);
   if (!data) notFound();
   const { file, client, docs, accounts, imports, names, entries } = data;
-  const ref = await loadReference(supabase);
+  // Started now, read at the end: the report figures for the header and the people on the file.
+  const rdataP = loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets);
+  const staffP = supabase.from("staff").select("id, full_name, is_active, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").order("full_name");
   const isReviewer = access.staff_id === file.reviewer_id;
   // Notes by role (round 15b): the file's reviewer, or an owner who does not prepare it, reviews; everyone
   // else prepares (replies and marks fixed).
@@ -96,12 +114,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const bankFile = fromStatements(file.books);
   const str = (v: unknown) => (typeof v === "string" ? v : undefined);
   // Bank files: the months still missing per account set step 2's note and next job.
-  const bank = bankFile ? await loadBank(supabase, id, str(sp.account)) : null;
+  const bank = bankFile ? bankPre : null;
   const statements = bank?.statements.length ?? 0;
   const bankGaps = bank ? missingCount(bank.accounts.map((a) => ({ name: a.name,
     gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
   // Bank files: how far the coding has got (step 3).
-  const { data: st } = bankFile ? await supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : { data: [] };
   const sts = (st ?? []) as { status: string }[];
   const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
   // An account's balance after entries (round 10: the wrong-side check uses it).
@@ -112,19 +129,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Bank files: step 2, last year's balance sheet; after sign-off, any difference with the first statements.
   const openingRow = accounts.find((a) => a.account_key === "opening");
   const opening = { signed: !!file.opening_signed_at, entered: !!file.opening_source || !!file.first_year, firstYear: !!file.first_year };
-  // Round 8: each step's sign-offs, open items and review notes, from the database's own rules.
-  const review = await loadReview(supabase, id);
-  // Round 23: Banking's sub-steps (3.1 to 3.3), each with its own sign-offs.
-  const subs = bankFile ? await loadSubsteps(supabase, id) : null;
   let setupOpen = ["realtor", "owner_paid", "dividends", "payroll", "holdco", "gst_registered"].filter((k) => !(k in setup)).length;
   if (setup.gst_registered === true) setupOpen += ("gst_frequency" in setup ? 0 : 1) + ("quick_method" in setup ? 0 : 1);
   // Round 21 (ProFile, TurboTax): each step's progress in the list, from what the file already holds.
-  const head = (t: string) => supabase.from(t).select("file_id", { count: "exact", head: true }).eq("file_id", id);
-  const [accN, obN, revN, shN, gifiN, tieN, gstN, chkN, closeN, { data: fsRow }] = await Promise.all([
-    head("cb_acceptance"), head("cb_opening_balances"), head("cb_revenue_checks"), head("cb_sh_flags").not("noted_at", "is", null), head("cb_gifi_exports"),
-    head("cb_t2_tieouts"), head("cb_gst_returns").not("prepared_at", "is", null), head("cb_checklist_answers"), head("cb_file_close"),
-    supabase.from("cb_file_fs").select("first_year, dividends, mal_sent_at").eq("file_id", id).maybeSingle(),
-  ]);
   const signMap = stepSigns(review);
   const progress: ProgressFacts = { bank: bankFile, setupAnswers: Object.keys(setup).length, acceptance: !!accN.count, openingRows: obN.count ?? 0,
     openingTyped: !!file.opening_source || !!file.first_year || (fsRow?.first_year !== null && fsRow?.first_year !== undefined) || file.opening_re_stated !== null && file.opening_re_stated !== undefined, imported: imports.some((i) => i.target === "this_year"),
@@ -299,7 +306,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       pp.list = stepPapers("records", { full: true, shareholders: false, ownerPaid: false, gst: false, bank: true });
       pp.key = first.paper;
       body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
-        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} />;
+        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} />;
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
@@ -471,7 +478,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const signs = SIGNED_STEPS.map((k) => review.status[k]);
   const status: FileStatus = file.phase === "locked" ? "Locked" : signs.every((x) => x?.reviewed_at) ? "Reviewed" : signs.every((x) => x?.prepared_at || x?.reviewed_at) ? "Ready for review"
     : signs.some((x) => x?.prepared_at || x?.reviewed_at) ? "In progress" : "Open";
-  const rdata = await loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets);
+  const rdata = await rdataP;
   const netCents = accounts.length ? fsStatements(trialBalance(rdata.accounts, rdata.postings), rdata.info).pl.net.now : null;
   const openNotes = review.notes.filter((n) => n.status !== "cleared").length;
   const area: Area = report ? "tb" : (AREAS.find(([k]) => k === str(sp.area))?.[0] ?? "steps");
@@ -542,7 +549,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   }
 
   // Round 16: the people on the file (CaseWare engagement properties). Only owners are offered as reviewer.
-  const { data: staffRows } = await supabase.from("staff").select("id, full_name, is_active, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").order("full_name");
+  const { data: staffRows } = await staffP;
   type StaffRow = { id: string; full_name: string; is_active: boolean; role: { is_owner: boolean; role_permissions: { area_key: string; level: string }[] } | null };
   const staffAll = ((staffRows ?? []) as unknown as StaffRow[]).filter((x) => x.is_active);
   const peopleProps = {

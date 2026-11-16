@@ -8,6 +8,8 @@ import { MainArea } from "./main-area";
 import { TopBar, type NewItem } from "./top-bar";
 import { gearMenu } from "./admin/settings-menu";
 import { draftsByTab } from "@/lib/studio/template-status";
+import { Suspense } from "react";
+import { NavProgress } from "@/components/nav-progress";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();
@@ -15,11 +17,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
   const seeDocs = canView(access, "documents");
   const pricing = canView(access, "pricing");
-  const { count: leadsNew } = canView(access, "leads") ? await supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : { count: 0 };
   // The Engagements badge (its Letters tab): every letter waiting for a signature (quotes, monthly quotes, new letters).
-  const { data: lettersAwaiting } = seeDocs || canView(access, "leads") ? await supabase.rpc("letters_waiting_count") : { data: 0 };
-  // The gear's count: templates waiting for an owner's approval (owners only).
-  const drafts = access.is_owner && canView(access, "engagement_terms") ? await draftsByTab(supabase) : { letters: 0, schedules: 0, emails: 0, closebook: 0 };
+  // The gear's count: templates waiting for an owner's approval (owners only). The three counts load together.
+  const [{ count: leadsNew }, { data: lettersAwaiting }, drafts] = await Promise.all([
+    canView(access, "leads") ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : Promise.resolve({ count: 0 }),
+    seeDocs || canView(access, "leads") ? supabase.rpc("letters_waiting_count") : Promise.resolve({ data: 0 }),
+    access.is_owner && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
+  ]);
   // The badge is the sum of the counts the gear menu shows, so the two always agree.
   const gear = gearMenu(access, drafts);
   const draftTotal = gear.flatMap((c) => c.items).reduce((n, i) => n + (i.count ?? 0), 0);
@@ -68,6 +72,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </div>
       {/* Round 21: the "Saved" note (bottom-left, Dext) and the "Save your changes?" question, for every page. */}
       <NoteHost />
+      {/* A bar across the top while the next page loads, so every click shows at once. */}
+      <Suspense fallback={null}><NavProgress /></Suspense>
     </ToastProvider>
   );
 }

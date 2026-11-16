@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { notify } from "@/components/save-state";
 import { AmountInput } from "@/components/amount";
 import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements } from "../../../statements/actions";
-import { importChecked, setStatementTarget } from "../../step3-actions";
+import { importChecked, rebuildFileTb, setStatementTarget } from "../../step3-actions";
 import { importCsv } from "../../banking-actions";
 
 let storage: ReturnType<typeof createClient>["storage"] | null = null;
@@ -24,7 +24,7 @@ export type UploadSummary = {
   lines: number; yearLabel: string; outside: number; closing: number | null; bank: number | null; matches: boolean | null; startOff: number | null;
   missing: string[]; toFix: { id: string; label: string }[]; reading: number;
   refused: { id: string; file: string; why: string }[];      // statements for another account, or already in
-  pending: string[];                                           // read and passing: imported here by themselves
+  pending: { id: string; file: string }[];                     // read and passing: imported here by themselves
 };
 
 // Refusals stay listed after the file is removed, for this session.
@@ -34,6 +34,28 @@ const addRefused = (f: string, a: string, x: { file: string; why: string }) => {
   try { sessionStorage.setItem(KEY(f, a), JSON.stringify([...readRefused(f, a), x])); window.dispatchEvent(new Event("banking-refused")); } catch { /* shown once */ }
 };
 const subscribe = (cb: () => void) => { window.addEventListener("banking-refused", cb); return () => window.removeEventListener("banking-refused", cb); };
+
+// Speed (Hashim, Nov 16, 2026): each statement is tried once per session. A server call in progress makes every
+// click wait (Next.js runs them in turn), so a statement that keeps failing must not be tried on every visit.
+// The trial balance is rebuilt once at the end, not after each statement. A failure is listed with its reason.
+const TRIED = (f: string) => `banking-tried:${f}`;
+const triedIds = (f: string): Set<string> => { try { return new Set(JSON.parse(sessionStorage.getItem(TRIED(f)) || "[]") as string[]); } catch { return new Set(); } };
+async function importOnce(fileId: string, items: { id: string; account: string; file: string }[]): Promise<number> {
+  const tried = triedIds(fileId);
+  let n = 0;
+  for (const x of items) {
+    if (tried.has(x.id)) continue;
+    tried.add(x.id);
+    try { sessionStorage.setItem(TRIED(fileId), JSON.stringify([...tried])); } catch { /* tried this time only */ }
+    try {
+      const r = await importChecked(x.id, x.account, false, false);
+      if (r.ok && r.imported) n++;
+      else addRefused(fileId, x.account, { file: x.file, why: r.ok ? "Not imported: some of its lines are already in this file. Check it in View statements." : `Not imported: ${r.error}` });
+    } catch { addRefused(fileId, x.account, { file: x.file, why: "Not imported: the import did not finish. Upload it again." }); }
+  }
+  if (n) await rebuildFileTb(fileId);
+  return n;
+}
 
 export function BankingUpload({ fileId, accounts, account, opening, closeHref, summary, fixBase }: {
   fileId: string; accounts: { id: string; label: string }[]; account: string | null; opening: number | null; closeHref: string; summary: UploadSummary | null;
@@ -65,7 +87,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
     (async () => {
       setBusy(true);
       for (const r of summary.refused) { if (stop) break; addRefused(fileId, account, { file: r.file, why: r.why }); await discardStatement(r.id); }
-      for (const id of summary.pending) { if (stop) break; try { await importChecked(id, account, false); } catch { /* it stays to fix */ } }
+      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })));
       setBusy(false);
       router.refresh();
     })();
@@ -168,16 +190,16 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
   );
 }
 
-// On the 3.2 and 3.3 pages: statements read in the background that pass go in by themselves.
-export function AutoImport({ items }: { items: { id: string; account: string }[] }) {
+// On the 3.2 and 3.3 pages: statements read in the background that pass go in by themselves (each tried once).
+export function AutoImport({ fileId, items }: { fileId: string; items: { id: string; account: string; file: string }[] }) {
   const router = useRouter();
   const key = items.map((x) => x.id).join(",");
   useEffect(() => {
     if (!items.length) return;
     let stop = false;
     (async () => {
-      for (const x of items) { if (stop) break; try { await importChecked(x.id, x.account, false); } catch { /* it stays to fix */ } }
-      if (!stop) router.refresh();
+      const n = await importOnce(fileId, items);
+      if (!stop && n) router.refresh();
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

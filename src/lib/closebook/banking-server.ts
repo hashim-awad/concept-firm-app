@@ -28,8 +28,8 @@ export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Pr
 }
 
 export async function loadBanking(supabase: SupabaseClient, file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null },
-  names: Map<string, string>, signed: boolean): Promise<Banking> {
-  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), loadSubsteps(supabase, file.id),
+  names: Map<string, string>, signed: boolean, known?: Record<SubKey, SubStatus> | null): Promise<Banking> {
+  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id)]);
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
   const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books })), t2);

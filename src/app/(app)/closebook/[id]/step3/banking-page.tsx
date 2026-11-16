@@ -9,7 +9,7 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { getStatement } from "@/lib/statements/server";
-import { loadBanking, loadFindIt, loadFix, type BankingAccount, type SubKey } from "@/lib/closebook/banking-server";
+import { loadBanking, loadFindIt, loadFix, loadSubsteps, type BankingAccount, type SubKey } from "@/lib/closebook/banking-server";
 import { typeLabel } from "@/lib/statements/types";
 import { formatDate } from "@/lib/dates";
 import type { AccountType } from "@/lib/closebook/step3";
@@ -26,12 +26,13 @@ const PAPER: Record<SubKey, string> = { "3.1": "accounts", "3.2": "feeds", "3.3"
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const PAGE = 50;
 
-export async function BankingPage({ supabase, file, names, sp, editable, sub }: {
+export async function BankingPage({ supabase, file, names, sp, editable, sub, subs }: {
   supabase: SupabaseClient; file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null };
   names: Map<string, string>; sp: Sp; editable: boolean; sub: SubKey;
+  subs?: Awaited<ReturnType<typeof loadSubsteps>>;   // already read by the file page
 }) {
   const fileId = file.id;
-  const d = await loadBanking(supabase, file, names, false);
+  const d = await loadBanking(supabase, file, names, false, subs);
   const base = `/closebook/${fileId}?step=records&paper=${PAPER[sub]}`;
   const accountId = str(sp.account);
   const tab = d.accounts.find((a) => a.id === accountId) ?? d.accounts[0] ?? null;
@@ -224,7 +225,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub }: 
     <>
       {body}
       {win}
-      {editable && sub !== "3.1" && !str(sp.upload) && <AutoImport items={d.pending.map((u) => ({ id: u.id, account: u.account! }))} />}
+      {editable && sub !== "3.1" && !str(sp.upload) && <AutoImport fileId={fileId} items={d.pending.map((u) => ({ id: u.id, account: u.account!, file: u.file_name }))} />}
     </>
   );
 }
@@ -241,7 +242,7 @@ function uploadSummary(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
     reading: mine.filter((u) => u.state.status === "reading").length,
     refused: mine.filter((u) => ["wrong_account", "no_account", "already", "copy", "outside"].includes(u.state.status))
       .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" || u.state.status === "copy" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
-    pending: d.pending.filter((u) => u.account === a.id).map((u) => u.id),
+    pending: d.pending.filter((u) => u.account === a.id).map((u) => ({ id: u.id, file: u.file_name })),
   };
 }
 

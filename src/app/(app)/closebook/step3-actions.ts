@@ -124,7 +124,8 @@ export async function skipStatement(id: string, skip: boolean, status: "ready" |
 // upload window's account, or the one its last digits match). Every line is sent; the database keeps only
 // those inside the year and checks the whole statement. The first call without confirmation returns the
 // lines already in the file and imports nothing.
-export async function importChecked(id: string, target: string | null, confirmDuplicates: boolean): Promise<
+// rebuild: false when several statements go in one after another (the caller rebuilds once at the end).
+export async function importChecked(id: string, target: string | null, confirmDuplicates: boolean, rebuild = true): Promise<
   { ok: true; imported: true; lines: number; outside: number; accounts: string[]; warnings: string[] } | { ok: true; imported: false; duplicates: { accountKey: string; lineIds: string[] }[] } | Fail> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return fail("You need Edit on Closebook to import.");
@@ -196,9 +197,18 @@ export async function importChecked(id: string, target: string | null, confirmDu
   });
   const { data: res, error } = await supabase.rpc("cb_import_statement", { p_import: id, p_accounts: payload, p_confirm_dups: confirmDuplicates, p_attachment: attachment });
   if (error) { await docs.remove([attachment]); return fail(`Nothing was imported. ${error.message}`); }
-  await rebuildTb(supabase, fileId);
+  if (rebuild) await rebuildTb(supabase, fileId);
   revalidatePath(`/closebook/${fileId}`);
   const out = (res ?? []) as { lines: number; outside: number; account: string }[];
   return { ok: true, imported: true, lines: out.reduce((n, r) => n + Number(r.lines), 0), outside: out.reduce((n, r) => n + Number(r.outside), 0),
     accounts: chosen.map((c) => `${c.to.number} ${c.to.name}`), warnings };
+}
+
+// After statements went in one after another without their own rebuild: the trial balance once.
+export async function rebuildFileTb(fileId: string): Promise<{ ok: true } | Fail> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return fail("You need Edit on Closebook.");
+  await rebuildTb(await createClient(), fileId);
+  revalidatePath(`/closebook/${fileId}`);
+  return { ok: true };
 }
