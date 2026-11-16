@@ -178,7 +178,7 @@ export function SignCircles(p: SignProps) {
 // A step's title row: the name in small capitals, the circles, the Issues chip, then add note, export
 // and help on the right.
 // ---------------------------------------------------------------------------------------------------
-export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notesOpen = 0, next, addNoteFor, exports, help, menu }: {
+export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next, addNoteFor, exports, help, menu }: {
   n: number; name: string; paper?: string; sub?: ReactNode; sign: SignProps | null; notesOpen?: number;
   issues: { problems: string[]; waiting: string[]; review: boolean };
   notesPanel: ReactNode; next?: string;
@@ -186,7 +186,9 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, notes
   exports: [string, string][]; help: ReactNode; menu?: StepMenuProps | null;
 }) {
   // Round 15b fix 2: the chip shows only when something is open: problems, waiting items or open notes.
-  const count = issues.problems.length + issues.waiting.length + notesOpen;
+  // Round 21 (Hashim item 11, one problem counts as one issue): an open review note is already a "To fix"
+  // line (cb_step_status), and a note marked fixed is a "With the reviewer" line; it is not counted again.
+  const count = issues.problems.length + issues.waiting.length;
   const icon = "grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100";
   // Round 21: a signed step says so in one line under the title (who and when).
   const st = sign?.st, signedBy = sign && sign.step !== "review" && st?.prepared_at ? st.prepared_by : sign?.step === "review" && st?.reviewed_at ? st.reviewed_by : null;

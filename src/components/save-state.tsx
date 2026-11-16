@@ -40,6 +40,7 @@ function store<T>(initial: T) {
 // ---------------------------------------------------------------------------------------------------
 type Note = { id: number; text: string; tone: "ok" | "error" };
 const notes = store<Note[]>([]);
+const NO_NOTES: Note[] = [];
 let lastNote = { text: "", at: 0 };
 export function notify(text: string, tone: "ok" | "error" = "ok") {
   if (typeof window === "undefined" || !text) return;
@@ -56,9 +57,10 @@ export function notify(text: string, tone: "ok" | "error" = "ok") {
 // so Back does not show it again.
 export function UrlNote({ text }: { text?: string | null }) {
   const path = usePathname(), sp = useSearchParams();
+  const shown = useRef<string | null>(null);
   useEffect(() => {
     if (!text) return;
-    notify(text);
+    if (shown.current !== text) { shown.current = text; notify(text); }
     if (!sp.has("msg")) return;
     const q = new URLSearchParams(sp.toString());
     q.delete("msg");
@@ -129,7 +131,7 @@ export async function leaveOk(next?: string): Promise<boolean> {
 // ---------------------------------------------------------------------------------------------------
 export function NoteHost() {
   const router = useRouter();
-  const list = useSyncExternalStore(notes.subscribe, notes.get, () => [] as Note[]);
+  const list = useSyncExternalStore(notes.subscribe, notes.get, () => NO_NOTES);
   const q = useSyncExternalStore(asking.subscribe, asking.get, () => null);
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -245,6 +247,10 @@ export function DiscardButton({ dirty, onDiscard, className = "btn-secondary btn
 // Discard. `signed`: the step is signed, so the first change asks first, because saving removes the
 // sign-off.
 // ---------------------------------------------------------------------------------------------------
+// A save redirects back with ?msg=, a new address, so the page (and this form) mounts again: what was
+// saved, and where to go next, waits here for the new form, by page and form name.
+const justSaved = new Map<string, { next: string | null }>();
+
 type FormCtx = { dirty: boolean; savedAt: Date | null; saving: boolean; discard: () => void };
 const SaveFormCtx = createContext<FormCtx | null>(null);
 export const useSaveForm = () => useContext(SaveFormCtx);
@@ -258,13 +264,24 @@ export function SaveForm({ action, children, className, signed, savedAt: savedIn
 }) {
   const ref = useRef<HTMLFormElement>(null);
   const router = useRouter();
-  const st = useSaveState({ savedAt: savedInitial });
+  const sp = useSearchParams();
+  const key = `${usePathname()}|${id ?? ariaLabel ?? ""}`;
+  // Mounted again after its own save: "Saved 2:14 PM" (unless the save was refused with ?error=).
+  const [restored] = useState(() => (justSaved.has(key) && !sp.has("error") ? new Date() : null));
+  const st = useSaveState({ savedAt: restored ?? savedInitial });
   const { setDirty, markSaved } = st;
   const dirty = controlled ?? st.dirty;
   const [saving, setSaving] = useState(false);
   const ack = useRef(false);
   const next = useRef<string | null>(null);
-  const sp = useSearchParams();
+  useEffect(() => {
+    const j = justSaved.get(key);
+    if (!j) return;
+    justSaved.delete(key);
+    // Saved from "Save your changes?": go on to where the user was going.
+    // After the page's own effects (which take ?msg= out of the address), or the push is lost.
+    if (restored && j.next) { const to = j.next; setTimeout(() => router.push(to), 0); }
+  }, [key, restored, router]);
   const touched = useRef(false);
   useEffect(() => { touched.current = dirty; }, [dirty]);
   const discard = useCallback(() => { ref.current?.reset(); onDiscard?.(); setDirty(false); touched.current = false; ack.current = false; }, [setDirty, onDiscard]);
@@ -286,18 +303,22 @@ export function SaveForm({ action, children, className, signed, savedAt: savedIn
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     // Enter in a text box after "Saved": nothing to save.
     if (!dirty && st.savedAt) { e.preventDefault(); return; }
+    justSaved.set(key, { next: next.current });
     setSaving(true);
   };
   // The save finished: the action redirected back. An ?error= means it was refused; anything else saved it.
   const done = useCallback((ok: boolean) => {
+    justSaved.delete(key);
     setSaving(false);
     if (!ok) return;
     markSaved(new Date());
+    // An action that saves without redirecting (no ?msg=): the note still says so.
+    if (!new URLSearchParams(window.location.search).has("msg")) notify("Saved");
     ack.current = false;
     const to = next.current;
     next.current = null;
     if (to) router.push(to);
-  }, [markSaved, router]);
+  }, [markSaved, router, key]);
   return (
     <SaveFormCtx.Provider value={{ dirty, savedAt: st.savedAt, saving, discard }}>
       <form ref={ref} id={id} action={action} className={className} aria-label={ariaLabel} onInput={changed} onChange={changed} onSubmit={onSubmit} onReset={() => setDirty(false)}

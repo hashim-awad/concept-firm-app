@@ -9,6 +9,7 @@ import { Alert, Button, Card, buttonClass } from "@/components/ds/primitives";
 import { Hint, Labelled, SelectIn, TextIn } from "@/components/studio/kit";
 import { THIRD_PARTY_BASIS } from "@/lib/clients";
 import { saveClientStatements, type StatementUser } from "../actions";
+import { DiscardButton, useUnsavedGuard } from "@/components/save-state";
 
 const MAX = 5;
 
@@ -21,12 +22,16 @@ export function StatementsEditor({ id, basis, customWording, users, cancelHref }
   const [pending, start] = useTransition();
   const setRow = (i: number, patch: Partial<StatementUser>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
-  function save() {
+  // Round 21 (QuickBooks Online's Save and close): "Save changes", Discard, and a question before leaving.
+  const dirty = b !== (basis || "standard") || wording !== customWording || JSON.stringify(rows) !== JSON.stringify(users);
+  const discard = () => { setB(basis || "standard"); setWording(customWording); setRows(users); setError(""); };
+  useUnsavedGuard(dirty, { discard, save: (to) => { save(to); return false; } });
+  function save(to?: string) {
     setError("");
     start(async () => {
       const r = await saveClientStatements(id, { basis: b, custom_basis_wording: wording, users: rows });
       if (!r.ok) { setError(r.error); return; }
-      router.push(`/clients/${id}?msg=statements`);
+      router.push(to ?? `/clients/${id}?msg=statements`);
       router.refresh();
     });
   }
@@ -77,7 +82,8 @@ export function StatementsEditor({ id, basis, customWording, users, cancelHref }
 
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" loading={pending}>Save</Button>
+          <Button type="submit" loading={pending}>{dirty ? "Save changes" : "Save"}</Button>
+          <DiscardButton dirty={dirty} onDiscard={discard} />
           <Link href={cancelHref} className={buttonClass("secondary")}>Cancel</Link>
         </div>
       </form>

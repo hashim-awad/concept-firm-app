@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -16,7 +17,7 @@ export async function BusinessHoursView(sp: SP): Promise<View> {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card">
         {!hoursSet && <p className="mb-4 text-sm text-warning">Not set yet.</p>}
-        <form action={saveBusinessHours} className="grid gap-2">
+        <SaveForm action={saveBusinessHours} aria-label="Business hours" className="grid gap-2">
           <fieldset disabled={!editable} className="grid gap-2">
             {DAYS.map(([d, label]) => {
               const h = hours[d];
@@ -30,9 +31,9 @@ export async function BusinessHoursView(sp: SP): Promise<View> {
                 </div>
               );
             })}
-            {editable && <button type="submit" className="btn mt-2 w-fit">Save business hours</button>}
+            {editable && <span className="inline-flex w-fit items-center gap-2 mt-2"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
           </fieldset>
-        </form>
+        </SaveForm>
       </section>
     </>,
   };

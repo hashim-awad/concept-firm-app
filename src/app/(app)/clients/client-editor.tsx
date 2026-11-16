@@ -9,6 +9,7 @@ import { Alert, Button, Card, buttonClass } from "@/components/ds/primitives";
 import { Labelled, Row, SelectIn, TextIn, Tick } from "@/components/studio/kit";
 import { clientErrors, ENTITY_TYPES, type ClientForm } from "@/lib/clients";
 import { saveClientRecord } from "./actions";
+import { DiscardButton, useUnsavedGuard } from "@/components/save-state";
 
 export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged = false, cancelHref }: { id: string | null; initial: ClientForm; verifiedOn: string; editable: boolean; taxdomeManaged?: boolean; cancelHref?: string }) {
   const router = useRouter();
@@ -24,15 +25,21 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
     <Labelled id={"cl_" + k} label={label}><TextIn id={"cl_" + k} value={String(f[k])} onValue={(v) => set(k, v as never)} disabled={!editable || (taxdomeManaged && (k === "legal_name" || k === "year_end_md"))} /></Labelled>
   );
 
-  function save() {
+  // Round 21 (QuickBooks Online's Save and close): "Save changes" while something changed, Discard puts the
+  // form back, and leaving with changes asks first. Saving goes back to the client page with the note.
+  const dirty = JSON.stringify(f) !== JSON.stringify(initial);
+  const discard = () => { setF(initial); setReticked(false); setMsg(""); };
+  function save(to?: string) {
     start(async () => {
       const r = await saveClientRecord(id, f, initial.name_verified, initial.legal_name, reticked);
       if (!r.ok) { setMsg(r.error); return; }
       setMsg("Saved.");
-      router.push(`/clients/${r.id}?msg=saved`);
+      router.push(to ?? `/clients/${r.id}?msg=saved`);
       router.refresh();
     });
   }
+
+  useUnsavedGuard(dirty && editable, { discard, save: (to) => { if (!errors.length) save(to); return false; } });
 
   return (
     <Card>
@@ -82,7 +89,8 @@ export function ClientEditor({ id, initial, verifiedOn, editable, taxdomeManaged
         {msg && <p role="status" className="text-sm text-ink-2">{msg}</p>}
         {(editable || cancelHref) && (
           <div className="flex flex-wrap gap-2">
-            {editable && <Button type="submit" disabled={errors.length > 0} loading={pending}>Save</Button>}
+            {editable && <Button type="submit" disabled={errors.length > 0} loading={pending}>{dirty ? "Save changes" : "Save"}</Button>}
+            {editable && <DiscardButton dirty={dirty} onDiscard={discard} />}
             {cancelHref && <Link href={cancelHref} className={buttonClass("secondary")}>Cancel</Link>}
           </div>
         )}

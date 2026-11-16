@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -20,7 +21,7 @@ export async function SignersView(sp: SP): Promise<View> {
       <section className="card">
         <div className="grid gap-5">
           {SIGNERS.map(([key, label, hint]) => (
-            <form key={key} action={saveSigner} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <SaveForm key={key} action={saveSigner} aria-label={`Signer ${key}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
               <input type="hidden" name="key" value={key} />
               <div>
                 <label htmlFor={`${key}-name`} className="label">{label}</label>
@@ -32,8 +33,8 @@ export async function SignersView(sp: SP): Promise<View> {
                 <input id={`${key}-title`} name="title" defaultValue={signer(key).title} disabled={!access.is_owner} className="input" />
                 <span className="text-xs">&nbsp;</span>
               </div>
-              {access.is_owner && <button type="submit" className="btn mb-5">Save</button>}
-            </form>
+              {access.is_owner && <span className="inline-flex w-fit items-center gap-2 mb-5"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
+            </SaveForm>
           ))}
         </div>
       </section>

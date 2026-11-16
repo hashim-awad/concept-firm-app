@@ -9,6 +9,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useUnsavedGuard } from "@/components/save-state";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { blankLine, netOfTax, planEntry, type AcctOpt, type FormHead, type FormLine, type StdOpt } from "@/lib/closebook/entry-form";
 import type { TaxCode, TaxContext } from "@/lib/closebook/sales-tax";
@@ -67,12 +68,19 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
     setLines([{ ...lines[0], dr: net === null ? "" : formatAmount(net) }, { ...lines[1], cr: g === null ? "" : formatAmount(g) }, ...lines.slice(2)]);
   };
   const ok = plan.problems.length === 0;
+  // Round 21 (QuickBooks Online): Save closes the dialog with the note; leaving with changes (Cancel, the X,
+  // another link) asks "Save your changes?" first.
+  const formRef = useRef<HTMLFormElement>(null), saveRef = useRef<HTMLButtonElement>(null);
+  const snap = JSON.stringify({ head, date, lines, seq, stdAmount });
+  const [first] = useState(snap);
+  useUnsavedGuard(snap !== first, { form: () => formRef.current,
+    save: () => { if (ok) formRef.current?.requestSubmit(saveRef.current); return false; } });
   const stdCents = parseAmount(stdAmount) ?? 0;
   const fld = "grid gap-1 text-[11.5px] font-semibold text-ink-2";
   const box = "input input-compact text-[13px] font-normal text-ink";
 
   return (
-    <form action={addEntry} encType="multipart/form-data" className="flex max-h-[calc(100vh-96px)] flex-col">
+    <form ref={formRef} action={addEntry} encType="multipart/form-data" className="flex max-h-[calc(100vh-96px)] flex-col">
       <input type="hidden" name="file_id" value={fileId} />
       <input type="hidden" name="back" value={backHref} />
       <input type="hidden" name="done" value={closeHref} />
@@ -163,7 +171,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         <span className="flex-1" />
         {(problem || !ok) && <span role="status" className="text-[12.5px] text-danger">{problem ?? plan.problems[0]}</span>}
         {!edit && <button type="submit" name="then" value="new" className="btn-secondary btn-compact" disabled={!ok}>Save and new</button>}
-        <button type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
+        <button ref={saveRef} type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
       </div>
     </form>
   );

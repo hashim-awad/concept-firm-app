@@ -1,4 +1,5 @@
 import { requireOwner } from "@/lib/access";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import type { SP, View } from "../../settings-shell";
@@ -21,14 +22,14 @@ export async function SigningEmailView(sp: SP): Promise<View> {
     </>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <form action={saveSigningEmail} className="card grid max-w-xl gap-4">
+      <SaveForm action={saveSigningEmail} aria-label="Signing email" className="card grid max-w-xl gap-4">
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" name="letters" defaultChecked={!!v.letters} className="mt-0.5 h-4 w-4 accent-navy-700" />
           <span><b>New letters.</b> Send the signing email when a letter is issued and sent for signing.</span>
         </label>
         <input type="hidden" name="quotes" value={v.quotes ? "on" : ""} /><input type="hidden" name="proposals" value={v.proposals ? "on" : ""} />
-        <button type="submit" className="btn w-fit">Save</button>
-      </form>
+        <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn" /><SaveFormDiscard /></span>
+      </SaveForm>
     </>,
   };
 }

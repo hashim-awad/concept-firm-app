@@ -1,4 +1,5 @@
 import { requireOwner } from "@/lib/access";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -31,12 +32,12 @@ export async function ThresholdsView(sp: SP): Promise<View> {
     help: <><p>The amounts that send work to the reviewer or need proof. They apply to every file not yet locked.</p>{fieldHelp(fields.map(([, label, , hint]) => ({ label, hint })))}</>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <form action={updateCbSettings} className="card grid gap-5">
+      <SaveForm action={updateCbSettings} aria-label="Closebook thresholds" className="card grid gap-5">
         <input type="hidden" name="back" value="/admin/closebook/thresholds" />
         <input type="hidden" name="note1" value={c.note1_policy} />
         {fields.map((x) => num(...x))}
-        <button type="submit" className="btn w-fit">Save thresholds</button>
-      </form>
+        <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn" /><SaveFormDiscard /></span>
+      </SaveForm>
     </>,
   };
 }

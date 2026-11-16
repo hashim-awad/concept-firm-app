@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -12,10 +13,10 @@ export async function LeadSourcesView(sp: SP): Promise<View> {
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card">
-        <form action={saveLeadSources} className="grid max-w-md gap-2">
+        <SaveForm action={saveLeadSources} aria-label="Lead sources" className="grid max-w-md gap-2">
           <textarea name="sources" rows={8} defaultValue={sources.join("\n")} disabled={!editable} aria-label="Lead sources, one per line" className="input" />
-          {editable && <button type="submit" className="btn-secondary w-fit">Save lead sources</button>}
-        </form>
+          {editable && <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn-secondary" /><SaveFormDiscard /></span>}
+        </SaveForm>
       </section>
     </>,
   };

@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -14,7 +15,7 @@ export async function RetentionView(sp: SP): Promise<View> {
     </>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <form action={saveRetention} className="card">
+      <SaveForm action={saveRetention} aria-label="Retention" className="card">
         <fieldset disabled={!editable} className="space-y-3">
           <legend className="sr-only">Retention</legend>
           <div className="flex items-end gap-3">
@@ -22,10 +23,10 @@ export async function RetentionView(sp: SP): Promise<View> {
               <label htmlFor="months" className="label">Months</label>
               <input id="months" name="months" type="number" min={1} max={120} step={1} defaultValue={retention} required className="input w-28" />
             </div>
-            {editable && <button type="submit" className="btn">Save retention</button>}
+            {editable && <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
           </div>
         </fieldset>
-      </form>
+      </SaveForm>
     </>,
   };
 }

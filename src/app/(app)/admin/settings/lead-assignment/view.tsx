@@ -1,4 +1,5 @@
 import { Notice } from "@/components/ui";
+import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import type { SP, View } from "../../settings-shell";
 import { messageFrom } from "@/lib/messages";
 import { loadSettings, readOnlyNote } from "../data";
@@ -15,7 +16,7 @@ export async function LeadAssignmentView(sp: SP): Promise<View> {
     help: <><p>Who gets each new lead from the public forms. Owners can reassign any lead later.</p><p>{readOnlyNote(editable)}</p></>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
-      <form action={saveLeadAssignment} className="card">
+      <SaveForm action={saveLeadAssignment} aria-label="Lead assignment" className="card">
         <fieldset disabled={!editable} className="space-y-4">
           <legend className="sr-only">Lead assignment</legend>
           <label className="flex items-start gap-3">
@@ -52,9 +53,9 @@ export async function LeadAssignmentView(sp: SP): Promise<View> {
             </span>
           </label>
 
-          {editable && <button type="submit" className="btn">Save lead assignment</button>}
+          {editable && <span className="inline-flex w-fit items-center gap-2"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
         </fieldset>
-      </form>
+      </SaveForm>
     </>,
   };
 }

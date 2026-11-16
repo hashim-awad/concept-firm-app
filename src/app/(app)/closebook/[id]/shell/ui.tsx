@@ -99,13 +99,14 @@ export function Drawer({ button, label, title, children, open: startOpen, top = 
 export function FileToast({ msg, error }: { msg?: string | null; error?: string | null }) {
   const key = `${msg ?? ""}|${error ?? ""}`;
   const [closed, setClosed] = useState<string | null>(null);
+  const shown = useRef<string | null>(null);
   const path = usePathname(), sp = useSearchParams();
   useEffect(() => {
     if (!msg && !error) return;
     const q = new URLSearchParams(sp.toString());
     q.delete("msg"); q.delete("error");
     window.history.replaceState(null, "", `${path}${q.toString() ? `?${q}` : ""}${window.location.hash}`);
-    if (msg && !error) notify(msg);
+    if (msg && !error && shown.current !== key) { shown.current = key; notify(msg); }
   }, [msg, error, key, path, sp]);
   if (!error || closed === key) return null;
   return (
