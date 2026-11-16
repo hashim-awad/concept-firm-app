@@ -5,24 +5,41 @@
 // the row holding the line's amount (and, when it can, its description) is outlined. For photos, or when
 // the text is not found, the viewer just goes to the line's page.
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import { ChevronLeft, ChevronRight, ExternalLink, Minus, Plus } from "lucide-react";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 export type Focus = { n: number; page: number; amountCents: number; description: string };
 type Box = { left: number; top: number; width: number; height: number };
 type Item = { str: string; x: number; y: number; w: number; h: number };
 
-type PdfJs = typeof import("pdfjs-dist");
+// Round 22 (J4, Hashim, Nov 16, 2026): the "legacy" build of pdf.js. The modern build needs browser features
+// only the newest browsers have (Map.getOrInsertComputed, Promise.try, Math.sumPrecise); without them a page
+// drew blank, stayed on "Loading", or a locked PDF failed with "could not be shown". The legacy build brings
+// its own copies of those features, so the same PDFs show in any current browser.
+type PdfJs = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 let lib: Promise<PdfJs> | null = null;
 // pdf.js parses in a module worker. Turbopack bundles the worker from the package through `new URL`.
 function pdfjs(): Promise<PdfJs> {
-  lib ??= import("pdfjs-dist").then((m) => {
+  lib ??= import("pdfjs-dist/legacy/build/pdf.mjs").then((m) => {
     if (!m.GlobalWorkerOptions.workerPort) {
-      m.GlobalWorkerOptions.workerPort = new Worker(new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url), { type: "module" });
+      m.GlobalWorkerOptions.workerPort = new Worker(new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url), { type: "module" });
     }
     return m;
   });
+  lib.catch(() => { lib = null; });
   return lib;
+}
+
+// The reason a statement could not be shown, in plain words, with what pdf.js said.
+export function viewerError(e: unknown): string {
+  const name = (e as { name?: string } | null)?.name ?? "";
+  const msg = String((e as { message?: string } | null)?.message ?? e ?? "").slice(0, 200);
+  const why = name === "PasswordException" ? "The PDF needs a password to open."
+    : name === "InvalidPDFException" ? "The file is not a valid PDF, or it is damaged."
+    : name === "MissingPDFException" || /40[134]|expired|not found/i.test(msg) ? "The link to the file has expired or the file is missing. Refresh the page."
+    : name === "UnexpectedResponseException" ? "The file could not be loaded from storage."
+    : "The statement could not be drawn in this browser.";
+  return `${why}${msg ? ` (${name ? `${name}: ` : ""}${msg})` : ""}`;
 }
 
 const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -51,7 +68,7 @@ export function StatementViewer({ url, mediaType, pages: pagesIn, focus }: { url
     let gone = false, task: ReturnType<PdfJs["getDocument"]> | null = null;
     pdfjs().then((m) => { if (gone) return null; task = m.getDocument({ url }); return task.promise; }).then((d) => {
       if (d && !gone) setDoc(d);
-    }).catch(() => { if (!gone) setError("The statement could not be shown. The lines on the right are still there to check."); });
+    }).catch((e) => { if (!gone) setError(viewerError(e)); });
     return () => { gone = true; task?.destroy(); };
   }, [url, isPdf]);
 
@@ -86,7 +103,11 @@ export function StatementViewer({ url, mediaType, pages: pagesIn, focus }: { url
       c.width = Math.floor(vp.width * dpr); c.height = Math.floor(vp.height * dpr);
       c.style.width = `${Math.floor(vp.width)}px`; c.style.height = `${Math.floor(vp.height)}px`;
       task = p.render({ canvas: c, viewport: vp, transform: dpr === 1 ? undefined : [dpr, 0, 0, dpr, 0, 0] });
-      try { await task.promise; } catch { return; }
+      try { await task.promise; } catch (e) {
+        // A cancelled draw (the page or zoom changed) is not a failure.
+        if ((e as { name?: string })?.name !== "RenderingCancelledException" && !gone) setError(viewerError(e));
+        return;
+      }
       if (gone) return;
       if (!focus || (focus.page || 1) !== page) { setBox(null); setNotFound(false); return; }
       const tc = await p.getTextContent();
@@ -117,9 +138,17 @@ export function StatementViewer({ url, mediaType, pages: pagesIn, focus }: { url
         <span className="w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
         <button type="button" aria-label="Zoom in" disabled={zi >= ZOOMS.length - 1} onClick={() => setZoom(ZOOMS[zi + 1])} className="grid h-7 w-7 place-items-center rounded-md border border-sand-300 bg-white hover:bg-sand-50 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /></button>
         <span className="text-ink-3">{notFound && focus ? `Page ${focus.page}: the line is not marked on the page` : "Click a line to find it on the page"}</span>
+        <a href={url} target="_blank" rel="noopener noreferrer" title="Open the PDF in a new tab" className="inline-flex items-center gap-1 text-navy-700 hover:underline"><ExternalLink className="h-3.5 w-3.5" aria-hidden />Open in a new tab</a>
       </div>
       <div ref={wrap} className="relative max-h-[calc(100vh-210px)] min-h-[420px] overflow-auto rounded-md border border-sand-200 bg-sand-100">
-        {error ? <p className="p-4 text-sm text-danger">{error}</p> : isPdf ? (
+        {error ? (
+          <div role="alert" className="grid gap-2 p-4 text-sm">
+            <p className="font-semibold text-danger">The statement could not be shown here.</p>
+            <p className="text-danger">{error}</p>
+            <p className="text-ink-2">The lines on the right are still there to check.</p>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit items-center gap-1.5 font-semibold text-navy-700 underline"><ExternalLink className="h-4 w-4" aria-hidden />Open the PDF in a new tab</a>
+          </div>
+        ) : isPdf ? (
           <div className="relative w-fit">
             <canvas ref={canvas} className="block bg-white" aria-label={`Statement page ${page}`} />
             {!doc && <p className="absolute top-3 left-3 text-sm text-ink-3">Loading the statement…</p>}

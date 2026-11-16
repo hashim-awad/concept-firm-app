@@ -1,0 +1,91 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4405",
+      "name": "Visa Business",
+      "kind": "card",
+      "periodStart": "2025-12-16",
+      "periodEnd": "2026-01-15",
+      "opening": 41045,
+      "closing": 33502,
+      "summary": {
+        "inTotal": 33502,
+        "inCount": 4,
+        "outTotal": 41045,
+        "outCount": 1,
+        "interest": 1240,
+        "fees": 0
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-12-19",
+          "description": "DUMMY GAS STATION",
+          "amountCents": 10553,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-12-20"
+        },
+        {
+          "id": "l2",
+          "date": "2025-12-22",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 41045,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-12-23"
+        },
+        {
+          "id": "l3",
+          "date": "2025-12-27",
+          "description": "DUMMY OFFICE SUPPLY",
+          "amountCents": 17563,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-12-28"
+        },
+        {
+          "id": "l4",
+          "date": "2026-01-05",
+          "description": "DUMMY RESTAURANT",
+          "amountCents": 4146,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-01-06"
+        },
+        {
+          "id": "l5",
+          "date": "2026-01-15",
+          "description": "INTEREST CHARGES",
+          "amountCents": 1240,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-01-15"
+        }
+      ]
+    }
+  ]
+}

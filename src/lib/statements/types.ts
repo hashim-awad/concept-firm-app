@@ -9,11 +9,12 @@
 
 import type { BankKind } from "@/lib/closebook/bank-upload";
 
-export type StatementStatus = "queued" | "reading" | "ready" | "needs_look" | "failed" | "imported" | "discarded";
+export type StatementStatus = "queued" | "reading" | "ready" | "needs_look" | "failed" | "imported" | "discarded" | "skipped";
 
 export type StatementLine = {
   id: string;               // stable within the statement ("l1", "l2", ... from the reader; "a1"... when added)
-  date: string;             // YYYY-MM-DD
+  date: string;             // YYYY-MM-DD; a card's transaction (purchase) date
+  postedDate?: string | null; // round 22: a card's posting date, when printed beside the transaction date
   description: string;
   amountCents: number;      // always positive
   dir: "in" | "out";
@@ -24,7 +25,8 @@ export type StatementLine = {
   source: "read" | "added" | "edited";
 };
 
-export type StatementSummary = { inTotal: number; inCount: number | null; outTotal: number; outCount: number | null };
+// Round 22 (decision 1): a card's interest and fees as printed, each on its own (part of inTotal).
+export type StatementSummary = { inTotal: number; inCount: number | null; outTotal: number; outCount: number | null; interest?: number | null; fees?: number | null };
 
 export type StatementAccount = {
   key: string;              // "a1", "a2", ... stable within the statement
@@ -58,6 +60,7 @@ export const STATUS_LABEL: Record<StatementStatus, string> = {
   failed: "Failed",
   imported: "Imported",
   discarded: "Discarded",
+  skipped: "Skipped",
 };
 
 export const OUT_OF_CREDITS = "The statement reader is out of credits for this month. Upload a CSV instead, or ask Hashim to add credits.";

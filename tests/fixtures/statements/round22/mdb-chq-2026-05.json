@@ -1,0 +1,96 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2201",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-05-03",
+      "periodEnd": "2026-06-02",
+      "opening": 1537842,
+      "closing": 1476845,
+      "summary": {
+        "inTotal": 272369,
+        "inCount": 1,
+        "outTotal": 333366,
+        "outCount": 5
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-05-05",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 38037,
+          "dir": "out",
+          "balanceCents": 1499805,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-05-09",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 272369,
+          "dir": "in",
+          "balanceCents": 1772174,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-05-15",
+          "description": "ONLINE PAYMENT MDB VISA",
+          "amountCents": 120346,
+          "dir": "out",
+          "balanceCents": 1651828,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-05-21",
+          "description": "PAD DUMMY MLS BOARD",
+          "amountCents": 38968,
+          "dir": "out",
+          "balanceCents": 1612860,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-05-24",
+          "description": "ONLINE PAYMENT MC 4455",
+          "amountCents": 133020,
+          "dir": "out",
+          "balanceCents": 1479840,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-05-28",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 1476845,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

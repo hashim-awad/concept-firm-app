@@ -111,12 +111,16 @@ select test.check('a file''s job is discarded, its cost kept, the stored path re
   and (select status = 'discarded' and result is null and edited is null from public.cb_statement_imports where id = :'j4')
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_discarded'));
 
--- ---------- Import into the file
-\set acc1 '{"key":"a1","account":null,"name":"Northern Dummy chequing","kind":"bank","last4":"4321","opening":1000.00,"closing":950.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"SAMPLE DEPOSIT","amount":50.00},{"line":2,"date":"2026-02-10","description":"SAMPLE RENT","amount":-100.00}],"check":{"differenceCents":0,"ok":true},"edits":{"edited":1,"added":0,"deleted":0}}'
+-- ---------- Import into the file (round 22: accounts are added in step 3 first)
+select public.cb_save_bank_account(:'f', null, 'chequing', 'NDB', '4321', 1000, false, false) as acc0 \gset
+select public.cb_save_bank_account(:'f', null, 'card', 'NDB', '8888', 0, false, false) as visa0 \gset
+\set acc1 '{"key":"a1","account":":ACC0","name":"Northern Dummy chequing","kind":"bank","last4":"4321","opening":1000.00,"closing":950.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"SAMPLE DEPOSIT","amount":50.00},{"line":2,"date":"2026-02-10","description":"SAMPLE RENT","amount":-100.00}],"check":{"differenceCents":0,"ok":true},"edits":{"edited":1,"added":0,"deleted":0}}'
+select replace(:'acc1', ':ACC0', :'acc0') as acc1 \gset
 select test.check('a job that is not ready is not imported', test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'j3', '[' || :'acc1' || ']')) like '%not ready%');
+select test.check('an account must be on the file: none is made on import', test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'j2', '[' || replace(:'acc1', :'acc0', '') || ']')) like '%Add the account in step 3%');
 select test.check('a statement that does not balance is refused by cb_upload_bank, nothing kept',
   test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'j2', '[' || replace(:'acc1', '"closing":950.00', '"closing":950.01') || ']')) like '%does not balance%'
-  and not exists (select 1 from public.cb_bank_accounts where file_id = :'f')
+  and not exists (select 1 from public.cb_bank_statements where file_id = :'f')
   and (select status from public.cb_statement_imports where id = :'j2') = 'ready');
 select public.cb_import_statement(:'j2', ('[' || :'acc1' || ']')::jsonb, false, 'closebook/' || :'f' || '/statements/' || :'j2' || '.pdf') as imp \gset
 select test.check('imported: one statement for the account', jsonb_array_length(:'imp') = 1 and (:'imp'::jsonb -> 0 ->> 'key') = 'a1' and (:'imp'::jsonb -> 0 ->> 'lines') = '2');
@@ -125,7 +129,7 @@ select test.check('the conversion record is on the statement', (select source = 
     and converted_by = :A::uuid and converted_at is not null
   from public.cb_bank_statements where file_id = :'f'));
 select test.check('the lines are in, signed', (select array_agg(amount order by row_no) from public.cb_bank_lines where file_id = :'f') = array[50.00, -100.00]::numeric[]);
-select test.check('the new account takes the last digits', (select last4 from public.cb_bank_accounts where file_id = :'f') = '4321');
+select test.check('the account keeps the last digits it was added with', (select last4 from public.cb_bank_accounts where id = :'acc0') = '4321');
 select test.check('the job is imported, by whom and when', (select status = 'imported' and imported_by = :A::uuid and imported_at is not null from public.cb_statement_imports where id = :'j2'));
 select test.check('the import is in the file history', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'statement_imported' and detail like '%1 account, 2 lines%'));
 select test.check('an imported job is not imported twice', test.try(format($q$select public.cb_import_statement(%L, %L, false, '')$q$, :'j2', '[' || :'acc1' || ']')) like '%not ready%');
@@ -142,9 +146,9 @@ reset role; update public.cb_statement_imports set input_tokens = 1001, output_t
 reset role;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select id as acc from public.cb_bank_accounts where file_id = :'f' \gset
+select :'acc0' as acc \gset
 select public.cb_import_statement(:'j3', ('[{"key":"a1","account":"' || :'acc' || '","name":"","kind":"","last4":"9999","opening":950.00,"closing":990.00,"period_start":"2026-03-01","period_end":"2026-03-31","rows":[{"line":1,"date":"2026-03-02","description":"SAMPLE DEPOSIT","amount":50.00},{"line":2,"date":"2026-03-05","description":"SAMPLE FEE","amount":-10.00}],"check":{},"edits":{}},'
-  || '{"key":"a2","account":null,"name":"Northern Dummy Visa","kind":"card","last4":"8888","opening":0,"closing":50.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"sample deposit","amount":50.00}],"check":{},"edits":{}}]')::jsonb, true, '') as imp2 \gset
+  || '{"key":"a2","account":"' || :'visa0' || '","name":"Northern Dummy Visa","kind":"card","last4":"8888","opening":0,"closing":50.00,"period_start":"2026-02-01","period_end":"2026-02-28","rows":[{"line":1,"date":"2026-02-03","description":"sample deposit","amount":50.00}],"check":{},"edits":{}}]')::jsonb, true, '') as imp2 \gset
 select test.check('two accounts found: two statements, in one step', jsonb_array_length(:'imp2') = 2 and (select count(*) from public.cb_bank_statements where statement_import_id = :'j3') = 2);
 select test.check('tokens and cost split by line count (2 and 1), the remainder on the first, adding up to the job''s',
   (select array_agg(array[input_tokens, output_tokens, cost_usd * 10000] order by (select count(*) from public.cb_bank_lines l where l.statement_id = b.id) desc)
@@ -152,8 +156,8 @@ select test.check('tokens and cost split by line count (2 and 1), the remainder 
   and (select sum(input_tokens) = 1001 and sum(output_tokens) = 333 and sum(cost_usd) = 0.0101 from public.cb_bank_statements where statement_import_id = :'j3')
   and (select input_tokens = 1001 and output_tokens = 333 and cost_usd = 0.0101 from public.cb_statement_imports where id = :'j3'));
 select test.check('confirmed duplicates go to the reviewer', (select count(*) from public.cb_bank_lines where file_id = :'f' and dup_confirmed and status = 'reviewer') = 1);
-select test.check('last digits already set are kept; a new account takes its own', (select last4 from public.cb_bank_accounts where id = :'acc') = '4321'
-  and (select last4 from public.cb_bank_accounts where file_id = :'f' and name = 'Northern Dummy Visa') = '8888');
+select test.check('last digits are the account''s own, not the statement''s', (select last4 from public.cb_bank_accounts where id = :'acc') = '4321'
+  and (select last4 from public.cb_bank_accounts where id = :'visa0') = '8888');
 
 -- ---------- My day
 select test.check('My day counts my statements ready or needing a look', public.statement_ready_counts() ->> 'ready' = '0' and public.statement_ready_counts() ->> 'needs_look' = '0');

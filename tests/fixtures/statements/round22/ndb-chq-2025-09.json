@@ -1,0 +1,84 @@
+{
+  "bank": "Northern Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "3302",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-09-01",
+      "periodEnd": "2025-09-30",
+      "opening": 586000,
+      "closing": 645347,
+      "summary": {
+        "inTotal": 312185,
+        "inCount": 1,
+        "outTotal": 252838,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-09-04",
+          "description": "CHEQUE #204",
+          "amountCents": 45000,
+          "dir": "out",
+          "balanceCents": 541000,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-09-07",
+          "description": "DUMMY INSURANCE PAD",
+          "amountCents": 21460,
+          "dir": "out",
+          "balanceCents": 519540,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-09-12",
+          "description": "COMMISSION DEPOSIT",
+          "amountCents": 312185,
+          "dir": "in",
+          "balanceCents": 831725,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2025-09-18",
+          "description": "ONLINE PAYMENT NDB MC",
+          "amountCents": 74370,
+          "dir": "out",
+          "balanceCents": 757355,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2025-09-26",
+          "description": "TRANSFER TO DUMMY SAVINGS",
+          "amountCents": 112008,
+          "dir": "out",
+          "balanceCents": 645347,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

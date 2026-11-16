@@ -1,0 +1,52 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4405",
+      "name": "Visa Business",
+      "kind": "card",
+      "periodStart": "2025-07-16",
+      "periodEnd": "2025-08-15",
+      "opening": 64000,
+      "closing": 98000,
+      "summary": {
+        "inTotal": 98000,
+        "inCount": 1,
+        "outTotal": 64000,
+        "outCount": 1,
+        "interest": 0,
+        "fees": 0
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-07-20",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 64000,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-07-21"
+        },
+        {
+          "id": "l2",
+          "date": "2025-07-28",
+          "description": "DUMMY OFFICE SUPPLY",
+          "amountCents": 98000,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-07-29"
+        }
+      ]
+    }
+  ]
+}

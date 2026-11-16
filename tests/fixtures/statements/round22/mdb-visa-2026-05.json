@@ -1,0 +1,78 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4405",
+      "name": "Visa Business",
+      "kind": "card",
+      "periodStart": "2026-05-16",
+      "periodEnd": "2026-06-15",
+      "opening": 51016,
+      "closing": 57040,
+      "summary": {
+        "inTotal": 57040,
+        "inCount": 3,
+        "outTotal": 51016,
+        "outCount": 1,
+        "interest": 0,
+        "fees": 0
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-05-19",
+          "description": "DUMMY GAS STATION",
+          "amountCents": 8100,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-05-20"
+        },
+        {
+          "id": "l2",
+          "date": "2026-05-22",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 51016,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-05-23"
+        },
+        {
+          "id": "l3",
+          "date": "2026-05-27",
+          "description": "DUMMY OFFICE SUPPLY",
+          "amountCents": 39984,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-05-28"
+        },
+        {
+          "id": "l4",
+          "date": "2026-06-05",
+          "description": "DUMMY RESTAURANT",
+          "amountCents": 8956,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-06-06"
+        }
+      ]
+    }
+  ]
+}
