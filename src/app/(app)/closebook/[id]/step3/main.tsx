@@ -7,17 +7,21 @@
 // - ties to step 2, one compact line per GIFI line;
 // - the selected account's statements, one row each with a "..." menu; a missing period is a red row.
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CheckCircle2, MoreHorizontal, Plus, Upload } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Info, MoreHorizontal, Plus, Upload } from "lucide-react";
 import { formatDate } from "@/lib/dates";
-import { longDate, type Cell, type Todo } from "@/lib/closebook/step3";
+import { longDate, type Cell, type Gap, type Todo } from "@/lib/closebook/step3";
 import { money, type S3Account, type Step3 } from "@/lib/closebook/step3-server";
 import { signStep } from "../../actions";
 import { removeBankAccount, setNotOurs } from "../../step3-actions";
 
+// The month strip: four states, one meaning each (round 22 fixes). The key is behind the card's "i".
 const CELL: Record<Cell["state"], string> = {
-  in: "border-success/40 bg-success-soft text-success", part: "border-warning/50 bg-warning-soft text-warning", check: "border-danger/40 bg-danger-soft text-danger",
-  missing: "border-dashed border-sand-300 bg-white text-ink-3", na: "border-sand-200 bg-sand-100 text-ink-3/60", wait: "border-warning/50 bg-warning-soft text-warning",
+  in: "border-success/40 bg-success-soft text-success", missing: "border-danger/40 bg-danger-soft text-danger",
+  wait: "border-warning/50 bg-warning-soft text-warning", na: "border-sand-200 bg-sand-100 text-ink-3/60",
 };
+const CELL_WORD: Record<Cell["state"], string> = { in: "covered", missing: "missing", wait: "waiting to check", na: "outside the year" };
+// "Oct 2 to Nov 3, 2025"; the year shows once when both dates are in it.
+export const span = (a: string, b: string) => (a === b ? formatDate(a) : a.slice(0, 4) === b.slice(0, 4) ? `${formatDate(a).replace(/, \d{4}$/, "")} to ${formatDate(b)}` : `${formatDate(a)} to ${formatDate(b)}`);
 const PILL = { ok: "bg-success-soft text-success", warn: "bg-warning-soft text-warning", bad: "bg-danger-soft text-danger", "": "bg-sand-100 text-ink-2" } as const;
 const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
 
@@ -74,7 +78,7 @@ export function Step3Main({ fileId, d, selected, editable }: { fileId: string; d
             <span className="text-[12.5px] text-ink-3">Balances in the books on {formatDate(d.dayBefore)} against last year&rsquo;s T2</span></div>
           {d.ties.map((t) => (
             <div key={t.gifi} className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-sand-100 px-4 py-2.5 text-[13.5px]">
-              {t.ties ? <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />Ties</span>
+              {t.ties ? <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />Ties{t.rounding ? ` (rounding ${money(Math.abs(t.rounding))})` : ""}</span>
                 : <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger"><AlertTriangle className="h-3.5 w-3.5" aria-hidden />Off by {money(Math.abs(t.books - t.t2))}</span>}
               <span className="min-w-[19rem]">{gifiWord(t.gifi)} ({t.numbers.join(", ")}) <b className="tabular-nums">{money(t.books)}</b></span>
               <span>T2 line {t.gifi} <b className="tabular-nums">{money(t.t2)}</b></span>
@@ -100,7 +104,6 @@ export function TodoButtons({ fileId, t, href }: { fileId: string; t: Todo; href
     case "check": return L("Check statements", href(`&upload=${a ?? "all"}`));
     case "wrong": case "failed": return L("Open the list", href("&upload=all"));
     case "none": case "gap": return <span className="inline-flex gap-2">{L("Upload", href(`&upload=${a}`))}{L("Record why", href(`&why=${a}`), false)}</span>;
-    case "break": return L("Show statements", `/closebook/${fileId}?step=records&account=${a}`);
     case "tie": return L("Open step 2", `/closebook/${fileId}?step=opening`, false);
     case "edge": return L("Explain", href(`&explain=${a}&edge=${t.edge}`));
     case "possible": return (
@@ -125,6 +128,13 @@ function AccountCard({ fileId, a, on, editable, dayBefore }: { fileId: string; a
       <div className="flex items-start gap-2">
         <h3 className="text-[14.5px] font-semibold">{a.label}</h3><span className="flex-1" />
         <span className={`relative rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${PILL[a.card.tone]}`}>{a.card.word}</span>
+        <details className="group relative z-10 open:z-40">
+          <summary aria-label={`What the colours mean for ${a.label}`} className="grid h-8 w-6 cursor-pointer list-none place-items-center rounded-md text-ink-3 hover:bg-sand-100 [&::-webkit-details-marker]:hidden"><Info className="h-4 w-4" /></summary>
+          <div className="absolute top-9 right-0 grid w-56 gap-1.5 rounded-[10px] border border-sand-300 bg-white p-3 text-[12.5px] shadow-lg">
+            <b className="text-[13px]">Months on the card</b>
+            {(["in", "missing", "wait", "na"] as const).map((k) => <span key={k} className="flex items-center gap-2"><i className={`h-3.5 w-5 rounded border not-italic ${CELL[k]}`} />{CELL_WORD[k][0].toUpperCase() + CELL_WORD[k].slice(1)}</span>)}
+          </div>
+        </details>
         {editable && (
           <Menu label={`More for ${a.label}`}>
             <Link href={`${base}&add=1&edit=${a.id}`} scroll={false} className={itemCls}>Edit account</Link>
@@ -137,12 +147,21 @@ function AccountCard({ fileId, a, on, editable, dayBefore }: { fileId: string; a
       <p className="flex justify-between gap-2 text-[12.5px]"><span className="text-ink-3">Opening balance (books) {formatDate(dayBefore)}</span>
         <b className="tabular-nums">{a.books === null ? <span className="text-danger">Not entered</span> : money(a.books)}</b></p>
       <span className="flex gap-[3px]" aria-label={a.card.word}>
-        {a.cells.map((c, i) => <i key={i} title={`${formatDate(c.from)} to ${formatDate(c.to)}: ${c.state === "in" ? "in" : c.state === "na" ? "not needed" : c.state === "check" ? "does not follow" : c.state === "part" ? "part" : c.state === "wait" ? "waiting to check" : "missing"}`}
+        {a.cells.map((c, i) => <i key={i} title={`${span(c.from, c.to)}: ${CELL_WORD[c.state]}`}
           className={`grid h-5 flex-1 place-items-center rounded border text-[10px] font-bold not-italic ${CELL[c.state]}`}>{c.label}</i>)}
       </span>
     </div>
   );
 }
+
+// A gap row (round 22 fixes): what is missing, then the statement just before it and the one just after.
+const gapTitle = (g: Gap, any: boolean) => g.waiting ? `${span(g.from, g.to)}: uploaded, waiting to check (${g.waiting.file_name}).`
+  : g.kind === "break" ? `${formatDate(g.from)}: the statement does not follow the one before.` : `${span(g.from, g.to)}: ${any ? "missing" : "no statements"}.`;
+const gapNeighbours = (g: Gap) => {
+  const before = g.after ? `${span(g.after.period_start, g.after.period_end)} closes at ${money(g.after.closing)}` : "";
+  const after = g.before ? `${formatDate(g.before.period_start)} opens at ${money(g.before.opening)}` : "";
+  return before && after ? ` ${before} and ${after}.` : before ? ` ${before}; no statement after it.` : after ? ` ${after}; no statement before it.` : "";
+};
 
 // Point 5 and 6: one row per statement, a "..." menu each; a missing period is a red row.
 function AccountDetail({ fileId, a, d, editable, href }: { fileId: string; a: S3Account; d: Step3; editable: boolean; href: (q?: string) => string }) {
@@ -160,9 +179,8 @@ function AccountDetail({ fileId, a, d, editable, href }: { fileId: string; a: S3
       </Menu></td>
     </tr>) }));
   for (const g of a.gaps) rows.push({ at: g.from, node: (
-    <tr key={`g-${g.from}`} className={g.waiting ? "bg-warning-soft/70" : "bg-danger-soft/70"}>
-      <td colSpan={5} className={g.waiting ? "text-warning" : "text-danger"}><b>{formatDate(g.from)} to {formatDate(g.to)}: {g.waiting ? `uploaded, waiting to check (${g.waiting.file_name})` : a.statements.length ? "missing" : "no statements"}.</b>
-        {g.after && g.before ? ` ${formatDate(g.after.period_end)} closes at ${money(g.after.closing)} and ${formatDate(g.before.period_start)} opens at ${money(g.before.opening)}.` : ""}</td>
+    <tr key={`g-${g.kind}-${g.from}`} className={g.waiting ? "bg-warning-soft/70" : "bg-danger-soft/70"}>
+      <td colSpan={5} className={g.waiting ? "text-warning" : "text-danger"}><b>{gapTitle(g, a.statements.length > 0)}</b>{gapNeighbours(g)}</td>
       <td className="text-right whitespace-nowrap">{editable && <span className="inline-flex items-center gap-1">
         {g.waiting ? <Link href={href(`&upload=${a.id}&check=${g.waiting.id}`)} scroll={false} className="btn h-7 px-2.5 text-[12.5px]">Check</Link>
           : <Link href={href(`&upload=${a.id}`)} scroll={false} className="btn-secondary h-7 px-2.5 text-[12.5px]">Upload</Link>}

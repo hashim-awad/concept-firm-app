@@ -96,8 +96,8 @@ select test.check('4 lines by purchase date; the posting date is kept', (:'imp_c
 
 -- ---------- Step 3's problems
 select test.rp(:'f') as probs \gset
-select test.check('months not covered are listed per account; the year-end edge waits for them', :'probs' like '%10010 Chequing · NDB ••• 3302: 12 months not covered by statements%'
-  and :'probs' like '%22010 Credit card · NDB ••• 5506: 12 months not covered%' and :'probs' like '%22000 Credit card · MDB ••• 4405: 12 months not covered%'
+select test.check('gaps are listed per account (a run of days with no statement is one gap); the year-end edge waits for them', :'probs' like '%10010 Chequing · NDB ••• 3302: 1 gap in the statements%'
+  and :'probs' like '%22010 Credit card · NDB ••• 5506: 1 gap in the statements%' and :'probs' like '%22000 Credit card · MDB ••• 4405: 1 gap in the statements%'
   and :'probs' not like '%22000 Credit card · MDB ••• 4405: the statements show%');
 select test.check('the start edge ties for 10000 (statements 1,957.62, books 1,957.62)', :'probs' not like '%10000 Chequing · MDB ••• 2201: the statements show%');
 select test.check('statements waiting: the copy and the old one are not counted', :'probs' not like '%waiting to check%');
@@ -106,7 +106,7 @@ select test.check('no tie yet: step 2 is not entered', :'probs' not like '%GIFI 
 select public.cb_set_bank_coverage(:'card2', null, null, 'No statements: the card was cancelled before the year.');
 select public.cb_set_bank_coverage(:'chq2', '2026-08-01', null, '');
 select test.rp(:'f') as probs \gset
-select test.check('a note with no dates waives the months; an opening date limits them', :'probs' not like '%22010%' and :'probs' like '%10010 Chequing · NDB ••• 3302: 1 month not covered%');
+select test.check('a note with no dates waives the months; an opening date limits them', :'probs' not like '%22010%' and :'probs' like '%10010 Chequing · NDB ••• 3302: 1 gap in the statements%');
 select test.check('a reason outside the year is refused', test.try(format($q$select public.cb_set_bank_coverage(%L, '2024-01-01', null, '')$q$, :'chq2')) like '%inside the year%');
 select test.check('the reason is recorded with who and when', (select coverage_by = :A::uuid and coverage_at is not null from public.cb_bank_accounts where id = :'card2'));
 

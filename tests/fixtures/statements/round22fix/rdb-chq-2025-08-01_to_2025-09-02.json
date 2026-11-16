@@ -1,0 +1,60 @@
+{
+  "bank": "Rideau Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4321",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-08-01",
+      "periodEnd": "2025-09-02",
+      "opening": 228140,
+      "closing": 118052,
+      "summary": {
+        "inTotal": 90000,
+        "inCount": 1,
+        "outTotal": 200088,
+        "outCount": 2
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-08-06",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 40000,
+          "dir": "out",
+          "balanceCents": 188140,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-08-20",
+          "description": "DUMMY OFFICE RENT",
+          "amountCents": 160088,
+          "dir": "out",
+          "balanceCents": 28052,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-09-01",
+          "description": "E-TRANSFER DUMMY CLIENT",
+          "amountCents": 90000,
+          "dir": "in",
+          "balanceCents": 118052,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

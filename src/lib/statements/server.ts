@@ -176,6 +176,13 @@ export async function runJobs(opts: { budgetMs?: number } = {}): Promise<{ done:
   return { done, purged: old.length };
 }
 
+// True when this job was removed because another copy of the same statement is already in the list.
+async function keptOther(admin: SupabaseClient, id: string): Promise<boolean> {
+  const { data, error } = await admin.rpc("statement_keep_one", { p_id: id });
+  if (error) console.error("statement runner: copy check failed", error.message);
+  return !!data;
+}
+
 async function processJob(admin: SupabaseClient, job: Job, timeoutMs: number): Promise<void> {
   let prepared: Prepared | null = null;
   try {
@@ -186,6 +193,8 @@ async function processJob(admin: SupabaseClient, job: Job, timeoutMs: number): P
     if (job.file_id) {
       const fp = await admin.from("cb_statement_imports").update({ file_sha256: createHash("sha256").update(original).digest("hex") }).eq("id", job.id);
       if (fp.error) console.error("statement runner: fingerprint not saved", fp.error.message);
+      // One copy of each statement: the same file already in the list stays; this one goes (round 22 fixes).
+      if (await keptOther(admin, job.id)) { await admin.storage.from(BUCKET).remove([job.storage_path]); return; }
     }
     try {
       prepared = await prepare(original, job.media_type);
@@ -215,6 +224,8 @@ async function processJob(admin: SupabaseClient, job: Job, timeoutMs: number): P
     });
     if (fe) throw new Error(fe.message);
     if (finished && newPath && newPath !== job.storage_path) await admin.storage.from(BUCKET).remove([job.storage_path]);
+    // The same account and period as a copy already in the list (a copy from before fingerprints): that one stays.
+    if (job.file_id && await keptOther(admin, job.id)) await admin.storage.from(BUCKET).remove([newPath ?? job.storage_path]);
   } catch (e) {
     const r = e instanceof ReaderError ? e : readerErrorFrom(e);
     if (!(e instanceof ReaderError)) console.error("statement runner: read failed", e);

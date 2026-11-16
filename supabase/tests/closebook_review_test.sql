@@ -201,8 +201,8 @@ insert into public.cb_bank_accounts (file_id, name, name_key, kind, chart_accoun
 insert into public.cb_bank_statements (file_id, account_id, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total) values (:'g', :'ba', '2026-01-01', '2026-03-31', '2026-01-01', '2026-03-31', 0, 0, 0, 0, 0);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('step 3 counts the missing months and the empty ones',
-  test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'g')) = 'Not yet: 10000 TD chequing: enter its balance in the books on Dec 31, 2025. 10000 TD chequing: 9 months not covered by statements. Upload them, or record why (opened or closed in the year). 3 months with no transactions: check the statements are complete.');
+select test.check('step 3 counts the gaps (Apr to Dec is one) and the empty months',
+  test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'g')) = 'Not yet: 10000 TD chequing: enter its balance in the books on Dec 31, 2025. 10000 TD chequing: 1 gap in the statements. Upload the missing statements, or record why (opened or closed in the year). 3 months with no transactions: check the statements are complete.');
 select test.check('step 2 on a bank file needs last year''s balance sheet', test.try(format($q$select public.cb_sign_step(%L, 'opening', 'prepared')$q$, :'g')) = 'Not yet: Type the source: which T2 or CRA assessment the balances come from. Attach the PDF of last year''s T2 or the CRA assessment. Enter last year''s balance sheet (Schedule 100).');
 reset role;
 reset request.jwt.claims;

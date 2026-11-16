@@ -3,14 +3,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listStatementsWithKick, type StatementRow } from "@/lib/statements/server";
 import type { Conversion } from "./bank-server";
-import { accountLabel, cardStatus, coverageStrip, edge, gapSegments, longDate, placement, possibleAccounts, ties, todoList, toCents, uploadState, type AccountType, type CardStatus, type Cell,
+import { accountLabel, cardStatus, copiesOf, coverageStrip, edge, longDate, placement, possibleAccounts, ties, todoList, toCents, uploadState, type AccountType, type CardStatus, type Cell,
   type Edge, type FileAccount, type Gap, type Outstanding, type Possible, type Tie, type Todo, type UploadState } from "./step3";
 
 export type S3Account = FileAccount & {
   label: string; chart: string; gifi: string; accountType: AccountType | null; bank: string; longTerm: boolean; books: number | null;
   opened: string | null; closed: string | null; note: string; reasonBy: string | null; reasonAt: string | null; origin: string;
-  cells: Cell[]; missing: Cell[]; breaks: { after: S3Statement; before: S3Statement }[]; cycleDay: number;
-  statements: S3Statement[]; start: Edge; end: Edge; endBooks: number | null; waiting: number; status: { text: string; tone: "ok" | "warn" | "bad" | "" };
+  cells: Cell[]; cycleDay: number;
+  statements: S3Statement[]; start: Edge; end: Edge; endBooks: number | null; waiting: number;
   early: { id: string; label: string }[];   // lines in the first 90 days, to name the one that cleared an outstanding item
   gaps: Gap[]; card: CardStatus;            // round 22 correction: red rows in the list, one status word on the card
 };
@@ -35,7 +35,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
       + "model, pages, cost_usd, input_tokens, output_tokens, converted_at, check_result, edits, conv:converted_by(full_name)").eq("file_id", fileId).order("period_start"),
     supabase.from("cb_chart_accounts").select("number, line_no"),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId),
-    supabase.from("cb_bank_outstanding").select("id, account_id, edge, item_date, description, dir, amount, cleared_line").eq("file_id", fileId).order("item_date"),
+    supabase.from("cb_bank_outstanding").select("id, account_id, edge, item_date, description, dir, amount, cleared_line, kind").eq("file_id", fileId).order("item_date"),
     supabase.from("cb_bank_not_ours").select("last4, label, decided_by, decided_at").eq("file_id", fileId),
     supabase.from("cb_bank_lines").select("id, account_id, statement_id, txn_date, description, amount, status, source").eq("file_id", fileId).limit(50000),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId),
@@ -65,13 +65,15 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   const fileAccounts: FileAccount[] = raw.map((a) => ({ id: a.id, number: a.number, name: a.name, kind: a.kind, last4: a.last4 }));
   const importedShas = new Set(((extra ?? []) as { id: string; file_sha256: string | null }[]).filter((x) => x.file_sha256).flatMap((x) => list.rows.some((r) => r.id === x.id && r.status === "imported") ? [x.file_sha256!] : []));
   const xMap = new Map(((extra ?? []) as { id: string; file_sha256: string | null; target_account: string | null }[]).map((x) => [x.id, x]));
+  // One copy of each statement (round 22 fixes): a later copy of one already in the list shows as "Copy".
+  const copies = copiesOf(list.rows.map((r) => ({ ...r, file_sha256: xMap.get(r.id)?.file_sha256 ?? null, target_account: xMap.get(r.id)?.target_account ?? null })));
   const uploads: S3Upload[] = list.rows.map((r) => {
     const x = xMap.get(r.id);
     const target = fileAccounts.find((a) => a.id === x?.target_account) ?? null;
     const state = uploadState({ ...r, file_sha256: x?.file_sha256 ?? null, target_account: x?.target_account ?? null }, {
       yearStart: file.year_start, yearEnd: file.year_end, accounts: fileAccounts, target,
       importedShas: new Set([...importedShas].filter((h) => !(r.status === "imported" && x?.file_sha256 === h))),
-      importedPeriods: statements.filter((s) => s.statement_import_id !== r.id).map((s) => ({ account_id: s.account_id, period_start: s.period_start, period_end: s.period_end })) });
+      importedPeriods: statements.filter((s) => s.statement_import_id !== r.id).map((s) => ({ account_id: s.account_id, period_start: s.period_start, period_end: s.period_end })), copies });
     const account = target?.id ?? state.match?.id ?? statements.find((s) => s.statement_import_id === r.id)?.account_id ?? null;
     return { ...r, file_sha256: x?.file_sha256 ?? null, target_account: x?.target_account ?? null, state, account };
   });
@@ -88,30 +90,23 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     const movement = ls.filter((l) => l.account_id === a.id && !(l.status === "matched" && l.source === "outstanding")).reduce((n, l) => n + toCents(l.amount)!, 0);
     const endBooks = books === null ? null : books + movement;
     const start = edge(firstEdge?.at_start ?? null, books, its.filter((i) => i.account_id === a.id && i.edge === "start"));
-    const end = edge(cov.missing.length || waived || cov.cells.some((c) => c.state === "wait") ? null : lastEdge?.at_end ?? null, endBooks, its.filter((i) => i.account_id === a.id && i.edge === "end"));
+    const end = edge(cov.gaps.length || waived || cov.cells.some((c) => c.state === "wait") ? null : lastEdge?.at_end ?? null, endBooks, its.filter((i) => i.account_id === a.id && i.edge === "end"));
     const waiting = uploads.filter((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")).length;
-    const missing = waived ? [] : cov.missing;
     const label = accountLabel(a);
-    const status = waiting ? { text: `${waiting} statement${waiting === 1 ? "" : "s"} ready to check`, tone: "warn" as const }
-      : !mine.length && !waived ? { text: "No statements yet", tone: "" as const }
-      : waived ? { text: `No statements needed: ${a.coverage_note}`, tone: "ok" as const }
-      : missing.length || cov.breaks.length ? { text: `${missing.length === 1 ? `${monthOf(missing[0])} missing` : missing.length ? `${missing.length} ${cov.cycleDay === 1 ? "months" : "cycles"} missing` : "A statement does not follow the one before"}${cov.breaks.length
-          ? `: ${shortDate(cov.breaks[0].after.period_end)} closes at ${money(cov.breaks[0].after.closing)}, ${shortDate(cov.breaks[0].before.period_start)} opens at ${money(cov.breaks[0].before.opening)}` : ""}`, tone: "bad" as const }
-      : { text: `All ${cov.cells.filter((c) => c.state !== "na").length} ${cov.cycleDay === 1 ? "months" : "cycles"} in · ${mine.length} statement${mine.length === 1 ? "" : "s"}`, tone: "ok" as const };
     const limit = new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) + 90)).toISOString().slice(0, 10);
     const early = ls.filter((l) => l.account_id === a.id && l.txn_date <= limit && (l.status === "new" || l.source === "outstanding"))
       .sort((x, y) => x.txn_date.localeCompare(y.txn_date)).map((l) => ({ id: l.id, label: `${shortDate(l.txn_date)} · ${l.description} · ${money(toCents(l.amount)!)}` }));
     // A statement already uploaded for the gap, waiting to check: the row says so and offers "Check".
-    const gaps = gapSegments(cov.cells, mine, cov.breaks).map((g) => ({ ...g, waiting: uploads.find((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")
+    const gaps = cov.gaps.map((g) => ({ ...g, waiting: uploads.find((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")
       && u.period_start && u.period_end && u.period_start <= g.to && u.period_end >= g.from) ?? null }))
       .map((g) => ({ ...g, waiting: g.waiting ? { id: g.waiting.id, file_name: g.waiting.file_name } : null }));
     const shownGaps = waived ? [] : gaps;
-    const card = cardStatus({ waiting, gaps: mine.length ? gaps.length : 0, notExplained: (!start.explained && start.difference !== null) || (!end.explained && end.difference !== null),
+    const card = cardStatus({ waiting, gaps: mine.length ? shownGaps.length : 0, notExplained: (!start.explained && start.difference !== null) || (!end.explained && end.difference !== null),
       books, statements: mine.length, reason: waived || !!a.opened_on || !!a.closed_on });
     return { ...fileAccounts.find((f) => f.id === a.id)!, label, early, gaps: shownGaps, card, chart: a.chart_account, gifi: (a.gifi_line ?? lineNo.get(a.chart_account) ?? "").slice(0, 4),
       accountType: a.account_type, bank: a.bank ?? "", longTerm: a.long_term, books, opened: a.opened_on, closed: a.closed_on, note: a.coverage_note,
       reasonBy: a.coverage_by ? names.get(a.coverage_by) ?? "" : null, reasonAt: a.coverage_at, origin: a.origin,
-      cells: waived ? cov.cells.map((c) => ({ ...c, state: "na" as const })) : cov.cells, missing, breaks: cov.breaks as S3Account["breaks"], cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting, status };
+      cells: waived ? cov.cells.map((c) => ({ ...c, state: "na" as const })) : cov.cells, cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting };
   });
 
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, toCents(o.amount)!]));
@@ -123,8 +118,8 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   const byAccount = new Map<string | null, number>();
   for (const u of uploads) if (u.state.status === "ready" || u.state.status === "needs_look" || u.state.status === "no_account" || u.state.status === "no_digits") byAccount.set(u.account, (byAccount.get(u.account) ?? 0) + 1);
   const todo = todoList({
-    accounts: accounts.map((a) => ({ id: a.id, label: a.label, statements: a.statements.length, gaps: a.missing.map(monthOf), breaks: a.breaks.length, books: a.books,
-      reason: !!(a.note || a.opened || a.closed) && !a.missing.length, start: a.start, end: a.end, startDay: longDate(dayBefore(file.year_start)), endDay: longDate(file.year_end) })),
+    accounts: accounts.map((a) => ({ id: a.id, label: a.label, statements: a.statements.length, gaps: a.statements.length ? a.gaps.length : 0, books: a.books,
+      reason: !!(a.note || a.opened || a.closed) && !a.gaps.length, start: a.start, end: a.end, startDay: longDate(dayBefore(file.year_start)), endDay: longDate(file.year_end) })),
     waiting: [...byAccount.entries()].map(([k, n]) => ({ account: k, label: accounts.find((a) => a.id === k)?.label ?? null, n })),
     reading: uploads.filter((u) => u.state.status === "reading").length, failed: uploads.filter((u) => u.state.status === "failed").length,
     wrong: uploads.filter((u) => u.state.status === "wrong_account").length, ties: tieList, possible, signed,
@@ -136,7 +131,5 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
 
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const shortDate = (iso: string) => `${MONTH[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}, ${iso.slice(0, 4)}`;
-const MONTH_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const monthOf = (c: Cell) => `${MONTH_LONG[+c.to.slice(5, 7) - 1]} ${c.to.slice(0, 4)}`;
 export const money = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 export { placement };

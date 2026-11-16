@@ -65,10 +65,16 @@ export async function addOutstanding(f: FormData) {
   const id = s(f, "file_id"), acc = s(f, "account");
   const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
   await editor(back);
+  // Rounding (round 22 fixes): the T2 is in whole dollars; the database takes the whole difference left, under 1.00.
+  if (s(f, "kind") === "rounding") {
+    const { error } = await (await createClient()).rpc("cb_add_outstanding", { p_account: acc, p_edge: s(f, "edge"), p_date: null, p_description: null,
+      p_dir: null, p_amount: null, p_cleared_line: null, p_kind: "rounding" });
+    return done(id, back, error, "Rounding added.", true);
+  }
   const c = parseAmount(s(f, "amount"));
   if (c === null || c <= 0) redirect(withMessage(back, "error", "Enter the amount as a positive number."));
   const { error } = await (await createClient()).rpc("cb_add_outstanding", { p_account: acc, p_edge: s(f, "edge"), p_date: s(f, "date") || null, p_description: s(f, "description"),
-    p_dir: s(f, "dir"), p_amount: c! / 100, p_cleared_line: s(f, "cleared_line") || null });
+    p_dir: s(f, "dir"), p_amount: c! / 100, p_cleared_line: s(f, "cleared_line") || null, p_kind: "item" });
   await done(id, back, error, "Outstanding item added.", true);
 }
 export async function removeOutstanding(f: FormData) {

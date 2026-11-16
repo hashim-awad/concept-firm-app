@@ -27,7 +27,8 @@ select test.check('the statement, its account and lines are saved', (select name
   and (select row_no from public.cb_bank_lines where statement_id = :'s1' and amount = 57.9) = 4);
 select id as acc from public.cb_bank_accounts where file_id = :'f' \gset
 select test.check('the same name again is refused', test.try(format($f$select public.cb_upload_bank(%L, null, 'visa 1234', 'card', 'v.csv', 0, 0, '[{"date":"2026-03-01","description":"X","amount":1}]', '2026-03-01', '2026-03-31')$f$, :'f')) like '%already on this file%');
-select test.check('overlapping dates for the account are refused', test.try(format($f$select public.cb_upload_bank(%L, %L, '', '', 'v2.csv', 352.73, 452.73, '[{"date":"2026-01-31","description":"X","amount":100}]', '2026-01-31', '2026-02-27')$f$, :'f', :'acc')) like '%overlap%2026-01-01 to 2026-01-31%');
+-- Round 22 fixes: one shared day is not an overlap (some banks print it on both statements); two days are.
+select test.check('overlapping dates for the account are refused', test.try(format($f$select public.cb_upload_bank(%L, %L, '', '', 'v2.csv', 352.73, 452.73, '[{"date":"2026-01-30","description":"X","amount":100}]', '2026-01-30', '2026-02-27')$f$, :'f', :'acc')) like '%overlap%2026-01-01 to 2026-01-31%');
 select (public.cb_upload_bank(:'f', :'acc', '', '', 'v2.csv', 352.73, 452.73, '[{"date":"2026-02-01","description":"X","amount":100}]', '2026-02-01', '2026-02-28')) ->> 'outside_year' as outside \gset
 select test.check('the next statement for the account', (select count(*) from public.cb_bank_statements where account_id = :'acc') = 2 and :'outside' = '0');
 

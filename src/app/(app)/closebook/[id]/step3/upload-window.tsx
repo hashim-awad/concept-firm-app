@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, RotateCcw, Upload, X } from "lucide-react";
+import { Loader2, RotateCcw, Upload, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { confirmAction, notify } from "@/components/save-state";
 import { UPLOAD_LABEL, type UploadStatus } from "@/lib/closebook/step3";
@@ -24,10 +24,12 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 const PILL: Record<UploadStatus, string> = {
   reading: "bg-navy-50 text-navy-700", ready: "bg-success-soft text-success", needs_look: "bg-warning-soft text-warning", no_digits: "bg-warning-soft text-warning",
-  outside: "bg-sand-100 text-ink-2", already: "bg-sand-100 text-ink-2", skipped: "bg-sand-100 text-ink-2", wrong_account: "bg-danger-soft text-danger", no_account: "bg-danger-soft text-danger",
+  outside: "bg-sand-100 text-ink-2", already: "bg-sand-100 text-ink-2", copy: "bg-sand-100 text-ink-2", skipped: "bg-sand-100 text-ink-2", wrong_account: "bg-danger-soft text-danger", no_account: "bg-danger-soft text-danger",
   failed: "bg-danger-soft text-danger", imported: "bg-success-soft text-success",
 };
-const ORDER: UploadStatus[] = ["ready", "needs_look", "no_digits", "reading", "wrong_account", "no_account", "outside", "already", "skipped", "failed", "imported"];
+const ORDER: UploadStatus[] = ["ready", "needs_look", "no_digits", "reading", "wrong_account", "no_account", "copy", "outside", "already", "skipped", "failed", "imported"];
+// "Sep 2 to Oct 2, 2025": the year once when both dates are in it.
+const span = (a: string | null, b: string | null) => !a || !b ? "" : a.slice(0, 4) === b.slice(0, 4) ? `${short(a).replace(/, \d{4}$/, "")} to ${short(b)}` : `${short(a)} to ${short(b)}`;
 
 // What happened in this window, for the done stage (kept in the browser for the session).
 type Session = { imported: Record<string, { lines: number; outside: number; to: string[] }>; moved: Record<string, string>; skipped: string[]; notImported: Record<string, string> };
@@ -42,6 +44,17 @@ const subscribe = (cb: () => void) => { window.addEventListener("s3-session", cb
 function useSession(fileId: string, acc: string): Session {
   const raw = useSyncExternalStore(subscribe, () => { try { return sessionStorage.getItem(keyOf(fileId, acc)) ?? ""; } catch { return ""; } }, () => "");
   return useMemo(() => parse(raw), [raw]);
+}
+
+// One statement in the list: the period in bold, the file name small and grey on one line, and the reason in one plain line.
+function Cell({ title, sub, reason }: { title: string; sub: string; reason: string | null }) {
+  return (
+    <div className="grid min-w-0 gap-0.5">
+      <b className="truncate text-[13.5px] text-ink">{title}</b>
+      {sub && <span className="truncate text-[12px] text-ink-3" title={sub}>{sub}</span>}
+      {reason && <span className="text-[12.5px] text-danger">{reason}</span>}
+    </div>
+  );
 }
 
 export type Target = { id: string; label: string; kind: "bank" | "card"; last4: string | null } | null;
@@ -167,43 +180,47 @@ export function UploadWindow({ fileId, target, uploads, href, closeHref, editabl
             {counts.map(([k, n]) => <span key={k} className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PILL[k]}`}>{n} {UPLOAD_LABEL[k].toLowerCase().replace(/: not needed$/, "")}</span>)}</div>
           <div className="overflow-hidden rounded-[10px] border border-sand-200">
             <table className="table table-compact">
-              <thead><tr><th>File</th><th>Status</th><th>Account found</th><th>Period</th><th /></tr></thead>
+              {/* Round 22 fixes: the period in bold, the file name small below; one status word; a plain reason line
+                  only when something is wrong; the account only when it is not the one chosen. */}
+              <thead><tr><th>Statement</th><th>Status</th><th /></tr></thead>
               <tbody>
-                {pending.map((p) => <tr key={p.key}><td><FileText className="mr-1.5 inline h-4 w-4 text-ink-3" aria-hidden />{p.name}</td>
+                {pending.map((p) => <tr key={p.key}><td className="max-w-0 w-full"><Cell title={p.name} sub="" reason={p.error} /></td>
                   <td>{p.error ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PILL.failed}`}>Failed</span> : <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${PILL.reading}`}><Loader2 className="h-3 w-3 animate-spin" aria-hidden />Uploading</span>}</td>
-                  <td /><td /><td className="text-[12.5px] text-danger">{p.error}</td></tr>)}
+                  <td /></tr>)}
                 {rows.map((r) => {
-                  const st = r.state.status, grey = ["outside", "already", "skipped"].includes(st);
+                  const st = r.state.status, grey = ["outside", "already", "copy", "skipped"].includes(st);
                   const f = r.found[0];
-                  const open = ["ready", "needs_look", "no_digits", "wrong_account", "no_account", "imported"].includes(st);
                   const link = `${href}&check=${r.id}`;
                   const moved = session.moved[r.id];
+                  const period = span(r.period_start, r.period_end);
+                  const reason = moved ? null
+                    : st === "needs_look" ? `${plural(r.review, "line")} to look at.`
+                    : st === "failed" ? r.error || "The file could not be read."
+                    : ["no_digits", "wrong_account", "no_account", "already", "copy"].includes(st) ? r.state.reason || null : null;
+                  const remove = (title: string, body: string) => editable && <button type="button" disabled={busy === r.id} onClick={async () => { if (await confirmAction({ title, body, confirm: "Remove", danger: true })) act(r.id, () => discardStatement(r.id)); }} className="text-[12.5px] text-danger underline">Remove</button>;
                   return (
                     <tr key={r.id} className={grey ? "bg-sand-50 text-ink-3" : ""}>
-                      <td><FileText className="mr-1.5 inline h-4 w-4 text-ink-3" aria-hidden />{open ? <Link href={link} scroll={false} className="hover:underline">{r.file_name}</Link> : r.file_name}</td>
-                      <td>{moved ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PILL.reading}`}>Moved</span>
+                      <td className="max-w-0 w-full"><Cell title={period || r.file_name} sub={period ? r.file_name : ""} reason={reason} /></td>
+                      <td className="align-top">{moved ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${PILL.reading}`}>Moved</span>
                         : <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${PILL[st]}`}>{st === "reading" && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}{UPLOAD_LABEL[st]}</span>}</td>
-                      <td className="text-[13px]">{f ? `${f.last4 ? `••• ${f.last4}` : "No last digits"} (${f.kind === "card" ? "card" : "bank account"})` : ""}</td>
-                      <td className="text-[13px] whitespace-nowrap">{r.period_start ? `${short(r.period_start)} to ${short(r.period_end)}` : ""}</td>
-                      <td className="text-right text-[12.5px]">
-                        {moved ? `to ${moved}` : st === "ready" ? <>{plural(r.lines, "line")} · checks pass <Link href={link} scroll={false} className="ml-2 text-navy-700 underline">Check</Link></>
-                        : st === "needs_look" ? <>{plural(r.review, "line")} for review <Link href={link} scroll={false} className="ml-2 text-navy-700 underline">Check</Link></>
-                        : st === "no_digits" ? <>{r.state.reason} <Link href={link} scroll={false} className="ml-2 text-navy-700 underline">Check</Link></>
-                        : st === "wrong_account" && r.state.other && editable ? <button type="button" disabled={busy === r.id} className="text-navy-700 underline"
+                      <td className="text-right align-top text-[12.5px] whitespace-nowrap">
+                        {moved ? `to ${moved}` : ["ready", "needs_look", "no_digits"].includes(st) ? <Link href={link} scroll={false} className="btn-secondary h-7 px-2.5 text-[12.5px]">Check</Link>
+                        : st === "wrong_account" && r.state.other && editable ? <button type="button" disabled={busy === r.id} className="btn-secondary h-7 px-2.5 text-[12.5px]"
                             onClick={() => act(r.id, () => setStatementTarget([r.id], r.state.other!.id), `Moved to ${r.state.other!.number} ${r.state.other!.name}.`).then(() => writeSession(fileId, accKey, (s) => ({ ...s, moved: { ...s.moved, [r.id]: `${r.state.other!.number} ${r.state.other!.name}` } })))}>
-                            Move it to {r.state.other.number} {r.state.other.name}</button>
-                        : st === "no_account" ? <>{r.state.reason} {editable && <Link href={`${href.replace(/&upload=[^&]*/, "")}&add=1&type=${f?.kind === "card" ? "card" : "chequing"}&last4=${f?.last4 ?? ""}&then=${encodeURIComponent(link)}`} scroll={false} className="ml-1 text-navy-700 underline">Add it?</Link>}</>
+                            Move it</button>
+                        : st === "no_account" ? editable && <Link href={`${href.replace(/&upload=[^&]*/, "")}&add=1&type=${f?.kind === "card" ? "card" : "chequing"}&last4=${f?.last4 ?? ""}&then=${encodeURIComponent(link)}`} scroll={false} className="btn-secondary h-7 px-2.5 text-[12.5px]">Add the account</Link>
                         : st === "outside" && editable ? <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => skipStatement(r.id, true, null), "Skipped. It stays listed.").then(() => writeSession(fileId, accKey, (s) => ({ ...s, skipped: [...s.skipped, r.id] })))} className="btn-secondary h-7 px-2.5 text-[12.5px]">Skip</button>
                         : st === "skipped" && editable ? <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => skipStatement(r.id, false, r.review ? "needs_look" : "ready"))} className="text-navy-700 underline">Bring back</button>
-                        : st === "already" ? <>{r.state.reason} {editable && <button type="button" onClick={async () => { if (await confirmAction({ title: "Remove this copy?", body: "The file and what was read are deleted. The statement already imported stays.", confirm: "Remove", danger: true })) act(r.id, () => discardStatement(r.id)); }} className="ml-1 text-danger underline">Remove</button>}</>
-                        : st === "failed" ? <><span className="text-danger">{r.error || "The file could not be read."}</span> {editable && <><button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => retryStatement(r.id))} className="btn-secondary ml-1 h-7 px-2.5 text-[12.5px]"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry</button>
-                          <button type="button" disabled={busy === r.id} onClick={async () => { if (await confirmAction({ title: "Remove this file?", body: "The file is deleted. Nothing was imported from it.", confirm: "Remove", danger: true })) act(r.id, () => discardStatement(r.id)); }} className="ml-2 text-danger underline">Remove</button></>}</>
+                        : st === "already" ? remove("Remove this copy?", "The file and what was read are deleted. The statement already imported stays.")
+                        : st === "copy" ? remove("Remove this copy?", "The file and what was read are deleted. The other copy stays in the list.")
+                        : st === "failed" ? <>{editable && <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => retryStatement(r.id))} className="btn-secondary mr-2 h-7 px-2.5 text-[12.5px]"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry</button>}
+                          {remove("Remove this file?", "The file is deleted. Nothing was imported from it.")}</>
                         : st === "imported" && session.imported[r.id] ? `Imported: ${plural(session.imported[r.id].lines, "line")}` : ""}
                       </td>
                     </tr>
                   );
                 })}
-                {!rows.length && !pending.length && <tr><td colSpan={5} className="py-6 text-center text-[13px] text-ink-3">No statements here yet. Drop the PDFs or photos above.</td></tr>}
+                {!rows.length && !pending.length && <tr><td colSpan={3} className="py-6 text-center text-[13px] text-ink-3">No statements here yet. Drop the PDFs or photos above.</td></tr>}
               </tbody>
             </table>
           </div>
