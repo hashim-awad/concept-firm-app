@@ -15,12 +15,13 @@ export type BankData = { accounts: BankAccount[]; statements: BankStatement[]; l
 
 export async function loadBank(supabase: SupabaseClient, fileId: string, account?: string): Promise<BankData> {
   const [{ data: accs, error: e1 }, { data: sts, error: e2 }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, name, kind").eq("file_id", fileId).order("name"),
+    supabase.from("cb_bank_accounts").select("id, name, kind, number").eq("file_id", fileId).order("number"),
     supabase.from("cb_bank_statements").select("id, account_id, file_name, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total, uploaded_at, who:uploaded_by(full_name), " +
       "source, statement_import_id, model, pages, cost_usd, input_tokens, output_tokens, converted_at, check_result, edits, conv:converted_by(full_name)")
       .eq("file_id", fileId).order("period_start"),
   ]);
-  const accounts = (accs ?? []) as BankAccount[];
+  // Round 22 (point 25): every account as "10000 Chequing · MDB ••• 2201".
+  const accounts = ((accs ?? []) as (BankAccount & { number: string })[]).map((a) => ({ id: a.id, kind: a.kind, name: `${a.number} ${a.name}` }));
   // The months each account has transactions in (for the "no transactions" check).
   const { data: dates } = await supabase.from("cb_bank_lines").select("account_id, txn_date").eq("file_id", fileId).limit(50000);
   const txnMonths = new Map<string, Set<string>>();

@@ -1,0 +1,104 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4405",
+      "name": "Visa Business",
+      "kind": "card",
+      "periodStart": "2026-08-16",
+      "periodEnd": "2026-09-15",
+      "opening": 184620,
+      "closing": 110345,
+      "summary": {
+        "inTotal": 110345,
+        "inCount": 5,
+        "outTotal": 184620,
+        "outCount": 1,
+        "interest": 0,
+        "fees": 0
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-08-18",
+          "description": "DUMMY GAS STATION",
+          "amountCents": 8640,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-08-19"
+        },
+        {
+          "id": "l2",
+          "date": "2026-08-22",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 184620,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-08-23"
+        },
+        {
+          "id": "l3",
+          "date": "2026-08-25",
+          "description": "DUMMY OFFICE SUPPLY",
+          "amountCents": 41275,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-08-26"
+        },
+        {
+          "id": "l4",
+          "date": "2026-08-30",
+          "description": "DUMMY RESTAURANT",
+          "amountCents": 12990,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-09-02"
+        },
+        {
+          "id": "l5",
+          "date": "2026-09-03",
+          "description": "DUMMY STAGING RENTAL",
+          "amountCents": 30115,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-09-04"
+        },
+        {
+          "id": "l6",
+          "date": "2026-09-10",
+          "description": "DUMMY PRINT SHOP",
+          "amountCents": 17325,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2026-09-11"
+        }
+      ]
+    }
+  ]
+}

@@ -182,6 +182,11 @@ async function processJob(admin: SupabaseClient, job: Job, timeoutMs: number): P
     const { data: blob, error } = await admin.storage.from(BUCKET).download(job.storage_path);
     if (error || !blob) throw new ReaderError("unreadable", "The uploaded file is missing. Upload it again.", false);
     const original = new Uint8Array(await blob.arrayBuffer());
+    // Round 22: the file's fingerprint, so the same statement is not imported twice (Closebook files only).
+    if (job.file_id) {
+      const fp = await admin.from("cb_statement_imports").update({ file_sha256: createHash("sha256").update(original).digest("hex") }).eq("id", job.id);
+      if (fp.error) console.error("statement runner: fingerprint not saved", fp.error.message);
+    }
     try {
       prepared = await prepare(original, job.media_type);
     } catch (e) {

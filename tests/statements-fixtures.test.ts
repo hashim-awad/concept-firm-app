@@ -74,6 +74,8 @@ test("every result has the ReadResult shape: ids in order, keys a1.., cents, dat
 test("every statement but mismatch ties to the cent: total, summary, running balance", () => {
   for (const { file, r } of results) {
     if (file === "mismatch.pdf") continue;
+    // Round 22: two lines the reader was not sure of, on purpose ("Needs a look"); the figures still tie.
+    const unsureOnPurpose = file === "round22/mdb-visa-2025-11.pdf";
     for (const a of r.accounts) {
       const t = tie(a);
       assert.equal(t.difference, 0, `${file} ${a.key} difference`);
@@ -83,7 +85,7 @@ test("every statement but mismatch ties to the cent: total, summary, running bal
       assert.equal(a.summary.outTotal, t.outTotal, `${file} ${a.key} money out`);
       if (a.summary.inCount !== null) assert.equal(a.summary.inCount, t.inCount, `${file} ${a.key} in count`);
       if (a.summary.outCount !== null) assert.equal(a.summary.outCount, t.outCount, `${file} ${a.key} out count`);
-      assert.ok(a.lines.every((l) => !l.unsure), `${file} nothing unsure`);
+      if (!unsureOnPurpose) assert.ok(a.lines.every((l) => !l.unsure), `${file} nothing unsure`);
     }
   }
 });
@@ -144,4 +146,23 @@ test("mismatch: one amount misread, so the running balance breaks there and the 
   const unsure = a.lines.filter((l) => l.unsure);
   assert.equal(unsure.length, 1);
   assert.equal(unsure[0].unsureReason, "Amount hard to read");
+});
+
+// Round 22 (Hashim, Nov 16, 2026): the Willow Dummy Realty statements for the step 3 rework.
+test("round 22: the year edges and chains the step 3 screens rely on", () => {
+  const acc = (f: string) => results.find((x) => x.file === `round22/${f}`)!.r.accounts[0];
+  const atDate = (a: StatementAccount, d: string) => a.lines.filter((l) => l.date <= d).reduce((n, l) => n + signedCents(l), a.opening);
+  assert.equal(atDate(acc("mdb-chq-2025-08.pdf"), "2025-08-31"), 195762);
+  assert.equal(atDate(acc("mdb-visa-2025-08.pdf"), "2025-08-31"), 132208);
+  const last = acc("mdb-visa-2026-08.pdf");
+  assert.deepEqual([last.opening, last.closing, atDate(last, "2026-08-31")], [184620, 110345, 62905]);
+  assert.ok(last.lines.every((l) => /^\d{4}-\d{2}-\d{2}$/.test(l.postedDate ?? "")));
+  assert.equal(acc("ndb-chq-2025-09.pdf").opening, 586000);
+  // Each chain follows on: closing = the next opening.
+  const chain = (names: string[]) => names.slice(1).forEach((n, i) => assert.equal(acc(n).opening, acc(names[i]).closing, n));
+  const months = (prefix: string, from: [number, number], n: number, f = (s: string) => s) => Array.from({ length: n }, (_, k) => { const d = new Date(Date.UTC(from[0], from[1] - 1 + k, 1)); return f(`${prefix}-${d.toISOString().slice(0, 7)}.pdf`); });
+  chain(months("mdb-chq", [2025, 8], 13));
+  chain(months("mdb-visa", [2025, 8], 13));
+  chain(months("ndb-chq", [2025, 9], 12, (s) => s.replace("2026-02.pdf", "2026-02-locked.pdf")));
+  assert.equal(results.filter((x) => x.file.startsWith("round22/") && x.r.accounts[0].lines.some((l) => l.description === "ONLINE PAYMENT MC 4455")).length, 3);
 });

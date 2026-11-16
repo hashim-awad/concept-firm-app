@@ -87,7 +87,7 @@ test("the schema: every object closed, every field required (structured outputs)
   };
   walk(READ_SCHEMA as unknown as Record<string, unknown>);
   // The instruction covers what Hashim asked for.
-  for (const words of ["every account", "last digits", "\"card\"", "period_start", "opening_balance", "summary", "every page", "in the order printed", "positive number", "raises the balance", "running balance", "page:", "unsure", "Never guess a missing digit"]) {
+  for (const words of ["every account", "last digits", "\"card\"", "period_start", "opening_balance", "summary", "every page", "in the order printed", "positive number", "raises the balance", "running balance", "page:", "unsure", "Never guess a missing digit", "posted_date", "transaction (purchase) date", "interest_total", "fees_total"]) {
     assert.ok(INSTRUCTION.includes(words), words);
   }
 });
@@ -99,9 +99,9 @@ test("the answer becomes a ReadResult: keys, ids, cents, digits only, unsure kep
   assert.equal(out.result.bank, "Northern Dummy Bank");
   assert.equal(out.result.pages, 2);
   assert.deepEqual({ key: a.key, last4: a.last4, kind: a.kind, opening: a.opening, closing: a.closing }, { key: "a1", last4: "4321", kind: "bank", opening: 100000, closing: 124975 });
-  assert.deepEqual(a.summary, { inTotal: 50000, inCount: 1, outTotal: 25025, outCount: null });
+  assert.deepEqual(a.summary, { inTotal: 50000, inCount: 1, outTotal: 25025, outCount: null, interest: null, fees: null });
   assert.deepEqual(a.lines.map((l) => l.id), ["l1", "l2", "l3"]);
-  assert.deepEqual(a.lines[0], { id: "l1", date: "2026-01-03", description: "SAMPLE DEPOSIT REF 12", amountCents: 50000, dir: "in", balanceCents: 150000, page: 1, unsure: false, unsureReason: "", source: "read" });
+  assert.deepEqual(a.lines[0], { id: "l1", date: "2026-01-03", postedDate: null, description: "SAMPLE DEPOSIT REF 12", amountCents: 50000, dir: "in", balanceCents: 150000, page: 1, unsure: false, unsureReason: "", source: "read" });
   // A smudged line: the date and amount could not be read; it stays, unsure, on a page that exists.
   assert.equal(a.lines[2].unsure, true);
   assert.equal(a.lines[2].unsureReason, "smudged; the amount could not be read; the date could not be read");
@@ -247,4 +247,22 @@ test("photos: a small one goes as it is; a large one is scaled to 2576 pixels on
   // Over 30 MB is refused before anything else.
   await assert.rejects(prepare(new Uint8Array(31 * 1024 * 1024), "application/pdf"), /over 30 MB/);
   assert.equal(shrinkRgba(new Uint8Array(4 * 4 * 4).fill(255), 4, 4, 2).width, 2);
+});
+
+// Round 22 (decision 1): a card keeps its transaction and posting dates, and interest and fees on their own.
+test("a card statement: purchase and posting dates, interest and fees", () => {
+  const r = fromWire({ bank: "Maple Dummy Bank", pages: 1, accounts: [{
+    last_digits: "4405", name: "Visa Business", kind: "card", period_start: "2026-08-16", period_end: "2026-09-15", opening_balance: "1846.20", closing_balance: "1115.45",
+    summary: { money_in_total: "1115.45", money_in_count: 5, money_out_total: "1846.20", money_out_count: 1, interest_total: "10.00", fees_total: "2.00" },
+    lines: [{ date: "2026-08-30", posted_date: "2026-09-02", description: "DUMMY RESTAURANT", amount: "129.90", direction: "in", balance: null, page: 1, unsure: false, unsure_reason: "" },
+            { date: "2026-08-31", posted_date: "bad", description: "DUMMY GAS", amount: "86.40", direction: "in", balance: null, page: 1, unsure: false, unsure_reason: "" }],
+  }, { last_digits: "2201", name: "Chequing", kind: "bank", period_start: "2026-08-01", period_end: "2026-08-31", opening_balance: "0.00", closing_balance: "0.00",
+    summary: { money_in_total: "0.00", money_in_count: 0, money_out_total: "0.00", money_out_count: 0, interest_total: "5.00", fees_total: null },
+    lines: [{ date: "2026-08-03", posted_date: "2026-08-04", description: "X", amount: "1.00", direction: "in", balance: null, page: 1, unsure: false, unsure_reason: "" }] }] }, 1);
+  const [card, bank] = r.accounts;
+  assert.deepEqual(card.lines.map((l) => [l.date, l.postedDate]), [["2026-08-30", "2026-09-02"], ["2026-08-31", null]]);
+  assert.deepEqual({ i: card.summary?.interest, f: card.summary?.fees }, { i: 1000, f: 200 });
+  // A bank statement never carries them.
+  assert.equal(bank.lines[0].postedDate, null);
+  assert.deepEqual({ i: bank.summary?.interest, f: bank.summary?.fees }, { i: null, f: null });
 });

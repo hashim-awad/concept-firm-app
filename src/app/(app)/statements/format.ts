@@ -29,6 +29,7 @@ export const STATUS_CLS: Record<StatementStatus, string> = {
   failed: "bg-danger-soft text-danger",
   imported: "bg-success-soft text-success",
   discarded: "bg-sand-100 text-ink-3",
+  skipped: "bg-sand-100 text-ink-3",
 };
 
 // An account as people say it: "Chequing ••• 4821".

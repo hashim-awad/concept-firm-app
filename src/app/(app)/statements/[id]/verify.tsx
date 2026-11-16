@@ -24,7 +24,7 @@ export type Nav = { index: number; total: number; prev: string | null; next: str
 
 const PAGE = 100;
 type SortCol = "date" | "description" | "type" | "amount";
-type Draft = { date: string; description: string; dir: "in" | "out"; amount: string };
+export type Draft = { date: string; description: string; dir: "in" | "out"; amount: string };
 type Dup = { accountKey: string; lineIds: string[] };
 
 // "new:<kind>:<name>" adds the account to the file on import, named as on the statement.
@@ -447,7 +447,7 @@ function Total({ label, cents, ok, printed, printedCount, count }: { label: stri
   );
 }
 
-function DateField({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (v: string) => void }) {
+export function DateField({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (v: string) => void }) {
   return (
     <label className="grid gap-1 text-[12.5px] text-ink-2">{label}
       <input type="date" value={value} disabled={disabled} onChange={(e) => { if (validDate(e.target.value)) onChange(e.target.value); }} className="input input-compact h-9 tabular-nums" />
@@ -456,7 +456,7 @@ function DateField({ label, value, disabled, onChange }: { label: string; value:
 }
 
 // Typed as on the statement (12,480.15); saved when it reads as an amount.
-function MoneyField({ label, cents, disabled, onChange }: { label: string; cents: number; disabled: boolean; onChange: (c: number) => void }) {
+export function MoneyField({ label, cents, disabled, onChange }: { label: string; cents: number; disabled: boolean; onChange: (c: number) => void }) {
   const [text, setText] = useState(money(cents));
   const bad = parseMoney(text) === null;
   return (
@@ -469,7 +469,7 @@ function MoneyField({ label, cents, disabled, onChange }: { label: string; cents
   );
 }
 
-function EditRow({ draft, setDraft, kind, err, onSave, onCancel }: { draft: Draft; setDraft: (d: Draft) => void; kind: "bank" | "card"; err: string | null; onSave: () => void; onCancel: () => void }) {
+export function EditRow({ draft, setDraft, kind, err, onSave, onCancel }: { draft: Draft; setDraft: (d: Draft) => void; kind: "bank" | "card"; err: string | null; onSave: () => void; onCancel: () => void }) {
   const key = (e: React.KeyboardEvent) => { if (e.key === "Enter") { e.preventDefault(); onSave(); } if (e.key === "Escape") onCancel(); };
   return (
     <tr className="bg-navy-50/60" onKeyDown={key}>

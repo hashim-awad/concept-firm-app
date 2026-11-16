@@ -1,0 +1,72 @@
+{
+  "bank": "Northern Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "3302",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-12-01",
+      "periodEnd": "2025-12-31",
+      "opening": 646998,
+      "closing": 856405,
+      "summary": {
+        "inTotal": 411057,
+        "inCount": 1,
+        "outTotal": 201650,
+        "outCount": 3
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-12-07",
+          "description": "DUMMY INSURANCE PAD",
+          "amountCents": 21460,
+          "dir": "out",
+          "balanceCents": 625538,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-12-12",
+          "description": "COMMISSION DEPOSIT",
+          "amountCents": 411057,
+          "dir": "in",
+          "balanceCents": 1036595,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-12-18",
+          "description": "ONLINE PAYMENT NDB MC",
+          "amountCents": 49346,
+          "dir": "out",
+          "balanceCents": 987249,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2025-12-26",
+          "description": "TRANSFER TO DUMMY SAVINGS",
+          "amountCents": 130844,
+          "dir": "out",
+          "balanceCents": 856405,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

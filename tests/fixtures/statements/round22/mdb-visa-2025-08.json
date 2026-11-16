@@ -1,0 +1,91 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4405",
+      "name": "Visa Business",
+      "kind": "card",
+      "periodStart": "2025-08-16",
+      "periodEnd": "2025-09-15",
+      "opening": 98000,
+      "closing": 67757,
+      "summary": {
+        "inTotal": 67757,
+        "inCount": 4,
+        "outTotal": 98000,
+        "outCount": 1,
+        "interest": 0,
+        "fees": 8999
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-08-18",
+          "description": "DUMMY GAS STATION",
+          "amountCents": 21208,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-08-19"
+        },
+        {
+          "id": "l2",
+          "date": "2025-08-25",
+          "description": "DUMMY PHOTOGRAPHY",
+          "amountCents": 13000,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-08-26"
+        },
+        {
+          "id": "l3",
+          "date": "2025-09-02",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 98000,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-09-03"
+        },
+        {
+          "id": "l4",
+          "date": "2025-09-08",
+          "description": "DUMMY SIGN SHOP",
+          "amountCents": 24550,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-09-09"
+        },
+        {
+          "id": "l5",
+          "date": "2025-09-12",
+          "description": "DUMMY COFFEE",
+          "amountCents": 8999,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "postedDate": "2025-09-13"
+        }
+      ]
+    }
+  ]
+}

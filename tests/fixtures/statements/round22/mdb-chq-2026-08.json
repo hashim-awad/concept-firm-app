@@ -1,0 +1,96 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2201",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2026-08-03",
+      "periodEnd": "2026-09-02",
+      "opening": 1715220,
+      "closing": 2087511,
+      "summary": {
+        "inTotal": 546265,
+        "inCount": 2,
+        "outTotal": 173974,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2026-08-05",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 38362,
+          "dir": "out",
+          "balanceCents": 1676858,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2026-08-09",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 336265,
+          "dir": "in",
+          "balanceCents": 2013123,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2026-08-15",
+          "description": "ONLINE PAYMENT MDB VISA",
+          "amountCents": 93649,
+          "dir": "out",
+          "balanceCents": 1919474,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2026-08-21",
+          "description": "PAD DUMMY MLS BOARD",
+          "amountCents": 38968,
+          "dir": "out",
+          "balanceCents": 1880506,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2026-08-28",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 1877511,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l6",
+          "date": "2026-09-01",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 210000,
+          "dir": "in",
+          "balanceCents": 2087511,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

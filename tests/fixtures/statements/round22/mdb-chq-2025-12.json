@@ -1,0 +1,84 @@
+{
+  "bank": "Maple Dummy Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2201",
+      "name": "Business chequing",
+      "kind": "bank",
+      "periodStart": "2025-12-03",
+      "periodEnd": "2026-01-02",
+      "opening": 701712,
+      "closing": 828765,
+      "summary": {
+        "inTotal": 287899,
+        "inCount": 1,
+        "outTotal": 160846,
+        "outCount": 4
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-12-05",
+          "description": "PAD DUMMY TELECOM",
+          "amountCents": 38132,
+          "dir": "out",
+          "balanceCents": 663580,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l2",
+          "date": "2025-12-09",
+          "description": "COMMISSION DEPOSIT DUMMY BROKERAGE",
+          "amountCents": 287899,
+          "dir": "in",
+          "balanceCents": 951479,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l3",
+          "date": "2025-12-15",
+          "description": "ONLINE PAYMENT MDB VISA",
+          "amountCents": 80751,
+          "dir": "out",
+          "balanceCents": 870728,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l4",
+          "date": "2025-12-21",
+          "description": "PAD DUMMY MLS BOARD",
+          "amountCents": 38968,
+          "dir": "out",
+          "balanceCents": 831760,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        },
+        {
+          "id": "l5",
+          "date": "2025-12-28",
+          "description": "BANK SERVICE FEE",
+          "amountCents": 2995,
+          "dir": "out",
+          "balanceCents": 828765,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read"
+        }
+      ]
+    }
+  ]
+}

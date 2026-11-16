@@ -36,7 +36,7 @@ export async function loadCoding(supabase: SupabaseClient, fileId: string, clien
     supabase.from("cb_bank_lines").select("description, chart_account, tax_code, coded_at, file:file_id!inner(client_id, year_end)").eq("status", "done").neq("source", "transfer").eq("file.client_id", clientId)
       .lte("file.year_end", yearEnd).gte("file.year_end", lastYear).limit(20000),
     supabase.from("cb_firm_vendor_rules").select("vendor_key, chart_account, tax_mode"),
-    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account").eq("file_id", fileId).order("name"),
+    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number").eq("file_id", fileId).order("number"),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).limit(20000),
   ]);
   // The latest rate for each part as at the year-end (a rate change is a new row with its start date).
@@ -53,7 +53,8 @@ export async function loadCoding(supabase: SupabaseClient, fileId: string, clien
   const firmTax = (mode: string, account: string) => mode === "taxable" ? defaultTaxCode("GST/HST", province, account)
     : mode === "none" ? (chartOf.get(account)?.tax_default === "Exempt" ? "EXEMPT" : "OUT_OF_SCOPE") : null;
   const firmMap = new Map<string, Coding>(((firm ?? []) as { vendor_key: string; chart_account: string; tax_mode: string }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: firmTax(r.tax_mode, r.chart_account) }]));
-  const bankList = (banks ?? []) as TransferAccount[];
+  // Round 22 (point 25): "10000 Chequing · MDB ••• 2201" everywhere.
+  const bankList = ((banks ?? []) as (TransferAccount & { number: string })[]).map(({ number, ...b }) => ({ ...b, name: `${number} ${b.name}` }));
   const raw = ((lines ?? []) as Omit<CodeLine, "suggestion" | "key" | "transfers" | "transfer">[]).map((l) => ({ ...l, amount: Number(l.amount) }));
   const found = findTransfers(raw, bankList);
   const byId = new Map(raw.map((l) => [l.id, l]));

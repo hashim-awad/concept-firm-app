@@ -20,7 +20,9 @@ import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
 // number: the bank or card account's own number in the file (round 4b): the first on a chart account takes
 // its number, others the next free one (10010). Optional for older callers: the chart number then.
-export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string };
+// Round 22: lineNo overrides the chart account's GIFI line (a long-term line of credit on 3149); fromBooks says
+// the opening is the balance in the books typed in step 3, not the first statement's opening.
+export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string; lineNo?: string | null; fromBooks?: boolean };
 // transfer_bank (round 20): on the money-out line of a matched transfer, the other bank or card account; its
 // other side posts to that account's own row. The money-in line of the transfer has status "matched".
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string;
@@ -94,11 +96,12 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   const byId = new Map(banks.map((b) => [b.id, b]));
   const openMeta = (ref: string, label: string): Meta => ({ date: yearStart, kind: "opening", ref, label });
 
-  const gifiOf = (b: BuildBank) => (chart.get(b.chart)?.line_no ?? "").slice(0, 4);
+  const lineOf = (b: BuildBank) => b.lineNo ?? chart.get(b.chart)?.line_no ?? null;
+  const gifiOf = (b: BuildBank) => (lineOf(b) ?? "").slice(0, 4);
   for (const b of banks) {
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
-    const m = openMeta(`stmt:${b.id}`, `Opening balance on the first statement, ${b.name}`);
-    add(bankKey(b), numberOf(b), b.name, chart.get(b.chart)?.line_no ?? null, open, m);
+    const m = openMeta(`stmt:${b.id}`, b.fromBooks ? `Balance in the books at the start of the year, ${b.name}` : `Opening balance on the first statement, ${b.name}`);
+    add(bankKey(b), numberOf(b), b.name, lineOf(b), open, m);
     if (!opening) {
       add(OPENING, "", "Opening balances to enter", null, -open, m, "Enter last year's closing balances: until then the opening bank and card balances sit here.");
       if (open) causes.push({ text: `${b.name}: the first statement opens at ${(b.kind === "bank" ? open : -open) / 100 < 0 ? "-" : ""}${Math.abs(open / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}, and last year's balances are not entered yet`, cents: -open });
