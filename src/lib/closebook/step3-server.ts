@@ -87,7 +87,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     const movement = ls.filter((l) => l.account_id === a.id && !(l.status === "matched" && l.source === "outstanding")).reduce((n, l) => n + toCents(l.amount)!, 0);
     const endBooks = books === null ? null : books + movement;
     const start = edge(firstEdge?.at_start ?? null, books, its.filter((i) => i.account_id === a.id && i.edge === "start"));
-    const end = edge(cov.missing.length || waived ? null : lastEdge?.at_end ?? null, endBooks, its.filter((i) => i.account_id === a.id && i.edge === "end"));
+    const end = edge(cov.missing.length || waived || cov.cells.some((c) => c.state === "wait") ? null : lastEdge?.at_end ?? null, endBooks, its.filter((i) => i.account_id === a.id && i.edge === "end"));
     const waiting = uploads.filter((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")).length;
     const missing = waived ? [] : cov.missing;
     const label = accountLabel(a);
@@ -103,7 +103,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     return { ...fileAccounts.find((f) => f.id === a.id)!, label, early, chart: a.chart_account, gifi: (a.gifi_line ?? lineNo.get(a.chart_account) ?? "").slice(0, 4),
       accountType: a.account_type, bank: a.bank ?? "", longTerm: a.long_term, books, opened: a.opened_on, closed: a.closed_on, note: a.coverage_note,
       reasonBy: a.coverage_by ? names.get(a.coverage_by) ?? "" : null, reasonAt: a.coverage_at, origin: a.origin,
-      cells: cov.cells, missing, breaks: cov.breaks as S3Account["breaks"], cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting, status };
+      cells: waived ? cov.cells.map((c) => ({ ...c, state: "na" as const })) : cov.cells, missing, breaks: cov.breaks as S3Account["breaks"], cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting, status };
   });
 
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, toCents(o.amount)!]));

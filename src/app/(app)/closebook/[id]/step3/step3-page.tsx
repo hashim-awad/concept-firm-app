@@ -64,10 +64,12 @@ export async function Step3Page({ supabase, file, names, sp, editable, signed, p
     const st = d.accounts.flatMap((a) => a.statements).find((x) => x.id === undo);
     if (st) {
       const acc = d.accounts.find((a) => a.id === st.account_id)!;
-      const [{ data: ls }, { data: tr }] = await Promise.all([
+      const [{ data: ls }, { data: tr }, { data: ch }] = await Promise.all([
         supabase.from("cb_bank_lines").select("id, txn_date, description, amount, status, chart_account, source").eq("statement_id", st.id).order("txn_date"),
         supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId),
+        supabase.from("cb_chart_accounts").select("number, name"),
       ]);
+      const chartName = new Map(((ch ?? []) as { number: string; name: string }[]).map((c) => [c.number, c.name]));
       const inTr = new Set(((tr ?? []) as { out_line: string; in_line: string }[]).flatMap((t) => [t.out_line, t.in_line]));
       const lines = (ls ?? []) as { id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; source: string }[];
       const touched = lines.filter((l) => l.status !== "new" || inTr.has(l.id));
@@ -82,7 +84,7 @@ export async function Step3Page({ supabase, file, names, sp, editable, signed, p
               <div className="max-h-72 overflow-auto rounded-[10px] border border-sand-200"><table className="table table-compact">
                 <thead><tr><th>Date</th><th>Description</th><th className="text-right">Amount</th><th>Work on it</th></tr></thead>
                 <tbody>{touched.map((l) => <tr key={l.id}><td className="whitespace-nowrap">{longDate(l.txn_date)}</td><td>{l.description}</td><td className="text-right tabular-nums">{money(Math.round(Number(l.amount) * 100))}</td>
-                  <td className="text-[12.5px]">{inTr.has(l.id) ? "Matched as a transfer" : l.source === "outstanding" ? "Clears an outstanding item" : l.chart_account ? `Coded to ${l.chart_account}` : l.status === "ask_client" ? "On the client's question list" : l.status === "reviewer" ? "With the reviewer" : "Coded"}</td></tr>)}</tbody>
+                  <td className="text-[12.5px]">{inTr.has(l.id) ? "Matched as a transfer" : l.source === "outstanding" ? "Clears an outstanding item" : l.chart_account ? `Coded to ${l.chart_account} ${chartName.get(l.chart_account) ?? ""}` : l.status === "ask_client" ? "On the client's question list" : l.status === "reviewer" ? "With the reviewer" : "Coded"}</td></tr>)}</tbody>
               </table></div>
             </div>
           ) : <p className="text-[13.5px]">None of its {lines.length} lines is coded or matched yet.</p>}

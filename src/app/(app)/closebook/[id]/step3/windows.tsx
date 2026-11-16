@@ -94,7 +94,7 @@ export function AddAccountWindow({ c }: { c: AddCtx }) {
           <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Bank</span>
             <input name="bank" value={bank} onChange={(x) => setBank(x.target.value)} maxLength={40} required placeholder="For example: RBC" className="input h-9" /></label>
           <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Last digits</span>
-            <input name="last4" value={last4} onChange={(x) => setLast4(x.target.value)} maxLength={12} required inputMode="numeric" placeholder="7509" className="input h-9" /></label>
+            <input name="last4" value={last4} onChange={(x) => setLast4(x.target.value)} maxLength={12} required inputMode="numeric" placeholder="1234" className="input h-9" /></label>
         </div>
         <div className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Balance in the books on {c.dayBefore}</span>
           <AmountInput name="balance" value={balance} onValue={setBalance} className="input h-9 w-[14rem] text-right" placeholder="0.00" aria-label={`Balance in the books on ${c.dayBefore}`} />

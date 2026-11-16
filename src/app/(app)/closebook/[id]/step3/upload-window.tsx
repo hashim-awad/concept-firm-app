@@ -177,7 +177,8 @@ export function UploadWindow({ fileId, target, uploads, href, closeHref, editabl
                         : st === "outside" && editable ? <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => skipStatement(r.id, true, null), "Skipped. It stays listed.").then(() => writeSession(fileId, accKey, (s) => ({ ...s, skipped: [...s.skipped, r.id] })))} className="btn-secondary h-7 px-2.5 text-[12.5px]">Skip</button>
                         : st === "skipped" && editable ? <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => skipStatement(r.id, false, r.review ? "needs_look" : "ready"))} className="text-navy-700 underline">Bring back</button>
                         : st === "already" ? <>{r.state.reason} {editable && <button type="button" onClick={async () => { if (await confirmAction({ title: "Remove this copy?", body: "The file and what was read are deleted. The statement already imported stays.", confirm: "Remove", danger: true })) act(r.id, () => discardStatement(r.id)); }} className="ml-1 text-danger underline">Remove</button>}</>
-                        : st === "failed" ? <><span className="text-danger">{r.error || "The file could not be read."}</span> {editable && <button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => retryStatement(r.id))} className="btn-secondary ml-1 h-7 px-2.5 text-[12.5px]"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry</button>}</>
+                        : st === "failed" ? <><span className="text-danger">{r.error || "The file could not be read."}</span> {editable && <><button type="button" disabled={busy === r.id} onClick={() => act(r.id, () => retryStatement(r.id))} className="btn-secondary ml-1 h-7 px-2.5 text-[12.5px]"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry</button>
+                          <button type="button" disabled={busy === r.id} onClick={async () => { if (await confirmAction({ title: "Remove this file?", body: "The file is deleted. Nothing was imported from it.", confirm: "Remove", danger: true })) act(r.id, () => discardStatement(r.id)); }} className="ml-2 text-danger underline">Remove</button></>}</>
                         : st === "imported" && session.imported[r.id] ? `Imported: ${plural(session.imported[r.id].lines, "line")}` : ""}
                       </td>
                     </tr>
@@ -231,7 +232,8 @@ function DoneStage({ fileId, accKey, target, rows, session, closeHref }: { fileI
             {imported.length ? ` ${short(starts[0])} to ${short(ends[ends.length - 1])}.` : ""}</p>
           <div className="overflow-hidden rounded-[10px] border border-sand-200">
             <table className="table table-compact"><thead><tr><th>What happened</th><th>File</th><th /></tr></thead>
-              <tbody>{rows.filter((r) => r.state.status !== "imported" || session.imported[r.id]).map((r) => { const [w, cls, why] = what(r); return (
+              <tbody>{rows.filter((r) => r.state.status !== "imported" || session.imported[r.id])
+                .sort((a, b) => (a.period_start ?? "9999").localeCompare(b.period_start ?? "9999") || a.file_name.localeCompare(b.file_name)).map((r) => { const [w, cls, why] = what(r); return (
                 <tr key={r.id} className={w === "Skipped" || w === "Not imported" && cls === PILL.already ? "bg-sand-50 text-ink-3" : ""}>
                   <td><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${cls}`}>{w}</span></td>
                   <td className="text-[13px]">{r.file_name}{r.period_start ? ` · ${short(r.period_start)} to ${short(r.period_end)}` : ""}</td><td className="text-[12.5px]">{why}</td></tr>); })}</tbody></table>
