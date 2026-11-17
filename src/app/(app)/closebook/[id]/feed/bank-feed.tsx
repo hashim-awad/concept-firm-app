@@ -221,6 +221,16 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const listRef = useRef<HTMLElement>(null);
   const [barBox, setBarBox] = useState<{ left: number; width: number } | null>(null);
   const barOn = ticked.size > 0 && tab === "pending";
+  // While the bar shows, space under the list equal to its height, so the last row scrolls clear of it.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barH, setBarH] = useState(0);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || !barOn) return;
+    const o = new ResizeObserver(() => setBarH(el.getBoundingClientRect().height));
+    o.observe(el);
+    return () => o.disconnect();
+  }, [barOn]);
   useEffect(() => {
     const el = listRef.current;
     if (!el || !barOn) return;
@@ -339,7 +349,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const th = "px-2 py-2 text-left text-[12px] font-semibold tracking-[.04em] text-ink-3 uppercase";
   const thR = `${th} text-right`;
   return (
-    <div className="grid gap-3 pb-20 print:pb-0">
+    <div className="grid gap-3">
       {data.error && <p role="alert" className="text-[13px] text-danger">{data.error}</p>}
       {!data.gstAnswered && <p className="text-[13px] text-warning">Answer the GST/HST questions in step 1 first: nothing posts until then.</p>}
 
@@ -453,10 +463,11 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
           {!shown.length && <p className="px-3 py-4 text-[13.5px] text-ink-3">{tab === "pending" && !inTab.length ? "Nothing pending in this account." : "Nothing here."}</p>}
         </div>
       </section>
+      {barOn && <div aria-hidden data-bar-space className="-mt-3 print:hidden" style={{ height: barH }} />}
 
       {/* 5. The black bar */}
       {barOn && (
-        <div role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}
+        <div ref={barRef} role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}
           className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[10px] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)] print:hidden">
           <span className="mr-auto font-semibold tabular-nums">{barText(tickedLines.map((l) => ({ cents: l.cents, out: outOf(l) })))}</span>
           {([["Post", () => post([...ticked]), notReady > 0, notReady ? `${notReady} ticked line${notReady === 1 ? " has" : "s have"} no account.` : undefined],
