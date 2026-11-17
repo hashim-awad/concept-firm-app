@@ -239,8 +239,10 @@ export function AutoImport({ fileId, items, locked }: { fileId: string; items: {
     if (!items.length || locked) return;
     let stop = false;
     (async () => {
-      const n = await importOnce(fileId, items);
-      if (!stop && n) router.refresh();
+      // Round 30: an import that does not go through is never silent: the statement becomes "To fix" with its reason.
+      let refusedN = 0;
+      const n = await importOnce(fileId, items, (x) => { refusedN++; void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), false); });
+      if (!stop && (n || refusedN)) router.refresh();
     })();
     return () => { stop = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

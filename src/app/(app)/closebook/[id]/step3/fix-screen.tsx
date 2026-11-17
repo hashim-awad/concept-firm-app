@@ -29,8 +29,8 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 const day = (iso: string) => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
 const REMOVE_REASONS = ["Read twice", "Not on the statement", "Belongs to another statement"];
 
-export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, mediaType, pages, backHref, target, editable }: {
-  id: string; title: string; data: ReadResult; accKey: string; fileUrl: string; mediaType: string; pages: number | null;
+export function FixScreen({ id, title, data: data0, accKey, notImported = "", fileUrl: fileUrl0, mediaType, pages, backHref, target, editable }: {
+  id: string; title: string; data: ReadResult; accKey: string; notImported?: string; /* round 30: why the last import did not go through */ fileUrl: string; mediaType: string; pages: number | null;
   backHref: string; target: string | null; editable: boolean;
 }) {
   const router = useRouter();
@@ -104,6 +104,7 @@ export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, m
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
           <div className="min-h-0 overflow-auto border-r border-sand-200 bg-sand-100/70 p-4"><StatementViewer url={fileUrl} mediaType={mediaType} pages={pages} focus={focus} /></div>
           <div className="min-h-0 overflow-auto px-6 py-5">
+            {notImported && <p className="mb-4 rounded-[12px] border border-danger/30 bg-danger-soft px-5 py-3.5 text-[14.5px]" role="alert"><b>Not imported.</b> {notImported}</p>}
             {miss && (
               <div className="mb-4 rounded-[12px] border border-[#efd9a6] bg-warning-soft/60 px-5 py-3.5 text-[14.5px] leading-relaxed" role="status" aria-label="What is wrong">
                 <p><b>{miss.title}</b> {miss.sentence}{miss.lineId ? " Check the amount on the highlighted line against the statement." : ""}</p>

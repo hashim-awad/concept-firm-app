@@ -434,5 +434,13 @@
   "e58b9c398df148aff9bbe1ffdad29626f9bbad4ac7bf7eef07c88d1c47179403": {
     "file": "round28/chq-2025-09.pdf",
     "result": "round28/chq-2025-09.json"
+  },
+  "c839315f20acf523704cbf2485ee1aa1e4b599172fb6998ca6ad4ad1aff04720": {
+    "file": "round30/card-3p-2026-07-18.pdf",
+    "result": "round30/card-3p-2026-07-18.json"
+  },
+  "5de8671dd47332d9188ece0be805c70802ef195e714d592f4da8c20d5b7cba7d": {
+    "file": "round30/card-3p-2026-07-18-noposted.pdf",
+    "result": "round30/card-3p-2026-07-18-noposted.json"
   }
 }

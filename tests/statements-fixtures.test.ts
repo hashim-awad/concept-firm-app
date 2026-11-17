@@ -60,7 +60,10 @@ test("every result has the ReadResult shape: ids in order, keys a1.., cents, dat
       for (const l of a.lines) {
         assert.equal(l.id, `l${++n}`, `${file} ${l.id}`);
         assert.match(l.date, /^\d{4}-\d{2}-\d{2}$/);
-        assert.ok((l.postedDate || l.printedDate || l.date) >= a.periodStart && (l.postedDate || l.printedDate || l.date) <= a.periodEnd, `${file} ${l.id} date in the period`);
+        // Round 30: a card line read without its posting date may be dated up to 31 days before the period.
+        const d = l.postedDate || l.printedDate || l.date;
+        const cardEarly = a.kind === "card" && !l.postedDate && d < a.periodStart && Date.parse(a.periodStart) - Date.parse(d) <= 31 * 86400000;
+        assert.ok((cardEarly || d >= a.periodStart) && d <= a.periodEnd, `${file} ${l.id} date in the period`);
         assert.ok(Number.isInteger(l.amountCents) && l.amountCents > 0, `${file} ${l.id} amount`);
         assert.ok(l.dir === "in" || l.dir === "out");
         assert.ok(l.balanceCents === null || Number.isInteger(l.balanceCents));

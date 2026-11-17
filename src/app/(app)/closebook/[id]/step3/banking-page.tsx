@@ -20,7 +20,7 @@ import { AutoImport, BankingUpload, type UploadSummary } from "./banking-upload"
 import { FixScreen } from "./fix-screen";
 import { Menu, Pill, date, money, span } from "./banking-ui";
 import { addOutstanding, removeOutstanding } from "../../step3-actions";
-import { CoverageForm, ExcludeWindow, ExcludedActions, ReadAgainButton, LineWindow, ReplaceWindow } from "./feed-windows";
+import { CoverageForm, ExcludeWindow, ExcludedActions, LineRow, ReadAgainButton, LineWindow, ReplaceWindow } from "./feed-windows";
 import { reasonLabel } from "@/lib/closebook/feed";
 import type { Lock } from "./guard";
 
@@ -157,7 +157,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
     const a = d.accounts.find((x) => x.id === u?.account);
     const [fx, st] = await Promise.all([loadFix(supabase, str(sp.fix)!, a?.last4 ?? ""), getStatement(str(sp.fix)!)]);
     if (fx && st) {
-      win = <FixScreen id={str(sp.fix)!} title={`${a?.label ?? ""}${fx.acc.periodStart ? ` · ${span(fx.acc.periodStart, fx.acc.periodEnd)}` : ""}`} data={fx.data} accKey={fx.acc.key}
+      win = <FixScreen id={str(sp.fix)!} title={`${a?.label ?? ""}${fx.acc.periodStart ? ` · ${span(fx.acc.periodStart, fx.acc.periodEnd)}` : ""}`} data={fx.data} accKey={fx.acc.key} notImported={fx.notImported}
         fileUrl={st.fileUrl} mediaType={st.row.media_type} pages={st.row.pages} backHref={here} target={a?.id ?? null} editable={editable} />;
     }
   }
@@ -349,19 +349,22 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
       <section aria-label="Transactions" className="overflow-hidden rounded-[14px] border border-sand-200 bg-white">
         <table className="w-full text-[14.5px]">
           <thead><tr className="border-b border-sand-200 text-[12px] font-semibold tracking-[.06em] text-ink-3 uppercase">
-            <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th><th className="w-10" /></tr></thead>
+            <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th></tr></thead>
           <tbody>
-            {shown.map((l) => (
-              <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding || l.info ? "text-ink-3" : ""} ${l.info ? "bg-sand-50/60" : ""}`}>
+            {shown.map((l) => (editable && !l.info ? <LineRow key={l.id} href={`${base}&account=${a.id}&page=${p}&line=${l.id}`} label={`Date and memo for ${l.description}`} className={`border-b border-sand-100 ${l.outstanding || l.info ? "text-ink-3" : ""} ${l.info ? "bg-sand-50/60" : ""}`}>
                 <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}
                   {l.printed && <span className="block text-[12px] text-ink-3">Transaction date: {date(l.printed)}</span>}</td>
                 <td className="px-3 py-3">{l.description}{l.info && <span className="block text-[12.5px] text-ink-3">No effect on balance</span>}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{l.cents > 0 ? money(l.cents) : ""}</td><td className="px-3 py-3 text-right tabular-nums">{l.cents < 0 ? money(-l.cents) : ""}</td>
                 <td className="px-6 py-3 text-right tabular-nums">{money(l.bal)}</td>
-                <td className="pr-3 text-right">{editable && !l.info && <Link href={`${base}&account=${a.id}&page=${p}&line=${l.id}`} scroll={false} aria-label={`Date and memo for ${l.description}`} className="text-[12.5px] text-navy-700 underline">Edit</Link>}</td>
-              </tr>
-            ))}
-            {!shown.length && <tr><td colSpan={6} className="px-6 py-5 text-ink-3">No transactions yet.</td></tr>}
+              </LineRow> : <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding || l.info ? "text-ink-3" : ""} ${l.info ? "bg-sand-50/60" : ""}`}>
+                <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}
+                  {l.printed && <span className="block text-[12px] text-ink-3">Transaction date: {date(l.printed)}</span>}</td>
+                <td className="px-3 py-3">{l.description}{l.info && <span className="block text-[12.5px] text-ink-3">No effect on balance</span>}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
+                <td className="px-3 py-3 text-right tabular-nums">{l.cents > 0 ? money(l.cents) : ""}</td><td className="px-3 py-3 text-right tabular-nums">{l.cents < 0 ? money(-l.cents) : ""}</td>
+                <td className="px-6 py-3 text-right tabular-nums">{money(l.bal)}</td>
+              </tr>))}
+            {!shown.length && <tr><td colSpan={5} className="px-6 py-5 text-ink-3">No transactions yet.</td></tr>}
           </tbody>
         </table>
         <div className="flex flex-wrap items-center gap-5 px-6 py-3.5 text-[14px]">

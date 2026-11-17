@@ -9,6 +9,7 @@
 
 import { signedCents, typeLabel, type CardKind, type StatementAccount, type StatementLine } from "./types.ts";
 
+const shiftDays = (s: string, n: number) => new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10) + n)).toISOString().slice(0, 10);
 export type ReviewItem = { lineId: string; reason: string };
 export type RunningBreak = { lineId: string; expected: number; printed: number };
 export type AccountCheck = {
@@ -57,7 +58,10 @@ export function checkAccount(acc: StatementAccount): AccountCheck {
     if (l.unsure) add(l.id, l.unsureReason ? `The reader was not sure: ${l.unsureReason}` : "The reader was not sure of this line.");
     // Round 26: a card's purchase can come before the period; the posting date, when printed, is the one checked.
     // Round 28: a loan line's printed Transaction Date, beside its Effective Date (the bank date).
-    const d = l.postedDate || l.printedDate || l.date;
+    // Round 30: a card line read without its posting date is printed on this statement, so it posted inside the
+    // period: a purchase date up to 31 days before the period start is not a problem (more is a misread).
+    const early = acc.kind === "card" && !l.postedDate && !l.printedDate && l.date < acc.periodStart && l.date >= shiftDays(acc.periodStart, -31);
+    const d = early ? acc.periodStart : l.postedDate || l.printedDate || l.date;
     if (d < acc.periodStart || d > acc.periodEnd) add(l.id, `The date is outside the statement period (${acc.periodStart} to ${acc.periodEnd}).`);
     if (l.amountCents <= 0 && !l.noEffect) add(l.id, "The amount is zero.");
   }
