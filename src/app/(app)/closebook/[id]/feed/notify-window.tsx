@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { notify } from "@/components/save-state";
 import { todayToronto } from "@/lib/dates";
-import { downloadQuestions, markQuestionsSent, notifyClient, notifyDraft, type NotifyDraft } from "../../question-actions";
+import { copyQuestionsLink, downloadQuestions, markQuestionsSent, notifyClient, notifyDraft, type NotifyDraft } from "../../question-actions";
 import { FLD, Modal } from "./windows";
 
 export function saveBase64(base64: string, name: string, type: string) {
@@ -20,7 +20,7 @@ export async function downloadFile(fileId: string, kind: "xlsx" | "pdf", ids: st
   saveBase64(r.base64, r.name, kind === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf");
 }
 
-export function NotifyWindow({ fileId, lineIds, onClose, onSent }: { fileId: string; lineIds: string[] | null; onClose: () => void; onSent: (sentTo: string) => void }) {
+export function NotifyWindow({ fileId, lineIds, onClose, onSent, onCopied }: { fileId: string; lineIds: string[] | null; onClose: () => void; onSent: (sentTo: string) => void; onCopied?: () => void }) {
   const [d, setD] = useState<NotifyDraft | null>(null);
   const [err, setErr] = useState("");
   const [to, setTo] = useState<string[]>([]);
@@ -30,6 +30,7 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent }: { fileId: str
   const [message, setMessage] = useState("");
   const [excel, setExcel] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState("");
   useEffect(() => {
     let live = true;
     notifyDraft(fileId, lineIds).then((r) => {
@@ -49,21 +50,41 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent }: { fileId: str
     onSent(r.sentTo);
   }
 
+  // Copy link: the live link without an email (paste it into TaxDome or Outlook). Switches off any earlier link.
+  async function copy() {
+    if (!d) return;
+    setBusy(true);
+    const r = await copyQuestionsLink(fileId, { lineIds: d.lineIds, to, replyBy });
+    setBusy(false);
+    if (!r.ok) { notify(r.error, "error", { ms: 9000 }); return; }
+    setCopied(r.url);
+    try { await navigator.clipboard.writeText(r.url); notify("Link copied. Paste it into a TaxDome message or your own email."); }
+    catch { notify("The link is below. Select it and copy it."); }
+    onCopied?.();
+  }
+
   const ready = !!d && d.count > 0 && to.length > 0 && subject.trim() && message.trim() && replyBy >= todayToronto();
   return (
     <Modal title="Notify client" label="Notify client" onClose={onClose} width={640} foot={<>
-      <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+      <button type="button" className="btn-secondary" onClick={onClose}>{copied ? "Close" : "Cancel"}</button>
+      {d && <button type="button" className="btn-secondary" disabled={!d.count || busy} onClick={copy} data-notify-copy>Copy link</button>}
       {d && !d.canSend
         ? <button type="button" className="btn" disabled={!d.count} onClick={() => downloadFile(fileId, "xlsx", d.lineIds)}>Download</button>
         : <button type="button" className="btn" disabled={!ready || busy} onClick={send} data-notify-send>{busy ? "Sending…" : "Send"}</button>}
     </>}>
       {err && <p role="alert" className="text-danger">{err}</p>}
+      {copied && (
+        <label className="grid gap-1 rounded-[8px] border border-success/40 bg-success-soft px-4 py-3 text-[13px]" data-notify-copied>
+          <span className="font-semibold">The live link (copied). Any earlier link no longer works.</span>
+          <input readOnly value={copied} onFocus={(e) => e.currentTarget.select()} className={`${FLD} font-mono text-[12px]`} aria-label="The live link" />
+        </label>
+      )}
       {!d && !err && <p className="text-ink-3">Getting the email ready…</p>}
       {d && <>
         <p className="font-semibold" data-notify-count>{d.count === 0 ? "No open questions to send." : `${d.count} question${d.count === 1 ? "" : "s"} will be sent.`}</p>
         {!d.canSend && (
           <div className="rounded-[8px] border border-warning/40 bg-warning-soft px-4 py-3 text-[13px]" data-notify-missing>
-            <p className="font-semibold">Sending by email is not set up here. Download the questions and send them yourself.</p>
+            <p className="font-semibold">Sending by email is not set up here. Use Copy link and paste the link into a TaxDome message or your own email, or Download the questions.</p>
             <p className="mt-1">Missing: {d.missing.join(", ")}.</p>
           </div>
         )}
@@ -90,7 +111,7 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent }: { fileId: str
             <p className="text-ink-2">{[d.signature.title, d.signature.firm].filter(Boolean).join(" | ")}</p>
           </div>
           <label className="flex items-center gap-2"><input type="checkbox" checked={excel} onChange={(e) => setExcel(e.target.checked)} />Attach the questions as an Excel file</label>
-          <p className="text-[12.5px] text-ink-3">The email goes from your Microsoft 365 mailbox. Sending makes a new link; any earlier link for this file stops working.</p>
+          <p className="text-[12.5px] text-ink-3">The email goes from your Microsoft 365 mailbox. Send or Copy link makes a new link; any earlier link for this file stops working.</p>
         </>}
       </>}
     </Modal>

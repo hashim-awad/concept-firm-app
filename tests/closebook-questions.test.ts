@@ -122,3 +122,14 @@ test("the link: the reply-by date and the time of day play no part", () => {
   assert.equal(linkRefusal({ ...link, sent: false, active: false }, "open", new Date("2026-11-17T16:30:00Z")), "not_sent");
   assert.equal(linkRefusal(link, "locked", new Date("2026-11-17T16:30:00Z")), "locked");
 });
+
+// Firm decision (Nov 17, 2026): each opening of the link goes in History with the device.
+import { deviceOf } from "../src/lib/closebook/questions.ts";
+test("the device on each opening: phone, tablet, computer, or an automatic link check", () => {
+  assert.equal(deviceOf("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"), "phone");
+  assert.equal(deviceOf("Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36"), "phone");
+  assert.equal(deviceOf("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15"), "tablet");
+  assert.equal(deviceOf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0"), "computer");
+  assert.equal(deviceOf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 HeadlessChrome/120.0 Safari/537.36"), "automatic link check");
+  assert.equal(deviceOf(""), "automatic link check");
+});

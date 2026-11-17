@@ -554,6 +554,9 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         notify(`Sent to ${who}`);
         const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
         setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && isPending(l) ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
+      }} onCopied={() => {
+        const ids = notifyIds, today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && isPending(l) ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
       }} />}
       {win?.k === "exclude" && <ExcludeWindow n={win.ids.length} onClose={() => setWin(null)} onExclude={async (reason, note) => {
         const r = await excludeLines(data.fileId, win.ids, reason, note);

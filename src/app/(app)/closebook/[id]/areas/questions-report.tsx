@@ -102,7 +102,7 @@ export function QuestionsReport({ data, editable, initialAccount, initialStatus 
         </div>
       )}
       {win === "notify" && <NotifyWindow fileId={data.fileId} lineIds={toNotify.map((r) => r.id)} onClose={() => setWin(null)}
-        onSent={(who) => { setWin(null); setTicked(new Set()); notify(`Sent to ${who}`); router.refresh(); }} />}
+        onSent={(who) => { setWin(null); setTicked(new Set()); notify(`Sent to ${who}`); router.refresh(); }} onCopied={() => { setTicked(new Set()); router.refresh(); }} />}
       {win === "mark" && <MarkSentWindow fileId={data.fileId} lineIds={toMark.map((r) => r.id)} n={toMark.length} onClose={() => setWin(null)}
         onDone={(n) => { setWin(null); setTicked(new Set()); notify(`${n} question${n === 1 ? "" : "s"} marked as sent`); router.refresh(); }} />}
     </div>

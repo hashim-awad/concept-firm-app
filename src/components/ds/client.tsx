@@ -21,8 +21,8 @@ export function ClientShell({ children, step, wide }: { children: ReactNode; ste
           <p className="font-medium text-ink-2">{FIRM.legalName}</p>
           <p>{FIRM.address}</p>
           <p className="flex flex-wrap gap-x-4 gap-y-1">
-            <a href={`tel:${FIRM.phone}`} className="inline-flex items-center gap-1.5 hover:text-ink"><Phone className="h-3.5 w-3.5" aria-hidden />{FIRM.phone}</a>
-            <a href={`mailto:${FIRM.email}`} className="inline-flex items-center gap-1.5 hover:text-ink"><Mail className="h-3.5 w-3.5" aria-hidden />{FIRM.email}</a>
+            <a href={`tel:${FIRM.phone}`} className="inline-flex min-h-11 items-center gap-1.5 hover:text-ink"><Phone className="h-3.5 w-3.5" aria-hidden />{FIRM.phone}</a>
+            <a href={`mailto:${FIRM.email}`} className="inline-flex min-h-11 items-center gap-1.5 hover:text-ink"><Mail className="h-3.5 w-3.5" aria-hidden />{FIRM.email}</a>
           </p>
           <p className="flex items-center gap-1.5 pt-1"><Lock className="h-3.5 w-3.5" aria-hidden />Your information is stored securely in Canada.</p>
         </div>

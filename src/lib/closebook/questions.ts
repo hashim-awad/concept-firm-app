@@ -26,6 +26,14 @@ export function linkRefusal(l: { active: boolean; sent: boolean; expires_at: str
   if (filePhase === "locked") return "locked";
   return null;
 }
+export function deviceOf(ua: string): string {
+  const u = ua || "";
+  if (!u || /bot|crawler|spider|preview|scanner|safelinks|proofpoint|mimecast|barracuda|headless|python|curl|wget|node-fetch|undici|go-http|java\//i.test(u)) return "automatic link check";
+  if (/iPad|Tablet/i.test(u) || (/Android/i.test(u) && !/Mobile/i.test(u))) return "tablet";
+  if (/Mobi|iPhone|iPod|Android/i.test(u)) return "phone";
+  return "computer";
+}
+
 export const isOpen = (s: QStatus | null) => s === "not_sent" || s === "waiting" || s === "answered";
 
 // "h•••@hotmail.com"

@@ -122,6 +122,29 @@ export async function notifyClient(fileId: string, v: { lineIds: string[]; to: s
   return { ok: true, sentTo: names.join(", "), n: Number(n ?? 0) };
 }
 
+// "Copy link" (firm decision, Nov 17, 2026): the live link without an email, for staff to paste into a TaxDome message or
+// their own Outlook when Microsoft 365 cannot send. It switches off any earlier link, sets the rows to Waiting with today's
+// date and goes in History.
+export async function copyQuestionsLink(fileId: string, v: { lineIds: string[]; to: string[]; replyBy: string }): Promise<R<{ url: string; n: number }>> {
+  const a = await editor(); if (!a) return no("You need Edit on Closebook.");
+  const supabase = await createClient();
+  const q = await loadQuestions(supabase, fileId);
+  if (!q) return no("File not found.");
+  if (q.locked) return no("This file is locked.");
+  const rows = q.rows.filter((r) => v.lineIds.includes(r.id) && (r.status === "not_sent" || r.status === "waiting"));
+  if (!rows.length) return no("No open questions to send.");
+  const replyBy = /^\d{4}-\d{2}-\d{2}$/.test(v.replyBy) && v.replyBy >= todayToronto() ? v.replyBy : addDays(todayToronto(), 7);
+  const to = [...new Set(v.to.map((e) => e.trim().toLowerCase()))].filter((e) => q.contacts.some((c) => c.email === e));
+  const token = randomBytes(32).toString("hex");
+  const hash = createHash("sha256").update(token).digest("hex");
+  const { data: linkId, error } = await supabase.rpc("cb_question_link_create", { p_file: fileId, p_token_hash: hash, p_ids: rows.map((r) => r.id),
+    p_to: to.length ? to : q.contacts.slice(0, 1).map((c) => c.email), p_cc: [], p_reply_by: replyBy, p_expires: new Date(Date.now() + 30 * 86_400_000).toISOString() });
+  if (error) return no(error.message);
+  const r = await supabase.rpc("cb_question_link_copied", { p_link: linkId });
+  if (r.error) { await supabase.rpc("cb_question_link_cancel", { p_link: linkId }); return no(r.error.message); }
+  return { ok: true, url: `${env.siteUrl()}/cq/${token}`, n: Number(r.data ?? 0) };
+}
+
 // Export ▾ (Excel, PDF), and Download when sending is not set up.
 export async function downloadQuestions(fileId: string, kind: "xlsx" | "pdf", lineIds: string[] | null): Promise<R<{ base64: string; name: string }>> {
   const a = await getAccess(); if (!a || !canView(a, "closebook")) return no("You need Closebook.");
