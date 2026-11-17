@@ -49,19 +49,22 @@ test("step 4's new filters: Asked, not sent; Waiting for client; Client answered
 });
 
 test("the email: template default, the link bold and underlined, the sender's signature", () => {
-  const m = questionsMessage({}, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Dummy Studio Inc.", count: 3, replyBy: "2026-11-25" });
+  const m = questionsMessage({}, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Dummy Studio Inc.", count: 3 });
   assert.equal(m.subject, "Questions about your business transactions");
   assert.match(m.message, /^Hi Pat,/);
   assert.match(m.message, /We are working on the year-end for Dummy Studio Inc\. We have 3 questions about transactions on your bank and card statements\./);
-  assert.match(m.message, /Please answer them by November 25, 2026\. You can attach a receipt or invoice to any answer\./);
-  assert.match(questionsMessage({}, CB_QUESTIONS_EMAIL, { first: "", legalName: "X", count: 1, replyBy: "2026-11-25" }).message, /1 question about/);
-  const e = renderQuestionsEmail({}, CB_QUESTIONS_EMAIL, m, { name: "Dana Dummy", credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/abc");
+  // Round 33: the reply-by sentence is not in the editable text; the email adds it from the stored date.
+  assert.doesNotMatch(m.message, /Please answer/);
+  assert.match(questionsMessage({}, CB_QUESTIONS_EMAIL, { first: "", legalName: "X", count: 1 }).message, /1 question about/);
+  const e = renderQuestionsEmail({}, CB_QUESTIONS_EMAIL, m, { name: "Dana Dummy", credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/abc", "2026-11-25");
+  assert.match(e.html, /Please answer them by November 25, 2026\. You can attach a receipt or invoice to any answer\./);
   assert.match(e.html, /<a href="https:\/\/example\.test\/cq\/abc" style="[^"]*font-weight: bold; text-decoration: underline;">View transaction questions<\/a>/);
   assert.match(e.html, /<b>Dana Dummy<\/b>, CPA<br>Senior Accountant \| Concept Accounting &amp; Advisory Professional Corporation/);
   // Never on a client document: chart numbers, GIFI, "Closebook", em dashes.
   for (const bad of [/Closebook/i, /GIFI/, /—/]) assert.doesNotMatch(e.html + e.text, bad);
   // Edited for this email only: the window's text is what goes out.
-  const edited = renderQuestionsEmail({}, CB_QUESTIONS_EMAIL, { subject: "Two quick questions", message: "Hi Pat,\n\nJust two." }, { name: "Dana Dummy", credentials: "", title: "" }, "https://example.test/cq/x");
+  const edited = renderQuestionsEmail({}, CB_QUESTIONS_EMAIL, { subject: "Two quick questions", message: "Hi Pat,\n\nJust two." }, { name: "Dana Dummy", credentials: "", title: "" }, "https://example.test/cq/x", "2026-12-01");
+  assert.match(edited.html, /Please answer them by December 1, 2026\./);
   assert.equal(edited.subject, "Two quick questions");
   assert.match(edited.html, /Just two\./);
   assert.match(edited.html, /<b>Dana Dummy<\/b><br>Concept Accounting/);
@@ -132,4 +135,26 @@ test("the device on each opening: phone, tablet, computer, or an automatic link 
   assert.equal(deviceOf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Edg/120.0"), "computer");
   assert.equal(deviceOf("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 HeadlessChrome/120.0 Safari/537.36"), "automatic link check");
   assert.equal(deviceOf(""), "automatic link check");
+});
+
+// Round 33 (Hashim, Nov 17, 2026): internal notes never reach the client page.
+import { clientLineVisible, clientThread, answerByText } from "../src/lib/closebook/questions.ts";
+test("the client page: only sent questions, only open lines that are Waiting or Answered", () => {
+  const entries = [
+    { kind: "q" as const, sent_at: "2026-11-17T16:00:00Z", body: "What was this for?" },
+    { kind: "q" as const, sent_at: null, body: "Applied by CRA to HST period ... (an internal note typed as a question)" },
+    { kind: "a" as const, sent_at: null, body: "A client meeting." },
+  ];
+  const t = clientThread(entries);
+  assert.deepEqual(t.map((e) => e.body), ["What was this for?", "A client meeting."]);
+  const open = { status: "new", chart_account: null, is_split: false, transfer_account: null };
+  assert.equal(clientLineVisible({ ...open, q_status: "waiting" }, t), true);
+  assert.equal(clientLineVisible({ ...open, q_status: "answered" }, t), true);
+  assert.equal(clientLineVisible({ ...open, q_status: "not_sent" }, t), false, "a question not sent yet");
+  assert.equal(clientLineVisible({ ...open, status: "done", chart_account: "63000", q_status: "waiting" }, t), false, "posted");
+  assert.equal(clientLineVisible({ ...open, status: "excluded", q_status: "answered" }, t), false, "excluded");
+  assert.equal(clientLineVisible({ ...open, q_status: "waiting" }, clientThread([entries[1]])), false, "no sent question");
+});
+test("one reply-by date: the sentence comes from the stored date", () => {
+  assert.equal(answerByText({}, CB_QUESTIONS_EMAIL, "2026-11-24"), "Please answer them by November 24, 2026. You can attach a receipt or invoice to any answer.");
 });

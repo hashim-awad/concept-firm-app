@@ -1,9 +1,9 @@
+import { callUs, loadFirmContact } from "@/lib/firm-contact";
 import { notFound } from "next/navigation";
 import { startGate } from "../gate";
 import { Closed, PreviewNote } from "../closed";
 import { PersonalForm } from "./personal-form";
 import { CompanySteps } from "./company-steps";
-import { FIRM } from "@/components/ds/brand";
 import { forBrowser, loadPublishedWhy, readT1Rules } from "@/lib/screening/server";
 import { getAccess } from "@/lib/access";
 import { T1Steps } from "./t1-steps";
@@ -28,7 +28,7 @@ export default async function StartRoutePage({ params }: PageProps<"/start/[rout
         {qn && T1_STEP_KEYS.every((k) => qn.questions.some((x) => x.key === k))
           ? <T1Steps qn={forBrowser(qn)} sources={(src?.value ?? ["Website"]) as string[]} rules={await readT1Rules()} taxYear={taxYearFor(todayToronto())} />
           : qn ? <PersonalForm qn={forBrowser(qn)} sources={(src?.value ?? ["Website"]) as string[]} />
-          : <div className="card text-ink-2"><p>This form is not ready yet. Please call us at {FIRM.phone}.</p>
+          : <div className="card text-ink-2"><p>This form is not ready yet. Please {callUs(await loadFirmContact())}.</p>
               {/* Staff only: the real reason, so it can be fixed without guessing. */}
               {(await getAccess()) && <p className="mt-3 text-sm text-danger">Staff only: {problem || "unknown reason"} {serverKeyKind()}</p>}</div>}
       </>

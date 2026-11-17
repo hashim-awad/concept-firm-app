@@ -27,6 +27,7 @@ export const GEAR: [string, GearDef[]][] = [
       { key: "hours", label: "Business hours", open: ["settings"], settingKeys: ["business_hours"], dir: "settings/business-hours" },
       { key: "signers", label: "Signers", open: ["settings"], settingKeys: ["signer_engagement_letter", "signer_proposal", "signer_other"], ownerOnly: "change signer names", dir: "settings/signers" },
       { key: "signature", label: "Signature", open: ["owner"], settingKeys: ["signature_image"], ownerOnly: "change the signature", dir: "settings/signature" },
+      { key: "contact", label: "Contact details", open: ["settings"], ownerOnly: "change the firm's contact details", dir: "settings/contact" },
     ] },
     { label: "Team and roles", href: "/admin/team", open: ["staff_accounts", "owner"], also: ["/admin/staff", "/admin/roles"], dir: "team" },
     { label: "Online sales", href: "/admin/online-sales", tabs: [

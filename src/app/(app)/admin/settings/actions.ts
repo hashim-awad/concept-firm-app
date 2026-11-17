@@ -103,3 +103,13 @@ export async function saveStartPage(formData: FormData) {
   revalidatePath(PAGE, "layout");
   redirect(withMessage(`${PAGE}/start-page`, error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
 }
+
+// Round 33: the firm's contact details for client pages. Owners only; the database checks again.
+export async function saveFirmContact(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_firm_contact", {
+    p_address: String(formData.get("address") ?? ""), p_phone: String(formData.get("phone") ?? ""), p_email: String(formData.get("email") ?? ""),
+  });
+  revalidatePath("/admin/firm", "layout");
+  redirect(withMessage("/admin/firm?tab=contact", error ? "error" : "msg", error ? error.message : "Contact details saved."));
+}

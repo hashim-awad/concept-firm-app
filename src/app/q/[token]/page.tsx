@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { ClientShell } from "@/components/ds/client";
-import { FIRM } from "@/components/ds/brand";
+import { ClientShell } from "@/components/ds/client-shell";
+import { callUs, loadFirmContact } from "@/lib/firm-contact";
 import { todayToronto } from "@/lib/dates";
 import { esc, longDate, pieceText } from "@/lib/t1-quote/render";
 import { C, CORP, SIGN_PAGE } from "@/lib/t1-quote/wording";
@@ -30,19 +30,21 @@ const PORTAL = "https://portal.conceptaccounting.ca/en-us/signup";
 export default async function ClientQuotePage({ params }: PageProps<"/q/[token]">) {
   const { token } = await params;
   const found = await loadQuoteByToken(token);
+  const contact = await loadFirmContact();
+  const reach = contact.phone && contact.email ? `${contact.phone} or ${contact.email}` : contact.phone || contact.email || "the number in your email";
   const say = (title: string, text: string) => (
     <ClientShell><div className="mx-auto max-w-xl text-center"><h1 className="text-2xl font-semibold tracking-tight">{title}</h1><p className="mt-3 text-ink-2">{text}</p></div></ClientShell>
   );
-  if (!found) return say("This link does not work", `Please check the link in your email, or call us at ${FIRM.phone}.`);
+  if (!found) return say("This link does not work", `Please check the link in your email, or ${callUs(contact)}.`);
   const { quote, signers, me } = found;
   if (quote.status === "draft") return say("Your quote is almost ready", "Please try the link again in a few minutes.");
   if (quote.status === "withdrawn") return say("This letter was withdrawn", pieceText(quote.wording ?? {}, SIGN_PAGE.withdrawn));
-  if (quote.status === "declined") return say("This quote is closed", `Please contact us at ${FIRM.phone} or ${FIRM.email} if you would like a new one.`);
+  if (quote.status === "declined") return say("This quote is closed", `Please contact us at ${reach} if you would like a new one.`);
   const signed = quote.status === "signed";
   // Viewed: the first time the client opens the link (front office batch, section 3).
   if (quote.status === "sent") await createAdminClient().rpc("mark_quote_viewed", { p_token: token });
   if (!signed && (quote.status === "expired" || (quote.valid_until && quote.valid_until < todayToronto()))) {
-    return say("This quote has expired", `It was valid until ${longDate(quote.valid_until ?? "")}. Please contact us at ${FIRM.phone} or ${FIRM.email} and we will send you a new one.`);
+    return say("This quote has expired", `It was valid until ${longDate(quote.valid_until ?? "")}. Please contact us at ${reach} and we will send you a new one.`);
   }
   const texts = quote.wording ?? {};
   // A proposal: pick an option, read its letter, sign (front office batch, section 5).

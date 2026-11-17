@@ -52,21 +52,43 @@ function Floating({ rect, width, children, onClose }: { rect: DOMRect; width: nu
     className="z-[75] grid gap-3 rounded-[10px] border border-sand-200 bg-white p-3.5 text-[13.5px] shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;
 }
 
-// The thread, read only: Q and A in order, the latest open question in bold.
-export function ThreadView({ thread, status }: { thread: FeedQ[]; status: string }) {
+// The thread: Q and A in order, the latest open question in bold. Each question says whether it went to the client.
+// Round 33: a question not sent yet offers Edit, 🗑 and "Move to internal note" (when the handlers are given).
+export type QActions = { onEdit: (id: string, text: string) => Promise<boolean>; onDelete: (id: string) => Promise<void>; onMove: (id: string) => Promise<void> };
+export function ThreadView({ thread, status, actions }: { thread: FeedQ[]; status: string; actions?: QActions }) {
   const lastQ = [...thread].reverse().find((e) => e.kind === "q");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
   return (
     <div className="grid gap-2" data-q-thread>
       {status === "answered" && <p className="text-[12px] font-semibold text-[#e8590c]">Answer received</p>}
       {status === "waiting" && <p className="text-[12px] font-semibold text-[#c27c0e]">Waiting for client</p>}
       {status === "not_sent" && <p className="text-[12px] font-semibold text-ink-3">Asked, not sent</p>}
-      {thread.map((e, i) => (
-        <div key={i} className="grid grid-cols-[1.4rem_1fr] gap-x-1">
+      {thread.map((e) => (
+        <div key={e.id} className="grid grid-cols-[1.4rem_1fr] gap-x-1" data-q-entry={e.kind === "q" ? (e.sentAt ? "sent" : "unsent") : "answer"}>
           <span className="font-semibold text-ink-3">{e.kind === "q" ? "Q:" : "A:"}</span>
           <div>
-            <p className={`whitespace-pre-wrap ${e === lastQ && status !== "answered" ? "font-semibold" : ""}`}>{e.body || (e.files.length ? "(file attached)" : "")}</p>
-            <p className="text-[11.5px] text-ink-3">{e.by}{e.by ? " · " : ""}{formatDate(e.at.slice(0, 10))}</p>
+            {editing === e.id ? (
+              <div className="grid gap-1.5">
+                <textarea aria-label="Edit the question" value={draft} maxLength={400} rows={3} onChange={(x) => setDraft(x.target.value)}
+                  className="w-full rounded-[6px] border border-sand-300 px-2 py-1.5 text-[13.5px] outline-none focus:border-navy-600" />
+                <span className="flex justify-end gap-2">
+                  <button type="button" className="btn-secondary btn-compact" onClick={() => setEditing(null)}>Cancel</button>
+                  <button type="button" className="btn btn-compact" disabled={draft.trim().length < 3}
+                    onClick={async () => { if (await actions!.onEdit(e.id, draft.trim())) setEditing(null); }}>Save</button>
+                </span>
+              </div>
+            ) : <p className={`whitespace-pre-wrap ${e === lastQ && status !== "answered" ? "font-semibold" : ""}`}>{e.body || (e.files.length ? "(file attached)" : "")}</p>}
+            <p className="text-[11.5px] text-ink-3">{e.by}{e.by ? " · " : ""}{formatDate(e.at.slice(0, 10))}
+              {e.kind === "q" && (e.sentAt ? <> · <span className="text-success">Sent {formatDate(e.sentAt.slice(0, 10))}</span></> : <> · <span className="font-semibold text-ink-2">Not sent</span></>)}</p>
             {e.files.length > 0 && <p className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-2"><Paperclip className="h-3.5 w-3.5" />{e.files.length} file{e.files.length === 1 ? "" : "s"} attached: {e.files.join(", ")}</p>}
+            {actions && e.kind === "q" && !e.sentAt && editing !== e.id && (
+              <span className="mt-1 flex flex-wrap items-center gap-3 text-[12px]">
+                <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => { setEditing(e.id); setDraft(e.body); }}>Edit</button>
+                <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => actions.onMove(e.id)}>Move to internal note</button>
+                <button type="button" aria-label="Delete the question" title="Delete the question" className="text-ink-3 hover:text-danger" onClick={() => actions.onDelete(e.id)}><Trash2 className="h-4 w-4" /></button>
+              </span>
+            )}
           </div>
         </div>
       ))}
@@ -75,7 +97,7 @@ export function ThreadView({ thread, status }: { thread: FeedQ[]; status: string
 }
 
 // Saved questions, the box with its counter, "☆ Add to saved questions" and Send.
-export function Composer({ saved, onSend, onSave, onRemove, sendLabel = "Send" }: {
+export function Composer({ saved, onSend, onSave, onRemove, sendLabel = "Add question for client" }: {
   saved: Saved[] | null; onSend: (text: string) => Promise<boolean>; onSave: (text: string) => Promise<void>; onRemove: (id: string) => Promise<void>; sendLabel?: string;
 }) {
   const [text, setText] = useState("");
@@ -105,21 +127,47 @@ export function Composer({ saved, onSend, onSave, onRemove, sendLabel = "Send" }
   );
 }
 
-// The popover on one line: the thread, then the composer (Pending lines only).
-export function QuestionPop({ anchor, line, thread, status, canAsk, saved, onClose, onSend, onSave, onRemove }: {
-  anchor: HTMLElement; line: { date: string; description: string; amount: string }; thread: FeedQ[]; status: string; canAsk: boolean; saved: Saved[] | null;
+// The popover on one line (round 33): two tabs. "Ask the client": the thread and the composer ("Add question for client").
+// "Internal note": the line's memo; it never leaves Closebook (no client page, email, Excel or PDF). It opens on
+// Internal note when the line has no question yet.
+export function QuestionPop({ anchor, line, thread, status, canAsk, saved, memo, onClose, onSend, onSave, onRemove, onSaveMemo, actions }: {
+  anchor: HTMLElement; line: { date: string; description: string; amount: string }; thread: FeedQ[]; status: string; canAsk: boolean; saved: Saved[] | null; memo: string;
   onClose: () => void; onSend: (t: string) => Promise<boolean>; onSave: (t: string) => Promise<void>; onRemove: (id: string) => Promise<void>;
+  onSaveMemo: (memo: string) => Promise<boolean>; actions: QActions;
 }) {
   const [rect] = useState(() => anchor.getBoundingClientRect());
+  const [tab, setTab] = useState<"ask" | "note">(thread.some((e) => e.kind === "q") ? "ask" : "note");
+  const [note, setNote] = useState(memo);
+  const [busy, setBusy] = useState(false);
+  // The memo changed outside (moved from a question): show it.
+  const [seenMemo, setSeenMemo] = useState(memo);
+  if (seenMemo !== memo) { setSeenMemo(memo); setNote(memo); }
+  const tabCls = (on: boolean) => `-mb-px border-b-2 px-2.5 py-1.5 text-[13px] ${on ? "border-navy-700 font-semibold text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`;
   return (
-    <Floating rect={rect} width={400} onClose={onClose}>
+    <Floating rect={rect} width={420} onClose={onClose}>
       <div data-q-pop>
         <p className="text-[12px] text-ink-3">{formatDate(line.date)} · {line.amount}</p>
         <p className="truncate font-semibold" title={line.description}>{line.description}</p>
       </div>
-      {thread.length > 0 && <div className="max-h-56 overflow-y-auto rounded-[8px] bg-sand-50 px-3 py-2"><ThreadView thread={thread} status={status} /></div>}
-      {canAsk ? <Composer saved={saved} onSend={onSend} onSave={onSave} onRemove={onRemove} sendLabel={thread.some((e) => e.kind === "q") ? "Send follow-up" : "Send"} />
-        : <p className="text-[12.5px] text-ink-3">This line is posted or excluded, so its questions are closed.</p>}
+      <div role="tablist" className="flex gap-1 border-b border-sand-200">
+        <button type="button" role="tab" aria-selected={tab === "ask"} className={tabCls(tab === "ask")} onClick={() => setTab("ask")}>Ask the client</button>
+        <button type="button" role="tab" aria-selected={tab === "note"} className={tabCls(tab === "note")} onClick={() => setTab("note")}>Internal note{memo ? " •" : ""}</button>
+      </div>
+      {tab === "ask" ? <>
+        {thread.length > 0 && <div className="max-h-60 overflow-y-auto rounded-[8px] bg-sand-50 px-3 py-2"><ThreadView thread={thread} status={status} actions={canAsk ? actions : undefined} /></div>}
+        {canAsk ? <Composer saved={saved} onSend={onSend} onSave={onSave} onRemove={onRemove} />
+          : <p className="text-[12.5px] text-ink-3">This line is posted or excluded, so its questions are closed.</p>}
+      </> : (
+        <div className="grid gap-2" data-q-note>
+          <p className="text-[12px] text-ink-3">For Concept only. Never sent to the client and never on a client page, email, Excel or PDF.</p>
+          <textarea aria-label="Internal note" value={note} maxLength={2000} rows={6} disabled={!canAsk && !memo} onChange={(e) => setNote(e.target.value)} placeholder="A note for the file"
+            className="w-full resize-y rounded-[8px] border border-sand-300 px-2.5 py-2 text-[13.5px] outline-none focus:border-navy-600" />
+          <div className="flex items-center justify-between">
+            <span className="text-[11.5px] text-ink-3 tabular-nums">{note.length}/2000</span>
+            <button type="button" className="btn btn-compact" disabled={busy || note.trim() === memo.trim()} onClick={async () => { setBusy(true); await onSaveMemo(note.trim()); setBusy(false); }}>Save note</button>
+          </div>
+        </div>
+      )}
     </Floating>
   );
 }
@@ -131,7 +179,7 @@ export function AskManyWindow({ n, saved, onClose, onSend, onSave, onRemove }: {
   return (
     <Modal title="Ask client" onClose={onClose} width={520} foot={<button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>}>
       <p className="text-ink-2">The same question goes on {n === 1 ? "the ticked line" : `each of the ${n} ticked lines`}. Asking posts nothing. The client sees it when you use Notify client.</p>
-      <Composer saved={saved} onSend={async (t) => { const ok = await onSend(t); if (ok) onClose(); return ok; }} onSave={onSave} onRemove={onRemove} />
+      <Composer saved={saved} onSend={async (t) => { const ok = await onSend(t); if (ok) onClose(); return ok; }} onSave={onSave} onRemove={onRemove} sendLabel="Add question for client" />
     </Modal>
   );
 }

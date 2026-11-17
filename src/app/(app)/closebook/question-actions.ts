@@ -51,7 +51,11 @@ export async function markQuestionsSent(fileId: string, lineIds: string[], date:
 }
 
 // What the Notify client window starts with.
+// Round 33: the exact questions that will go, per line (the questions not sent yet; for a line already waiting, its
+// latest sent question again), so staff see what the client will see. answerBy: the sentence the Reply by date fills.
+export type NotifyItem = { id: string; date: string; description: string; account: string; cents: number; out: boolean; questions: string[]; again: boolean };
 export type NotifyDraft = {
+  items: NotifyItem[]; answerBy: string;
   count: number; lineIds: string[]; contacts: { name: string; first: string; email: string }[]; replyBy: string; subject: string; message: string;
   linkText: string; signature: { name: string; credentials: string; title: string; firm: string }; canSend: boolean; missing: string[];
 };
@@ -65,11 +69,16 @@ export async function notifyDraft(fileId: string, lineIds: string[] | null): Pro
   const pick = (lineIds?.length ? q.rows.filter((r) => lineIds.includes(r.id)) : q.rows).filter((r) => r.status === "not_sent" || r.status === "waiting");
   const replyBy = addDays(todayToronto(), 7);
   const texts = (await loadWordingState(supabase)).live?.texts ?? {};
-  const m = questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: q.contacts[0]?.first ?? "", legalName: q.legalName, count: pick.length, replyBy });
+  const m = questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: q.contacts[0]?.first ?? "", legalName: q.legalName, count: pick.length });
+  const items: NotifyItem[] = pick.map((r) => {
+    const unsent = r.thread.filter((e) => e.kind === "q" && !e.sentAt).map((e) => e.body);
+    const lastSent = [...r.thread].reverse().find((e) => e.kind === "q" && e.sentAt)?.body;
+    return { id: r.id, date: r.date, description: r.description, account: r.accountClient, cents: r.cents, out: r.out, questions: unsent.length ? unsent : lastSent ? [lastSent] : [], again: !unsent.length };
+  });
   const me = await senderProfile(supabase, a.staff_id);
   const ready = mailReady();
   const missing = ready.ok ? (me.email ? [] : ["your staff record's email address"]) : ready.missing;
-  return { ok: true, draft: { count: pick.length, lineIds: pick.map((r) => r.id), contacts: q.contacts, replyBy, subject: m.subject, message: m.message,
+  return { ok: true, draft: { items, answerBy: texts[CB_QUESTIONS_EMAIL.answerBy.key] ?? CB_QUESTIONS_EMAIL.answerBy.text, count: pick.length, lineIds: pick.map((r) => r.id), contacts: q.contacts, replyBy, subject: m.subject, message: m.message,
     linkText: texts[CB_QUESTIONS_EMAIL.link.key] ?? CB_QUESTIONS_EMAIL.link.text,
     signature: { name: me.name, credentials: me.credentials, title: me.title, firm: texts[CB_QUESTIONS_EMAIL.firm.key] ?? CB_QUESTIONS_EMAIL.firm.text }, canSend: missing.length === 0, missing } };
 }
@@ -99,7 +108,7 @@ export async function notifyClient(fileId: string, v: { lineIds: string[]; to: s
   const { data: linkId, error } = await supabase.rpc("cb_question_link_create", { p_file: fileId, p_token_hash: hash, p_ids: rows.map((r) => r.id), p_to: to, p_cc: cc, p_reply_by: v.replyBy, p_expires: expires });
   if (error) return no(error.message);
   const texts = (await loadWordingState(supabase)).live?.texts ?? {};
-  const mail = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, { subject: v.subject.trim(), message: v.message.trim() }, me, `${env.siteUrl()}/cq/${token}`);
+  const mail = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, { subject: v.subject.trim(), message: v.message.trim() }, me, `${env.siteUrl()}/cq/${token}`, v.replyBy);
   const attachments = v.attachExcel ? [{ name: xlsxName(q.legalName, q.yearEnd), contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     base64: questionsXlsx({ legalName: q.legalName, yearEnd: q.yearEnd, preparedOn: todayToronto(), firm: FIRM.legalName }, clientRows(rows)).toString("base64") }] : undefined;
   // Round 32 fix: the link is pending until the email has gone. A failed send removes it and changes no other link.
@@ -171,4 +180,21 @@ export async function getThreads(fileId: string, lineIds: string[]): Promise<R<{
   const a = await getAccess(); if (!a || !canView(a, "closebook")) return no("You need Closebook.");
   const { readThreads } = await import("@/lib/closebook/feed-server");
   return { ok: true, threads: await readThreads(await createClient(), fileId, lineIds.filter((x) => ID.test(x))) };
+}
+
+// Round 33: a question not sent yet can be edited, deleted or moved to the line's internal note. A sent one can't.
+export async function editQuestion(id: string, text: string): Promise<R> {
+  if (!(await editor())) return no("You need Edit on Closebook.");
+  const { error } = await (await createClient()).rpc("cb_question_edit", { p_id: id, p_text: text });
+  return error ? no(error.message) : { ok: true };
+}
+export async function deleteQuestion(id: string): Promise<R> {
+  if (!(await editor())) return no("You need Edit on Closebook.");
+  const { error } = await (await createClient()).rpc("cb_question_delete", { p_id: id });
+  return error ? no(error.message) : { ok: true };
+}
+export async function moveQuestionToNote(id: string): Promise<R> {
+  if (!(await editor())) return no("You need Edit on Closebook.");
+  const { error } = await (await createClient()).rpc("cb_question_to_note", { p_id: id });
+  return error ? no(error.message) : { ok: true };
 }

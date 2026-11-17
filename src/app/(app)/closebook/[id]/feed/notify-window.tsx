@@ -3,9 +3,10 @@
 // Benchmark: TaxDome's "Notify client" (one email, one link); CaseWare Cloud Queries (contacts, due date).
 import { useEffect, useState } from "react";
 import { notify } from "@/components/save-state";
-import { todayToronto } from "@/lib/dates";
+import { formatDate, todayToronto } from "@/lib/dates";
 import { copyQuestionsLink, downloadQuestions, markQuestionsSent, notifyClient, notifyDraft, type NotifyDraft } from "../../question-actions";
-import { FLD, Modal } from "./windows";
+import { FLD, Modal, money } from "./windows";
+import { addDays, longDate } from "@/lib/closebook/questions";
 
 export function saveBase64(base64: string, name: string, type: string) {
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -36,7 +37,7 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent, onCopied }: { f
     notifyDraft(fileId, lineIds).then((r) => {
       if (!live) return;
       if (!r.ok) { setErr(r.error); return; }
-      setD(r.draft); setTo(r.draft.contacts.slice(0, 1).map((c) => c.email)); setReplyBy(r.draft.replyBy); setSubject(r.draft.subject); setMessage(r.draft.message);
+      setD(r.draft); setTo(r.draft.contacts.slice(0, 1).map((c) => c.email)); setReplyBy(r.draft.replyBy || addDays(todayToronto(), 7)); setSubject(r.draft.subject); setMessage(r.draft.message);
     });
     return () => { live = false; };
   }, [fileId, lineIds?.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,6 +83,16 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent, onCopied }: { f
       {!d && !err && <p className="text-ink-3">Getting the email ready…</p>}
       {d && <>
         <p className="font-semibold" data-notify-count>{d.count === 0 ? "No open questions to send." : `${d.count} question${d.count === 1 ? "" : "s"} will be sent.`}</p>
+        {d.items.length > 0 && (
+          <ol className="-mt-2 grid max-h-56 gap-2 overflow-y-auto rounded-[8px] border border-sand-200 bg-sand-50 px-4 py-2.5 text-[13px]" data-notify-list aria-label="The questions the client will see">
+            {d.items.map((it) => (
+              <li key={it.id} data-notify-item={it.id}>
+                <p className="text-[12px] text-ink-3"><span className="whitespace-nowrap">{formatDate(it.date)}</span> · {it.description} · <span className="whitespace-nowrap tabular-nums">${money(it.cents)} {it.out ? "paid out" : "received"}</span></p>
+                {it.questions.map((q, i) => <p key={i} className="whitespace-pre-wrap">{q}{it.again && <span className="ml-1.5 text-[11.5px] text-ink-3">(sent before, sent again)</span>}</p>)}
+              </li>
+            ))}
+          </ol>
+        )}
         {!d.canSend && (
           <div className="rounded-[8px] border border-warning/40 bg-warning-soft px-4 py-3 text-[13px]" data-notify-missing>
             <p className="font-semibold">Sending by email is not set up here. Use Copy link and paste the link into a TaxDome message or your own email, or Download the questions.</p>
@@ -104,6 +115,7 @@ export function NotifyWindow({ fileId, lineIds, onClose, onSent, onCopied }: { f
           </div>
           <label className="grid gap-1 font-semibold">Subject<input aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} className={`${FLD} font-normal`} /></label>
           <label className="grid gap-1 font-semibold">Message<textarea aria-label="Message" value={message} onChange={(e) => setMessage(e.target.value)} rows={7} maxLength={3000} className="input font-normal" /></label>
+          <p className="-mt-2 text-[13px] text-ink-2" data-notify-answer-by>Added after the message, from Reply by: <b className="text-ink">{replyBy ? d.answerBy.replace("{1}", longDate(replyBy)) : ""}</b></p>
           <div className="rounded-[8px] border border-sand-200 bg-sand-50 px-4 py-3 text-[13.5px]" data-notify-preview>
             <p className="text-[11.5px] font-semibold tracking-[.06em] text-ink-3 uppercase">The link, as the client will see it</p>
             <p className="mt-1.5"><b className="text-navy-700 underline">{d.linkText}</b></p>

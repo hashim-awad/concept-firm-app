@@ -84,8 +84,8 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   // Round 32: the client questions email, with a made-up client.
   if (key === "cbquestionsemail") {
     const texts = wording?.texts ?? {};
-    const m = questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Sample Company Inc.", count: 3, replyBy: "2026-12-04" });
-    const e = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, m, { name: SAMPLE_SENDER.name, credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/link");
+    const m = questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Sample Company Inc.", count: 3 });
+    const e = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, m, { name: SAMPLE_SENDER.name, credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/link", "2026-12-04");
     const w = (p: { key: string; text: string }) => (mark ? `<span class="wmark" data-w="${p.key}">${texts[p.key] ?? p.text}</span>` : texts[p.key] ?? p.text);
     return { parts: [{ label: "Subject", html: `<p>${w(CB_QUESTIONS_EMAIL.subject)}</p>` }, { label: "Email, as the client receives it", html: e.html },
       ...(mark ? [{ label: "The pieces", html: (["hi", "working", "answerBy", "link", "firm"] as const).map((k) => `<p>${w(CB_QUESTIONS_EMAIL[k])}</p>`).join("") }] : [])] };
