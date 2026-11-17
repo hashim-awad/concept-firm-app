@@ -81,6 +81,9 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
               {viewing.statements.map((s) => (
                 <tr key={s.id} className="border-b border-sand-100 align-top">
                   <td className="py-2.5">{span(s.period_start, s.period_end)}
+                    {/* Round 28: the digits read from the statement and a loan's summary, information only. */}
+                    {s.statement_last4 && <span className="block text-[12.5px] text-ink-3">Statement shows ••• {s.statement_last4}</span>}
+                    {s.conversion.check_result?.loan && <span className="block text-[12.5px] text-ink-3">{s.conversion.check_result.loan}</span>}
                     {s.earlier.map((h) => <span key={h.id} className="block text-[12.5px] text-ink-3">Earlier file: {h.hasFile ? <a href={`/closebook/${fileId}/statement-pdf?h=${h.id}`} className="underline">{h.file_name}</a> : h.file_name}, replaced {formatDate(h.replaced_at)}{h.by ? ` by ${h.by}` : ""}</span>)}</td>
                   <td className="py-2.5 text-ink-2">{formatDate(s.uploaded_at)}</td>
                   <td className="py-1.5 text-right">
@@ -276,7 +279,7 @@ function uploadSummary(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
     missing: a.statements.length ? a.gaps.map((g) => span(g.from, g.to)) : [],
     toFix: a.toFix.map((u) => ({ id: u.id, label: u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name })),
     reading: mine.filter((u) => u.state.status === "reading").length,
-    refused: mine.filter((u) => ["wrong_account", "no_account", "already", "copy", "outside"].includes(u.state.status))
+    refused: mine.filter((u) => ["no_account", "already", "copy", "outside"].includes(u.state.status))
       .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" || u.state.status === "copy" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
     pending: d.pending.filter((u) => u.account === a.id).map((u) => ({ id: u.id, file: u.file_name })),
   };
@@ -292,11 +295,13 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
   const num = "block text-[26px] leading-none font-semibold tabular-nums";
   const op = <span className="self-center px-1 text-[22px] text-ink-3">{"+"}</span>;
   const inWord = typeLabel(a.kind, "in").toUpperCase(), outWord = typeLabel(a.kind, "out").toUpperCase();
-  const lines = a.lines;
+  // Round 28: the lines with no effect on the balance sit among the others by date, greyed; they move nothing.
+  const lines = [...a.lines.map((l) => ({ ...l, info: false })), ...a.info.map((i) => ({ id: i.id, date: i.date, acctDate: i.date, printed: i.printed, description: i.description,
+    cents: i.cents, outstanding: false, memo: "", statement: i.statement, coded: false, info: true }))].sort((x, y) => x.date.localeCompare(y.date));
   const pages = Math.max(1, Math.ceil(lines.length / PAGE)), p = Math.min(page, pages);
   // The balance in the books after each line (a line that cleared a start-of-year item posts nothing).
   let run = a.books ?? 0;
-  const withBal = lines.map((l) => { if (!l.outstanding) run += l.cents; return { ...l, bal: run }; });
+  const withBal = lines.map((l) => { if (!l.outstanding && !l.info) run += l.cents; return { ...l, bal: run }; });
   const shown = withBal.slice((p - 1) * PAGE, p * PAGE);
   const fix = a.toFix[0];
   return (
@@ -339,12 +344,13 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
             <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th><th className="w-10" /></tr></thead>
           <tbody>
             {shown.map((l) => (
-              <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding ? "text-ink-3" : ""}`}>
-                <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}</td>
-                <td className="px-3 py-3">{l.description}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
+              <tr key={l.id} className={`border-b border-sand-100 ${l.outstanding || l.info ? "text-ink-3" : ""} ${l.info ? "bg-sand-50/60" : ""}`}>
+                <td className="px-6 py-3 whitespace-nowrap">{date(l.acctDate)}{l.acctDate !== l.date && <span className="block text-[12px] text-ink-3">Bank: {date(l.date)}</span>}
+                  {l.printed && <span className="block text-[12px] text-ink-3">Transaction date: {date(l.printed)}</span>}</td>
+                <td className="px-3 py-3">{l.description}{l.info && <span className="block text-[12.5px] text-ink-3">No effect on balance</span>}{l.memo && <span className="block text-[12.5px] text-ink-3">Memo: {l.memo}</span>}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{l.cents > 0 ? money(l.cents) : ""}</td><td className="px-3 py-3 text-right tabular-nums">{l.cents < 0 ? money(-l.cents) : ""}</td>
                 <td className="px-6 py-3 text-right tabular-nums">{money(l.bal)}</td>
-                <td className="pr-3 text-right">{editable && <Link href={`${base}&account=${a.id}&page=${p}&line=${l.id}`} scroll={false} aria-label={`Date and memo for ${l.description}`} className="text-[12.5px] text-navy-700 underline">Edit</Link>}</td>
+                <td className="pr-3 text-right">{editable && !l.info && <Link href={`${base}&account=${a.id}&page=${p}&line=${l.id}`} scroll={false} aria-label={`Date and memo for ${l.description}`} className="text-[12.5px] text-navy-700 underline">Edit</Link>}</td>
               </tr>
             ))}
             {!shown.length && <tr><td colSpan={6} className="px-6 py-5 text-ink-3">No transactions yet.</td></tr>}

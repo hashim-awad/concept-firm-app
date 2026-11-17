@@ -422,5 +422,17 @@
   "2bef3ea727fe6b4d1dafc7fabebd1fa3075ef01ff6ef938247b856ea71f408e7": {
     "file": "round26/card-2025-12-18.pdf",
     "result": "round26/card-2025-12-18.json"
+  },
+  "ed8181bef4e67957da67d9537e6f5218fa2fe9ad41d3994ab131a43392319906": {
+    "file": "round28/loan-2025-10-02.pdf",
+    "result": "round28/loan-2025-10-02.json"
+  },
+  "aa1558c2d5cf6ce7e04d46a5967f0a82d3a298115b2935122f2b18e1c4030193": {
+    "file": "round28/loan-2026-08-03.pdf",
+    "result": "round28/loan-2026-08-03.json"
+  },
+  "e58b9c398df148aff9bbe1ffdad29626f9bbad4ac7bf7eef07c88d1c47179403": {
+    "file": "round28/chq-2025-09.pdf",
+    "result": "round28/chq-2025-09.json"
   }
 }

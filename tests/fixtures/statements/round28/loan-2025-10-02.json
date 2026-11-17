@@ -1,0 +1,105 @@
+{
+  "bank": "Dummy Royal Bank",
+  "pages": 2,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "2468",
+      "name": "Royal Business Operating Loan",
+      "kind": "card",
+      "periodStart": "2025-09-03",
+      "periodEnd": "2025-10-02",
+      "opening": 400000,
+      "closing": 430000,
+      "summary": {
+        "inTotal": 110000,
+        "inCount": null,
+        "outTotal": 80000,
+        "outCount": null,
+        "loan": {
+          "payments": 82735,
+          "borrowings": 110000,
+          "interest": 2735,
+          "insurance": 0
+        }
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-09-02",
+          "printedDate": "2025-09-03",
+          "description": "Payment",
+          "amountCents": 80000,
+          "dir": "out",
+          "balanceCents": 320000,
+          "page": 2,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": null,
+          "holder": null
+        },
+        {
+          "id": "l2",
+          "date": "2025-09-09",
+          "printedDate": "2025-09-10",
+          "description": "Withdrawal",
+          "amountCents": 60000,
+          "dir": "in",
+          "balanceCents": 380000,
+          "page": 2,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": null,
+          "holder": null
+        },
+        {
+          "id": "l3",
+          "date": "2025-09-21",
+          "printedDate": null,
+          "description": "Interest Payment",
+          "amountCents": 2735,
+          "dir": "out",
+          "balanceCents": 380000,
+          "page": 2,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": null,
+          "holder": null
+        },
+        {
+          "id": "l4",
+          "date": "2025-09-23",
+          "printedDate": "2025-09-24",
+          "description": "Withdrawal",
+          "amountCents": 30000,
+          "dir": "in",
+          "balanceCents": 410000,
+          "page": 2,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": null,
+          "holder": null
+        },
+        {
+          "id": "l5",
+          "date": "2025-09-29",
+          "printedDate": "2025-09-30",
+          "description": "Withdrawal",
+          "amountCents": 20000,
+          "dir": "in",
+          "balanceCents": 430000,
+          "page": 2,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": null,
+          "holder": null
+        }
+      ]
+    }
+  ]
+}

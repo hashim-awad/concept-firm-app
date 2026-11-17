@@ -99,9 +99,9 @@ test("the answer becomes a ReadResult: keys, ids, cents, digits only, unsure kep
   assert.equal(out.result.bank, "Northern Dummy Bank");
   assert.equal(out.result.pages, 2);
   assert.deepEqual({ key: a.key, last4: a.last4, kind: a.kind, opening: a.opening, closing: a.closing }, { key: "a1", last4: "4321", kind: "bank", opening: 100000, closing: 124975 });
-  assert.deepEqual(a.summary, { inTotal: 50000, inCount: 1, outTotal: 25025, outCount: null, interest: null, fees: null, purchases: null, cashAdvances: null });
+  assert.deepEqual(a.summary, { inTotal: 50000, inCount: 1, outTotal: 25025, outCount: null, loan: null, interest: null, fees: null, purchases: null, cashAdvances: null });
   assert.deepEqual(a.lines.map((l) => l.id), ["l1", "l2", "l3"]);
-  assert.deepEqual(a.lines[0], { id: "l1", date: "2026-01-03", postedDate: null, description: "SAMPLE DEPOSIT REF 12", amountCents: 50000, dir: "in", balanceCents: 150000, page: 1, unsure: false, unsureReason: "", source: "read", cardKind: null, holder: null });
+  assert.deepEqual(a.lines[0], { id: "l1", date: "2026-01-03", postedDate: null, printedDate: null, description: "SAMPLE DEPOSIT REF 12", amountCents: 50000, dir: "in", balanceCents: 150000, page: 1, unsure: false, unsureReason: "", source: "read", cardKind: null, holder: null });
   // A smudged line: the date and amount could not be read; it stays, unsure, on a page that exists.
   assert.equal(a.lines[2].unsure, true);
   assert.equal(a.lines[2].unsureReason, "smudged; the amount could not be read; the date could not be read");

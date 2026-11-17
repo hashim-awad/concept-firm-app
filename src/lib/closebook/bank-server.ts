@@ -6,7 +6,8 @@ export type BankStatement = { id: string; account_id: string; file_name: string;
   lines: number; plus_total: number; minus_total: number; uploaded_at: string; who: { full_name: string } | null } & Conversion;
 // Round 20: the conversion record kept on a statement read from a PDF or photo (null for CSV uploads).
 export type ConversionCheck = { differenceCents: number; inTotal: number; inCount: number; outTotal: number; outCount: number;
-  summaryOk: { in: boolean | null; out: boolean | null }; runningBreak: { lineId: string } | null; review: number; ok: boolean; warnings?: string[] };
+  summaryOk: { in: boolean | null; out: boolean | null }; runningBreak: { lineId: string } | null; review: number; ok: boolean; warnings?: string[];
+  loan?: string | null };   // round 28: a loan statement's summary in words
 export type Conversion = { source: "csv" | "pdf" | null; statement_import_id: string | null; model: string | null; pages: number | null; cost_usd: number | null;
   input_tokens: number | null; output_tokens: number | null; converted_at: string | null; check_result: ConversionCheck | null;
   edits: { edited: number; added: number; deleted: number } | null; conv: { full_name: string } | null };

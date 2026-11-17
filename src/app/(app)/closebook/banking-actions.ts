@@ -15,7 +15,6 @@ import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { balanceCheck, dollars, looksReversed, readBankUpload, REVERSED, typedCents } from "@/lib/closebook/bank-upload";
 import { BUCKET, storedBytes } from "@/lib/statements/server";
 import { signedCents, type ReadResult } from "@/lib/statements/types";
-import { digitsOnly } from "@/lib/closebook/step3";
 import { discardStatement } from "../statements/actions";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -134,12 +133,11 @@ export async function replaceStatementFile(fileId: string, statement: string, up
   if (!st || !row || row.file_id !== fileId) return { ok: false, error: "Statement not found." };
   if (!["ready", "needs_look"].includes(row.status as string)) return { ok: false, error: "The new file is not read yet." };
   const data = (row.edited ?? row.result) as ReadResult | null;
-  const last4 = digitsOnly(((st.account as unknown as { last4: string | null } | null)?.last4) ?? "");
-  // The account on the new file: the one with the account's last digits and the statement's period.
-  const acc = data?.accounts.find((x) => x.periodStart === st.period_start && x.periodEnd === st.period_end && digitsOnly(x.last4).slice(-4) === last4.slice(-4))
+  // The account on the new file: the one with the statement's period (round 28: never by its digits).
+  const acc = data?.accounts.find((x) => x.periodStart === st.period_start && x.periodEnd === st.period_end)
     ?? (data?.accounts.length === 1 ? data.accounts[0] : null);
   if (!acc) { await discardStatement(upload); return { ok: false, error: MISMATCH }; }
-  const rows = acc.lines.map((l, i) => ({ line: i + 1, date: l.date, amount: signedCents(l) / 100 }));
+  const rows = acc.lines.filter((l) => !l.noEffect).map((l, i) => ({ line: i + 1, date: l.date, amount: signedCents(l) / 100 }));
   const bytes = await storedBytes(row.storage_path as string);
   if (!bytes) return { ok: false, error: "The uploaded file is missing. Upload it again." };
   const ext = (row.storage_path as string).split(".").pop() ?? "pdf";

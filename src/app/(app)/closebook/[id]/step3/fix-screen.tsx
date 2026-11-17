@@ -125,10 +125,10 @@ export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, m
                 {acc0.lines.map((l) => {
                   const on = l.id === line0?.id;
                   return [
-                    <tr key={l.id} className={`border-b border-sand-100 ${on ? "bg-warning-soft/60" : ""}`}>
-                      <td className="py-3 pr-3 whitespace-nowrap">{day(l.date)}</td>
+                    <tr key={l.id} className={`border-b border-sand-100 ${on ? "bg-warning-soft/60" : ""} ${l.noEffect ? "bg-sand-50/60 text-ink-3" : ""}`}>
+                      <td className="py-3 pr-3 whitespace-nowrap">{day(l.date)}{l.printedDate && <span className="block text-[12px] text-ink-3">Transaction date: {day(l.printedDate)}</span>}</td>
                       <td className="py-3 pr-3">{l.description}
-                        {(l.holder || l.source !== "read") && <span className="block text-[12px] text-ink-3">{[l.holder ? `Card ••• ${l.holder}` : "", l.source === "added" ? "Added" : l.source === "edited" ? "Edited" : ""].filter(Boolean).join(" · ")}</span>}</td>
+                        {(l.holder || l.source !== "read" || l.noEffect) && <span className="block text-[12px] text-ink-3">{[l.noEffect ? "No effect on balance" : "", l.holder ? `Card ••• ${l.holder}` : "", l.source === "added" ? "Added" : l.source === "edited" ? "Edited" : ""].filter(Boolean).join(" · ")}</span>}</td>
                       <td className="py-3 pr-3">{typeLabel(acc0.kind, l.dir)}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{on && editable
                         ? <AmountInput name="amount" value={value} onValue={setValue} aria-label={`Amount for ${l.description}`} className="input h-10 w-[10rem] border-2 border-[#d08a1a] text-right text-[15px]" />

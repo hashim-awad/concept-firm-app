@@ -5,8 +5,7 @@
 // 3. The running balance, line by line: the first line where the printed balance stops matching goes to
 //    For review with the reason. Statements printed newest first are read bottom up.
 // 4. Unsure lines, and lines dated outside the statement period, go to For review.
-// Closebook only (closebookWarnings): last digits against the account chosen, the kind of account, and a
-// period outside the file's year. Lines already imported are found in the database (cb_duplicate_lines).
+// Closebook only (closebookWarnings): a period outside the file's year (round 28: never the account's digits or type). Lines already imported are found in the database (cb_duplicate_lines).
 
 import { signedCents, typeLabel, type CardKind, type StatementAccount, type StatementLine } from "./types.ts";
 
@@ -37,7 +36,9 @@ function firstBreak(opening: number, lines: StatementLine[]): RunningBreak | nul
 }
 
 export function checkAccount(acc: StatementAccount): AccountCheck {
-  const ins = acc.lines.filter((l) => l.dir === "in"), outs = acc.lines.filter((l) => l.dir === "out");
+  // Round 28: a line with no effect on the balance is left out of every total and check.
+  const live = acc.lines.filter((l) => !l.noEffect);
+  const ins = live.filter((l) => l.dir === "in"), outs = live.filter((l) => l.dir === "out");
   const inTotal = ins.reduce((n, l) => n + l.amountCents, 0), outTotal = outs.reduce((n, l) => n + l.amountCents, 0);
   const differenceCents = acc.closing - (acc.opening + inTotal - outTotal);
   const s = acc.summary;
@@ -55,9 +56,10 @@ export function checkAccount(acc: StatementAccount): AccountCheck {
   for (const l of acc.lines) {
     if (l.unsure) add(l.id, l.unsureReason ? `The reader was not sure: ${l.unsureReason}` : "The reader was not sure of this line.");
     // Round 26: a card's purchase can come before the period; the posting date, when printed, is the one checked.
-    const d = l.postedDate || l.date;
+    // Round 28: a loan line's printed Transaction Date, beside its Effective Date (the bank date).
+    const d = l.postedDate || l.printedDate || l.date;
     if (d < acc.periodStart || d > acc.periodEnd) add(l.id, `The date is outside the statement period (${acc.periodStart} to ${acc.periodEnd}).`);
-    if (l.amountCents <= 0) add(l.id, "The amount is zero.");
+    if (l.amountCents <= 0 && !l.noEffect) add(l.id, "The amount is zero.");
   }
   if (runningBreak) {
     add(runningBreak.lineId, `The statement shows a balance of ${money(runningBreak.printed)} after this line, but the lines add up to ${money(runningBreak.expected)}. A line above it may be missing or misread, or this amount may be wrong.`);
@@ -77,9 +79,17 @@ export const kindOf = (l: StatementLine): CardKind => (l.dir === "out" ? "paymen
 export function cardKindCheck(acc: StatementAccount): KindRow[] {
   const s = acc.summary;
   if (acc.kind !== "card" || !s) return [];
+  // Round 28: a loan. Principal paid = Total Payments - interest - insurance (outTotal), against the payment lines;
+  // borrowings against the withdrawal lines. Lines with no effect on the balance are not counted.
+  if (s.loan) {
+    const sum = (dir: "in" | "out") => acc.lines.filter((l) => !l.noEffect && l.dir === dir).reduce((n, l) => n + l.amountCents, 0);
+    const rows: KindRow[] = [{ kind: "payment", label: "Principal payments", printed: s.outTotal, read: sum("out"), off: s.outTotal - sum("out") }];
+    if (s.loan.borrowings !== null) rows.push({ kind: "purchase", label: "Borrowings", printed: s.loan.borrowings, read: sum("in"), off: s.loan.borrowings - sum("in") });
+    return rows;
+  }
   const printed: [CardKind, number | null | undefined][] = [["payment", s.outTotal], ["purchase", s.purchases], ["cash_advance", s.cashAdvances], ["interest", s.interest], ["fee", s.fees]];
   return printed.filter((p): p is [CardKind, number] => typeof p[1] === "number").map(([kind, p]) => {
-    const read = acc.lines.filter((l) => kindOf(l) === kind).reduce((n, l) => n + l.amountCents, 0);
+    const read = acc.lines.filter((l) => !l.noEffect && kindOf(l) === kind).reduce((n, l) => n + l.amountCents, 0);
     return { kind, label: KIND_LABEL[kind], printed: p, read, off: p - read };
   });
 }
@@ -87,6 +97,13 @@ const dollars = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { min
 // "Purchases and debits: statement 250.00, lines read 0.00, 250.00 missing" (or "12.00 more than the statement").
 export const kindSentence = (r: KindRow) =>
   `${r.label}: statement ${dollars(r.printed)}, lines read ${dollars(r.read)}, ${dollars(r.off)} ${r.off > 0 ? "missing" : "more than the statement"}`;
+
+// Round 28: a loan statement's summary in one line, as checked.
+export function loanWords(acc: StatementAccount): string | null {
+  const l = acc.summary?.loan;
+  if (!l) return null;
+  return `Principal paid ${dollars(l.payments - l.interest - l.insurance)} = Total Payments ${dollars(l.payments)} − interest ${dollars(l.interest)} − insurance ${dollars(l.insurance)}`;
+}
 
 // Plain words for the summary check, against the printed totals, e.g. "Total money in (12) $4,210.00 matches the statement."
 export function summaryWords(acc: StatementAccount, c: AccountCheck): string[] {
@@ -109,20 +126,10 @@ export type CloseBookContext = {
 };
 
 // Warnings in Closebook. They do not block the import; the preparer decides.
+// Round 28 (Hashim, Nov 17, 2026): no account checks, as QuickBooks Online: the person picks the account, and a
+// statement is never questioned because of its account number or its type of account. Only the year is said.
 export function closebookWarnings(acc: StatementAccount, ctx: CloseBookContext): string[] {
   const out: string[] = [];
-  const digits = (acc.last4 ?? "").replace(/\D/g, "");
-  const chosen = ctx.chosen;
-  if (chosen && digits && chosen.last4) {
-    const a = digits.slice(-4), b = chosen.last4.slice(-4);
-    const n = Math.min(a.length, b.length);
-    if (a.slice(-n) !== b.slice(-n)) out.push(`The statement is for an account ending in ${digits}, but ${chosen.name} ends in ${chosen.last4}.`);
-  }
-  if (chosen && chosen.kind !== acc.kind) {
-    out.push(acc.kind === "card"
-      ? `This looks like a credit card or line of credit statement, but ${chosen.name} is a bank account.`
-      : `This looks like a bank account statement, but ${chosen.name} is a credit card or line of credit.`);
-  }
   if (acc.periodEnd < ctx.yearStart || acc.periodStart > ctx.yearEnd) {
     out.push(`The statement period (${acc.periodStart} to ${acc.periodEnd}) is outside the file's year (${ctx.yearStart} to ${ctx.yearEnd}).`);
   } else if (acc.periodStart < ctx.yearStart || acc.periodEnd > ctx.yearEnd) {

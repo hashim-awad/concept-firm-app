@@ -76,11 +76,11 @@ export function cardSummary(acc: StatementAccount, inTotal: number, outTotal: nu
 
 // ---------- The upload list's status (point 9)
 export type FileAccount = { id: string; number: string; name: string; kind: "bank" | "card"; last4: string | null };
-export type UploadStatus = "reading" | "ready" | "needs_look" | "outside" | "already" | "copy" | "wrong_account" | "no_account" | "no_digits" | "failed" | "skipped" | "imported";
+export type UploadStatus = "reading" | "ready" | "needs_look" | "outside" | "already" | "copy" | "no_account" | "failed" | "skipped" | "imported";
 // One short word per row (round 22 fixes); the reason shows on its own line only when something is wrong.
 export const UPLOAD_LABEL: Record<UploadStatus, string> = {
   reading: "Reading", ready: "Ready to check", needs_look: "Needs a look", outside: "Outside the year", already: "Already imported", copy: "Copy",
-  wrong_account: "Wrong account", no_account: "Wrong account", no_digits: "Needs a look", failed: "Failed", skipped: "Skipped", imported: "Imported",
+  no_account: "Choose the account", failed: "Failed", skipped: "Skipped", imported: "Imported",
 };
 export type UploadRowIn = { id: string; status: string; period_start: string | null; period_end: string | null; found: { name: string; last4: string; kind: "bank" | "card" }[];
   file_sha256?: string | null; target_account?: string | null; created_at?: string };
@@ -106,21 +106,10 @@ export function uploadState(r: UploadRowIn, ctx: { yearStart: string; yearEnd: s
   if (r.period_start && r.period_end && (r.period_end < ctx.yearStart || r.period_start > ctx.yearEnd)) return { status: "outside", ...none };
   if (r.file_sha256 && ctx.importedShas.has(r.file_sha256)) return { status: "already", ...none, reason: "The same file is already imported." };
   const found = r.found ?? [];
-  // Point 13: the statement must be for the account it was uploaded to.
-  const mine = ctx.target ? found.some((f) => digitsMatch(digitsOnly(ctx.target!.last4), digitsOnly(f.last4))) : false;
-  if (ctx.target && !mine) {
-    if (found.length && found.every((f) => !digitsOnly(f.last4))) return { status: "no_digits", ...none, reason: "The statement prints no last digits. Check it is for this account." };
-    const other = found.map((f) => accountFor(f.last4, ctx.accounts)).find((a) => a && a.id !== ctx.target!.id) ?? null;
-    if (other) return { status: "wrong_account", match: null, other, reason: `It is for ${accountLabel(other)}.` };
-    const f = found.find((x) => digitsOnly(x.last4));
-    return { status: "no_account", match: null, other: null, reason: f ? `No account in this file ends in ${digitsOnly(f.last4)}.` : "" };
-  }
+  // Round 28 (Hashim, Nov 17, 2026): no account checks, as QuickBooks Online. The statement goes to the account it
+  // was uploaded to; its digits are information only. With no account picked, the digits only suggest one.
   const match = ctx.target ?? found.map((f) => accountFor(f.last4, ctx.accounts)).find(Boolean) ?? null;
-  if (!ctx.target && !match) {
-    if (found.length && found.every((f) => !digitsOnly(f.last4))) return { status: "no_digits", ...none, reason: "The statement prints no last digits. Choose the account it is for." };
-    const f = found.find((x) => digitsOnly(x.last4));
-    return { status: "no_account", match: null, other: null, reason: f ? `No account in this file ends in ${digitsOnly(f.last4)}.` : "" };
-  }
+  if (!match) return { status: "no_account", match: null, other: null, reason: "Choose the account it is for." };
   // Point 14: the same period already imported for the account. Sharing one day is not the same period:
   // some banks print the day a statement ends as the first day of the next (round 22 fixes).
   if (match && r.period_start && r.period_end && ctx.importedPeriods.some((p) => p.account_id === match.id && p.period_start < r.period_end! && p.period_end > r.period_start!)) {
@@ -259,7 +248,6 @@ export function todoList(f: TodoFacts): Todo[] {
   for (const w of [...f.waiting].filter((x) => x.n).sort((x, y) => y.n - x.n)) {
     out.push({ key: `check-${w.account ?? "all"}`, kind: "check", account: w.account, text: `Check ${s_(w.n, "statement")}${w.label ? ` for ${w.label}` : ""}.` });
   }
-  if (f.wrong) out.push({ key: "wrong", kind: "wrong", text: `Move ${s_(f.wrong, "statement")} uploaded to the wrong account.` });
   if (f.failed) out.push({ key: "failed", kind: "failed", text: `Retry or remove ${s_(f.failed, "statement")} that could not be read.` });
   for (const a of f.accounts) {
     if (a.reason) continue;

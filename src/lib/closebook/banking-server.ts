@@ -58,7 +58,7 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
   const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books, t2: a.t2Line })), t2, lineNames);
   // Statements read and waiting. Those that add up (opening + lines = closing) go in by themselves (the page imports
   // them); one that does not is "to fix" (a misread line).
-  const open = d.uploads.filter((u) => u.state.status === "ready" || u.state.status === "needs_look" || u.state.status === "no_digits");
+  const open = d.uploads.filter((u) => u.state.status === "ready" || u.state.status === "needs_look");
   const passes = (u: S3Upload) => u.difference_cents === 0 && !!u.account;
   const accounts: BankingAccount[] = d.accounts.map((a) => {
     const toFix = open.filter((u) => u.account === a.id && !passes(u));
