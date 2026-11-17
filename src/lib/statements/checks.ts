@@ -8,7 +8,7 @@
 // Closebook only (closebookWarnings): last digits against the account chosen, the kind of account, and a
 // period outside the file's year. Lines already imported are found in the database (cb_duplicate_lines).
 
-import { signedCents, typeLabel, type StatementAccount, type StatementLine } from "./types.ts";
+import { signedCents, typeLabel, type CardKind, type StatementAccount, type StatementLine } from "./types.ts";
 
 export type ReviewItem = { lineId: string; reason: string };
 export type RunningBreak = { lineId: string; expected: number; printed: number };
@@ -64,6 +64,27 @@ export function checkAccount(acc: StatementAccount): AccountCheck {
   const ok = differenceCents === 0 && summaryOk.in !== false && summaryOk.out !== false && !runningBreak && review.length === 0;
   return { differenceCents, inTotal, inCount: ins.length, outTotal, outCount: outs.length, summaryOk, runningBreak, review, ok };
 }
+
+// ---------- Round 26 (Hashim, Nov 17, 2026): a card checked by kind against its summary box. Each kind printed
+// is compared with the lines read of that kind: "Purchases and debits: statement 250.00, lines read 0.00, 250.00
+// missing". A charge line with no kind (an older read, or added by hand) counts as a purchase. Only kinds the
+// statement prints are checked; a statement with no summary box has none.
+export type KindRow = { kind: CardKind; label: string; printed: number; read: number; off: number };
+export const KIND_LABEL: Record<CardKind, string> = { payment: "Payments and credits", purchase: "Purchases and debits", cash_advance: "Cash advances", interest: "Interest", fee: "Fees" };
+export const kindOf = (l: StatementLine): CardKind => (l.dir === "out" ? "payment" : l.cardKind && l.cardKind !== "payment" ? l.cardKind : "purchase");
+export function cardKindCheck(acc: StatementAccount): KindRow[] {
+  const s = acc.summary;
+  if (acc.kind !== "card" || !s) return [];
+  const printed: [CardKind, number | null | undefined][] = [["payment", s.outTotal], ["purchase", s.purchases], ["cash_advance", s.cashAdvances], ["interest", s.interest], ["fee", s.fees]];
+  return printed.filter((p): p is [CardKind, number] => typeof p[1] === "number").map(([kind, p]) => {
+    const read = acc.lines.filter((l) => kindOf(l) === kind).reduce((n, l) => n + l.amountCents, 0);
+    return { kind, label: KIND_LABEL[kind], printed: p, read, off: p - read };
+  });
+}
+const dollars = (c: number) => (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// "Purchases and debits: statement 250.00, lines read 0.00, 250.00 missing" (or "12.00 more than the statement").
+export const kindSentence = (r: KindRow) =>
+  `${r.label}: statement ${dollars(r.printed)}, lines read ${dollars(r.read)}, ${dollars(r.off)} ${r.off > 0 ? "missing" : "more than the statement"}`;
 
 // Plain words for the summary check, against the printed totals, e.g. "Total money in (12) $4,210.00 matches the statement."
 export function summaryWords(acc: StatementAccount, c: AccountCheck): string[] {

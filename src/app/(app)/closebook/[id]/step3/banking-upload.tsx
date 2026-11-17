@@ -8,11 +8,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Minus, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
-import { notify } from "@/components/save-state";
+import { confirmAction, notify } from "@/components/save-state";
 import { AmountInput } from "@/components/amount";
 import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements } from "../../../statements/actions";
 import { importChecked, setStatementTarget } from "../../step3-actions";
 import { importCsv, unlockFeed } from "../../banking-actions";
+import { readStatementsAgain } from "../../fix-actions";
 import { guarded, lockMessage, type Lock } from "./guard";
 
 let storage: ReturnType<typeof createClient>["storage"] | null = null;
@@ -120,6 +121,15 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
     } finally { setSending((n) => n - good.length); router.refresh(); }
   };
 
+  // Round 26: the same stored files go back to the reader (no new upload). Imported statements are never read again.
+  const readAgain = async (ids: string[]) => {
+    const n = ids.length;
+    if (!(await confirmAction({ title: n === 1 ? "Read this statement again?" : `Read ${n} statements again?`,
+      body: "The reader reads the same files again. The lines read and any changes made in Fix it are replaced. Nothing is imported until each passes its checks.", confirm: "Read again" }))) return;
+    const r = await readStatementsAgain(ids);
+    if (!r.ok) { notify(r.error, "error"); return; }
+    notify(`${r.queued} sent to the reader.`); router.refresh();
+  };
   const done = async () => {
     if (csv && account) {
       setBusy(true);
@@ -189,7 +199,10 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
               {s.startOff !== null && row("bad", `The opening differs from the bank by ${fmt(Math.abs(s.startOff))} at the start of the year: explain it in 3.3`, "start")}
               {s.matches === false && s.startOff === null && s.closing !== null && s.bank !== null && row("bad", `Closing balance ${fmt(s.closing)}, the bank ${fmt(s.bank)}: see 3.3`, "close")}
               {s.missing.map((m) => row("bad", `Missing: ${m}`, `m-${m}`))}
-              {s.toFix.map((f) => row("bad", <>To fix: {f.label}. <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link></>, `f-${f.id}`))}
+              {s.toFix.map((f) => row("bad", <>To fix: {f.label}. <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link>
+                {" · "}<button type="button" disabled={busy} onClick={() => readAgain([f.id])} className="text-navy-700 underline">Read again</button></>, `f-${f.id}`))}
+              {s.toFix.length > 1 && <li className="pl-9"><button type="button" disabled={busy} onClick={() => readAgain(s.toFix.map((f) => f.id))} className="btn-secondary h-9">
+                Read the {s.toFix.length} statements to fix again</button></li>}
               {refused.map((r, i) => row("bad", `Refused: ${r.file}. ${r.why}`, `r-${i}`))}
               {s.outside > 0 && row("none", `Lines dated before ${s.yearLabel.split(" to ")[0]} or after ${s.yearLabel.split(" to ")[1]} were left out`, "outside")}
             </ul>

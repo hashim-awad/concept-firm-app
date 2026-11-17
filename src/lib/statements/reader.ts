@@ -19,14 +19,15 @@ export const NOT_SET_UP = "The statement reader is not set up yet.";
 export const INSTRUCTION = `You read one bank or credit card statement (a PDF or a photo) and copy it into the JSON format given. Copy what is printed. Do not add, merge, skip or reorder anything.
 
 Accounts:
-- Return every account in the file. One file can hold several accounts (for example chequing and savings, or two cards). Each account is one entry, even when its pages are apart.
-- last_digits: the last digits of the account or card number as printed (often 4). Digits only. Empty when not printed. Never guess a digit.
+- Return every account in the file. One file can hold several accounts, each with its own opening and closing balance (for example chequing and savings). Each account is one entry, even when its pages are apart.
+- A business credit card statement often lists several cardholders, each in its own section with its own card number and subtotal, under one new balance. All those sections belong to ONE account: the account the statement is for. Return them as one entry, with the lines of every cardholder section on every page, in the order printed. Never return a cardholder's section as a separate account, and never leave a section out.
+- last_digits: the last digits of the account or card number as printed (often 4). Digits only. Empty when not printed. Never guess a digit. On a card statement with several cardholders, the number the statement is for: the one printed at the top with the statement's balance (usually the first card listed).
 - name: the account name as printed, for example "Business chequing" or "Visa Business".
 - kind: "bank" for chequing, savings and other deposit accounts; "card" for credit cards and lines of credit.
 - period_start and period_end: the statement period as printed, as YYYY-MM-DD.
 - opening_balance and closing_balance: as printed for this account. Card or line of credit: an amount owing is positive, a credit balance is negative. Bank: an overdrawn balance is negative.
 - summary: the printed totals of money in and money out for the period, with their counts when printed (for example "Deposits (12) 4,210.00", or "Payments and credits" and "Purchases and charges" on a card). Use null for a count that is not printed. Use null for the whole summary when the statement prints no totals.
-- Card or line of credit summary: money_in_total is everything added to the balance (purchases, cash advances, interest and fees together). interest_total and fees_total: the interest and the fees as printed in the summary, each on its own. Use null when not printed, and always null on a bank statement.
+- Card or line of credit summary: money_in_total is everything added to the balance (purchases, cash advances, interest and fees together). purchases_total (purchases and debits), cash_advances_total, interest_total and fees_total: each as printed in the summary box, on its own. Use null for one not printed, and always null on a bank statement.
 
 Lines:
 - Every transaction line of the account, on every page, in the order printed. Long statements can have hundreds of lines: include all of them. Do not include balance-forward, subtotal or total rows as lines.
@@ -37,6 +38,8 @@ Lines:
 - direction: "in" when the line raises the balance as printed, "out" when it lowers it. Bank: deposits and credits are "in"; withdrawals, cheques, payments and fees are "out". Card or line of credit: purchases, charges, fees and interest are "in"; payments, refunds and credits are "out".
 - balance: the running balance printed after this line, with the same sign rule as the opening balance. Null when no balance is printed on that line.
 - page: the page of the file the line is on, starting at 1.
+- card_kind: card or line of credit only: how the summary box groups the line. "purchase" (purchases and debits), "cash_advance", "interest", "fee", or "payment" (payments, refunds and other credits). Always null on a bank statement.
+- cardholder_digits: card only: the last digits of the cardholder's card the line is printed under, when the statement has cardholder sections. Digits only. Empty otherwise.
 - unsure: true when any part of the line is hard to read, cut off, smudged or ambiguous, with a short reason in unsure_reason (for example "last digit of the amount is cut off"). Otherwise false and an empty reason. Never guess a missing digit: copy what you can read and mark the line unsure.
 
 Money is always a string with 2 decimals, for example "0.00", "-15.20", "1234.50".
@@ -70,12 +73,14 @@ export const READ_SCHEMA = {
           summary: nullable({
             type: "object",
             additionalProperties: false,
-            required: ["money_in_total", "money_in_count", "money_out_total", "money_out_count", "interest_total", "fees_total"],
+            required: ["money_in_total", "money_in_count", "money_out_total", "money_out_count", "purchases_total", "cash_advances_total", "interest_total", "fees_total"],
             properties: {
               money_in_total: money,
               money_in_count: nullable({ type: "integer" }),
               money_out_total: money,
               money_out_count: nullable({ type: "integer" }),
+              purchases_total: nullable(money),
+              cash_advances_total: nullable(money),
               interest_total: nullable(money),
               fees_total: nullable(money),
             },
@@ -85,7 +90,7 @@ export const READ_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["date", "posted_date", "description", "amount", "direction", "balance", "page", "unsure", "unsure_reason"],
+              required: ["date", "posted_date", "description", "amount", "direction", "balance", "page", "card_kind", "cardholder_digits", "unsure", "unsure_reason"],
               properties: {
                 date: { type: "string" },
                 posted_date: nullable({ type: "string" }),
@@ -94,6 +99,8 @@ export const READ_SCHEMA = {
                 direction: { type: "string", enum: ["in", "out"] },
                 balance: nullable(money),
                 page: { type: "integer" },
+                card_kind: nullable({ type: "string", enum: ["purchase", "payment", "cash_advance", "interest", "fee"] }),
+                cardholder_digits: { type: "string" },
                 unsure: { type: "boolean" },
                 unsure_reason: { type: "string" },
               },
@@ -216,7 +223,24 @@ const validDate = (d: unknown): d is string => {
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
 
-type WireLine = { date?: unknown; posted_date?: unknown; description?: unknown; amount?: unknown; direction?: unknown; balance?: unknown; page?: unknown; unsure?: unknown; unsure_reason?: unknown };
+type WireLine = { date?: unknown; posted_date?: unknown; description?: unknown; amount?: unknown; direction?: unknown; balance?: unknown; page?: unknown; unsure?: unknown; unsure_reason?: unknown;
+  card_kind?: unknown; cardholder_digits?: unknown };
+
+// Round 26: a date with no printed year takes it from the period; a date a year off the statement period (a
+// December line given January's year, or the reverse) is that same day in the period's other year. Only a year
+// is changed, and only when the result falls inside the period (with 40 days for a card's earlier purchase date).
+export function yearFixed(d: string, start: string, end: string): string {
+  if (!DATE.test(d) || !DATE.test(start) || !DATE.test(end)) return d;
+  const near = (x: string) => x >= shiftDays(start, -40) && x <= end;
+  if (near(d)) return d;
+  for (const k of [-1, 1]) {
+    const y = String(+d.slice(0, 4) + k).padStart(4, "0") + d.slice(4);
+    if (validDate(y) && near(y)) return y;
+  }
+  return d;
+}
+const shiftDays = (s: string, n: number) => new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10) + n)).toISOString().slice(0, 10);
+const KINDS = new Set(["purchase", "payment", "cash_advance", "interest", "fee"]);
 type WireAccount = { last_digits?: unknown; name?: unknown; kind?: unknown; period_start?: unknown; period_end?: unknown; opening_balance?: unknown; closing_balance?: unknown; summary?: unknown; lines?: unknown };
 
 export function fromWire(raw: unknown, pages: number): ReadResult {
@@ -236,6 +260,8 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
         date: validDate(l.date) ? l.date : "",
         // Round 22 (decision 1): a card's posting date beside its transaction date; the year cut-off uses the transaction date.
         postedDate: a.kind === "card" && validDate(l.posted_date) ? l.posted_date : null,
+        cardKind: a.kind === "card" && typeof l.card_kind === "string" && KINDS.has(l.card_kind) ? (l.card_kind as StatementLine["cardKind"]) : null,
+        holder: a.kind === "card" ? str(l.cardholder_digits).replace(/\D/g, "").slice(-8) || null : null,
         description: str(l.description).replace(/\s+/g, " ").trim(),
         amountCents: Math.abs(cents ?? 0),
         dir: l.direction === "out" ? "out" : "in",
@@ -249,11 +275,16 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
     const dates = lines.map((l) => l.date).filter(Boolean).sort();
     const periodStart = validDate(a.period_start) ? a.period_start : dates[0] ?? "";
     const periodEnd = validDate(a.period_end) ? a.period_end : dates[dates.length - 1] ?? "";
-    for (const l of lines) if (!l.date) l.date = periodStart; // kept in For review by its reason
-    const s = a.summary as { money_in_total?: unknown; money_in_count?: unknown; money_out_total?: unknown; money_out_count?: unknown; interest_total?: unknown; fees_total?: unknown } | null;
+    for (const l of lines) {
+      if (!l.date) l.date = periodStart; // kept in For review by its reason
+      l.date = yearFixed(l.date, periodStart, periodEnd);
+      if (l.postedDate) l.postedDate = yearFixed(l.postedDate, periodStart, periodEnd);
+    }
+    const s = a.summary as { money_in_total?: unknown; money_in_count?: unknown; money_out_total?: unknown; money_out_count?: unknown; interest_total?: unknown; fees_total?: unknown;
+      purchases_total?: unknown; cash_advances_total?: unknown } | null;
     const sIn = s ? moneyCents(s.money_in_total) : null, sOut = s ? moneyCents(s.money_out_total) : null;
     const opt = (v: unknown) => (a.kind === "card" && v !== null && v !== undefined && v !== "" ? moneyCents(v) : null);
-    const sInt = s ? opt(s.interest_total) : null, sFee = s ? opt(s.fees_total) : null;
+    const sInt = s ? opt(s.interest_total) : null, sFee = s ? opt(s.fees_total) : null, sPur = s ? opt(s.purchases_total) : null, sCash = s ? opt(s.cash_advances_total) : null;
     return {
       key: `a${i + 1}`,
       last4: str(a.last_digits).replace(/\D/g, "").slice(-8),
@@ -263,7 +294,8 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
       opening: moneyCents(a.opening_balance) ?? 0,
       closing: moneyCents(a.closing_balance) ?? 0,
       summary: s && sIn !== null && sOut !== null ? { inTotal: Math.abs(sIn), inCount: int(s.money_in_count), outTotal: Math.abs(sOut), outCount: int(s.money_out_count),
-        interest: sInt === null ? null : Math.abs(sInt), fees: sFee === null ? null : Math.abs(sFee) } : null,
+        interest: sInt === null ? null : Math.abs(sInt), fees: sFee === null ? null : Math.abs(sFee),
+        purchases: sPur === null ? null : Math.abs(sPur), cashAdvances: sCash === null ? null : Math.abs(sCash) } : null,
       lines,
     };
   });

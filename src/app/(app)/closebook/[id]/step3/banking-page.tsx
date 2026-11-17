@@ -148,11 +148,11 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
 
   // ---------- Fix a misread line (image 5)
   if (str(sp.fix) && !win) {
-    const [fx, st] = await Promise.all([loadFix(supabase, str(sp.fix)!), getStatement(str(sp.fix)!)]);
     const u = d.uploads.find((x) => x.id === str(sp.fix));
     const a = d.accounts.find((x) => x.id === u?.account);
+    const [fx, st] = await Promise.all([loadFix(supabase, str(sp.fix)!, a?.last4 ?? ""), getStatement(str(sp.fix)!)]);
     if (fx && st) {
-      win = <FixScreen id={str(sp.fix)!} title={`${a?.label ?? ""}${fx.acc.periodStart ? ` · ${span(fx.acc.periodStart, fx.acc.periodEnd)}` : ""}`} data={fx.data} accKey={fx.acc.key} miss={fx.miss}
+      win = <FixScreen id={str(sp.fix)!} title={`${a?.label ?? ""}${fx.acc.periodStart ? ` · ${span(fx.acc.periodStart, fx.acc.periodEnd)}` : ""}`} data={fx.data} accKey={fx.acc.key}
         fileUrl={st.fileUrl} mediaType={st.row.media_type} pages={st.row.pages} backHref={here} target={a?.id ?? null} editable={editable} />;
     }
   }

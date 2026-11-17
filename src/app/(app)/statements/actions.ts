@@ -4,6 +4,7 @@
 // Reads and changes go through the signed-in person's client (the database checks Closebook view or edit);
 // files are stored with the secret key, after that check, as the other Closebook uploads are.
 
+import { plainError } from "@/lib/plain-error";
 import { randomUUID } from "node:crypto";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -16,7 +17,7 @@ import { checkAccount, closebookWarnings, money, resultProblem, statementStatus,
 import { signedCents, type ReadResult, type StatementAccount } from "@/lib/statements/types";
 
 type Fail = { ok: false; error: string };
-const fail = (error: string): Fail => ({ ok: false, error });
+const fail = (error: string): Fail => ({ ok: false, error: plainError(error) });
 const MAX_FILES = 50;
 
 // Upload one or many statements: FormData "files" (many), "fileId" (a Closebook file; none = the
@@ -45,7 +46,7 @@ export async function uploadStatements(fd: FormData): Promise<{ ok: true; ids: s
     const up = await store.upload(path, new Uint8Array(await f.arrayBuffer()), { contentType: type, upsert: false });
     if (up.error) { problems.push(`${f.name} was not saved: ${up.error.message}`); continue; }
     const { error } = await supabase.rpc("statement_create_job", { p_id: id, p_file: fileId, p_file_name: f.name.slice(0, 200), p_media_type: type, p_storage_path: path });
-    if (error) { await store.remove([path]); problems.push(`${f.name}: ${error.message}`); continue; }
+    if (error) { await store.remove([path]); problems.push(`${f.name}: ${plainError(error.message)}`); continue; }
     ids.push(id);
   }
   if (ids.length) after(() => kickRunner());
@@ -111,7 +112,7 @@ export async function confirmStatementUploads(ids: string[]): Promise<{ ok: true
       continue;
     }
     const { error } = await supabase.rpc("statement_confirm_upload", { p_id: r.id });
-    if (error) { problems.push(`${r.file_name}: ${error.message}`); continue; }
+    if (error) { problems.push(`${r.file_name}: ${plainError(error.message)}`); continue; }
     done.push(r.id);
   }
   if (rows.length < ids.length) problems.push("Some uploads were not found.");

@@ -5,7 +5,7 @@
 //   3.3 Reconcile: OPENING + MONEY IN − MONEY OUT = CLOSING against the BANK at the year end; the start band;
 //       "Find it" for any other difference, month by month.
 // Amounts in cents, in each account's own terms: what is in a bank account, what is owed on a card.
-import { checkAccount } from "../statements/checks.ts";
+import { cardKindCheck, checkAccount, kindSentence } from "../statements/checks.ts";
 import { signedCents, type StatementAccount } from "../statements/types.ts";
 import type { Cell } from "./step3.ts";
 
@@ -93,24 +93,32 @@ export function band(a: { opening: number | null; lines: BandLine[]; bankStart: 
   return { opening: a.opening, inCount: ins.length, inCents, outCount: outs.length, outCents, closing, bank: a.waiting ? null : a.bankEnd, endItems: a.endItems, difference, start };
 }
 
-// ---------- The fix screen (image 5): the line that looks misread, in one sentence
-export type Misread = { lineId: string; date: string; printed: number | null; computed: number | null; off: number; sentence: string };
+// ---------- The fix screen (image 5). Round 26 (Hashim, Nov 17, 2026): say what is wrong, never guess.
+// - A running balance that breaks points to a line: "One line looks misread", that line highlighted.
+// - A card with a summary box: each kind off, in plain words; any kind short means "Lines missing". No line
+//   is highlighted.
+// - Otherwise: the statement and the lines differ by an amount, with no line highlighted.
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const day = (iso: string) => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
 export const amt = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
+export type Misread = { title: string; lineId: string | null; date: string; printed: number | null; computed: number | null; off: number; sentence: string; rows: string[] };
 export function misread(acc: StatementAccount): Misread | null {
   const c = checkAccount(acc);
   if (c.ok && c.differenceCents === 0) return null;
   if (c.runningBreak) {
     const l = acc.lines.find((x) => x.id === c.runningBreak!.lineId)!;
     const off = c.runningBreak.printed - c.runningBreak.expected;
-    return { lineId: l.id, date: l.date, printed: c.runningBreak.printed, computed: c.runningBreak.expected, off,
+    return { title: "One line looks misread.", lineId: l.id, date: l.date, printed: c.runningBreak.printed, computed: c.runningBreak.expected, off, rows: [],
       sentence: `On ${day(l.date)} the bank's balance is ${amt(c.runningBreak.printed)}, but the lines give ${amt(c.runningBreak.expected)} (${amt(Math.abs(off))} off).` };
   }
+  const lines = acc.closing - c.differenceCents;
+  const off = cardKindCheck(acc).filter((r) => r.off !== 0);
+  if (off.length) {
+    return { title: off.some((r) => r.off > 0) ? "Lines missing." : "Lines do not match the statement.", lineId: null, date: acc.periodEnd, printed: acc.closing, computed: lines,
+      off: c.differenceCents, rows: off.map(kindSentence), sentence: c.differenceCents === 0 ? "" : `The statement closes at ${amt(acc.closing)}, but the lines give ${amt(lines)}.` };
+  }
   if (c.differenceCents !== 0) {
-    const l = acc.lines[acc.lines.length - 1];
-    const lines = acc.closing - c.differenceCents;
-    return { lineId: l?.id ?? "", date: acc.periodEnd, printed: acc.closing, computed: lines, off: c.differenceCents,
+    return { title: "The lines do not add up to the statement.", lineId: null, date: acc.periodEnd, printed: acc.closing, computed: lines, off: c.differenceCents, rows: [],
       sentence: `The statement closes at ${amt(acc.closing)}, but the lines give ${amt(lines)} (${amt(Math.abs(c.differenceCents))} off).` };
   }
   return null;

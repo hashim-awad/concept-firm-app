@@ -4,6 +4,7 @@
 // Replace file, Exclude statement, Restore and (owners, Wrong client) Purge; a line takes an accounting date and a
 // memo. A signed 3.2 or 3.3 asks first ("This removes the sign-off on 3.3. Continue?"): the first call returns
 // { confirm }, the second, with confirm, goes ahead. The database checks every rule again.
+import { plainError } from "@/lib/plain-error";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getAccess, canEdit } from "@/lib/access";
@@ -35,7 +36,7 @@ export async function signSubstep(f: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("cb_sign_substep", { p_file: id, p_sub: sub, p_role: role });
   revalidatePath(`/closebook/${id}`);
-  if (error) redirect(withMessage(back, "error", error.message));
+  if (error) redirect(withMessage(back, "error", plainError(error.message)));
   // After the preparer signs, the next sub-step opens (step 4 after 3.3).
   if (role === "prepared") {
     const next = sub === "3.1" ? "3.2" : sub === "3.2" ? "3.3" : null;
@@ -49,7 +50,7 @@ export async function unsignSubstep(f: FormData) {
   const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `/closebook/${id}?step=records`;
   const { error } = await (await createClient()).rpc("cb_unsign_substep", { p_file: id, p_sub: s(f, "sub"), p_role: s(f, "role") });
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Your sign-off is taken back."));
+  redirect(withMessage(back, error ? "error" : "msg", error ? plainError(error.message) : "Your sign-off is taken back."));
 }
 
 // "Upload statements" while 3.2 or 3.3 is signed: the button asked first; this removes the sign-off.
@@ -57,7 +58,7 @@ export async function unlockFeed(fileId: string): Promise<Guarded> {
   const no = await editor(); if (no) return { ok: false, error: no };
   const { error } = await (await createClient()).rpc("cb_feed_unlock", { p_file: fileId });
   revalidatePath(`/closebook/${fileId}`);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return error ? { ok: false, error: plainError(error.message) } : { ok: true };
 }
 
 // One CSV (Concept's template: Date, Description, Amount) for an account, with the statement's opening and
@@ -75,7 +76,7 @@ export async function importCsv(fileId: string, account: string, fileName: strin
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("cb_import_csv", { p_file: fileId, p_account: account, p_file_name: fileName, p_opening: o / 100, p_closing: c / 100,
     p_rows: read.rows.map((r) => ({ line: r.line, date: r.date, description: r.description, amount: r.cents / 100 })), p_confirm: confirm });
-  if (error) return refused(`Refused: ${error.message}`.replace(/^Refused: (This removes)/, "$1"));
+  if (error) return refused(`Refused: ${plainError(error.message)}`.replace(/^Refused: (This removes)/, "$1"));
   revalidatePath(`/closebook/${fileId}`);
   const d = data as { lines: number; outside: number };
   return { ok: true, lines: Number(d.lines), outside: Number(d.outside) };
@@ -86,7 +87,7 @@ export type Blocker = { id: string; date: string; description: string; amount: n
 export async function excludeStatement(fileId: string, statement: string, reason: string, note: string, confirm = false): Promise<Guarded<{ lines: number }> | { ok: false; error: string; blockers: Blocker[] }> {
   const no = await editor(); if (no) return { ok: false, error: no };
   const { data, error } = await (await createClient()).rpc("cb_exclude_statement", { p_statement: statement, p_reason: reason, p_note: note, p_confirm: confirm });
-  if (error) return refused(error.message);
+  if (error) return refused(plainError(error.message));
   const d = data as { ok: boolean; lines?: number; blockers?: Blocker[] };
   if (!d.ok) return { ok: false, error: "Not excluded: some of its lines are in the books.", blockers: d.blockers ?? [] };
   revalidatePath(`/closebook/${fileId}`);
@@ -96,7 +97,7 @@ export async function excludeStatement(fileId: string, statement: string, reason
 export async function restoreStatement(fileId: string, statement: string, confirm = false): Promise<Guarded> {
   const no = await editor(); if (no) return { ok: false, error: no };
   const { error } = await (await createClient()).rpc("cb_restore_statement", { p_statement: statement, p_confirm: confirm });
-  if (error) return refused(error.message);
+  if (error) return refused(plainError(error.message));
   revalidatePath(`/closebook/${fileId}`);
   return { ok: true };
 }
@@ -106,7 +107,7 @@ export async function purgeStatement(fileId: string, statement: string): Promise
   const a = await getAccess();
   if (!a?.is_owner) return { ok: false, error: "Only an owner can purge." };
   const { data, error } = await (await createClient()).rpc("cb_purge_statement", { p_statement: statement });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: plainError(error.message) };
   const d = data as { documents: string[]; reads: string[] };
   const admin = createAdminClient().storage;
   if (d.documents?.length) await admin.from("documents").remove(d.documents);
@@ -119,7 +120,7 @@ export async function purgeStatement(fileId: string, statement: string): Promise
 export async function markReplacement(fileId: string, statement: string, imports: string[]): Promise<Guarded> {
   const no = await editor(); if (no) return { ok: false, error: no };
   const { error } = await (await createClient()).rpc("cb_mark_replacement", { p_imports: imports, p_statement: statement });
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return error ? { ok: false, error: plainError(error.message) } : { ok: true };
 }
 
 const MISMATCH = "This file doesn't match the imported statement. To change its lines, exclude it and upload the right one.";
@@ -151,7 +152,7 @@ export async function replaceStatementFile(fileId: string, statement: string, up
   if (error) {
     await docs.remove([attachment]);
     if (error.message.startsWith("This file doesn")) { await discardStatement(upload); return { ok: false, error: MISMATCH }; }
-    return refused(error.message);
+    return refused(plainError(error.message));
   }
   revalidatePath(`/closebook/${fileId}`);
   return { ok: true };
@@ -164,7 +165,7 @@ export async function setLineDate(fileId: string, line: string, date: string, co
   const supabase = await createClient();
   const { data: l } = await supabase.from("cb_bank_lines").select("status, chart_account").eq("id", line).maybeSingle();
   const { error } = await supabase.rpc("cb_set_line_date", { p_line: line, p_date: date, p_confirm: confirm });
-  if (error) return refused(error.message);
+  if (error) return refused(plainError(error.message));
   // A coded line's posting moves to the new date.
   if (l?.chart_account) await rebuildTb(supabase, fileId);
   revalidatePath(`/closebook/${fileId}`);
@@ -174,7 +175,7 @@ export async function setLineDate(fileId: string, line: string, date: string, co
 export async function setLineMemo(fileId: string, line: string, memo: string, confirm = false): Promise<Guarded> {
   const no = await editor(); if (no) return { ok: false, error: no };
   const { error } = await (await createClient()).rpc("cb_set_line_memo", { p_line: line, p_memo: memo, p_confirm: confirm });
-  if (error) return refused(error.message);
+  if (error) return refused(plainError(error.message));
   revalidatePath(`/closebook/${fileId}`);
   return { ok: true };
 }

@@ -23,10 +23,19 @@ export type StatementLine = {
   unsure: boolean;          // the reader could not read it with confidence
   unsureReason: string;     // short reason when unsure, else ""
   source: "read" | "added" | "edited";
+  // Round 26 (Hashim, Nov 17, 2026): a card line's kind as the statement's summary box groups it, and the last digits
+  // of the cardholder's card it is printed under (a business card lists each cardholder in its own section; all
+  // belong to the statement's account). Information only. Absent on older reads, CSVs and bank statements.
+  cardKind?: CardKind | null;
+  holder?: string | null;
 };
+export type CardKind = "purchase" | "payment" | "cash_advance" | "interest" | "fee";
+export const CARD_KINDS: CardKind[] = ["purchase", "payment", "cash_advance", "interest", "fee"];
 
 // Round 22 (decision 1): a card's interest and fees as printed, each on its own (part of inTotal).
-export type StatementSummary = { inTotal: number; inCount: number | null; outTotal: number; outCount: number | null; interest?: number | null; fees?: number | null };
+// Round 26: a card's purchases and debits, and its cash advances, as printed in the summary box (also part of inTotal).
+export type StatementSummary = { inTotal: number; inCount: number | null; outTotal: number; outCount: number | null; interest?: number | null; fees?: number | null;
+  purchases?: number | null; cashAdvances?: number | null };
 
 export type StatementAccount = {
   key: string;              // "a1", "a2", ... stable within the statement
