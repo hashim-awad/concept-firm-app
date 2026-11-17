@@ -10,6 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { confirmAction, notify } from "@/components/save-state";
 import { confirmStatementUploads, createStatementUploads, pollStatements } from "../../../statements/actions";
 import { setAccountCoverage } from "../../step3-actions";
+import { readStatementsAgain } from "../../fix-actions";
 import { excludeStatement, markReplacement, purgeStatement, replaceStatementFile, restoreStatement, setLineDate, setLineMemo, type Blocker } from "../../banking-actions";
 import { Win } from "./windows";
 import { date, money } from "./banking-ui";
@@ -239,5 +240,25 @@ export function CoverageForm({ fileId, account, opened, closed, note }: { fileId
       <label className="grid gap-1 text-[12.5px] text-ink-2 sm:col-span-2">No statements (say why)<input name="note" defaultValue={note} maxLength={300} className="input h-9" /></label>
       <div className="sm:col-span-2"><button type="submit" disabled={busy} className="btn-secondary h-9">Save</button></div>
     </form>
+  );
+}
+
+// ---------- Round 29: "Read again" for statements waiting to be fixed, in View statements (the upload window now shows
+// only the upload just done). The same stored files go back to the reader; imported statements are never read again.
+export function ReadAgainButton({ ids, label, plain }: { ids: string[]; label: string; plain?: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" disabled={busy || !ids.length} className={plain ? "text-[13px] text-navy-700 underline" : "btn-secondary h-9"} onClick={async () => {
+      const n = ids.length;
+      if (!(await confirmAction({ title: n === 1 ? "Read this statement again?" : `Read ${n} statements again?`,
+        body: "The reader reads the same files again. The lines read and any changes made in Fix it are replaced. Nothing is imported until each passes its checks.", confirm: "Read again" }))) return;
+      setBusy(true);
+      try {
+        const r = await readStatementsAgain(ids);
+        if (!r.ok) { notify(r.error, "error"); return; }
+        notify(`${r.queued} sent to the reader.`); router.refresh();
+      } finally { setBusy(false); }
+    }}>{label}</button>
   );
 }
