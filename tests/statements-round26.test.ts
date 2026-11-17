@@ -84,3 +84,17 @@ test("a card purchase before the period, posted inside it, is not flagged; the s
   assert.deepEqual(checkAccount(a).review, []);
   assert.equal(checkAccount(read("card-2025-12-18.json")).ok, true, "Dec 18 to Jan 19, across the new year");
 });
+
+test("the posting date only checks the statement period; the year cut-off still uses the purchase date (round 22)", async () => {
+  const { yearCut } = await import("../src/lib/closebook/step3.ts");
+  // A card statement Aug 18 to Sep 17, 2025, in a file whose year starts Sep 1, 2025.
+  const a: StatementAccount = { key: "a1", last4: "4417", name: "Card", kind: "card", periodStart: "2025-08-18", periodEnd: "2025-09-17", opening: 10000, closing: 0, summary: null,
+    lines: [
+      { id: "l1", date: "2025-08-30", postedDate: "2025-09-02", description: "BOUGHT AUG 30, POSTED SEP 2", amountCents: 5000, dir: "in", balanceCents: null, page: 1, unsure: false, unsureReason: "", source: "read" },
+      { id: "l2", date: "2025-09-05", postedDate: "2025-09-06", description: "BOUGHT SEP 5", amountCents: 2000, dir: "in", balanceCents: null, page: 1, unsure: false, unsureReason: "", source: "read" }] };
+  a.closing = 10000 + 5000 + 2000;
+  const cut = yearCut(a, "2025-09-01", "2026-08-31");
+  assert.deepEqual(cut.inYear.map((l) => l.id), ["l2"], "Aug 30 is last year, by the purchase date, though posted Sep 2");
+  assert.equal(cut.atStart, 10000 + 5000, "owing at the start of the year includes the Aug 30 purchase");
+  assert.deepEqual(checkAccount(a).review, [], "both lines are inside the statement period");
+});

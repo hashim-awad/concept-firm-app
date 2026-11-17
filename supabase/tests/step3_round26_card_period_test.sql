@@ -38,6 +38,14 @@ select test.check('a line outside the period is refused in plain words, naming t
   test.try(format($q$select test.add(%L, %L, '2026-02-18', '2026-03-17', 500.00, '[{"line": 1, "date": "2026-02-10", "posted": "2026-02-11", "description": "EARLY DUMMY", "amount": 10.00}]')$q$, :'f', :'card'))
   = 'A line is dated outside the statement period (Feb 18, 2026 to Mar 17, 2026): the lines run from Feb 11, 2026 to Feb 11, 2026. Check the dates in Fix it.');
 
+-- ---------- The year cut-off still uses the purchase date (round 22): bought Aug 30, posted Sep 2, is last year.
+select test.add(:'f', :'card', '2025-08-18', '2025-09-17', 100.00, '[
+  {"line": 1, "date": "2025-08-30", "posted": "2025-09-02", "description": "BOUGHT AUG 30 DUMMY", "amount": 50.00},
+  {"line": 2, "date": "2025-09-05", "posted": "2025-09-06", "description": "BOUGHT SEP 5 DUMMY", "amount": 20.00}]') ->> 'statement' as s0 \gset
+select test.check('Aug 30 posted Sep 2: the statement is accepted, the line is last year''s and is not imported', (select lines = 1 and outside_lines = 1 from public.cb_bank_statements where id = :'s0')
+  and not exists (select 1 from public.cb_bank_lines where statement_id = :'s0' and description = 'BOUGHT AUG 30 DUMMY')
+  and exists (select 1 from public.cb_bank_lines where statement_id = :'s0' and description = 'BOUGHT SEP 5 DUMMY' and txn_date = '2025-09-05'));
+
 -- ---------- Before import: changes and "Read again" are logged; an imported statement is not read again
 reset role;
 insert into public.cb_statement_imports (id, file_id, created_by, file_name, media_type, storage_path, status, summary, result, edited, finished_at) values
