@@ -56,13 +56,19 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const [{ data: banks }, { data: lines }, { data: chart }, { data: codes }, { data: parts }, { data: transfers }] = await Promise.all([
     supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number, books_opening, gifi_line, t2_line").eq("file_id", fileId),
-    supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("acct_date").limit(50000),
+    supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, description, amount, status, chart_account, tax_code, transfer_account, is_split").eq("file_id", fileId).order("acct_date").limit(50000),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", yearEnd).order("effective_from"),
     // Round 20: matched transfers. The money-out line posts to the other account; the money-in line posts nothing.
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).limit(50000),
   ]);
+  // Round 31: the rows of split lines.
+  const { data: splitRows } = await supabase.from("cb_line_splits").select("line_id, chart_account, tax_code, amount").eq("file_id", fileId).order("row_no").limit(50000);
+  const splits = new Map<string, { chart_account: string; tax_code: string | null; cents: number }[]>();
+  for (const x of (splitRows ?? []) as { line_id: string; chart_account: string; tax_code: string | null; amount: number }[]) {
+    splits.set(x.line_id, [...(splits.get(x.line_id) ?? []), { chart_account: x.chart_account, tax_code: x.tax_code, cents: Math.round(Number(x.amount) * 100) }]);
+  }
   // Opening balances by GIFI code (BRIEF.md): last year's Closebook file first, else what was typed.
   const { info, lines: master } = await gifiCodeInfo(supabase);
   let { data: ob } = await supabase.from("cb_opening_balances").select("code, amount, chart_account, bank_account").eq("file_id", fileId);
@@ -100,8 +106,10 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
       id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, lineNo: b.gifi_line, t2Line: b.t2_line,
       fromBooks: b.books_opening !== null, openingCents: b.books_opening !== null ? Math.round(Number(b.books_opening) * 100) : 0 })),
     // Round 24: a posting carries the line's accounting date (the bank date until the preparer changes it).
-    lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; acct_date: string | null; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
-      .map((l) => ({ ...l, date: l.acct_date ?? l.txn_date, cents: Math.round(Number(l.amount) * 100), transfer_bank: transferTo.get(l.id) ?? null })),
+    lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; acct_date: string | null; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null;
+      transfer_account: string | null; is_split: boolean }[])
+      .map(({ transfer_account, is_split, ...l }) => ({ ...l, date: l.acct_date ?? l.txn_date, cents: Math.round(Number(l.amount) * 100), transfer_bank: transferTo.get(l.id) ?? null,
+        transfer_to: transfer_account, splits: is_split ? splits.get(l.id) ?? [] : undefined })),
     chart: new Map<string, BuildChart>(((chart ?? []) as (BuildChart & { number: string })[]).map((c) => [c.number, c])),
     codes: codeMap, ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true }, opening, yearStart: f.year_start, fileNumbers,
   };

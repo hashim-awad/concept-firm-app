@@ -54,10 +54,10 @@ test("bank files: step 3 stays current while months are missing; the banner give
   assert.equal(r.steps[2].note, "Months still missing");
 });
 
-test("bank files: step 4 counts the lines to code, then the reviewer's and the client's", () => {
+test("bank files: step 4 counts the Pending lines, then the reviewer's and the client's", () => {
   const a = fileSteps(facts({ statements: 1, bankGaps: "", ...signed, coding: { lines: 36, open: 30, reviewer: 2, ask: 1 } }));
   assert.equal(a.current, "code");
-  assert.match(a.next, /Code 30 lines/);
+  assert.match(a.next, /Post 30 pending lines: each needs an account and a sales tax code \(1 asked of the client\)/);
   const b = fileSteps(facts({ statements: 1, bankGaps: "", ...signed, coding: { lines: 36, open: 0, reviewer: 2, ask: 0 } }));
   assert.match(b.next, /2 lines waiting for the reviewer/);
   const c = fileSteps(facts({ statements: 1, bankGaps: "", ...signed, coding: { lines: 36, open: 0, reviewer: 0, ask: 0 } }));

@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withMessage } from "@/lib/messages";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
+import { autoPostRules } from "@/lib/closebook/feed-server";
 import { parseAmount } from "@/lib/closebook/amount";
 import { storedBytes } from "@/lib/statements/server";
 import { checkAccount, closebookWarnings, loanWords, money } from "@/lib/statements/checks";
@@ -209,6 +210,8 @@ export async function importChecked(id: string, target: string | null, confirmDu
   });
   const { data: res, error } = await supabase.rpc("cb_import_statement", { p_import: id, p_accounts: payload, p_confirm_dups: confirmDuplicates, p_attachment: attachment, p_confirm: confirm });
   if (error) { await docs.remove([attachment]); return fail(`Nothing was imported. ${error.message}`); }
+  // Round 31 (step 4): bank rules with Auto-post run on the new Pending lines (QuickBooks Online runs rules as lines come in).
+  if (await autoPostRules(supabase, fileId)) await rebuildTb(supabase, fileId);
   revalidatePath(`/closebook/${fileId}`);
   const out = (res ?? []) as { lines: number; outside: number; account: string }[];
   return { ok: true, imported: true, lines: out.reduce((n, r) => n + Number(r.lines), 0), outside: out.reduce((n, r) => n + Number(r.outside), 0),

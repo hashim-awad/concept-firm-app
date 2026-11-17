@@ -146,7 +146,7 @@ select set_config('cb.unlock', '', false) as unlock \gset
 \ir ../migrations/20261209040000_round20_transfers.sql
 select test.check('a second run keeps one status and one source value each',
   (select count(*) from pg_constraint where conrelid = 'public.cb_bank_lines'::regclass and conname in ('cb_bank_lines_status_check', 'cb_bank_lines_source_check')) = 2
-  and (select pg_get_constraintdef(oid) from pg_constraint where conname = 'cb_bank_lines_status_check') like '%''reviewer''::text, ''matched''::text]%'
+  and (select pg_get_constraintdef(oid) from pg_constraint where conname = 'cb_bank_lines_status_check') like '%''reviewer''::text, ''matched''::text%'  -- round 31 adds 'excluded' after it
   and (select length(pg_get_constraintdef(oid)) - length(replace(pg_get_constraintdef(oid), 'matched', '')) from pg_constraint where conname = 'cb_bank_lines_status_check') = 7
   and (select pg_get_constraintdef(oid) from pg_constraint where conname = 'cb_bank_lines_source_check') like '%''transfer''%'
   and exists (select 1 from public.cb_bank_transfers where id = :'t3'));

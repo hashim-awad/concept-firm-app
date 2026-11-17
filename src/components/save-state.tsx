@@ -40,22 +40,24 @@ function store<T>(initial: T) {
 // ---------------------------------------------------------------------------------------------------
 // The note (round 27, Hashim, Nov 17, 2026; benchmark Fathom): one at a time, a new one replaces the old.
 // ---------------------------------------------------------------------------------------------------
-type Note = { id: number; text: string; tone: "ok" | "error"; leaving?: boolean };
+// Round 31 (step 4, QuickBooks Online's "Posted · Undo"): a note can carry one action, and stay longer.
+type Note = { id: number; text: string; tone: "ok" | "error"; leaving?: boolean; action?: { label: string; run: () => void } };
 export const NOTE_MS = 3000;
 const notes = store<Note[]>([]);
 const NO_NOTES: Note[] = [];
 let lastNote = { text: "", at: 0 };
-export function notify(text: string, tone: "ok" | "error" = "ok") {
+export function notify(text: string, tone: "ok" | "error" = "ok", opts: { action?: { label: string; run: () => void }; ms?: number } = {}) {
   if (typeof window === "undefined" || !text) return;
   // The same note twice in a moment (a page that renders twice): show it once.
   const now = Date.now();
   if (lastNote.text === text && now - lastNote.at < 1500) return;
   lastNote = { text, at: now };
   const id = now + Math.random();
-  notes.set([{ id, text, tone }]);
+  notes.set([{ id, text, tone, action: opts.action }]);
   if (tone === "error") return;                       // a refusal stays until closed
-  setTimeout(() => notes.set(notes.get().map((n) => (n.id === id ? { ...n, leaving: true } : n))), NOTE_MS - 300);
-  setTimeout(() => notes.set(notes.get().filter((n) => n.id !== id)), NOTE_MS);
+  const ms = opts.ms ?? NOTE_MS;
+  setTimeout(() => notes.set(notes.get().map((n) => (n.id === id ? { ...n, leaving: true } : n))), ms - 300);
+  setTimeout(() => notes.set(notes.get().filter((n) => n.id !== id)), ms);
 }
 
 // A page's ?msg= (a server action that redirects with a message) as the note; then the address is cleaned,
@@ -197,6 +199,8 @@ export function NoteHost() {
           <div key={n.id} role={n.tone === "error" ? "alert" : "status"} data-note={n.tone}
             className={`pointer-events-auto flex min-h-11 max-w-[min(92vw,44rem)] items-center gap-2.5 rounded-full px-6 py-2 text-[16px] leading-snug font-bold text-white shadow-[0_12px_32px_rgba(15,35,80,.28)] transition-opacity duration-300 ${n.leaving ? "opacity-0" : "opacity-100"} ${n.tone === "error" ? "bg-danger" : "bg-success"}`}>
             <span>{n.text}</span>
+            {n.action && <button type="button" onClick={() => { n.action!.run(); notes.set(notes.get().filter((x) => x.id !== n.id)); }}
+              className="-my-1 rounded-full px-2 py-1 underline underline-offset-2 hover:bg-white/20">{n.action.label}</button>}
             {n.tone === "error"
               ? <button type="button" aria-label="Close" onClick={() => notes.set(notes.get().filter((x) => x.id !== n.id))} className="-mr-2 grid h-7 w-7 flex-none place-items-center rounded-full hover:bg-white/20"><X className="h-4 w-4" strokeWidth={3} /></button>
               : <Check className="h-5 w-5 flex-none" strokeWidth={3} aria-hidden />}
