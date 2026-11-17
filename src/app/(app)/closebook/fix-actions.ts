@@ -14,6 +14,7 @@ import { resultProblem, statementStatus, statementSummary } from "@/lib/statemen
 import { typeLabel, type ReadResult, type StatementAccount, type StatementLine } from "@/lib/statements/types";
 import { parseAmount } from "@/lib/closebook/amount";
 import { plainError } from "@/lib/plain-error";
+import { formatDate } from "@/lib/dates";
 
 type Fail = { ok: false; error: string };
 type Done = { ok: true; data: ReadResult } | Fail;
@@ -58,7 +59,7 @@ export async function addMissingLine(id: string, accKey: string, v: { date: stri
   const acc = w.data.accounts.find((a) => a.key === accKey);
   if (!acc) return fail("That account is not on this statement.");
   const date = v.date.trim(), description = v.description.replace(/\s+/g, " ").trim(), cents = parseAmount(v.amount);
-  if (!DATE.test(date) || date < shift(acc.periodStart, -40) || date > acc.periodEnd) return fail(`Enter the date as printed, inside the statement period (${acc.periodStart} to ${acc.periodEnd}).`);
+  if (!DATE.test(date) || date < shift(acc.periodStart, -40) || date > acc.periodEnd) return fail(`Enter the date as printed, inside the statement period (${formatDate(acc.periodStart)} to ${formatDate(acc.periodEnd)}).`);
   if (!description || description.length > 500) return fail("Enter the description as printed.");
   if (v.dir !== "in" && v.dir !== "out") return fail("Choose the type.");
   if (cents === null || cents <= 0) return fail("Enter the amount as printed, for example 25.40.");

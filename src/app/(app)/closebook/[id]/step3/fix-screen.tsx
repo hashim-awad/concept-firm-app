@@ -23,6 +23,7 @@ import { importChecked, skipStatement } from "../../step3-actions";
 import { addMissingLine, readStatementsAgain, removeReadLine, takeHolderLines } from "../../fix-actions";
 import { guarded } from "./guard";
 import { Menu } from "./banking-ui";
+import { ExpandButton, useExpand } from "./windows";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const day = (iso: string) => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
@@ -41,6 +42,7 @@ export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, m
   const line0 = miss0?.lineId ? acc0.lines.find((l) => l.id === miss0.lineId) ?? null : null;
   const [value, setValue] = useState(line0 ? tidyAmount((line0.amountCents / 100).toFixed(2)) : "");
   const [busy, setBusy] = useState(false);
+  const [big, toggleBig] = useExpand();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   // The statement with the highlighted amount as typed.
@@ -85,12 +87,13 @@ export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, m
   };
 
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-navy-950/45 px-4 py-6" role="dialog" aria-modal="true" aria-label="Fix it">
-      <div className="flex h-[min(92vh,940px)] w-full max-w-[1500px] flex-col overflow-hidden rounded-[16px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
+    <div className={`fixed inset-0 z-[60] grid overflow-y-auto bg-navy-950/45 ${big ? "" : "place-items-center px-4 py-6"}`} role="dialog" aria-modal="true" aria-label="Fix it">
+      <div className={`flex w-full flex-col overflow-hidden bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)] ${big ? "h-screen" : "h-[min(92vh,940px)] max-w-[1500px] rounded-[16px]"}`}>
         <div className="flex items-center gap-4 border-b border-sand-200 px-6 py-4">
           <Link href={backHref} scroll={false} className="inline-flex items-center gap-1 text-[14px] font-semibold text-navy-700"><ArrowLeft className="h-4 w-4" />Back</Link>
           <h2 className="text-[19px] font-semibold">{title}</h2><span className="flex-1" />
           {editable && <button type="button" onClick={readAgain} disabled={busy} className="btn-secondary h-9">Read again</button>}
+          <ExpandButton on={big} toggle={toggleBig} />
           {editable && <Menu label="More for this statement">
             {/* Round 24: nothing uploaded is deleted here. A statement not needed is skipped; it stays in the list. */}
             <button type="button" className="block w-full rounded px-3 py-2 text-left hover:bg-sand-50"
