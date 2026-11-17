@@ -103,7 +103,8 @@ select test.check('H11: after the uncode it is excluded; its lines leave the fee
   and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.2'));
 
 -- ---------- H9: one CSV for the whole year, on a second account
-select public.cb_save_bank_account(:'f', null, 'savings', 'RBC', '1357', 2000.00, false, false) as sav \gset
+-- Round 25: 3.1 is signed: adding an account asks first; Continue.
+select public.cb_save_bank_account(:'f', null, 'savings', 'RBC', '1357', 2000.00, false, false, true) as sav \gset
 select test.check('a CSV that does not add up is refused', test.try(format($q$select public.cb_import_csv(%L, %L, 'year.csv', 2000, 9999, '[{"line":1,"date":"2025-09-05","description":"X","amount":10}]')$q$, :'f', :'sav')) like '%does not balance%');
 select public.cb_import_csv(:'f', :'sav', 'year.csv', 1990.00, 2340.00, ('[{"line":1,"date":"2025-08-28","description":"BEFORE THE YEAR","amount":10.00},'
   || '{"line":2,"date":"2025-09-03","description":"DEPOSIT","amount":300.00},{"line":3,"date":"2026-02-14","description":"FEE","amount":-5.00},'

@@ -89,7 +89,7 @@ do $$
 declare d text; k text := $k$  if new.books_opening is distinct from old.books_opening then$k$;
 begin
   d := pg_get_functiondef('private.cb_account_log()'::regprocedure);
-  if position('t2_line' in d) = 0 and position(k in d) > 0 then
+  if position('cb_t2_of' in d) = 0 and position(k in d) > 0 then
     execute replace(d, k, $r$  if private.cb_t2_of(new) is distinct from private.cb_t2_of(old) then
     perform private.cb_log_event(new.file_id, 'bank_account_changed', 'records', 'Last year''s T2 line changed', null, null, new.name, '',
       'GIFI ' || coalesce(private.cb_t2_of(old), ''), 'GIFI ' || coalesce(private.cb_t2_of(new), ''));
@@ -188,3 +188,111 @@ begin
   return v_n;
 end;
 $$;
+
+-- ---------- Round 25 follow-up (Hashim, Nov 17, 2026): every account edit that removes a sub-step sign-off asks first
+-- (round 24 rule G17). The guard takes the sub-steps the change would clear: signed by the preparer only, it asks
+-- ("This removes the sign-off on 3.1. Continue?"); signed by the reviewer, only the reviewer (or an owner) continues
+-- ("Ask the reviewer to remove the 3.1 sign-off."). The removal is logged.
+create or replace function private.cb_substep_guard(p_file uuid, p_subs text[], p_confirm boolean, p_what text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v_subs text[]; v_rev boolean; v_label text; v_file public.cb_files; v_me uuid := (select auth.uid());
+begin
+  select array_agg(substep order by substep), bool_or(reviewed_at is not null) into v_subs, v_rev
+    from public.cb_substep_signoffs where file_id = p_file and substep = any (p_subs) and prepared_at is not null;
+  if v_subs is null then return; end if;
+  v_label := case array_length(v_subs, 1) when 1 then v_subs[1] when 2 then v_subs[1] || ' and ' || v_subs[2] else v_subs[1] || ', ' || v_subs[2] || ' and ' || v_subs[3] end;
+  select * into v_file from public.cb_files where id = p_file;
+  if v_rev and not (private.is_owner() or v_me = v_file.reviewer_id
+      or exists (select 1 from public.cb_substep_signoffs where file_id = p_file and substep = any (v_subs) and reviewed_by = v_me)) then
+    raise exception 'Ask the reviewer to remove the % sign-off.', v_label using errcode = '42501';
+  end if;
+  if not coalesce(p_confirm, false) then
+    raise exception 'This removes the sign-off on %. Continue?', v_label using errcode = '42501';
+  end if;
+  delete from public.cb_substep_signoffs where file_id = p_file and substep = any (v_subs);
+  perform private.cb_log_event(p_file, 'signoff_removed', 'records', format('Sign-off on %s removed to make a change.', v_label), null, null, '', p_what, v_label || ' signed', 'not signed');
+  perform private.cb_records_follow(p_file);
+end;
+$$;
+revoke all on function private.cb_substep_guard(uuid, text[], boolean, text) from public, anon, authenticated;
+create or replace function private.cb_feed_guard(p_file uuid, p_confirm boolean, p_what text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform private.cb_substep_guard(p_file, array['3.2', '3.3'], p_confirm, p_what);
+end;
+$$;
+
+-- Add or edit an account: the sub-steps its change clears (as the cb_banking_changed trigger does): an account added,
+-- or its last digits, type, line or last year's T2 line changed: 3.1 and 3.3; its balance at last year end: 3.1, 3.2
+-- and 3.3 (round 24 kept 3.2 too).
+do $$
+declare d text;
+  k1 text := $k$    perform private.cb_log_event(p_file, 'bank_account_added'$k$;
+  k2 text := $k$    if v_acc.books_opening is distinct from v_bal then
+      perform private.cb_feed_guard(p_file, p_confirm, 'balance at last year end changed');
+    end if;$k$;
+begin
+  d := pg_get_functiondef('public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text)'::regprocedure);
+  if position('cb_substep_guard' in d) > 0 then return; end if;
+  d := replace(d, $k$  if p_id is null then
+    insert into public.cb_bank_accounts$k$, $k$  if p_id is null then
+    perform private.cb_substep_guard(p_file, array['3.1', '3.3'], p_confirm, 'account added');
+    insert into public.cb_bank_accounts$k$);
+  d := replace(d, k2, $r$    if v_acc.books_opening is distinct from v_bal then
+      perform private.cb_substep_guard(p_file, array['3.1', '3.2', '3.3'], p_confirm, 'balance at last year end changed');
+    elsif v_acc.last4 is distinct from v_last or v_acc.chart_account is distinct from p.chart_account or v_acc.gifi_line is distinct from p.gifi_line
+       or v_acc.t2_line is distinct from v_t2 then
+      perform private.cb_substep_guard(p_file, array['3.1', '3.3'], p_confirm, case when v_acc.t2_line is distinct from v_t2 then 'last year''s T2 line changed' else 'account changed' end);
+    end if;$r$);
+  if position('cb_substep_guard' in d) = 0 or position('account added' in d) = 0 then raise exception 'cb_save_bank_account: the guard was not placed.'; end if;
+  execute d;
+end $$;
+
+drop function if exists public.cb_set_bank_coverage(uuid, date, date, text);
+create or replace function public.cb_set_bank_coverage(p_id uuid, p_opened date, p_closed date, p_note text, p_confirm boolean default false)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_acc public.cb_bank_accounts; v_file public.cb_files;
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_acc from public.cb_bank_accounts where id = p_id;
+  perform private.require(v_acc.id is not null, 'Account not found.');
+  select * into v_file from public.cb_files where id = v_acc.file_id;
+  perform private.require(v_file.phase <> 'locked', 'This file is locked.');
+  perform private.require(p_opened is null or p_opened between v_file.year_start and v_file.year_end, 'The opening date must be inside the year.');
+  perform private.require(p_closed is null or p_closed between v_file.year_start and v_file.year_end, 'The closing date must be inside the year.');
+  perform private.require(p_opened is null or p_closed is null or p_closed >= p_opened, 'The account cannot close before it opened.');
+  perform private.require(length(coalesce(p_note, '')) <= 300, 'Keep the note to 300 characters.');
+  if v_acc.opened_on is distinct from p_opened or v_acc.closed_on is distinct from p_closed or v_acc.coverage_note is distinct from btrim(coalesce(p_note, '')) then
+    perform private.cb_substep_guard(v_acc.file_id, array['3.2', '3.3'], p_confirm, 'account''s months changed');
+  end if;
+  update public.cb_bank_accounts set opened_on = p_opened, closed_on = p_closed, coverage_note = btrim(coalesce(p_note, '')),
+         coverage_by = case when p_opened is null and p_closed is null and btrim(coalesce(p_note, '')) = '' then null else (select auth.uid()) end,
+         coverage_at = case when p_opened is null and p_closed is null and btrim(coalesce(p_note, '')) = '' then null else now() end
+   where id = p_id;
+  perform private.cb_log(v_acc.file_id, 'bank_coverage', 'records', format('%s: %s.', v_acc.name,
+    concat_ws('; ', case when p_opened is not null then 'opened ' || to_char(p_opened, 'Mon FMDD, YYYY') end,
+                     case when p_closed is not null then 'closed ' || to_char(p_closed, 'Mon FMDD, YYYY') end,
+                     nullif(btrim(coalesce(p_note, '')), ''), case when p_opened is null and p_closed is null and btrim(coalesce(p_note, '')) = '' then 'reason cleared' end)));
+end;
+$$;
+revoke all on function public.cb_set_bank_coverage(uuid, date, date, text, boolean) from public, anon;
+grant execute on function public.cb_set_bank_coverage(uuid, date, date, text, boolean) to authenticated;
+
+drop function if exists public.cb_remove_bank_account(uuid);
+create or replace function public.cb_remove_bank_account(p_id uuid, p_confirm boolean default false)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_acc public.cb_bank_accounts;
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_acc from public.cb_bank_accounts where id = p_id;
+  perform private.require(v_acc.id is not null, 'Account not found.');
+  perform private.require((select phase from public.cb_files where id = v_acc.file_id) <> 'locked', 'This file is locked.');
+  perform private.require(not exists (select 1 from public.cb_bank_statements where account_id = p_id) and not exists (select 1 from public.cb_excluded_statements where account_id = p_id),
+    'This account has statements (imported or excluded). It can''t be deleted.');
+  perform private.cb_substep_guard(v_acc.file_id, array['3.1', '3.3'], p_confirm, 'account removed');
+  delete from public.cb_bank_accounts where id = p_id;
+  perform private.cb_log_event(v_acc.file_id, 'bank_account_removed', 'records', 'Account removed', null, null, v_acc.name, '', '', '');
+end;
+$$;
+revoke all on function public.cb_remove_bank_account(uuid, boolean) from public, anon;
+grant execute on function public.cb_remove_bank_account(uuid, boolean) to authenticated;

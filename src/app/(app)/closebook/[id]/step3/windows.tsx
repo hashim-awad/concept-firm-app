@@ -7,10 +7,10 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { AmountInput } from "@/components/amount";
 import { accountName, nextNumber, placement, type AccountType } from "@/lib/closebook/step3";
-import { saveBankAccount } from "../../step3-actions";
-import { confirmAction } from "@/components/save-state";
-import { parseAmount } from "@/lib/closebook/amount";
-import { lockMessage, type Lock } from "./guard";
+import { useRouter } from "next/navigation";
+import { saveAccount } from "../../step3-actions";
+import { notify } from "@/components/save-state";
+import { guarded, isLockRefusal, type Lock } from "./guard";
 
 export function Win({ title, sub, closeHref, width = 620, children, footer }: { title: string; sub?: string; closeHref: string; width?: number; children: React.ReactNode; footer?: React.ReactNode }) {
   return (
@@ -42,10 +42,12 @@ export type AddCtx = {
   t2Lines?: { code: string; name: string; cents: number }[]; gifiNames?: Record<string, string>;
 };
 
-// Round 24 (rule 17): changing the balance at last year end while 3.2 or 3.3 is signed asks first.
-export function AddAccountWindow({ c, lock = null }: { c: AddCtx; lock?: Lock }) {
+// Round 25 (rule G17 for every account edit): a change that removes a 3.1, 3.2 or 3.3 sign-off asks first; one the
+// reviewer signed only the reviewer continues, and the window then shows only the refusal.
+export function AddAccountWindow({ c }: { c: AddCtx; lock?: Lock }) {
   const e = c.edit;
-  const [confirmed, setConfirmed] = useState(false);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
   const pre = (c.prefill.type === "card" || c.prefill.type === "loc" || c.prefill.type === "loan") ? c.prefill.type : c.prefill.type === "savings" ? "savings" : "chequing";
   const [type, setType] = useState<AccountType>(e?.type ?? (pre as AccountType));
@@ -78,19 +80,20 @@ export function AddAccountWindow({ c, lock = null }: { c: AddCtx; lock?: Lock })
     <Win title={e ? "Edit account" : "Add account"} closeHref={c.closeHref} footer={<>
       <span className="flex-1" />
       <Link href={c.closeHref} scroll={false} className="btn-secondary">Cancel</Link>
-      <button type="submit" form="add-account" disabled={!ready} className="btn h-9">{e ? "Save" : "Add account"}</button>
+      <button type="submit" form="add-account" disabled={!ready || busy} className="btn h-9">{e ? "Save" : "Add account"}</button>
     </>}>
-      <form id="add-account" action={saveBankAccount} className="grid gap-4" onSubmit={async (ev) => {
-        const typed = parseAmount(balance || "0"), was = e?.books ?? null;
-        const now = typed === null ? null : negative ? -typed : typed;
-        if (!lock || !e || confirmed || now === was) return;
+      <form id="add-account" className="grid gap-4" onSubmit={async (ev) => {
         ev.preventDefault();
-        if (!lock.canRemove) { setRefused(lockMessage(lock)); return; }
-        const form = ev.currentTarget;
-        if (await confirmAction({ title: lockMessage(lock), confirm: "Continue" })) { setConfirmed(true); setTimeout(() => form.requestSubmit(), 0); }
+        const fd = new FormData(ev.currentTarget);
+        setBusy(true);
+        try {
+          const r = await guarded((confirm) => saveAccount(fd, confirm));
+          if (!r) return;
+          if (!r.ok) { if (isLockRefusal(r.error)) setRefused(r.error); else notify(r.error, "error"); return; }
+          router.push(r.then, { scroll: false }); router.refresh();
+        } finally { setBusy(false); }
       }}>
         <input type="hidden" name="file_id" value={c.fileId} />
-        {confirmed && <input type="hidden" name="confirm" value="1" />}
         {e && <input type="hidden" name="account" value={e.id} />}
         <input type="hidden" name="back" value={`${c.closeHref}${c.closeHref.includes("?") ? "&" : "?"}add=1${e ? `&edit=${e.id}` : ""}`} />
         <input type="hidden" name="then" value={c.then} />

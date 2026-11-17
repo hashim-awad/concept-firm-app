@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { confirmAction, notify } from "@/components/save-state";
 import { confirmStatementUploads, createStatementUploads, pollStatements } from "../../../statements/actions";
+import { setAccountCoverage } from "../../step3-actions";
 import { excludeStatement, markReplacement, purgeStatement, replaceStatementFile, restoreStatement, setLineDate, setLineMemo, type Blocker } from "../../banking-actions";
 import { Win } from "./windows";
 import { date, money } from "./banking-ui";
@@ -211,5 +212,32 @@ function LockedWindow({ title, sub, closeHref, text }: { title: string; sub: str
     <Win title={title} sub={sub} closeHref={closeHref} width={520} footer={<><span className="flex-1" /><Link href={closeHref} scroll={false} className="btn h-9">Close</Link></>}>
       <p className="rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{text}</p>
     </Win>
+  );
+}
+
+// ---------- Round 25: "Record why a period has no statement" (point 23). Changing it while 3.2 or 3.3 is signed asks
+// first (rule G17); a reviewer's sign-off only the reviewer removes, and the form then shows only the refusal.
+export function CoverageForm({ fileId, account, opened, closed, note }: { fileId: string; account: string; opened: string; closed: string; note: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState<string | null>(null);
+  if (locked) return <p className="mt-3 rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{locked}</p>;
+  return (
+    <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={async (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.currentTarget), v = (k: string) => String(f.get(k) ?? "");
+      setBusy(true);
+      try {
+        const r = await guarded((confirm) => setAccountCoverage(fileId, account, v("opened"), v("closed"), v("note"), false, confirm));
+        if (!r) return;
+        if (!r.ok) { if (isLockRefusal(r.error)) setLocked(r.error); else notify(r.error, "error"); return; }
+        notify("Reason recorded."); router.refresh();
+      } finally { setBusy(false); }
+    }}>
+      <label className="grid gap-1 text-[12.5px] text-ink-2">Opened in the year, on<input type="date" name="opened" defaultValue={opened} className="input h-9" /></label>
+      <label className="grid gap-1 text-[12.5px] text-ink-2">Closed in the year, on<input type="date" name="closed" defaultValue={closed} className="input h-9" /></label>
+      <label className="grid gap-1 text-[12.5px] text-ink-2 sm:col-span-2">No statements (say why)<input name="note" defaultValue={note} maxLength={300} className="input h-9" /></label>
+      <div className="sm:col-span-2"><button type="submit" disabled={busy} className="btn-secondary h-9">Save</button></div>
+    </form>
   );
 }

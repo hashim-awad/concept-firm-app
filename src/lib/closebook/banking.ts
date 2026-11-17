@@ -10,8 +10,9 @@ import { signedCents, type StatementAccount } from "../statements/types.ts";
 import type { Cell } from "./step3.ts";
 
 // ---------- 3.1: one box per T2 line
+// Short fixed names per T2 line (Hashim, Nov 17, 2026); any other line takes its GIFI name.
 export const BOX_TITLE: Record<string, string> = {
-  "1002": "Bank accounts", "2600": "Bank overdraft", "2707": "Credit cards", "2701": "Lines of credit and loans", "3149": "Long-term lines of credit", "3143": "Bank loans",
+  "1002": "Bank accounts", "2600": "Bank overdraft", "2707": "Credit card loans", "2701": "Bank loans", "3149": "Line of credit, long-term", "3143": "Bank loan, long-term",
 };
 export type BoxState = "rounding" | "add" | "much";
 export type TieBox = { gifi: string; title: string; rows: { id: string; label: string; cents: number | null }[]; total: number; t2: number; difference: number; state: BoxState };
@@ -31,8 +32,7 @@ export function tieBoxes(accounts: BoxAccount[], t2: Map<string, number>, names:
   return [...by.entries()].sort(([a], [b]) => (USUAL_LINES.indexOf(a) + 1 || 99) - (USUAL_LINES.indexOf(b) + 1 || 99) || a.localeCompare(b)).map(([gifi, as]) => {
     const rows = as.map((a) => ({ id: a.id, label: a.label, cents: a.books === null ? null : gifi === "2600" && a.kind === "bank" ? -a.books : a.books }));
     const total = rows.reduce((n, r) => n + (r.cents ?? 0), 0), t = t2.get(gifi) ?? 0, difference = total - t;
-    // The box takes the T2 line's own name (round 25), e.g. "Credit card loans".
-    return { gifi, title: names.get(gifi) ?? BOX_TITLE[gifi] ?? `GIFI ${gifi}`, rows, total, t2: t, difference: Math.abs(difference), state: Math.abs(difference) < 100 ? "rounding" : difference < 0 ? "add" : "much" };
+    return { gifi, title: BOX_TITLE[gifi] ?? names.get(gifi) ?? `GIFI ${gifi}`, rows, total, t2: t, difference: Math.abs(difference), state: Math.abs(difference) < 100 ? "rounding" : difference < 0 ? "add" : "much" };
   });
 }
 // The rounding that posts by itself to retained earnings at the start of the year: one per T2 line.

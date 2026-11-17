@@ -18,7 +18,7 @@ test("H6/H7 3.1: one box per T2 line; under 1.00 is rounding, below the T2 is 't
   const boxes = tieBoxes([acc("10000", "1002", 51240), acc("10010", "1002", 245000), acc("22000", "2707", 132208, "card"), acc("10020", "1002", -2550)],
     new Map([["1002", 296200], ["2707", 252700], ["2600", 2550]]));
   assert.deepEqual(boxes.map((b) => [b.title, b.total, b.t2, b.difference, b.state]), [
-    ["Bank accounts", 296240, 296200, 40, "rounding"], ["Bank overdraft", 2550, 2550, 0, "rounding"], ["Credit cards", 132208, 252700, 120492, "add"]]);
+    ["Bank accounts", 296240, 296200, 40, "rounding"], ["Bank overdraft", 2550, 2550, 0, "rounding"], ["Credit card loans", 132208, 252700, 120492, "add"]]);
   assert.deepEqual(roundingOf(boxes), [{ gifi: "1002", title: "Bank accounts", cents: 40 }], "only a difference under 1.00 posts; 0.00 posts nothing");
   const much = tieBoxes([acc("10000", "1002", 51440)], new Map([["1002", 51200]]));
   assert.deepEqual([much[0].difference, much[0].state], [240, "much"], "H7: 514.40 against 512 is 2.40 too much");
@@ -115,7 +115,7 @@ test("3.1 groups by last year's T2 line: the line of credit set to 2707 joins th
   const t2 = new Map([["2707", 711200]]);
   const before = tieBoxes([card, loc], t2, names);
   assert.deepEqual(before.map((b) => [b.title, b.total, b.t2, b.difference, b.state]), [
-    ["Credit card loans", 211200, 711200, 500000, "add"], ["Loans from Canadian banks", 500000, 0, 500000, "much"]]);
+    ["Credit card loans", 211200, 711200, 500000, "add"], ["Bank loans", 500000, 0, 500000, "much"]]);
   const after = tieBoxes([card, { ...loc, t2: "2707" }], t2, names);
   assert.deepEqual(after.map((b) => [b.title, b.rows.length, b.total, b.t2, b.difference, b.state]), [["Credit card loans", 2, 711200, 711200, 0, "rounding"]], "one box, no 2701 box");
   const nothing = tieBoxes([{ ...card, books: 0 }], new Map([["2701", 500000]]), names);
