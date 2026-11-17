@@ -48,7 +48,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", fileId),
     supabase.from("cb_bank_outstanding").select("id, account_id, edge, item_date, description, dir, amount, cleared_line, kind").eq("file_id", fileId).order("item_date"),
     supabase.from("cb_bank_not_ours").select("last4, label, decided_by, decided_at").eq("file_id", fileId),
-    supabase.from("cb_bank_lines").select("id, account_id, statement_id, txn_date, acct_date, memo, description, amount, status, source, row_no, chart_account, printed_date").eq("file_id", fileId).limit(50000),
+    supabase.from("cb_bank_lines").select("id, account_id, statement_id, txn_date, acct_date, memo, description, amount, status, source, row_no, chart_account, is_split, printed_date").eq("file_id", fileId).limit(50000),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId),
     supabase.from("cb_statement_imports").select("id, file_sha256, target_account, replaces_statement").eq("file_id", fileId).not("status", "in", "(discarded,uploading)"),
     listStatementsWithKick(fileId),
@@ -60,7 +60,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   const replacing = new Set(((extra ?? []) as { id: string; replaces_statement: string | null }[]).filter((x) => x.replaces_statement).map((x) => x.id));
   list.rows = list.rows.filter((r) => !replacing.has(r.id));
   const lineNo = new Map(((chart ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no ?? ""]));
-  type Line = { id: string; account_id: string; statement_id: string; txn_date: string; acct_date: string | null; memo: string | null; description: string; amount: number; status: string; source: string; row_no: number; chart_account: string | null; printed_date: string | null };
+  type Line = { id: string; account_id: string; statement_id: string; txn_date: string; acct_date: string | null; memo: string | null; description: string; amount: number; status: string; source: string; row_no: number; chart_account: string | null; is_split?: boolean; printed_date: string | null };
   const infoRows = (infos ?? []) as { id: string; account_id: string; statement_id: string; txn_date: string; printed_date: string | null; description: string; amount: number; row_no: number }[];
   const ls = (lines ?? []) as Line[];
   const inTransfer = new Set(((tr ?? []) as { out_line: string; in_line: string }[]).flatMap((t) => [t.out_line, t.in_line]));
@@ -130,7 +130,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
       books, statements: mine.length, reason: waived || !!a.opened_on || !!a.closed_on });
     const myLines = ls.filter((l) => l.account_id === a.id).map((l) => ({ id: l.id, date: l.txn_date, description: l.description, cents: toCents(l.amount)!,
       outstanding: l.status === "matched" && l.source === "outstanding", statement: l.statement_id, row: l.row_no, acctDate: l.acct_date ?? l.txn_date, memo: l.memo ?? "",
-      coded: !!l.chart_account && ["done", "reviewer", "ask_client"].includes(l.status), printed: l.printed_date ?? null }))
+      coded: (!!l.chart_account || !!l.is_split) && ["done", "reviewer"].includes(l.status), printed: l.printed_date ?? null }))
       .sort((x, y) => x.date.localeCompare(y.date) || (stStart.get(x.statement) ?? "").localeCompare(stStart.get(y.statement) ?? "") || x.row - y.row);
     const info = infoRows.filter((l) => l.account_id === a.id).sort((x, y) => x.txn_date.localeCompare(y.txn_date) || x.row_no - y.row_no)
       .map((l) => ({ id: l.id, date: l.txn_date, printed: l.printed_date, description: l.description, cents: toCents(l.amount)!, statement: l.statement_id }));

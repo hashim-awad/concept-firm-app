@@ -265,45 +265,7 @@ export async function explainFlagInline(fileId: string, account: string, reason:
 // Round 24 (Hashim, Nov 16, 2026): the old CSV upload and "Remove statement" are gone. Statements go in through
 // step 3.2 (the upload window) and are never deleted: a wrong one is excluded, with a reason, in View statements.
 
-// ---------- Step 3, coding (Hashim, Nov 13, 2026) ----------
-
-// Code lines on the spot; each may also save a vendor rule for the client. Returns a problem as text.
-export async function codeLinesInline(fileId: string, items: { id: string; account: string; tax: string | null; source?: string }[],
-  rules: { key: string; account: string; tax: string | null }[]): Promise<string | null> {
-  const a = await getAccess();
-  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook to code transactions.";
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("cb_code_lines", { p_file: fileId, p_items: items });
-  if (error) return error.message;
-  for (const r of rules) {
-    const { error: re } = await supabase.rpc("cb_save_vendor_rule", { p_file: fileId, p_vendor_key: r.key, p_account: r.account, p_tax: r.tax ?? "" });
-    if (re) return `Coded, but the rule was not saved: ${re.message}`;
-  }
-  const tb = await rebuildTb(supabase, fileId);
-  revalidatePath(`/closebook/${fileId}`);
-  if (tb) return tb;
-  return null;
-}
-
-export async function undoLinesInline(fileId: string, ids: string[]): Promise<string | null> {
-  const a = await getAccess();
-  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
-  const { error } = await (await createClient()).rpc("cb_uncode_lines", { p_file: fileId, p_ids: ids });
-  if (error) return error.message;
-  await rebuildTb(await createClient(), fileId);
-  revalidatePath(`/closebook/${fileId}`);
-  return null;
-}
-
-export async function askClientInline(fileId: string, ids: string[]): Promise<string | null> {
-  const a = await getAccess();
-  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
-  const { error } = await (await createClient()).rpc("cb_ask_client", { p_file: fileId, p_ids: ids });
-  if (error) return error.message;
-  await rebuildTb(await createClient(), fileId);
-  revalidatePath(`/closebook/${fileId}`);
-  return null;
-}
+// ---------- Step 4, coding: src/app/(app)/closebook/feed-actions.ts (round 31, QuickBooks Online's Bank transactions page).
 
 // Step 1: the setup questions. Yes/No answers come as "yes"/"no"; blank leaves an answer as it was.
 export async function saveSetup(formData: FormData) {

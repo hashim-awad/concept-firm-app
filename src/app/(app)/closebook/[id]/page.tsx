@@ -46,9 +46,9 @@ import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expen
 import { BankingPage } from "./step3/banking-page";
 import { LineWindow } from "./step3/feed-windows";
 import { feedLock, loadRounding, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
-import { CodingView } from "./coding-view";
+import { BankFeed } from "./feed/bank-feed";
 import { saveSetup } from "../actions";
-import { loadCoding } from "@/lib/closebook/coding-server";
+import { loadFeed } from "@/lib/closebook/feed-server";
 import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
 import { accountChoices } from "@/lib/closebook/schedule";
@@ -92,7 +92,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const [data, ref, bankPre, { data: st }, review, subs, [accN, obN, revN, shN, gifiN, tieN, gstN, chkN, closeN, { data: fsRow }]] = await Promise.all([
     loadFile(supabase, id), loadReference(supabase),
     isBank ? loadBank(supabase, id, typeof sp.account === "string" ? sp.account : undefined) : Promise.resolve(null),
-    isBank ? supabase.from("cb_bank_lines").select("status").eq("file_id", id).limit(50000) : Promise.resolve({ data: [] }),
+    isBank ? supabase.from("cb_bank_lines").select("status, chart_account, is_split, transfer_account, asked_at").eq("file_id", id).limit(50000) : Promise.resolve({ data: [] }),
     // Round 8: each step's sign-offs, open items and review notes, from the database's own rules.
     loadReview(supabase, id),
     // Round 23: Banking's sub-steps (3.1 to 3.3), each with its own sign-offs.
@@ -123,8 +123,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const bankGaps = bank ? missingCount(bank.accounts.map((a) => ({ name: a.name,
     gaps: accountCoverage(file.year_start, file.year_end, bank.statements.filter((x) => x.account_id === a.id), bank.txnMonths.get(a.id) ?? new Set()).gaps }))) : "";
   // Bank files: how far the coding has got (step 3).
-  const sts = (st ?? []) as { status: string }[];
-  const coding = { lines: sts.length, open: sts.filter((x) => x.status === "new").length, reviewer: sts.filter((x) => x.status === "reviewer").length, ask: sts.filter((x) => x.status === "ask_client").length };
+  // Round 31 (QuickBooks Online's Pending and Posted): Pending lines, the posted ones with the reviewer, and those asked of the client.
+  const sts = (st ?? []) as { status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null; asked_at: string | null }[];
+  const pendingLine = (x: (typeof sts)[number]) => x.status === "new" || x.status === "ask_client" || (x.status === "reviewer" && !x.chart_account && !x.is_split && !x.transfer_account);
+  const coding = { lines: sts.length, open: sts.filter(pendingLine).length, reviewer: sts.filter((x) => x.status === "reviewer" && !pendingLine(x)).length,
+    ask: sts.filter((x) => pendingLine(x) && !!x.asked_at).length };
   // An account's balance after entries (round 10: the wrong-side check uses it).
   const entryTotal = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotal.set(l.account_id, (entryTotal.get(l.account_id) ?? 0) + l.amount);
@@ -315,9 +318,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
-      ? <CodingView fileId={id} data={await loadCoding(supabase, id, file.client_id, file.year_end, client?.province ?? "ON", setup)} accounts={bank!.accounts}
-          selected={bank!.selected} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
-          noteBy={access.is_owner && editable && file.phase !== "locked" ? { back: `${href("code")}${str(sp.account) ? `&account=${str(sp.account)}` : ""}` } : undefined} />
+      // Round 31 (Hashim, Nov 17, 2026): QuickBooks Online's Bank transactions page (Pending, Posted, Excluded).
+      ? <BankFeed data={await loadFeed(supabase, { id, client_id: file.client_id, year_start: file.year_start, year_end: file.year_end }, client?.province ?? "ON", setup)}
+          editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} initialAccount={str(sp.account)} focusLine={str(sp.line) ?? null} initialRules={str(sp.rules) === "1"} />
       : tb("code", ["accounts", "lines"], "accounts", false);   // the uploads stay on step 3 (round 8b item 8)
     // Round 24: a line's accounting date and memo, from step 4 (the date opens it).
     if (bankFile && str(sp.ln) && editable && file.phase !== "locked") {

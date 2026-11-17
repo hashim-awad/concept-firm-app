@@ -27,7 +27,10 @@ export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart
 // transfer_bank (round 20): on the money-out line of a matched transfer, the other bank or card account; its
 // other side posts to that account's own row. The money-in line of the transfer has status "matched".
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string;
-  transfer_bank?: string | null };
+  transfer_bank?: string | null;
+  // Round 31 (step 4): a transfer posted to another of the file's accounts before that account had a line for it, and the
+  // rows of a split line (each a share of the line's amount, positive in the line's own direction).
+  transfer_to?: string | null; splits?: { chart_account: string; tax_code: string | null; cents: number }[] };
 export type BuildChart = { name: string; account_type: string; line_no: string | null };
 export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string;
   lastLine?: string };   // round 25: the T2 line last year's figure came from, when it differs from this year's
@@ -45,8 +48,10 @@ export type Posting = { key: string; cents: number; date: string; kind: PostingK
 export const UNCODED = "uncoded";
 // Round 24: a line posts only once it has an account (coded). New lines, matched transfer money-in lines, lines that
 // clear an outstanding item and excluded lines post nothing.
-export const linePosts = (l: { status: string; chart_account: string | null }) =>
-  !!l.chart_account && (l.status === "done" || l.status === "reviewer" || l.status === "ask_client");
+// Round 31 (step 4, QuickBooks Online's Pending and Posted): only a posted line posts ("done", or "reviewer" when it went to
+// the reviewer). A Pending line with an account chosen, a line asked of the client and an excluded line post nothing.
+export const linePosts = (l: { status: string; chart_account: string | null; transfer_to?: string | null; splits?: unknown[] }) =>
+  (l.status === "done" || l.status === "reviewer") && (!!l.chart_account || !!l.transfer_to || !!l.splits?.length);
 export const OPENING = "opening";
 
 // The standard chart account a GIFI line's balance lands on: the account on that exact line, else the
@@ -227,22 +232,27 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
     if (!linePosts(l)) continue;
     const m: Meta = { date: l.date ?? "", kind: "bank", ref: l.id ?? "", acct: b.id, label: l.description ?? "" };
     const debit = b.kind === "bank" ? l.cents : -l.cents;   // the bank or card side
-    const to = l.status === "done" && l.transfer_bank ? byId.get(l.transfer_bank) : undefined;
-    const c = to ? undefined : chart.get(l.chart_account!);
-    if (!to && !c) continue;
+    const toId = l.transfer_bank ?? l.transfer_to ?? null;
+    const to = toId ? byId.get(toId) : undefined;
+    // The rows the other side posts to: the account, or each row of a split (round 31).
+    const parts = to ? [] : l.splits?.length ? l.splits.map((x) => ({ account: x.chart_account, tax: x.tax_code, debit: Math.sign(debit) * x.cents }))
+      : [{ account: l.chart_account!, tax: l.tax_code, debit }];
+    if (!to && parts.some((x) => !chart.get(x.account))) continue;
     add(bankKey(b), numberOf(b), "", null, debit, m);
     if (to) { add(bankKey(to), numberOf(to), "", null, -debit, m); continue; }
-    if (!c) continue;
-    const code = l.tax_code ? codes.get(l.tax_code) ?? null : null;
-    if (c.account_type === "Revenue") {
-      const s = splitLine(debit, code, "sale", ctx);
-      post(l.chart_account!, -s.netCents, m);
-      if (s.gstCollectedCents) post("21500", -s.gstCollectedCents, m);
-      if (s.pstCollectedCents) post("21550", -s.pstCollectedCents, m);
-    } else {
-      const s = splitLine(-debit, code, "purchase", ctx, c.account_type === "Asset");
-      post(l.chart_account!, s.netCents + s.expenseTaxCents, m);
-      if (s.itcCents) post("21500", s.itcCents, m);
+    for (const x of parts) {
+      const c = chart.get(x.account)!;
+      const code = x.tax ? codes.get(x.tax) ?? null : null;
+      if (c.account_type === "Revenue") {
+        const s = splitLine(x.debit, code, "sale", ctx);
+        post(x.account, -s.netCents, m);
+        if (s.gstCollectedCents) post("21500", -s.gstCollectedCents, m);
+        if (s.pstCollectedCents) post("21550", -s.pstCollectedCents, m);
+      } else {
+        const s = splitLine(-x.debit, code, "purchase", ctx, c.account_type === "Asset");
+        post(x.account, s.netCents + s.expenseTaxCents, m);
+        if (s.itcCents) post("21500", s.itcCents, m);
+      }
     }
   }
   // Clearing (10900) nets to nil: a balance left at year-end needs a decision (round 4 item 3).
