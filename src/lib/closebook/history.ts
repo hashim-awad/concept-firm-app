@@ -31,6 +31,7 @@ export const ACTION: Record<string, string> = {
   // Round 26: the fix screen before import.
   line_added_before_import: "Added before import", line_removed_before_import: "Removed before import", line_changed_before_import: "Changed before import",
   statement_read_again: "Read again",
+  upload_refused: "Upload refused",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };

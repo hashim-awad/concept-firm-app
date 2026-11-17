@@ -3,39 +3,41 @@
 // from file". Account (the 3.1 accounts), the drop zone (PDFs or photos, any number, any order, or one CSV for the
 // year), then the result. Everything that passes goes in by itself; only a misread statement or a missing period
 // stops for a person. One button: Done.
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Loader2, Minus, X } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { confirmAction, notify } from "@/components/save-state";
 import { AmountInput } from "@/components/amount";
-import { confirmStatementUploads, createStatementUploads, discardStatement, pollStatements } from "../../../statements/actions";
+import { confirmStatementUploads, createStatementUploads, pollStatements } from "../../../statements/actions";
 import { importChecked, setStatementTarget } from "../../step3-actions";
 import { importCsv, unlockFeed } from "../../banking-actions";
-import { readStatementsAgain } from "../../fix-actions";
+import { readStatementsAgain, refuseUpload } from "../../fix-actions";
 import { guarded, lockMessage, type Lock } from "./guard";
 
 let storage: ReturnType<typeof createClient>["storage"] | null = null;
 const browserStorage = () => (storage ??= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } }).storage);
 const OK_EXT = /\.(pdf|jpe?g|png|heic|heif)$/i;
-const fmt = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 
 // What the window shows for the account chosen.
 export type UploadSummary = {
   lines: number; yearLabel: string; outside: number; closing: number | null; bank: number | null; matches: boolean | null; startOff: number | null;
   missing: string[]; toFix: { id: string; label: string }[]; reading: number;
-  refused: { id: string; file: string; why: string }[];      // statements for another account, or already in
+  refused: { id: string; file: string; why: string }[];      // statements already in, copies, or outside the year
   pending: { id: string; file: string }[];                     // read and passing: imported here by themselves
+  // Round 29: every upload of this account still listed, for the result of the upload just done.
+  rows: { id: string; file: string; status: string; label: string; lines: number | null; outside: number }[];
 };
 
-// Refusals stay listed after the file is removed, for this session.
-const KEY = (f: string, a: string) => `banking-refused:${f}:${a}`;
-const readRefused = (f: string, a: string): { file: string; why: string }[] => { try { return JSON.parse(sessionStorage.getItem(KEY(f, a)) || "[]"); } catch { return []; } };
-const addRefused = (f: string, a: string, x: { file: string; why: string }) => {
-  try { sessionStorage.setItem(KEY(f, a), JSON.stringify([...readRefused(f, a), x])); window.dispatchEvent(new Event("banking-refused")); } catch { /* shown once */ }
+// Round 29 (Hashim, Nov 17, 2026; benchmark QuickBooks Online's upload): the window shows the result of the upload
+// just done, only, and opens clean. A refusal goes to the file's History ("Upload refused", who, when, the file and the
+// reason); nothing else keeps it. Before round 29 refusals were kept in the browser tab (sessionStorage); they are
+// cleared when the window opens.
+const clearOldRefusals = () => {
+  try { for (const k of Object.keys(sessionStorage)) if (k.startsWith("banking-refused:")) sessionStorage.removeItem(k); } catch { /* nothing kept */ }
 };
-const subscribe = (cb: () => void) => { window.addEventListener("banking-refused", cb); return () => window.removeEventListener("banking-refused", cb); };
+type Refusal = { id: string; file: string; why: string };
 
 // Speed (Hashim, Nov 16, 2026): each statement is tried once per session. A server call in progress makes every
 // click wait (Next.js runs them in turn), so a statement that keeps failing must not be tried on every visit.
@@ -43,7 +45,7 @@ const subscribe = (cb: () => void) => { window.addEventListener("banking-refused
 // balance is not rebuilt.
 const TRIED = (f: string) => `banking-tried:${f}`;
 const triedIds = (f: string): Set<string> => { try { return new Set(JSON.parse(sessionStorage.getItem(TRIED(f)) || "[]") as string[]); } catch { return new Set(); } };
-async function importOnce(fileId: string, items: { id: string; account: string; file: string }[]): Promise<number> {
+async function importOnce(fileId: string, items: { id: string; account: string; file: string }[], onRefused?: (x: Refusal) => void): Promise<number> {
   const tried = triedIds(fileId);
   let n = 0;
   for (const x of items) {
@@ -53,8 +55,8 @@ async function importOnce(fileId: string, items: { id: string; account: string; 
     try {
       const r = await importChecked(x.id, x.account, false);
       if (r.ok && r.imported) n++;
-      else addRefused(fileId, x.account, { file: x.file, why: r.ok ? "Not imported: some of its lines are already in this file. Check it in View statements." : `Not imported: ${r.error}` });
-    } catch { addRefused(fileId, x.account, { file: x.file, why: "Not imported: the import did not finish. Upload it again." }); }
+      else onRefused?.({ id: x.id, file: x.file, why: r.ok ? "Not imported: some of its lines are already in this file. Check it in View statements." : `Not imported: ${r.error}` });
+    } catch { onRefused?.({ id: x.id, file: x.file, why: "Not imported: the import did not finish. Upload it again." }); }
   }
   return n;
 }
@@ -71,8 +73,15 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
   const [open, setOpen] = useState(opening === null ? "" : (opening / 100).toFixed(2));
   const [close, setClose] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const refusedRaw = useSyncExternalStore(subscribe, () => { try { return account ? sessionStorage.getItem(KEY(fileId, account)) ?? "[]" : "[]"; } catch { return "[]"; } }, () => "[]");
-  const refused = JSON.parse(refusedRaw) as { file: string; why: string }[];
+  // Round 29: this opening's uploads and their refusals only; both go when the window closes.
+  const [mine, setMine] = useState<string[]>([]);
+  const [refused, setRefused] = useState<Refusal[]>([]);
+  useEffect(() => { clearOldRefusals(); }, []);
+  const mineRef = useRef<Set<string>>(new Set());
+  const noteRefused = (x: Refusal, discard: boolean) => {
+    void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), discard);
+    if (mineRef.current.has(x.id)) setRefused((r) => (r.some((y) => y.id === x.id) ? r : [...r, x]));
+  };
   const input = useRef<HTMLInputElement>(null);
   const reading = (summary?.reading ?? 0) + sending;
 
@@ -89,8 +98,8 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
     let stop = false;
     (async () => {
       setBusy(true);
-      for (const r of summary.refused) { if (stop) break; addRefused(fileId, account, { file: r.file, why: r.why }); await discardStatement(r.id); }
-      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })));
+      for (const r of summary.refused) { if (stop) break; noteRefused(r, true); }
+      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })), (x) => noteRefused(x, false));
       setBusy(false);
       router.refresh();
     })();
@@ -117,7 +126,11 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
         const r = u ? await store.uploadToSignedUrl(u.path, u.token, f, { contentType: u.contentType }) : null;
         if (u && r && !r.error) sent.push(u.id); else notify(`${f.name} was not sent. Upload it again.`, "error");
       }));
-      if (sent.length) { await setStatementTarget(sent, account); const r = await confirmStatementUploads(sent); if (!r.ok) notify(r.error, "error"); }
+      if (sent.length) {
+        for (const id of sent) mineRef.current.add(id);
+        setMine((m) => [...m, ...sent]);
+        await setStatementTarget(sent, account); const r = await confirmStatementUploads(sent); if (!r.ok) notify(r.error, "error");
+      }
     } finally { setSending((n) => n - good.length); router.refresh(); }
   };
 
@@ -191,22 +204,23 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
             </div>
           )}
           {!lock && error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
-          {!lock && s && (
-            <ul className="grid gap-3">
-              {(reading > 0 || busy) && row("busy", reading ? `Reading ${reading} statement${reading === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
-              {s.lines > 0 && row("ok", <><b>{s.lines.toLocaleString("en-CA")} transactions</b> added for {s.yearLabel}</>, "lines")}
-              {s.matches === true && s.closing !== null && row("ok", `Closing balance matches the bank: ${fmt(s.closing)}`, "close")}
-              {s.startOff !== null && row("bad", `The opening differs from the bank by ${fmt(Math.abs(s.startOff))} at the start of the year: explain it in 3.3`, "start")}
-              {s.matches === false && s.startOff === null && s.closing !== null && s.bank !== null && row("bad", `Closing balance ${fmt(s.closing)}, the bank ${fmt(s.bank)}: see 3.3`, "close")}
-              {s.missing.map((m) => row("bad", `Missing: ${m}`, `m-${m}`))}
-              {s.toFix.map((f) => row("bad", <>To fix: {f.label}. <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link>
-                {" · "}<button type="button" disabled={busy} onClick={() => readAgain([f.id])} className="text-navy-700 underline">Read again</button></>, `f-${f.id}`))}
-              {s.toFix.length > 1 && <li className="pl-9"><button type="button" disabled={busy} onClick={() => readAgain(s.toFix.map((f) => f.id))} className="btn-secondary h-9">
-                Read the {s.toFix.length} statements to fix again</button></li>}
-              {refused.map((r, i) => row("bad", `Refused: ${r.file}. ${r.why}`, `r-${i}`))}
-              {s.outside > 0 && row("none", `Lines dated before ${s.yearLabel.split(" to ")[0]} or after ${s.yearLabel.split(" to ")[1]} were left out`, "outside")}
-            </ul>
-          )}
+          {/* Round 29: the result of the upload just done, only. Waiting statements ("To fix", "Missing") show on 3.2. */}
+          {!lock && s && (mine.length > 0 || refused.length > 0 || busy) && (() => {
+            const own = s.rows.filter((r) => mine.includes(r.id));
+            const done = own.filter((r) => r.status === "imported");
+            const lines = done.reduce((n, r) => n + (r.lines ?? 0), 0), outside = done.reduce((n, r) => n + r.outside, 0);
+            const readingNow = own.filter((r) => r.status === "reading").length + sending;
+            return (
+              <ul className="grid gap-3" aria-label="Upload results">
+                {(readingNow > 0 || busy) && row("busy", readingNow ? `Reading ${readingNow} statement${readingNow === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
+                {done.length > 0 && row("ok", <><b>{lines.toLocaleString("en-CA")} transaction{lines === 1 ? "" : "s"}</b> added from {done.length} statement{done.length === 1 ? "" : "s"}</>, "lines")}
+                {own.filter((r) => r.status === "needs_look").map((f) => row("bad", <>To fix: {f.label}. <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link>
+                  {" · "}<button type="button" disabled={busy} onClick={() => readAgain([f.id])} className="text-navy-700 underline">Read again</button></>, `f-${f.id}`))}
+                {refused.map((r) => row("bad", `Refused: ${r.file}. ${r.why}`, `r-${r.id}`))}
+                {outside > 0 && row("none", `Lines dated before ${s.yearLabel.split(" to ")[0]} or after ${s.yearLabel.split(" to ")[1]} were left out`, "outside")}
+              </ul>
+            );
+          })()}
         </div>
         <div className="flex justify-end border-t border-sand-200 px-7 py-4">
           <button type="button" onClick={done} disabled={busy || (!!csv && (!open || !close))} className="btn h-11 px-8 text-[15px]">{lock ? "Close" : "Done"}</button>

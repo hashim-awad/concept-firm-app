@@ -9,7 +9,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAccess, canEdit } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
-import { kickRunner } from "@/lib/statements/server";
+import { kickRunner, removeStored } from "@/lib/statements/server";
 import { resultProblem, statementStatus, statementSummary } from "@/lib/statements/checks";
 import { typeLabel, type ReadResult, type StatementAccount, type StatementLine } from "@/lib/statements/types";
 import { parseAmount } from "@/lib/closebook/amount";
@@ -119,4 +119,17 @@ export async function readStatementsAgain(ids: string[]): Promise<{ ok: true; qu
   const { data: f } = await supabase.from("cb_statement_imports").select("file_id").eq("id", ids[0]).maybeSingle();
   if (f?.file_id) revalidatePath(`/closebook/${f.file_id}`);
   return { ok: true, queued };
+}
+
+// Round 29 (Hashim, Nov 17, 2026): a refused upload goes to the file's History ("Upload refused", with the file and
+// the reason). discard: also remove the upload (a statement for nothing in this file, already in, or outside the
+// year); otherwise it stays waiting (a statement that read but did not import).
+export async function refuseUpload(id: string, reason: string, discard = true): Promise<{ ok: true } | Fail> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return fail("You need Edit on Closebook.");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("statement_refuse", { p_id: id, p_reason: reason, p_discard: discard });
+  if (error) return fail(error.message);
+  if (discard) await removeStored([data as string | null]);
+  return { ok: true };
 }

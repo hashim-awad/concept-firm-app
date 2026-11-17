@@ -20,7 +20,7 @@ import { AutoImport, BankingUpload, type UploadSummary } from "./banking-upload"
 import { FixScreen } from "./fix-screen";
 import { Menu, Pill, date, money, span } from "./banking-ui";
 import { addOutstanding, removeOutstanding } from "../../step3-actions";
-import { CoverageForm, ExcludeWindow, ExcludedActions, LineWindow, ReplaceWindow } from "./feed-windows";
+import { CoverageForm, ExcludeWindow, ExcludedActions, ReadAgainButton, LineWindow, ReplaceWindow } from "./feed-windows";
 import { reasonLabel } from "@/lib/closebook/feed";
 import type { Lock } from "./guard";
 
@@ -58,7 +58,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
   // ---------- Upload statements (3.2, image 3)
   if (str(sp.upload) === "1" && editable && !win) {
     const a = d.accounts.find((x) => x.id === str(sp.acc)) ?? (d.accounts.length === 1 ? d.accounts[0] : null);
-    win = <BankingUpload fileId={fileId} accounts={d.accounts.map((x) => ({ id: x.id, label: x.label }))} account={a?.id ?? null} opening={a?.books ?? null}
+    win = <BankingUpload key={a?.id ?? "none"} fileId={fileId} accounts={d.accounts.map((x) => ({ id: x.id, label: x.label }))} account={a?.id ?? null} opening={a?.books ?? null}
       closeHref={`/closebook/${fileId}?step=records&paper=feeds`} summary={a ? uploadSummary(d, a) : null} fixBase={base} lock={lock} />;
   }
 
@@ -98,9 +98,11 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
               {viewing.toFix.map((u) => (
                 <tr key={u.id} className="border-b border-sand-100">
                   <td className="py-2.5">{u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name}</td><td className="py-2.5"><Pill tone="bad">1 to fix</Pill></td>
-                  <td className="py-2.5 text-right"><Link href={`${base}&fix=${u.id}`} scroll={false} className="text-[13px] text-navy-700 underline">Fix it</Link></td>
+                  <td className="py-2.5 text-right whitespace-nowrap"><Link href={`${base}&fix=${u.id}`} scroll={false} className="text-[13px] text-navy-700 underline">Fix it</Link>
+                    {editable && <> · <ReadAgainButton ids={[u.id]} label="Read again" plain /></>}</td>
                 </tr>
               ))}
+              {editable && viewing.toFix.length > 1 && <tr><td colSpan={3} className="py-2.5 text-right"><ReadAgainButton ids={viewing.toFix.map((u) => u.id)} label={`Read the ${viewing.toFix.length} statements to fix again`} /></td></tr>}
               {!viewing.statements.length && !viewing.toFix.length && <tr><td colSpan={3} className="py-4 text-center text-ink-3">None uploaded.</td></tr>}
             </tbody>
           </table>
@@ -282,6 +284,12 @@ function uploadSummary(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
     refused: mine.filter((u) => ["no_account", "already", "copy", "outside"].includes(u.state.status))
       .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" || u.state.status === "copy" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
     pending: d.pending.filter((u) => u.account === a.id).map((u) => ({ id: u.id, file: u.file_name })),
+    // Round 29: each upload of the account, for the result of the upload just done.
+    rows: d.uploads.filter((u) => u.account === a.id || u.target_account === a.id).map((u) => {
+      const st = a.statements.find((x) => x.statement_import_id === u.id);
+      return { id: u.id, file: u.file_name, status: u.state.status, label: u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name,
+        lines: st ? st.lines : null, outside: st ? st.outside_lines : 0 };
+    }),
   };
 }
 
