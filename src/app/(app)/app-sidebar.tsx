@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { BookCheck, Briefcase, Building2, FolderLock, Home, Landmark, UserPlus, X } from "lucide-react";
 import { Sidebar, type NavItem } from "@/components/ds/navigation";
+import { notify } from "@/components/save-state";
+import { setMenuPin } from "./menu-actions";
 
 export type SidebarAccess = {
   fullName: string;
@@ -35,9 +37,12 @@ const OWNER: [string, string][] = [
 // Round 17 (Hashim, Nov 15, 2026; benchmark QuickBooks Online): the left menu holds daily work only, in
 // one list with no headings. Find a client, the person and Sign out moved to the top bar; Settings to
 // the gear. Items follow the person's permissions; the database enforces them again on every read.
-export function AppSidebar({ access, counts }: { access: SidebarAccess; counts: SidebarCounts; signOut?: () => Promise<void> }) {
+export function AppSidebar({ access, counts, menuPinned }: { access: SidebarAccess; counts: SidebarCounts; signOut?: () => Promise<void>; menuPinned?: boolean | null }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  // Round 36b (TaxDome): the person's pin, kept across pages and sign-ins. Never chosen (null): as before,
+  // open on most pages and folded to icons inside a Closebook file.
+  const [pinChoice, setPinChoice] = useState<boolean | null>(menuPinned ?? null);
   useEffect(() => {
     const show = () => setOpen(true);
     window.addEventListener("studio:open-menu", show);
@@ -61,8 +66,10 @@ export function AppSidebar({ access, counts }: { access: SidebarAccess; counts: 
   // Inside a Closebook file the menu folds to icons (round 15); so does a statement's verify screen
   // (round 20), which needs the width for the statement beside its lines.
   const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path) || /^\/statements\/[0-9a-f-]{36}$/.test(path);
+  const pinned = pinChoice ?? !inFile;
+  const pin = { pinned, onToggle: () => { const v = !pinned; setPinChoice(v); void setMenuPin("menu", v).then((r) => { if (!r.ok) notify(r.error, "error"); }); } };
   const sidebar = <Sidebar groups={groups} />;
-  const desktop = inFile ? <Sidebar compact groups={groups} /> : sidebar;
+  const desktop = <Sidebar compact={!pinned} groups={groups} pin={pin} />;
 
   return (
     <>
