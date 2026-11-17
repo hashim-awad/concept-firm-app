@@ -42,7 +42,7 @@ select test.check('as the reviewer: asked first', test.try(format($q$select publ
 select public.cb_save_bank_account(:'f', :'loc', 'loc', 'RBC', '9012', 5000.00, false, false, true, '2707');
 select test.check('then changed, and the sign-off removed; both in the history', (select t2_line = '2707' from public.cb_bank_accounts where id = :'loc')
   and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1')
-  and exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and detail = 'Sign-off on 3.1 removed to make a change.' and reason = 'last year''s T2 line changed' and actor_id = :A::uuid));
+  and exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and detail = '3.1 sign-off removed: last year''s T2 line changed' and reason = 'last year''s T2 line changed' and actor_id = :A::uuid));
 select test.check('after: the line of credit on 2707 with the card: 7,112.00 against 7,112.00, nothing to fix; no 2701 line', test.sp(:'f') = '{}');
 select test.check('this year''s GIFI line does not follow (2701 stays on the account)', (select t2_line = '2707' and gifi_line is null and chart_account = '22100' from public.cb_bank_accounts where id = :'loc')
   and (select left(line_no, 4) from public.cb_chart_accounts where number = '22100') = '2701');

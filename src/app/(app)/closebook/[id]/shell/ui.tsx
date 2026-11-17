@@ -97,9 +97,17 @@ export function Drawer({ button, label, title, children, open: startOpen, top = 
 // A refusal stays until closed; it sits in the tabs bar, so it never covers a control. Round 21 (Hashim;
 // Dext): "Saved" and other messages are the short note in the bottom-left corner (notify). The message
 // leaves the address once shown, so Back does not show it again.
-export function FileToast({ msg, error }: { msg?: string | null; error?: string | null }) {
+export function FileToast({ msg, error, info }: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }) {
   const key = `${msg ?? ""}|${error ?? ""}`;
   const [closed, setClosed] = useState<string | null>(null);
+  // Round 34: "3.3 sign-off removed: <reason>" (from History), once per removal in this browser tab.
+  const [infoSeen, setInfoSeen] = useState<string | null>(null);
+  useEffect(() => {
+    if (!info) return;
+    let seen = false;
+    try { seen = sessionStorage.getItem(`cb.signoff.${info.id}`) === "1"; sessionStorage.setItem(`cb.signoff.${info.id}`, "1"); } catch { /* storage off: show it */ }
+    if (seen) setInfoSeen(info.id); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [info]);
   const shown = useRef<string | null>(null);
   const path = usePathname(), sp = useSearchParams();
   useEffect(() => {
@@ -109,6 +117,12 @@ export function FileToast({ msg, error }: { msg?: string | null; error?: string 
     window.history.replaceState(null, "", `${path}${q.toString() ? `?${q}` : ""}${window.location.hash}`);
     if (msg && !error && shown.current !== key) { shown.current = key; notify(msg); }
   }, [msg, error, key, path, sp]);
+  if (info && infoSeen !== info.id && closed !== `info:${info.id}` && !error) return (
+    <div role="status" data-signoff-pill className="ml-auto flex max-w-[52%] items-center gap-2 self-center rounded-md bg-navy-50 px-3 py-1.5 text-[12.5px] font-medium text-navy-900">
+      <span className="min-w-0 truncate" title={info.text}>{info.text}</span>
+      <button type="button" aria-label="Close" onClick={() => setClosed(`info:${info.id}`)} className="rounded p-0.5 opacity-70 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+    </div>
+  );
   if (!error || closed === key) return null;
   return (
     <div role="alert" className="ml-auto flex max-w-[52%] items-center gap-2 self-center rounded-md bg-danger-soft px-3 py-1.5 text-[12.5px] font-medium text-danger">

@@ -64,7 +64,7 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
 
 export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, toast, notes, people, done, children }: {
   fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
-  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null }; notes: number; people?: PeopleProps;
+  history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number; people?: PeopleProps;
   done?: { n: number; of: number }; children: ReactNode;
 }) {
   return (
@@ -93,7 +93,7 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
   );
 }
 
-function ShellTabs({ fileId, area, toast, notes }: { fileId: string; area: Area; toast: { msg?: string | null; error?: string | null }; notes: number }) {
+function ShellTabs({ fileId, area, toast, notes }: { fileId: string; area: Area; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number }) {
   return (
     <nav aria-label="File" className="sticky top-[106px] z-30 flex h-10 print:hidden flex-none items-stretch gap-1 border-b border-sand-200 bg-white px-4">
       {AREAS.map(([k, label]) => (
@@ -102,7 +102,7 @@ function ShellTabs({ fileId, area, toast, notes }: { fileId: string; area: Area;
           {label}{k === "notes" && notes > 0 && <span className="grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{notes}</span>}
         </Link>
       ))}
-      <FileToast msg={toast.msg} error={toast.error} />
+      <FileToast msg={toast.msg} error={toast.error} info={toast.info} />
     </nav>
   );
 }
@@ -123,7 +123,8 @@ export function PanelLink({ href, on, children, count, title }: { href: string; 
 // ---------------------------------------------------------------------------------------------------
 type SignProps = { fileId: string; step: string; st: StepStatus | undefined; names: Map<string, string>; me: string; isOwner: boolean; editable: boolean; back: string;
   preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right"; side?: "below" | "right";
-  sub?: string };   // round 23: a Banking sub-step (3.1, 3.2, 3.3), signed on its own
+  sub?: string;     // round 23: a Banking sub-step (3.1, 3.2, 3.3), signed on its own
+  subsOf?: { key: string; href: string; prepared: boolean; reviewed: boolean }[] };   // round 34: step 3 on a bank file, signed in its sub-steps
 
 function Circle({ kind, who, size }: { kind: "none" | "prepared" | "reviewed"; who?: string; size: "sm" | "lg" }) {
   const dim = size === "lg" ? "h-[26px] w-[26px] text-[10px]" : "h-[22px] w-[22px] text-[9px]";
@@ -155,13 +156,23 @@ export function SignCircles(p: SignProps) {
       <button type="submit" className="btn-secondary btn-compact">Take back my sign-off</button></form>
   );
   const problems = st?.problems ?? [];
+  // Round 34: step 3 on a bank file has no sign-off of its own. Its circles say what is left, in the normal info style.
+  const subsNote = (role: "prepared" | "reviewed") => {
+    const left = (p.subsOf ?? []).filter((x) => !x[role]);
+    return (
+      <div className="mt-2 rounded-md bg-navy-50 px-2.5 py-2 text-xs text-ink-2" data-step3-note>
+        <p>Step 3 is {role === "prepared" ? "complete" : "reviewed"} when 3.1, 3.2 and 3.3 are {role === "prepared" ? "signed" : "reviewed"}.</p>
+        {left.length > 0 && <p className="mt-1">Still to {role === "prepared" ? "sign" : "review"}: {left.map((x, i) => <span key={x.key}>{i > 0 && ", "}<Link href={x.href} className="font-semibold text-navy-700 underline">{x.key}</Link></span>)}</p>}
+      </div>
+    );
+  };
   const prep = !review && (
     <Popover align={align} side={side} label={prepared ? `Prepared by ${name(st!.prepared_by)} · ${formatDate(st!.prepared_at)}` : "Preparer: not signed"} button={<Circle kind={prepared ? "prepared" : "none"} who={name(st?.prepared_by)} size={size} />}>
       <p className="font-bold">{prepared ? `Prepared by ${name(st!.prepared_by)}` : "Preparer"}</p>
       <p className="text-ink-3">{prepared ? formatDate(st!.prepared_at) : "Not signed"}</p>
       {!prepared && problems.length > 0 && <ul className="mt-2 list-disc pl-4 text-xs text-ink-2">{problems.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
-      {!prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : signForm("prepared", "Sign as preparer"))}
-      {prepared && !reviewed && editable && st?.prepared_by === me && undo("prepared")}
+      {!prepared && p.subsOf ? subsNote("prepared") : !prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : signForm("prepared", "Sign as preparer"))}
+      {prepared && !reviewed && editable && st?.prepared_by === me && !p.subsOf && undo("prepared")}
     </Popover>
   );
   const rev = (
@@ -169,9 +180,9 @@ export function SignCircles(p: SignProps) {
       <p className="font-bold">{reviewed ? `Reviewed by ${name(st!.reviewed_by)}` : "Reviewer"}</p>
       <p className="text-ink-3">{reviewed ? formatDate(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
-      {!reviewed && editable && (isOwner ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
+      {!reviewed && p.subsOf ? subsNote("reviewed") : !reviewed && editable && (isOwner ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
         : <p className="mt-2 text-xs text-ink-3">Only owners review.</p>)}
-      {reviewed && editable && isOwner && undo("reviewed")}
+      {reviewed && editable && isOwner && !p.subsOf && undo("reviewed")}
     </Popover>
   );
   return <span className="inline-flex items-center gap-1.5">{prep}{rev}</span>;
