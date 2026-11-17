@@ -4,7 +4,7 @@
 #   1. Account links check, before (read-only; file ids and counts).
 #   2. BACKUP: a dated copy of every table in public (scripts/deploy/backup.sql).
 #   3. CHANGE: supabase db push (dry run shown first).
-#   4. CHECK: the account links check again; it must be 0 rows.
+#   4. CHECK: the account links check again; it must be 0 rows. Then the server key rights check; also 0 rows.
 #   5. If the change fails or the check is not 0: RESTORE from the backup in this same run, prove every
 #      table matches the backup, and stop with a failure. Nothing else runs.
 #   6. If all is well: FILES CHANGED, a count and a Studio link to each file, by comparing with the backup.
@@ -82,6 +82,13 @@ say "CHECK: account links check, after"
 N=$(problems)
 echo "CHECK result: $N problem row(s)."
 [[ "$N" == "0" ]] || restore_and_stop "the check after the change is $N, not 0"
+
+# Round 32 fix (Hashim, Nov 17, 2026): the server key's rights on every table, view, sequence and function in public,
+# the storage tables and the app's buckets. Any row is a right the app would be refused on: stop and restore.
+say "CHECK: server key rights"
+RIGHTS=$("${PSQL[@]}" -At -F ' ' -f scripts/checks/server-key-rights.sql)
+if [[ -n "$RIGHTS" ]]; then echo "$RIGHTS"; restore_and_stop "the server key is missing $(echo "$RIGHTS" | grep -c .) right(s)"; fi
+echo "Server key rights: all in place."
 
 trap - ERR
 say "FILES CHANGED"

@@ -24,10 +24,10 @@ export function QuestionsBoard({ token, cards: first }: { token: string; cards: 
   const TABS: [Tab, string][] = [["waiting", "Waiting for answer"], ["answered", "Answered"], ["all", "All"]];
   return (
     <div>
-      <div role="tablist" className="inline-flex rounded-xl bg-sand-100 p-1" data-cq-tabs>
+      <div role="tablist" className="flex w-full rounded-xl bg-sand-100 p-1 sm:inline-flex sm:w-auto" data-cq-tabs>
         {TABS.map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium ${tab === k ? "bg-surface text-navy-700 shadow-sm" : "text-ink-2 hover:text-ink"}`}>
+            className={`flex min-h-11 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-[13px] font-medium sm:flex-none sm:px-3 sm:text-sm ${tab === k ? "bg-surface text-navy-700 shadow-sm" : "text-ink-2 hover:text-ink"}`}>
             {label}<span className={`min-w-5 rounded-full px-1.5 text-xs tabular-nums ${tab === k ? "bg-navy-700 text-white" : "bg-sand-200 text-ink-2"}`}>{counts[k]}</span>
           </button>
         ))}
@@ -90,16 +90,16 @@ function Card({ token, c, onSent }: { token: string; c: CqCard; onSent: (e: CqCa
   const amount = `$${money(c.cents)}`;
   return (
     <article className="grid gap-5 rounded-2xl border border-sand-200 bg-surface p-5 shadow-[var(--shadow-card)] md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.2fr)] md:gap-0 md:p-6" data-cq-card={c.id}>
-      <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 text-sm md:pr-6">
-        <dt className="text-ink-3">Amount</dt><dd className="font-semibold tabular-nums text-ink">{amount} <span className="font-normal text-ink-3">{c.out ? "paid out" : "received"}</span></dd>
-        <dt className="text-ink-3">Date</dt><dd className="text-ink">{shortDate(c.date)}</dd>
+      <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm md:pr-6">
+        <dt className="text-ink-3">Amount</dt><dd className="text-ink"><span className="whitespace-nowrap font-semibold tabular-nums" data-nowrap>{amount}</span> <span className="whitespace-nowrap text-ink-3">{c.out ? "paid out" : "received"}</span></dd>
+        <dt className="text-ink-3">Date</dt><dd className="text-ink"><span className="whitespace-nowrap" data-nowrap>{shortDate(c.date)}</span></dd>
         <dt className="text-ink-3">Description</dt><dd className="break-words text-ink">{c.description}</dd>
         <dt className="text-ink-3">Account</dt><dd className="text-ink">{c.account}</dd>
       </dl>
       <div className="space-y-3 border-sand-200 text-sm md:border-l md:px-6" data-cq-thread>
         {c.thread.map((e, i) => (
           <div key={i} className={e.kind === "a" ? "rounded-lg bg-sand-50 px-3 py-2" : ""}>
-            <p className="text-xs text-ink-3">{e.kind === "q" ? "Q" : "Your answer"} · {when(e.at)}</p>
+            <p className="text-xs text-ink-3">{e.kind === "q" ? "Q" : "Your answer"} · <span className="whitespace-nowrap" data-nowrap>{when(e.at)}</span></p>
             <p className={`whitespace-pre-wrap ${e.kind === "q" && e === lastQ && c.waiting ? "font-semibold text-ink" : "text-ink-2"}`}>{e.body || (e.files.length ? "(file attached)" : "")}</p>
             {e.files.map((f) => <p key={f} className="mt-1 flex items-center gap-1.5 text-xs text-ink-2"><FileText className="h-3.5 w-3.5" aria-hidden />{f}</p>)}
           </div>
@@ -110,24 +110,24 @@ function Card({ token, c, onSent }: { token: string; c: CqCard; onSent: (e: CqCa
           <div className="space-y-3">
             <label className="block text-sm text-ink-2" htmlFor={`a-${c.id}`}>{lastQ?.body}</label>
             <textarea id={`a-${c.id}`} rows={3} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Enter your answer"
-              className="block w-full resize-y rounded-xl border border-sand-300 bg-white px-3 py-2 text-[15px] outline-none focus:border-navy-600 focus:ring-2 focus:ring-navy-100" />
+              className="block w-full resize-y rounded-xl border border-sand-300 bg-white px-3 py-2 text-base outline-none focus:border-navy-600 focus:ring-2 focus:ring-navy-100" />
             {files.length > 0 && (
               <ul className="space-y-1">
                 {files.map((f, i) => (
                   <li key={`${f.name}-${i}`} className="flex items-center gap-2 rounded-lg bg-sand-50 px-2 py-1 text-sm">
                     <FileText className="h-4 w-4 shrink-0 text-ink-3" aria-hidden /><span className="min-w-0 flex-1 truncate">{f.name}</span>
-                    <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))} className="rounded p-1 text-ink-3 hover:bg-sand-200 hover:text-ink"><X className="h-4 w-4" /></button>
+                    <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))} className="grid h-11 w-11 shrink-0 place-items-center rounded text-ink-3 hover:bg-sand-200 hover:text-ink"><X className="h-4 w-4" /></button>
                   </li>
                 ))}
               </ul>
             )}
             {err && <p role="alert" className="text-sm text-danger">{err}</p>}
-            <div className="flex items-center gap-4">
-              <button type="button" onClick={send} disabled={busy} className="rounded-xl bg-navy-700 px-5 py-2 font-semibold text-white hover:bg-navy-800 disabled:opacity-60">{busy ? "Sending…" : "Send"}</button>
-              <button type="button" onClick={() => pick.current?.click()} disabled={busy} className="inline-flex items-center gap-1.5 font-medium text-navy-700 hover:text-navy-800"><Paperclip className="h-4 w-4" aria-hidden />Attach file</button>
-              <input ref={pick} type="file" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic" onChange={(e) => add(e.target.files)} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <button type="button" onClick={send} disabled={busy} className="min-h-11 w-full rounded-xl bg-navy-700 px-5 font-semibold text-white hover:bg-navy-800 disabled:opacity-60 sm:w-auto">{busy ? "Sending…" : "Send"}</button>
+              <button type="button" onClick={() => pick.current?.click()} disabled={busy} className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-navy-200 font-medium text-navy-700 hover:text-navy-800 sm:w-auto sm:border-0 sm:px-1"><Paperclip className="h-4 w-4" aria-hidden />Attach file</button>
+              <input ref={pick} type="file" multiple hidden accept="image/*,application/pdf,.pdf,.heic,.heif" onChange={(e) => add(e.target.files)} />
             </div>
-            <p className="text-xs text-ink-3">PDF, JPG, PNG or HEIC. Up to 5 files, 10 MB each.</p>
+            <p className="text-xs text-ink-3">Take a photo of the receipt, or choose a photo or PDF. Up to 5 files, 10 MB each.</p>
           </div>
         ) : (
           <p className="flex items-center gap-2 text-sm font-medium text-success"><CheckCircle2 className="h-4 w-4" aria-hidden />{c.answered ? "Answered. Thank you." : "No answer needed now."}</p>

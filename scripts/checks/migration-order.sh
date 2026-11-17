@@ -29,6 +29,13 @@ if git rev-parse --verify -q "$BASE" >/dev/null; then
     else echo "  OUT OF ORDER: $m sorts before or equal to $last, the last migration on $BASE. Renumber it after $last."; fail=1; fi
   done
   [[ -z "$added" ]] && echo "  no new migrations"
+  # Round 32 (Nov 17, 2026): the deploy's restore puts every backed-up table back, so a migration must never drop a
+  # table or a column (a rehearsal on Test failed this way). Leave it unused instead.
+  for m in $added; do
+    if grep -inE '^[^-]*\b(drop[[:space:]]+table|drop[[:space:]]+column)\b' "supabase/migrations/$m" >/dev/null; then
+      echo "  DROPS A TABLE OR COLUMN: $m. The deploy's restore needs every table and column; leave it unused instead."; fail=1
+    fi
+  done
   # A migration already on main must not be renamed or removed: Live has recorded its number.
   gone=$(comm -23 <(git ls-tree --name-only "$BASE" supabase/migrations/ | xargs -n1 basename | sort) <(ls supabase/migrations | sort))
   if [[ -n "$gone" ]]; then echo "Migrations on $BASE that are missing or renamed here (Live has them): $gone"; fail=1; fi
