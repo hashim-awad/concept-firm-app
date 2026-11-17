@@ -15,8 +15,9 @@ import { setPeople } from "../../round16-actions";
 import { Drawer, FileToast, LeftPanel, Popover } from "./ui";
 import { StepMenu, type StepMenuProps } from "./step-menu";
 
-export type Area = "steps" | "tb" | "entries" | "notes" | "statements";
-export const AREAS: [Area, string][] = [["steps", "Steps"], ["tb", "Trial balance"], ["entries", "Entries"], ["notes", "Notes"], ["statements", "Statements"]];
+export type Area = "steps" | "tb" | "entries" | "reporting" | "notes" | "statements";
+// Round 32: Reporting sits after Entries (QuickBooks Online's Reports page).
+export const AREAS: [Area, string][] = [["steps", "Steps"], ["tb", "Trial balance"], ["entries", "Entries"], ["reporting", "Reporting"], ["notes", "Notes"], ["statements", "Statements"]];
 export type FileStatus = "Open" | "In progress" | "Ready for review" | "Reviewed" | "Locked";
 // Studio's fixed status colours: Signed green, Next blue, flags amber, notes red, Open grey.
 const STATUS_CLS: Record<FileStatus, string> = {
@@ -84,7 +85,7 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
       </header>
       <ShellTabs fileId={fileId} area={area} toast={toast} notes={notes} />
       <div className="flex flex-1">
-        <LeftPanel folded={folded}>{left}</LeftPanel>
+        {left !== null && <LeftPanel folded={folded}>{left}</LeftPanel>}
         {/* Card headings in small capitals on every file screen (round 15). */}
         <div className="cb-push min-w-0 flex-1 px-5 pt-3.5 pb-12 [&_.card]:rounded-[10px] [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
       </div>

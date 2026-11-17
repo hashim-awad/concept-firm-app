@@ -19,10 +19,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const pricing = canView(access, "pricing");
   // The Engagements badge (its Letters tab): every letter waiting for a signature (quotes, monthly quotes, new letters).
   // The gear's count: templates waiting for an owner's approval (owners only). The three counts load together.
-  const [{ count: leadsNew }, { data: lettersAwaiting }, drafts] = await Promise.all([
+  const [{ count: leadsNew }, { data: lettersAwaiting }, drafts, { count: bellUnread }] = await Promise.all([
     canView(access, "leads") ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : Promise.resolve({ count: 0 }),
     seeDocs || canView(access, "leads") ? supabase.rpc("letters_waiting_count") : Promise.resolve({ data: 0 }),
     access.is_owner && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
+    // Round 32: the bell (a client answered questions). Each person sees only their own notices.
+    supabase.from("staff_notices").select("id", { count: "exact", head: true }).is("read_at", null),
   ]);
   // The badge is the sum of the counts the gear menu shows, so the two always agree.
   const gear = gearMenu(access, drafts);
@@ -66,7 +68,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar name={access.full_name} role={access.role_name} initials={initials} clients={canView(access, "clients")} newItems={newItems}
-            gear={gear} drafts={draftTotal} signOut={signOut} />
+            gear={gear} drafts={draftTotal} bell={bellUnread ?? 0} signOut={signOut} />
           <MainArea>{children}</MainArea>
         </div>
       </div>

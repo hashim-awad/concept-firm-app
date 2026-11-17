@@ -32,9 +32,29 @@ async function getToken(): Promise<string> {
   return json.access_token;
 }
 
+// Round 32: can this app send through Microsoft 365 here? (The Notify client window shows Download only when not.)
+// MAIL_SINK_DIR (local tests only, never set on Live) writes each email to a file instead of sending it.
+export function mailReady(): { ok: true } | { ok: false; missing: string[] } {
+  if (process.env.MAIL_SINK_DIR && process.env.VERCEL_ENV !== "production") return { ok: true };
+  const missing = ["MS_TENANT_ID", "MS_CLIENT_ID", "MS_CLIENT_SECRET", "MAIL_FROM"].filter((k) => !process.env[k]);
+  return missing.length ? { ok: false, missing } : { ok: true };
+}
+
+export type MailAttachment = { name: string; contentType: string; base64: string };
+
 // from: the mailbox to send from (a staff member's own for signing emails); MAIL_FROM when not given.
-export async function sendMail(email: { to: string | string[]; subject: string; html: string; from?: string }) {
-  const from = email.from || required("MAIL_FROM");
+// Round 32: cc and attachments (the client questions email).
+export async function sendMail(email: { to: string | string[]; subject: string; html: string; from?: string; cc?: string[]; attachments?: MailAttachment[] }) {
+  const from = email.from || process.env.MAIL_FROM || (process.env.MAIL_SINK_DIR ? "system@example.test" : required("MAIL_FROM"));
+  if (process.env.MAIL_SINK_DIR && process.env.VERCEL_ENV !== "production") {
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    mkdirSync(process.env.MAIL_SINK_DIR, { recursive: true });
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    writeFileSync(`${process.env.MAIL_SINK_DIR}/${name}.json`, JSON.stringify({ from, to: email.to, cc: email.cc ?? [], subject: email.subject, html: email.html,
+      attachments: (email.attachments ?? []).map((a) => ({ name: a.name, contentType: a.contentType, bytes: Buffer.from(a.base64, "base64").length })) }, null, 2));
+    for (const a of email.attachments ?? []) writeFileSync(`${process.env.MAIL_SINK_DIR}/${name}-${a.name}`, Buffer.from(a.base64, "base64"));
+    return;
+  }
   const token = await getToken();
   const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(from)}/sendMail`, {
     method: "POST",
@@ -46,6 +66,8 @@ export async function sendMail(email: { to: string | string[]; subject: string; 
         from: { emailAddress: { address: from } },
         body: { contentType: "HTML", content: email.html },
         toRecipients: (Array.isArray(email.to) ? email.to : [email.to]).map((address) => ({ emailAddress: { address } })),
+        ...(email.cc?.length ? { ccRecipients: email.cc.map((address) => ({ emailAddress: { address } })) } : {}),
+        ...(email.attachments?.length ? { attachments: email.attachments.map((a) => ({ "@odata.type": "#microsoft.graph.fileAttachment", name: a.name, contentType: a.contentType, contentBytes: a.base64 })) } : {}),
       },
       saveToSentItems: true,
     }),

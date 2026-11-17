@@ -6,9 +6,10 @@
 // menus stay in the page and are hidden when closed, so Sign out and every link are there from the start.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BookCheck, Briefcase, Building2, ChevronDown, FileSignature, HelpCircle, Landmark, LogOut, Menu, Plus, Search, Settings, User, UserPlus } from "lucide-react";
+import { Bell, BookCheck, Briefcase, Building2, ChevronDown, FileSignature, HelpCircle, Landmark, LogOut, Menu, Plus, Search, Settings, User, UserPlus } from "lucide-react";
 import { ClientSearchDialog, useClientSearch } from "./client-search";
 import type { GearColumn } from "./admin/settings-menu";
+import { myNotices } from "./closebook/question-actions";
 
 // group: a small label shown above the items that share it (round 19: "New quote" with its three kinds).
 export type NewItem = { key: "lead" | "quote_t1" | "quote_corporate" | "proposal" | "letter" | "client" | "file"; label: string; href: string; group?: string };
@@ -27,12 +28,24 @@ export const SOP_LINKS: [string, string][] = [
   ["1.11 Month-End Review and Sign-Off", "https://app.notion.com/p/391ef6ac59e28045863af98c6caf1c60"],
 ];
 
-type Menu = "new" | "help" | "gear" | "me" | null;
+type Menu = "new" | "help" | "gear" | "me" | "bell" | null;
 
-export function TopBar({ name, role, initials, clients, newItems, gear, drafts, signOut }: {
-  name: string; role: string; initials: string; clients: boolean; newItems: NewItem[]; gear: GearColumn[]; drafts: number; signOut: () => Promise<void>;
+export function TopBar({ name, role, initials, clients, newItems, gear, drafts, bell = 0, signOut }: {
+  name: string; role: string; initials: string; clients: boolean; newItems: NewItem[]; gear: GearColumn[]; drafts: number; bell?: number; signOut: () => Promise<void>;
 }) {
   const [open, setOpen] = useState<Menu>(null);
+  // Round 32: the bell. Opening it reads the person's notices and marks them read.
+  const [unread, setUnread] = useState(bell);
+  const [seenBell, setSeenBell] = useState(bell);
+  if (seenBell !== bell) { setSeenBell(bell); setUnread(bell); }
+  const [notices, setNotices] = useState<{ id: string; title: string; href: string; at: string; unread: boolean }[] | null>(null);
+  const openBell = async () => {
+    toggle("bell");
+    if (open === "bell") return;
+    const r = await myNotices();
+    setNotices(r.ok ? r.list : []);
+    setUnread(0);
+  };
   const search = useClientSearch(clients);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -78,6 +91,26 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           )}
         </div>
       )}
+      <div className="relative">
+        <button type="button" onClick={openBell} aria-expanded={open === "bell"} aria-label={unread ? `Notifications, ${unread} new` : "Notifications"} title="Notifications" className={`${icon} ${open === "bell" ? "bg-navy-50 text-navy-900" : ""}`} data-bell>
+          <Bell className="h-[19px] w-[19px]" />
+          {unread > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-[#c2410c] px-1.5 text-[10px] leading-4 font-bold text-white" data-bell-count>{unread}</span>}
+        </button>
+        {open === "bell" && (
+          <div className={`${panel} right-0 w-96 py-2`} data-bell-panel>
+            <p className="px-4 pb-1.5 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">Notifications</p>
+            {notices === null && <p className="px-4 py-2 text-[13px] text-ink-3">Loading…</p>}
+            {notices?.length === 0 && <p className="px-4 py-2 text-[13px] text-ink-3">Nothing new.</p>}
+            {notices?.map((n) => (
+              <Link key={n.id} href={n.href || "#"} onClick={() => setOpen(null)} className="flex gap-2.5 px-4 py-2 hover:bg-navy-50">
+                <span className={`mt-1.5 h-2 w-2 flex-none rounded-full ${n.unread ? "bg-[#c2410c]" : "bg-transparent"}`} />
+                <span className="min-w-0 flex-1"><span className={`block text-[13.5px] ${n.unread ? "font-semibold text-ink" : "text-ink-2"}`}>{n.title}</span>
+                  <span className="block text-[12px] text-ink-3">{new Date(n.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span></span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
       <div className="relative">
         <button type="button" onClick={help} aria-label="Help" title="Help" className={icon}><HelpCircle className="h-[19px] w-[19px]" /></button>
         {open === "help" && (

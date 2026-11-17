@@ -19,6 +19,7 @@ import { TbArea } from "./areas/tb-area";
 import { entriesArea } from "./areas/entries-area";
 import { notesArea } from "./areas/notes-area";
 import { statementsArea } from "./areas/statements-area";
+import { ReportingBack, ReportingList, questionsReport } from "./areas/reporting-area";
 import { statements as fsStatements, trialBalance } from "@/lib/closebook/reports";
 import { ReviewNotes } from "./review-notes";
 import { loadHistory } from "@/lib/closebook/history";
@@ -320,7 +321,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     body = bankFile
       // Round 31 (Hashim, Nov 17, 2026): QuickBooks Online's Bank transactions page (Pending, Posted, Excluded).
       ? <BankFeed data={await loadFeed(supabase, { id, client_id: file.client_id, year_start: file.year_start, year_end: file.year_end }, client?.province ?? "ON", setup)}
-          editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} initialAccount={str(sp.account)} focusLine={str(sp.line) ?? null} initialRules={str(sp.rules) === "1"} />
+          editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} initialAccount={str(sp.account)} focusLine={str(sp.line) ?? null} initialRules={str(sp.rules) === "1"} openAsk={str(sp.ask) === "1"} />
       : tb("code", ["accounts", "lines"], "accounts", false);   // the uploads stay on step 3 (round 8b item 8)
     // Round 24: a line's accounting date and memo, from step 4 (the date opens it).
     if (bankFile && str(sp.ln) && editable && file.phase !== "locked") {
@@ -497,7 +498,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const rdata = await rdataP;
   const netCents = accounts.length ? fsStatements(trialBalance(rdata.accounts, rdata.postings), rdata.info).pl.net.now : null;
   const openNotes = review.notes.filter((n) => n.status !== "cleared").length;
-  const area: Area = report ? "tb" : (AREAS.find(([k]) => k === str(sp.area))?.[0] ?? "steps");
+  const area: Area = str(sp.area) === "reporting" ? "reporting" : report ? "tb" : (AREAS.find(([k]) => k === str(sp.area))?.[0] ?? "steps");
 
   // The left panel follows the tab.
   const stepRail = (
@@ -550,6 +551,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag} />;
+  } else if (area === "reporting") {
+    // Round 32: the Reporting tab. A report opens full page with "‹ Reporting" at the top left.
+    left = null; folded = null;
+    content = str(sp.report) === "questions"
+      ? await questionsReport({ supabase, fileId: id, editable: editable && file.phase !== "locked", sp: { acct: str(sp.qacct), status: str(sp.qstatus) } })
+      : report
+        ? <><ReportingBack fileId={id} /><ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
+            data={rdata} yearEnd={file.year_end} yearStart={file.year_start} todo={[]} /></>
+        : <ReportingList fileId={id} />;
   } else if (area === "entries") {
     const std = file.file_type === "full" ? (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name })) : [];
     const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],

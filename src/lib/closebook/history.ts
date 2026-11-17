@@ -35,6 +35,8 @@ export const ACTION: Record<string, string> = {
   // Round 31, step 4 (QuickBooks Online's Bank transactions page).
   line_excluded: "Line excluded", line_restored: "Line back to Pending", line_answer: "Client's answer", line_file: "Receipt attached", pair_unpaired: "Unpaired",
   rule_saved: "Bank rule", excluded_reviewed: "Excluded lines reviewed",
+  // Round 32: questions to the client.
+  line_question: "Question to the client", questions_sent: "Client notified", questions_marked_sent: "Questions marked as sent", client_answer: "Client answered",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };

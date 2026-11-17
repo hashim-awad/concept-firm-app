@@ -34,6 +34,7 @@ export const TEMPLATE_INFO: Record<string, [TemplateTab, string]> = {
   propemail: ["emails", "The email that sends a monthly quote for signing."],
   cbchecklist: ["closebook", "Answered on step 10 of each Closebook file, before the file is locked. Not sent to clients."],
   cbclientlist: ["closebook", "The list of our entries, for clients who keep their own books."],
+  cbquestionsemail: ["closebook", "The email that sends the client their questions about bank and card lines, from Closebook's Client questions report or step 4."],
   memo: ["closebook", "Kept in the client's file for each compilation. Not sent to clients."],
 };
 

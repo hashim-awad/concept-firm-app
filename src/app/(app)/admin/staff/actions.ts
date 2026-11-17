@@ -74,9 +74,12 @@ export async function setActive(formData: FormData) {
 }
 
 // Phone for the sender block on quote emails. A person can set their own; staff-account editors set others'.
+// Round 32: the same form saves the credentials and title shown under the name on the client questions email.
 export async function savePhone(formData: FormData) {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("update_staff_phone", { p_staff_id: String(formData.get("staff_id") ?? ""), p_phone: String(formData.get("phone") ?? "") });
+  const id = String(formData.get("staff_id") ?? "");
+  let { error } = await supabase.rpc("update_staff_phone", { p_staff_id: id, p_phone: String(formData.get("phone") ?? "") });
+  if (!error && formData.has("credentials")) ({ error } = await supabase.rpc("update_staff_signature", { p_staff_id: id, p_credentials: String(formData.get("credentials") ?? ""), p_title: String(formData.get("title") ?? "") }));
   revalidatePath("/admin/team");
-  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Phone saved."));
+  redirect(withMessage(PAGE, error ? "error" : "msg", error ? error.message : "Saved."));
 }

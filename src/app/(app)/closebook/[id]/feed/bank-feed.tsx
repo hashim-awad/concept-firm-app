@@ -4,7 +4,7 @@
 // lines are ticked. Nothing posts until a line is posted. The page keeps its own list: posting, ticking, editing and
 // paging never reload it; the counts, cards and trial balance update at once.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Download, MessageSquare, Paperclip, Plus, Printer, Search, Settings, Check, X } from "lucide-react";
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Paperclip, Plus, Printer, Search, Settings, Check, X } from "lucide-react";
 import { notify } from "@/components/save-state";
 import { formatDate } from "@/lib/dates";
 import { splitLine } from "@/lib/closebook/sales-tax";
@@ -14,17 +14,20 @@ import {
   type BankRule, type FeedAccount, type FeedLine, type FilterKey, type PostItem, type RowView,
 } from "@/lib/closebook/bank-feed";
 import { AccountPicker, type Pick } from "./account-picker";
-import { AskWindow, EXCLUDE_REASONS, EditWindow, ExcludeWindow, FLD, PairWindow, Pop, SplitWindow, TaxSelect, money, type EditChoice } from "./windows";
+import { EXCLUDE_REASONS, EditWindow, ExcludeWindow, FLD, PairWindow, Pop, SplitWindow, TaxSelect, money, type EditChoice } from "./windows";
 import { RulePane, RulesPage, blankRule, type RuleDraft } from "./rules";
+import { AskManyWindow, QIcon, QuestionPop, type Saved } from "./questions";
+import { NotifyWindow } from "./notify-window";
+import { addSavedQuestion, askQuestions, getThreads, removeSavedQuestion, savedQuestions } from "../../question-actions";
 import {
-  askClientLines, attachReceipt, clearSplits, excludeLines, excludedReviewed, exportList, fillLines, getLines, pairChoice, postLines, receiptUrl, reorderRules, restoreLines,
-  ruleAction, saveRule, saveSplits, setClientAnswer, setDate, setMemo, unpostLines,
+  attachReceipt, clearSplits, excludeLines, excludedReviewed, exportList, fillLines, getLines, pairChoice, postLines, receiptUrl, reorderRules, restoreLines,
+  ruleAction, saveRule, saveSplits, setDate, setMemo, unpostLines,
 } from "../../feed-actions";
 
 type Tab = "pending" | "posted" | "excluded";
 type Win = { k: "edit" } | { k: "split"; id: string } | { k: "ask"; ids: string[] } | { k: "exclude"; ids: string[] } | { k: "pair"; id: string }
   | { k: "rule"; draft: RuleDraft; id: string | null; from?: string } | null;
-type PopState = { k: "dates" | "settings" | "filter"; el: HTMLElement } | { k: "date" | "memo" | "files"; el: HTMLElement; id: string } | null;
+type PopState = { k: "dates" | "settings" | "filter"; el: HTMLElement } | { k: "date" | "files" | "q"; el: HTMLElement; id: string } | null;
 const fmtSigned = (c: number) => `${c < 0 ? "−" : ""}${money(c)}`;
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -37,8 +40,8 @@ function useStored<T>(key: string, initial: T): [T, (v: T) => void] {
   return [v, (x: T) => { try { localStorage.setItem(key, JSON.stringify(x)); window.dispatchEvent(new Event(STORE_EVENT)); } catch { /* this visit only */ } }];
 }
 
-export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine, initialRules = false }: {
-  data: FeedData; editable: boolean; isReviewer: boolean; initialAccount?: string; focusLine?: string | null; initialRules?: boolean;
+export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine, initialRules = false, openAsk = false }: {
+  data: FeedData; editable: boolean; isReviewer: boolean; initialAccount?: string; focusLine?: string | null; initialRules?: boolean; openAsk?: boolean;
 }) {
   const accounts = data.accounts;
   const [lines, setLines] = useState<FeedLine[]>(data.lines);
@@ -67,6 +70,11 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const [win, setWin] = useState<Win>(null);
   const [pop, setPop] = useState<PopState>(null);
   const [busy, setBusy] = useState(false);
+  // Round 32: the questions to the client, saved questions, the open row (memo) and Notify client.
+  const [threads, setThreads] = useState(data.threads);
+  const [saved, setSaved] = useState<Saved[] | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  const [notifyIds, setNotifyIds] = useState<string[] | null | false>(false);
 
   const accById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const chartOf = useMemo(() => new Map(data.chart.map((c) => [c.number, c])), [data.chart]);
@@ -102,7 +110,12 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const viewKey = JSON.stringify([acc, tab, q, filter, dates, size]);
   const [seenKey, setSeenKey] = useState(viewKey);
   if (seenKey !== viewKey) { setSeenKey(viewKey); setPage(1); setTicked(new Set()); }
-  useEffect(() => { if (focus) setTimeout(() => document.getElementById(`line-${focus.id}`)?.scrollIntoView({ block: "center" }), 50); }, [focus]);
+  useEffect(() => { if (focus) setTimeout(() => {
+    document.getElementById(`line-${focus.id}`)?.scrollIntoView({ block: "center" });
+    // From the Client questions report: the line's question box, open.
+    const el = openAsk ? document.getElementById(`q-${focus.id}`) : null;
+    if (el) setTimeout(() => setPop({ k: "q", el, id: focus.id }), 150);
+  }, 50); }, [focus, openAsk]);
   const pendingCount = mine.filter(isPending).length;
 
   // ---------- Talking to the server
@@ -114,6 +127,35 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
     setSplits((s) => { const n = { ...s }; for (const id of ids) { if (r.splits[id]) n[id] = r.splits[id]; else delete n[id]; } return n; });
   }, [data.fileId]);
   const fail = (e: string) => { notify(e, "error"); };
+
+  // ---------- Round 32: asking the client (posts nothing)
+  const loadSaved = useCallback(async () => {
+    if (saved) return;
+    const r = await savedQuestions();
+    setSaved(r.ok ? r.list : []);
+  }, [saved]);
+  const askLines = async (ids: string[], text: string) => {
+    const r = await askQuestions(data.fileId, ids, text);
+    if (!r.ok) { fail(r.error); return false; }
+    setLines((ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, q_status: "not_sent" } : l)));
+    const t = await getThreads(data.fileId, ids);
+    if (t.ok) setThreads((x) => ({ ...x, ...t.threads }));
+    setTicked(new Set());
+    notify(ids.length === 1 ? "Question added" : `Question added to ${ids.length} lines`, "ok", { ms: 8000, action: { label: "Notify now", run: () => setNotifyIds(ids) } });
+    return true;
+  };
+  const saveQuestion = async (text: string) => {
+    const r = await addSavedQuestion(text);
+    if (!r.ok) { fail(r.error); return; }
+    setSaved((x) => [...(x ?? []), { id: r.id, body: text }]);
+    notify("Added to saved questions");
+  };
+  const removeQuestion = async (id: string) => {
+    setSaved((x) => (x ?? []).filter((q) => q.id !== id));
+    const r = await removeSavedQuestion(id);
+    if (!r.ok) fail(r.error);
+  };
+  const openQ = (id: string, el: HTMLElement) => { void loadSaved(); setPop({ k: "q", el, id }); };
 
   // What posting does to the lines, at once (the server's answer then replaces them).
   const applyLocal = useCallback((ls: FeedLine[], items: PostItem[]) => {
@@ -335,7 +377,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   );
 
   const rowCtx = makeCtx({ views, outOf, cols, itcOf, accShort, a, accById, accountText, ticked, focus, editable, toggle, setPop, data, splits, setWin, fill, post: (ids) => post(ids),
-    fromRow, fail, setChoices, setLines, accounts, attach });
+    fromRow, fail, setChoices, setLines, accounts, attach, threads, openQ, openRow, setOpenRow });
   const th = "px-2 py-2 text-left text-[12px] font-semibold tracking-[.04em] text-ink-3 uppercase";
   const thR = `${th} text-right`;
   return (
@@ -366,6 +408,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
               className={`-mb-px border-b-2 px-3 py-2 text-[14px] ${tab === k ? "border-navy-700 font-semibold text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>{l}</button>))}
           <span className="flex-1" />
+          {editable && <button type="button" onClick={() => setNotifyIds(null)} className="mr-4 mb-2 text-[14px] font-semibold text-navy-700 hover:underline" data-step4-notify>Notify client</button>}
           <button type="button" onClick={() => setView("rules")} className="mb-2 text-[14px] font-semibold text-navy-700 hover:underline">Rules</button>
         </div>
 
@@ -409,19 +452,20 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                 <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all on this page" checked={allTicked} disabled={!editable || !shown.length}
                   onChange={() => setTicked((t) => { const n = new Set(t); if (allTicked) pageIds.forEach((id) => n.delete(id)); else pageIds.forEach((id) => n.add(id)); return n; })} /></th>
                 <th className={th}>Date</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
-                {cols.clip && <th className={th} aria-label="Receipts">📎</th>}{cols.memo && <th className={th} aria-label="Memo">💬</th>}
+                {cols.clip && <th className={th} aria-label="Receipts">📎</th>}{cols.memo && <th className={th} aria-label="Questions to the client" title="Questions to the client">💬</th>}
                 <th className={th}>Sales tax</th><th className={th}>Account</th>{cols.itc && <th className={thR}>ITC</th>}<th className={thR}>Action</th></tr></thead>
               <tbody>{shown.map((l) => <PendingRow key={l.id} l={l} c={rowCtx} />)}</tbody>
             </> : tab === "posted" ? <>
-              <colgroup><col className="w-[7.6rem]" /><col /><col className="w-[6.4rem]" /><col className="w-[6.4rem]" /><col className="w-[9.5rem]" /><col className="w-[19rem]" /><col className="w-[5.5rem]" /><col className="w-[5rem]" /></colgroup>
+              <colgroup><col className="w-[7.6rem]" /><col /><col className="w-[6.4rem]" /><col className="w-[6.4rem]" /><col className="w-9" /><col className="w-[9.5rem]" /><col className="w-[19rem]" /><col className="w-[5.5rem]" /><col className="w-[5rem]" /></colgroup>
               <thead><tr className="border-b border-sand-200"><th className={th}>Date</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
-                <th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Posted</th><th className={thR}>Action</th></tr></thead>
+                <th className={th} aria-label="Questions to the client">💬</th><th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Posted</th><th className={thR}>Action</th></tr></thead>
               <tbody>{shown.map((l) => {
                 const out = outOf(l);
                 return (
                   <tr key={l.id} id={`line-${l.id}`} className={`h-12 border-b border-sand-100 ${focus?.id === l.id ? "bg-navy-50" : ""}`}>
                     <td className="px-2 tabular-nums">{formatDate(l.acct_date)}</td><td className="truncate px-2" title={l.description}>{l.description}</td>
                     <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td><td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
+                    <td className="px-1 text-center">{(threads[l.id]?.length ?? 0) > 0 && <QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} onOpen={(el) => openQ(l.id, el)} />}</td>
                     <td className="truncate px-2">{taxName(l)}</td>
                     <td className="truncate px-2" title={l.reviewer_reason || accountText(l)}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
                       {!l.transfer && (l.source === "rule" || l.source === "auto") && <span title={rules.find((r) => r.id === l.rule_id)?.name ?? "Bank rule"} className="mr-1.5 rounded bg-sand-200 px-1.5 py-0.5 text-[11px] font-bold text-ink-2">RULE</span>}
@@ -462,7 +506,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
           {([["Post", () => post([...ticked]), notReady > 0, notReady ? `${notReady} ticked line${notReady === 1 ? " has" : "s have"} no account.` : undefined],
             ["Edit", () => setWin({ k: "edit" }), !(allOut || allIn), allOut || allIn ? undefined : "Tick money in or money out lines, not both."],
             ["Exclude", () => setWin({ k: "exclude", ids: [...ticked] }), false, undefined],
-            ["Ask client", () => setWin({ k: "ask", ids: [...ticked] }), false, undefined]] as const).map(([label, run, off, why]) => (
+            ["Ask client", () => { void loadSaved(); setWin({ k: "ask", ids: [...ticked] }); }, false, undefined]] as const).map(([label, run, off, why]) => (
             <span key={label} title={why} className="inline-flex"><button type="button" disabled={off || busy || !editable} onClick={run}
               className="h-9 rounded-[6px] border border-white/80 px-4 font-semibold text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:border-white/30 disabled:text-white/40 disabled:hover:bg-transparent">{label}</button></span>))}
           <button type="button" aria-label="Clear the ticks" onClick={() => setTicked(new Set())} className="ml-3 grid h-9 w-9 place-items-center rounded-full hover:bg-white/15"><X className="h-5 w-5" /></button>
@@ -503,14 +547,14 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
           onRemove={l.is_split ? async () => { const r = await clearSplits(l.id); if (!r.ok) fail(r.error); await refresh([l.id]); setWin(null); } : undefined}
           onSave={async (rs) => { const r = await saveSplits(l.id, rs); if (!r.ok) { fail(r.error); return false; } await refresh([l.id]); notify(`Split in ${rs.length}`); return true; }} />;
       })()}
-      {win?.k === "ask" && <AskWindow lines={win.ids.map((id) => byId.get(id)!).map((l) => ({ date: l.acct_date, description: l.description, cents: l.cents }))} onClose={() => setWin(null)}
-        onSend={async (question) => {
-          const r = await askClientLines(data.fileId, win.ids, question);
-          if (!r.ok) { fail(r.error); return false; }
-          const now = new Date().toISOString();
-          setLines((ls) => ls.map((l) => (win.ids.includes(l.id) ? { ...l, asked_at: now, client_question: question } : l)));
-          setTicked(new Set()); notify(`On the client's list: ${win.ids.length} line${win.ids.length === 1 ? "" : "s"}`); return true;
-        }} />}
+      {win?.k === "ask" && <AskManyWindow n={win.ids.length} saved={saved} onClose={() => setWin(null)} onSend={(t) => askLines(win.ids, t)} onSave={saveQuestion} onRemove={removeQuestion} />}
+      {notifyIds !== false && <NotifyWindow fileId={data.fileId} lineIds={notifyIds} onClose={() => setNotifyIds(false)} onSent={(who) => {
+        const ids = notifyIds;
+        setNotifyIds(false);
+        notify(`Sent to ${who}`);
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && isPending(l) ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
+      }} />}
       {win?.k === "exclude" && <ExcludeWindow n={win.ids.length} onClose={() => setWin(null)} onExclude={async (reason, note) => {
         const r = await excludeLines(data.fileId, win.ids, reason, note);
         if (!r.ok) { fail(r.error); return false; }
@@ -536,7 +580,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         <fieldset className="grid gap-1.5"><legend className="mb-1 font-semibold">Rows per page</legend>
           {[50, 100, 300].map((n) => <label key={n} className="flex items-center gap-2"><input type="radio" name="size" checked={size === n} onChange={() => setSize(n)} />{n}</label>)}</fieldset>
         <fieldset className="grid gap-1.5"><legend className="mb-1 font-semibold">Columns</legend>
-          {([["itc", "ITC"], ["clip", "📎 Receipts"], ["memo", "💬 Memo"]] as const).map(([k, l]) => <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={cols[k]} onChange={(e) => setCols({ ...cols, [k]: e.target.checked })} />{l}</label>)}</fieldset>
+          {([["itc", "ITC"], ["clip", "📎 Receipts"], ["memo", "💬 Questions"]] as const).map(([k, l]) => <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={cols[k]} onChange={(e) => setCols({ ...cols, [k]: e.target.checked })} />{l}</label>)}</fieldset>
       </Pop>}
       {pop?.k === "date" && <DateBox anchor={pop.el} line={byId.get(pop.id)!} yearStart={data.yearStart} yearEnd={data.yearEnd} onClose={() => setPop(null)} onSave={async (d) => {
         const l = byId.get(pop.id)!;
@@ -545,13 +589,12 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         const r = await setDate(data.fileId, l.id, d, isPosted(l));
         if (!r.ok) { fail(r.error); await refresh([l.id]); } else notify("Date changed");
       }} />}
-      {pop?.k === "memo" && <MemoBox anchor={pop.el} line={byId.get(pop.id)!} editable={editable} onClose={() => setPop(null)} onSave={async (memo, answer) => {
+      {pop?.k === "q" && byId.get(pop.id) && (() => {
         const l = byId.get(pop.id)!;
-        setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo, client_answer: answer } : x)));
-        setPop(null);
-        if (memo !== l.memo) { const r = await setMemo(l.id, memo); if (!r.ok) fail(r.error); }
-        if (answer !== l.client_answer) { const r = await setClientAnswer(l.id, answer); if (!r.ok) fail(r.error); }
-      }} />}
+        return <QuestionPop anchor={pop.el} line={{ date: l.acct_date, description: l.description, amount: money(l.cents) }} thread={threads[l.id] ?? []} status={l.q_status ?? ""}
+          canAsk={editable && isPending(l)} saved={saved} onClose={() => setPop(null)} onSave={saveQuestion} onRemove={removeQuestion}
+          onSend={async (t) => { const ok = await askLines([l.id], t); if (ok) setPop(null); return ok; }} />;
+      })()}
       {pop?.k === "files" && <Pop anchor={pop.el} onClose={() => setPop(null)} width={300}>
         <span className="font-semibold">Receipts</span>
         <ul className="grid gap-1">{(files[pop.id] ?? []).map((f) => <li key={f.id}><button type="button" className="text-left text-navy-700 underline"
@@ -618,20 +661,6 @@ function DateBox({ anchor, line, yearStart, yearEnd, onClose, onSave }: { anchor
   );
 }
 
-function MemoBox({ anchor, line, editable, onClose, onSave }: { anchor: HTMLElement; line: FeedLine; editable: boolean; onClose: () => void; onSave: (memo: string, answer: string) => void }) {
-  const [memo, setMemoV] = useState(line.memo), [answer, setAnswer] = useState(line.client_answer);
-  return (
-    <Pop anchor={anchor} onClose={onClose} width={340} align="right">
-      <label className="grid gap-1 font-semibold">Memo<textarea aria-label="Memo" value={memo} onChange={(e) => setMemoV(e.target.value)} maxLength={300} rows={2} disabled={!editable} className="input font-normal" /></label>
-      {line.asked_at && <>
-        <p className="text-[13px]"><span className="font-semibold">Asked the client</span> on {formatDate(line.asked_at.slice(0, 10))}: {line.client_question}</p>
-        <label className="grid gap-1 font-semibold">The client&rsquo;s answer<textarea aria-label="The client's answer" value={answer} onChange={(e) => setAnswer(e.target.value)} maxLength={1000} rows={2} disabled={!editable} className="input font-normal" /></label></>}
-      {editable && <div className="flex justify-end gap-2"><button type="button" className="btn-secondary btn-compact" onClick={onClose}>Cancel</button>
-        <button type="button" className="btn btn-compact" onClick={() => onSave(memo.trim(), answer.trim())}>Save</button></div>}
-    </Pop>
-  );
-}
-
 type RowCtx = ReturnType<typeof makeCtx>;
 // The parts of the page a row needs (a row is its own component, so ticking or opening a menu redraws one row).
 function makeCtx(x: {
@@ -642,10 +671,13 @@ function makeCtx(x: {
   post: (ids: string[]) => Promise<boolean>; fromRow: (l: FeedLine) => RuleDraft; fail: (e: string) => void;
   setChoices: React.Dispatch<React.SetStateAction<FeedData["choices"]>>; setLines: React.Dispatch<React.SetStateAction<FeedLine[]>>; accounts: FeedAccount[];
   attach: (lineId: string, f: File) => Promise<void>;
+  threads: FeedData["threads"]; openQ: (id: string, el: HTMLElement) => void; openRow: string | null; setOpenRow: (id: string | null) => void;
 }) { return x; }
 
 function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
-  const { views, outOf, cols, itcOf, accShort, a, accById, accountText, ticked, focus, editable, toggle, setPop, data, splits, setWin, fill, post, fromRow, fail, setChoices, setLines, accounts, attach } = c;
+  const { views, outOf, cols, itcOf, accShort, a, accById, accountText, ticked, focus, editable, toggle, setPop, data, splits, setWin, fill, post, fromRow, fail, setChoices, setLines, accounts, attach,
+    threads, openQ, openRow, setOpenRow } = c;
+  const isOpen = openRow === l.id;
   const v = views.get(l.id)!;
   const out = outOf(l);
   const transferish = !!v.pair || !!v.transfer;
@@ -657,23 +689,24 @@ function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
     : v.badge === "firm" ? <span title="Firm rule (Settings)" className="rounded bg-sand-200 px-1.5 py-0.5 text-[10.5px] font-bold text-ink-2">RULE</span> : null;
   const label = v.pair?.kind === "pair" ? accShort(v.pair.other.account_id)
     : v.pair?.kind === "already" ? `Already posted from ${accShort(v.pair.other.account_id)}` : accountText(l, v);
-  return (
-    <tr id={`line-${l.id}`} className={`h-12 border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id ? "bg-navy-50" : ""}`}>
+  return (<>
+    <tr id={`line-${l.id}`} className={`h-12 border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id || isOpen ? "bg-navy-50" : ""}`}>
       <td className="px-2"><input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)} disabled={!editable} onChange={() => toggle(l.id)} /></td>
       <td className="px-2 whitespace-nowrap tabular-nums">
         <button type="button" disabled={!editable} title={l.acct_date !== l.txn_date ? `Bank date: ${formatDate(l.txn_date)}` : "Change the accounting date"}
           onClick={(e) => setPop({ k: "date", el: e.currentTarget, id: l.id })} className="inline-flex items-center gap-1 hover:underline">
           {formatDate(l.acct_date)}<Calendar className="h-3.5 w-3.5 text-ink-3" />{l.acct_date !== l.txn_date && <span className="text-[11px] text-warning">•</span>}</button></td>
       <td className="truncate px-2" title={`${l.description}${l.reviewer_reason ? `\nFor the reviewer: ${l.reviewer_reason}` : ""}`}>
-        {l.reviewer_reason && <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warning align-middle" aria-label="For the reviewer" />}{l.description}</td>
+        {/* Round 32: the row opens (QuickBooks Online) to show the memo. */}
+        <button type="button" aria-expanded={isOpen} aria-label={`${isOpen ? "Close" : "Open"} ${l.description}`} onClick={() => setOpenRow(isOpen ? null : l.id)} className="mr-1 inline-grid h-5 w-5 place-items-center rounded align-middle text-ink-3 hover:bg-sand-100">
+          {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</button>
+        {l.reviewer_reason && <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warning align-middle" aria-label="For the reviewer" />}{l.description}{l.memo && <span className="ml-2 text-[12px] text-ink-3">· {l.memo}</span>}</td>
       <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td>
       <td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
       {cols.clip && <td className="px-1 text-center">{l.files ? <button type="button" aria-label={`${l.files} receipt${l.files === 1 ? "" : "s"}`} onClick={(e) => setPop({ k: "files", el: e.currentTarget, id: l.id })}
         className="inline-flex items-center text-navy-700"><Paperclip className="h-4 w-4" /><span className="text-[11px] font-bold">{l.files}</span></button>
         : editable ? <AttachButton label="Attach a receipt" icon onFile={(f) => attach(l.id, f)} /> : null}</td>}
-      {cols.memo && <td className="px-1 text-center"><button type="button" aria-label={l.memo || l.asked_at ? "Memo" : "Add a memo"} title={[l.memo, l.asked_at ? `Asked: ${l.client_question}` : "", l.client_answer ? `Client: ${l.client_answer}` : ""].filter(Boolean).join("\n") || "Add a memo"}
-        onClick={(e) => setPop({ k: "memo", el: e.currentTarget, id: l.id })} className={l.memo || l.asked_at ? "text-navy-700" : "text-ink-3 hover:text-navy-700"}>
-        {l.memo || l.asked_at ? <MessageSquare className={`h-4 w-4 ${l.client_answer ? "fill-navy-100" : ""}`} /> : <Plus className="h-4 w-4" />}</button></td>}
+      {cols.memo && <td className="px-1 text-center"><QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} disabled={!editable} onOpen={(el) => openQ(l.id, el)} /></td>}
       <td className="px-1.5">{transferish || v.split ? <span className="block truncate px-1 text-ink-3">{v.split ? "Split" : "No tax"}</span>
         : <TaxSelect codes={data.codes} value={v.tax ?? ""} disabled={!editable || !data.gstAnswered || !v.account} label={`Sales tax for ${l.description}`}
           onChange={(t) => fill([l.id], { account: v.account! }, t || null)} />}</td>
@@ -692,7 +725,7 @@ function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
         <span className="mx-1.5 text-sand-300">|</span>
         <button type="button" aria-label={`More actions for ${l.description}`} onClick={() => setMenu(!menu)} className="text-navy-700">▾</button>
         {menu && <span className="card absolute right-1 z-30 mt-1 grid w-max gap-0.5 p-1.5 text-left" onMouseLeave={() => setMenu(false)}>
-          {([["Ask client", () => setWin({ k: "ask", ids: [l.id] })], ["Exclude", () => setWin({ k: "exclude", ids: [l.id] })],
+          {([["Ask client", () => { const el = document.getElementById(`q-${l.id}`); if (el) openQ(l.id, el); else setWin({ k: "ask", ids: [l.id] }); }], ["Exclude", () => setWin({ k: "exclude", ids: [l.id] })],
             ["Split", () => setWin({ k: "split", id: l.id })], ["Save as rule", () => setWin({ k: "rule", draft: fromRow(l), id: null, from: l.id })],
             ...(v.pair ? [["Unpair", async () => {
               const others = v.pair!.kind === "options" ? v.pair!.options.map((o) => o.id) : [v.pair!.other.id];
@@ -703,6 +736,30 @@ function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
             }] as const] : [])] as [string, () => void][]).map(([t, run]) => (
             <button key={t} type="button" className="rounded px-3 py-1 hover:bg-sand-100" onClick={() => { setMenu(false); run(); }}>{t}</button>))}
         </span>}</>}</td>
+    </tr>
+    {isOpen && <OpenRow l={l} span={6 + (cols.clip ? 1 : 0) + (cols.memo ? 1 : 0) + (cols.itc ? 1 : 0)} editable={editable} fail={fail} setLines={setLines} />}
+  </>);
+}
+
+// Round 32: the open row, as QuickBooks Online's: the bank details and the memo.
+function OpenRow({ l, span, editable, fail, setLines }: { l: FeedLine; span: number; editable: boolean; fail: (e: string) => void; setLines: React.Dispatch<React.SetStateAction<FeedLine[]>> }) {
+  const [memo, setMemoV] = useState(l.memo);
+  const [busy, setBusy] = useState(false);
+  return (
+    <tr className="border-b border-sand-200 bg-navy-50/40" data-open-row={l.id}>
+      <td />
+      <td colSpan={span} className="px-2 py-3">
+        <div className="flex flex-wrap items-end gap-4 text-[13px]">
+          <p className="text-ink-2">Bank date <b className="font-semibold text-ink">{formatDate(l.txn_date)}</b>{l.posted_date && l.posted_date !== l.txn_date && <> · Posting date <b className="font-semibold text-ink">{formatDate(l.posted_date)}</b></>}</p>
+          <label className="grid min-w-[22rem] flex-1 gap-1 font-semibold">Memo
+            <input aria-label="Memo" value={memo} maxLength={300} disabled={!editable} onChange={(e) => setMemoV(e.target.value)} className={`${FLD} font-normal`} placeholder="A note for the books (the client does not see it)" /></label>
+          {editable && <button type="button" className="btn btn-compact" disabled={busy || memo.trim() === l.memo} onClick={async () => {
+            setBusy(true); const m = memo.trim(); const r = await setMemo(l.id, m); setBusy(false);
+            if (!r.ok) { fail(r.error); return; }
+            setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Memo saved");
+          }}>Save memo</button>}
+        </div>
+      </td>
     </tr>
   );
 }
