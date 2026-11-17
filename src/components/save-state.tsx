@@ -8,7 +8,9 @@
 //   <DiscardButton dirty onDiscard />    "Discard changes", shown only while dirty
 //   useUnsavedGuard(dirty, opts)  leaving (a link, a step or tab, another form's submit, closing the tab) asks
 //                                 "Save your changes?" with Save, Discard and Stay
-//   notify(text)                  the note in the bottom-left corner for 4 seconds; <NoteHost/> sits once in the app layout
+//   notify(text, tone)            the note: a pill centred low on the screen (Hashim, Nov 17, 2026; benchmark Fathom). Green
+//                                 with a check, gone after 3 seconds; red with an ✕, stays until closed. One at a time.
+//                                 <NoteHost/> sits once in the app layout
 //   <SaveForm action ...>         a server-action form with all of the above built in, for forms that post and redirect
 //   <SaveFormButton/>, <SaveFormDiscard/>  its Save and Discard buttons
 //   <UrlNote text/>               shows a page's ?msg= as the note and takes it out of the address
@@ -16,7 +18,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 
 // "2:14 PM", in Toronto time like every other time on screen.
 const TIME = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" });
@@ -36,9 +38,10 @@ function store<T>(initial: T) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// The note (Dext).
+// The note (round 27, Hashim, Nov 17, 2026; benchmark Fathom): one at a time, a new one replaces the old.
 // ---------------------------------------------------------------------------------------------------
-type Note = { id: number; text: string; tone: "ok" | "error" };
+type Note = { id: number; text: string; tone: "ok" | "error"; leaving?: boolean };
+export const NOTE_MS = 3000;
 const notes = store<Note[]>([]);
 const NO_NOTES: Note[] = [];
 let lastNote = { text: "", at: 0 };
@@ -49,8 +52,10 @@ export function notify(text: string, tone: "ok" | "error" = "ok") {
   if (lastNote.text === text && now - lastNote.at < 1500) return;
   lastNote = { text, at: now };
   const id = now + Math.random();
-  notes.set([...notes.get().slice(-2), { id, text, tone }]);
-  setTimeout(() => notes.set(notes.get().filter((n) => n.id !== id)), 4000);
+  notes.set([{ id, text, tone }]);
+  if (tone === "error") return;                       // a refusal stays until closed
+  setTimeout(() => notes.set(notes.get().map((n) => (n.id === id ? { ...n, leaving: true } : n))), NOTE_MS - 300);
+  setTimeout(() => notes.set(notes.get().filter((n) => n.id !== id)), NOTE_MS);
 }
 
 // A page's ?msg= (a server action that redirects with a message) as the note; then the address is cleaned,
@@ -186,13 +191,15 @@ export function NoteHost() {
   const btn = (t: AskButton["tone"]) => (t === "danger" ? "btn-danger" : t === "secondary" ? "btn-secondary" : "btn");
   return (
     <>
-      <div aria-live="polite" className="pointer-events-none fixed bottom-4 left-4 z-[70] flex flex-col items-start gap-2 print:hidden">
+      {/* Centred left to right, about 10% above the bottom edge, above windows and dialogs. */}
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[10vh] z-[90] flex justify-center px-4 print:hidden">
         {list.map((n) => (
-          <div key={n.id} role={n.tone === "error" ? "alert" : "status"}
-            className={`pointer-events-auto flex max-w-sm items-center gap-2 rounded-lg px-3.5 py-2.5 text-[13px] font-medium shadow-[0_10px_28px_rgba(15,35,80,.25)] ${n.tone === "error" ? "bg-danger text-white" : "bg-navy-950 text-white"}`}>
-            {n.tone === "error" ? <AlertTriangle className="h-4 w-4 flex-none" aria-hidden /> : <CheckCircle2 className="h-4 w-4 flex-none text-[#7fd3a0]" aria-hidden />}
+          <div key={n.id} role={n.tone === "error" ? "alert" : "status"} data-note={n.tone}
+            className={`pointer-events-auto flex min-h-11 max-w-[min(92vw,44rem)] items-center gap-2.5 rounded-full px-6 py-2 text-[16px] leading-snug font-bold text-white shadow-[0_12px_32px_rgba(15,35,80,.28)] transition-opacity duration-300 ${n.leaving ? "opacity-0" : "opacity-100"} ${n.tone === "error" ? "bg-danger" : "bg-success"}`}>
             <span>{n.text}</span>
-            <button type="button" aria-label="Close" onClick={() => notes.set(notes.get().filter((x) => x.id !== n.id))} className="rounded p-0.5 opacity-70 hover:opacity-100"><X className="h-3.5 w-3.5" /></button>
+            {n.tone === "error"
+              ? <button type="button" aria-label="Close" onClick={() => notes.set(notes.get().filter((x) => x.id !== n.id))} className="-mr-2 grid h-7 w-7 flex-none place-items-center rounded-full hover:bg-white/20"><X className="h-4 w-4" strokeWidth={3} /></button>
+              : <Check className="h-5 w-5 flex-none" strokeWidth={3} aria-hidden />}
           </div>
         ))}
       </div>

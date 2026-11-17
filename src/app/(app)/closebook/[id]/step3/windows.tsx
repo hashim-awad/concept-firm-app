@@ -2,9 +2,9 @@
 // Closebook step 3 windows (round 22, Hashim, Nov 16, 2026; mock screen 2). Every task opens a window over
 // the main page and closes back to it. Benchmark: QuickBooks Online "Add an account" (the type first, then the
 // name and the opening balance); placement by GIFI line as in CaseWare Cloud.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { AmountInput } from "@/components/amount";
 import { accountName, nextNumber, placement, type AccountType } from "@/lib/closebook/step3";
 import { useRouter } from "next/navigation";
@@ -12,16 +12,39 @@ import { saveAccount } from "../../step3-actions";
 import { notify } from "@/components/save-state";
 import { guarded, isLockRefusal, type Lock } from "./guard";
 
-export function Win({ title, sub, closeHref, width = 620, children, footer }: { title: string; sub?: string; closeHref: string; width?: number; children: React.ReactNode; footer?: React.ReactNode }) {
+// Round 27 (Hashim, Nov 17, 2026): a large window can fill the page. The expand icon sits in the title bar (beside
+// "..." where there is one); it switches to the full page and back. Esc returns to the normal size (not while a
+// question is open over the window).
+export function useExpand(): [boolean, () => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (!on) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.querySelector("dialog[open]")) { e.preventDefault(); setOn(false); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [on]);
+  return [on, () => setOn((x) => !x)];
+}
+export function ExpandButton({ on, toggle }: { on: boolean; toggle: () => void }) {
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-start justify-center overflow-y-auto bg-navy-950/40 px-4 py-10" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="flex w-full flex-col overflow-hidden rounded-[14px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]" style={{ maxWidth: width }}>
+    <button type="button" onClick={toggle} aria-label={on ? "Back to normal size" : "Expand to the full page"} title={on ? "Back to normal size (Esc)" : "Expand"} aria-pressed={on}
+      className="grid h-8 w-8 place-items-center rounded text-ink-2 hover:bg-sand-100">{on ? <Minimize2 className="h-[18px] w-[18px]" /> : <Maximize2 className="h-[18px] w-[18px]" />}</button>
+  );
+}
+
+export function Win({ title, sub, closeHref, width = 620, children, footer, expandable }: { title: string; sub?: string; closeHref: string; width?: number; children: React.ReactNode; footer?: React.ReactNode; expandable?: boolean }) {
+  const [big, toggle] = useExpand();
+  const canExpand = expandable ?? width >= 700;
+  return (
+    <div className={`fixed inset-0 z-[60] grid overflow-y-auto bg-navy-950/40 ${big ? "" : "place-items-start justify-center px-4 py-10"}`} role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`flex w-full flex-col overflow-hidden bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)] ${big ? "min-h-full" : "rounded-[14px]"}`} style={big ? undefined : { maxWidth: width }}>
         <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3.5">
           <h2 className="text-[17px] font-semibold">{title}</h2>{sub && <span className="text-[13px] text-ink-3">{sub}</span>}
           <span className="flex-1" />
+          {canExpand && <ExpandButton on={big} toggle={toggle} />}
           <Link href={closeHref} scroll={false} aria-label="Close" className="grid h-8 w-8 place-items-center rounded hover:bg-sand-100"><X className="h-5 w-5" /></Link>
         </div>
-        <div className="grid gap-4 px-5 py-4">{children}</div>
+        <div className={`grid gap-4 px-5 py-4 ${big ? "flex-1 content-start" : ""}`}>{children}</div>
         {footer && <div className="flex flex-wrap items-center gap-2 border-t border-sand-200 bg-[#fcfbf8] px-5 py-3">{footer}</div>}
       </div>
     </div>
