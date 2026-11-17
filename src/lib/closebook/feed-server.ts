@@ -7,6 +7,8 @@ import { defaultTaxCode, type TaxCode, type TaxPart } from "./sales-tax";
 import { codingHistory, type Coding } from "./vendor";
 import { bankTypeLabel, chartTypeLabel, type BankRule, type FeedAccount, type FeedLine, type PairChoice } from "./bank-feed";
 
+// Round 32: each line's questions to the client and the client's answers (our side shows initials; the client, their email).
+export type FeedQ = { kind: "q" | "a"; body: string; at: string; by: string; files: string[] };
 export type FeedChart = { number: string; name: string; type: string; tax_default: string };
 export type FeedSplit = { account: string; tax: string; cents: number; memo: string };
 export type FeedData = {
@@ -19,6 +21,7 @@ export type FeedData = {
   people: Record<string, { initials: string; name: string }>;
   excludedReviewed: { by: string | null; at: string | null; current: boolean };
   me: string | null;   // the signed-in staff member
+  threads: Record<string, FeedQ[]>;
   error: string | null;
 };
 
@@ -35,7 +38,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     supabase.from("cb_sales_tax_codes").select("code, name, provinces").order("sort_order"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", file.year_end).order("effective_from"),
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, posted_date, printed_date, description, amount, status, source, chart_account, tax_code, transfer_account, is_split, rule_id, "
-      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by").eq("file_id", fileId).order("txn_date").order("row_no").limit(50000),
+      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on").eq("file_id", fileId).order("txn_date").order("row_no").limit(50000),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).limit(50000),
     supabase.from("cb_line_splits").select("line_id, chart_account, tax_code, amount, memo").eq("file_id", fileId).order("row_no").limit(50000),
     supabase.from("cb_line_files").select("id, line_id, name").eq("file_id", fileId).order("uploaded_at").limit(20000),
@@ -49,6 +52,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     supabase.from("cb_files").select("excluded_reviewed_key, excluded_reviewed_by, excluded_reviewed_at").eq("id", fileId).maybeSingle(),
     supabase.rpc("cb_excluded_key_of", { p_file: fileId }),
   ]);
+  const threads = await readThreads(supabase, fileId, null);
   const latest = new Map<string, TaxPart & { code: string }>();
   for (const p of (parts ?? []) as (TaxPart & { code: string })[]) latest.set(`${p.code}|${p.name}`, { ...p, rate: Number(p.rate) });
   const taxCodes: TaxCode[] = ((codes ?? []) as { code: string; name: string; provinces: string[] | null }[])
@@ -91,7 +95,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     history: [...history.entries()],
     firm: ((firm ?? []) as { vendor_key: string; chart_account: string; tax_mode: string }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: firmTax(r.tax_mode, r.chart_account) }]),
     me: (await supabase.auth.getUser()).data.user?.id ?? null,
-    people, excludedReviewed: { by: fr?.excluded_reviewed_by ?? null, at: fr?.excluded_reviewed_at ?? null, current: !!fr?.excluded_reviewed_key && fr.excluded_reviewed_key === (keyNow as string | null) },
+    threads, people, excludedReviewed: { by: fr?.excluded_reviewed_by ?? null, at: fr?.excluded_reviewed_at ?? null, current: !!fr?.excluded_reviewed_key && fr.excluded_reviewed_key === (keyNow as string | null) },
     error: err ? `Step 4 could not be read: ${err.message}` : null,
   };
 }
@@ -101,7 +105,7 @@ export async function readLines(supabase: SupabaseClient, fileId: string, ids: s
   if (!ids.length) return { lines: [], splits: {} };
   const [{ data: lines }, { data: tr }, { data: lf }, { data: splits }] = await Promise.all([
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, posted_date, printed_date, description, amount, status, source, chart_account, tax_code, transfer_account, is_split, rule_id, "
-      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by").eq("file_id", fileId).in("id", ids),
+      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on").eq("file_id", fileId).in("id", ids),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).or(`out_line.in.(${ids.join(",")}),in_line.in.(${ids.join(",")})`),
     supabase.from("cb_line_files").select("line_id").eq("file_id", fileId).in("line_id", ids),
     supabase.from("cb_line_splits").select("line_id, chart_account, tax_code, amount, memo").eq("file_id", fileId).in("line_id", ids).order("row_no"),
@@ -141,4 +145,19 @@ export async function autoPostRules(supabase: SupabaseClient, fileId: string): P
   if (!items.length) return 0;
   const { error } = await supabase.rpc("cb_post_lines", { p_file: fileId, p_items: items });
   return error ? 0 : items.length;
+}
+
+// Round 32: the question threads, for the whole file or some lines.
+export async function readThreads(supabase: SupabaseClient, fileId: string, ids: string[] | null): Promise<Record<string, FeedQ[]>> {
+  let qq = supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at").eq("file_id", fileId).order("created_at").limit(20000);
+  let ff = supabase.from("cb_line_files").select("line_id, name, question_id").eq("file_id", fileId).not("question_id", "is", null).limit(20000);
+  if (ids) { qq = qq.in("line_id", ids); ff = ff.in("line_id", ids); }
+  const [{ data: qs }, { data: fs }, { data: staff }] = await Promise.all([qq, ff, supabase.from("staff").select("id, full_name")]);
+  const ini = new Map(((staff ?? []) as { id: string; full_name: string }[]).map((s) => [s.id, initials(s.full_name ?? "")]));
+  const names = new Map<string, string[]>();
+  for (const f of (fs ?? []) as { question_id: string; name: string }[]) names.set(f.question_id, [...(names.get(f.question_id) ?? []), f.name]);
+  const out: Record<string, FeedQ[]> = {};
+  for (const q of (qs ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string }[])
+    (out[q.line_id] ??= []).push({ kind: q.kind, body: q.body, at: q.created_at, by: q.kind === "q" ? ini.get(q.asked_by ?? "") ?? "" : q.answered_by, files: names.get(q.id) ?? [] });
+  return out;
 }

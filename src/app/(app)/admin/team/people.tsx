@@ -3,7 +3,7 @@ import { canEdit, type Access } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions";
 
-type StaffRow = { id: string; full_name: string; email: string; phone: string; role_id: string; is_active: boolean; created_at: string };
+type StaffRow = { id: string; full_name: string; email: string; phone: string; credentials: string; title: string; role_id: string; is_active: boolean; created_at: string };
 type RoleRow = { id: string; name: string; is_owner: boolean; role_permissions?: { area_key: string; level: string }[] };
 
 // People: everyone who can sign in. Shown on Team and roles. Everyone edits their own phone; only owners
@@ -13,7 +13,7 @@ export async function PeopleSection({ access }: { access: Access }) {
   const supabase = await createClient();
 
   const [{ data: staff }, { data: roles }] = await Promise.all([
-    supabase.from("staff").select("id, full_name, email, phone, role_id, is_active, created_at").order("full_name"),
+    supabase.from("staff").select("id, full_name, email, phone, credentials, title, role_id, is_active, created_at").order("full_name"),
     supabase.from("roles").select("id, name, is_owner, role_permissions(area_key, level)").order("is_owner", { ascending: false }).order("name"),
   ]);
   const roleList = (roles ?? []) as RoleRow[];
@@ -61,7 +61,7 @@ export async function PeopleSection({ access }: { access: Access }) {
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Phone</th>
+              <th>Phone and email signature</th>
               <th>Role</th>
               <th>Status</th>
               <th>Added</th>
@@ -77,12 +77,14 @@ export async function PeopleSection({ access }: { access: Access }) {
                   <td>{s.email}</td>
                   <td>
                     {editable || isSelf ? (
-                      <form action={savePhone} className="flex items-center gap-2">
+                      <form action={savePhone} className="flex flex-wrap items-center gap-2">
                         <input type="hidden" name="staff_id" value={s.id} />
-                        <input name="phone" defaultValue={s.phone} placeholder="226-789-9591" aria-label={`Phone for ${s.full_name}`} className="input w-40" />
+                        <input name="phone" defaultValue={s.phone} placeholder="226-789-9591" aria-label={`Phone for ${s.full_name}`} className="input w-36" />
+                        <input name="credentials" defaultValue={s.credentials} placeholder="CPA" maxLength={80} aria-label={`Credentials for ${s.full_name}`} className="input w-28" />
+                        <input name="title" defaultValue={s.title} placeholder="Title, e.g. Senior Accountant" maxLength={80} aria-label={`Title for ${s.full_name}`} className="input w-52" />
                         <button type="submit" className="btn-secondary">Save</button>
                       </form>
-                    ) : s.phone}
+                    ) : [s.phone, s.credentials, s.title].filter(Boolean).join(" · ")}
                   </td>
                   <td>
                     {access.is_owner && !isSelf ? (

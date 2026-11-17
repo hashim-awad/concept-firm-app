@@ -53,9 +53,22 @@ export const CB_CHECKLIST_V1: QPiece[] = [
   Q(11, "The compilation report is dated on or after the day management signed the acknowledgement and approved the statements."),
   Q(12, "The file holds the working papers for the work: the trial balance, the entries, the schedules and the sign-offs."),
 ];
-export const CB_PIECES: QPiece[] = [...Object.values(CB_CLIENT), ...CB_CHECKLIST];
+// Round 32 (Hashim, Nov 18, 2026): the email that sends the client questions (Templates, "Closebook · Client questions
+// email"; an owner approves it as other templates). {1}, {2}: the fills named beside each piece. Fixed ids.
+const qkey = (id: number) => `wb3${id.toString(16).padStart(8, "0")}`;
+const E = (id: number, text: string): QPiece => ({ key: qkey(id), text, fills: [], fns: ["cbquestionsemail"] });
+export const CB_QUESTIONS_EMAIL = {
+  subject: E(1, "Questions about your business transactions"),
+  hi: E(2, "Hi {1},"),                                                       // {1}: the contact's first name
+  working: E(3, "We are working on the year-end for {1}. We have {2} about transactions on your bank and card statements."),   // {1}: legal name; {2}: "8 questions"
+  answerBy: E(4, "Please answer them by {1}. You can attach a receipt or invoice to any answer."),                              // {1}: the reply-by date
+  link: E(5, "View transaction questions"),
+  firm: E(6, "Concept Accounting & Advisory Professional Corporation"),
+};
+export const CB_PIECES: QPiece[] = [...Object.values(CB_CLIENT), ...CB_CHECKLIST, ...Object.values(CB_QUESTIONS_EMAIL)];
 export const CB_TEMPLATES = [
   { k: "cbclientlist", name: "Closebook client entry list", group: "Closebook", basis: "Hashim, Nov 15, 2026: the client's copy of the entries, for clients who keep their own books", status: "Trial" },
+  { k: "cbquestionsemail", name: "Closebook · Client questions email", group: "Closebook", basis: "Hashim, Nov 18, 2026 (round 32): the email that sends the client their transaction questions, with the link to answer them online", status: "Trial" },
   { k: "cbchecklist", name: "Closebook completion checklist", group: "Closebook", basis: "Hashim, Nov 24, 2026: the CSRS 4200 completion questions answered on step 10, before the file is locked and the compilation report is released. Compilation engagements only", status: "Trial" },
 ];
 // The live text of a piece: the current approved version's change, else the original.

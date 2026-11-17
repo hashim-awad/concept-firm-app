@@ -18,6 +18,7 @@ export type FeedLine = {
   excluded_reason: string; excluded_note: string; excluded_by: string | null; excluded_at: string | null; coded_by: string | null;
   files: number;
   transfer: { other: string; role: "posts" | "matched" } | null;   // the line's transfer, once posted
+  q_status?: string; q_sent_on?: string | null;                     // round 32: '' | not_sent | waiting | answered
 };
 
 // Money out: a payment from a bank account, a charge on a card or a loan.
@@ -207,7 +208,7 @@ export function postItem(l: FeedLine, v: RowView): PostItem | null {
 // ---------- The filter ("All transactions ▾")
 export const FILTERS = [
   ["all", "All transactions"], ["in", "Money in"], ["out", "Money out"], ["ready", "Ready to post"], ["transfers", "Transfers"], ["rules", "Rules"],
-  ["none", "No account"], ["asked", "Asked the client"], ["reviewer", "For the reviewer"],
+  ["none", "No account"], ["q_not_sent", "Asked, not sent"], ["q_waiting", "Waiting for client"], ["q_answered", "Client answered"], ["reviewer", "For the reviewer"],
 ] as const;
 export type FilterKey = (typeof FILTERS)[number][0];
 export function inFilter(f: FilterKey, l: FeedLine, v: RowView | null, kind: "bank" | "card"): boolean {
@@ -220,7 +221,9 @@ export function inFilter(f: FilterKey, l: FeedLine, v: RowView | null, kind: "ba
     case "transfers": return !!v && (!!v.pair || !!v.transfer) || !!l.transfer || !!l.transfer_account;
     case "rules": return v?.badge === "rule" || l.source === "rule" || l.source === "auto";
     case "none": return !!v && !v.account && !v.transfer && !v.split && !v.pair;
-    case "asked": return !!l.asked_at;
+    case "q_not_sent": return l.q_status === "not_sent";
+    case "q_waiting": return l.q_status === "waiting";
+    case "q_answered": return l.q_status === "answered";
     case "reviewer": return !!l.reviewer_reason;
   }
 }
