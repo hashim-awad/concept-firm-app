@@ -153,12 +153,16 @@ export default function DesignPage() {
 
       <Section id="navigation" title="Navigation" note="Staff sidebar in Concept navy with grouped sections, like Concept Studio. Step tracker for multi-step work.">
         <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
-          <div className="h-[640px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]">
+          <div className="h-[860px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]" data-design-menu>
             <Sidebar user={{ name: "Test Owner", role: "Owner" }} groups={[
               { label: "Workspace", items: [
-                { href: "#navigation", label: "Home", icon: <Home />, active: true },
-                { href: "#navigation", label: "Leads", icon: <Inbox /> },
-                { href: "#navigation", label: "Clients", icon: <Users /> },
+                { href: "#navigation", label: "Home", icon: <Home /> },
+                { href: "#navigation", label: "Leads", icon: <Inbox />, badge: "12" },
+                // Round 36b: an item that opens shows its sub-items on a guide line; the selected one has a bar on it.
+                { href: "#navigation", label: "Clients", icon: <Users />, children: [
+                  { href: "#navigation", label: "Accounts", icon: null, active: true },
+                  { href: "#navigation", label: "Contacts", icon: null },
+                ] },
                 { href: "#navigation", label: "Quotes", icon: <FileSignature /> },
                 { href: "#navigation", label: "Document vault", icon: <Archive /> },
               ] },

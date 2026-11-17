@@ -6,6 +6,9 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Re
 import { usePathname, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { notify } from "@/components/save-state";
+import Link from "next/link";
+import { PinButton, Tip, useTip } from "@/components/ds/sidebar";
+import { setMenuPin } from "../../../menu-actions";
 
 function useCloseOnOutside(ref: React.RefObject<HTMLDetailsElement | null>, enabled = true) {
   useEffect(() => {
@@ -132,21 +135,29 @@ export function FileToast({ msg, error, info }: { msg?: string | null; error?: s
   );
 }
 
-// The fold is kept in this browser; read through a store so the server render and the first paint agree.
-const foldSubs = new Set<() => void>();
-let foldMem = false;
-const readFold = () => { try { return localStorage.getItem("cb.left.folded") === "1"; } catch { return foldMem; } };
+// Round 36b: a step in the folded panel; its name shows beside it on hover, as in the folded main menu.
+export function TipLink({ href, label, className, children }: { href: string; label: string; className: string; children: ReactNode }) {
+  const tip = useTip();
+  return <Link href={href} aria-label={label} className={className} {...tip.on}>{children}<Tip text={label} at={tip.at} /></Link>;
+}
 
-// The left panel folds to numbers (steps) or away (other tabs); remembered in this browser.
-export function LeftPanel({ children, folded: foldedNode }: { children: ReactNode; folded?: ReactNode }) {
-  const folded = useSyncExternalStore((cb) => { foldSubs.add(cb); return () => { foldSubs.delete(cb); }; }, readFold, () => false);
-  const toggle = () => { foldMem = !folded; try { localStorage.setItem("cb.left.folded", foldMem ? "1" : "0"); } catch { /* kept for this page only */ } foldSubs.forEach((f) => f()); };
+// Round 36b (TaxDome): the left panel has the same pin as the main menu. Pinned: open. Unpinned: a narrow
+// column (the steps' status circles, each name on hover) or nothing (other tabs). The choice is the
+// person's, kept across files, pages and sign-ins; it is shared by every page of a file through this store.
+const pinSubs = new Set<() => void>();
+let pinMem: boolean | null = null;
+export function LeftPanel({ children, folded: foldedNode, pinned: saved = true }: { children: ReactNode; folded?: ReactNode; pinned?: boolean }) {
+  const pinned = useSyncExternalStore((cb) => { pinSubs.add(cb); return () => { pinSubs.delete(cb); }; }, () => pinMem ?? saved, () => saved);
+  const toggle = () => {
+    pinMem = !pinned; pinSubs.forEach((f) => f());
+    void setMenuPin("steps", pinMem).then((r) => { if (!r.ok) notify(r.error, "error"); });
+  };
   return (
-    <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${folded ? "w-[52px]" : "w-[236px]"}`}>
-      <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{folded ? foldedNode ?? null : children}</div>
-      <button type="button" onClick={toggle} className="flex items-center gap-1.5 border-t border-sand-200 px-4 py-2 text-xs text-ink-3 hover:text-ink" aria-label={folded ? "Open the panel" : "Fold the panel"}>
-        {folded ? "›" : "‹ Fold"}
-      </button>
+    <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${pinned ? "w-[236px]" : "w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
+      <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{pinned ? children : foldedNode ?? null}</div>
+      <div className={`flex border-t border-sand-200 py-2 ${pinned ? "px-1.5" : "justify-center"}`}>
+        <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />
+      </div>
     </aside>
   );
 }
