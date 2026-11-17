@@ -21,7 +21,7 @@ grant execute on all functions in schema test to service_role;
 -- ---------- The server key: take its rights away (as on Live), run the fix again, and every right is back.
 revoke all on public.cb_question_links, public.cb_files, public.cb_line_questions, public.cb_line_files from service_role;
 select test.check('without the rights, the server key cannot read the links (the Live symptom)', not has_table_privilege('service_role', 'public.cb_question_links', 'select'));
-\i supabase/migrations/20261212100000_round32_link_fix.sql
+\i supabase/migrations/20261212110000_round32_server_rights_no_code.sql
 select test.check('after the fix the server key reads links, files, questions and receipts',
   has_table_privilege('service_role', 'public.cb_question_links', 'select') and has_table_privilege('service_role', 'public.cb_files', 'select')
   and has_table_privilege('service_role', 'public.cb_line_questions', 'select') and has_table_privilege('service_role', 'public.cb_line_files', 'select')
