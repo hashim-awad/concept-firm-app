@@ -2,6 +2,8 @@ import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
+import { readMenuPins } from "@/lib/menu-pins";
+import { TipLink } from "./shell/ui";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
@@ -536,8 +538,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     <>
       <PanelHead>Steps</PanelHead>
       {steps.flatMap((x) => [
-        <div key={x.key} className={`flex items-center gap-2 pr-2.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "hover:bg-sand-50"}`}>
-          <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-3.5 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
+        <div key={x.key} data-step-row={x.key} className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-1.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50" : "hover:bg-sand-50"}`}>
+          <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex h-10 min-w-0 flex-1 items-center gap-2 pl-2 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
             <StepMark n={x.n} p={stepProgress(x.key, progress)} /><span className="leading-snug">{x.name}</span>
           </Link>
           {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
@@ -545,17 +547,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         </div>,
         ...(x.key === step && area === "steps" && !showHistory ? papers.map((pp) => (
           <Link key={`${x.key}-${pp.key}`} href={paperHref(x.key, pp.key)} aria-current={pp.key === paper ? "page" : undefined}
-            className={`flex items-center gap-2 py-1.5 pr-3 pl-10 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900 shadow-[inset_3px_0_0_var(--color-navy-700)]" : "text-ink-2 hover:bg-sand-50"}`}>
+            className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-3 pl-8 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900" : "text-ink-2 hover:bg-sand-50"}`}>
             <PaperMark p={paperProgress(x.key, pp.key, progress)} />{pp.name}</Link>)) : []),
       ])}
     </>
   );
   const stepRailFolded = (
     <>{steps.map((x) => (
-      <Link key={x.key} href={href(x.key)} title={x.name} className={`relative flex justify-center py-2 text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2"}`}>
+      <TipLink key={x.key} href={href(x.key)} label={`${x.n}. ${x.name}`} className={`relative mx-1.5 flex h-10 items-center justify-center rounded-lg text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2 hover:bg-sand-50"}`}>
         <StepMark n={x.n} p={stepProgress(x.key, progress)} />{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
         {x.word === "signed" && <span className="absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full bg-success" title="Reviewed" />}
-      </Link>))}</>
+      </TipLink>))}</>
   );
   const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
   const tbLeft = (
@@ -632,7 +634,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
-      history={access.is_owner} left={left} folded={folded} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
+      history={access.is_owner} left={left} folded={folded} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}
