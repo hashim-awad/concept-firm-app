@@ -19,6 +19,8 @@ export type BankingAccount = S3Account & {
 };
 export type Banking = Omit<Step3, "accounts"> & { accounts: BankingAccount[]; boxes: TieBox[]; rounding: { gifi: string; title: string; cents: number }[];
   subs: Record<SubKey, SubStatus>; pending: S3Upload[];
+  // Round 31: uploads removed as another copy of a statement already in the list, and the upload they are a copy of.
+  copies: { id: string; file: string; of: string }[];
   // Round 25: the balance sheet lines in step 2 that hold an amount (for "Last year's T2 line"), and GIFI names.
   t2Lines: { code: string; name: string; cents: number }[]; gifiNames: Record<string, string> };
 
@@ -50,8 +52,10 @@ export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Pr
 
 export async function loadBanking(supabase: SupabaseClient, file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null },
   names: Map<string, string>, signed: boolean, known?: Record<SubKey, SubStatus> | null): Promise<Banking> {
-  const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),
-    supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id)]);
+  const [d, subs, { data: ob }, { data: cp }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),
+    supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id),
+    supabase.from("cb_statement_imports").select("id, file_name, copy_of").eq("file_id", file.id).eq("status", "discarded").not("copy_of", "is", null)
+      .gte("created_at", new Date(Date.now() - 2 * 86_400_000).toISOString())]);
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
   const bsLines = [...t2.entries()].filter(([c, v]) => v !== 0 && c >= "1000" && c <= "3499");
   const lineNames = await gifiNames(supabase, [...bsLines.map(([c]) => c), ...USUAL_LINES, ...d.accounts.map((a) => a.gifi), ...d.accounts.map((a) => a.t2Line ?? "").filter(Boolean)]);
@@ -59,7 +63,9 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
   // Statements read and waiting. Those that add up (opening + lines = closing) go in by themselves (the page imports
   // them); one that does not is "to fix" (a misread line).
   const open = d.uploads.filter((u) => u.state.status === "ready" || u.state.status === "needs_look");
-  const passes = (u: S3Upload) => u.difference_cents === 0 && !!u.account;
+  // Round 31: a statement whose import was refused keeps the reason (round 30) and waits in "To fix"; it is not tried
+  // again by itself until it is changed in Fix it or read again (both clear the reason).
+  const passes = (u: S3Upload) => u.difference_cents === 0 && !!u.account && !(u.status === "needs_look" && u.error);
   const accounts: BankingAccount[] = d.accounts.map((a) => {
     const toFix = open.filter((u) => u.account === a.id && !passes(u));
     const waived = !a.opened && !a.closed && !!a.note;
@@ -74,6 +80,7 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
       waiting: open.filter((u) => u.account === a.id).length };
   });
   return { ...d, accounts, boxes, rounding: d.t2Entered || d.firstYear ? roundingOf(boxes) : [], subs, pending: open.filter(passes),
+    copies: ((cp ?? []) as { id: string; file_name: string; copy_of: string }[]).map((c) => ({ id: c.id, file: c.file_name, of: c.copy_of })),
     t2Lines: bsLines.sort(([a], [b]) => a.localeCompare(b)).map(([code, cents]) => ({ code, name: lineNames.get(code) ?? "", cents })), gifiNames: Object.fromEntries(lineNames) };
 }
 
