@@ -47,6 +47,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const [rules, setRules] = useState<BankRule[]>(data.rules);
   const [choices, setChoices] = useState(data.choices);
   const [reviewed, setReviewed] = useState(data.excludedReviewed.current);
+  const [reviewedBy, setReviewedBy] = useState<{ by: string | null; at: string | null }>({ by: data.excludedReviewed.by, at: data.excludedReviewed.at });
   const focus = focusLine ? data.lines.find((l) => l.id === focusLine) : undefined;
   const [acc, setAcc] = useState<string>(focus?.account_id ?? (accounts.some((a) => a.id === initialAccount) ? initialAccount! : accounts[0]?.id ?? ""));
   const [tab, setTab] = useState<Tab>(focus ? (isExcluded(focus) ? "excluded" : isPosted(focus) ? "posted" : "pending") : "pending");
@@ -216,6 +217,19 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
   const pageIds = shown.map((l) => l.id);
   const allTicked = pageIds.length > 0 && pageIds.every((id) => ticked.has(id));
 
+  // The black bar spans the list (QuickBooks Online): it follows the list's left edge and width.
+  const listRef = useRef<HTMLElement>(null);
+  const [barBox, setBarBox] = useState<{ left: number; width: number } | null>(null);
+  const barOn = ticked.size > 0 && tab === "pending";
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || !barOn) return;
+    const place = () => { const r = el.getBoundingClientRect(); setBarBox({ left: r.left, width: r.width }); };
+    const o = new ResizeObserver(place);
+    o.observe(el); window.addEventListener("resize", place);
+    return () => { o.disconnect(); window.removeEventListener("resize", place); };
+  }, [barOn]);
+
   // ---------- Filter counts
   const counts = Object.fromEntries(FILTERS.map(([k]) => [k, base.filter((l) => inFilter(k, l, views.get(l.id) ?? null, kind)).length])) as Record<FilterKey, number>;
   const dateLabel = !range ? "All dates" : `${range.from ? formatDate(range.from) : "Start"} to ${range.to ? formatDate(range.to) : "End"}`;
@@ -285,7 +299,9 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
     if (l.transfer_account) return accById.get(l.transfer_account)?.label ?? "";
     return chartLabel(l.chart_account);
   };
-  const postedBy = (l: FeedLine) => l.source === "auto" ? "AUTO" : l.source === "rule" ? "RULE" : l.source === "transfer" ? "PAIR" : l.source === "outstanding" ? "3.3" : data.people[l.coded_by ?? ""]?.initials || "";
+  // Round 31 follow-up (QuickBooks Online): the Posted column says who posted, or AUTO for an auto-post rule; RULE and PAIR
+  // are badges inside the Account field.
+  const postedBy = (l: FeedLine) => (l.source === "auto" ? "AUTO" : data.people[l.coded_by ?? ""]?.initials || "");
   const itcOf = (l: FeedLine, v?: RowView) => {
     const rowsTax = (isPending(l) ? v?.split : l.is_split) ? (splits[l.id] ?? []).map((s) => ({ acct: s.account, tax: s.tax, cents: s.cents }))
       : [{ acct: isPending(l) ? v?.account ?? null : l.chart_account, tax: isPending(l) ? v?.tax ?? null : l.tax_code, cents: Math.abs(l.cents) }];
@@ -343,7 +359,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         {arrows && <button type="button" aria-label="More accounts" onClick={() => strip.current?.scrollBy({ left: 320, behavior: "smooth" })} className="grid w-7 place-items-center rounded hover:bg-sand-100"><ChevronRight className="h-5 w-5" /></button>}
       </div>
 
-      <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Bank transactions">
+      <section ref={listRef} className="rounded-[10px] border border-sand-200 bg-white" aria-label="Bank transactions">
         {/* 2. Tabs */}
         <div className="flex items-end gap-1 border-b border-sand-200 px-3 print:hidden" role="tablist" aria-label="Pending, Posted, Excluded">
           {([["pending", `Pending (${pendingCount})`], ["posted", "Posted"], ["excluded", "Excluded"]] as const).map(([k, l]) => (
@@ -376,9 +392,11 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
           <div className="flex flex-wrap items-center gap-3 border-b border-sand-200 bg-warning-soft/40 px-3 py-2 text-[13.5px]">
             <span>Excluded: {mine.filter(isExcluded).length} line{mine.filter(isExcluded).length === 1 ? "" : "s"} · {money(mine.filter(isExcluded).reduce((n, l) => n + Math.abs(l.cents), 0))}. The trial balance differs from the bank by these amounts.</span>
             <span className="flex-1" />
-            <label className={`flex items-center gap-2 font-semibold ${isReviewer ? "" : "text-ink-3"}`} title={isReviewer ? undefined : "Only the reviewer ticks this."}>
-              <input type="checkbox" checked={reviewed} disabled={!isReviewer || !editable} onChange={async (e) => { const on = e.target.checked; setReviewed(on); const r = await excludedReviewed(data.fileId, on); if (!r.ok) { setReviewed(!on); fail(r.error); } }} />
+            <label className={`flex items-center gap-2 font-semibold ${isReviewer ? "" : "cursor-not-allowed text-ink-3"}`} title={isReviewer ? undefined : "Reviewer only"}>
+              <input type="checkbox" checked={reviewed} disabled={!isReviewer || !editable} title={isReviewer ? undefined : "Reviewer only"}
+                onChange={async (e) => { const on = e.target.checked; setReviewed(on); const r = await excludedReviewed(data.fileId, on); if (!r.ok) { setReviewed(!on); fail(r.error); } else { setReviewedBy({ by: on ? data.me : null, at: on ? new Date().toISOString() : null }); notify(on ? "Excluded lines reviewed" : "Review removed"); } }} />
               Excluded lines reviewed</label>
+            {reviewed && reviewedBy.at && <span className="text-[12.5px] text-ink-2">by {data.people[reviewedBy.by ?? ""]?.name ?? "the reviewer"} on {formatDate(reviewedBy.at.slice(0, 10))}</span>}
           </div>)}
 
         {/* 4. The list */}
@@ -406,6 +424,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                     <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td><td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
                     <td className="truncate px-2">{taxName(l)}</td>
                     <td className="truncate px-2" title={l.reviewer_reason || accountText(l)}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
+                      {!l.transfer && (l.source === "rule" || l.source === "auto") && <span title={rules.find((r) => r.id === l.rule_id)?.name ?? "Bank rule"} className="mr-1.5 rounded bg-sand-200 px-1.5 py-0.5 text-[11px] font-bold text-ink-2">RULE</span>}
                       {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <span className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">For the reviewer</span>}</td>
                     <td className="px-2 text-[12px] font-semibold text-ink-2">{postedBy(l)}</td>
                     <td className="px-2 text-right">{editable && l.source !== "outstanding" && <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => unpost([l.id])}>Undo</button>}</td>
@@ -436,18 +455,17 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
       </section>
 
       {/* 5. The black bar */}
-      {ticked.size > 0 && tab === "pending" && (
-        <div className="fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4 pb-4 print:hidden">
-          <div role="toolbar" aria-label="Ticked lines" className="flex max-w-[min(96vw,64rem)] flex-wrap items-center gap-1 rounded-[12px] bg-[#1d2330] px-4 py-2.5 text-[14px] text-white shadow-[0_12px_32px_rgba(0,0,0,.35)]">
-            <span className="mr-3 font-semibold tabular-nums">{barText(tickedLines.map((l) => ({ cents: l.cents, out: outOf(l) })))}</span>
-            {([["Post", () => post([...ticked]), notReady > 0, notReady ? `${notReady} ticked line${notReady === 1 ? " has" : "s have"} no account.` : undefined],
-              ["Edit", () => setWin({ k: "edit" }), !(allOut || allIn), allOut || allIn ? undefined : "Tick money in or money out lines, not both."],
-              ["Exclude", () => setWin({ k: "exclude", ids: [...ticked] }), false, undefined],
-              ["Ask client", () => setWin({ k: "ask", ids: [...ticked] }), false, undefined]] as const).map(([label, run, off, why]) => (
-              <span key={label} title={why} className="inline-flex"><button type="button" disabled={off || busy || !editable} onClick={run}
-                className="rounded-[6px] px-3 py-1.5 font-semibold hover:bg-white/15 disabled:cursor-not-allowed disabled:text-white/40">{label}</button></span>))}
-            <button type="button" aria-label="Clear the ticks" onClick={() => setTicked(new Set())} className="ml-1 grid h-8 w-8 place-items-center rounded-full hover:bg-white/15"><X className="h-4 w-4" /></button>
-          </div>
+      {barOn && (
+        <div role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}
+          className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[10px] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)] print:hidden">
+          <span className="mr-auto font-semibold tabular-nums">{barText(tickedLines.map((l) => ({ cents: l.cents, out: outOf(l) })))}</span>
+          {([["Post", () => post([...ticked]), notReady > 0, notReady ? `${notReady} ticked line${notReady === 1 ? " has" : "s have"} no account.` : undefined],
+            ["Edit", () => setWin({ k: "edit" }), !(allOut || allIn), allOut || allIn ? undefined : "Tick money in or money out lines, not both."],
+            ["Exclude", () => setWin({ k: "exclude", ids: [...ticked] }), false, undefined],
+            ["Ask client", () => setWin({ k: "ask", ids: [...ticked] }), false, undefined]] as const).map(([label, run, off, why]) => (
+            <span key={label} title={why} className="inline-flex"><button type="button" disabled={off || busy || !editable} onClick={run}
+              className="h-9 rounded-[6px] border border-white/80 px-4 font-semibold text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:border-white/30 disabled:text-white/40 disabled:hover:bg-transparent">{label}</button></span>))}
+          <button type="button" aria-label="Clear the ticks" onClick={() => setTicked(new Set())} className="ml-3 grid h-9 w-9 place-items-center rounded-full hover:bg-white/15"><X className="h-5 w-5" /></button>
         </div>)}
 
       {/* Windows */}
