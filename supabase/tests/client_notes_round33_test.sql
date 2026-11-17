@@ -74,7 +74,9 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 -- A line asked only once and never sent: delete its question and it has no status.
 select id as qpad from public.cb_line_questions where line_id = test.n('PAD DUMMY TAX') and kind = 'q' \gset
 select test.check('the PAD line''s question went out', (select sent_at is not null from public.cb_line_questions where id = :'qpad'));
-select test.check('a posted line can''t be asked about', test.try(format('select public.cb_ask_questions(%L, array[%L]::uuid[], %L)', :'f', test.n('SOFTWARE DUMMY'), 'More?')) = 'Only Pending lines can be asked about.');
+-- Round 35b: a posted line can be asked about and stays posted.
+select test.check('a posted line can be asked about', test.try(format('select public.cb_ask_questions(%L, array[%L]::uuid[], %L)', :'f', test.n('SOFTWARE DUMMY'), 'More?')) = 'OK');
+select test.check('it stays posted, with a new open question', (select status <> 'new' and chart_account = '63000' and q_status = 'not_sent' from public.cb_bank_lines where id = test.n('SOFTWARE DUMMY')));
 
 -- ---------- The backfill on Live: questions typed before a send that carried their line count as sent; later ones don't.
 reset role;

@@ -201,20 +201,6 @@ export async function resplitLine(fileId: string, lineId: string, rows: { accoun
   return tb ? no(tb) : { ok: true };
 }
 
-// Ask the client about posted lines: they go back to Pending (their account and tax stay chosen; the posting
-// reverses until they are posted again), then the question is added. A posted line never goes to the client
-// (round 33), so this is the only way to ask about one.
-export async function askAboutPosted(fileId: string, lineIds: string[], text: string): Promise<R> {
-  const e = await editor(); if (e) return no(e);
-  const supabase = await createClient();
-  const { error: e1 } = await supabase.rpc("cb_unpost_lines", { p_file: fileId, p_ids: ids(lineIds) });
-  if (e1) return no(e1.message);
-  const { error: e2 } = await supabase.rpc("cb_ask_questions", { p_file: fileId, p_ids: ids(lineIds), p_text: text });
-  const tb = await rebuildTb(supabase, fileId);
-  if (e2) return no(e2.message);
-  return tb ? no(tb) : { ok: true };
-}
-
 // An account for the reviewer's decision, marked reviewed with its note: the reviewer's flag, a type on another
 // line's type, or a balance on the other side (the last two use their own confirmations).
 export async function reviewAccount(fileId: string, accountId: string, kind: "reviewer" | "type" | "side", note: string): Promise<R> {

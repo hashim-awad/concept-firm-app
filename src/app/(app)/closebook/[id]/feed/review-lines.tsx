@@ -12,9 +12,10 @@ import type { FeedData } from "@/lib/closebook/feed-server";
 import { isOut, type FeedLine } from "@/lib/closebook/bank-feed";
 import { AccountPicker } from "./account-picker";
 import { FLD, Modal, SplitWindow, TaxSelect, money } from "./windows";
-import { AskManyWindow } from "./questions";
-import { askAboutPosted, getLines, recodeLines, resplitLine, reviewAccount, reviewLines, noteOnLine } from "../../feed-actions";
-import { addSavedQuestion, removeSavedQuestion, savedQuestions } from "../../question-actions";
+import { AskManyWindow, QIcon, QuestionPop } from "./questions";
+import { NotifyWindow } from "./notify-window";
+import { getLines, recodeLines, resplitLine, reviewAccount, reviewLines, noteOnLine, setMemo } from "../../feed-actions";
+import { addSavedQuestion, askQuestions, deleteQuestion, editQuestion, getThreads, moveQuestionToNote, removeSavedQuestion, savedQuestions } from "../../question-actions";
 
 export type ReviewAccountRow = { id: string; label: string; cents: number; why: string; kind: "reviewer" | "type" | "side"; ledgerHref: string };
 
@@ -54,7 +55,8 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
   const chartOf = useMemo(() => new Map(data.chart.map((c) => [c.number, c])), [data.chart]);
   const outOf = (l: FeedLine) => isOut(accById.get(l.account_id)?.kind ?? "bank", l.cents);
   // "RBC Chq ••• 7509": the account's own name, without its number and type.
-  const bankName = (id: string) => { const l = (accById.get(id)?.label ?? "").replace(/^\d+\s+/, ""); const parts = l.split(" · "); return parts.length > 1 ? parts.slice(1).join(" · ") : l; };
+  const bankName = (id: string) => { const a = accById.get(id); if (a?.short) return a.short;
+    const l = (a?.label ?? "").replace(/^\d+\s+/, ""); const parts = l.split(" · "); return parts.length > 1 ? parts.slice(1).join(" · ") : l; };
   const people = data.people;
   const waiting = lines.filter((l) => l.status === "reviewer").length;
   const waitingAccounts = acctRows.length;
@@ -109,15 +111,27 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
     notify(ids.length === 1 ? "Back with the reviewer" : `${ids.length} back with the reviewer`);
   };
 
-  // ---------- Ask client: the line goes back to Pending in step 4 (a posted line never goes to the client)
+  // ---------- Ask client (round 35b): the line stays posted, with its account, tax and flag; the question stays open
+  // until the client answers. A reviewer's question never changes the books.
   const ask = async (ids: string[], text: string) => {
-    const r = await askAboutPosted(data.fileId, ids, text);
+    const r = await askQuestions(data.fileId, ids, text);
     if (!r.ok) { fail(r.error); return false; }
-    setLines((ls) => ls.filter((l) => !ids.includes(l.id)));
+    setLines((ls) => ls.map((l) => (ids.includes(l.id) ? { ...l, q_status: "not_sent" } : l)));
+    const t = await getThreads(data.fileId, ids);
+    if (t.ok) setThreads((x) => ({ ...x, ...t.threads }));
     setTicked(new Set());
-    notify(ids.length === 1 ? "Question added. The line is back in Pending in step 4." : `Question added to ${ids.length} lines. They are back in Pending in step 4.`, "ok", { ms: 9000 });
+    notify(ids.length === 1 ? "Question added" : `Question added to ${ids.length} lines`, "ok", { ms: 8000, action: { label: "Notify now", run: () => setNotifyIds(ids) } });
     return true;
   };
+  // The 💬: the line's questions and the client's answers, as in step 4.
+  const [threads, setThreads] = useState(data.threads);
+  const [qPop, setQPop] = useState<{ el: HTMLElement; id: string } | null>(null);
+  // Notify client (the same window as step 4): the questions on these lines that are not sent or still waiting.
+  const [notifyIds, setNotifyIds] = useState<string[] | false>(false);
+  const toSend = lines.filter((l) => l.q_status === "not_sent" || l.q_status === "waiting").map((l) => l.id);
+  const sentNow = (ids: string[]) => { const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+    setLines((ls) => ls.map((l) => (ids.includes(l.id) && (l.q_status === "not_sent" || l.q_status === "waiting") ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
+    void getThreads(data.fileId, ids).then((t) => { if (t.ok) setThreads((x) => ({ ...x, ...t.threads })); }); };
   const loadSaved = async () => { if (saved) return; const r = await savedQuestions(); setSaved(r.ok ? r.list : []); };
 
   // ---------- Words for a row
@@ -151,17 +165,18 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
           <select aria-label="Status" value={status} onChange={(e) => { setStatus(e.target.value as Status); setTicked(new Set()); }} className="h-8 rounded-[6px] border border-sand-300 bg-white px-2 text-[13.5px]">
             <option value="waiting">Waiting for the reviewer</option><option value="reviewed">Reviewed</option><option value="all">All</option></select>
           <span className="flex-1" />
+          {editable && toSend.length > 0 && <button type="button" onClick={() => setNotifyIds(toSend)} className="mr-2 text-[14px] font-semibold text-navy-700 hover:underline" data-step7-notify>Notify client</button>}
           <span className="text-[13px] text-ink-2 tabular-nums" data-review-count>{rows.length ? `1-${rows.length} of ${rows.length}` : "0 of 0"}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1160px] table-fixed text-[13.5px]">
-            <colgroup><col className="w-9" /><col className="w-[6.2rem]" /><col className="w-[8.6rem]" /><col /><col className="w-[5.2rem]" /><col className="w-[5.2rem]" />
-              <col className="w-[6.6rem]" /><col className="w-[11.5rem]" /><col className="w-[13.4rem]" /><col className={reviewedView ? "w-[12rem]" : "w-[8.6rem]"} /></colgroup>
+          <table className="w-full min-w-[1200px] table-fixed text-[13.5px]">
+            <colgroup><col className="w-9" /><col className="w-[6rem]" /><col className="w-[9.6rem]" /><col /><col className="w-[5.2rem]" /><col className="w-[5.2rem]" /><col className="w-9" />
+              <col className="w-[6.6rem]" /><col className="w-[11rem]" /><col className="w-[12rem]" /><col className={reviewedView ? "w-[12rem]" : "w-[8.6rem]"} /></colgroup>
             <thead><tr className="border-b border-sand-200">
               <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all" checked={allTicked} disabled={!editable || !rows.length || reviewedView}
                 onChange={() => setTicked(allTicked ? new Set() : new Set(rows.map((l) => l.id)))} /></th>
               <th className={th}>Date</th><th className={th}>Bank account</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
-              <th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Why</th><th className={thR}>{reviewedView ? "Reviewed by" : "Action"}</th></tr></thead>
+              <th className={th} aria-label="Questions to the client" title="Questions to the client">💬</th><th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Why</th><th className={thR}>{reviewedView ? "Reviewed by" : "Action"}</th></tr></thead>
             <tbody>{rows.map((l) => row(l))}</tbody>
           </table>
           {!rows.length && <p className="px-3 py-4 text-[13.5px] text-ink-3">{status === "waiting" ? "Nothing waits for the reviewer." : "Nothing here."}</p>}
@@ -209,9 +224,25 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
           onSave={async (rs) => { const r = await resplitLine(data.fileId, l.id, rs); if (!r.ok) { fail(r.error); return false; } await refresh([l.id]); notify(`Split in ${rs.length}`); return true; }} />;
       })()}
       {win?.k === "ask" && <AskManyWindow n={win.ids.length} saved={saved} onClose={() => setWin(null)} onSend={(t) => ask(win.ids, t)}
-        intro={`${win.ids.length === 1 ? "The line goes" : `The ${win.ids.length} lines go`} back to Pending in step 4, with ${win.ids.length === 1 ? "its" : "their"} account and sales tax still chosen: the posting reverses until ${win.ids.length === 1 ? "it is" : "they are"} posted again. The client sees the question when you use Notify client.`}
         onSave={async (t) => { const r = await addSavedQuestion(t); if (r.ok) setSaved((x) => [...(x ?? []), { id: r.id, body: t }]); else fail(r.error); }}
         onRemove={async (id) => { setSaved((x) => (x ?? []).filter((s) => s.id !== id)); await removeSavedQuestion(id); }} />}
+      {notifyIds !== false && <NotifyWindow fileId={data.fileId} lineIds={notifyIds} onClose={() => setNotifyIds(false)}
+        onSent={(who) => { const ids = notifyIds; setNotifyIds(false); notify(`Sent to ${who}`); sentNow(ids); }} onCopied={() => sentNow(notifyIds)} />}
+      {qPop && lines.find((x) => x.id === qPop.id) && (() => {
+        const l = lines.find((x) => x.id === qPop.id)!;
+        const reload = async () => { const t = await getThreads(data.fileId, [l.id]); if (t.ok) setThreads((x) => ({ ...x, [l.id]: t.threads[l.id] ?? [] })); await refresh([l.id]); };
+        return <QuestionPop anchor={qPop.el} line={{ date: l.acct_date, description: l.description, amount: money(l.cents) }} thread={threads[l.id] ?? []} status={l.q_status ?? ""}
+          canAsk={editable} saved={saved} memo={l.memo ?? ""} onClose={() => setQPop(null)}
+          onSave={async (t) => { const r = await addSavedQuestion(t); if (r.ok) setSaved((x) => [...(x ?? []), { id: r.id, body: t }]); else fail(r.error); }}
+          onRemove={async (id) => { setSaved((x) => (x ?? []).filter((s) => s.id !== id)); await removeSavedQuestion(id); }}
+          onSend={(t) => ask([l.id], t)}
+          onSaveMemo={async (m) => { const r = await setMemo(l.id, m); if (!r.ok) { fail(r.error); return false; } setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Internal note saved"); return true; }}
+          actions={{
+            onEdit: async (id, text) => { const r = await editQuestion(id, text); if (!r.ok) { fail(r.error); return false; } await reload(); notify("Question changed"); return true; },
+            onDelete: async (id) => { const r = await deleteQuestion(id); if (!r.ok) { fail(r.error); return; } await reload(); notify("Question deleted"); },
+            onMove: async (id) => { const r = await moveQuestionToNote(id); if (!r.ok) { fail(r.error); return; } await reload(); notify("Moved to the internal note"); },
+          }} />;
+      })()}
       {win?.k === "note" && <TextWindow title="Add review note" label="Review note" button="Add review note" min={1} onClose={() => setWin(null)} onSave={async (t) => {
         const r = await noteOnLine(data.fileId, win.id, t); if (!r.ok) { fail(r.error); return false; } notify("Review note added"); return true; }} />}
       {win?.k === "account" && <TextWindow title={`Mark reviewed: ${win.row.label}`} label="Decision" button="Mark reviewed" min={3} hint="Required. Say what you decided and why. It is kept with the account."
@@ -235,10 +266,13 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
       <tr key={l.id} id={`rl-${l.id}`} data-review-line={l.description} className={`h-12 border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id ? "bg-navy-50 outline outline-2 -outline-offset-2 outline-navy-400" : ""}`}>
         <td className="px-2"><input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)} disabled={!editable || reviewedView || !waitingRow} onChange={() => toggle(l.id)} /></td>
         <td className="px-2 whitespace-nowrap tabular-nums">{formatDate(l.acct_date)}</td>
-        <td className="truncate px-2 text-ink-2" title={bankName(l.account_id)}>{bankName(l.account_id)}</td>
+        {/* Round 35b: the bank and the last digits in full; a long name shortens, the digits never do. */}
+        <td className="px-2 text-ink-2" title={bankName(l.account_id)} data-bank-account>{(() => { const [nm, digits] = bankName(l.account_id).split(" ••• ");
+          return <span className="flex min-w-0 whitespace-nowrap"><span className="truncate">{nm}</span>{digits && <span className="shrink-0">&nbsp;•••&nbsp;{digits}</span>}</span>; })()}</td>
         <td className="truncate px-2" title={l.description}>{l.description}</td>
         <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td>
         <td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
+        <td className="px-1 text-center"><QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} disabled={!editable} onOpen={(el) => { void loadSaved(); setQPop({ el, id: l.id }); }} /></td>
         <td className="px-1.5">{transferish(l) || l.is_split ? <span className="block truncate px-1 text-ink-3">{l.is_split ? "Split" : "No tax"}</span>
           : <TaxSelect codes={data.codes} value={l.tax_code ?? ""} disabled={!canPick} label={`Sales tax for ${l.description}`}
             onChange={(t) => { if (t && l.chart_account) void recode([{ id: l.id, account: l.chart_account, tax: t }]); }} />}</td>

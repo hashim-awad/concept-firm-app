@@ -65,7 +65,7 @@ export function ThreadView({ thread, status, actions }: { thread: FeedQ[]; statu
       {status === "waiting" && <p className="text-[12px] font-semibold text-[#c27c0e]">Waiting for client</p>}
       {status === "not_sent" && <p className="text-[12px] font-semibold text-ink-3">Asked, not sent</p>}
       {thread.map((e) => (
-        <div key={e.id} className="grid grid-cols-[1.4rem_1fr] gap-x-1" data-q-entry={e.kind === "q" ? (e.sentAt ? "sent" : "unsent") : "answer"}>
+        <div key={e.id} className="grid grid-cols-[1.4rem_1fr] gap-x-1" data-q-entry={e.kind === "q" ? (e.closedAt ? "closed" : e.sentAt ? "sent" : "unsent") : "answer"}>
           <span className="font-semibold text-ink-3">{e.kind === "q" ? "Q:" : "A:"}</span>
           <div>
             {editing === e.id ? (
@@ -80,9 +80,9 @@ export function ThreadView({ thread, status, actions }: { thread: FeedQ[]; statu
               </div>
             ) : <p className={`whitespace-pre-wrap ${e === lastQ && status !== "answered" ? "font-semibold" : ""}`}>{e.body || (e.files.length ? "(file attached)" : "")}</p>}
             <p className="text-[11.5px] text-ink-3">{e.by}{e.by ? " · " : ""}{formatDate(e.at.slice(0, 10))}
-              {e.kind === "q" && (e.sentAt ? <> · <span className="text-success">Sent {formatDate(e.sentAt.slice(0, 10))}</span></> : <> · <span className="font-semibold text-ink-2">Not sent</span></>)}</p>
+              {e.kind === "q" && (e.closedAt ? <> · <span className="text-ink-3" title="Closed when the line was posted">Closed</span></> : e.sentAt ? <> · <span className="text-success">Sent {formatDate(e.sentAt.slice(0, 10))}</span></> : <> · <span className="font-semibold text-ink-2">Not sent</span></>)}</p>
             {e.files.length > 0 && <p className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-2"><Paperclip className="h-3.5 w-3.5" />{e.files.length} file{e.files.length === 1 ? "" : "s"} attached: {e.files.join(", ")}</p>}
-            {actions && e.kind === "q" && !e.sentAt && editing !== e.id && (
+            {actions && e.kind === "q" && !e.sentAt && !e.closedAt && editing !== e.id && (
               <span className="mt-1 flex flex-wrap items-center gap-3 text-[12px]">
                 <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => { setEditing(e.id); setDraft(e.body); }}>Edit</button>
                 <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => actions.onMove(e.id)}>Move to internal note</button>
@@ -156,7 +156,7 @@ export function QuestionPop({ anchor, line, thread, status, canAsk, saved, memo,
       {tab === "ask" ? <>
         {thread.length > 0 && <div className="max-h-60 overflow-y-auto rounded-[8px] bg-sand-50 px-3 py-2"><ThreadView thread={thread} status={status} actions={canAsk ? actions : undefined} /></div>}
         {canAsk ? <Composer saved={saved} onSend={onSend} onSave={onSave} onRemove={onRemove} />
-          : <p className="text-[12.5px] text-ink-3">This line is posted or excluded, so its questions are closed.</p>}
+          : <p className="text-[12.5px] text-ink-3">No new question can be added to this line (it is excluded, or the file is read-only).</p>}
       </> : (
         <div className="grid gap-2" data-q-note>
           <p className="text-[12px] text-ink-3">For Concept only. Never sent to the client and never on a client page, email, Excel or PDF.</p>
@@ -173,13 +173,12 @@ export function QuestionPop({ anchor, line, thread, status, canAsk, saved, memo,
 }
 
 // The black bar's Ask client: one question on every ticked line.
-export function AskManyWindow({ n, saved, onClose, onSend, onSave, onRemove, intro }: {
+export function AskManyWindow({ n, saved, onClose, onSend, onSave, onRemove }: {
   n: number; saved: Saved[] | null; onClose: () => void; onSend: (t: string) => Promise<boolean>; onSave: (t: string) => Promise<void>; onRemove: (id: string) => Promise<void>;
-  intro?: string;   // round 35: step 7 says what asking does to a posted line
 }) {
   return (
     <Modal title="Ask client" onClose={onClose} width={520} foot={<button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>}>
-      <p className="text-ink-2">{intro ?? <>The same question goes on {n === 1 ? "the ticked line" : `each of the ${n} ticked lines`}. Asking posts nothing. The client sees it when you use Notify client.</>}</p>
+      <p className="text-ink-2">The same question goes on {n === 1 ? "the ticked line" : `each of the ${n} ticked lines`}. Asking posts nothing. The client sees it when you use Notify client.</p>
       <Composer saved={saved} onSend={async (t) => { const ok = await onSend(t); if (ok) onClose(); return ok; }} onSave={onSave} onRemove={onRemove} sendLabel="Add question for client" />
     </Modal>
   );
