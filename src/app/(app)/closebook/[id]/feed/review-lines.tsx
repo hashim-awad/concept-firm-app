@@ -171,8 +171,8 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
         <div className="overflow-x-auto">
           {/* Round 36: ten columns do not fit a 1280 px window with a 220 px description, so the bank account and the Why
               sit on a grey second line under the description (QuickBooks Online shows the bank detail there). */}
-          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: 712 + 220 }} data-feed-table>
-            <colgroup><col className="w-8" /><col className="w-[6.25rem]" /><col /><col className="w-20" /><col className="w-20" /><col className="w-8" />
+          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: 708 + 220 }} data-feed-table>
+            <colgroup><col className="w-8" /><col className="w-24" /><col /><col className="w-20" /><col className="w-20" /><col className="w-8" />
               <col className="w-[6.75rem]" /><col className="w-36" /><col className="w-[8.5rem]" /></colgroup>
             <thead><tr className="border-b border-sand-200">
               <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all" checked={allTicked} disabled={!editable || !rows.length || reviewedView}

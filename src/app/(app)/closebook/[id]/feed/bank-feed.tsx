@@ -458,10 +458,10 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         {/* 4. The list */}
         <div className="overflow-x-auto">
           {/* Round 36: fixed columns plus a description of at least 220 px, so a 1280 px window shows the whole table. */}
-          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: tab === "pending" ? 710 + 220 - (cols.clip ? 0 : 32) - (cols.memo ? 0 : 32) + (cols.itc ? 76 : 0) : tab === "posted" ? 700 + 220 : 644 + 220 }} data-feed-table>
+          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: tab === "pending" ? 702 + 220 - (cols.clip ? 0 : 32) - (cols.memo ? 0 : 32) + (cols.itc ? 76 : 0) : tab === "posted" ? 700 + 220 : 644 + 220 }} data-feed-table>
             {tab === "pending" ? <>
               <colgroup><col className="w-8" /><col className="w-[7.125rem]" /><col /><col className="w-20" /><col className="w-20" />
-                {cols.clip && <col className="w-8" />}{cols.memo && <col className="w-8" />}<col className="w-[6.75rem]" /><col className="w-[9.5rem]" />{cols.itc && <col className="w-[4.75rem]" />}<col className="w-20" /></colgroup>
+                {cols.clip && <col className="w-8" />}{cols.memo && <col className="w-8" />}<col className="w-[6.75rem]" /><col className="w-36" />{cols.itc && <col className="w-[4.75rem]" />}<col className="w-20" /></colgroup>
               <thead><tr className="border-b border-sand-200">
                 <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all on this page" checked={allTicked} disabled={!editable || !shown.length}
                   onChange={() => setTicked((t) => { const n = new Set(t); if (allTicked) pageIds.forEach((id) => n.delete(id)); else pageIds.forEach((id) => n.add(id)); return n; })} /></th>

@@ -9,7 +9,8 @@ import { StudioLogo } from "./brand";
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: string; soon?: boolean; children?: NavItem[] };
 export type NavGroup = { label: string; items: NavItem[]; collapsible?: boolean };
 // The pin at the bottom of the menu (TaxDome): pinned keeps the menu open; unpinned folds it to icons.
-export type MenuPin = { pinned: boolean; onToggle: () => void };
+// locked (round 36): the menu is held folded here; the button says why and does nothing.
+export type MenuPin = { pinned: boolean; onToggle: () => void; locked?: string };
 
 const KEY = "studio.sidebar.closed";
 // Folded groups, remembered in this browser only. Storage can be blocked: then every group is open.
@@ -197,7 +198,7 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
 // TaxDome's pin: pinned shows the pin, and "Unpin menu" on hover; unpinned shows the crossed pin, and "Pin menu".
 export function PinButton({ pin, wide, tone = "dark", what = "menu" }: { pin: MenuPin; wide?: boolean; tone?: "dark" | "light"; what?: string }) {
   const tip = useTip();
-  const label = pin.pinned ? `Unpin ${what}` : `Pin ${what}`;
+  const label = pin.locked ?? (pin.pinned ? `Unpin ${what}` : `Pin ${what}`);
   const Icon = pin.pinned ? Pin : PinOff;
   const c = tone === "dark" ? "text-white/70 hover:bg-white/8 hover:text-white" : "text-ink-3 hover:bg-sand-100 hover:text-ink";
   if (wide) return (
@@ -208,8 +209,9 @@ export function PinButton({ pin, wide, tone = "dark", what = "menu" }: { pin: Me
     </button>
   );
   return (
-    <button type="button" onClick={pin.onToggle} aria-label={label} aria-pressed={pin.pinned} data-menu-pin={pin.pinned ? "pinned" : "unpinned"} {...tip.on}
-      className={`group relative grid h-10 w-10 place-items-center rounded-lg ${c}`}>
+    <button type="button" onClick={pin.locked ? undefined : pin.onToggle} aria-label={label} aria-pressed={pin.pinned} aria-disabled={pin.locked ? true : undefined}
+      data-menu-pin={pin.locked ? "locked" : pin.pinned ? "pinned" : "unpinned"} {...tip.on}
+      className={`group relative grid h-10 w-10 place-items-center rounded-lg ${pin.locked ? "cursor-default text-white/40" : c}`}>
       <Icon className="h-4 w-4 -rotate-45" aria-hidden />
       <Tip text={label} at={tip.at} />
     </button>

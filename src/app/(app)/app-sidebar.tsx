@@ -66,8 +66,20 @@ export function AppSidebar({ access, counts, menuPinned }: { access: SidebarAcce
   // Inside a Closebook file the menu folds to icons (round 15); so does a statement's verify screen
   // (round 20), which needs the width for the statement beside its lines.
   const inFile = /^\/closebook\/[0-9a-f-]{36}(\/|$)/.test(path) || /^\/statements\/[0-9a-f-]{36}$/.test(path);
-  const pinned = pinChoice ?? !inFile;
-  const pin = { pinned, onToggle: () => { const v = !pinned; setPinChoice(v); void setMenuPin("menu", v).then((r) => { if (!r.ok) notify(r.error, "error"); }); } };
+  // Round 36 (Hashim, Nov 17, 2026): inside a file, a window narrower than 1440 px shows the menu folded whatever the
+  // person's pin, so the tables never scroll sideways at 1280 px. Their choice applies again on wider windows and
+  // outside files. Until the width is known (the first paint), a file counts as narrow: never a sideways scroll.
+  const [wide, setWide] = useState<boolean | null>(null);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 1440px)");
+    const f = () => setWide(m.matches);
+    f(); m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, []);
+  const held = inFile && wide !== true;
+  const pinned = held ? false : pinChoice ?? !inFile;
+  const pin = held ? { pinned: false, onToggle: () => {}, locked: "Folded in a file when the window is narrower than 1440 px" }
+    : { pinned, onToggle: () => { const v = !pinned; setPinChoice(v); void setMenuPin("menu", v).then((r) => { if (!r.ok) notify(r.error, "error"); }); } };
   const sidebar = <Sidebar groups={groups} />;
   const desktop = <Sidebar compact={!pinned} groups={groups} pin={pin} />;
 
