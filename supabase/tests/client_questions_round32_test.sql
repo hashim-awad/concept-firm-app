@@ -72,7 +72,7 @@ select test.check('a signed-in person cannot record a client answer', test.try(f
 reset role;
 set role anon;
 select test.check('anon cannot read links', test.try('select count(*) from public.cb_question_links') like '%permission denied%');
-select test.check('no code tables (firm decision: the link opens the questions directly)', to_regclass('public.cb_question_codes') is null and to_regclass('public.cb_question_sessions') is null);
+select test.check('anon cannot read the old code table (unused since the firm decision)', test.try('select count(*) from public.cb_question_codes') like '%permission denied%');
 reset role;
 set role service_role;
 select test.check('a file in the wrong place is refused', test.try(format('select public.cb_client_answer(%L, %L, %L, %L, %L)', :'k1', test.q('CAFE DUMMY 1'), 'client@example.test', '',

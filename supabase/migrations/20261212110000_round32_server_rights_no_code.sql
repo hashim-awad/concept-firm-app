@@ -17,17 +17,16 @@
 --     storage tables; the deploy also runs it after the change (scripts/checks/server-key-rights.sql) and stops on any row.
 --   * A database error on the client page goes in History and as a bell notice to the file's preparer and reviewer.
 -- Firm decision (Hashim, Nov 17, 2026): no 6-digit code. The link opens the questions directly (as DocuSign's default
--- link): the code and session tables and the lock columns go. Every opening of the link is logged in History (device).
+-- link): the code and session tables and the lock columns are no longer used. Every opening is logged in History (device).
 -- "Copy link" in Notify client switches a link on without an email, for staff to paste into TaxDome or Outlook.
 -- Safe to run twice.
 
 -- ---------- 1. Rights for the server key (the client page and the client's answer)
 grant select on public.cb_question_links, public.cb_files, public.clients, public.cb_bank_lines, public.cb_bank_accounts,
   public.cb_line_questions, public.cb_line_files to service_role;
--- No code (firm decision): the code, the session and the lock after wrong codes go.
-drop table if exists public.cb_question_sessions;
-drop table if exists public.cb_question_codes;
-alter table public.cb_question_links drop column if exists failed_codes, drop column if exists locked_until;
+-- No code (firm decision): the app no longer uses cb_question_codes, cb_question_sessions or the lock columns
+-- (failed_codes, locked_until). They stay, unused: the deploy's restore needs every table and column it backed up, so a
+-- migration never drops one (scripts/checks/migration-order.sh refuses it). Test ran an earlier version that dropped them.
 
 -- ---------- 2. Links made by the old flow and never sent are not links: switch them off. Then one live link per file.
 update public.cb_question_links set active = false where active and not sent;

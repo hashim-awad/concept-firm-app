@@ -107,8 +107,7 @@ select test.check('the preparer and the reviewer each get one bell notice, count
    from public.staff_notices where group_key like 'cbqerr:%'));
 
 -- ---------- Firm decision: no code. Copy link, and every opening in History.
-select test.check('the code, session and lock are gone', to_regclass('public.cb_question_codes') is null and to_regclass('public.cb_question_sessions') is null
-  and not exists (select 1 from information_schema.columns where table_name = 'cb_question_links' and column_name in ('failed_codes', 'locked_until')));
+select test.check('no table or column is dropped (the restore needs them): the old code tables stay, unused', to_regclass('public.cb_question_codes') is not null and to_regclass('public.cb_question_sessions') is not null);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_question_link_create(:'f', repeat('6', 64), array[:'l']::uuid[], '{}', '{}', current_date + 7, now() + interval '30 days') as c1 \gset
