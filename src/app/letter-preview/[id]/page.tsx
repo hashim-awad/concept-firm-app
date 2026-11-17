@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClientShell } from "@/components/ds/client";
+import { ClientShell } from "@/components/ds/client-shell";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { pieceText } from "@/lib/t1-quote/render";

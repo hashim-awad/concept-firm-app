@@ -36,11 +36,9 @@ export function StudioLogo({ tone = "navy", height = 40, priority }: { tone?: "n
   );
 }
 
-// Firm details for client pages and documents (public business information).
+// The firm's name for client pages and documents. Its address, phone and email are not here: they come from Settings ›
+// Firm details › Contact (round 33, src/lib/firm-contact.ts).
 export const FIRM = {
   legalName: "Concept Accounting & Advisory Professional Corporation",
-  address: "675 Riverbend Dr., Kitchener, ON N2K 3S3",
-  phone: "226-789-9591",
-  email: "contact@conceptaccounting.ca",
   web: "conceptaccounting.ca",
 };

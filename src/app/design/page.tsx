@@ -3,7 +3,8 @@ import { ArrowRight, Archive, BookOpen, Building2, CircleCheck, Download, FileSi
 import { ConceptMark, Logo } from "@/components/ds/brand";
 import { Alert, ALL_STATUSES, Button, Card, Checkbox, Field, Input, Meta, PageHeader, StatusPill, buttonClass, money, type } from "@/components/ds/primitives";
 import { HeroHeader, Sidebar } from "@/components/ds/navigation";
-import { ClientShell, DocumentSheet, ProgressBar, RouteCard, TrustRow } from "@/components/ds/client";
+import { DocumentSheet, ProgressBar, RouteCard, TrustRow } from "@/components/ds/client";
+import { ClientShell } from "@/components/ds/client-shell";
 import { ChoiceDemo, FormDemo, OverlayDemo, StepsDemo, TableDemo } from "./demos";
 
 const SECTIONS = [

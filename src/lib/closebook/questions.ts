@@ -34,6 +34,17 @@ export function deviceOf(ua: string): string {
   return "computer";
 }
 
+// Round 33 (Hashim, Nov 17, 2026): what the client may see. Only questions that went out in a Notify client or Copy link
+// (sent_at set), and the client's own answers; never a question not sent yet. A line shows only while it is open
+// (not posted or excluded), Waiting or Answered, with at least one sent question.
+export function clientThread<T extends { kind: "q" | "a"; sent_at: string | null }>(entries: T[]): T[] {
+  return entries.filter((e) => e.kind === "a" || (e.kind === "q" && !!e.sent_at));
+}
+export function clientLineVisible(l: { q_status: string; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null }, thread: { kind: "q" | "a" }[]): boolean {
+  const s = qStatusOf(l);
+  return (s === "waiting" || s === "answered") && thread.some((e) => e.kind === "q");
+}
+
 export const isOpen = (s: QStatus | null) => s === "not_sent" || s === "waiting" || s === "answered";
 
 // "h•••@hotmail.com"
@@ -73,25 +84,29 @@ const fill = (t: string, f: string[]) => t.replace(/\{(\d+)\}/g, (m, i) => f[Num
 export const questionsWord = (n: number) => `${n} question${n === 1 ? "" : "s"}`;
 
 // The editable part of the email (the window shows it; "for this email only").
-export function questionsMessage(texts: Record<string, string>, P: QEmailPieces, d: { first: string; legalName: string; count: number; replyBy: string }): { subject: string; message: string } {
+export function questionsMessage(texts: Record<string, string>, P: QEmailPieces, d: { first: string; legalName: string; count: number }): { subject: string; message: string } {
   // A legal name ending in "Inc." before a full stop: one full stop, not two.
   const t = (p: QPieceLike, ...f: string[]) => fill(texts[p.key] ?? p.text, f).replace(/\.\.(?=\s|$)/g, ".");
   return {
     subject: t(P.subject),
-    message: [t(P.hi, d.first || "there"), "", t(P.working, d.legalName, questionsWord(d.count)), "", t(P.answerBy, longDate(d.replyBy))].join("\n"),
+    // Round 33: the reply-by sentence is not in the editable text; it comes from the Reply by date (one stored value).
+    message: [t(P.hi, d.first || "there"), "", t(P.working, d.legalName, questionsWord(d.count))].join("\n"),
   };
 }
 
 // The email as sent: the message, the link (bold and underlined), the sender's signature.
-export function renderQuestionsEmail(texts: Record<string, string>, P: QEmailPieces, m: { subject: string; message: string }, sender: QSender, link: string) {
+// The reply-by sentence, from the stored date: the window, the email and the client page show the same date.
+export const answerByText = (texts: Record<string, string>, P: QEmailPieces, replyBy: string) => fill(texts[P.answerBy.key] ?? P.answerBy.text, [longDate(replyBy)]).replace(/\.\.(?=\s|$)/g, ".");
+export function renderQuestionsEmail(texts: Record<string, string>, P: QEmailPieces, m: { subject: string; message: string }, sender: QSender, link: string, replyBy: string) {
   const t = (p: QPieceLike) => texts[p.key] ?? p.text;
-  const paras = m.message.split(/\n{2,}/).map((p) => `<p style="margin: 0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+  const body = `${m.message.trimEnd()}\n\n${answerByText(texts, P, replyBy)}`;
+  const paras = body.split(/\n{2,}/).map((p) => `<p style="margin: 0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const who = `<b>${esc(sender.name)}</b>${sender.credentials ? `, ${esc(sender.credentials)}` : ""}`;
   const firmLine = [sender.title, t(P.firm)].filter(Boolean).map(esc).join(" | ");
   const html = `<div style="font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.5; color: #1c1f1e;">${paras}`
     + `<p style="margin: 18px 0;"><a href="${esc(link)}" style="color: #0000ee; font-weight: bold; text-decoration: underline;">${esc(t(P.link))}</a></p>`
     + `<p style="margin: 18px 0 0;">${who}<br>${firmLine}</p></div>`;
-  const text = `${m.message}\n\n${t(P.link)}: ${link}\n\n${sender.name}${sender.credentials ? `, ${sender.credentials}` : ""}\n${[sender.title, t(P.firm)].filter(Boolean).join(" | ")}`;
+  const text = `${body}\n\n${t(P.link)}: ${link}\n\n${sender.name}${sender.credentials ? `, ${sender.credentials}` : ""}\n${[sender.title, t(P.firm)].filter(Boolean).join(" | ")}`;
   return { subject: m.subject, html, text };
 }
 

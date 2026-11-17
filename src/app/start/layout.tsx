@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ClientShell } from "@/components/ds/client";
+import { ClientShell } from "@/components/ds/client-shell";
 
 // Client-facing pages use the firm's brand, never the tool's name (decision 31).
 export const metadata: Metadata = { title: "Concept Accounting & Advisory", robots: { index: false, follow: false } };

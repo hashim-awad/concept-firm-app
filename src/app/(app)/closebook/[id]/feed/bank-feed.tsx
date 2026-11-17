@@ -18,7 +18,7 @@ import { EXCLUDE_REASONS, EditWindow, ExcludeWindow, FLD, PairWindow, Pop, Split
 import { RulePane, RulesPage, blankRule, type RuleDraft } from "./rules";
 import { AskManyWindow, QIcon, QuestionPop, type Saved } from "./questions";
 import { NotifyWindow } from "./notify-window";
-import { addSavedQuestion, askQuestions, getThreads, removeSavedQuestion, savedQuestions } from "../../question-actions";
+import { addSavedQuestion, askQuestions, deleteQuestion, editQuestion, getThreads, moveQuestionToNote, removeSavedQuestion, savedQuestions } from "../../question-actions";
 import {
   attachReceipt, clearSplits, excludeLines, excludedReviewed, exportList, fillLines, getLines, pairChoice, postLines, receiptUrl, reorderRules, restoreLines,
   ruleAction, saveRule, saveSplits, setDate, setMemo, unpostLines,
@@ -605,9 +605,17 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
       }} />}
       {pop?.k === "q" && byId.get(pop.id) && (() => {
         const l = byId.get(pop.id)!;
+        // Round 33: after an unsent question is edited, deleted or moved, the line's thread, status and memo come back.
+        const reload = async () => { const t = await getThreads(data.fileId, [l.id]); if (t.ok) setThreads((x) => ({ ...x, [l.id]: t.threads[l.id] ?? [] })); await refresh([l.id]); };
         return <QuestionPop anchor={pop.el} line={{ date: l.acct_date, description: l.description, amount: money(l.cents) }} thread={threads[l.id] ?? []} status={l.q_status ?? ""}
-          canAsk={editable && isPending(l)} saved={saved} onClose={() => setPop(null)} onSave={saveQuestion} onRemove={removeQuestion}
-          onSend={async (t) => { const ok = await askLines([l.id], t); if (ok) setPop(null); return ok; }} />;
+          canAsk={editable && isPending(l)} saved={saved} memo={l.memo ?? ""} onClose={() => setPop(null)} onSave={saveQuestion} onRemove={removeQuestion}
+          onSend={async (t) => { const ok = await askLines([l.id], t); return ok; }}
+          onSaveMemo={async (m) => { const r = await setMemo(l.id, m); if (!r.ok) { fail(r.error); return false; } setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Internal note saved"); return true; }}
+          actions={{
+            onEdit: async (id, text) => { const r = await editQuestion(id, text); if (!r.ok) { fail(r.error); return false; } await reload(); notify("Question changed"); return true; },
+            onDelete: async (id) => { const r = await deleteQuestion(id); if (!r.ok) { fail(r.error); return; } await reload(); notify("Question deleted"); },
+            onMove: async (id) => { const r = await moveQuestionToNote(id); if (!r.ok) { fail(r.error); return; } await reload(); notify("Moved to the internal note"); },
+          }} />;
       })()}
       {pop?.k === "files" && <Pop anchor={pop.el} onClose={() => setPop(null)} width={300}>
         <span className="font-semibold">Receipts</span>
@@ -765,13 +773,13 @@ function OpenRow({ l, span, editable, fail, setLines }: { l: FeedLine; span: num
       <td colSpan={span} className="px-2 py-3">
         <div className="flex flex-wrap items-end gap-4 text-[13px]">
           <p className="text-ink-2">Bank date <b className="font-semibold text-ink">{formatDate(l.txn_date)}</b>{l.posted_date && l.posted_date !== l.txn_date && <> · Posting date <b className="font-semibold text-ink">{formatDate(l.posted_date)}</b></>}</p>
-          <label className="grid min-w-[22rem] flex-1 gap-1 font-semibold">Memo
-            <input aria-label="Memo" value={memo} maxLength={300} disabled={!editable} onChange={(e) => setMemoV(e.target.value)} className={`${FLD} font-normal`} placeholder="A note for the books (the client does not see it)" /></label>
+          <label className="grid min-w-[22rem] flex-1 gap-1 font-semibold">Internal note
+            <textarea aria-label="Internal note" value={memo} maxLength={2000} rows={2} disabled={!editable} onChange={(e) => setMemoV(e.target.value)} className="w-full resize-y rounded-[6px] border border-sand-300 bg-white px-2 py-1 text-[13.5px] font-normal outline-none focus:border-navy-600" placeholder="Internal note: for Concept only, never sent to the client" /></label>
           {editable && <button type="button" className="btn btn-compact" disabled={busy || memo.trim() === l.memo} onClick={async () => {
             setBusy(true); const m = memo.trim(); const r = await setMemo(l.id, m); setBusy(false);
             if (!r.ok) { fail(r.error); return; }
-            setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Memo saved");
-          }}>Save memo</button>}
+            setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Internal note saved");
+          }}>Save note</button>}
         </div>
       </td>
     </tr>

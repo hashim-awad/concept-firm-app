@@ -108,7 +108,7 @@ function Card({ token, c, onSent }: { token: string; c: CqCard; onSent: (e: CqCa
       <div className="border-sand-200 md:border-l md:pl-6">
         {c.waiting ? (
           <div className="space-y-3">
-            <label className="block text-sm text-ink-2" htmlFor={`a-${c.id}`}>{lastQ?.body}</label>
+            <label className="block text-sm font-medium text-ink-2" htmlFor={`a-${c.id}`}>Your answer</label>
             <textarea id={`a-${c.id}`} rows={3} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Enter your answer"
               className="block w-full resize-y rounded-xl border border-sand-300 bg-white px-3 py-2 text-base outline-none focus:border-navy-600 focus:ring-2 focus:ring-navy-100" />
             {files.length > 0 && (

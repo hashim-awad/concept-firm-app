@@ -8,7 +8,7 @@ import { codingHistory, type Coding } from "./vendor";
 import { bankTypeLabel, chartTypeLabel, type BankRule, type FeedAccount, type FeedLine, type PairChoice } from "./bank-feed";
 
 // Round 32: each line's questions to the client and the client's answers (our side shows initials; the client, their email).
-export type FeedQ = { kind: "q" | "a"; body: string; at: string; by: string; files: string[] };
+export type FeedQ = { id: string; kind: "q" | "a"; body: string; at: string; by: string; files: string[]; sentAt: string | null };
 export type FeedChart = { number: string; name: string; type: string; tax_default: string };
 export type FeedSplit = { account: string; tax: string; cents: number; memo: string };
 export type FeedData = {
@@ -149,7 +149,7 @@ export async function autoPostRules(supabase: SupabaseClient, fileId: string): P
 
 // Round 32: the question threads, for the whole file or some lines.
 export async function readThreads(supabase: SupabaseClient, fileId: string, ids: string[] | null): Promise<Record<string, FeedQ[]>> {
-  let qq = supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at").eq("file_id", fileId).order("created_at").limit(20000);
+  let qq = supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at, sent_at").eq("file_id", fileId).order("created_at").limit(20000);
   let ff = supabase.from("cb_line_files").select("line_id, name, question_id").eq("file_id", fileId).not("question_id", "is", null).limit(20000);
   if (ids) { qq = qq.in("line_id", ids); ff = ff.in("line_id", ids); }
   const [{ data: qs }, { data: fs }, { data: staff }] = await Promise.all([qq, ff, supabase.from("staff").select("id, full_name")]);
@@ -157,7 +157,7 @@ export async function readThreads(supabase: SupabaseClient, fileId: string, ids:
   const names = new Map<string, string[]>();
   for (const f of (fs ?? []) as { question_id: string; name: string }[]) names.set(f.question_id, [...(names.get(f.question_id) ?? []), f.name]);
   const out: Record<string, FeedQ[]> = {};
-  for (const q of (qs ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string }[])
-    (out[q.line_id] ??= []).push({ kind: q.kind, body: q.body, at: q.created_at, by: q.kind === "q" ? ini.get(q.asked_by ?? "") ?? "" : q.answered_by, files: names.get(q.id) ?? [] });
+  for (const q of (qs ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string; sent_at: string | null }[])
+    (out[q.line_id] ??= []).push({ id: q.id, kind: q.kind, body: q.body, at: q.created_at, by: q.kind === "q" ? ini.get(q.asked_by ?? "") ?? "" : q.answered_by, files: names.get(q.id) ?? [], sentAt: q.sent_at });
   return out;
 }

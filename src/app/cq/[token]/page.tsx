@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { ClientShell } from "@/components/ds/client";
+import { ClientShell } from "@/components/ds/client-shell";
 import { clientCards, CqReadError, ERROR_TEXT, findLink, recordOpen, reportLinkError, type CqCard, type CqLink } from "@/lib/closebook/client-questions-server";
 import { longDate } from "@/lib/closebook/questions";
 import { QuestionsBoard } from "./questions-board";

@@ -6,7 +6,7 @@ import "server-only";
 // Nothing on the client side sends an email. Never shows chart numbers, GIFI, staff names or the word "Closebook".
 import { createHash, randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { accountForClient, ANSWER_EXT, ANSWER_FILES, ANSWER_MAX, ANSWER_TYPES, deviceOf, linkRefusal, type LinkRefusal } from "./questions";
+import { accountForClient, clientLineVisible, clientThread, ANSWER_EXT, ANSWER_FILES, ANSWER_MAX, ANSWER_TYPES, deviceOf, linkRefusal, type LinkRefusal } from "./questions";
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -67,7 +67,7 @@ export async function clientCards(cq: CqLink): Promise<CqCard[]> {
   const [{ data: lines, error: x1 }, { data: accs, error: x2 }, { data: entries, error: x3 }, { data: files, error: x4 }] = await Promise.all([
     db.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, is_split, transfer_account, q_status").eq("file_id", cq.link.file_id).in("id", ids).order("txn_date").order("row_no"),
     db.from("cb_bank_accounts").select("id, bank, account_type, kind, last4").eq("file_id", cq.link.file_id),
-    db.from("cb_line_questions").select("id, line_id, kind, body, created_at").eq("file_id", cq.link.file_id).in("line_id", ids).order("created_at"),
+    db.from("cb_line_questions").select("id, line_id, kind, body, created_at, sent_at").eq("file_id", cq.link.file_id).in("line_id", ids).order("created_at"),
     db.from("cb_line_files").select("question_id, name").eq("file_id", cq.link.file_id).in("line_id", ids).not("question_id", "is", null),
   ]);
   const bad = x1 ?? x2 ?? x3 ?? x4;
@@ -75,15 +75,19 @@ export async function clientCards(cq: CqLink): Promise<CqCard[]> {
   const acc = new Map(((accs ?? []) as { id: string; bank: string | null; account_type: string | null; kind: "bank" | "card"; last4: string | null }[]).map((a) => [a.id, a]));
   const fileNames = new Map<string, string[]>();
   for (const f of (files ?? []) as { question_id: string; name: string }[]) fileNames.set(f.question_id, [...(fileNames.get(f.question_id) ?? []), f.name]);
-  return ((lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null; q_status: string }[]).map((l) => {
+  // Round 33: only open lines that are Waiting or Answered, and only the questions that went out (never a note,
+  // never a question not sent yet, never a posted or excluded line).
+  const out: CqCard[] = [];
+  for (const l of (lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null; q_status: string }[]) {
+    const thread = clientThread(((entries ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; created_at: string; sent_at: string | null }[]).filter((e) => e.line_id === l.id))
+      .map((e) => ({ kind: e.kind, body: e.body, at: e.kind === "q" ? e.sent_at ?? e.created_at : e.created_at, files: fileNames.get(e.id) ?? [] }));
+    if (!clientLineVisible(l, thread)) continue;
     const a = acc.get(l.account_id);
     const cents = Math.round(Number(l.amount) * 100);
-    const thread = ((entries ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; created_at: string }[]).filter((e) => e.line_id === l.id)
-      .map((e) => ({ kind: e.kind, body: e.body, at: e.created_at, files: fileNames.get(e.id) ?? [] }));
-    const pending = !l.chart_account && !l.is_split && !l.transfer_account && ["new", "ask_client", "reviewer"].includes(l.status);
-    return { id: l.id, date: l.txn_date, account: a ? accountForClient(a.bank, a.account_type, a.kind, a.last4) : "", description: l.description, cents,
-      out: a?.kind === "card" ? cents > 0 : cents < 0, waiting: l.q_status === "waiting" && pending, answered: thread.some((e) => e.kind === "a"), thread };
-  });
+    out.push({ id: l.id, date: l.txn_date, account: a ? accountForClient(a.bank, a.account_type, a.kind, a.last4) : "", description: l.description, cents,
+      out: a?.kind === "card" ? cents > 0 : cents < 0, waiting: l.q_status === "waiting", answered: l.q_status === "answered", thread });
+  }
+  return out;
 }
 
 // Signed upload places for the client's files; checked again when the answer is sent.
