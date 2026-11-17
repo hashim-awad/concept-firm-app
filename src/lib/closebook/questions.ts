@@ -9,11 +9,11 @@ export const Q_LABEL: Record<QStatus, string> = { not_sent: "Not sent", waiting:
 // Not sent grey, Waiting amber, Answered blue, Closed green.
 export const Q_TONE: Record<QStatus, string> = { not_sent: "bg-sand-100 text-ink-2", waiting: "bg-warning-soft text-warning", answered: "bg-navy-50 text-navy-700", closed: "bg-success-soft text-success" };
 
-// A line's status: closed once posted or excluded in step 4; otherwise what the line holds ('' = no question).
+// A line's status (round 35b): what the line holds ('' = no question). Posting closes the questions still waiting on
+// it (the database sets 'closed'); a question asked after posting stays open. An excluded line is closed.
 export function qStatusOf(l: { q_status: string; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null }): QStatus | null {
   if (!l.q_status) return null;
-  const pending = l.status === "new" || l.status === "ask_client" || (l.status === "reviewer" && !l.chart_account && !l.is_split && !l.transfer_account);
-  if (!pending) return "closed";
+  if (l.status === "excluded") return "closed";
   return l.q_status as QStatus;
 }
 // Round 32 fix (Hashim, Nov 17, 2026): why a client's link does not open. A link ends only at 30 days, at the next good
@@ -35,14 +35,15 @@ export function deviceOf(ua: string): string {
 }
 
 // Round 33 (Hashim, Nov 17, 2026): what the client may see. Only questions that went out in a Notify client or Copy link
-// (sent_at set), and the client's own answers; never a question not sent yet. A line shows only while it is open
-// (not posted or excluded), Waiting or Answered, with at least one sent question.
-export function clientThread<T extends { kind: "q" | "a"; sent_at: string | null }>(entries: T[]): T[] {
-  return entries.filter((e) => e.kind === "a" || (e.kind === "q" && !!e.sent_at));
+// (sent_at set), and the client's own answers; never a question not sent yet. Round 35b: a line shows while it is
+// Waiting or Answered with at least one open sent question, posted or not; never an excluded line.
+// Round 35b: only open questions (never one closed by posting), posted line or not.
+export function clientThread<T extends { kind: "q" | "a"; sent_at: string | null; closed_at?: string | null }>(entries: T[]): T[] {
+  return entries.filter((e) => e.kind === "a" || (e.kind === "q" && !!e.sent_at && !e.closed_at));
 }
 export function clientLineVisible(l: { q_status: string; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null }, thread: { kind: "q" | "a" }[]): boolean {
   const s = qStatusOf(l);
-  return (s === "waiting" || s === "answered") && thread.some((e) => e.kind === "q");
+  return l.status !== "excluded" && (s === "waiting" || s === "answered") && thread.some((e) => e.kind === "q");
 }
 
 export const isOpen = (s: QStatus | null) => s === "not_sent" || s === "waiting" || s === "answered";

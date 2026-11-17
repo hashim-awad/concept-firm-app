@@ -26,12 +26,14 @@ function readZip(buf: Buffer) {
 const line = (o: Partial<{ q_status: string; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null }>) =>
   ({ q_status: "", status: "new", chart_account: null, is_split: false, transfer_account: null, ...o });
 
-test("statuses: on the line until posted or excluded, then Closed", () => {
+// Round 35b: the status is the question's (closed by posting, in the database), not the line's.
+test("statuses: from the questions; a posted line keeps an open question; excluded is Closed", () => {
   assert.equal(qStatusOf(line({})), null);
   assert.equal(qStatusOf(line({ q_status: "not_sent" })), "not_sent");
   assert.equal(qStatusOf(line({ q_status: "waiting" })), "waiting");
   assert.equal(qStatusOf(line({ q_status: "answered" })), "answered");
-  assert.equal(qStatusOf(line({ q_status: "answered", status: "done", chart_account: "63000" })), "closed");
+  assert.equal(qStatusOf(line({ q_status: "answered", status: "done", chart_account: "63000" })), "answered", "asked on a posted line");
+  assert.equal(qStatusOf(line({ q_status: "closed", status: "done", chart_account: "63000" })), "closed", "closed when posted");
   assert.equal(qStatusOf(line({ q_status: "waiting", status: "excluded" })), "closed");
   // A line sent to the reviewer without an account is still Pending, so its question stays open.
   assert.equal(qStatusOf(line({ q_status: "waiting", status: "reviewer" })), "waiting");
@@ -151,7 +153,10 @@ test("the client page: only sent questions, only open lines that are Waiting or 
   assert.equal(clientLineVisible({ ...open, q_status: "waiting" }, t), true);
   assert.equal(clientLineVisible({ ...open, q_status: "answered" }, t), true);
   assert.equal(clientLineVisible({ ...open, q_status: "not_sent" }, t), false, "a question not sent yet");
-  assert.equal(clientLineVisible({ ...open, status: "done", chart_account: "63000", q_status: "waiting" }, t), false, "posted");
+  // Round 35b: a question asked on a posted line shows; one closed by posting never does.
+  assert.equal(clientLineVisible({ ...open, status: "done", chart_account: "63000", q_status: "waiting" }, t), true, "asked on a posted line");
+  assert.equal(clientLineVisible({ ...open, status: "done", chart_account: "63000", q_status: "closed" }, t), false, "closed by posting");
+  assert.deepEqual(clientThread([{ ...entries[0], closed_at: "2026-11-17T17:00:00Z" }]).length, 0, "a closed question never shows");
   assert.equal(clientLineVisible({ ...open, status: "excluded", q_status: "answered" }, t), false, "excluded");
   assert.equal(clientLineVisible({ ...open, q_status: "waiting" }, clientThread([entries[1]])), false, "no sent question");
 });

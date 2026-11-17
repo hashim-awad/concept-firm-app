@@ -109,7 +109,9 @@ select test.check('a follow-up: Not sent again, thread Q A Q', (select q_status 
   and (select string_agg(kind, '' order by created_at) = 'qaq' from public.cb_line_questions where line_id = test.q('OFFICE SUPPLY DUMMY')));
 select public.cb_post_lines(:'f', jsonb_build_array(jsonb_build_object('id', test.q('CAFE DUMMY 1'), 'kind', 'code', 'account', '63000', 'tax', 'EXEMPT')));
 select test.check('posted: no longer Pending, so the report shows Closed', (select not private.cb_line_pending(l) from public.cb_bank_lines l where id = test.q('CAFE DUMMY 1')));
-select test.check('a posted line cannot be asked about', test.try(format('select public.cb_ask_questions(%L, array[%L]::uuid[], %L)', :'f', test.q('CAFE DUMMY 1'), 'More?')) = 'Only Pending lines can be asked about.');
+-- Round 35b: a posted line can be asked about; it stays posted (the question is open, the line is not).
+select public.cb_ask_questions(:'f', array[test.q('CAFE DUMMY 1')], 'More?');
+select test.check('a posted line can be asked about and stays posted', (select status <> 'pending' and chart_account = '63000' and q_status = 'not_sent' from public.cb_bank_lines where id = test.q('CAFE DUMMY 1')));
 
 -- ---------- The signature: a person sets their own; not someone else's.
 select public.update_staff_signature(:C::uuid, 'CPA', 'Senior Accountant');

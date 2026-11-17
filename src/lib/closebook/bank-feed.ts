@@ -9,7 +9,7 @@ import { vendorKey, type History } from "./vendor.ts";
 export const PAIR_DAYS = 7;
 
 export type FeedAccount = { id: string; number: string; name: string; label: string; kind: "bank" | "card"; chart: string; type: "Bank" | "Credit card" | "Loan";
-  openingCents: number };
+  openingCents: number; short?: string };   // short: "RBC Chq ••• 7509" (round 35b)
 export type FeedLine = {
   id: string; account_id: string; txn_date: string; acct_date: string; posted_date: string | null; printed_date: string | null;
   description: string; cents: number; status: string; source: string;

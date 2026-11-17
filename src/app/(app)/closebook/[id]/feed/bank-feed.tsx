@@ -125,6 +125,9 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
     const fresh = new Map(r.lines.map((l) => [l.id, l]));
     setLines((ls) => ls.map((l) => fresh.get(l.id) ?? l));
     setSplits((s) => { const n = { ...s }; for (const id of ids) { if (r.splits[id]) n[id] = r.splits[id]; else delete n[id]; } return n; });
+    // Round 35b: posting closes a line's open questions; the 💬 shows them as Closed at once.
+    const asked = r.lines.filter((l) => l.q_status).map((l) => l.id);
+    if (asked.length) { const t = await getThreads(data.fileId, asked); if (t.ok) setThreads((x) => ({ ...x, ...t.threads })); }
   }, [data.fileId]);
   const fail = (e: string) => { notify(e, "error"); };
 
@@ -564,10 +567,10 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         setNotifyIds(false);
         notify(`Sent to ${who}`);
         const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && isPending(l) ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
+        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && l.status !== "excluded" ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
       }} onCopied={() => {
         const ids = notifyIds, today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && isPending(l) ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
+        setLines((ls) => ls.map((l) => ((ids === null || ids.includes(l.id)) && (l.q_status === "not_sent" || l.q_status === "waiting") && l.status !== "excluded" ? { ...l, q_status: "waiting", q_sent_on: today } : l)));
       }} />}
       {win?.k === "exclude" && <ExcludeWindow n={win.ids.length} onClose={() => setWin(null)} onExclude={async (reason, note) => {
         const r = await excludeLines(data.fileId, win.ids, reason, note);
@@ -608,7 +611,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         // Round 33: after an unsent question is edited, deleted or moved, the line's thread, status and memo come back.
         const reload = async () => { const t = await getThreads(data.fileId, [l.id]); if (t.ok) setThreads((x) => ({ ...x, [l.id]: t.threads[l.id] ?? [] })); await refresh([l.id]); };
         return <QuestionPop anchor={pop.el} line={{ date: l.acct_date, description: l.description, amount: money(l.cents) }} thread={threads[l.id] ?? []} status={l.q_status ?? ""}
-          canAsk={editable && isPending(l)} saved={saved} memo={l.memo ?? ""} onClose={() => setPop(null)} onSave={saveQuestion} onRemove={removeQuestion}
+          canAsk={editable && !isExcluded(l)} saved={saved} memo={l.memo ?? ""} onClose={() => setPop(null)} onSave={saveQuestion} onRemove={removeQuestion}
           onSend={async (t) => { const ok = await askLines([l.id], t); return ok; }}
           onSaveMemo={async (m) => { const r = await setMemo(l.id, m); if (!r.ok) { fail(r.error); return false; } setLines((ls) => ls.map((x) => (x.id === l.id ? { ...x, memo: m } : x))); notify("Internal note saved"); return true; }}
           actions={{

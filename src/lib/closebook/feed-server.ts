@@ -5,10 +5,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { defaultTaxCode, type TaxCode, type TaxPart } from "./sales-tax";
 import { codingHistory, type Coding } from "./vendor";
+import { accountShort } from "./questions";
 import { bankTypeLabel, chartTypeLabel, type BankRule, type FeedAccount, type FeedLine, type PairChoice } from "./bank-feed";
 
 // Round 32: each line's questions to the client and the client's answers (our side shows initials; the client, their email).
-export type FeedQ = { id: string; kind: "q" | "a"; body: string; at: string; by: string; files: string[]; sentAt: string | null };
+export type FeedQ = { id: string; kind: "q" | "a"; body: string; at: string; by: string; files: string[]; sentAt: string | null; closedAt?: string | null };
 export type FeedChart = { number: string; name: string; type: string; tax_default: string };
 export type FeedSplit = { account: string; tax: string; cents: number; memo: string };
 export type FeedData = {
@@ -33,7 +34,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
   const lastYear = `${Number(file.year_end.slice(0, 4)) - 1}${file.year_end.slice(4)}`;
   const [{ data: banks }, { data: chart, error: e1 }, { data: codes }, { data: parts }, { data: lines, error: e2 }, { data: transfers }, { data: splits }, { data: lfiles },
     { data: rules }, { data: choices }, { data: older }, { data: firm }, { data: staff }, { data: f }, { data: keyNow }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, number, name, last4, kind, chart_account, account_type, books_opening").eq("file_id", fileId).order("number"),
+    supabase.from("cb_bank_accounts").select("id, number, name, bank, last4, kind, chart_account, account_type, books_opening").eq("file_id", fileId).order("number"),
     supabase.from("cb_chart_accounts").select("number, name, account_type, tax_default").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces").order("sort_order"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", file.year_end).order("effective_from"),
@@ -60,9 +61,10 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     .map((c) => ({ code: c.code, name: c.name, parts: [...latest.values()].filter((p) => p.code === c.code).map(({ name, rate, recoverable, liability }) => ({ name, rate, recoverable, liability })) }));
   const chartRows = (chart ?? []) as { number: string; name: string; account_type: string; tax_default: string }[];
   const chartOf = new Map(chartRows.map((c) => [c.number, c]));
-  const accounts: FeedAccount[] = ((banks ?? []) as { id: string; number: string; name: string; last4: string | null; kind: "bank" | "card"; chart_account: string; account_type: string | null; books_opening: number | null }[])
+  const accounts: FeedAccount[] = ((banks ?? []) as { id: string; number: string; name: string; bank: string | null; last4: string | null; kind: "bank" | "card"; chart_account: string; account_type: string | null; books_opening: number | null }[])
     .map((b) => ({ id: b.id, number: b.number, name: b.name, label: `${b.number} ${b.name}${b.last4 && !b.name.includes(b.last4) ? ` ••• ${b.last4}` : ""}`,
-      kind: b.kind, chart: b.chart_account, type: bankTypeLabel(b.account_type, b.kind), openingCents: Math.round(Number(b.books_opening ?? 0) * 100) }));
+      kind: b.kind, chart: b.chart_account, type: bankTypeLabel(b.account_type, b.kind), openingCents: Math.round(Number(b.books_opening ?? 0) * 100),
+      short: accountShort(b.bank, b.name, b.last4, b.account_type) }));
   // The bank, card and loan accounts' own chart numbers are not offered as expense accounts: they are "Transfer to".
   const bankCharts = new Set(accounts.map((a) => a.chart));
   const defaultTax: Record<string, string | null> = {};
@@ -149,7 +151,7 @@ export async function autoPostRules(supabase: SupabaseClient, fileId: string): P
 
 // Round 32: the question threads, for the whole file or some lines.
 export async function readThreads(supabase: SupabaseClient, fileId: string, ids: string[] | null): Promise<Record<string, FeedQ[]>> {
-  let qq = supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at, sent_at").eq("file_id", fileId).order("created_at").limit(20000);
+  let qq = supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at, sent_at, closed_at").eq("file_id", fileId).order("created_at").limit(20000);
   let ff = supabase.from("cb_line_files").select("line_id, name, question_id").eq("file_id", fileId).not("question_id", "is", null).limit(20000);
   if (ids) { qq = qq.in("line_id", ids); ff = ff.in("line_id", ids); }
   const [{ data: qs }, { data: fs }, { data: staff }] = await Promise.all([qq, ff, supabase.from("staff").select("id, full_name")]);
@@ -157,7 +159,7 @@ export async function readThreads(supabase: SupabaseClient, fileId: string, ids:
   const names = new Map<string, string[]>();
   for (const f of (fs ?? []) as { question_id: string; name: string }[]) names.set(f.question_id, [...(names.get(f.question_id) ?? []), f.name]);
   const out: Record<string, FeedQ[]> = {};
-  for (const q of (qs ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string; sent_at: string | null }[])
-    (out[q.line_id] ??= []).push({ id: q.id, kind: q.kind, body: q.body, at: q.created_at, by: q.kind === "q" ? ini.get(q.asked_by ?? "") ?? "" : q.answered_by, files: names.get(q.id) ?? [], sentAt: q.sent_at });
+  for (const q of (qs ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string; sent_at: string | null; closed_at: string | null }[])
+    (out[q.line_id] ??= []).push({ id: q.id, kind: q.kind, body: q.body, at: q.created_at, by: q.kind === "q" ? ini.get(q.asked_by ?? "") ?? "" : q.answered_by, files: names.get(q.id) ?? [], sentAt: q.sent_at, closedAt: q.closed_at });
   return out;
 }

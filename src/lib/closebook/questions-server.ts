@@ -6,7 +6,7 @@ import { renderWpPdf, generatedAt } from "./wp-pdf";
 import { accountForClient, accountShort, isOpen, longDate, money, qStatusOf, shortDate, type QRow, type QStatus } from "./questions";
 import { todayToronto } from "@/lib/dates";
 
-export type QEntry = { id: string; kind: "q" | "a"; body: string; at: string; by: string; files: { id: string; name: string }[]; sentAt: string | null };
+export type QEntry = { id: string; kind: "q" | "a"; body: string; at: string; by: string; files: { id: string; name: string }[]; sentAt: string | null; closedAt?: string | null };
 export type QReportRow = {
   id: string; n: number; date: string; accountId: string; account: string; accountClient: string; description: string; cents: number; out: boolean;
   question: string; status: QStatus; sentOn: string | null; answer: string; files: number; thread: QEntry[];
@@ -26,7 +26,7 @@ export async function loadQuestions(supabase: SupabaseClient, fileId: string): P
   const [{ data: lines }, { data: accs }, { data: entries }, { data: files }, { data: staff }, { data: links }] = await Promise.all([
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, status, chart_account, is_split, transfer_account, q_status, q_sent_on").eq("file_id", fileId).neq("q_status", "").order("txn_date").order("row_no"),
     supabase.from("cb_bank_accounts").select("id, number, name, bank, kind, last4, account_type").eq("file_id", fileId).order("number"),
-    supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at, sent_at").eq("file_id", fileId).order("created_at"),
+    supabase.from("cb_line_questions").select("id, line_id, kind, body, asked_by, answered_by, created_at, sent_at, closed_at").eq("file_id", fileId).order("created_at"),
     supabase.from("cb_line_files").select("id, line_id, name, question_id").eq("file_id", fileId).not("question_id", "is", null),
     supabase.from("staff").select("id, full_name"),
     supabase.from("client_links").select("relationship, linked:linked_id(legal_name, email, signing_officer)").eq("client_id", f.client_id as string),
@@ -36,8 +36,8 @@ export async function loadQuestions(supabase: SupabaseClient, fileId: string): P
   const filesBy = new Map<string, { id: string; name: string }[]>();
   for (const x of (files ?? []) as { id: string; line_id: string; name: string; question_id: string }[]) filesBy.set(x.question_id, [...(filesBy.get(x.question_id) ?? []), { id: x.id, name: x.name }]);
   const thread = new Map<string, QEntry[]>();
-  for (const e of (entries ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string; sent_at: string | null }[]) {
-    thread.set(e.line_id, [...(thread.get(e.line_id) ?? []), { id: e.id, kind: e.kind, body: e.body, at: e.created_at, by: e.kind === "q" ? initials.get(e.asked_by ?? "") ?? "" : e.answered_by, files: filesBy.get(e.id) ?? [], sentAt: e.sent_at }]);
+  for (const e of (entries ?? []) as { id: string; line_id: string; kind: "q" | "a"; body: string; asked_by: string | null; answered_by: string; created_at: string; sent_at: string | null; closed_at: string | null }[]) {
+    thread.set(e.line_id, [...(thread.get(e.line_id) ?? []), { id: e.id, kind: e.kind, body: e.body, at: e.created_at, by: e.kind === "q" ? initials.get(e.asked_by ?? "") ?? "" : e.answered_by, files: filesBy.get(e.id) ?? [], sentAt: e.sent_at, closedAt: e.closed_at }]);
   }
   const rows: QReportRow[] = [];
   for (const l of (lines ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; status: string; chart_account: string | null; is_split: boolean; transfer_account: string | null; q_status: string; q_sent_on: string | null }[]) {
