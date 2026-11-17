@@ -28,6 +28,13 @@ export type StatementLine = {
   // belong to the statement's account). Information only. Absent on older reads, CSVs and bank statements.
   cardKind?: CardKind | null;
   holder?: string | null;
+  // Round 28 (Hashim, Nov 17, 2026): a line after which the printed running balance does not change (on a loan
+  // statement, an interest payment made from another account, its reversal, the payment that re-pays it) is
+  // information only: shown greyed "No effect on balance", never posted, never coded, left out of every total
+  // and check. And on a statement that prints a Transaction Date and an Effective Date (loans, lines of credit),
+  // the line's date is the Effective Date; printedDate keeps the Transaction Date as information.
+  noEffect?: boolean;
+  printedDate?: string | null;
 };
 export type CardKind = "purchase" | "payment" | "cash_advance" | "interest" | "fee";
 export const CARD_KINDS: CardKind[] = ["purchase", "payment", "cash_advance", "interest", "fee"];
@@ -35,7 +42,10 @@ export const CARD_KINDS: CardKind[] = ["purchase", "payment", "cash_advance", "i
 // Round 22 (decision 1): a card's interest and fees as printed, each on its own (part of inTotal).
 // Round 26: a card's purchases and debits, and its cash advances, as printed in the summary box (also part of inTotal).
 export type StatementSummary = { inTotal: number; inCount: number | null; outTotal: number; outCount: number | null; interest?: number | null; fees?: number | null;
-  purchases?: number | null; cashAdvances?: number | null };
+  purchases?: number | null; cashAdvances?: number | null;
+  // Round 28: a loan statement's summary as printed. Total Payments includes interest and insurance, so principal
+  // paid = payments - interest - insurance (outTotal holds that); borrowings is inTotal.
+  loan?: { payments: number; borrowings: number | null; interest: number; insurance: number } | null };
 
 export type StatementAccount = {
   key: string;              // "a1", "a2", ... stable within the statement
@@ -52,8 +62,24 @@ export type StatementAccount = {
 
 export type ReadResult = { accounts: StatementAccount[]; pages: number; bank: string };
 
-export function signedCents(l: Pick<StatementLine, "amountCents" | "dir">): number {
+// What the line does to the balance: 0 for a line with no effect on it (round 28).
+export function signedCents(l: Pick<StatementLine, "amountCents" | "dir" | "noEffect">): number {
+  if (l.noEffect) return 0;
   return l.dir === "in" ? l.amountCents : -l.amountCents;
+}
+// The amount as printed, signed, whether or not it moves the balance (for showing and keeping an information line).
+export const printedCents = (l: Pick<StatementLine, "amountCents" | "dir">) => (l.dir === "in" ? l.amountCents : -l.amountCents);
+
+// Round 28: a line whose printed balance equals the balance printed just before it (the line above, or the
+// opening balance for the first line) did not move the balance. Only where both balances are printed: a bank
+// that prints one balance a day leaves the other lines of the day unprinted, and those are never marked.
+export function markNoEffect(acc: { opening: number; lines: StatementLine[] }): void {
+  let prev: number | null = acc.opening;
+  for (const l of acc.lines) {
+    l.noEffect = l.balanceCents !== null && prev !== null && l.balanceCents === prev && l.amountCents !== 0 ? true : undefined;
+    if (!l.noEffect) delete l.noEffect;
+    prev = l.balanceCents;
+  }
 }
 
 export function typeLabel(kind: BankKind, dir: "in" | "out"): string {

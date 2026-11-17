@@ -105,13 +105,12 @@ test("the printed summary counts: a count not printed is not checked", () => {
   assert.deepEqual(c.summaryOk, { in: true, out: false });
 });
 
-test("Closebook warnings: last digits, kind, and a period outside the file's year", () => {
+test("Closebook warnings: only a period outside the file's year (round 28: never the digits or the kind)", () => {
   const a = bank();
   const year = { yearStart: "2026-01-01", yearEnd: "2026-12-31" };
   assert.deepEqual(closebookWarnings(a, { ...year, chosen: { last4: "4321", kind: "bank", name: "TD chequing" } }), []);
-  assert.deepEqual(closebookWarnings(a, { ...year, chosen: { last4: "1234", kind: "bank", name: "TD chequing" } }),
-    ["The statement is for an account ending in 4321, but TD chequing ends in 1234."]);
-  assert.match(closebookWarnings(a, { ...year, chosen: { last4: null, kind: "card", name: "Visa" } })[0], /bank account statement, but Visa is a credit card/);
+  assert.deepEqual(closebookWarnings(a, { ...year, chosen: { last4: "1234", kind: "bank", name: "TD chequing" } }), [], "other digits: nothing said");
+  assert.deepEqual(closebookWarnings(a, { ...year, chosen: { last4: null, kind: "card", name: "Visa" } }), [], "a bank statement in a card account: nothing said");
   assert.match(closebookWarnings(a, { yearStart: "2025-01-01", yearEnd: "2025-12-31", chosen: null })[0], /is outside the file's year \(2025-01-01 to 2025-12-31\)/);
   assert.match(closebookWarnings(a, { yearStart: "2026-01-15", yearEnd: "2027-01-14", chosen: null })[0], /^Part of the statement period/);
   assert.deepEqual(closebookWarnings(a, { ...year, chosen: null }), []);

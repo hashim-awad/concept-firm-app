@@ -48,7 +48,7 @@ test("a card statement crossing the year end: the purchase date decides, the pos
   assert.equal(yearCut({ ...acc, periodStart: "2025-07-16", periodEnd: "2025-08-15", lines: [] }, Y0, Y1).outside, true);
 });
 
-test("upload statuses: reading, outside, already, wrong account, no account, no digits, ready", () => {
+test("upload statuses: reading, outside, already, ready; no account checks (round 28)", () => {
   const accts: FileAccount[] = [{ id: "c1", number: "22000", name: "Credit card · MDB ••• 4405", kind: "card", last4: "4405" }, { id: "b2", number: "10010", name: "Chequing · NDB ••• 3302", kind: "bank", last4: "3302" }];
   const ctx = { yearStart: Y0, yearEnd: Y1, accounts: accts, target: accts[0], importedShas: new Set(["sha-x"]), importedPeriods: [{ account_id: "c1", period_start: "2025-09-16", period_end: "2025-10-15" }] };
   const row = (o: object) => ({ id: "r", status: "ready", period_start: "2025-10-16", period_end: "2025-11-15", found: [{ name: "Visa", last4: "4405", kind: "card" as const }], ...o });
@@ -56,11 +56,14 @@ test("upload statuses: reading, outside, already, wrong account, no account, no 
   assert.equal(uploadState(row({ period_start: "2025-07-16", period_end: "2025-08-15" }), ctx).status, "outside");
   assert.equal(uploadState(row({ file_sha256: "sha-x" }), ctx).status, "already");
   assert.equal(uploadState(row({ period_start: "2025-09-16", period_end: "2025-10-15" }), ctx).status, "already");
+  // Round 28: the statement goes to the account picked, whatever its digits or type say.
   const w = uploadState(row({ found: [{ name: "Chequing", last4: "3302", kind: "bank" }] }), ctx);
-  assert.deepEqual([w.status, w.other?.id, w.reason], ["wrong_account", "b2", "It is for 10010 Chequing · NDB ••• 3302."]);
-  const n = uploadState(row({ found: [{ name: "Chequing", last4: "8812", kind: "bank" }] }), ctx);
-  assert.deepEqual([n.status, n.reason], ["no_account", "No account in this file ends in 8812."]);
-  assert.equal(uploadState(row({ found: [{ name: "Chequing", last4: "", kind: "bank" }] }), ctx).status, "no_digits");
+  assert.deepEqual([w.status, w.match?.id, w.reason], ["ready", "c1", ""], "another account's digits: no refusal");
+  assert.equal(uploadState(row({ found: [{ name: "Chequing", last4: "8812", kind: "bank" }] }), ctx).status, "ready", "digits not in the file: no question");
+  assert.equal(uploadState(row({ found: [{ name: "Chequing", last4: "", kind: "bank" }] }), ctx).status, "ready", "no digits printed: no question");
+  assert.deepEqual([uploadState(row({}), { ...ctx, target: null }).match?.id], ["c1"], "no account picked: the digits suggest one");
+  const none = uploadState(row({ found: [{ name: "Chequing", last4: "8812", kind: "bank" }] }), { ...ctx, target: null });
+  assert.deepEqual([none.status, none.reason], ["no_account", "Choose the account it is for."]);
   assert.deepEqual([uploadState(row({}), ctx).status, uploadState(row({ status: "needs_look" }), ctx).status], ["ready", "needs_look"]);
 });
 

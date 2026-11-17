@@ -12,8 +12,8 @@ import { withMessage } from "@/lib/messages";
 import { rebuildTb } from "@/lib/closebook/tb-build-server";
 import { parseAmount } from "@/lib/closebook/amount";
 import { storedBytes } from "@/lib/statements/server";
-import { checkAccount, closebookWarnings, money } from "@/lib/statements/checks";
-import { signedCents, type ReadResult, type StatementAccount } from "@/lib/statements/types";
+import { checkAccount, closebookWarnings, loanWords, money } from "@/lib/statements/checks";
+import { printedCents, type ReadResult, type StatementAccount } from "@/lib/statements/types";
 import { accountFor, digitsOnly, yearCut, type FileAccount } from "@/lib/closebook/step3";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -150,11 +150,15 @@ export async function importChecked(id: string, target: string | null, confirmDu
   const file = { yearStart: f.year_start as string, yearEnd: f.year_end as string };
   const fileAccounts = (accts ?? []) as FileAccount[];
   const tgt = fileAccounts.find((x) => x.id === target) ?? null;
+  // Round 28 (Hashim, Nov 17, 2026): no account checks, as QuickBooks Online. Uploaded to an account, the statement
+  // goes to it. A file that holds several accounts (chequing and savings together) sends the section whose digits
+  // match the account picked, else its first section with lines; the digits only choose, they never refuse.
+  const withLines = data.accounts.filter((x) => x.lines.length);
+  const td = digitsOnly(tgt?.last4);
+  const pick = tgt ? (withLines.find((x) => { const d = digitsOnly(x.last4); return !!d && !!td && (td.endsWith(d) || d.endsWith(td)); }) ?? withLines[0]) : null;
   const chosen: { acc: StatementAccount; to: FileAccount }[] = [];
-  for (const acc of data.accounts) {
-    if (!acc.lines.length) continue;
-    const d = digitsOnly(acc.last4);
-    const to = tgt && (!d || digitsOnly(tgt.last4).endsWith(d) || d.endsWith(digitsOnly(tgt.last4))) ? tgt : accountFor(acc.last4, fileAccounts);
+  for (const acc of withLines) {
+    const to = tgt ? (acc === pick ? tgt : null) : accountFor(acc.last4, fileAccounts);
     if (!to) continue;
     const diff = checkAccount(acc).differenceCents;
     if (diff !== 0) return fail(`${to.number} ${to.name}: the statement does not balance yet. The difference is ${money(diff)}. It must be 0.00 to import.`);
@@ -162,13 +166,16 @@ export async function importChecked(id: string, target: string | null, confirmDu
     chosen.push({ acc, to });
   }
   if (!chosen.length) return fail("No account on this statement is in this file, or the statement is outside the year. Add the account, or Skip the statement.");
-  const rowsOf = (acc: StatementAccount) => acc.lines.map((l, i) => ({ line: i + 1, date: l.date, posted: l.postedDate ?? null, description: l.description.replace(/\s+/g, " ").trim(), amount: signedCents(l) / 100, holder: l.holder ?? null }));
+  // Round 28: a line with no effect on the balance goes as information (no_effect), with its amount as printed; a
+  // loan line's Transaction Date goes beside its Effective Date (printed).
+  const rowsOf = (acc: StatementAccount) => acc.lines.map((l, i) => ({ line: i + 1, date: l.date, posted: l.postedDate ?? null, printed: l.printedDate ?? null,
+    description: l.description.replace(/\s+/g, " ").trim(), amount: printedCents(l) / 100, holder: l.holder ?? null, no_effect: !!l.noEffect }));
 
   if (!confirmDuplicates) {
     const duplicates: { accountKey: string; lineIds: string[] }[] = [];
     for (const c of chosen) {
       const inYear = new Set(yearCut(c.acc, file.yearStart, file.yearEnd).inYear.map((l) => l.id));
-      const rows = rowsOf(c.acc).filter((_, i) => inYear.has(c.acc.lines[i].id));
+      const rows = rowsOf(c.acc).filter((_, i) => inYear.has(c.acc.lines[i].id) && !c.acc.lines[i].noEffect);
       const { data: dups, error } = await supabase.rpc("cb_duplicate_lines", { p_file: fileId, p_rows: rows });
       if (error) return fail(error.message);
       const hit = new Set(((dups ?? []) as { row_no: number }[]).map((x) => x.row_no));
@@ -192,10 +199,10 @@ export async function importChecked(id: string, target: string | null, confirmDu
     warnings.push(...w);
     const ids = new Set(acc.lines.map((l) => l.id)), asReadAcc = asRead?.accounts.find((x) => x.key === acc.key);
     return {
-      key: acc.key, account: to.id, opening: acc.opening / 100, closing: acc.closing / 100, period_start: acc.periodStart, period_end: acc.periodEnd,
+      key: acc.key, account: to.id, last4: digitsOnly(acc.last4), opening: acc.opening / 100, closing: acc.closing / 100, period_start: acc.periodStart, period_end: acc.periodEnd,
       at_start: cut.atStart === null ? null : cut.atStart / 100, at_end: cut.atEnd === null ? null : cut.atEnd / 100, rows: rowsOf(acc),
       check: { differenceCents: c.differenceCents, inTotal: c.inTotal, inCount: c.inCount, outTotal: c.outTotal, outCount: c.outCount, summaryOk: c.summaryOk,
-        runningBreak: c.runningBreak, review: c.review.length, ok: c.ok, warnings: w, inYear: cut.inYear.length, outsideYear: acc.lines.length - cut.inYear.length },
+        runningBreak: c.runningBreak, review: c.review.length, ok: c.ok, warnings: w, loan: loanWords(acc), inYear: cut.inYear.length, outsideYear: acc.lines.length - cut.inYear.length },
       edits: { edited: acc.lines.filter((l) => l.source === "edited").length, added: acc.lines.filter((l) => l.source === "added").length,
         deleted: asReadAcc ? asReadAcc.lines.filter((l) => !ids.has(l.id)).length : 0 },
     };

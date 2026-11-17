@@ -4,6 +4,7 @@
 // summary totals and counts match, and the running balance is right on every line that prints one.
 // mismatch.json is the one exception: it has a reader mistake on purpose, so it must NOT tie out.
 // The fixtures are made by tests/fixtures/statements/make.mjs.
+import { normalizeResult } from "../src/lib/statements/fixture-reader.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -14,7 +15,9 @@ const dir = new URL("./fixtures/statements/", import.meta.url);
 const read = (rel: string) => readFileSync(new URL(rel, dir));
 const manifest = JSON.parse(read("manifest.json").toString("utf8")) as Record<string, { file: string; result?: string; error?: string }>;
 const entries = Object.entries(manifest);
-const results = entries.filter(([, v]) => v.result).map(([, v]) => ({ file: v.file, json: v.result!, r: JSON.parse(read(v.result!).toString("utf8")) as ReadResult }));
+const results = entries.filter(([, v]) => v.result).map(([, v]) => ({ file: v.file, json: v.result!, r: normalize(JSON.parse(read(v.result!).toString("utf8")) as ReadResult) }));
+// Round 28: as the app reads them (the test reader marks the lines with no effect on the balance).
+function normalize(r: ReadResult): ReadResult { return normalizeResult(r, r.pages); }
 
 type Tie = { difference: number; inTotal: number; inCount: number; outTotal: number; outCount: number; runningBreak: string | null };
 function tie(a: StatementAccount): Tie {
@@ -22,7 +25,7 @@ function tie(a: StatementAccount): Tie {
   let runningBreak: string | null = null;
   for (const l of a.lines) {
     bal += signedCents(l);
-    if (l.dir === "in") { inTotal += l.amountCents; inCount++; } else { outTotal += l.amountCents; outCount++; }
+    if (l.noEffect) { /* information only: in no total */ } else if (l.dir === "in") { inTotal += l.amountCents; inCount++; } else { outTotal += l.amountCents; outCount++; }
     if (l.balanceCents !== null && l.balanceCents !== bal && !runningBreak) runningBreak = l.id;
   }
   return { difference: a.closing - bal, inTotal, inCount, outTotal, outCount, runningBreak };
@@ -57,7 +60,7 @@ test("every result has the ReadResult shape: ids in order, keys a1.., cents, dat
       for (const l of a.lines) {
         assert.equal(l.id, `l${++n}`, `${file} ${l.id}`);
         assert.match(l.date, /^\d{4}-\d{2}-\d{2}$/);
-        assert.ok((l.postedDate || l.date) >= a.periodStart && (l.postedDate || l.date) <= a.periodEnd, `${file} ${l.id} date in the period`);
+        assert.ok((l.postedDate || l.printedDate || l.date) >= a.periodStart && (l.postedDate || l.printedDate || l.date) <= a.periodEnd, `${file} ${l.id} date in the period`);
         assert.ok(Number.isInteger(l.amountCents) && l.amountCents > 0, `${file} ${l.id} amount`);
         assert.ok(l.dir === "in" || l.dir === "out");
         assert.ok(l.balanceCents === null || Number.isInteger(l.balanceCents));
@@ -83,7 +86,7 @@ test("every statement but mismatch ties to the cent: total, summary, running bal
       assert.equal(t.runningBreak, null, `${file} ${a.key} running balance`);
       // Round 23: these statements print no summary, on purpose ("Find it" works without one). Round 24's are
       // copies of a round 23 statement (Replace file).
-      if (file.startsWith("round23/") || file.startsWith("round24/")) { assert.equal(a.summary, null, `${file} prints no summary`); continue; }
+      if (file.startsWith("round23/") || file.startsWith("round24/") || file === "round28/chq-2025-09.pdf") { assert.equal(a.summary, null, `${file} prints no summary`); continue; }
       assert.ok(a.summary, `${file} ${a.key} summary`);
       assert.equal(a.summary.inTotal, t.inTotal, `${file} ${a.key} money in`);
       assert.equal(a.summary.outTotal, t.outTotal, `${file} ${a.key} money out`);

@@ -8,7 +8,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { OUT_OF_CREDITS, type ReadResult, type StatementAccount, type StatementLine } from "./types.ts";
+import { markNoEffect, OUT_OF_CREDITS, type ReadResult, type StatementAccount, type StatementLine } from "./types.ts";
 import { ReaderError, type ReadOutput } from "./reader.ts";
 
 export const FIXTURE_MODEL = "fixture";
@@ -44,6 +44,7 @@ export function normalizeResult(r: ReadResult, pages: number): ReadResult {
       source: l.source ?? "read",
     })),
   }));
+  for (const a of accounts) markNoEffect(a); // round 28: as the real reader's answer is marked
   return { bank: r.bank ?? "", pages: r.pages || pages, accounts };
 }
 

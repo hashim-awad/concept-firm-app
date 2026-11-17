@@ -232,7 +232,8 @@ export async function importStatement(id: string, assign: Assign, confirmDuplica
   }
   if (!chosen.length) return fail("Choose an account for at least one statement, or discard it.");
 
-  const rowsOf = (acc: StatementAccount) => acc.lines.map((l, i) => ({ line: i + 1, date: l.date, description: l.description.replace(/\s+/g, " ").trim(), amount: signedCents(l) / 100 }));
+  // Round 28: lines with no effect on the balance are information only: never imported as lines.
+  const rowsOf = (acc: StatementAccount) => acc.lines.filter((l) => !l.noEffect).map((l, i) => ({ line: i + 1, date: l.date, description: l.description.replace(/\s+/g, " ").trim(), amount: signedCents(l) / 100 }));
 
   // Lines already in the file (same date, description and amount), as the CSV upload checks.
   if (!confirmDuplicates) {

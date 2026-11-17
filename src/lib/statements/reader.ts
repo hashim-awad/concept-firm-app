@@ -8,7 +8,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { costUsd } from "./pricing.ts";
-import { OUT_OF_CREDITS, type ReadResult, type StatementAccount, type StatementLine } from "./types.ts";
+import { markNoEffect, OUT_OF_CREDITS, type ReadResult, type StatementAccount, type StatementLine } from "./types.ts";
 
 export const MODEL = "claude-sonnet-5-5";
 export const MAX_TOKENS = 64000;
@@ -23,14 +23,15 @@ Accounts:
 - A business credit card statement often lists several cardholders, each in its own section with its own card number and subtotal, under one new balance. All those sections belong to ONE account: the account the statement is for. Return them as one entry, with the lines of every cardholder section on every page, in the order printed. Never return a cardholder's section as a separate account, and never leave a section out.
 - last_digits: the last digits of the account or card number as printed (often 4). Digits only. Empty when not printed. Never guess a digit. On a card statement with several cardholders, the number the statement is for: the one printed at the top with the statement's balance (usually the first card listed).
 - name: the account name as printed, for example "Business chequing" or "Visa Business".
-- kind: "bank" for chequing, savings and other deposit accounts; "card" for credit cards and lines of credit.
+- kind: "bank" for chequing, savings and other deposit accounts; "card" for credit cards, lines of credit and loans (business operating loans, term loans).
 - period_start and period_end: the statement period as printed, as YYYY-MM-DD.
 - opening_balance and closing_balance: as printed for this account. Card or line of credit: an amount owing is positive, a credit balance is negative. Bank: an overdrawn balance is negative.
 - summary: the printed totals of money in and money out for the period, with their counts when printed (for example "Deposits (12) 4,210.00", or "Payments and credits" and "Purchases and charges" on a card). Use null for a count that is not printed. Use null for the whole summary when the statement prints no totals.
+- Loan statement summary (for example "Total Payments", "Total Borrowings", "Total Interest Paid", "Total Insurance Paid"): fill loan with each as printed, and use null for loan on any other statement. On a loan statement money_in_total is Total Borrowings and money_out_total is Total Payments, as printed.
 - Card or line of credit summary: money_in_total is everything added to the balance (purchases, cash advances, interest and fees together). purchases_total (purchases and debits), cash_advances_total, interest_total and fees_total: each as printed in the summary box, on its own. Use null for one not printed, and always null on a bank statement.
 
 Lines:
-- Every transaction line of the account, on every page, in the order printed. Long statements can have hundreds of lines: include all of them. Do not include balance-forward, subtotal or total rows as lines.
+- Every transaction line of the account, on every page, in the order printed. Long statements can have hundreds of lines: include all of them. Do not include balance-forward, opening or closing balance, subtotal or total rows as lines. Include a line even when the balance printed after it does not change (for example an interest payment taken from another account, or its reversal): copy it and its balance as printed.
 - date: YYYY-MM-DD. When the statement prints no year, take it from the statement period (a period from December to January spans two years). Card or line of credit: the transaction (purchase) date.
 - posted_date: card or line of credit only: the posting date, when the statement prints it as well as the transaction date, as YYYY-MM-DD. Null when only one date is printed, and always null on a bank statement.
 - description: the description as printed, on one line. Join a description that wraps onto a second printed line (for example a foreign currency note) with a space.
@@ -38,6 +39,7 @@ Lines:
 - direction: "in" when the line raises the balance as printed, "out" when it lowers it. Bank: deposits and credits are "in"; withdrawals, cheques, payments and fees are "out". Card or line of credit: purchases, charges, fees and interest are "in"; payments, refunds and credits are "out".
 - balance: the running balance printed after this line, with the same sign rule as the opening balance. Null when no balance is printed on that line.
 - page: the page of the file the line is on, starting at 1.
+- effective_date: when the statement prints both a Transaction Date and an Effective Date for its lines (loans and lines of credit), date is the Transaction Date and effective_date the Effective Date, both as printed, as YYYY-MM-DD; null when the line prints no Effective Date, and always null on a statement that prints only one date column (cards keep posted_date).
 - card_kind: card or line of credit only: how the summary box groups the line. "purchase" (purchases and debits), "cash_advance", "interest", "fee", or "payment" (payments, refunds and other credits). Always null on a bank statement.
 - cardholder_digits: card only: the last digits of the cardholder's card the line is printed under, when the statement has cardholder sections. Digits only. Empty otherwise.
 - unsure: true when any part of the line is hard to read, cut off, smudged or ambiguous, with a short reason in unsure_reason (for example "last digit of the amount is cut off"). Otherwise false and an empty reason. Never guess a missing digit: copy what you can read and mark the line unsure.
@@ -73,12 +75,16 @@ export const READ_SCHEMA = {
           summary: nullable({
             type: "object",
             additionalProperties: false,
-            required: ["money_in_total", "money_in_count", "money_out_total", "money_out_count", "purchases_total", "cash_advances_total", "interest_total", "fees_total"],
+            required: ["money_in_total", "money_in_count", "money_out_total", "money_out_count", "loan", "purchases_total", "cash_advances_total", "interest_total", "fees_total"],
             properties: {
               money_in_total: money,
               money_in_count: nullable({ type: "integer" }),
               money_out_total: money,
               money_out_count: nullable({ type: "integer" }),
+              loan: nullable({
+                type: "object", additionalProperties: false, required: ["total_payments", "total_borrowings", "total_interest_paid", "total_insurance_paid"],
+                properties: { total_payments: money, total_borrowings: nullable(money), total_interest_paid: money, total_insurance_paid: money },
+              }),
               purchases_total: nullable(money),
               cash_advances_total: nullable(money),
               interest_total: nullable(money),
@@ -90,10 +96,11 @@ export const READ_SCHEMA = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["date", "posted_date", "description", "amount", "direction", "balance", "page", "card_kind", "cardholder_digits", "unsure", "unsure_reason"],
+              required: ["date", "posted_date", "effective_date", "description", "amount", "direction", "balance", "page", "card_kind", "cardholder_digits", "unsure", "unsure_reason"],
               properties: {
                 date: { type: "string" },
                 posted_date: nullable({ type: "string" }),
+                effective_date: nullable({ type: "string" }),
                 description: { type: "string" },
                 amount: money,
                 direction: { type: "string", enum: ["in", "out"] },
@@ -224,7 +231,7 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
 
 type WireLine = { date?: unknown; posted_date?: unknown; description?: unknown; amount?: unknown; direction?: unknown; balance?: unknown; page?: unknown; unsure?: unknown; unsure_reason?: unknown;
-  card_kind?: unknown; cardholder_digits?: unknown };
+  card_kind?: unknown; cardholder_digits?: unknown; effective_date?: unknown };
 
 // Round 26: a date with no printed year takes it from the period; a date a year off the statement period (a
 // December line given January's year, or the reverse) is that same day in the period's other year. Only a year
@@ -255,9 +262,13 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
       if (bal === null && l.balance !== null && l.balance !== undefined && l.balance !== "") why.push("the balance could not be read");
       if (!validDate(l.date)) why.push("the date could not be read");
       const reason = [str(l.unsure_reason).trim(), ...why].filter(Boolean).join("; ");
+      // Round 28: the Effective Date is the bank date (it matches the other account's date, so transfers pair);
+      // the Transaction Date stays as information.
+      const eff = validDate(l.effective_date) && validDate(l.date) && l.effective_date !== l.date ? l.effective_date : null;
       return {
         id: `l${++n}`,
-        date: validDate(l.date) ? l.date : "",
+        date: eff ?? (validDate(l.date) ? l.date : ""),
+        printedDate: eff ? (l.date as string) : null,
         // Round 22 (decision 1): a card's posting date beside its transaction date; the year cut-off uses the transaction date.
         postedDate: a.kind === "card" && validDate(l.posted_date) ? l.posted_date : null,
         cardKind: a.kind === "card" && typeof l.card_kind === "string" && KINDS.has(l.card_kind) ? (l.card_kind as StatementLine["cardKind"]) : null,
@@ -279,13 +290,20 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
       if (!l.date) l.date = periodStart; // kept in For review by its reason
       l.date = yearFixed(l.date, periodStart, periodEnd);
       if (l.postedDate) l.postedDate = yearFixed(l.postedDate, periodStart, periodEnd);
+      if (l.printedDate) l.printedDate = yearFixed(l.printedDate, periodStart, periodEnd);
     }
     const s = a.summary as { money_in_total?: unknown; money_in_count?: unknown; money_out_total?: unknown; money_out_count?: unknown; interest_total?: unknown; fees_total?: unknown;
-      purchases_total?: unknown; cash_advances_total?: unknown } | null;
+      purchases_total?: unknown; cash_advances_total?: unknown;
+      loan?: { total_payments?: unknown; total_borrowings?: unknown; total_interest_paid?: unknown; total_insurance_paid?: unknown } | null } | null;
     const sIn = s ? moneyCents(s.money_in_total) : null, sOut = s ? moneyCents(s.money_out_total) : null;
     const opt = (v: unknown) => (a.kind === "card" && v !== null && v !== undefined && v !== "" ? moneyCents(v) : null);
+    // A loan: Total Payments includes interest and insurance; the principal paid is what the lines must add to.
+    const ln = s?.loan ?? null;
+    const lp = ln ? moneyCents(ln.total_payments) : null, li = ln ? moneyCents(ln.total_interest_paid) ?? 0 : 0, lins = ln ? moneyCents(ln.total_insurance_paid) ?? 0 : 0;
+    const lb = ln && ln.total_borrowings !== null && ln.total_borrowings !== undefined ? moneyCents(ln.total_borrowings) : null;
+    const loan = lp !== null ? { payments: Math.abs(lp), borrowings: lb === null ? null : Math.abs(lb), interest: Math.abs(li), insurance: Math.abs(lins) } : null;
     const sInt = s ? opt(s.interest_total) : null, sFee = s ? opt(s.fees_total) : null, sPur = s ? opt(s.purchases_total) : null, sCash = s ? opt(s.cash_advances_total) : null;
-    return {
+    const account: StatementAccount = {
       key: `a${i + 1}`,
       last4: str(a.last_digits).replace(/\D/g, "").slice(-8),
       name: str(a.name).trim(),
@@ -293,11 +311,14 @@ export function fromWire(raw: unknown, pages: number): ReadResult {
       periodStart, periodEnd,
       opening: moneyCents(a.opening_balance) ?? 0,
       closing: moneyCents(a.closing_balance) ?? 0,
-      summary: s && sIn !== null && sOut !== null ? { inTotal: Math.abs(sIn), inCount: int(s.money_in_count), outTotal: Math.abs(sOut), outCount: int(s.money_out_count),
+      summary: s && sIn !== null && sOut !== null ? { inTotal: loan?.borrowings ?? Math.abs(sIn), inCount: loan ? null : int(s.money_in_count),
+        outTotal: loan ? loan.payments - loan.interest - loan.insurance : Math.abs(sOut), outCount: loan ? null : int(s.money_out_count), loan,
         interest: sInt === null ? null : Math.abs(sInt), fees: sFee === null ? null : Math.abs(sFee),
         purchases: sPur === null ? null : Math.abs(sPur), cashAdvances: sCash === null ? null : Math.abs(sCash) } : null,
       lines,
     };
+    markNoEffect(account);
+    return account;
   });
   return { bank: str(w.bank).trim(), pages, accounts };
 }

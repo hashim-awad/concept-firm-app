@@ -8,7 +8,7 @@ import JSZip from "jszip";
 import { reportXlsx } from "../closebook/xlsx-write.ts";
 import type { ReportTable } from "../closebook/report-table.ts";
 import { checkAccount, money } from "./checks.ts";
-import { signedCents, typeLabel, type ReadResult, type StatementAccount } from "./types.ts";
+import { printedCents, signedCents, typeLabel, type ReadResult, type StatementAccount } from "./types.ts";
 
 export type ExportFormat = "csv" | "xlsx";
 export type ExportFile = { name: string; body: Uint8Array; contentType: string };
@@ -24,7 +24,8 @@ const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` :
 
 // The CSV, with Windows line ends like the template. Lines in statement order.
 export function accountCsv(acc: StatementAccount): string {
-  const rows = ["Date,Description,Amount", ...acc.lines.map((l) => [l.date, cell(l.description.replace(/\s+/g, " ").trim()), amount(signedCents(l))].join(","))];
+  // Round 28: a line with no effect on the balance is left out of the CSV (it would be counted twice on import).
+  const rows = ["Date,Description,Amount", ...acc.lines.filter((l) => !l.noEffect).map((l) => [l.date, cell(l.description.replace(/\s+/g, " ").trim()), amount(signedCents(l))].join(","))];
   return rows.join("\r\n") + "\r\n";
 }
 
@@ -34,7 +35,7 @@ export function accountXlsx(acc: StatementAccount, bank: string): Uint8Array {
     title: [bank, acc.name, acc.last4 ? `ending ${acc.last4}` : ""].filter(Boolean).join(" "),
     columns: ["Date", "Description", "Type", "Amount"],
     numeric: [false, false, false, true],
-    rows: acc.lines.map((l) => ({ cells: [l.date, l.description, typeLabel(acc.kind, l.dir), signedCents(l)] })),
+    rows: acc.lines.map((l) => ({ cells: [l.date, l.description, l.noEffect ? "No effect on balance" : typeLabel(acc.kind, l.dir), l.noEffect ? printedCents(l) : signedCents(l)] })),
   };
   const head = [
     `Statement period: ${acc.periodStart} to ${acc.periodEnd}`,
