@@ -54,7 +54,9 @@ export function checkAccount(acc: StatementAccount): AccountCheck {
   const add = (id: string, why: string) => reasons.set(id, [...(reasons.get(id) ?? []), why]);
   for (const l of acc.lines) {
     if (l.unsure) add(l.id, l.unsureReason ? `The reader was not sure: ${l.unsureReason}` : "The reader was not sure of this line.");
-    if (l.date < acc.periodStart || l.date > acc.periodEnd) add(l.id, `The date is outside the statement period (${acc.periodStart} to ${acc.periodEnd}).`);
+    // Round 26: a card's purchase can come before the period; the posting date, when printed, is the one checked.
+    const d = l.postedDate || l.date;
+    if (d < acc.periodStart || d > acc.periodEnd) add(l.id, `The date is outside the statement period (${acc.periodStart} to ${acc.periodEnd}).`);
     if (l.amountCents <= 0) add(l.id, "The amount is zero.");
   }
   if (runningBreak) {

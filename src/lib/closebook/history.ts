@@ -28,6 +28,9 @@ export const ACTION: Record<string, string> = {
   line_client: "Line on the client question list", line_reviewer: "Line sent to the reviewer", line_date: "Accounting date changed", line_memo: "Memo",
   transfer_matched: "Transfer matched", transfer_unmatched: "Transfer unmatched", bank_outstanding: "Outstanding item", bank_account_added: "Account added",
   bank_account_changed: "Account changed", bank_account_removed: "Account removed",
+  // Round 26: the fix screen before import.
+  line_added_before_import: "Added before import", line_removed_before_import: "Removed before import", line_changed_before_import: "Changed before import",
+  statement_read_again: "Read again",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };

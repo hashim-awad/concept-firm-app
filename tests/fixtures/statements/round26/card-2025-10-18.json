@@ -1,0 +1,88 @@
+{
+  "bank": "Dummy Royal Bank",
+  "pages": 1,
+  "accounts": [
+    {
+      "key": "a1",
+      "last4": "4417",
+      "name": "Business Dummy Mastercard",
+      "kind": "card",
+      "periodStart": "2025-10-18",
+      "periodEnd": "2025-11-17",
+      "opening": 104975,
+      "closing": 67272,
+      "summary": {
+        "inTotal": 12297,
+        "inCount": null,
+        "outTotal": 50000,
+        "outCount": null,
+        "purchases": 10809,
+        "cashAdvances": 0,
+        "interest": 1488,
+        "fees": 0
+      },
+      "lines": [
+        {
+          "id": "l1",
+          "date": "2025-10-24",
+          "postedDate": "2025-10-24",
+          "description": "PAYMENT - THANK YOU",
+          "amountCents": 50000,
+          "dir": "out",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": "payment",
+          "holder": "4417"
+        },
+        {
+          "id": "l2",
+          "date": "2025-11-17",
+          "postedDate": "2025-11-17",
+          "description": "PURCHASE INTEREST 19.99%",
+          "amountCents": 1488,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": "interest",
+          "holder": "4417"
+        },
+        {
+          "id": "l3",
+          "date": "2025-10-30",
+          "postedDate": "2025-11-03",
+          "description": "SOFTWARE DUMMY",
+          "amountCents": 4999,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": "purchase",
+          "holder": "9032"
+        },
+        {
+          "id": "l4",
+          "date": "2025-11-08",
+          "postedDate": "2025-11-10",
+          "description": "COURIER DUMMY",
+          "amountCents": 3360,
+          "dir": "in",
+          "balanceCents": null,
+          "page": 1,
+          "unsure": false,
+          "unsureReason": "",
+          "source": "read",
+          "cardKind": "purchase",
+          "holder": "9032"
+        }
+      ]
+    }
+  ]
+}

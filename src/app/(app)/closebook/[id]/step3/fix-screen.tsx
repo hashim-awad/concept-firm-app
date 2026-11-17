@@ -28,12 +28,14 @@ const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct
 const day = (iso: string) => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
 const REMOVE_REASONS = ["Read twice", "Not on the statement", "Belongs to another statement"];
 
-export function FixScreen({ id, title, data: data0, accKey, fileUrl, mediaType, pages, backHref, target, editable }: {
+export function FixScreen({ id, title, data: data0, accKey, fileUrl: fileUrl0, mediaType, pages, backHref, target, editable }: {
   id: string; title: string; data: ReadResult; accKey: string; fileUrl: string; mediaType: string; pages: number | null;
   backHref: string; target: string | null; editable: boolean;
 }) {
   const router = useRouter();
   const [data, setData] = useState(data0);
+  // The file's signed address as first given: a page refresh signs a new one, and the viewer would reload mid-change.
+  const [fileUrl] = useState(fileUrl0);
   const acc0 = data.accounts.find((a) => a.key === accKey) ?? data.accounts[0];
   const miss0 = useMemo(() => misread(acc0), [acc0]);
   const line0 = miss0?.lineId ? acc0.lines.find((l) => l.id === miss0.lineId) ?? null : null;
@@ -58,7 +60,7 @@ export function FixScreen({ id, title, data: data0, accKey, fileUrl, mediaType, 
     try {
       const r = await f();
       if (!r.ok) { notify(r.error, "error"); return false; }
-      setData(r.data); notify(done); router.refresh(); return true;
+      setData(r.data); notify(done); return true;
     } finally { setBusy(false); }
   };
   const doImport = async () => {

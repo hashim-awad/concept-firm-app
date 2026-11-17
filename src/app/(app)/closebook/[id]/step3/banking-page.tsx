@@ -260,7 +260,8 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
     <>
       {body}
       {win}
-      {editable && sub !== "3.1" && !str(sp.upload) && <AutoImport fileId={fileId} locked={!!lock} items={d.pending.map((u) => ({ id: u.id, account: u.account!, file: u.file_name }))} />}
+      {/* Round 26: not while a statement is open in Fix it (the person is changing its lines). */}
+      {editable && sub !== "3.1" && !str(sp.upload) && !str(sp.fix) && <AutoImport fileId={fileId} locked={!!lock} items={d.pending.map((u) => ({ id: u.id, account: u.account!, file: u.file_name }))} />}
     </>
   );
 }
