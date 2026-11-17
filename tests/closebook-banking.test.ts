@@ -18,7 +18,7 @@ test("H6/H7 3.1: one box per T2 line; under 1.00 is rounding, below the T2 is 't
   const boxes = tieBoxes([acc("10000", "1002", 51240), acc("10010", "1002", 245000), acc("22000", "2707", 132208, "card"), acc("10020", "1002", -2550)],
     new Map([["1002", 296200], ["2707", 252700], ["2600", 2550]]));
   assert.deepEqual(boxes.map((b) => [b.title, b.total, b.t2, b.difference, b.state]), [
-    ["Bank accounts", 296240, 296200, 40, "rounding"], ["Bank overdraft", 2550, 2550, 0, "rounding"], ["Credit cards", 132208, 252700, 120492, "add"]]);
+    ["Bank accounts", 296240, 296200, 40, "rounding"], ["Bank overdraft", 2550, 2550, 0, "rounding"], ["Credit card loans", 132208, 252700, 120492, "add"]]);
   assert.deepEqual(roundingOf(boxes), [{ gifi: "1002", title: "Bank accounts", cents: 40 }], "only a difference under 1.00 posts; 0.00 posts nothing");
   const much = tieBoxes([acc("10000", "1002", 51440)], new Map([["1002", 51200]]));
   assert.deepEqual([much[0].difference, much[0].state], [240, "much"], "H7: 514.40 against 512 is 2.40 too much");
@@ -105,4 +105,19 @@ test("H12: Find it: a 2.00 difference in one month (no printed summary) is the m
 test("Find it: a calendar month's statement gives the bank at the start of the month from its opening", () => {
   const m = findIt(Y0, "2025-09-30", [{ periodStart: "2025-09-01", periodEnd: "2025-09-30", opening: 511000, lines: [{ date: "2025-09-20", cents: 1000 }] }], [{ date: "2025-09-20", cents: 1000 }]);
   assert.deepEqual([m[0].bankStart, m[0].bankEnd, m[0].difference], [511000, 512000, 0]);
+});
+
+// Round 25 (Hashim, Nov 17, 2026): a line of credit the prior accountant put on 2707 with the cards.
+test("3.1 groups by last year's T2 line: the line of credit set to 2707 joins the cards; a usual line with a T2 amount and no account shows", () => {
+  const names = new Map([["2707", "Credit card loans"], ["2701", "Loans from Canadian banks"]]);
+  const card = { id: "card", label: "22000 Credit card", gifi: "2707", kind: "card" as const, books: 211200 };
+  const loc = { id: "loc", label: "22100 Line of credit", gifi: "2701", kind: "card" as const, books: 500000 };
+  const t2 = new Map([["2707", 711200]]);
+  const before = tieBoxes([card, loc], t2, names);
+  assert.deepEqual(before.map((b) => [b.title, b.total, b.t2, b.difference, b.state]), [
+    ["Credit card loans", 211200, 711200, 500000, "add"], ["Bank loans", 500000, 0, 500000, "much"]]);
+  const after = tieBoxes([card, { ...loc, t2: "2707" }], t2, names);
+  assert.deepEqual(after.map((b) => [b.title, b.rows.length, b.total, b.t2, b.difference, b.state]), [["Credit card loans", 2, 711200, 711200, 0, "rounding"]], "one box, no 2701 box");
+  const nothing = tieBoxes([{ ...card, books: 0 }], new Map([["2701", 500000]]), names);
+  assert.deepEqual(nothing.map((b) => [b.gifi, b.rows.length, b.state]), [["2707", 1, "rounding"], ["2701", 0, "add"]], "a T2 amount with no account: a box to add");
 });

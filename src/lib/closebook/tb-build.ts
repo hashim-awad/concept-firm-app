@@ -22,13 +22,15 @@ import { splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 // its number, others the next free one (10010). Optional for older callers: the chart number then.
 // Round 22: lineNo overrides the chart account's GIFI line (a long-term line of credit on 3149); fromBooks says
 // the opening is the balance in the books typed in step 3, not the first statement's opening.
-export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string; lineNo?: string | null; fromBooks?: boolean };
+export type BuildBank = { id: string; name: string; kind: "bank" | "card"; chart: string; openingCents: number; number?: string; lineNo?: string | null; fromBooks?: boolean;
+  t2Line?: string | null };   // round 25: last year's T2 line (empty: the type's usual line)
 // transfer_bank (round 20): on the money-out line of a matched transfer, the other bank or card account; its
 // other side posts to that account's own row. The money-in line of the transfer has status "matched".
 export type BuildLine = { account_id: string; cents: number; status: string; chart_account: string | null; tax_code: string | null; id?: string; date?: string; description?: string;
   transfer_bank?: string | null };
 export type BuildChart = { name: string; account_type: string; line_no: string | null };
-export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string };
+export type TbRow = { key: string; number: string; name: string; line_no: string | null; cents: number; lastCents: number; reviewer?: string;
+  lastLine?: string };   // round 25: the T2 line last year's figure came from, when it differs from this year's
 // Last year's balances by GIFI code (src/lib/closebook/opening.ts), with last year's 3849 as stated on
 // last year's T2 (null when it comes from last year's Closebook file, where it is the same by design).
 // account: the standard chart account chosen in step 2 when the GIFI line has more than one.
@@ -103,7 +105,9 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
   const lineOf = (b: BuildBank) => b.lineNo ?? chart.get(b.chart)?.line_no ?? null;
   const gifiOf = (b: BuildBank) => (lineOf(b) ?? "").slice(0, 4);
   // Round 23: an account overdrawn at last year end ties to last year's Bank overdraft (2600), as on the T2.
-  const tieOf = (b: BuildBank) => (b.kind === "bank" && b.fromBooks && b.openingCents < 0 ? "2600" : gifiOf(b));
+  // Round 25: an account carries last year's T2 line when the prior accountant put it on another one (a line of
+  // credit on 2707 with the cards): the opening compares, and the rounding posts, per T2 line as last year had it.
+  const tieOf = (b: BuildBank) => b.t2Line || (b.kind === "bank" && b.fromBooks && b.openingCents < 0 ? "2600" : gifiOf(b));
   for (const b of banks) {
     const open = b.kind === "bank" ? b.openingCents : -b.openingCents;
     const m = openMeta(`stmt:${b.id}`, b.fromBooks ? `Balance in the books at the start of the year, ${b.name}` : `Opening balance on the first statement, ${b.name}`);
@@ -153,8 +157,22 @@ export function buildLedger(banks: BuildBank[], lines: BuildLine[], chart: Map<s
         const on = banksOn.get(bankCode(l))!;
         // Last year's balance sits on the bank account it belongs to (chosen in step 2), else the one holding
         // the chart account's number, so the year-over-year comparison is on one line (round 4b).
-        const home = on.find((b) => b.id === l.bank) ?? on.find((b) => numberOf(b) === b.chart) ?? on[0];
-        add(bankKey(home), numberOf(home), "", null, 0, null, undefined, l.debitCents);
+        // Round 25: the home account is one that stays on this T2 line this year, when there is one.
+        const moved = (b: BuildBank) => !!b.t2Line && b.t2Line !== gifiOf(b);
+        const home = on.find((b) => b.id === l.bank && !moved(b)) ?? on.find((b) => !moved(b) && numberOf(b) === b.chart) ?? on.find((b) => !moved(b))
+          ?? on.find((b) => b.id === l.bank) ?? on[0];
+        // Round 25: an account whose line this year differs from last year's T2 line takes its own balance as last
+        // year's figure, and says where it came from ("Reclassified from 2707 to 2701"); the rest stays on the home one.
+        let lastRest = l.debitCents;
+        for (const b of on) {
+          if (b === home || !moved(b)) continue;
+          const own = b.kind === "bank" ? b.openingCents : -b.openingCents;
+          add(bankKey(b), numberOf(b), "", null, 0, null, undefined, own);
+          const r = rows.get(bankKey(b)); if (r) r.lastLine = b.t2Line ?? undefined;
+          lastRest -= own;
+        }
+        add(bankKey(home), numberOf(home), "", null, 0, null, undefined, lastRest);
+        if (moved(home)) { const r = rows.get(bankKey(home)); if (r) r.lastLine = home.t2Line!; }
         const d = bankOpen.get(bankCode(l))! - l.debitCents;
         // Round 23 (Hashim): last year's T2 is in whole dollars. Under 1.00 is rounding: it posts by itself to
         // retained earnings at the start of the year, one entry per T2 line, so the opening trial balance is 0.00.

@@ -17,7 +17,6 @@ import { accountFor, digitsOnly, yearCut, type FileAccount } from "@/lib/closebo
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const base = (id: string) => `/closebook/${id}?step=records`;
-const safeBack = (f: FormData, id: string) => { const b = s(f, "back"); return b.startsWith(`/closebook/${id}?`) ? b : base(id); };
 async function editor(back: string) {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) redirect(withMessage(back, "error", "You need Edit on Closebook."));
@@ -28,36 +27,45 @@ const done = async (id: string, back: string, error: { message: string } | null,
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : msg));
 };
 
-// ---------- Add or change an account (point 6)
-export async function saveBankAccount(f: FormData) {
+// ---------- Add or change an account (point 6). Round 25 (Hashim, Nov 17, 2026): a change that removes a 3.1, 3.2 or
+// 3.3 sign-off asks first (round 24 rule G17): the first call returns { confirm }, the second goes ahead.
+type Asked = { ok: true; then: string } | { ok: false; error: string; confirm?: string };
+const askOrFail = (message: string): { ok: false; error: string; confirm?: string } =>
+  /^This removes the sign-off on/.test(message) ? { ok: false, error: message, confirm: message } : { ok: false, error: message };
+export async function saveAccount(f: FormData, confirm: boolean): Promise<Asked> {
   const id = s(f, "file_id"), acc = s(f, "account") || null;
-  const back = safeBack(f, id);
-  await editor(back);
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { ok: false, error: "You need Edit on Closebook." };
   const c = parseAmount(s(f, "balance") || "0");
-  if (c === null || c < 0) redirect(withMessage(back, "error", "Enter the balance as a positive number, for example 1,957.62."));
-  const { data, error } = await (await createClient()).rpc("cb_save_bank_account", { p_file: id, p_id: acc, p_type: s(f, "type"), p_bank: s(f, "bank"), p_last4: s(f, "last4"),
-    p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on", p_confirm: s(f, "confirm") === "1" });
+  if (c === null || c < 0) return { ok: false, error: "Enter the balance as a positive number, for example 1,957.62." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("cb_save_bank_account", { p_file: id, p_id: acc, p_type: s(f, "type"), p_bank: s(f, "bank"), p_last4: s(f, "last4"),
+    p_balance: c / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on", p_confirm: confirm, p_t2_line: s(f, "t2_line") || null });
+  if (error) return askOrFail(error.message);
   // Back where it was opened from (the main page, or the check stage after "Add it").
   // "__new__" in the address stands for the account just added (the upload window's "+ Add account").
   const then = s(f, "then").startsWith(`/closebook/${id}?`) ? s(f, "then").replaceAll("__new__", String(data ?? acc ?? "")) : `${base(id)}&account=${data ?? acc ?? ""}`;
-  await done(id, error ? back : then, error, acc ? "Account saved." : "Account added.", true);
+  await rebuildTb(supabase, id);
+  revalidatePath(`/closebook/${id}`);
+  return { ok: true, then: withMessage(then, "msg", acc ? "Account saved." : "Account added.") };
 }
 
 export async function removeBankAccount(f: FormData) {
   const id = s(f, "file_id");
   await editor(base(id));
-  const { error } = await (await createClient()).rpc("cb_remove_bank_account", { p_id: s(f, "account") });
+  const { error } = await (await createClient()).rpc("cb_remove_bank_account", { p_id: s(f, "account"), p_confirm: s(f, "confirm") === "1" });
   await done(id, base(id), error, "Account removed.", true);
 }
 
-// ---------- Coverage reason (point 23)
-export async function setCoverage(f: FormData) {
-  const id = s(f, "file_id"), acc = s(f, "account");
-  const back = s(f, "back").startsWith(`/closebook/${id}?`) ? s(f, "back") : `${base(id)}&account=${acc}`;
-  await editor(back);
-  const clear = s(f, "clear") === "1";
-  const { error } = await (await createClient()).rpc("cb_set_bank_coverage", { p_id: acc, p_opened: clear ? null : s(f, "opened") || null, p_closed: clear ? null : s(f, "closed") || null, p_note: clear ? "" : s(f, "note") });
-  await done(id, back, error, clear ? "Reason cleared." : "Reason recorded.");
+// ---------- Coverage reason (point 23): the account's months; asks first when 3.2 or 3.3 is signed.
+export async function setAccountCoverage(fileId: string, account: string, opened: string, closed: string, note: string, clear: boolean, confirm: boolean): Promise<Asked> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { ok: false, error: "You need Edit on Closebook." };
+  const { error } = await (await createClient()).rpc("cb_set_bank_coverage", { p_id: account, p_opened: clear ? null : opened || null, p_closed: clear ? null : closed || null,
+    p_note: clear ? "" : note, p_confirm: confirm });
+  if (error) return askOrFail(error.message);
+  revalidatePath(`/closebook/${fileId}`);
+  return { ok: true, then: "" };
 }
 
 // ---------- Outstanding items at the year edges (point 22)

@@ -11,7 +11,8 @@ import { InfoTip } from "@/components/ds/info-tip";
 export const REASONS: Record<string, string> = {
   new_asset: "New asset", new_loan: "New loan", revenue_grew: "Revenue grew", one_time: "One-time expense", reclassified: "Reclassified", error_fixed: "Error found and fixed",
 };
-export type LeadAcc = { id: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string } };
+export type LeadAcc = { id: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string };
+  reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
 export type LeadGroup = { code: string; name: string; last: string; before: string; entries: string; final: string; change: string; flags: number; open: number; rows: LeadAcc[] };
 
 // Which part of the statements a lead sheet belongs to: A to H assets, AA to GG liabilities and equity, 10 to 50 the income statement.
@@ -51,6 +52,7 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
                 <tr key={r.id} className={r.flagged && !r.note ? "bg-warning-soft/50" : ""}>
                   <td className="pl-10">{r.number && <span className="mr-2 text-ink-3 tabular-nums">{r.number}</span>}{r.name}
                     <span className="block text-xs text-muted">{r.line}</span>
+                    {r.reclass && <span className="block text-xs text-ink-2">{r.reclass}</span>}
                     {r.note && <span className="block text-xs text-success">{REASONS[r.note.reason]}: {r.note.note}</span>}</td>
                   <td className="text-right tabular-nums">{r.last}</td><td className="text-right tabular-nums">{r.before}</td>{full && <td className="text-right tabular-nums">{r.entries}</td>}
                   <td className="text-right tabular-nums font-medium">{r.final}</td><td className="text-right tabular-nums">{r.change}</td>

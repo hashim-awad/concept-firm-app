@@ -55,7 +55,7 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
   const province = ((f.client as { province: string } | null)?.province ?? "ON");
   const setup = (f.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const [{ data: banks }, { data: lines }, { data: chart }, { data: codes }, { data: parts }, { data: transfers }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number, books_opening, gifi_line").eq("file_id", fileId),
+    supabase.from("cb_bank_accounts").select("id, name, kind, chart_account, number, books_opening, gifi_line, t2_line").eq("file_id", fileId),
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, description, amount, status, chart_account, tax_code").eq("file_id", fileId).order("acct_date").limit(50000),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_sales_tax_codes").select("code, name, provinces"),
@@ -96,8 +96,8 @@ async function loadInputs(supabase: SupabaseClient, f: FileRow, carry: boolean):
     // Round 22: an account added in step 3 opens at its balance in the books. Round 24: never at a statement's
     // opening (uploading must not move the trial balance); an account with no balance yet opens at 0.00, and 3.1
     // asks for it.
-    banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string; number: string; books_opening: number | null; gifi_line: string | null }[]).map((b) => ({
-      id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, lineNo: b.gifi_line,
+    banks: ((banks ?? []) as { id: string; name: string; kind: "bank" | "card"; chart_account: string; number: string; books_opening: number | null; gifi_line: string | null; t2_line: string | null }[]).map((b) => ({
+      id: b.id, name: b.name, kind: b.kind, chart: b.chart_account, number: b.number, lineNo: b.gifi_line, t2Line: b.t2_line,
       fromBooks: b.books_opening !== null, openingCents: b.books_opening !== null ? Math.round(Number(b.books_opening) * 100) : 0 })),
     // Round 24: a posting carries the line's accounting date (the bank date until the preparer changes it).
     lines: ((lines ?? []) as { id: string; account_id: string; txn_date: string; acct_date: string | null; description: string; amount: number; status: string; chart_account: string | null; tax_code: string | null }[])
@@ -114,7 +114,7 @@ export async function rebuildTb(supabase: SupabaseClient, fileId: string): Promi
   if (!f || !["statements", "paper"].includes(f.books)) return null;
   const { rows } = build(await loadInputs(supabase, f, true));
   const { error } = await supabase.rpc("cb_build_tb", { p_file: fileId,
-    p_rows: rows.map((r) => ({ key: r.key, number: r.number, name: r.name, line_no: r.line_no ?? "", amount: r.cents / 100, last: r.lastCents / 100, reviewer: r.reviewer ?? "" })) });
+    p_rows: rows.map((r) => ({ key: r.key, number: r.number, name: r.name, line_no: r.line_no ?? "", amount: r.cents / 100, last: r.lastCents / 100, reviewer: r.reviewer ?? "", last_line: r.lastLine ?? "" })) });
   return error ? `The trial balance could not be rebuilt: ${error.message}` : null;
 }
 

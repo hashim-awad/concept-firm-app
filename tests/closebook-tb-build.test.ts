@@ -276,3 +276,25 @@ test("round 22: a long-term line of credit on 3149 with its own number, opening 
   const r = rows.find((x) => x.key === "bank:l")!;
   assert.deepEqual([r.number, r.name, r.line_no, r.cents], ["25300", "Line of credit · MDB ••• 6602", "3149.00", -250000]);
 });
+
+// Round 25: the line of credit was on 2707 last year (with the card); this year it maps to 2701.
+test("last year's T2 line: the opening ties per T2 line, and a reclassified account takes its own balance as last year's figure", () => {
+  const ch = new Map(chart); ch.set("22100", { name: "Line of credit", account_type: "Liability", line_no: "2701.00" }); ch.set("31000", { name: "Retained earnings", account_type: "Equity", line_no: "3600.00" });
+  const opening = { lines: [
+    { code: "2707", line_no: "2707.00", name: "Credit card loans", type: "Liability", debitCents: -711200 },
+    { code: "3660", line_no: "3600.00", name: "Retained earnings", type: "Equity", debitCents: 711200 },
+  ], reClosingCents: -711200, reStatedCents: -711200 };
+  const banks = [
+    { id: "card", name: "Credit card", kind: "card" as const, chart: "22000", number: "22000", openingCents: 211200, fromBooks: true },
+    { id: "loc", name: "Line of credit", kind: "card" as const, chart: "22100", number: "22100", openingCents: 500000, fromBooks: true, t2Line: "2707" },
+  ];
+  const { rows } = buildLedger(banks, [], ch, codes, ctx, opening, "2026-01-01");
+  const row = (k: string) => rows.find((r) => r.key === k)!;
+  assert.equal(rows.find((r) => r.key === OPENING), undefined, "the opening ties: nothing waits in Opening balances to enter");
+  assert.deepEqual([row("chart:22000").cents, row("chart:22000").lastCents, row("chart:22000").lastLine], [-211200, -211200, undefined]);
+  assert.deepEqual([row("chart:22100").cents, row("chart:22100").lastCents, row("chart:22100").lastLine, row("chart:22100").line_no], [-500000, -500000, "2707", "2701.00"],
+    "the line of credit stays on 2701 this year, with last year's 5,000.00 from 2707");
+  assert.equal(sum(rows), 0);
+  const back = buildLedger([banks[0], { ...banks[1], t2Line: null }], [], ch, codes, ctx, opening, "2026-01-01").rows;
+  assert.ok(back.find((r) => r.key === OPENING), "set back to 2701: 2707 and 2701 no longer tie (5,000.00 each way)");
+});

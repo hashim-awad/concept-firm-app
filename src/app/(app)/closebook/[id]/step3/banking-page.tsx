@@ -19,8 +19,8 @@ import { AddAccountWindow, Win } from "./windows";
 import { AutoImport, BankingUpload, type UploadSummary } from "./banking-upload";
 import { FixScreen } from "./fix-screen";
 import { Menu, Pill, date, money, span } from "./banking-ui";
-import { addOutstanding, removeOutstanding, setCoverage } from "../../step3-actions";
-import { ExcludeWindow, ExcludedActions, LineWindow, ReplaceWindow } from "./feed-windows";
+import { addOutstanding, removeOutstanding } from "../../step3-actions";
+import { CoverageForm, ExcludeWindow, ExcludedActions, LineWindow, ReplaceWindow } from "./feed-windows";
 import { reasonLabel } from "@/lib/closebook/feed";
 import type { Lock } from "./guard";
 
@@ -49,8 +49,9 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
   // ---------- Add or edit an account (3.1)
   if (editable && str(sp.add) === "1") {
     const e = d.accounts.find((a) => a.id === str(sp.edit)) ?? null;
-    win = <AddAccountWindow lock={lock} c={{ fileId, closeHref: base, then: "", dayBefore: formatDate(d.dayBefore), chartNumbers: d.chartNumbers, taken: d.taken, t2: {}, t2Entered: false,
-      others: [], edit: e ? { id: e.id, number: e.number, type: (e.accountType ?? (e.kind === "bank" ? "chequing" : "card")) as AccountType, bank: e.bank, last4: e.last4 ?? "", books: e.books, longTerm: e.longTerm, hasStatements: e.statements.length > 0 } : null,
+    win = <AddAccountWindow c={{ fileId, closeHref: base, then: "", dayBefore: formatDate(d.dayBefore), chartNumbers: d.chartNumbers, taken: d.taken, t2: {}, t2Entered: false,
+      others: [], edit: e ? { id: e.id, number: e.number, type: (e.accountType ?? (e.kind === "bank" ? "chequing" : "card")) as AccountType, bank: e.bank, last4: e.last4 ?? "", books: e.books, longTerm: e.longTerm, hasStatements: e.statements.length > 0, t2Line: e.t2Line } : null,
+      t2Lines: d.t2Lines, gifiNames: d.gifiNames,
       prefill: { type: str(sp.type), last4: str(sp.last4), bank: str(sp.bank) } }} />;
   }
 
@@ -119,13 +120,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
         {editable && !vx && (viewing.gaps.length > 0 || !viewing.statements.length || reason) && (
           <details className="rounded-[10px] border border-sand-200 px-4 py-3" open={!!reason}>
             <summary className="cursor-pointer text-[13.5px] font-semibold text-navy-700">Record why a period has no statement</summary>
-            <form action={setCoverage} className="mt-3 grid gap-3 sm:grid-cols-2">
-              <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={viewing.id} /><input type="hidden" name="back" value={back} />
-              <label className="grid gap-1 text-[12.5px] text-ink-2">Opened in the year, on<input type="date" name="opened" defaultValue={viewing.opened ?? ""} className="input h-9" /></label>
-              <label className="grid gap-1 text-[12.5px] text-ink-2">Closed in the year, on<input type="date" name="closed" defaultValue={viewing.closed ?? ""} className="input h-9" /></label>
-              <label className="grid gap-1 text-[12.5px] text-ink-2 sm:col-span-2">No statements (say why)<input name="note" defaultValue={viewing.note} maxLength={300} className="input h-9" /></label>
-              <div className="sm:col-span-2"><button type="submit" className="btn-secondary h-9">Save</button></div>
-            </form>
+            <CoverageForm fileId={fileId} account={viewing.id} opened={viewing.opened ?? ""} closed={viewing.closed ?? ""} note={viewing.note ?? ""} />
           </details>
         )}
       </Win>
