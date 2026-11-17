@@ -18,6 +18,7 @@ export type FeedData = {
   history: [string, { coding: Coding; count: number }][]; firm: [string, Coding][];
   people: Record<string, { initials: string; name: string }>;
   excludedReviewed: { by: string | null; at: string | null; current: boolean };
+  me: string | null;   // the signed-in staff member
   error: string | null;
 };
 
@@ -89,6 +90,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     choices: ((choices ?? []) as { line_a: string; line_b: string; kind: "chosen" | "rejected" }[]).map((c) => ({ a: c.line_a, b: c.line_b, kind: c.kind })),
     history: [...history.entries()],
     firm: ((firm ?? []) as { vendor_key: string; chart_account: string; tax_mode: string }[]).map((r) => [r.vendor_key, { account: r.chart_account, tax: firmTax(r.tax_mode, r.chart_account) }]),
+    me: (await supabase.auth.getUser()).data.user?.id ?? null,
     people, excludedReviewed: { by: fr?.excluded_reviewed_by ?? null, at: fr?.excluded_reviewed_at ?? null, current: !!fr?.excluded_reviewed_key && fr.excluded_reviewed_key === (keyNow as string | null) },
     error: err ? `Step 4 could not be read: ${err.message}` : null,
   };

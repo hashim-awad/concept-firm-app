@@ -123,6 +123,16 @@ test("what a Pending line shows: a rule fills account and tax (ready); past codi
   assert.equal(blank.ready, false, "no sales tax yet: Post stays grey");
 });
 
+test("a client rule always wins over a firm rule (Settings) when both fit one line", () => {
+  const l = line({ id: "x", account_id: "card", txn_date: "2025-09-12", cents: 4520, description: "SAMPLE PRINT SHOP #12 GUELPH ON" });
+  const client: BankRule = { ...fee, id: "c1", name: "Print shop", direction: "out", conditions: [{ field: "description", op: "contains", value: "SAMPLE PRINT SHOP" }], chart_account: "60000", tax_code: "HST_ON" };
+  const firm = new Map([["SAMPLE PRINT SHOP GUELPH ON", { account: "69000", tax: "HST_ON" }]]);
+  const v = rowView(l, new Map(), applyRules([l], [client], ACCS, new Map()), new Map(), firm, ACCS, () => null);
+  assert.deepEqual([v.account, v.badge, v.ruleId], ["60000", "rule", "c1"]);
+  const firmOnly = rowView(l, new Map(), new Map(), new Map(), firm, ACCS, () => null);
+  assert.deepEqual([firmOnly.account, firmOnly.badge], ["69000", "firm"], "the firm rule fills it only when no client rule fits");
+});
+
 test("filter and search: money in and out, Ready to post, and an amount typed as 6.00", () => {
   const out = line({ account_id: "chq", txn_date: "2025-09-30", cents: -600, description: "Monthly fee" });
   assert.equal(inFilter("out", out, null, "bank"), true);

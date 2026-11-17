@@ -16,8 +16,9 @@ export function filterItems(items: Item[], q: string): Item[] {
   const t = q.trim().toLowerCase();
   if (!t) return items;
   const words = t.split(/\s+/);
-  // A bank, card or loan account of the client's is found by its type too, and by the word "bank" (step 3's bank accounts).
-  const text = (i: Item) => (i.key.startsWith("b:") ? `${i.name} ${i.type} bank` : i.name).toLowerCase();
+  // Round 31 follow-up: the "Transfer to / Transfer from" group filters like the others, by number, name and type
+  // ("bank" finds a Bank account, not the credit card or the line of credit).
+  const text = (i: Item) => (i.key.startsWith("b:") ? `${i.name} ${i.type}` : i.name).toLowerCase();
   return items.filter((i) => words.every((w) => i.number.startsWith(w) || text(i).includes(w)));
 }
 

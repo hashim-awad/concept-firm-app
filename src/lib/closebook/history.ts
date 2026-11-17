@@ -32,6 +32,9 @@ export const ACTION: Record<string, string> = {
   line_added_before_import: "Added before import", line_removed_before_import: "Removed before import", line_changed_before_import: "Changed before import",
   statement_read_again: "Read again",
   upload_refused: "Upload refused",
+  // Round 31, step 4 (QuickBooks Online's Bank transactions page).
+  line_excluded: "Line excluded", line_restored: "Line back to Pending", line_answer: "Client's answer", line_file: "Receipt attached", pair_unpaired: "Unpaired",
+  rule_saved: "Bank rule", excluded_reviewed: "Excluded lines reviewed",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };
