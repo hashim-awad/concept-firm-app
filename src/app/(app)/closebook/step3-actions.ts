@@ -2,6 +2,7 @@
 // Closebook step 3 (round 22, Hashim, Nov 16, 2026): accounts, coverage reasons, outstanding items, "Not ours",
 // the upload window's target account and Skip, and the import of a checked statement (only its
 // lines inside the year; the whole statement checked). The database checks every rule again.
+import { plainError } from "@/lib/plain-error";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getAccess, canEdit } from "@/lib/access";
@@ -24,14 +25,14 @@ async function editor(back: string) {
 const done = async (id: string, back: string, error: { message: string } | null, msg: string, rebuild = false) => {
   if (!error && rebuild) await rebuildTb(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : msg));
+  redirect(withMessage(back, error ? "error" : "msg", error ? plainError(error.message) : msg));
 };
 
 // ---------- Add or change an account (point 6). Round 25 (Hashim, Nov 17, 2026): a change that removes a 3.1, 3.2 or
 // 3.3 sign-off asks first (round 24 rule G17): the first call returns { confirm }, the second goes ahead.
 type Asked = { ok: true; then: string } | { ok: false; error: string; confirm?: string };
 const askOrFail = (message: string): { ok: false; error: string; confirm?: string } =>
-  /^This removes the sign-off on/.test(message) ? { ok: false, error: message, confirm: message } : { ok: false, error: message };
+  /^This removes the sign-off on/.test(message) ? { ok: false, error: message, confirm: message } : { ok: false, error: plainError(message) };
 export async function saveAccount(f: FormData, confirm: boolean): Promise<Asked> {
   const id = s(f, "file_id"), acc = s(f, "account") || null;
   const a = await getAccess();
@@ -108,7 +109,7 @@ export async function setNotOurs(f: FormData) {
 
 // ---------- The upload window
 type Fail = { ok: false; error: string };
-const fail = (error: string): Fail => ({ ok: false, error });
+const fail = (error: string): Fail => ({ ok: false, error: plainError(error) });
 
 export async function setStatementTarget(ids: string[], account: string | null): Promise<{ ok: true } | Fail> {
   const a = await getAccess();
@@ -161,7 +162,7 @@ export async function importChecked(id: string, target: string | null, confirmDu
     chosen.push({ acc, to });
   }
   if (!chosen.length) return fail("No account on this statement is in this file, or the statement is outside the year. Add the account, or Skip the statement.");
-  const rowsOf = (acc: StatementAccount) => acc.lines.map((l, i) => ({ line: i + 1, date: l.date, posted: l.postedDate ?? null, description: l.description.replace(/\s+/g, " ").trim(), amount: signedCents(l) / 100 }));
+  const rowsOf = (acc: StatementAccount) => acc.lines.map((l, i) => ({ line: i + 1, date: l.date, posted: l.postedDate ?? null, description: l.description.replace(/\s+/g, " ").trim(), amount: signedCents(l) / 100, holder: l.holder ?? null }));
 
   if (!confirmDuplicates) {
     const duplicates: { accountKey: string; lineIds: string[] }[] = [];

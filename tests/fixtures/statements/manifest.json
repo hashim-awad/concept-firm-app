@@ -410,5 +410,17 @@
   "8cde9e2dc8bd29ddb0f2034eceee6476829fb87c01b3d9dc592554f1c154820c": {
     "file": "round24/rbc-sav-2025-09-other.pdf",
     "result": "round24/rbc-sav-2025-09-other.json"
+  },
+  "9e04cbbcbff311566e6ac81745b8ebd0a42d3a8082dab000895dfbd47ba54a0a": {
+    "file": "round26/card-2025-09-18.pdf",
+    "result": "round26/card-2025-09-18.json"
+  },
+  "f5039b2330fccb570e7cd9a7c3243e91771ec4daa7d5f0d1a6c495cc194f8aee": {
+    "file": "round26/card-2025-10-18.pdf",
+    "result": "round26/card-2025-10-18.json"
+  },
+  "2bef3ea727fe6b4d1dafc7fabebd1fa3075ef01ff6ef938247b856ea71f408e7": {
+    "file": "round26/card-2025-12-18.pdf",
+    "result": "round26/card-2025-12-18.json"
   }
 }
