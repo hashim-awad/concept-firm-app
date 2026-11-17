@@ -281,15 +281,18 @@ function uploadSummary(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
     missing: a.statements.length ? a.gaps.map((g) => span(g.from, g.to)) : [],
     toFix: a.toFix.map((u) => ({ id: u.id, label: u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name })),
     reading: mine.filter((u) => u.state.status === "reading").length,
-    refused: mine.filter((u) => ["no_account", "already", "copy", "outside"].includes(u.state.status))
-      .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" || u.state.status === "copy" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
+    // Round 31: a copy of a statement waiting in the list is not refused here: the reader removes it and records which
+    // upload it copies, and the window follows that upload ("That upload is used").
+    refused: mine.filter((u) => ["no_account", "already", "outside"].includes(u.state.status))
+      .map((u) => ({ id: u.id, file: u.file_name, why: u.state.status === "already" ? "It is already in." : u.state.status === "outside" ? "It is outside the year." : u.state.reason })),
     pending: d.pending.filter((u) => u.account === a.id).map((u) => ({ id: u.id, file: u.file_name })),
     // Round 29: each upload of the account, for the result of the upload just done.
     rows: d.uploads.filter((u) => u.account === a.id || u.target_account === a.id).map((u) => {
       const st = a.statements.find((x) => x.statement_import_id === u.id);
       return { id: u.id, file: u.file_name, status: u.state.status, label: u.period_start && u.period_end ? span(u.period_start, u.period_end) : u.file_name,
-        lines: st ? st.lines : null, outside: st ? st.outside_lines : 0 };
+        lines: st ? st.lines : null, outside: st ? st.outside_lines : 0, error: u.error ?? "" };
     }),
+    copies: d.copies,
   };
 }
 

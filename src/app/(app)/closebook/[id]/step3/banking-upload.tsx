@@ -27,7 +27,9 @@ export type UploadSummary = {
   refused: { id: string; file: string; why: string }[];      // statements already in, copies, or outside the year
   pending: { id: string; file: string }[];                     // read and passing: imported here by themselves
   // Round 29: every upload of this account still listed, for the result of the upload just done.
-  rows: { id: string; file: string; status: string; label: string; lines: number | null; outside: number }[];
+  rows: { id: string; file: string; status: string; label: string; lines: number | null; outside: number; error: string }[];
+  // Round 31: uploads removed as another copy of a statement already in the list (of: that upload).
+  copies: { id: string; file: string; of: string }[];
 };
 
 // Round 29 (Hashim, Nov 17, 2026; benchmark QuickBooks Online's upload): the window shows the result of the upload
@@ -35,28 +37,27 @@ export type UploadSummary = {
 // reason); nothing else keeps it. Before round 29 refusals were kept in the browser tab (sessionStorage); they are
 // cleared when the window opens.
 const clearOldRefusals = () => {
-  try { for (const k of Object.keys(sessionStorage)) if (k.startsWith("banking-refused:")) sessionStorage.removeItem(k); } catch { /* nothing kept */ }
+  try { for (const k of Object.keys(sessionStorage)) if (k.startsWith("banking-refused:") || k.startsWith("banking-tried:")) sessionStorage.removeItem(k); } catch { /* nothing kept */ }
 };
-type Refusal = { id: string; file: string; why: string };
+type Refusal = { id: string; file: string; why: string; passing?: boolean };   // passing: the call did not finish (not a refusal)
 
-// Speed (Hashim, Nov 16, 2026): each statement is tried once per session. A server call in progress makes every
-// click wait (Next.js runs them in turn), so a statement that keeps failing must not be tried on every visit.
-// A failure is listed with its reason. Round 24: an import goes to the bank feed; nothing posts, so the trial
-// balance is not rebuilt.
-const TRIED = (f: string) => `banking-tried:${f}`;
-const triedIds = (f: string): Set<string> => { try { return new Set(JSON.parse(sessionStorage.getItem(TRIED(f)) || "[]") as string[]); } catch { return new Set(); } };
-async function importOnce(fileId: string, items: { id: string; account: string; file: string }[], onRefused?: (x: Refusal) => void): Promise<number> {
-  const tried = triedIds(fileId);
+// Speed (Hashim, Nov 16, 2026): a statement that keeps failing must not be tried on every visit (a server call in
+// progress makes every click wait). Round 31: that is now kept in the database, not the browser tab: a refused import
+// keeps its reason and waits in "To fix" (round 30), and only statements with no reason come here. Before round 31 the
+// tab remembered every statement it had tried, so a statement refused once was never tried again in that tab, even
+// after the fix that would let it in, and nothing said so. Round 24: an import goes to the bank feed; nothing posts.
+const inFlight = new Set<string>();   // the same statement is not sent twice at once (the window and the page)
+async function importOnce(fileId: string, items: { id: string; account: string; file: string }[], onRefused?: (x: Refusal) => void, onImported?: (id: string) => void): Promise<number> {
   let n = 0;
   for (const x of items) {
-    if (tried.has(x.id)) continue;
-    tried.add(x.id);
-    try { sessionStorage.setItem(TRIED(fileId), JSON.stringify([...tried])); } catch { /* tried this time only */ }
+    if (inFlight.has(x.id)) continue;
+    inFlight.add(x.id);
     try {
       const r = await importChecked(x.id, x.account, false);
-      if (r.ok && r.imported) n++;
+      if (r.ok && r.imported) { n++; onImported?.(x.id); }
       else onRefused?.({ id: x.id, file: x.file, why: r.ok ? "Not imported: some of its lines are already in this file. Check it in View statements." : `Not imported: ${r.error}` });
-    } catch { onRefused?.({ id: x.id, file: x.file, why: "Not imported: the import did not finish. Upload it again." }); }
+    } catch { onRefused?.({ id: x.id, file: x.file, why: "Not imported yet: the connection dropped. It is tried again when 3.2 opens.", passing: true }); }
+    finally { inFlight.delete(x.id); }
   }
   return n;
 }
@@ -79,7 +80,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
   useEffect(() => { clearOldRefusals(); }, []);
   const mineRef = useRef<Set<string>>(new Set());
   const noteRefused = (x: Refusal, discard: boolean) => {
-    void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), discard);
+    if (!x.passing) void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), discard);
     if (mineRef.current.has(x.id)) setRefused((r) => (r.some((y) => y.id === x.id) ? r : [...r, x]));
   };
   const input = useRef<HTMLInputElement>(null);
@@ -92,14 +93,16 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
     return () => clearInterval(t);
   }, [reading, fileId, router]);
   // Everything that passes goes in by itself; refusals are removed and listed.
-  const work = (summary?.pending.length ?? 0) + (summary?.refused.length ?? 0);
+  const work = [...(summary?.pending ?? []), ...(summary?.refused ?? [])].map((x) => x.id).join(",");
   useEffect(() => {
     if (!summary || !account || busy || !work || lock) return;
     let stop = false;
     (async () => {
       setBusy(true);
       for (const r of summary.refused) { if (stop) break; noteRefused(r, true); }
-      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })), (x) => noteRefused(x, false));
+      // Round 31: statements waiting from an earlier upload go in too, and the window says so.
+      if (!stop) await importOnce(fileId, summary.pending.map((x) => ({ ...x, account })), (x) => { if (!mineRef.current.has(x.id)) { mineRef.current.add(x.id); setMine((m) => [...m, x.id]); } noteRefused(x, false); },
+        (id) => { if (!mineRef.current.has(id)) { mineRef.current.add(id); setMine((m) => [...m, id]); } });
       setBusy(false);
       router.refresh();
     })();
@@ -206,17 +209,29 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
           {!lock && error && <p className="rounded-[8px] bg-danger-soft px-3 py-2 text-[13.5px] text-danger" role="alert">{error}</p>}
           {/* Round 29: the result of the upload just done, only. Waiting statements ("To fix", "Missing") show on 3.2. */}
           {!lock && s && (mine.length > 0 || refused.length > 0 || busy) && (() => {
-            const own = s.rows.filter((r) => mine.includes(r.id));
+            // Round 31: every file sent gets a line. A copy of a statement already in the list says so, and the window
+            // follows that earlier upload instead (it is imported here if it passes).
+            const copies = s.copies.filter((c) => mine.includes(c.id));
+            const ids = new Set([...mine, ...copies.map((c) => c.of)]);
+            const own = s.rows.filter((r) => ids.has(r.id));
             const done = own.filter((r) => r.status === "imported");
             const lines = done.reduce((n, r) => n + (r.lines ?? 0), 0), outside = done.reduce((n, r) => n + r.outside, 0);
             const readingNow = own.filter((r) => r.status === "reading").length + sending;
+            const adding = own.filter((r) => s.pending.some((p) => p.id === r.id) && !refused.some((x) => x.id === r.id));
+            const seen = new Set([...own.map((r) => r.id), ...copies.map((c) => c.id), ...refused.map((r) => r.id)]);
+            const lost = mine.filter((id) => !seen.has(id)).length;   // sent, then removed with no reason kept (should not happen)
             return (
               <ul className="grid gap-3" aria-label="Upload results">
-                {(readingNow > 0 || busy) && row("busy", readingNow ? `Reading ${readingNow} statement${readingNow === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
+                {(readingNow > 0 || busy || adding.length > 0) && row("busy", readingNow ? `Reading ${readingNow} statement${readingNow === 1 ? "" : "s"}…` : "Adding the statements…", "reading")}
                 {done.length > 0 && row("ok", <><b>{lines.toLocaleString("en-CA")} transaction{lines === 1 ? "" : "s"}</b> added from {done.length} statement{done.length === 1 ? "" : "s"}</>, "lines")}
-                {own.filter((r) => r.status === "needs_look").map((f) => row("bad", <>To fix: {f.label}. <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link>
+                {copies.map((c) => row("none", `${c.file}: this statement was uploaded before. That upload is used.`, `c-${c.id}`))}
+                {own.filter((r) => (r.status === "needs_look" || r.status === "ready") && !adding.includes(r) && !refused.some((x) => x.id === r.id && x.passing)).map((f) => row("bad", <>{f.error ? <>Not imported: {f.label}. {f.error} </> : <>To fix: {f.label}. </>}
+                  <Link href={`${fixBase}&fix=${f.id}`} scroll={false} className="text-navy-700 underline">Fix it</Link>
                   {" · "}<button type="button" disabled={busy} onClick={() => readAgain([f.id])} className="text-navy-700 underline">Read again</button></>, `f-${f.id}`))}
-                {refused.map((r) => row("bad", `Refused: ${r.file}. ${r.why}`, `r-${r.id}`))}
+                {own.filter((r) => r.status === "failed").map((f) => row("bad", <>Could not read: {f.file}. {f.error || "The reader stopped."}{" "}
+                  <button type="button" disabled={busy} onClick={() => readAgain([f.id])} className="text-navy-700 underline">Read again</button></>, `x-${f.id}`))}
+                {lost > 0 && row("bad", `${lost} file${lost === 1 ? " was" : "s were"} sent but not kept. Upload ${lost === 1 ? "it" : "them"} again.`, "lost")}
+                {refused.filter((r) => !own.some((o) => o.id === r.id && o.error)).map((r) => row("bad", r.passing ? `${r.file}: ${r.why}` : `Refused: ${r.file}. ${r.why}`, `r-${r.id}`))}
                 {outside > 0 && row("none", `Lines dated before ${s.yearLabel.split(" to ")[0]} or after ${s.yearLabel.split(" to ")[1]} were left out`, "outside")}
               </ul>
             );
@@ -241,7 +256,7 @@ export function AutoImport({ fileId, items, locked }: { fileId: string; items: {
     (async () => {
       // Round 30: an import that does not go through is never silent: the statement becomes "To fix" with its reason.
       let refusedN = 0;
-      const n = await importOnce(fileId, items, (x) => { refusedN++; void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), false); });
+      const n = await importOnce(fileId, items, (x) => { if (x.passing) return; refusedN++; void refuseUpload(x.id, x.why.replace(/^Not imported: /, ""), false); });
       if (!stop && (n || refusedN)) router.refresh();
     })();
     return () => { stop = true; };
