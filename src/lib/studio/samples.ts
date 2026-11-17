@@ -84,11 +84,13 @@ export function templateSample(key: string, signers: { letter: { name: string; t
   // Round 32: the client questions email, with a made-up client.
   if (key === "cbquestionsemail") {
     const texts = wording?.texts ?? {};
-    const m = questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Sample Company Inc.", count: 3 });
-    const e = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, m, { name: SAMPLE_SENDER.name, credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/link", "2026-12-04");
+    // Round 36: both versions, one question and three.
+    const email = (count: number) => renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, questionsMessage(texts, CB_QUESTIONS_EMAIL, { first: "Pat", legalName: "Sample Company Inc.", count }),
+      { name: SAMPLE_SENDER.name, credentials: "CPA", title: "Senior Accountant" }, "https://example.test/cq/link", "2026-12-04", count).html;
     const w = (p: { key: string; text: string }) => (mark ? `<span class="wmark" data-w="${p.key}">${texts[p.key] ?? p.text}</span>` : texts[p.key] ?? p.text);
-    return { parts: [{ label: "Subject", html: `<p>${w(CB_QUESTIONS_EMAIL.subject)}</p>` }, { label: "Email, as the client receives it", html: e.html },
-      ...(mark ? [{ label: "The pieces", html: (["hi", "working", "answerBy", "link", "firm"] as const).map((k) => `<p>${w(CB_QUESTIONS_EMAIL[k])}</p>`).join("") }] : [])] };
+    return { parts: [{ label: "Subject", html: `<p>${w(CB_QUESTIONS_EMAIL.subject)}</p>` },
+      { label: "Email with 1 question, as the client receives it", html: email(1) }, { label: "Email with 2 or more questions (here 3), as the client receives it", html: email(3) },
+      ...(mark ? [{ label: "The pieces", html: (["hi", "working", "working1", "answerBy", "answerBy1", "link", "firm"] as const).map((k) => `<p>${w(CB_QUESTIONS_EMAIL[k])}</p>`).join("") }] : [])] };
   }
   // The completion checklist (round 8): every question, in order, as the reviewer sees it on step 6.
   if (key === "cbchecklist") {

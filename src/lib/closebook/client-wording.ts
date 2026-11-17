@@ -64,6 +64,9 @@ export const CB_QUESTIONS_EMAIL = {
   answerBy: E(4, "Please answer them by {1}. You can attach a receipt or invoice to any answer."),                              // {1}: the reply-by date
   link: E(5, "View transaction questions"),
   firm: E(6, "Concept Accounting & Advisory Professional Corporation"),
+  // Round 36 (Hashim, Nov 17, 2026): the same two sentences when there is only one question.
+  working1: E(7, "We are working on the year-end for {1}. We have 1 question about a transaction on your bank and card statements."),   // {1}: legal name
+  answerBy1: E(8, "Please answer it by {1}. You can attach a receipt or invoice to your answer."),                                         // {1}: the reply-by date
 };
 export const CB_PIECES: QPiece[] = [...Object.values(CB_CLIENT), ...CB_CHECKLIST, ...Object.values(CB_QUESTIONS_EMAIL)];
 export const CB_TEMPLATES = [

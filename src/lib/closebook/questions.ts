@@ -3,6 +3,7 @@
 // QuickBooks Online's comment icon, CaseWare Cloud's Queries (due date, contacts, "Awaiting response", history).
 // Never on anything the client sees: chart numbers, GIFI, "Closebook", staff names.
 import { ZipWriter } from "../export/zip.ts";
+import { hfText } from "./xlsx-hf.ts";
 
 export type QStatus = "not_sent" | "waiting" | "answered" | "closed";
 export const Q_LABEL: Record<QStatus, string> = { not_sent: "Not sent", waiting: "Waiting", answered: "Answered", closed: "Closed" };
@@ -78,7 +79,8 @@ export const addDays = (iso: string, n: number) => new Date(Date.UTC(+iso.slice(
 
 // ---------- The email (Templates: "Closebook · Client questions email")
 export type QPieceLike = { key: string; text: string };
-export type QEmailPieces = { subject: QPieceLike; hi: QPieceLike; working: QPieceLike; answerBy: QPieceLike; link: QPieceLike; firm: QPieceLike };
+export type QEmailPieces = { subject: QPieceLike; hi: QPieceLike; working: QPieceLike; answerBy: QPieceLike; link: QPieceLike; firm: QPieceLike;
+  working1?: QPieceLike; answerBy1?: QPieceLike };   // round 36: the wording for one question
 export type QSender = { name: string; credentials: string; title: string };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const fill = (t: string, f: string[]) => t.replace(/\{(\d+)\}/g, (m, i) => f[Number(i) - 1] ?? m);
@@ -91,16 +93,21 @@ export function questionsMessage(texts: Record<string, string>, P: QEmailPieces,
   return {
     subject: t(P.subject),
     // Round 33: the reply-by sentence is not in the editable text; it comes from the Reply by date (one stored value).
-    message: [t(P.hi, d.first || "there"), "", t(P.working, d.legalName, questionsWord(d.count))].join("\n"),
+    message: [t(P.hi, d.first || "there"), "", d.count === 1 && P.working1 ? t(P.working1, d.legalName) : t(P.working, d.legalName, questionsWord(d.count))].join("\n"),
   };
 }
 
 // The email as sent: the message, the link (bold and underlined), the sender's signature.
 // The reply-by sentence, from the stored date: the window, the email and the client page show the same date.
-export const answerByText = (texts: Record<string, string>, P: QEmailPieces, replyBy: string) => fill(texts[P.answerBy.key] ?? P.answerBy.text, [longDate(replyBy)]).replace(/\.\.(?=\s|$)/g, ".");
-export function renderQuestionsEmail(texts: Record<string, string>, P: QEmailPieces, m: { subject: string; message: string }, sender: QSender, link: string, replyBy: string) {
+// Round 36: one question reads "answer it ... to your answer"; two or more, "answer them ... to any answer".
+export const answerByPiece = (P: QEmailPieces, count: number) => (count === 1 && P.answerBy1 ? P.answerBy1 : P.answerBy);
+export const answerByText = (texts: Record<string, string>, P: QEmailPieces, replyBy: string, count = 2) => {
+  const p = answerByPiece(P, count);
+  return fill(texts[p.key] ?? p.text, [longDate(replyBy)]).replace(/\.\.(?=\s|$)/g, ".");
+};
+export function renderQuestionsEmail(texts: Record<string, string>, P: QEmailPieces, m: { subject: string; message: string }, sender: QSender, link: string, replyBy: string, count = 2) {
   const t = (p: QPieceLike) => texts[p.key] ?? p.text;
-  const body = `${m.message.trimEnd()}\n\n${answerByText(texts, P, replyBy)}`;
+  const body = `${m.message.trimEnd()}\n\n${answerByText(texts, P, replyBy, count)}`;
   const paras = body.split(/\n{2,}/).map((p) => `<p style="margin: 0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
   const who = `<b>${esc(sender.name)}</b>${sender.credentials ? `, ${esc(sender.credentials)}` : ""}`;
   const firmLine = [sender.title, t(P.firm)].filter(Boolean).map(esc).join(" | ");
@@ -173,7 +180,7 @@ export function questionsXlsx(meta: { legalName: string; yearEnd: string; prepar
     + `<autoFilter ref="A7:H${last}"/>`
     + `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>`
     + `<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>`
-    + `<headerFooter><oddFooter>&amp;L${x(meta.firm)}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>`;
+    + `<headerFooter><oddFooter>&amp;L${x(hfText(meta.firm))}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>`;
   const chunks: Buffer[] = [];
   const z = new ZipWriter((c) => chunks.push(Buffer.from(c)));
   z.add("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

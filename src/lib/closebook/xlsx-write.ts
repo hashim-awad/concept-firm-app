@@ -3,6 +3,7 @@
 // as the full export). Amounts arrive in cents and are written as dollars, so Excel can add them up.
 import { ZipWriter } from "../export/zip.ts";
 import type { ReportTable } from "./report-table.ts";
+import { hfText } from "./xlsx-hf.ts";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const col = (i: number) => { let s = ""; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; };
@@ -47,7 +48,7 @@ export function reportXlsx(t: ReportTable, head: string[], stamp: string): Buffe
   const widths = t.columns.map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="${t.numeric[i] ? 16 : i === 0 && t.columns.length <= 3 ? 56 : t.columns[i] === "Description" || t.columns[i] === "Account" ? 44 : 14}" customWidth="1"/>`).join("");
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>${widths}</cols><sheetData>${lines.join("")}</sheetData>
-<headerFooter><oddHeader>&amp;C&amp;"Arial,Bold"&amp;K B3261E${esc(stamp)}</oddHeader></headerFooter></worksheet>`;
+<headerFooter><oddHeader>&amp;C&amp;"Arial,Bold"&amp;KB3261E${esc(hfText(stamp))}</oddHeader></headerFooter></worksheet>`;
   const chunks: Buffer[] = [];
   const z = new ZipWriter((c) => chunks.push(Buffer.from(c)));
   z.add("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

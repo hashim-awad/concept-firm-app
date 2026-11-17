@@ -7,11 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 import { plainError } from "@/lib/plain-error";
 import { env } from "@/lib/env";
 import { todayToronto } from "@/lib/dates";
-import { mailReady, sendMail } from "@/lib/email/graph";
+import { MailError, mailReady, sendMail } from "@/lib/email/graph";
+import { notSentText } from "@/lib/email/not-sent";
 import { emailAllowed } from "@/lib/email/safety";
 import { loadWordingState } from "@/lib/studio/wording-state";
 import { CB_QUESTIONS_EMAIL } from "@/lib/closebook/client-wording";
-import { addDays, questionsMessage, questionsXlsx, renderQuestionsEmail, xlsxName } from "@/lib/closebook/questions";
+import { addDays, answerByPiece, questionsMessage, questionsXlsx, renderQuestionsEmail, xlsxName } from "@/lib/closebook/questions";
 import { clientRows, loadQuestions, openRows, questionsPdf, senderProfile } from "@/lib/closebook/questions-server";
 import { FIRM } from "@/components/ds/brand";
 
@@ -78,7 +79,7 @@ export async function notifyDraft(fileId: string, lineIds: string[] | null): Pro
   const me = await senderProfile(supabase, a.staff_id);
   const ready = mailReady();
   const missing = ready.ok ? (me.email ? [] : ["your staff record's email address"]) : ready.missing;
-  return { ok: true, draft: { items, answerBy: texts[CB_QUESTIONS_EMAIL.answerBy.key] ?? CB_QUESTIONS_EMAIL.answerBy.text, count: pick.length, lineIds: pick.map((r) => r.id), contacts: q.contacts, replyBy, subject: m.subject, message: m.message,
+  return { ok: true, draft: { items, answerBy: (({ key, text }) => texts[key] ?? text)(answerByPiece(CB_QUESTIONS_EMAIL, pick.length)), count: pick.length, lineIds: pick.map((r) => r.id), contacts: q.contacts, replyBy, subject: m.subject, message: m.message,
     linkText: texts[CB_QUESTIONS_EMAIL.link.key] ?? CB_QUESTIONS_EMAIL.link.text,
     signature: { name: me.name, credentials: me.credentials, title: me.title, firm: texts[CB_QUESTIONS_EMAIL.firm.key] ?? CB_QUESTIONS_EMAIL.firm.text }, canSend: missing.length === 0, missing } };
 }
@@ -108,16 +109,24 @@ export async function notifyClient(fileId: string, v: { lineIds: string[]; to: s
   const { data: linkId, error } = await supabase.rpc("cb_question_link_create", { p_file: fileId, p_token_hash: hash, p_ids: rows.map((r) => r.id), p_to: to, p_cc: cc, p_reply_by: v.replyBy, p_expires: expires });
   if (error) return no(error.message);
   const texts = (await loadWordingState(supabase)).live?.texts ?? {};
-  const mail = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, { subject: v.subject.trim(), message: v.message.trim() }, me, `${env.siteUrl()}/cq/${token}`, v.replyBy);
+  const mail = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, { subject: v.subject.trim(), message: v.message.trim() }, me, `${env.siteUrl()}/cq/${token}`, v.replyBy, rows.length);
   const attachments = v.attachExcel ? [{ name: xlsxName(q.legalName, q.yearEnd), contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     base64: questionsXlsx({ legalName: q.legalName, yearEnd: q.yearEnd, preparedOn: todayToronto(), firm: FIRM.legalName }, clientRows(rows)).toString("base64") }] : undefined;
   // Round 32 fix: the link is pending until the email has gone. A failed send removes it and changes no other link.
   try {
     await sendMail({ from: me.email, to, cc, subject: mail.subject, html: mail.html, attachments });
   } catch (e) {
-    const { error: ce } = await supabase.rpc("cb_question_link_cancel", { p_link: linkId });
-    if (ce) console.error(`[notify client] remove the pending link: ${ce.message}`);
-    return no(`Not sent. ${e instanceof Error ? e.message : "Microsoft 365 did not accept the email."}`);
+    // Round 36: one plain sentence on screen; Microsoft's whole reply in History; the pending link goes.
+    const fail = e instanceof MailError ? { status: e.status, code: e.code } : { code: /sign-in failed/i.test(String((e as Error)?.message)) ? "sign-in failed" : "no reply" };
+    const plain = notSentText(fail, me.email);
+    const reply = e instanceof MailError ? e.reply : e instanceof Error ? e.message : String(e);
+    console.error(`[notify client] not sent from ${me.email}: ${reply.slice(0, 500)}`);
+    const { error: ce } = await supabase.rpc("cb_question_link_failed", { p_link: linkId, p_plain: plain, p_reply: reply });
+    if (ce) {
+      console.error(`[notify client] log and remove the pending link: ${ce.message}`);
+      await supabase.rpc("cb_question_link_cancel", { p_link: linkId });
+    }
+    return { ok: false, error: plain };
   }
   // The email went: switch this link on (and the earlier one off). Tried twice; the client's link depends on it.
   let r = await supabase.rpc("cb_question_link_sent", { p_link: linkId });

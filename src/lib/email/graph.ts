@@ -1,4 +1,5 @@
 import "server-only";
+import { graphCode } from "./not-sent";
 
 // Sends email through Microsoft 365 (Microsoft Graph) using the app's own Microsoft Entra
 // registration (OAuth client credentials). No mailbox password is used or stored.
@@ -42,14 +43,27 @@ export function mailReady(): { ok: true } | { ok: false; missing: string[] } {
 
 export type MailAttachment = { name: string; contentType: string; base64: string };
 
+// Round 36: a refusal from Microsoft 365, with its HTTP status, its error code and its whole reply (for History).
+// The message stays as before, so other callers read the same text.
+export class MailError extends Error {
+  constructor(public status: number, public code: string, public reply: string) {
+    super(`Microsoft 365 did not accept the email (${status}). ${reply.slice(0, 200)}`);
+    this.name = "MailError";
+  }
+}
+
 // from: the mailbox to send from (a staff member's own for signing emails); MAIL_FROM when not given.
 // Round 32: cc and attachments (the client questions email).
 export async function sendMail(email: { to: string | string[]; subject: string; html: string; from?: string; cc?: string[]; attachments?: MailAttachment[] }) {
   const from = email.from || process.env.MAIL_FROM || (process.env.MAIL_SINK_DIR ? "system@example.test" : required("MAIL_FROM"));
   if (process.env.MAIL_SINK_DIR && process.env.VERCEL_ENV !== "production") {
     const { existsSync, mkdirSync, writeFileSync } = await import("node:fs");
-    // Local tests only: while this file exists, the sink refuses like Microsoft 365 without the Mail.Send permission.
-    if (existsSync(`${process.env.MAIL_SINK_DIR}/FAIL-403`)) throw new Error("Microsoft 365 refused the email (403 Forbidden): ErrorAccessDenied, Access is denied.");
+    // Local tests only: while FAIL-403 exists, the sink refuses like Microsoft 365 without the Mail.Send permission;
+    // FAIL-400 refuses like a bad recipient. The reply is Microsoft Graph's own shape.
+    if (existsSync(`${process.env.MAIL_SINK_DIR}/FAIL-403`))
+      throw new MailError(403, "ErrorAccessDenied", JSON.stringify({ error: { code: "ErrorAccessDenied", message: "Access is denied. Check credentials and try again." } }));
+    if (existsSync(`${process.env.MAIL_SINK_DIR}/FAIL-400`))
+      throw new MailError(400, "ErrorInvalidRecipients", JSON.stringify({ error: { code: "ErrorInvalidRecipients", message: "At least one recipient is not valid., Recipient 'x' is not resolved." } }));
     mkdirSync(process.env.MAIL_SINK_DIR, { recursive: true });
     const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     writeFileSync(`${process.env.MAIL_SINK_DIR}/${name}.json`, JSON.stringify({ from, to: email.to, cc: email.cc ?? [], subject: email.subject, html: email.html,
@@ -76,6 +90,6 @@ export async function sendMail(email: { to: string | string[]; subject: string; 
   });
   if (res.status !== 202) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`Microsoft 365 did not accept the email (${res.status}). ${detail.slice(0, 200)}`);
+    throw new MailError(res.status, graphCode(detail) || String(res.status), detail);
   }
 }

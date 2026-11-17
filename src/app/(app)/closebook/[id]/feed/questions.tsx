@@ -49,7 +49,7 @@ function Floating({ rect, width, children, onClose }: { rect: DOMRect; width: nu
     return () => { clearTimeout(id); document.removeEventListener("mousedown", close); window.removeEventListener("keydown", k); };
   }, [onClose]);
   return <div ref={ref} style={{ position: "fixed", left: pos.left, top: pos.top, width }} role={onClose ? "dialog" : "tooltip"}
-    className="z-[75] grid gap-3 rounded-[10px] border border-sand-200 bg-white p-3.5 text-[13.5px] shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;
+    className="z-[75] grid gap-3 rounded-[10px] border border-sand-200 bg-white p-3.5 text-left text-[13.5px] font-normal shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;   // round 36: never the cell's centring
 }
 
 // The thread: Q and A in order, the latest open question in bold. Each question says whether it went to the client.
@@ -60,13 +60,13 @@ export function ThreadView({ thread, status, actions }: { thread: FeedQ[]; statu
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   return (
-    <div className="grid gap-2" data-q-thread>
+    <div className="grid gap-2.5 text-left" data-q-thread>
       {status === "answered" && <p className="text-[12px] font-semibold text-[#e8590c]">Answer received</p>}
       {status === "waiting" && <p className="text-[12px] font-semibold text-[#c27c0e]">Waiting for client</p>}
       {status === "not_sent" && <p className="text-[12px] font-semibold text-ink-3">Asked, not sent</p>}
       {thread.map((e) => (
-        <div key={e.id} className="grid grid-cols-[1.4rem_1fr] gap-x-1" data-q-entry={e.kind === "q" ? (e.closedAt ? "closed" : e.sentAt ? "sent" : "unsent") : "answer"}>
-          <span className="font-semibold text-ink-3">{e.kind === "q" ? "Q:" : "A:"}</span>
+        <div key={e.id} className="grid grid-cols-[1.5rem_1fr] items-start gap-x-1 text-left leading-5" data-q-entry={e.kind === "q" ? (e.closedAt ? "closed" : e.sentAt ? "sent" : "unsent") : "answer"}>
+          <span className="font-semibold text-ink-3" data-q-label>{e.kind === "q" ? "Q:" : "A:"}</span>
           <div>
             {editing === e.id ? (
               <div className="grid gap-1.5">
@@ -79,7 +79,7 @@ export function ThreadView({ thread, status, actions }: { thread: FeedQ[]; statu
                 </span>
               </div>
             ) : <p className={`whitespace-pre-wrap ${e === lastQ && status !== "answered" ? "font-semibold" : ""}`}>{e.body || (e.files.length ? "(file attached)" : "")}</p>}
-            <p className="text-[11.5px] text-ink-3">{e.by}{e.by ? " · " : ""}{formatDate(e.at.slice(0, 10))}
+            <p className="mt-0.5 text-[11.5px] leading-4 text-ink-3" data-q-meta>{e.by}{e.by ? " · " : ""}{formatDate(e.at.slice(0, 10))}
               {e.kind === "q" && (e.closedAt ? <> · <span className="text-ink-3" title="Closed when the line was posted">Closed</span></> : e.sentAt ? <> · <span className="text-success">Sent {formatDate(e.sentAt.slice(0, 10))}</span></> : <> · <span className="font-semibold text-ink-2">Not sent</span></>)}</p>
             {e.files.length > 0 && <p className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-2"><Paperclip className="h-3.5 w-3.5" />{e.files.length} file{e.files.length === 1 ? "" : "s"} attached: {e.files.join(", ")}</p>}
             {actions && e.kind === "q" && !e.sentAt && !e.closedAt && editing !== e.id && (

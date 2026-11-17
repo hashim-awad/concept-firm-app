@@ -4,7 +4,7 @@
 // lines are ticked. Nothing posts until a line is posted. The page keeps its own list: posting, ticking, editing and
 // paging never reload it; the counts, cards and trial balance update at once.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Paperclip, Plus, Printer, Search, Settings, Check, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Download, Paperclip, Plus, Printer, Search, Settings, Check, X } from "lucide-react";
 import { notify } from "@/components/save-state";
 import { formatDate } from "@/lib/dates";
 import { splitLine } from "@/lib/closebook/sales-tax";
@@ -65,7 +65,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
     return Math.floor(Math.max(0, same.findIndex((l) => l.id === focus.id)) / 50) + 1;
   });
   const [size, setSize] = useStored<number>("cb-feed-size", 50);
-  const [cols, setCols] = useStored<{ itc: boolean; clip: boolean; memo: boolean }>("cb-feed-cols", { itc: true, clip: true, memo: true });
+  const [cols, setCols] = useStored<{ itc: boolean; clip: boolean; memo: boolean }>("cb-feed-cols-2", { itc: false, clip: true, memo: true });   // round 36: ITC off by default
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [win, setWin] = useState<Win>(null);
   const [pop, setPop] = useState<PopState>(null);
@@ -457,10 +457,11 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
 
         {/* 4. The list */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] table-fixed text-[13.5px]">
+          {/* Round 36: fixed columns plus a description of at least 220 px, so a 1280 px window shows the whole table. */}
+          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: tab === "pending" ? 710 + 220 - (cols.clip ? 0 : 32) - (cols.memo ? 0 : 32) + (cols.itc ? 76 : 0) : tab === "posted" ? 700 + 220 : 644 + 220 }} data-feed-table>
             {tab === "pending" ? <>
-              <colgroup><col className="w-9" /><col className="w-[7.6rem]" /><col /><col className="w-[6.4rem]" /><col className="w-[6.4rem]" />
-                {cols.clip && <col className="w-9" />}{cols.memo && <col className="w-9" />}<col className="w-[9.5rem]" /><col className="w-[19rem]" />{cols.itc && <col className="w-[5.2rem]" />}<col className="w-[6.6rem]" /></colgroup>
+              <colgroup><col className="w-8" /><col className="w-[7.125rem]" /><col /><col className="w-20" /><col className="w-20" />
+                {cols.clip && <col className="w-8" />}{cols.memo && <col className="w-8" />}<col className="w-[6.75rem]" /><col className="w-[9.5rem]" />{cols.itc && <col className="w-[4.75rem]" />}<col className="w-20" /></colgroup>
               <thead><tr className="border-b border-sand-200">
                 <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all on this page" checked={allTicked} disabled={!editable || !shown.length}
                   onChange={() => setTicked((t) => { const n = new Set(t); if (allTicked) pageIds.forEach((id) => n.delete(id)); else pageIds.forEach((id) => n.add(id)); return n; })} /></th>
@@ -469,7 +470,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                 <th className={th}>Sales tax</th><th className={th}>Account</th>{cols.itc && <th className={thR}>ITC</th>}<th className={thR}>Action</th></tr></thead>
               <tbody>{shown.map((l) => <PendingRow key={l.id} l={l} c={rowCtx} />)}</tbody>
             </> : tab === "posted" ? <>
-              <colgroup><col className="w-[7.6rem]" /><col /><col className="w-[6.4rem]" /><col className="w-[6.4rem]" /><col className="w-9" /><col className="w-[9.5rem]" /><col className="w-[19rem]" /><col className="w-[5.5rem]" /><col className="w-[5rem]" /></colgroup>
+              <colgroup><col className="w-[6.25rem]" /><col /><col className="w-20" /><col className="w-20" /><col className="w-8" /><col className="w-[6.75rem]" /><col className="w-[11.5rem]" /><col className="w-14" /><col className="w-[3.75rem]" /></colgroup>
               <thead><tr className="border-b border-sand-200"><th className={th}>Date</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
                 <th className={th} aria-label="Questions to the client">💬</th><th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Posted</th><th className={thR}>Action</th></tr></thead>
               <tbody>{shown.map((l) => {
@@ -479,8 +480,8 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                     <td className="px-2 tabular-nums">{formatDate(l.acct_date)}</td><td className="truncate px-2" title={l.description}>{l.description}</td>
                     <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td><td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
                     <td className="px-1 text-center">{(threads[l.id]?.length ?? 0) > 0 && <QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} onOpen={(el) => openQ(l.id, el)} />}</td>
-                    <td className="truncate px-2">{taxName(l)}</td>
-                    <td className="truncate px-2" title={l.reviewer_reason || accountText(l)}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
+                    <td className="truncate px-2" title={taxName(l)}>{taxName(l)}</td>
+                    <td className="truncate px-2" title={`${accountText(l)}${l.reviewer_reason ? `\nFor the reviewer: ${l.reviewer_reason}` : ""}`}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
                       {!l.transfer && (l.source === "rule" || l.source === "auto") && <span title={rules.find((r) => r.id === l.rule_id)?.name ?? "Bank rule"} className="mr-1.5 rounded bg-sand-200 px-1.5 py-0.5 text-[11px] font-bold text-ink-2">RULE</span>}
                       {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <a href={`/closebook/${data.fileId}?step=review&line=${l.id}`} title="Open in step 7, Review" data-reviewer-badge className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning hover:underline">For the reviewer</a>}</td>
                     <td className="px-2 text-[12px] font-semibold text-ink-2">{postedBy(l)}</td>
@@ -488,7 +489,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                   </tr>);
               })}</tbody>
             </> : <>
-              <colgroup><col className="w-[7.6rem]" /><col /><col className="w-[6.4rem]" /><col className="w-[6.4rem]" /><col className="w-[16rem]" /><col className="w-[10rem]" /><col className="w-[5rem]" /></colgroup>
+              <colgroup><col className="w-[6.25rem]" /><col /><col className="w-20" /><col className="w-20" /><col className="w-48" /><col className="w-[7.5rem]" /><col className="w-[4.5rem]" /></colgroup>
               <thead><tr className="border-b border-sand-200"><th className={th}>Date</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
                 <th className={th}>Reason</th><th className={th}>Excluded by</th><th className={thR}>Action</th></tr></thead>
               <tbody>{shown.map((l) => {
@@ -699,6 +700,9 @@ function makeCtx(x: {
   threads: FeedData["threads"]; openQ: (id: string, el: HTMLElement) => void; openRow: string | null; setOpenRow: (id: string | null) => void;
 }) { return x; }
 
+// A click on any of these inside a row does its own job and does not open the row.
+const INTERACTIVE = "button, a, input, select, textarea, label, [role=dialog], [data-no-open]";
+
 function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
   const { views, outOf, cols, itcOf, accShort, a, accById, accountText, ticked, focus, editable, toggle, setPop, data, splits, setWin, fill, post, fromRow, fail, setChoices, setLines, accounts, attach,
     threads, openQ, openRow, setOpenRow } = c;
@@ -715,16 +719,16 @@ function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
   const label = v.pair?.kind === "pair" ? accShort(v.pair.other.account_id)
     : v.pair?.kind === "already" ? `Already posted from ${accShort(v.pair.other.account_id)}` : accountText(l, v);
   return (<>
-    <tr id={`line-${l.id}`} className={`h-12 border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id || isOpen ? "bg-navy-50" : ""}`}>
+    <tr id={`line-${l.id}`} onClick={(e) => { if (!(e.target as HTMLElement).closest(INTERACTIVE)) setOpenRow(isOpen ? null : l.id); }} data-open={isOpen ? "" : undefined}
+      className={`h-12 cursor-pointer border-b border-sand-100 hover:bg-sand-50 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id || isOpen ? "bg-navy-50" : ""}`}>
       <td className="px-2"><input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)} disabled={!editable} onChange={() => toggle(l.id)} /></td>
       <td className="px-2 whitespace-nowrap tabular-nums">
         <button type="button" disabled={!editable} title={l.acct_date !== l.txn_date ? `Bank date: ${formatDate(l.txn_date)}` : "Change the accounting date"}
           onClick={(e) => setPop({ k: "date", el: e.currentTarget, id: l.id })} className="inline-flex items-center gap-1 hover:underline">
           {formatDate(l.acct_date)}<Calendar className="h-3.5 w-3.5 text-ink-3" />{l.acct_date !== l.txn_date && <span className="text-[11px] text-warning">•</span>}</button></td>
-      <td className="truncate px-2" title={`${l.description}${l.reviewer_reason ? `\nFor the reviewer: ${l.reviewer_reason}` : ""}`}>
-        {/* Round 32: the row opens (QuickBooks Online) to show the memo. */}
-        <button type="button" aria-expanded={isOpen} aria-label={`${isOpen ? "Close" : "Open"} ${l.description}`} onClick={() => setOpenRow(isOpen ? null : l.id)} className="mr-1 inline-grid h-5 w-5 place-items-center rounded align-middle text-ink-3 hover:bg-sand-100">
-          {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}</button>
+      {/* Round 32: the row opens (QuickBooks Online) to show the memo; round 36: by clicking the row, no arrow. Keyboard: Enter on the description. */}
+      <td className="truncate px-2" title={`${l.description}${l.reviewer_reason ? `\nFor the reviewer: ${l.reviewer_reason}` : ""}`} tabIndex={0} role="button" aria-expanded={isOpen}
+        aria-label={`${isOpen ? "Close" : "Open"} ${l.description}`} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenRow(isOpen ? null : l.id); } }} data-desc>
         {l.reviewer_reason && <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-warning align-middle" aria-label="For the reviewer" />}{l.description}{l.memo && <span className="ml-2 text-[12px] text-ink-3">· {l.memo}</span>}</td>
       <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td>
       <td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
@@ -732,7 +736,7 @@ function PendingRow({ l, c }: { l: FeedLine; c: RowCtx }) {
         className="inline-flex items-center text-navy-700"><Paperclip className="h-4 w-4" /><span className="text-[11px] font-bold">{l.files}</span></button>
         : editable ? <AttachButton label="Attach a receipt" icon onFile={(f) => attach(l.id, f)} /> : null}</td>}
       {cols.memo && <td className="px-1 text-center"><QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} disabled={!editable} onOpen={(el) => openQ(l.id, el)} /></td>}
-      <td className="px-1.5">{transferish || v.split ? <span className="block truncate px-1 text-ink-3">{v.split ? "Split" : "No tax"}</span>
+      <td className="px-1.5" title={transferish || v.split ? undefined : data.codes.find((x) => x.code === v.tax)?.name}>{transferish || v.split ? <span className="block truncate px-1 text-ink-3">{v.split ? "Split" : "No tax"}</span>
         : <TaxSelect codes={data.codes} value={v.tax ?? ""} disabled={!editable || !data.gstAnswered || !v.account} label={`Sales tax for ${l.description}`}
           onChange={(t) => fill([l.id], { account: v.account! }, t || null)} />}</td>
       <td className="px-1.5">{v.pair?.kind === "options" ? (
