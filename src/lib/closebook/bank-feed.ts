@@ -19,6 +19,7 @@ export type FeedLine = {
   files: number;
   transfer: { other: string; role: "posts" | "matched" } | null;   // the line's transfer, once posted
   q_status?: string; q_sent_on?: string | null;                     // round 32: '' | not_sent | waiting | answered
+  reviewed_by?: string | null; reviewed_at?: string | null; reviewed_reason?: string;   // round 35: marked reviewed in step 7
 };
 
 // Money out: a payment from a bank account, a charge on a card or a loan.

@@ -24,6 +24,7 @@ import { statements as fsStatements, trialBalance } from "@/lib/closebook/report
 import { ReviewNotes } from "./review-notes";
 import { loadHistory } from "@/lib/closebook/history";
 import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
+import { ReviewLines, type ReviewAccountRow } from "./feed/review-lines";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
@@ -377,7 +378,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const groups: ReviewGroup[] = [
         { key: "opening", title: "Opening balance differences", step: "step 2", items: openingRow?.needs_reviewer
           ? [{ href: href("opening"), label: "Difference with last year's closing balances", detail: openingRow.reviewer_reason ?? "", amount: amt(openingRow.this_year) }] : [] },
-        { key: "code", title: "Lines for the reviewer", step: "step 4", items: ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
+        // Round 35: on a bank file the lines for the reviewer are a working list (below), not links to step 4.
+        { key: "code", title: "Lines for the reviewer", step: "step 4", items: bankFile ? [] : ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
         { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
           { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
@@ -392,7 +394,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: paperHref("entries", "sh"),
             label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: f.note, amount: amt(Number(f.closing)) }));
         })() },
-        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 6", items: accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
+        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 6", items: bankFile ? [] : accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
             detail: a.needs_reviewer ? a.reviewer_reason : [typeFlag(a, lineOf(a.line_no)) === "open" ? typeFlagText(a, lineOf(a.line_no)) : "", sideFlagText(a, lineOf(a.line_no), finalOf(a))].filter(Boolean).join(" "),
@@ -402,7 +404,25 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
         { href: `${href(n.step)}#note-${n.id}`, label: `${stepName(n.step)}${n.target_label ? `: ${n.target_label}` : ""}`,
           detail: `${n.status === "fixed" ? "Fixed, to clear. " : ""}${n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body}` }));
-      body = <ReviewStep groups={groups} notes={openNotes} />;
+      // Round 35 (Hashim; QuickBooks Online Accountant's Reclassify, TaxDome's Mark reviewed): the lines with the reviewer
+      // on step 4's table, and the accounts for the reviewer's decision, each marked reviewed in place.
+      let list: React.ReactNode = null, listCount = 0;
+      if (bankFile) {
+        const reviewHref = href("review");
+        const acctRows: ReviewAccountRow[] = accounts.filter((a) => !["opening", "uncoded"].includes(a.account_key)).flatMap((a): ReviewAccountRow[] => {
+          const line = lineOf(a.line_no), label = `${a.number ? `${a.number} ` : ""}${a.name}`, cents = Math.round(finalOf(a) * 100);
+          const ledgerHref = `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(a.account_key)}&back=${encodeURIComponent(reviewHref)}`;
+          if (a.needs_reviewer) return [{ id: a.id, label, cents, why: a.reviewer_reason ?? "", kind: "reviewer", ledgerHref }];
+          if (typeFlag(a, line) === "open") return [{ id: a.id, label, cents, why: typeFlagText(a, line), kind: "type", ledgerHref }];
+          if (sideFlag(a, line, finalOf(a)) === "open") return [{ id: a.id, label, cents, why: sideFlagText(a, line, finalOf(a)), kind: "side", ledgerHref }];
+          return [];
+        });
+        const feed = await loadFeed(supabase, { id, client_id: file.client_id, year_start: file.year_start, year_end: file.year_end }, client?.province ?? "ON", setup);
+        listCount = feed.lines.filter((l) => l.status === "reviewer").length + acctRows.length;
+        list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
+          accounts={acctRows} stepFour={href("code")} />;
+      }
+      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount} />;
     }
   } else if (step === "mapping") {
     body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
@@ -550,7 +570,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   if (area === "tb") {
     left = tbLeft; folded = null;
     content = report && report !== "tb"
-      ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
+      ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
           data={rdata} yearEnd={file.year_end} yearStart={file.year_start}
           todo={[
             // What the preparer acts on, by cause, each linked (round 2 item 15). Zero counts are left out.
@@ -568,7 +588,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     content = str(sp.report) === "questions"
       ? await questionsReport({ supabase, fileId: id, editable: editable && file.phase !== "locked", sp: { acct: str(sp.qacct), status: str(sp.qstatus) } })
       : report
-        ? <><ReportingBack fileId={id} /><ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), open: str(sp.open), back: backHref ?? undefined, view: str(sp.view) }}
+        ? <><ReportingBack fileId={id} back={backHref} /><ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
             data={rdata} yearEnd={file.year_end} yearStart={file.year_start} todo={[]} /></>
         : <ReportingList fileId={id} />;
   } else if (area === "entries") {
@@ -614,7 +634,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
       history={access.is_owner} left={left} folded={folded} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
-      {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
+      {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}
       {dialog}
     </FileShell>

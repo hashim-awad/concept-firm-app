@@ -10,22 +10,25 @@ import { ChecklistAnswer } from "./checklist-answer";
 import { InfoTip } from "@/components/ds/info-tip";
 import { isNegativeText } from "@/lib/closebook/amount";
 import { CHECKLIST_RULES } from "@/lib/closebook/client-wording";
+import { ReviewChip } from "./review-chip";
 
 export type ReviewItem = { href: string; label: string; detail: string; amount?: string };
 export type ReviewGroup = { key: string; title: string; step: string; items: ReviewItem[] };
 export type ChecklistRow = { key: string; text: string; answer: "" | "yes" | "no" | "na"; note: string };
 
-export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: ReviewItem[] }) {
+// Round 35: on a bank file the lines and accounts for the reviewer are a working list (list), counted live in the chip.
+export function ReviewStep({ groups, notes, list, listCount = 0 }: { groups: ReviewGroup[]; notes: ReviewItem[]; list?: React.ReactNode; listCount?: number }) {
   const waiting = groups.reduce((n, g) => n + g.items.length, 0);
   return (
     <div className="grid gap-4">
       <section aria-label="Counts" className="flex flex-wrap gap-2 text-[12px] font-semibold">
-        <span className={`rounded-full px-2.5 py-0.5 ${waiting ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>{waiting} with the reviewer</span>
+        <ReviewChip other={list ? 0 : waiting} initial={listCount} />
         <span className={`rounded-full px-2.5 py-0.5 ${notes.length ? "bg-danger-soft text-danger" : "bg-sand-100 text-ink-2"}`}>{notes.length} note{notes.length === 1 ? "" : "s"} open</span>
       </section>
 
-      <section aria-label="Waiting for the reviewer" className="card grid gap-3">
-        <h2 className="font-semibold">Waiting for the reviewer</h2>
+      {list}
+      {(!list || waiting > 0) && <section aria-label="Waiting for the reviewer" className="card grid gap-3">
+        <h2 className="font-semibold">{list ? `Also waiting for the reviewer (${waiting})` : "Waiting for the reviewer"}</h2>
         {waiting === 0 && <p className="text-[12.5px] text-ink-3">Nothing.</p>}
         {groups.filter((g) => g.items.length).map((g) => (
           <div key={g.key}>
@@ -41,7 +44,7 @@ export function ReviewStep({ groups, notes }: { groups: ReviewGroup[]; notes: Re
             </ul>
           </div>
         ))}
-      </section>
+      </section>}
 
       {notes.length > 0 && (
         <section aria-label="Open review notes" className="card grid gap-2">

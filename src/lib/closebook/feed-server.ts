@@ -38,7 +38,7 @@ export async function loadFeed(supabase: SupabaseClient, file: { id: string; cli
     supabase.from("cb_sales_tax_codes").select("code, name, provinces").order("sort_order"),
     supabase.from("cb_sales_tax_parts").select("code, name, rate, recoverable, liability, effective_from").lte("effective_from", file.year_end).order("effective_from"),
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, posted_date, printed_date, description, amount, status, source, chart_account, tax_code, transfer_account, is_split, rule_id, "
-      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on").eq("file_id", fileId).order("txn_date").order("row_no").limit(50000),
+      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on, reviewed_by, reviewed_at, reviewed_reason").eq("file_id", fileId).order("txn_date").order("row_no").limit(50000),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).limit(50000),
     supabase.from("cb_line_splits").select("line_id, chart_account, tax_code, amount, memo").eq("file_id", fileId).order("row_no").limit(50000),
     supabase.from("cb_line_files").select("id, line_id, name").eq("file_id", fileId).order("uploaded_at").limit(20000),
@@ -105,7 +105,7 @@ export async function readLines(supabase: SupabaseClient, fileId: string, ids: s
   if (!ids.length) return { lines: [], splits: {} };
   const [{ data: lines }, { data: tr }, { data: lf }, { data: splits }] = await Promise.all([
     supabase.from("cb_bank_lines").select("id, account_id, txn_date, acct_date, posted_date, printed_date, description, amount, status, source, chart_account, tax_code, transfer_account, is_split, rule_id, "
-      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on").eq("file_id", fileId).in("id", ids),
+      + "reviewer_reason, memo, asked_at, client_question, client_answer, excluded_reason, excluded_note, excluded_by, excluded_at, coded_by, q_status, q_sent_on, reviewed_by, reviewed_at, reviewed_reason").eq("file_id", fileId).in("id", ids),
     supabase.from("cb_bank_transfers").select("out_line, in_line").eq("file_id", fileId).or(`out_line.in.(${ids.join(",")}),in_line.in.(${ids.join(",")})`),
     supabase.from("cb_line_files").select("line_id").eq("file_id", fileId).in("line_id", ids),
     supabase.from("cb_line_splits").select("line_id, chart_account, tax_code, amount, memo").eq("file_id", fileId).in("line_id", ids).order("row_no"),

@@ -167,7 +167,8 @@ export function TbTab(p: Props) {
                   id: r.id, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
                   final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
                 }));
-                return { code: g.code, name: g.name, last: amt(g.last), before: amt(g.before), entries: amt(g.entries), final: amt(g.final), change: amt(g.final - g.last),
+                // Round 35 (Hashim, CaseWare): the lead sheet code shows here, and only here.
+                return { code: g.code, name: `${g.code} ${g.name}`, last: amt(g.last), before: amt(g.before), entries: amt(g.entries), final: amt(g.final), change: amt(g.final - g.last),
                   flags: rows.filter((r) => r.flagged).length, open: rows.filter((r) => r.flagged && !r.note).length, rows };
               })} />
           )

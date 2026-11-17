@@ -479,7 +479,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                     <td className="truncate px-2">{taxName(l)}</td>
                     <td className="truncate px-2" title={l.reviewer_reason || accountText(l)}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
                       {!l.transfer && (l.source === "rule" || l.source === "auto") && <span title={rules.find((r) => r.id === l.rule_id)?.name ?? "Bank rule"} className="mr-1.5 rounded bg-sand-200 px-1.5 py-0.5 text-[11px] font-bold text-ink-2">RULE</span>}
-                      {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <span className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning">For the reviewer</span>}</td>
+                      {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <a href={`/closebook/${data.fileId}?step=review&line=${l.id}`} title="Open in step 7, Review" data-reviewer-badge className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning hover:underline">For the reviewer</a>}</td>
                     <td className="px-2 text-[12px] font-semibold text-ink-2">{postedBy(l)}</td>
                     <td className="px-2 text-right">{editable && l.source !== "outstanding" && <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => unpost([l.id])}>Undo</button>}</td>
                   </tr>);

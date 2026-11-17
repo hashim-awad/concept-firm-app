@@ -171,3 +171,65 @@ export async function getLines(fileId: string, lineIds: string[]): Promise<R<{ l
   const { readLines } = await import("@/lib/closebook/feed-server");
   return { ok: true, ...(await readLines(await createClient(), fileId, ids(lineIds))) };
 }
+
+// ---------- Round 35: step 7's working list (QuickBooks Online Accountant's Reclassify; TaxDome's Mark reviewed)
+// Another account and sales tax on posted lines, in place: the posting changes at once (the trial balance is rebuilt).
+export async function recodeLines(fileId: string, items: { id: string; account: string; tax: string }[]): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  if (!items.length) return no("Choose the lines.");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_recode_lines", { p_file: fileId, p_items: items });
+  if (error) return no(error.message);
+  const tb = await rebuildTb(supabase, fileId);
+  return tb ? no(tb) : { ok: true };
+}
+
+// Mark reviewed (the file's reviewer or an owner): the flag clears; the posting does not change.
+export async function reviewLines(fileId: string, lineIds: string[], undo = false): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  const { error } = await (await createClient()).rpc(undo ? "cb_unreview_lines" : "cb_review_lines", { p_file: fileId, p_ids: ids(lineIds) });
+  return error ? no(error.message) : { ok: true };
+}
+
+// A posted line split again, in place.
+export async function resplitLine(fileId: string, lineId: string, rows: { account: string; tax: string; amount: string; memo: string }[]): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cb_resplit_line", { p_line: lineId, p_rows: rows.map((r) => ({ ...r, amount: Number(String(r.amount).replace(/[,$\s]/g, "")) })) });
+  if (error) return no(error.message);
+  const tb = await rebuildTb(supabase, fileId);
+  return tb ? no(tb) : { ok: true };
+}
+
+// Ask the client about posted lines: they go back to Pending (their account and tax stay chosen; the posting
+// reverses until they are posted again), then the question is added. A posted line never goes to the client
+// (round 33), so this is the only way to ask about one.
+export async function askAboutPosted(fileId: string, lineIds: string[], text: string): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  const supabase = await createClient();
+  const { error: e1 } = await supabase.rpc("cb_unpost_lines", { p_file: fileId, p_ids: ids(lineIds) });
+  if (e1) return no(e1.message);
+  const { error: e2 } = await supabase.rpc("cb_ask_questions", { p_file: fileId, p_ids: ids(lineIds), p_text: text });
+  const tb = await rebuildTb(supabase, fileId);
+  if (e2) return no(e2.message);
+  return tb ? no(tb) : { ok: true };
+}
+
+// An account for the reviewer's decision, marked reviewed with its note: the reviewer's flag, a type on another
+// line's type, or a balance on the other side (the last two use their own confirmations).
+export async function reviewAccount(fileId: string, accountId: string, kind: "reviewer" | "type" | "side", note: string): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  const supabase = await createClient();
+  const { error } = kind === "type" ? await supabase.rpc("cb_confirm_type", { p_account: accountId, p_reason: note })
+    : kind === "side" ? await supabase.rpc("cb_confirm_side", { p_account: accountId, p_reason: note })
+    : await supabase.rpc("cb_review_account", { p_account: accountId, p_note: note });
+  void fileId;
+  return error ? no(error.message) : { ok: true };
+}
+
+// A review note on a line (the reviewer's).
+export async function noteOnLine(fileId: string, lineId: string, body: string): Promise<R> {
+  const e = await editor(); if (e) return no(e);
+  const { error } = await (await createClient()).rpc("cb_add_note", { p_file: fileId, p_step: "code", p_target_type: "bank_line", p_target: lineId, p_body: body });
+  return error ? no(error.message) : { ok: true };
+}
