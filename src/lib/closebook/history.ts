@@ -39,7 +39,7 @@ export const ACTION: Record<string, string> = {
   line_question: "Question to the client", questions_sent: "Client notified", questions_marked_sent: "Questions marked as sent", client_answer: "Client answered",
   client_link_refused: "Client link refused", client_link_error: "Client link error",
   // Round 33: questions not sent yet.
-  line_question_edited: "Question changed (not sent)", line_question_deleted: "Question deleted (not sent)", line_question_to_note: "Question moved to the internal note", client_link_opened: "Client opened the link", questions_link_copied: "Link copied",
+  line_question_edited: "Question changed (not sent)", line_question_deleted: "Question deleted (not sent)", line_question_to_note: "Question moved to the internal note", line_reviewed: "Line marked reviewed", line_unreviewed: "Line back with the reviewer", account_reviewed: "Account marked reviewed", client_link_opened: "Client opened the link", questions_link_copied: "Link copied",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };

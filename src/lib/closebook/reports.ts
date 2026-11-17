@@ -79,7 +79,7 @@ const equityGroup = (line_no: string | null): keyof typeof EQUITY => {
 // revenue, expenses, then not yet sorted.
 type Group = { order: number; code: string; name: string };
 const SECTION_ORDER: Record<string, number> = { Asset: 0, Liability: 1, Equity: 2, Revenue: 3, Expense: 4 };
-// withCode: the statements (lead sheet codes, equity in its five lines); without: the trial balance by
+// withCode: the statements (equity in its five lines); without: the trial balance by
 // group, where a prior period adjustment stays in retained earnings and last year's net income from the
 // T2 has its own group after income taxes (it stands in for last year's income statement).
 function groupOf(r: TbLine, info: (l: string | null) => LineInfo | null, withCode: boolean): Group {
@@ -91,7 +91,9 @@ function groupOf(r: TbLine, info: (l: string | null) => LineInfo | null, withCod
     if (!withCode) return e === "RE" || e === "PPA" ? { order: 2, code: "RE", name: "Retained earnings" } : { order: 2, code: e, name: EQUITY[e] };
     return { order: 2, code: e, name: EQUITY[e] };
   }
-  const name = i.sheet ? (withCode ? `${i.sheet} ${i.sheetName}` : i.sheetName) : "Other";
+  // Round 35 (Hashim, CaseWare): lead sheet codes are internal. Headings never carry them (screen, Excel, PDF);
+  // only the Lead sheets view in step 7 shows the codes.
+  const name = i.sheet ? i.sheetName : "Other";
   return { order: SECTION_ORDER[i.type] ?? 5, code: i.sheet ?? "~", name };
 }
 const EQ_ORDER = ["SC", "RE", "PPA", NET_INCOME, "DIV"];

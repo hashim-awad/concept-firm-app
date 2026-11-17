@@ -107,7 +107,7 @@ test("statements: grouped by lead sheet, net income in equity, not yet sorted un
   assert.equal(s.pl.revenue.now, 100000);
   assert.equal(s.pl.expenses.now, 10000);
   assert.equal(s.pl.net.now, 90000);
-  assert.deepEqual(s.bs.assets.groups.map((g) => [g.name, g.now]), [["A Cash and bank", 601700]]);
+  assert.deepEqual(s.bs.assets.groups.map((g) => [g.name, g.now]), [["Cash and bank", 601700]]);
   assert.deepEqual(s.bs.equity.groups.map((g) => [g.code, g.now]), [["SC", 0], ["RE", 0], ["PPA", 0], ["net-income", 90000], ["DIV", 0]]);
   // Opening balances to enter (5,000.00 credit) are not yet sorted. Round 24: an uncoded line posts nothing.
   assert.equal(s.bs.unsorted!.now, 500000);

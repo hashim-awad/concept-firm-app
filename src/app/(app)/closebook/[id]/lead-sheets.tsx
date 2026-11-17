@@ -38,7 +38,8 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
           <tbody>{shown.map((g, gi) => {
             const isOpen = onlyFlags || openCodes.has(g.code);
             const rows = onlyFlags ? g.rows.filter((r) => r.flagged) : g.rows;
-            // A plain heading where a new part starts (codes stay in the build, never on screen).
+            // A plain heading where a new part starts. Round 35: each lead sheet shows its code ("A Cash and bank"), as in CaseWare;
+            // the codes appear nowhere else.
             const heading = part(g.code) !== part(shown[gi - 1]?.code ?? "") ? part(g.code) : "";
             return [
               ...(heading ? [<tr key={`h-${heading}`}><td colSpan={cols + 1} className="pt-5 pb-1 text-xs font-semibold tracking-wider text-ink-3 uppercase">{heading}</td></tr>] : []),

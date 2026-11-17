@@ -26,12 +26,12 @@ const dateText = (d: string) => (d ? formatDate(d) : "");
 const gifi = (line_no: string | null) => (line_no ? line_no.replace(/\.00$/, "") : "");
 
 // back: where this view itself returns to, kept in every link out of it so Back works at every level.
-type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; open?: string; back?: string; view?: string };
+type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; expand?: string; back?: string; view?: string };
 
 export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: { fileId: string; data: ReportData; p: Params; yearEnd: string; yearStart: string; todo?: { n: number; one: string; many: string; href: string }[] }) {
   const base = `/closebook/${fileId}`;
   const qs = (o: Record<string, string | undefined>) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v!)}`).join("&");
-  const here = (extra: Record<string, string | undefined> = {}) => `${base}?${qs({ report: p.report, view: p.view, account: p.account, from: p.from, to: p.to, source: p.source, open: p.open, back: p.back, ...extra })}`;
+  const here = (extra: Record<string, string | undefined> = {}) => `${base}?${qs({ report: p.report, view: p.view, account: p.account, from: p.from, to: p.to, source: p.source, expand: p.expand, back: p.back, ...extra })}`;
   const withBack = (href: string, back: string) => `${href}${href.includes("?") ? "&" : "?"}back=${encodeURIComponent(back)}`;
   const toLedger = (key: string, back: string) => withBack(`${base}?report=gl&account=${encodeURIComponent(key)}`, back);
   const name = (key: string) => { const a = data.accounts.find((x) => x.key === key); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : key; };
@@ -116,7 +116,8 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
     );
   } else if (p.report === "bs" || p.report === "pl") {
     const s = statements(tb, data.info);
-    const open = new Set((p.open ?? "").split(",").filter(Boolean));
+    // Round 35: the open groups ride in ?expand= (never ?open=, which opens a journal entry on the file page).
+    const open = new Set((p.expand ?? "").split(",").filter(Boolean));
     const all = open.has("all");
     const group = (g: StmtGroup) => {
       if (g.code === NET_INCOME) return (
@@ -141,7 +142,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
               {g.accounts.map((a) => (
                 <tr key={a.key} id={`a-${a.key}`} className="target:bg-navy-50">
                   <td className="px-4 py-1 pl-14 text-ink-2">{a.number && <span className="mr-2 tabular-nums text-ink-3">{a.number}</span>}{a.name}{a.line_no && <span className="ml-2 text-xs text-ink-3">GIFI {gifi(a.line_no)}</span>}</td>
-                  <td className="w-36 px-3 py-1 text-right tabular-nums"><Link href={toLedger(a.key, here({ open: backOpen }) + `#a-${a.key}`)} className="hover:text-navy-700 hover:underline">{red(a.now)}</Link></td>
+                  <td className="w-36 px-3 py-1 text-right tabular-nums"><Link href={toLedger(a.key, here({ expand: backOpen }) + `#a-${a.key}`)} className="hover:text-navy-700 hover:underline">{red(a.now)}</Link></td>
                   <td className="w-36 px-3 py-1 text-right tabular-nums text-ink-3">{red(a.last)}</td>
                 </tr>
               ))}
@@ -167,7 +168,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
           <p className="m-4 flex flex-wrap gap-x-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-2 text-sm">
             {todo.map((t, i) => <span key={t.one}>{i > 0 && <span className="mx-2 text-ink-3">·</span>}<a href={t.href} className="font-semibold text-navy-700 underline">{t.n} {t.n === 1 ? t.one : t.many}</a></span>)}
           </p>)}
-        <div className="flex justify-end px-4 pt-3"><Link href={here({ open: all ? undefined : "all" })} className="text-sm text-navy-700 underline">{all ? "Collapse all" : "Expand all"}</Link></div>
+        <div className="flex justify-end px-4 pt-3"><Link href={here({ expand: all ? undefined : "all" })} className="text-sm text-navy-700 underline">{all ? "Collapse all" : "Expand all"}</Link></div>
         <table className="w-full min-w-[640px] text-sm">
           <thead><tr className="text-xs text-ink-3"><th className="px-3 py-1 text-left"><InfoTip label="How to read this statement">Liabilities, equity and revenue show as positive; brackets are the opposite side. Click a lead sheet to open its accounts, and an amount to open the ledger.</InfoTip></th><th className="w-36 px-3 py-1 text-right font-semibold">This year</th><th className="w-36 px-3 py-1 text-right font-semibold">Last year{p.report === "pl" && s.pl.lastFromT2 && <InfoTip align="right" label="Where last year comes from">Last year&rsquo;s income statement (Schedule 125) was not entered in step 2, so last year shows only its net income, {money(s.pl.net.last)}, the figure on last year&rsquo;s T2.</InfoTip>}</th></tr></thead>
           <tbody>

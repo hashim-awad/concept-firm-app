@@ -47,6 +47,8 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   if (file.file_type !== "full") return null;
   const base = `/closebook/${file.id}`;
   const entry = sp.open ? entries.find((e) => e.id === sp.open) : sp.new?.match(/^(dup|rev):/) ? entries.find((e) => e.id === sp.new!.slice(4)) : undefined;
+  // Round 35: ?open= names an entry. Anything else (a report's old link, a typo) opens nothing, never a blank new entry.
+  if (sp.open && !entry && !sp.new) return null;
   const form = await loadEntryForm(supabase, file, province, clientName);
   const nextSeq = form.nextNo.slice(5);
   const byId = new Map(accounts.map((a) => [a.id, a]));

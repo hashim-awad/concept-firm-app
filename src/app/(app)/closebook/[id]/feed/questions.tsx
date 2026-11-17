@@ -173,12 +173,13 @@ export function QuestionPop({ anchor, line, thread, status, canAsk, saved, memo,
 }
 
 // The black bar's Ask client: one question on every ticked line.
-export function AskManyWindow({ n, saved, onClose, onSend, onSave, onRemove }: {
+export function AskManyWindow({ n, saved, onClose, onSend, onSave, onRemove, intro }: {
   n: number; saved: Saved[] | null; onClose: () => void; onSend: (t: string) => Promise<boolean>; onSave: (t: string) => Promise<void>; onRemove: (id: string) => Promise<void>;
+  intro?: string;   // round 35: step 7 says what asking does to a posted line
 }) {
   return (
     <Modal title="Ask client" onClose={onClose} width={520} foot={<button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>}>
-      <p className="text-ink-2">The same question goes on {n === 1 ? "the ticked line" : `each of the ${n} ticked lines`}. Asking posts nothing. The client sees it when you use Notify client.</p>
+      <p className="text-ink-2">{intro ?? <>The same question goes on {n === 1 ? "the ticked line" : `each of the ${n} ticked lines`}. Asking posts nothing. The client sees it when you use Notify client.</>}</p>
       <Composer saved={saved} onSend={async (t) => { const ok = await onSend(t); if (ok) onClose(); return ok; }} onSave={onSave} onRemove={onRemove} sendLabel="Add question for client" />
     </Modal>
   );
