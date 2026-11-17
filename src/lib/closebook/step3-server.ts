@@ -8,6 +8,7 @@ import { accountLabel, cardStatus, copiesOf, coverageStrip, edge, longDate, plac
 
 export type S3Account = FileAccount & {
   label: string; chart: string; gifi: string; accountType: AccountType | null; bank: string; longTerm: boolean; books: number | null;
+  t2Line: string | null;   // round 25: last year's T2 line (empty: the type's usual line)
   opened: string | null; closed: string | null; note: string; reasonBy: string | null; reasonAt: string | null; origin: string;
   cells: Cell[]; cycleDay: number;
   statements: S3Statement[]; start: Edge; end: Edge; endBooks: number | null; waiting: number;
@@ -37,7 +38,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   names: Map<string, string>, signed: boolean): Promise<Step3> {
   const fileId = file.id;
   const [{ data: accs }, { data: sts }, { data: chart }, { data: ob }, { data: items }, { data: no }, { data: lines }, { data: tr }, { data: extra }, list, { data: exc }, { data: hist }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, name, number, kind, chart_account, gifi_line, account_type, bank, last4, long_term, books_opening, opened_on, closed_on, coverage_note, coverage_by, coverage_at, origin").eq("file_id", fileId).order("number"),
+    supabase.from("cb_bank_accounts").select("id, name, number, kind, chart_account, gifi_line, account_type, bank, last4, long_term, books_opening, opened_on, closed_on, coverage_note, coverage_by, coverage_at, origin, t2_line").eq("file_id", fileId).order("number"),
     supabase.from("cb_bank_statements").select("id, account_id, file_name, period_start, period_end, opening, closing, lines, outside_lines, at_start, at_end, statement_import_id, source, uploaded_at, uploaded_by, attachment_path, "
       + "model, pages, cost_usd, input_tokens, output_tokens, converted_at, check_result, edits, conv:converted_by(full_name)").eq("file_id", fileId).order("period_start"),
     supabase.from("cb_chart_accounts").select("number, line_no"),
@@ -74,7 +75,8 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
   });
 
   type RawAcc = { id: string; name: string; number: string; kind: "bank" | "card"; chart_account: string; gifi_line: string | null; account_type: AccountType | null; bank: string | null; last4: string | null;
-    long_term: boolean; books_opening: number | null; opened_on: string | null; closed_on: string | null; coverage_note: string; coverage_by: string | null; coverage_at: string | null; origin: string };
+    long_term: boolean; books_opening: number | null; opened_on: string | null; closed_on: string | null; coverage_note: string; coverage_by: string | null; coverage_at: string | null; origin: string;
+    t2_line: string | null };
   const raw = (accs ?? []) as RawAcc[];
   const fileAccounts: FileAccount[] = raw.map((a) => ({ id: a.id, number: a.number, name: a.name, kind: a.kind, last4: a.last4 }));
   // Round 24: only statements in the feed count as imported; an excluded one never blocks a new upload.
@@ -126,7 +128,7 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
       coded: !!l.chart_account && ["done", "reviewer", "ask_client"].includes(l.status) }))
       .sort((x, y) => x.date.localeCompare(y.date) || (stStart.get(x.statement) ?? "").localeCompare(stStart.get(y.statement) ?? "") || x.row - y.row);
     return { ...fileAccounts.find((f) => f.id === a.id)!, label, early, gaps: shownGaps, card, lines: myLines, chart: a.chart_account, gifi: (a.gifi_line ?? lineNo.get(a.chart_account) ?? "").slice(0, 4),
-      accountType: a.account_type, bank: a.bank ?? "", longTerm: a.long_term, books, opened: a.opened_on, closed: a.closed_on, note: a.coverage_note,
+      accountType: a.account_type, bank: a.bank ?? "", longTerm: a.long_term, books, t2Line: a.t2_line, opened: a.opened_on, closed: a.closed_on, note: a.coverage_note,
       reasonBy: a.coverage_by ? names.get(a.coverage_by) ?? "" : null, reasonAt: a.coverage_at, origin: a.origin,
       cells: waived ? cov.cells.map((c) => ({ ...c, state: "na" as const })) : cov.cells, cycleDay: cov.cycleDay, statements: mine, start, end, endBooks, waiting,
       excluded: ((exc ?? []) as { id: string; account_id: string; period_start: string; period_end: string; file_name: string; lines: number; reason: string; note: string; excluded_by: string | null; excluded_at: string; attachment: string | null }[])

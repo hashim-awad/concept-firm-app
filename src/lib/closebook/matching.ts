@@ -119,7 +119,11 @@ export function effectiveLine(lineNo: string | null, balance: number, lines: Map
   return opposite ? l.pair_line : lineNo;
 }
 
-export type LeadRow = { id: string; number: string; name: string; line: string; last: number; before: number; entries: number; final: number; change: number; pct: number | null; flagged: boolean };
+export type LeadRow = { id: string; number: string; name: string; line: string; last: number; before: number; entries: number; final: number; change: number; pct: number | null; flagged: boolean;
+  reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
+// Round 25 (Hashim, Nov 17, 2026): last year's figure came from another T2 line than this year's: said once.
+export const reclassNote = (lastLine: string | null | undefined, line: string | null | undefined) =>
+  lastLine && line && line.slice(0, 4) !== lastLine ? `Reclassified from ${lastLine} to ${line.slice(0, 4)}` : undefined;
 export type LeadSheet = { code: string; name: string; rows: LeadRow[]; last: number; before: number; entries: number; final: number };
 
 // Flag rule (5.5): changed by more than the amount AND more than the percentage. Both conditions.
@@ -131,7 +135,7 @@ export function flagged(last: number, final: number, amount: number, percent: nu
 }
 
 export function leadSheets(
-  accounts: { id: string; number: string; name: string; line_no: string | null; last_year: number; this_year: number }[],
+  accounts: { id: string; number: string; name: string; line_no: string | null; last_year: number; this_year: number; last_year_line?: string | null }[],
   entryTotals: Map<string, number>, lines: Map<string, Line>, sheets: { code: string; name: string }[], flag: { amount: number; percent: number },
 ): LeadSheet[] {
   const out = new Map(sheets.map((s) => [s.code, { code: s.code, name: s.name, rows: [] as LeadRow[], last: 0, before: 0, entries: 0, final: 0 }]));
@@ -144,7 +148,7 @@ export function leadSheets(
     const change = Math.round((final - a.last_year) * 100) / 100;
     const row: LeadRow = { id: a.id, number: a.number, name: a.name, line, last: a.last_year, before: a.this_year, entries, final, change,
       // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
-      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, flagged: !/^36(00|60)/.test(line) && flagged(a.last_year, final, flag.amount, flag.percent) };
+      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, flagged: !/^36(00|60)/.test(line) && flagged(a.last_year, final, flag.amount, flag.percent), reclass: reclassNote(a.last_year_line, line) };
     const s = out.get(sheet)!;
     s.rows.push(row); s.last += a.last_year; s.before += a.this_year; s.entries += entries; s.final += final;
   }

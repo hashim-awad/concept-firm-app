@@ -36,7 +36,8 @@ export async function saveBankAccount(f: FormData) {
   const c = parseAmount(s(f, "balance") || "0");
   if (c === null || c < 0) redirect(withMessage(back, "error", "Enter the balance as a positive number, for example 1,957.62."));
   const { data, error } = await (await createClient()).rpc("cb_save_bank_account", { p_file: id, p_id: acc, p_type: s(f, "type"), p_bank: s(f, "bank"), p_last4: s(f, "last4"),
-    p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on", p_confirm: s(f, "confirm") === "1" });
+    p_balance: c! / 100, p_negative: s(f, "negative") === "on", p_long_term: s(f, "long_term") === "on", p_confirm: s(f, "confirm") === "1",
+    p_t2_line: s(f, "t2_line") || null });
   // Back where it was opened from (the main page, or the check stage after "Add it").
   // "__new__" in the address stands for the account just added (the upload window's "+ Add account").
   const then = s(f, "then").startsWith(`/closebook/${id}?`) ? s(f, "then").replaceAll("__new__", String(data ?? acc ?? "")) : `${base(id)}&account=${data ?? acc ?? ""}`;

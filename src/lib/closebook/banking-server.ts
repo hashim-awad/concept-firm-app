@@ -4,7 +4,7 @@ import "server-only";
 // coverage) with the rules in banking.ts.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadStep3, type S3Account, type S3Upload, type Step3 } from "./step3-server";
-import { band, calendarMonths, feedWord, findIt, findStatement, misread, roundingOf, tieBoxes, type Band, type FeedWord, type FindMonth, type FindStatement, type Misread, type MonthState, type TieBox } from "./banking";
+import { USUAL_LINES, band, calendarMonths, feedWord, findIt, findStatement, misread, roundingOf, tieBoxes, type Band, type FeedWord, type FindMonth, type FindStatement, type Misread, type MonthState, type TieBox } from "./banking";
 import type { ReadResult, StatementAccount } from "../statements/types";
 
 export type SubKey = "3.1" | "3.2" | "3.3";
@@ -18,7 +18,18 @@ export type BankingAccount = S3Account & {
   feed: FeedWord; months: { label: string; from: string; to: string; state: MonthState }[]; toFix: S3Upload[]; band: Band; waiting: number;
 };
 export type Banking = Omit<Step3, "accounts"> & { accounts: BankingAccount[]; boxes: TieBox[]; rounding: { gifi: string; title: string; cents: number }[];
-  subs: Record<SubKey, SubStatus>; pending: S3Upload[] };
+  subs: Record<SubKey, SubStatus>; pending: S3Upload[];
+  // Round 25: the balance sheet lines in step 2 that hold an amount (for "Last year's T2 line"), and GIFI names.
+  t2Lines: { code: string; name: string; cents: number }[]; gifiNames: Record<string, string> };
+
+// GIFI code -> its name ("2707" -> "Credit card loans"), from the master lines' ".00" line.
+export async function gifiNames(supabase: SupabaseClient, codes: string[]): Promise<Map<string, string>> {
+  if (!codes.length) return new Map();
+  const { data } = await supabase.from("cb_master_lines").select("gifi_code, gifi_name, line_no").in("gifi_code", [...new Set(codes)]);
+  const out = new Map<string, string>();
+  for (const r of (data ?? []) as { gifi_code: string; gifi_name: string; line_no: string }[]) if (r.line_no === `${r.gifi_code}.00` || !out.has(r.gifi_code)) out.set(r.gifi_code, r.gifi_name);
+  return out;
+}
 
 // Round 24 (rule 17): what a signed 3.2 or 3.3 locks. canRemove: the person may remove it (a preparer's sign-off,
 // or a reviewer's when they are the reviewer or an owner). The database decides again on every change.
@@ -42,7 +53,9 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
   const [d, subs, { data: ob }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id)]);
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
-  const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books })), t2);
+  const bsLines = [...t2.entries()].filter(([c, v]) => v !== 0 && c >= "1000" && c <= "3499");
+  const lineNames = await gifiNames(supabase, [...bsLines.map(([c]) => c), ...USUAL_LINES, ...d.accounts.map((a) => a.gifi), ...d.accounts.map((a) => a.t2Line ?? "").filter(Boolean)]);
+  const boxes = tieBoxes(d.accounts.map((a) => ({ id: a.id, label: a.label, gifi: a.gifi, kind: a.kind, books: a.books, t2: a.t2Line })), t2, lineNames);
   // Statements read and waiting. Those that add up (opening + lines = closing) go in by themselves (the page imports
   // them); one that does not is "to fix" (a misread line).
   const open = d.uploads.filter((u) => u.state.status === "ready" || u.state.status === "needs_look" || u.state.status === "no_digits");
@@ -60,7 +73,8 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
       band: band({ opening: a.books, lines: a.lines, bankStart: start, bankEnd: end, startItems: items("start"), endItems: items("end"), waiting: missing > 0 || toFix.length > 0 }),
       waiting: open.filter((u) => u.account === a.id).length };
   });
-  return { ...d, accounts, boxes, rounding: d.t2Entered || d.firstYear ? roundingOf(boxes) : [], subs, pending: open.filter(passes) };
+  return { ...d, accounts, boxes, rounding: d.t2Entered || d.firstYear ? roundingOf(boxes) : [], subs, pending: open.filter(passes),
+    t2Lines: bsLines.sort(([a], [b]) => a.localeCompare(b)).map(([code, cents]) => ({ code, name: lineNames.get(code) ?? "", cents })), gifiNames: Object.fromEntries(lineNames) };
 }
 
 // The fix screen: the statement as read (or as edited), the account on it, and the line that looks misread.
@@ -91,13 +105,13 @@ export async function loadFindIt(supabase: SupabaseClient, a: BankingAccount, ye
 export async function loadRounding(supabase: SupabaseClient, file: { id: string; opening_source: string | null; first_year: boolean | null }) {
   if (!file.opening_source && !file.first_year) return [];
   const [{ data: accs }, { data: chart }, { data: ob }] = await Promise.all([
-    supabase.from("cb_bank_accounts").select("id, name, number, kind, gifi_line, chart_account, books_opening").eq("file_id", file.id),
+    supabase.from("cb_bank_accounts").select("id, name, number, kind, gifi_line, chart_account, books_opening, t2_line").eq("file_id", file.id),
     supabase.from("cb_chart_accounts").select("number, line_no"),
     supabase.from("cb_opening_balances").select("code, amount").eq("file_id", file.id),
   ]);
   const line = new Map(((chart ?? []) as { number: string; line_no: string | null }[]).map((c) => [c.number, c.line_no ?? ""]));
   const t2 = new Map(((ob ?? []) as { code: string; amount: number }[]).map((o) => [o.code, Math.round(Number(o.amount) * 100)]));
-  type A = { id: string; name: string; number: string; kind: "bank" | "card"; gifi_line: string | null; chart_account: string; books_opening: number | null };
+  type A = { id: string; name: string; number: string; kind: "bank" | "card"; gifi_line: string | null; chart_account: string; books_opening: number | null; t2_line: string | null };
   return roundingOf(tieBoxes(((accs ?? []) as A[]).map((a) => ({ id: a.id, label: `${a.number} ${a.name}`, kind: a.kind, gifi: (a.gifi_line ?? line.get(a.chart_account) ?? "").slice(0, 4),
-    books: a.books_opening === null ? null : Math.round(Number(a.books_opening) * 100) })), t2));
+    books: a.books_opening === null ? null : Math.round(Number(a.books_opening) * 100), t2: a.t2_line })), t2));
 }

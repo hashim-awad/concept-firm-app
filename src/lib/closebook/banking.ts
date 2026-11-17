@@ -15,17 +15,24 @@ export const BOX_TITLE: Record<string, string> = {
 };
 export type BoxState = "rounding" | "add" | "much";
 export type TieBox = { gifi: string; title: string; rows: { id: string; label: string; cents: number | null }[]; total: number; t2: number; difference: number; state: BoxState };
-export type BoxAccount = { id: string; label: string; gifi: string; kind: "bank" | "card"; books: number | null };
+export type BoxAccount = { id: string; label: string; gifi: string; kind: "bank" | "card"; books: number | null; t2?: string | null };
 // An account overdrawn at last year end sits in "Bank overdraft" (2600), as on the T2, as an amount owing.
-export const boxOf = (a: BoxAccount) => (a.kind === "bank" && a.books !== null && a.books < 0 ? "2600" : a.gifi);
-export function tieBoxes(accounts: BoxAccount[], t2: Map<string, number>): TieBox[] {
+export const usualT2 = (a: BoxAccount) => (a.kind === "bank" && a.books !== null && a.books < 0 ? "2600" : a.gifi);
+// Round 25 (Hashim, Nov 17, 2026): each account carries "Last year's T2 line" (empty: the type's usual line). 3.1
+// compares each of last year's T2 lines with the accounts that were on it (a prior accountant may have put a line
+// of credit on 2707 with the cards). This year's GIFI line does not follow.
+export const boxOf = (a: BoxAccount) => a.t2 || usualT2(a);
+// The usual lines of the account types: one with a T2 amount and no account shows too (an account to add).
+export const USUAL_LINES = ["1002", "2600", "2707", "2701", "3149", "3143"];
+export function tieBoxes(accounts: BoxAccount[], t2: Map<string, number>, names: Map<string, string> = new Map()): TieBox[] {
   const by = new Map<string, BoxAccount[]>();
   for (const a of accounts) by.set(boxOf(a), [...(by.get(boxOf(a)) ?? []), a]);
-  const order = ["1002", "2600", "2707", "2701", "3149", "3143"];
-  return [...by.entries()].sort(([a], [b]) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b)).map(([gifi, as]) => {
-    const rows = as.map((a) => ({ id: a.id, label: a.label, cents: a.books === null ? null : gifi === "2600" ? -a.books : a.books }));
+  for (const code of USUAL_LINES) if ((t2.get(code) ?? 0) !== 0 && !by.has(code)) by.set(code, []);
+  return [...by.entries()].sort(([a], [b]) => (USUAL_LINES.indexOf(a) + 1 || 99) - (USUAL_LINES.indexOf(b) + 1 || 99) || a.localeCompare(b)).map(([gifi, as]) => {
+    const rows = as.map((a) => ({ id: a.id, label: a.label, cents: a.books === null ? null : gifi === "2600" && a.kind === "bank" ? -a.books : a.books }));
     const total = rows.reduce((n, r) => n + (r.cents ?? 0), 0), t = t2.get(gifi) ?? 0, difference = total - t;
-    return { gifi, title: BOX_TITLE[gifi] ?? `GIFI ${gifi}`, rows, total, t2: t, difference: Math.abs(difference), state: Math.abs(difference) < 100 ? "rounding" : difference < 0 ? "add" : "much" };
+    // The box takes the T2 line's own name (round 25), e.g. "Credit card loans".
+    return { gifi, title: names.get(gifi) ?? BOX_TITLE[gifi] ?? `GIFI ${gifi}`, rows, total, t2: t, difference: Math.abs(difference), state: Math.abs(difference) < 100 ? "rounding" : difference < 0 ? "add" : "much" };
   });
 }
 // The rounding that posts by itself to retained earnings at the start of the year: one per T2 line.

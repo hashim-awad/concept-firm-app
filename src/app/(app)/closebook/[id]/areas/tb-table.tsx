@@ -12,7 +12,8 @@ import { Popover } from "../shell/ui";
 import { parseAmount } from "@/lib/closebook/amount";
 
 export type TbRow = { key: string; id: string; number: string; name: string; gifi: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
-  final: number; last: number; diff: number; pct: string; flagged: boolean; notes: number; reviewer: boolean; drillable: boolean };
+  final: number; last: number; diff: number; pct: string; flagged: boolean; notes: number; reviewer: boolean; drillable: boolean;
+  lastFrom?: string };   // round 25: "Reclassified from 2707 to 2701"
 export type TbGroupRow = { code: string; name: string; section: string; rows: TbRow[] };
 type ColKey = "prelim" | "adjust" | "aje" | "tje" | "reclass" | "final" | "last" | "diff" | "pct";
 
@@ -122,7 +123,8 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
   const accountRow = (r: TbRow, path: string) => (
     <tr key={r.key} id={`a-${r.key}`} data-path={path} className={`bg-white target:bg-navy-50 ${r.flagged ? "shadow-[inset_3px_0_0_#e0b04a]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
       <td className={`py-[5px] pr-1 pl-${grouped ? "8" : "3"} whitespace-nowrap text-ink-2 tabular-nums ${sticky}`} style={{ paddingLeft: grouped ? 30 : 12 }}>{hl(r.number)}</td>
-      <td className={`px-2 py-[5px] ${sticky}`} style={pin ? { left: 70 } : undefined}>{hl(r.name)}{view === "accounts" && r.gifi && <span className="ml-2 text-[11px] text-ink-3">GIFI {r.gifi}</span>}</td>
+      <td className={`px-2 py-[5px] ${sticky}`} style={pin ? { left: 70 } : undefined}>{hl(r.name)}{view === "accounts" && r.gifi && <span className="ml-2 text-[11px] text-ink-3">GIFI {r.gifi}</span>}
+        {r.lastFrom && <span className="ml-2 text-[11px] text-ink-2">{r.lastFrom}</span>}</td>
       {shown.map(([k]) => cell(r, k, k === "pct" ? r.pct : (r[k] as number)))}
       {icons(r)}
     </tr>

@@ -36,8 +36,10 @@ export type AddCtx = {
   fileId: string; closeHref: string; then: string; dayBefore: string; chartNumbers: string[]; taken: string[];
   t2: Record<string, number>; t2Entered: boolean;          // last year's T2 by GIFI line (cents)
   others: { gifi: string; books: number | null; id: string }[]; // the file's accounts
-  edit: { id: string; number: string; type: AccountType; bank: string; last4: string; books: number | null; longTerm: boolean; hasStatements: boolean } | null;
+  edit: { id: string; number: string; type: AccountType; bank: string; last4: string; books: number | null; longTerm: boolean; hasStatements: boolean; t2Line?: string | null } | null;
   prefill: { type?: string; last4?: string; bank?: string };
+  // Round 25: the balance sheet lines in step 2 that hold an amount, and GIFI names (for "Last year's T2 line").
+  t2Lines?: { code: string; name: string; cents: number }[]; gifiNames?: Record<string, string>;
 };
 
 // Round 24 (rule 17): changing the balance at last year end while 3.2 or 3.3 is signed asks first.
@@ -55,6 +57,8 @@ export function AddAccountWindow({ c, lock = null }: { c: AddCtx; lock?: Lock })
   // Round 23: the balance is typed to the cent from last year's statement (no pre-fill from the T2's whole dollars).
   const [balance, setBalance] = useState(e?.books !== null && e?.books !== undefined ? fmt(Math.abs(e.books)) : "");
   const [negative, setNegative] = useState(!!e && (e.books ?? 0) < 0);
+  // Round 25 (Hashim, Nov 17, 2026): last year's T2 line. Empty follows the type's usual line (overdrawn: 2600).
+  const [t2Line, setT2Line] = useState(e?.t2Line ?? "");
   const number = useMemo(() => {
     const own = e && placement(e.type, e.longTerm).base === p.base ? e.number : null;
     if (own) return own;
@@ -113,6 +117,19 @@ export function AddAccountWindow({ c, lock = null }: { c: AddCtx; lock?: Lock })
           <AmountInput name="balance" value={balance} onValue={setBalance} className="input h-9 w-[14rem] text-right" placeholder="0.00" aria-label="Balance at last year end" />
           <label className="inline-flex items-center gap-2 text-[13.5px]"><input type="checkbox" name="negative" checked={negative} onChange={(x) => setNegative(x.target.checked)} className="h-4 w-4" />{neg}</label>
         </div>
+        {(() => {
+          const usual = p.kind === "bank" && negative ? "2600" : p.gifi;
+          const nameOf = (code: string) => c.gifiNames?.[code] ?? c.t2Lines?.find((x) => x.code === code)?.name ?? (code === p.gifi ? p.gifiName : "");
+          const others = (c.t2Lines ?? []).filter((x) => x.code !== usual);
+          return (
+            <label className="grid gap-1.5"><span className="text-[12px] font-semibold text-ink-2">Last year&rsquo;s T2 line</span>
+              <select name="t2_line" aria-label="Last year's T2 line" value={t2Line === usual ? "" : t2Line} onChange={(x) => setT2Line(x.target.value)} className="input h-9 w-full max-w-[30rem]">
+                <option value="">{usual} {nameOf(usual)} (usual for this type)</option>
+                {others.map((x) => <option key={x.code} value={x.code}>{x.code} {x.name} · {fmt(x.cents)}</option>)}
+              </select>
+              <span className="text-[12px] text-ink-3">The line this account was on in last year&rsquo;s T2. This year&rsquo;s GIFI line does not change: map it in step 6.</span></label>
+          );
+        })()}
         <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13.5px] text-[#14532d]">
           {e ? "Saves as" : "Creates"} <b>{number} {accountName(type, long, bank || "Bank", digits || "0000")}</b></p>
         {fixed && <p className="text-[12.5px] text-ink-3">This account has statements: it can change between chequing and savings, or among card, line of credit and loan, but not between a bank account and the others.</p>}

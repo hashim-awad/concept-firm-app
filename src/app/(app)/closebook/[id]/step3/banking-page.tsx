@@ -50,7 +50,8 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
   if (editable && str(sp.add) === "1") {
     const e = d.accounts.find((a) => a.id === str(sp.edit)) ?? null;
     win = <AddAccountWindow lock={lock} c={{ fileId, closeHref: base, then: "", dayBefore: formatDate(d.dayBefore), chartNumbers: d.chartNumbers, taken: d.taken, t2: {}, t2Entered: false,
-      others: [], edit: e ? { id: e.id, number: e.number, type: (e.accountType ?? (e.kind === "bank" ? "chequing" : "card")) as AccountType, bank: e.bank, last4: e.last4 ?? "", books: e.books, longTerm: e.longTerm, hasStatements: e.statements.length > 0 } : null,
+      others: [], edit: e ? { id: e.id, number: e.number, type: (e.accountType ?? (e.kind === "bank" ? "chequing" : "card")) as AccountType, bank: e.bank, last4: e.last4 ?? "", books: e.books, longTerm: e.longTerm, hasStatements: e.statements.length > 0, t2Line: e.t2Line } : null,
+      t2Lines: d.t2Lines, gifiNames: d.gifiNames,
       prefill: { type: str(sp.type), last4: str(sp.last4), bank: str(sp.bank) } }} />;
   }
 

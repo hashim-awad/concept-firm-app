@@ -106,3 +106,18 @@ test("Find it: a calendar month's statement gives the bank at the start of the m
   const m = findIt(Y0, "2025-09-30", [{ periodStart: "2025-09-01", periodEnd: "2025-09-30", opening: 511000, lines: [{ date: "2025-09-20", cents: 1000 }] }], [{ date: "2025-09-20", cents: 1000 }]);
   assert.deepEqual([m[0].bankStart, m[0].bankEnd, m[0].difference], [511000, 512000, 0]);
 });
+
+// Round 25 (Hashim, Nov 17, 2026): a line of credit the prior accountant put on 2707 with the cards.
+test("3.1 groups by last year's T2 line: the line of credit set to 2707 joins the cards; a usual line with a T2 amount and no account shows", () => {
+  const names = new Map([["2707", "Credit card loans"], ["2701", "Loans from Canadian banks"]]);
+  const card = { id: "card", label: "22000 Credit card", gifi: "2707", kind: "card" as const, books: 211200 };
+  const loc = { id: "loc", label: "22100 Line of credit", gifi: "2701", kind: "card" as const, books: 500000 };
+  const t2 = new Map([["2707", 711200]]);
+  const before = tieBoxes([card, loc], t2, names);
+  assert.deepEqual(before.map((b) => [b.title, b.total, b.t2, b.difference, b.state]), [
+    ["Credit card loans", 211200, 711200, 500000, "add"], ["Loans from Canadian banks", 500000, 0, 500000, "much"]]);
+  const after = tieBoxes([card, { ...loc, t2: "2707" }], t2, names);
+  assert.deepEqual(after.map((b) => [b.title, b.rows.length, b.total, b.t2, b.difference, b.state]), [["Credit card loans", 2, 711200, 711200, 0, "rounding"]], "one box, no 2701 box");
+  const nothing = tieBoxes([{ ...card, books: 0 }], new Map([["2701", 500000]]), names);
+  assert.deepEqual(nothing.map((b) => [b.gifi, b.rows.length, b.state]), [["2707", 1, "rounding"], ["2701", 0, "add"]], "a T2 amount with no account: a box to add");
+});

@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
-import { flagged } from "@/lib/closebook/matching";
+import { flagged, reclassNote } from "@/lib/closebook/matching";
 import { KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
@@ -42,7 +42,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     const k = byKind.get(t.key) ?? { aje: 0, tje: 0 };
     const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && flagged(t.last / 100, t.final / 100, flag.amount, flag.percent);
     return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, gifi: (t.line_no ?? "").replace(/\.00$/, ""), prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
-      final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
+      final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
   };
   const { groups } = tbByGroup(tb, data.info);
   const sectionOf = (g: { rows: TbLine[]; code: string }) => {
