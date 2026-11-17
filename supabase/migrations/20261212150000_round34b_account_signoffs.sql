@@ -68,19 +68,78 @@ $$;
 revoke all on function private.cb_banking_changed() from public, anon, authenticated;
 
 -- ---------- 2. Saving an account asks first for exactly those sign-offs, with the reason.
-do $$
-declare d text;
-  k1 text := 'perform private.cb_substep_guard(p_file, array[''3.1'', ''3.2'', ''3.3''], p_confirm, ''balance at last year end changed'');';
-  r1 text := 'perform private.cb_substep_guard(p_file, array[''3.1'', ''3.3''], p_confirm, ''opening balance changed'');   -- round 34b';
-  k2 text := 'perform private.cb_substep_guard(p_file, array[''3.1'', ''3.3''], p_confirm, case when v_acc.t2_line is distinct from v_t2 then ''last year''''s T2 line changed'' else ''account changed'' end);';
-  r2 text := 'perform private.cb_substep_guard(p_file, array[''3.1''], p_confirm, private.cb_list_words(array_remove(array[
-        case when v_acc.gifi_line is distinct from p.gifi_line then ''GIFI line'' end,
-        case when v_acc.t2_line is distinct from v_t2 then ''T2 line'' end,
-        case when v_acc.chart_account is distinct from p.chart_account then ''chart account'' end,
-        case when v_acc.last4 is distinct from v_last then ''last four digits'' end], null)) || '' changed'');';
+-- Written out in full (not patched by text): a database that ran an earlier text of round 25 holds a slightly
+-- different copy, so a text patch cannot find its place there. This is the repository's version, with the two
+-- round 34b lines.
+CREATE OR REPLACE FUNCTION public.cb_save_bank_account(p_file uuid, p_id uuid, p_type text, p_bank text, p_last4 text, p_balance numeric, p_negative boolean, p_long_term boolean, p_confirm boolean DEFAULT false, p_t2_line text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_file public.cb_files;
+  v_acc public.cb_bank_accounts;
+  p record;
+  v_bank text := btrim(regexp_replace(coalesce(p_bank, ''), '\s+', ' ', 'g'));
+  v_last text := regexp_replace(coalesce(p_last4, ''), '\D', '', 'g');
+  v_name text;
+  v_id uuid;
+  v_bal numeric := case when p_negative then -p_balance else p_balance end;
+  v_t2 text := nullif(btrim(coalesce(p_t2_line, '')), '');
+  v_usual text;
 begin
-  d := pg_get_functiondef('public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text)'::regprocedure);
-  if position('-- round 34b' in d) > 0 then return; end if;
-  if position(k1 in d) = 0 or position(k2 in d) = 0 then raise exception 'round 34b: cb_save_bank_account has changed; update this migration.'; end if;
-  execute replace(replace(d, k1, r1), k2, r2);
-end $$;
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null, 'File not found.');
+  perform private.require(v_file.phase <> 'locked', 'This file is locked.');
+  select * into p from private.cb_bank_placement(p_type, p_long_term);
+  perform private.require(p.std_name is not null, 'Choose the type: chequing, savings, credit card, line of credit or loan.');
+  perform private.require(length(v_bank) between 1 and 40, 'Enter the bank, for example RBC.');
+  perform private.require(length(v_last) between 2 and 8, 'Enter the last digits of the account or card, as printed on the statement.');
+  perform private.require(p_balance is not null and p_balance >= 0 and round(p_balance, 2) = p_balance, 'Enter the balance as a positive number with up to 2 decimals.');
+  v_usual := case when p.kind = 'bank' and v_bal < 0 then '2600'
+                  else left(coalesce(p.gifi_line, (select line_no from public.cb_chart_accounts where number = p.chart_account), ''), 4) end;
+  if v_t2 = v_usual then v_t2 := null; end if;
+  -- Last year's T2 line: a balance sheet line in step 2 that holds an amount (or the type's usual line).
+  perform private.require(v_t2 is null or (v_t2 ~ '^\d{4}$' and v_t2 between '1000' and '3499'
+      and exists (select 1 from public.cb_opening_balances where file_id = p_file and code = v_t2 and amount <> 0)),
+    'Choose last year''s T2 line from the balance sheet lines in step 2.');
+  v_name := p.std_name || ' · ' || v_bank || ' ••• ' || v_last;
+  perform private.require(not exists (select 1 from public.cb_bank_accounts where file_id = p_file and name_key = lower(v_name) and id is distinct from p_id),
+    format('%s is already on this file.', v_name));
+  if p_id is null then
+    perform private.cb_substep_guard(p_file, array['3.1', '3.3'], p_confirm, 'account added');
+    insert into public.cb_bank_accounts (file_id, name, name_key, kind, chart_account, number_base, gifi_line, account_type, bank, last4, long_term, books_opening, origin, created_by, t2_line)
+    values (p_file, v_name, lower(v_name), p.kind, p.chart_account, p.number_base, p.gifi_line, p_type, v_bank, v_last, coalesce(p_long_term, false) and p_type in ('loc', 'loan'),
+            v_bal, 'added', (select auth.uid()), v_t2)
+    returning id into v_id;
+    perform private.cb_log_event(p_file, 'bank_account_added', 'records', format('Account added: %s, balance in the books %s.', v_name, to_char(v_bal, 'FM999,999,999,990.00')),
+      null, null, v_name, '', '', to_char(v_bal, 'FM999,999,999,990.00'));
+  else
+    select * into v_acc from public.cb_bank_accounts where id = p_id and file_id = p_file for update;
+    perform private.require(v_acc.id is not null, 'Account not found.');
+    perform private.require(v_acc.kind = p.kind or not (exists (select 1 from public.cb_bank_statements where account_id = p_id) or exists (select 1 from public.cb_excluded_statements where account_id = p_id)),
+      'This account has statements. It can''t change between a bank account and a card, line of credit or loan.');
+    if v_acc.books_opening is distinct from v_bal then
+      perform private.cb_substep_guard(p_file, array['3.1', '3.3'], p_confirm, 'opening balance changed');   -- round 34b
+    elsif v_acc.last4 is distinct from v_last or v_acc.chart_account is distinct from p.chart_account or v_acc.gifi_line is distinct from p.gifi_line
+       or v_acc.t2_line is distinct from v_t2 then
+      perform private.cb_substep_guard(p_file, array['3.1'], p_confirm, private.cb_list_words(array_remove(array[
+        case when v_acc.gifi_line is distinct from p.gifi_line then 'GIFI line' end,
+        case when v_acc.t2_line is distinct from v_t2 then 'T2 line' end,
+        case when v_acc.chart_account is distinct from p.chart_account then 'chart account' end,
+        case when v_acc.last4 is distinct from v_last then 'last four digits' end], null)) || ' changed');
+    end if;
+    update public.cb_bank_accounts set name = v_name, name_key = lower(v_name), kind = p.kind, chart_account = p.chart_account, number_base = p.number_base,
+           gifi_line = p.gifi_line, account_type = p_type, bank = v_bank, last4 = v_last, long_term = coalesce(p_long_term, false) and p_type in ('loc', 'loan'),
+           books_opening = v_bal, t2_line = v_t2
+     where id = p_id;
+    v_id := p_id;
+  end if;
+  update public.cb_files set updated_at = now() where id = p_file;
+  return v_id;
+end;
+$function$;
+revoke all on function public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text) from public, anon;
+grant execute on function public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text) to authenticated;
