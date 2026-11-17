@@ -79,13 +79,13 @@ export async function loadBanking(supabase: SupabaseClient, file: { id: string; 
 
 // The fix screen: the statement as read (or as edited), the account on it, and the line that looks misread.
 // Round 26: the account the statement was uploaded to comes first (its last digits), then one with a problem.
-export async function loadFix(supabase: SupabaseClient, importId: string, targetLast4 = ""): Promise<{ data: ReadResult; acc: StatementAccount; miss: Misread | null; fileName: string } | null> {
-  const { data: row } = await supabase.from("cb_statement_imports").select("id, file_name, result, edited").eq("id", importId).maybeSingle();
+export async function loadFix(supabase: SupabaseClient, importId: string, targetLast4 = ""): Promise<{ data: ReadResult; acc: StatementAccount; miss: Misread | null; fileName: string; notImported: string } | null> {
+  const { data: row } = await supabase.from("cb_statement_imports").select("id, file_name, result, edited, error").eq("id", importId).maybeSingle();
   const data = (row?.edited ?? row?.result) as ReadResult | null;
   if (!row || !data?.accounts?.length) return null;
   const d = targetLast4.replace(/\D/g, ""), mine = (x: StatementAccount) => { const e = x.last4.replace(/\D/g, ""); return !!d && !!e && (d.endsWith(e) || e.endsWith(d)); };
   const acc = data.accounts.find(mine) ?? data.accounts.find((x) => misread(x)) ?? data.accounts[0];
-  return { data, acc, miss: misread(acc), fileName: row.file_name as string };
+  return { data, acc, miss: misread(acc), fileName: row.file_name as string, notImported: (row.error as string | null) ?? "" };
 }
 
 // "Find it": the bank month by month from the statements as read, against the file's lines.

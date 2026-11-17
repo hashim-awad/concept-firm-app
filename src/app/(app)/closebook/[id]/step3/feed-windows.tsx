@@ -262,3 +262,13 @@ export function ReadAgainButton({ ids, label, plain }: { ids: string[]; label: s
     }}>{label}</button>
   );
 }
+
+// ---------- Round 30: a 3.3 row opens its line window (date and memo) when clicked; no Edit link on every row.
+export function LineRow({ href, label, className, children }: { href: string; label: string; className: string; children: React.ReactNode }) {
+  const router = useRouter();
+  const go = () => router.push(href, { scroll: false });
+  return (
+    <tr className={`${className} cursor-pointer hover:bg-navy-50/60`} tabIndex={0} aria-label={label} title="Click to change the date or the memo" onClick={go}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); go(); } }}>{children}</tr>
+  );
+}

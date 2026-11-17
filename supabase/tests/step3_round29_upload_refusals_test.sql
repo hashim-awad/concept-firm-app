@@ -22,7 +22,7 @@ select test.check('History keeps who, the file and the reason, once', (select co
   and ref_label = 'again-dummy.pdf' and reason = 'It is already in.' and actor_id = :A::uuid and import_id = '00000000-0000-0000-0000-0000000029a1')
   and not exists (select 1 from test.h() where file_id = :'f' and action = 'statement_discarded'));
 select public.statement_refuse('00000000-0000-0000-0000-0000000029a2', 'This period overlaps a statement already imported.', false);
-select test.check('an import refusal is logged and the statement stays waiting', (select status = 'ready' from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000029a2')
+select test.check('an import refusal is logged and the statement waits as To fix (round 30)', (select status = 'needs_look' and error like 'This period overlaps%' from public.cb_statement_imports where id = '00000000-0000-0000-0000-0000000029a2')
   and exists (select 1 from test.h() where action = 'upload_refused' and ref_label = 'overlap-dummy.pdf'));
 select test.check('an imported statement is not refused here', test.try($q$select public.statement_refuse('00000000-0000-0000-0000-0000000029a3', 'x')$q$)
   = 'This statement is imported. Exclude it in View statements instead.');

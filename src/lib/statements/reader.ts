@@ -33,7 +33,7 @@ Accounts:
 Lines:
 - Every transaction line of the account, on every page, in the order printed. Long statements can have hundreds of lines: include all of them. Do not include balance-forward, opening or closing balance, subtotal or total rows as lines. Include a line even when the balance printed after it does not change (for example an interest payment taken from another account, or its reversal): copy it and its balance as printed.
 - date: YYYY-MM-DD. When the statement prints no year, take it from the statement period (a period from December to January spans two years). Card or line of credit: the transaction (purchase) date.
-- posted_date: card or line of credit only: the posting date, when the statement prints it as well as the transaction date, as YYYY-MM-DD. Null when only one date is printed, and always null on a bank statement.
+- posted_date: card or line of credit only: the posting date, when the statement prints it as well as the transaction date, as YYYY-MM-DD. Copy it for every line in every cardholder section. Null when only one date is printed, and always null on a bank statement.
 - description: the description as printed, on one line. Join a description that wraps onto a second printed line (for example a foreign currency note) with a space.
 - amount: the amount as printed, as a positive number with 2 decimals and no $ or commas, for example "1234.50".
 - direction: "in" when the line raises the balance as printed, "out" when it lowers it. Bank: deposits and credits are "in"; withdrawals, cheques, payments and fees are "out". Card or line of credit: purchases, charges, fees and interest are "in"; payments, refunds and credits are "out".
