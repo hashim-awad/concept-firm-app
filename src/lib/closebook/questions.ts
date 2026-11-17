@@ -16,6 +16,16 @@ export function qStatusOf(l: { q_status: string; status: string; chart_account: 
   if (!pending) return "closed";
   return l.q_status as QStatus;
 }
+// Round 32 fix (Hashim, Nov 17, 2026): why a client's link does not open. A link ends only at 30 days, at the next good
+// send (replaced) or when the file is locked in step 10. The reply-by date plays no part.
+export type LinkRefusal = "not_sent" | "replaced" | "expired" | "locked";
+export function linkRefusal(l: { active: boolean; sent: boolean; expires_at: string }, filePhase: string | null, now: Date = new Date()): LinkRefusal | null {
+  if (!l.sent) return "not_sent";
+  if (!l.active) return "replaced";
+  if (new Date(l.expires_at).getTime() <= now.getTime()) return "expired";
+  if (filePhase === "locked") return "locked";
+  return null;
+}
 export const isOpen = (s: QStatus | null) => s === "not_sent" || s === "waiting" || s === "answered";
 
 // "h•••@hotmail.com"

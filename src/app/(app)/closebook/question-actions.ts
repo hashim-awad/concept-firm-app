@@ -102,14 +102,22 @@ export async function notifyClient(fileId: string, v: { lineIds: string[]; to: s
   const mail = renderQuestionsEmail(texts, CB_QUESTIONS_EMAIL, { subject: v.subject.trim(), message: v.message.trim() }, me, `${env.siteUrl()}/cq/${token}`);
   const attachments = v.attachExcel ? [{ name: xlsxName(q.legalName, q.yearEnd), contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     base64: questionsXlsx({ legalName: q.legalName, yearEnd: q.yearEnd, preparedOn: todayToronto(), firm: FIRM.legalName }, clientRows(rows)).toString("base64") }] : undefined;
+  // Round 32 fix: the link is pending until the email has gone. A failed send removes it and changes no other link.
   try {
     await sendMail({ from: me.email, to, cc, subject: mail.subject, html: mail.html, attachments });
   } catch (e) {
-    await supabase.rpc("cb_question_link_cancel", { p_link: linkId });
+    const { error: ce } = await supabase.rpc("cb_question_link_cancel", { p_link: linkId });
+    if (ce) console.error(`[notify client] remove the pending link: ${ce.message}`);
     return no(`Not sent. ${e instanceof Error ? e.message : "Microsoft 365 did not accept the email."}`);
   }
-  const { data: n, error: e2 } = await supabase.rpc("cb_question_link_sent", { p_link: linkId });
-  if (e2) return no(e2.message);
+  // The email went: switch this link on (and the earlier one off). Tried twice; the client's link depends on it.
+  let r = await supabase.rpc("cb_question_link_sent", { p_link: linkId });
+  if (r.error) r = await supabase.rpc("cb_question_link_sent", { p_link: linkId });
+  if (r.error) {
+    console.error(`[notify client] switch the link on: ${r.error.message}`);
+    return no(`The email went, but its link could not be switched on, so it will not open. Send again. (${r.error.message})`);
+  }
+  const n = r.data;
   const names = to.map((e) => q.contacts.find((c) => c.email === e)?.name || e);
   return { ok: true, sentTo: names.join(", "), n: Number(n ?? 0) };
 }

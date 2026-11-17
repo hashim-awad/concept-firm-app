@@ -63,9 +63,9 @@ reset role;
 select test.check('History logs the email', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'questions_sent'));
 set role authenticated;
 select public.cb_question_link_create(:'f', repeat('b', 64), array[test.q('CAFE DUMMY 1')], array['client@example.test'], '{}', current_date + 7, now() + interval '30 days') as k2 \gset
-select test.check('a new link switches the old one off', (select not active from public.cb_question_links where id = :'k1') and (select active from public.cb_question_links where id = :'k2'));
+select test.check('a pending link changes nothing: the old link stays live', (select active from public.cb_question_links where id = :'k1') and (select not active and not sent from public.cb_question_links where id = :'k2'));
 select public.cb_question_link_cancel(:'k2');
-select test.check('sending failed: the old link is back', (select active from public.cb_question_links where id = :'k1') and not exists (select 1 from public.cb_question_links where id = :'k2'));
+select test.check('sending failed: the pending link is gone, the old link still live', (select active from public.cb_question_links where id = :'k1') and not exists (select 1 from public.cb_question_links where id = :'k2'));
 
 -- ---------- The client's answer: only the server (service role) may record it.
 select test.check('a signed-in person cannot record a client answer', test.try(format('select public.cb_client_answer(%L, %L, %L, %L, %L)', :'k1', test.q('CAFE DUMMY 1'), 'client@example.test', 'Coffee with a client', '[]')) like '%permission denied%');

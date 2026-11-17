@@ -109,3 +109,16 @@ test("account names and the masked email on the client page", () => {
   assert.equal(addDays("2026-11-18", 7), "2026-11-25");
   assert.equal(addDays("2026-12-28", 7), "2027-01-04");
 });
+
+// Round 32 fix (Hashim, Nov 17, 2026): a link ends only at 30 days, at the next good send, or when the file is locked.
+// The reply-by date is not even an input. Checked at 11:30 AM and 9 PM Eastern on the day it was sent, reply by that day.
+import { linkRefusal } from "../src/lib/closebook/questions.ts";
+test("the link: the reply-by date and the time of day play no part", () => {
+  const sentAt = new Date("2026-11-17T16:27:00Z");                      // 11:27 AM Eastern
+  const link = { active: true, sent: true, expires_at: new Date(sentAt.getTime() + 30 * 86_400_000).toISOString(), reply_by: "2026-11-17" };
+  for (const now of ["2026-11-17T16:30:00Z", "2026-11-18T02:00:00Z", "2026-11-25T12:00:00Z", "2026-12-17T16:26:00Z"]) assert.equal(linkRefusal(link, "open", new Date(now)), null, now);
+  assert.equal(linkRefusal(link, "open", new Date("2026-12-17T16:27:00Z")), "expired");
+  assert.equal(linkRefusal({ ...link, active: false }, "open", new Date("2026-11-17T16:30:00Z")), "replaced");
+  assert.equal(linkRefusal({ ...link, sent: false, active: false }, "open", new Date("2026-11-17T16:30:00Z")), "not_sent");
+  assert.equal(linkRefusal(link, "locked", new Date("2026-11-17T16:30:00Z")), "locked");
+});

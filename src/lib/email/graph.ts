@@ -47,7 +47,9 @@ export type MailAttachment = { name: string; contentType: string; base64: string
 export async function sendMail(email: { to: string | string[]; subject: string; html: string; from?: string; cc?: string[]; attachments?: MailAttachment[] }) {
   const from = email.from || process.env.MAIL_FROM || (process.env.MAIL_SINK_DIR ? "system@example.test" : required("MAIL_FROM"));
   if (process.env.MAIL_SINK_DIR && process.env.VERCEL_ENV !== "production") {
-    const { mkdirSync, writeFileSync } = await import("node:fs");
+    const { existsSync, mkdirSync, writeFileSync } = await import("node:fs");
+    // Local tests only: while this file exists, the sink refuses like Microsoft 365 without the Mail.Send permission.
+    if (existsSync(`${process.env.MAIL_SINK_DIR}/FAIL-403`)) throw new Error("Microsoft 365 refused the email (403 Forbidden): ErrorAccessDenied, Access is denied.");
     mkdirSync(process.env.MAIL_SINK_DIR, { recursive: true });
     const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     writeFileSync(`${process.env.MAIL_SINK_DIR}/${name}.json`, JSON.stringify({ from, to: email.to, cc: email.cc ?? [], subject: email.subject, html: email.html,

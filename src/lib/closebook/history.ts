@@ -37,6 +37,7 @@ export const ACTION: Record<string, string> = {
   rule_saved: "Bank rule", excluded_reviewed: "Excluded lines reviewed",
   // Round 32: questions to the client.
   line_question: "Question to the client", questions_sent: "Client notified", questions_marked_sent: "Questions marked as sent", client_answer: "Client answered",
+  client_link_refused: "Client link refused",
   // Before round 24 a statement could be deleted with its lines (rule 21: kept visible in the history).
   statement_undone: "Statement deleted (before round 24)", statement_discarded: "Uploaded statement removed",
 };

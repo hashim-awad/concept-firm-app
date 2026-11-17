@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { ClientShell } from "@/components/ds/client";
-import { clientCards, cookieName, findLink, sessionOk } from "@/lib/closebook/client-questions-server";
+import { clientCards, cookieName, CqReadError, findLink, sessionOk, type CqCard, type CqLink } from "@/lib/closebook/client-questions-server";
+import { FIRM } from "@/components/ds/brand";
 import { longDate } from "@/lib/closebook/questions";
 import { CodeScreen } from "./code-screen";
 import { QuestionsBoard } from "./questions-board";
@@ -13,20 +14,36 @@ export const metadata: Metadata = { title: "Questions about your transactions ·
 // Benchmark: TaxDome's client transactions page (screens 06 and 07), with a 6-digit code instead of a portal login.
 export default async function ClientQuestionsPage({ params }: PageProps<"/cq/[token]">) {
   const { token } = await params;
-  const cq = await findLink(token);
+  // A database problem is never shown as "no longer active" (round 32 fix): the client is asked to try again.
+  let cq: CqLink | null, email: string | null = null, cards: CqCard[] = [];
+  try {
+    cq = await findLink(token);
+    if (cq?.live) {
+      email = await sessionOk(cq.link.id, (await cookies()).get(cookieName(cq.link.id))?.value);
+      if (email) cards = await clientCards(cq);
+    }
+  } catch (e) {
+    if (!(e instanceof CqReadError)) throw e;
+    return (
+      <ClientShell>
+        <div className="mx-auto max-w-xl text-center" data-cq-busy>
+          <h1 className="text-2xl font-semibold tracking-tight">We could not open your questions just now.</h1>
+          <p className="mt-3 text-ink-2">Please try again in a few minutes. If it still does not open, call us at {FIRM.phone}.</p>
+        </div>
+      </ClientShell>
+    );
+  }
   if (!cq || !cq.live) {
     return (
       <ClientShell>
-        <div className="mx-auto max-w-xl text-center" data-cq-gone>
+        <div className="mx-auto max-w-xl text-center" data-cq-gone data-reason={cq?.reason ?? "not_found"}>
           <h1 className="text-2xl font-semibold tracking-tight">This link is no longer active.</h1>
           <p className="mt-3 text-ink-2">Contact Concept Accounting for a new one.</p>
         </div>
       </ClientShell>
     );
   }
-  const email = await sessionOk(cq.link.id, (await cookies()).get(cookieName(cq.link.id))?.value);
   if (!email) return <ClientShell><CodeScreen token={token} masked={cq.masked} /></ClientShell>;
-  const cards = await clientCards(cq);
   return (
     <ClientShell wide>
       <header className="mb-6">
