@@ -374,6 +374,9 @@ export async function signStep(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("cb_sign_step", { p_file: id, p_step: step, p_role: role });
   revalidatePath(`/closebook/${id}`);
+  // Round 34: step 3 on a bank file is signed in its sub-steps. Said as information, never as an error.
+  if (error && step === "records" && /signed in its sub-steps/.test(error.message))
+    redirect(withMessage(back, "msg", "Step 3 is complete when 3.1, 3.2 and 3.3 are signed."));
   // Round 21 (Hashim): after "Sign as preparer" the next step opens by itself, with a note naming it.
   const i = STEP_KEYS.indexOf(step as StepKey), nextKey = STEP_KEYS[i + 1];
   if (!error && role === "prepared" && i >= 0 && nextKey) {

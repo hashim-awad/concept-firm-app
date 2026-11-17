@@ -50,6 +50,16 @@ export async function loadSubsteps(supabase: SupabaseClient, fileId: string): Pr
   return { "3.1": d["3.1"] ?? none, "3.2": d["3.2"] ?? none, "3.3": d["3.3"] ?? none };
 }
 
+// Round 34: the 3.x sign-off this person's last action removed ("3.3 sign-off removed: <reason>"), from History,
+// within the last minute; the page shows it once as a pill.
+export async function loadSignoffPill(supabase: SupabaseClient, fileId: string, staffId: string): Promise<{ id: string; text: string } | null> {
+  if (!staffId) return null;
+  const { data } = await supabase.from("cb_file_history").select("id, detail").eq("file_id", fileId).eq("step", "records").eq("actor_id", staffId)
+    .in("action", ["signoff_removed", "signoff_cleared"]).like("detail", "% removed: %").gte("at", new Date(Date.now() - 60_000).toISOString())
+    .order("id", { ascending: false }).limit(1).maybeSingle();
+  return data ? { id: String(data.id), text: String(data.detail) } : null;
+}
+
 export async function loadBanking(supabase: SupabaseClient, file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null },
   names: Map<string, string>, signed: boolean, known?: Record<SubKey, SubStatus> | null): Promise<Banking> {
   const [d, subs, { data: ob }, { data: cp }] = await Promise.all([loadStep3(supabase, file, names, signed), known ? Promise.resolve(known) : loadSubsteps(supabase, file.id),

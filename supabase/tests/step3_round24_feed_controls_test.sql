@@ -151,20 +151,23 @@ select test.check('T9: the preparer cannot exclude', test.try(format($q$select p
 select test.check('T9: nor replace the file', test.try(format($q$select public.cb_replace_statement_file(%L, '00000000-0000-0000-0000-0000000024a3', '2468', '2025-09-01', '2025-09-30', 1262.40, 1172.40, %L, 'y.pdf', true)$q$, :'sep', :same))
   like 'Ask the reviewer to remove the 3.3 sign-off.');
 select test.check('T9: nor upload', test.try(format($q$select public.cb_feed_unlock(%L)$q$, :'f')) = 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: nor change an accounting date', test.try(format($q$select public.cb_set_line_date(%L, '2025-09-02', true)$q$, :'l_coffee')) = 'Ask the reviewer to remove the 3.3 sign-off.');
 select test.check('T9: nor change the opening', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'chequing', 'RBC', '2468', 600.00, false, false, true)$q$, :'f', :'chq')) = 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: the memo too', test.try(format($q$select public.cb_set_line_memo(%L, 'x', true)$q$, :'l_coffee')) = 'Ask the reviewer to remove the 3.3 sign-off.');
 select test.check('T9: nothing changed', (select acct_date = '2025-09-01' from public.cb_bank_lines where id = :'l_coffee') and (select books_opening from public.cb_bank_accounts where id = :'chq') = 512.40
   and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3'));
+-- Round 34 (Hashim): the accounting date and the memo are step 4's; they never touch 3.2 or 3.3.
+select public.cb_set_line_date(:'l_coffee', '2025-09-02', false);
+select public.cb_set_line_memo(:'l_coffee', 'x', false);
+select test.check('T9 (round 34): the accounting date and the memo change; 3.3 stays signed', (select acct_date = '2025-09-02' and memo = 'x' from public.cb_bank_lines where id = :'l_coffee')
+  and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3' and reviewed_at is not null));
 reset role;
 update public.cb_substep_signoffs set reviewed_by = null, reviewed_at = null where file_id = :'f' and substep = '3.3';
 set role authenticated;
-select test.check('only the preparer signed: the change asks first', test.try(format($q$select public.cb_set_line_date(%L, '2025-09-02')$q$, :'l_coffee')) = 'This removes the sign-off on 3.3. Continue?');
-select public.cb_set_line_date(:'l_coffee', '2025-09-02', true);
-select test.check('with Continue the preparer''s sign-off goes (logged) and the change is made', (select acct_date = '2025-09-02' from public.cb_bank_lines where id = :'l_coffee')
-  and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3'));
+-- Round 34: a statement change (here, Upload statements after Continue) removes the preparer's sign-off, logged.
+select public.cb_feed_unlock(:'f');
+select test.check('with Continue the preparer''s sign-off goes (logged)', not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3'));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the removal is in the history', exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and reason = 'accounting date changed'));
+select test.check('the removal is in the history, with the reason', exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and reason = 'statements to upload'
+  and detail = '3.3 sign-off removed: statements to upload'));
 
 -- ---------- Purge (rule 11; T10) and accounts (rule 16; T11)
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';

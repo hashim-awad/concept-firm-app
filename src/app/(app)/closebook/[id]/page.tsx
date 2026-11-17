@@ -46,7 +46,7 @@ import { ExpensesForm } from "./expenses-form";
 import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankingPage } from "./step3/banking-page";
 import { LineWindow } from "./step3/feed-windows";
-import { feedLock, loadRounding, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
+import { feedLock, loadRounding, loadSignoffPill, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
 import { BankFeed } from "./feed/bank-feed";
 import { saveSetup } from "../actions";
 import { loadFeed } from "@/lib/closebook/feed-server";
@@ -105,6 +105,15 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     ]),
   ]);
   if (!data) notFound();
+  // Round 34: on a bank file step 3 is signed as soon as 3.1, 3.2 and 3.3 are, and only then.
+  if (subs) {
+    const all = SUBS.map((x) => subs[x.key]);
+    const last = (k: "prepared" | "reviewed") => all.filter((x) => x[`${k}_at`]).sort((a, b) => String(b[`${k}_at`]).localeCompare(String(a[`${k}_at`])))[0];
+    const p = all.every((x) => x.prepared_at) ? last("prepared") : undefined, r = p && all.every((x) => x.reviewed_at) ? last("reviewed") : undefined;
+    const was = review.status.records;
+    review.status.records = { problems: [], waiting: [], notes: 0, ...was, prepared_by: p?.prepared_by ?? null, prepared_at: p?.prepared_at ?? null,
+      reviewed_by: r?.reviewed_by ?? null, reviewed_at: r?.reviewed_at ?? null };
+  }
   const { file, client, docs, accounts, imports, names, entries } = data;
   // Started now, read at the end: the report figures for the header and the people on the file.
   const rdataP = loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets);
@@ -457,7 +466,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} isOwner={access.is_owner}
     canFix={preparerRole} editable={editable && file.phase !== "locked"} back={stepBack} />;
   const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
-    editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year });
+    editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year,
+    // Round 34: step 3 on a bank file is signed in 3.1, 3.2 and 3.3; its own circles say which are left.
+    subsOf: k === "records" && subs ? SUBS.map((x) => ({ key: x.key, href: paperHref("records", x.paper), prepared: !!subs[x.key].prepared_at, reviewed: !!subs[x.key].reviewed_at })) : undefined });
   if (showHistory) {
     const hstep = str(sp.hstep) ?? null;
     const hist = await loadHistory(supabase, id, names, hstep);
@@ -473,7 +484,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const subAction = sub && editable && file.phase !== "locked" ? (sub.key === "3.1" ? <Link href={`${href("records")}&paper=accounts&add=1`} scroll={false} className="btn h-10 px-5">+ Add account</Link>
       : sub.key === "3.2" ? <Link href={`${href("records")}&paper=feeds&upload=1`} scroll={false} className="btn h-10 px-5">Upload statements</Link> : null) : null;
     const title = (
-      <StepTitle n={cur.n} name={cur.name} paper={paperName} action={subAction} sub={paper === "revenue" ? "W/P Revenue check" : paper === "acceptance" ? <InfoTip>CSRS 4200, acceptance and continuance: the preparer answers; the reviewer signs it with step 1. It rolls forward each year for confirmation.</InfoTip> : undefined} sign={sub && subSt ? { ...signFor(step, subSt, stepBack), sub: sub.key as SubKey } : SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
+      <StepTitle n={cur.n} name={cur.name} paper={paperName} action={subAction} sub={paper === "revenue" ? "W/P Revenue check" : paper === "acceptance" ? <InfoTip>CSRS 4200, acceptance and continuance: the preparer answers; the reviewer signs it with step 1. It rolls forward each year for confirmation.</InfoTip> : undefined} sign={sub && subSt ? { ...signFor(step, subSt, stepBack), sub: sub.key as SubKey, subsOf: undefined } : SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
         issues={sub && subSt ? { problems: subSt.reviewed_at ? [] : subSt.problems, waiting: [], review: false } : { problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
         notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
         addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
@@ -596,10 +607,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     me: access.staff_id ?? "", isReviewer: isReviewer || access.is_owner, editable, closeHref, here: `/closebook/${id}?${dialogQ}`,
     sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), error: messageFrom(sp.error) } });
 
+  // Round 34: "3.3 sign-off removed: <reason>", from History, for the person whose action removed it (last minute).
+  const signoffPill = subs ? await loadSignoffPill(supabase, id, access.staff_id ?? "") : null;
+
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
       history={access.is_owner} left={left} folded={folded} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
-      toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error) }}>
+      toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
       {content}
       {dialog}
