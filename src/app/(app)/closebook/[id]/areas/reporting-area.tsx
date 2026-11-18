@@ -15,10 +15,12 @@ const FINANCIAL: [string, string, string][] = [
   ["journal", "Journal", "Every entry, in date order."],
 ];
 
-// Round 35: a report opened from step 7 (an account's ledger) goes back to "‹ Review".
+// Round 35: a report opened from step 7 (an account's ledger) goes back to "‹ Review"; round 38: from step 7's
+// lead sheets, to "‹ Lead sheets".
 export function ReportingBack({ fileId, back }: { fileId: string; back?: string | null }) {
   const review = !!back && /[?&]step=review\b/.test(back);
-  return <Link href={review ? back! : `/closebook/${fileId}?area=reporting`} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline" data-reporting-back>{review ? "‹ Review" : "‹ Reporting"}</Link>;
+  const lead = review && /[?&]view=lead\b/.test(back!);
+  return <Link href={review ? back! : `/closebook/${fileId}?area=reporting`} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline" data-reporting-back>{lead ? "‹ Lead sheets" : review ? "‹ Review" : "‹ Reporting"}</Link>;
 }
 
 export function ReportingList({ fileId }: { fileId: string }) {
