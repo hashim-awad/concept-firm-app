@@ -45,7 +45,8 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
       dflt: l.account ?? (l.is_tax ? `chart:${ITC_ACCOUNT}` : vd.acct[l.number] ?? `chart:${l.number}`) }));
     const fmt = formatAmount(r.used === "allowance" ? r.allowance ?? 0 : r.actual ?? 0);
     const people = Object.fromEntries((vd.ctx.payees ?? []).map((p) => [p.id, p.name]));
-    if ((vd.ctx.payees ?? []).length === 1) inputs.paidTo = null;   // one linked shareholder: nothing chosen, the name is the record's
+    // One linked shareholder, or no GST/HST record (not registered, quick method, ITC unticked): nothing chosen.
+    if ((vd.ctx.payees ?? []).length === 1 || !(vd.ctx.regular && inputs.itc)) inputs.paidTo = null;
     payload = {
       kind: "vehicle", method: inputs.method, choice: inputs.choice, itc: inputs.itc, inputs, snapshot: { ...snapshotOf(vd), payee: r.record.payee },
       result: { allowance: r.allowance, actual: r.actual, used: r.used, higher: r.higher, sharePct: r.sharePct, itc: r.itc, company: r.company, working: r.working, parts: r.parts, alreadyKm: r.alreadyKm },

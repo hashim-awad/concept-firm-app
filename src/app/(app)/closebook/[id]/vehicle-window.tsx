@@ -34,7 +34,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
   const inputs: VehicleInputs = {
     method, businessKm: readKm(business), partKm: parts.map(readKm), alreadyKm: readKm(already), totalKm: readKm(total),
     ownerPaid: parseAmount(paid), ownerGst: data.ctx.regular ? parseAmount(gst) : null, choice, itc,
-    paidTo: payees.length > 1 ? paidTo || null : null,
+    paidTo: data.ctx.regular && itc && payees.length > 1 ? paidTo || null : null,
   };
   const r = calcVehicle(inputs, data.ctx, data.names);
   const err = (field: string) => r.problems.filter((p) => p.field === field).map((p) => <span key={p.text} role="alert" className="text-[12px] font-normal text-danger">{p.text}</span>);
@@ -97,7 +97,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
                   {y.parts.map((p, i) => kmBox(`Business km, ${p.label}`, parts[i] ?? "", (v) => setParts(parts.map((x, j) => (j === i ? v : x))), km(h?.partKm[i]), i === 0 ? err("business") : null))}
                 </>}
               {kmBox("Total km in the year (optional)", total, setTotal, km(h?.totalKm), err("total"), "Total km in the year")}
-              {payees.length > 1 && <label className={fld}>Paid to
+              {data.ctx.regular && itc && payees.length > 1 && <label className={fld}>Paid to
                 <select aria-label="Paid to" value={paidTo} onChange={(e) => setPaidTo(e.target.value)} className="input input-compact w-64 text-[13px] font-normal text-ink">
                   <option value="">Choose the shareholder</option>{payees.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 <span className="text-[11.5px] font-normal text-ink-3">The shareholders linked to the client record.</span>{err("paidTo")}</label>}
@@ -114,7 +114,8 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
                 {data.companyIn ? <span><span className="font-bold tabular-nums">0.00</span> <span className="text-ink-3">· in the first car&apos;s schedule ({data.companyIn})</span></span>
                   : <span className="font-bold tabular-nums">{formatAmount(r.company.total)}</span>}
                 {!data.companyIn && data.ctx.regular && r.company.total !== 0 && <span className="text-[11.5px] text-ink-3">{formatAmount(r.company.cost)} before tax + {formatAmount(r.company.gst)} GST/HST posted</span>}
-                <span className="flex flex-wrap gap-x-2 text-[11.5px] text-ink-3">From the books:{data.ledger.length ? data.ledger.map((l) => <Link key={l.number} href={l.href} target="_blank" className="hover:underline">{l.number}</Link>) : " 70600, 70650, 67300"}</span>
+                <span className="flex flex-wrap items-baseline gap-x-2 text-[11.5px] text-ink-3">From the books: {data.ledgerNumbers.join(", ")}
+                  <a href={data.ledgerAll} target="_blank" rel="noreferrer" className="font-semibold text-navy-700 underline" data-ledger-link>Open the ledger</a></span>
               </div>
             </div>
           </div>

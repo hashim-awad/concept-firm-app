@@ -179,8 +179,10 @@ const sortPostings = (a: Posting, b: Posting) => a.date.localeCompare(b.date) ||
 export function ledger(accounts: RepAccount[], postings: Posting[], opts: { key?: string; from?: string; to?: string } = {}): LedgerAccount[] {
   const dir = directory(accounts, postings);
   const out: LedgerAccount[] = [];
+  // Piece 3: several accounts separated by commas (the Vehicle schedule's "Open the ledger").
+  const keys = opts.key ? opts.key.split(",").filter(Boolean) : [];
   for (const a of [...dir.values()].sort(byNumber)) {
-    if (opts.key && a.key !== opts.key) continue;
+    if (keys.length && !keys.includes(a.key)) continue;
     const mine = postings.filter((p) => p.key === a.key).sort(sortPostings);
     let run = 0, before = 0;
     const lines: LedgerLine[] = [];

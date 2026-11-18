@@ -20,6 +20,7 @@ export type VehicleData = {
   ctx: VehicleCtx;                       // live: today's rates and books
   companyIn: string;                     // "" or the first car's entry number when another schedule takes the company costs
   ledger: { number: string; href: string }[];
+  ledgerAll: string; ledgerNumbers: string[];   // "Open the ledger": the general ledger on the vehicle accounts
   stored: StoredSchedule | null;         // the schedule saved with this entry
   hints: VehicleInputs | null;           // last year's inputs (never copied in)
   canItc: boolean;                       // the file's reviewer or an owner
@@ -104,6 +105,10 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
     .filter((x) => x.number).sort((a, b) => a.number.localeCompare(b.number))
     .map((x) => ({ number: x.number, href: `/closebook/${file.id}?area=reporting&report=gl&account=${encodeURIComponent(x.key)}` }));
 
+  // The ledger link: the standard vehicle accounts on a bank-statement file (whether or not they have postings yet),
+  // and every account found on the vehicle lines.
+  const allKeys = [...new Set([...(rdata.bankFile ? VEHICLE_ACCOUNTS.map((n) => `chart:${n}`) : []), ...vehicleKeys])];
+
   // ---------- The entry form's account for each standard account the schedule posts to.
   const chartRows = (chart ?? []) as { number: string; name: string; line_no: string | null }[];
   const own = ["client_software", "bookkeeper"].includes(file.books);
@@ -130,6 +135,8 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
       factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, regular, company, taxCode: regular ? defaultTaxCode("GST/HST", province, EXPENSE_ACCOUNT) : null,
       payees, bnMissing },
     companyIn, ledger, stored, hints, canItc, acct, names, provinceName: province,
+    ledgerAll: `/closebook/${file.id}?area=reporting&report=gl&account=${encodeURIComponent(allKeys.join(","))}`,
+    ledgerNumbers: rdata.bankFile ? VEHICLE_ACCOUNTS : ledger.map((l) => l.number),
   };
 }
 

@@ -203,6 +203,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
           {p.back && <input type="hidden" name="back" value={p.back} />}
           <label className="grid gap-1 text-sm">Account
             <select name="account" defaultValue={p.account ?? ""} className="input min-w-64"><option value="">All accounts</option>
+              {p.account?.includes(",") && <option value={p.account}>The Vehicle schedule&apos;s accounts</option>}
               {[...data.accounts].sort((a, b) => Number(!a.number) - Number(!b.number) || a.number.localeCompare(b.number)).map((a) => <option key={a.key} value={a.key}>{a.number ? `${a.number} ` : ""}{a.name}</option>)}</select></label>
           <label className="grid gap-1 text-sm">From<input type="date" name="from" defaultValue={p.from ?? ""} className="input" /></label>
           <label className="grid gap-1 text-sm">To<input type="date" name="to" defaultValue={p.to ?? ""} className="input" /></label>

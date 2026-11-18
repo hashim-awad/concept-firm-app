@@ -70,7 +70,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const freq = (["annual", "quarterly", "monthly"].includes(setup.gst_frequency ?? "") ? setup.gst_frequency : null) as Frequency | null;
   const period = freq ? gstPeriods(f.file.year_start, f.file.year_end, freq, { annual: 3, period: 1 }).find((x) => date >= x.start && date <= x.end) : undefined;
   const rec = r.record;
-  const recordBox = registered ? [
+  // Version 2b: the record prints only where the ITC is claimed (registered, regular method, "Claim the ITC" ticked).
+  const recordBox = registered && rec.claim ? [
     { text: "GST/HST record", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
     { table: { widths: [150, "*"], body: [
       ["Corporation", `${client}, GST/HST number ${f.client?.business_number || "not on the client record"} ${setup.gst_rt || "RT0001"}`],

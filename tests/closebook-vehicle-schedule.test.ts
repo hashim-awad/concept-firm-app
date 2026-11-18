@@ -224,3 +224,28 @@ test("Paid to: one linked shareholder is used; several need a pick; none blocks;
   assert.deepEqual(inputChanges(inp({ paidTo: pat.id }), inp({ paidTo: sam.id }), "2025-09-01", "2026-08-31", { [pat.id]: pat.name, [sam.id]: sam.name }),
     [{ what: "Paid to", old: "Pat Dummy", new: "Sam Dummy" }]);
 });
+
+// ---------- Version 2b (Hashim, Nov 18, 2026): the blocks only where the GST/HST record prints.
+
+test("no shareholder or no business number blocks only where the ITC is claimed", () => {
+  const ctx = { payees: [], bnMissing: true };
+  const ticked = calcVehicle(inp({ businessKm: 12000 }), birch(ctx));
+  assert.deepEqual(ticked.problems.map((p) => p.text), ["Link the shareholder to the client record first.", "Add the business number to the client record first."]);
+  assert.equal(ticked.ready, false);
+  const unticked = calcVehicle(inp({ businessKm: 12000, itc: false }), birch(ctx));
+  assert.deepEqual([unticked.problems.length, unticked.ready, unticked.record.payee], [0, true, null]);
+  const notRegistered = calcVehicle(inp({ businessKm: 12000 }), birch({ ...ctx, regular: false, factor: null, taxCode: null }));
+  assert.deepEqual([notRegistered.problems.length, notRegistered.ready], [0, true]);
+  const two = [{ id: "11111111-1111-1111-1111-111111111111", name: "Pat Dummy" }, { id: "22222222-2222-2222-2222-222222222222", name: "Sam Dummy" }];
+  assert.equal(calcVehicle(inp({ businessKm: 12000, itc: false }), birch({ payees: two })).ready, true, "no pick needed without the record");
+});
+
+test("the ledger takes several accounts separated by commas", async () => {
+  const { ledger } = await import("../src/lib/closebook/reports.ts");
+  const acc = (key: string, number: string) => ({ key, number, name: number, line_no: null, lastCents: 0 });
+  const post = (key: string, cents: number) => ({ key, cents, date: "2026-01-01", kind: "bank" as const, ref: "r", label: "x" });
+  const out = ledger([acc("chart:70600", "70600"), acc("chart:70650", "70650"), acc("chart:10000", "10000")],
+    [post("chart:70600", 100), post("chart:70650", 50), post("chart:10000", -150)], { key: "chart:70600,chart:70650,chart:67300" });
+  assert.deepEqual(out.map((a) => a.number), ["70600", "70650"]);
+  assert.deepEqual(ledger([acc("chart:70600", "70600")], [post("chart:70600", 100)], { key: "chart:70600" }).map((a) => a.end), [100]);
+});

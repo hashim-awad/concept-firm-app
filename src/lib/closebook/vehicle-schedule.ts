@@ -148,7 +148,9 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
   if (business <= 0) problems.push({ field: "km", text: "Enter the business km.", hard: true });
   // Version 2: who was paid, and the corporation's GST/HST number, from the client record.
   let payee: { id: string; name: string } | null = null;
-  if (ctx.payees) {
+  // Version 2b: only where the GST/HST record prints, that is a registered file on the regular method with "Claim the ITC" ticked.
+  const prints = ctx.regular && inp.itc;
+  if (ctx.payees && prints) {
     if (ctx.payees.length === 0) problems.push({ field: "paidTo", text: "Link the shareholder to the client record first.", hard: true });
     else if (ctx.payees.length === 1) payee = ctx.payees[0];
     else {
@@ -156,7 +158,7 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
       if (!payee) problems.push({ field: "paidTo", text: "Choose who was paid.", hard: true });
     }
   }
-  if (ctx.bnMissing) problems.push({ field: "bn", text: "Add the business number to the client record first.", hard: true });
+  if (ctx.bnMissing && prints) problems.push({ field: "bn", text: "Add the business number to the client record first.", hard: true });
 
   const allowance = missing.length ? null : parts.reduce((n, p) => n + p.amount, 0);
   const company = { cost: ctx.company.reduce((n, a) => n + a.cost, 0), gst: ctx.regular ? ctx.company.reduce((n, a) => n + a.gst, 0) : 0, total: 0 };
