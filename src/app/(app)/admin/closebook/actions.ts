@@ -5,6 +5,7 @@ import { getAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
 import { parseAmount } from "@/lib/closebook/amount";
+import { PROVINCES, checkFactor, checkKmForm, fieldOfKmError, provinceName, sameFactor } from "@/lib/closebook/cra-rates";
 
 const LINES = "/admin/closebook/gifi-lines";
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -148,4 +149,54 @@ export async function updateGstSettings(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_update_gst_settings", { p_due_annual: due[0], p_due_period: due[1], p_credit_rate: cr === null ? null : cr / 100, p_credit_limit: lim, p_rates: rates });
   revalidatePath(back.split("?")[0]);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
+}
+
+// Piece 1 (Hashim, Nov 18, 2026): Closebook rules › CRA rates. The per-km allowance rates by year and the ITC
+// factor per province. Owners only here and in the database (cb_save_km_rates, cb_save_itc_factor).
+// Round 1b: a refused save keeps what was typed and puts each message under its field (useActionState); a good
+// save goes back to the tab with "Saved". The ITC table has one Save: every changed row is checked first, nothing
+// is saved if any row is wrong, and rows not changed are not sent (so they are not logged).
+const CRA = "/admin/closebook-rules?tab=cra-rates";
+export type CraFormState = { errors: Record<string, string>; values: Record<string, string> } | null;
+
+export async function saveKmRates(_prev: CraFormState, formData: FormData): Promise<CraFormState> {
+  const a = await getAccess();
+  const isNew = s(formData, "new") === "true";
+  const values = Object.fromEntries(["year", "first_prov", "after_prov", "first_terr", "after_terr"].map((k) => [k, s(formData, k)]));
+  if (!a?.is_owner) return { values, errors: { form: "Only an owner can change the CRA rates." } };
+  const errors = checkKmForm(values, isNew);
+  if (Object.keys(errors).length) return { values, errors };
+  const num = (k: string) => Number(values[k].replace(/[$\s]/g, ""));
+  const { error } = await (await createClient()).rpc("cb_save_km_rates", {
+    p_year: Number(values.year), p_first_prov: num("first_prov"), p_after_prov: num("after_prov"), p_first_terr: num("first_terr"), p_after_terr: num("after_terr"), p_new: isNew,
+  });
+  if (error) return { values, errors: { [fieldOfKmError(error.message)]: error.message } };
+  revalidatePath("/admin/closebook-rules");
+  redirect(withMessage(CRA, "msg", isNew ? `${values.year} added.` : `${values.year} saved.`));
+}
+
+export async function saveItcFactors(_prev: CraFormState, formData: FormData): Promise<CraFormState> {
+  const a = await getAccess();
+  const values = Object.fromEntries(PROVINCES.map((p) => [p.code, s(formData, `itc_${p.code}`)]));
+  if (!a?.is_owner) return { values, errors: { form: "Only an owner can change the CRA rates." } };
+  const changed = PROVINCES.map((p) => p.code).filter((c) => !sameFactor(values[c], s(formData, `was_${c}`)));
+  const errors: Record<string, string> = {};
+  for (const c of changed) {
+    if (!values[c]) errors[c] = s(formData, `was_${c}`) ? "A factor cannot be removed. Type the new factor, for example 13/113." : "";
+    else { const e = checkFactor(values[c]); if (e) errors[c] = e; }
+  }
+  for (const k of Object.keys(errors)) if (!errors[k]) delete errors[k];
+  const toSave = changed.filter((c) => values[c]);
+  if (Object.keys(errors).length) return { values, errors };
+  if (!toSave.length) return { values, errors: { form: "Nothing changed." } };
+  const supabase = await createClient();
+  for (const c of toSave) {
+    const { error } = await supabase.rpc("cb_save_itc_factor", { p_province: c, p_factor: values[c] });
+    if (error) {
+      revalidatePath("/admin/closebook-rules");
+      return { values, errors: { [c]: error.message, form: toSave.indexOf(c) ? `Saved the rows above ${provinceName(c)}; this row was refused.` : "" } };
+    }
+  }
+  revalidatePath("/admin/closebook-rules");
+  redirect(withMessage(CRA, "msg", toSave.length === 1 ? `${provinceName(toSave[0])} saved.` : `${toSave.length} ITC factors saved.`));
 }
