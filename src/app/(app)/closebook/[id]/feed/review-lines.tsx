@@ -169,14 +169,16 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
           <span className="text-[13px] text-ink-2 tabular-nums" data-review-count>{rows.length ? `1-${rows.length} of ${rows.length}` : "0 of 0"}</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] table-fixed text-[13.5px]">
-            <colgroup><col className="w-9" /><col className="w-[6rem]" /><col className="w-[9.6rem]" /><col /><col className="w-[5.2rem]" /><col className="w-[5.2rem]" /><col className="w-9" />
-              <col className="w-[6.6rem]" /><col className="w-[11rem]" /><col className="w-[12rem]" /><col className={reviewedView ? "w-[12rem]" : "w-[8.6rem]"} /></colgroup>
+          {/* Round 36: ten columns do not fit a 1280 px window with a 220 px description, so the bank account and the Why
+              sit on a grey second line under the description (QuickBooks Online shows the bank detail there). */}
+          <table className="w-full table-fixed text-[13.5px]" style={{ minWidth: 708 + 220 }} data-feed-table>
+            <colgroup><col className="w-8" /><col className="w-24" /><col /><col className="w-20" /><col className="w-20" /><col className="w-8" />
+              <col className="w-[6.75rem]" /><col className="w-36" /><col className="w-[8.5rem]" /></colgroup>
             <thead><tr className="border-b border-sand-200">
               <th className="px-2 py-2"><input type="checkbox" aria-label="Tick all" checked={allTicked} disabled={!editable || !rows.length || reviewedView}
                 onChange={() => setTicked(allTicked ? new Set() : new Set(rows.map((l) => l.id)))} /></th>
-              <th className={th}>Date</th><th className={th}>Bank account</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
-              <th className={th} aria-label="Questions to the client" title="Questions to the client">💬</th><th className={th}>Sales tax</th><th className={th}>Account</th><th className={th}>Why</th><th className={thR}>{reviewedView ? "Reviewed by" : "Action"}</th></tr></thead>
+              <th className={th}>Date</th><th className={th}>Bank description</th><th className={thR}>Spent</th><th className={thR}>Received</th>
+              <th className={th} aria-label="Questions to the client" title="Questions to the client">💬</th><th className={th}>Sales tax</th><th className={th}>Account</th><th className={thR}>Action</th></tr></thead>
             <tbody>{rows.map((l) => row(l))}</tbody>
           </table>
           {!rows.length && <p className="px-3 py-4 text-[13.5px] text-ink-3">{status === "waiting" ? "Nothing waits for the reviewer." : "Nothing here."}</p>}
@@ -266,25 +268,28 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
       <tr key={l.id} id={`rl-${l.id}`} data-review-line={l.description} className={`h-12 border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50/60" : ""} ${focus?.id === l.id ? "bg-navy-50 outline outline-2 -outline-offset-2 outline-navy-400" : ""}`}>
         <td className="px-2"><input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)} disabled={!editable || reviewedView || !waitingRow} onChange={() => toggle(l.id)} /></td>
         <td className="px-2 whitespace-nowrap tabular-nums">{formatDate(l.acct_date)}</td>
-        {/* Round 35b: the bank and the last digits in full; a long name shortens, the digits never do. */}
-        <td className="px-2 text-ink-2" title={bankName(l.account_id)} data-bank-account>{(() => { const [nm, digits] = bankName(l.account_id).split(" ••• ");
-          return <span className="flex min-w-0 whitespace-nowrap"><span className="truncate">{nm}</span>{digits && <span className="shrink-0">&nbsp;•••&nbsp;{digits}</span>}</span>; })()}</td>
-        <td className="truncate px-2" title={l.description}>{l.description}</td>
+        {/* The description, one line; under it in grey: the bank and the last digits in full (round 35b: the digits never
+            shorten), then why the line is with the reviewer, or who reviewed it and when. */}
+        <td className="px-2 py-1">
+          <span className="block truncate leading-5" title={l.description}>{l.description}</span>
+          <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[12px] leading-4 text-ink-3">
+            <span className="shrink-0" title={bankName(l.account_id)} data-bank-account>{bankName(l.account_id)}</span>
+            {waitingRow ? <span className="truncate font-semibold text-warning" title={reason} data-why>· {whyShort(reason)}</span>
+              : <span className="truncate" title={reason ? `Was with the reviewer: ${reason}` : undefined}>· Reviewed <span data-reviewed-by>{people[l.reviewed_by ?? ""]?.initials ?? ""} · {l.reviewed_at ? formatDate(l.reviewed_at.slice(0, 10)) : ""}</span></span>}
+          </span></td>
         <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td>
         <td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
         <td className="px-1 text-center"><QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} disabled={!editable} onOpen={(el) => { void loadSaved(); setQPop({ el, id: l.id }); }} /></td>
-        <td className="px-1.5">{transferish(l) || l.is_split ? <span className="block truncate px-1 text-ink-3">{l.is_split ? "Split" : "No tax"}</span>
+        <td className="px-1.5" title={transferish(l) || l.is_split ? undefined : data.codes.find((x) => x.code === l.tax_code)?.name}>{transferish(l) || l.is_split ? <span className="block truncate px-1 text-ink-3">{l.is_split ? "Split" : "No tax"}</span>
           : <TaxSelect codes={data.codes} value={l.tax_code ?? ""} disabled={!canPick} label={`Sales tax for ${l.description}`}
             onChange={(t) => { if (t && l.chart_account) void recode([{ id: l.id, account: l.chart_account, tax: t }]); }} />}</td>
         <td className="px-1.5">{l.is_split
           ? <button type="button" disabled={!editable || !waitingRow} onClick={() => setWin({ k: "split", id: l.id })} className="flex h-8 w-full items-center rounded-[6px] border border-sand-300 px-2 text-left text-navy-700 disabled:text-ink-3">Split ({splits[l.id]?.length ?? 0})</button>
-          : transferish(l) ? <span className="block truncate px-1 text-ink-2">{accountLabel(l) || "Transfer"}</span>
+          : transferish(l) ? <span className="block truncate px-1 text-ink-2" title={accountLabel(l) || "Transfer"}>{accountLabel(l) || "Transfer"}</span>
           : <AccountPicker chart={data.chart} banks={[]} out={out} ownAccount={l.account_id} label={accountLabel(l)} disabled={!canPick}
             onPick={(pk) => { if ("account" in pk) void recode([{ id: l.id, account: pk.account, tax: l.tax_code ?? data.defaultTax[pk.account] ?? "" }]); }} />}</td>
-        <td className="truncate px-2" title={reason}><span className="rounded bg-warning-soft px-1.5 py-0.5 text-[12px] font-semibold text-warning">{whyShort(reason)}</span></td>
         <td className="relative px-2 text-right whitespace-nowrap">{!waitingRow ? (
-          <span className="inline-flex items-center gap-2 text-[12.5px]"><span className="font-semibold text-ink-2" data-reviewed-by>{people[l.reviewed_by ?? ""]?.initials ?? ""} · {l.reviewed_at ? formatDate(l.reviewed_at.slice(0, 10)) : ""}</span>
-            {editable && isReviewer && <button type="button" onClick={() => unmark([l.id])} className="font-semibold text-navy-700 hover:underline">Undo</button>}</span>
+          editable && isReviewer && <button type="button" onClick={() => unmark([l.id])} className="font-semibold text-navy-700 hover:underline">Undo</button>
         ) : editable && <>
           <span title={reviewerOnly} className="inline-flex"><button type="button" disabled={!isReviewer} onClick={() => markReviewed([l.id])}
             className="font-semibold text-navy-700 hover:underline disabled:cursor-not-allowed disabled:text-ink-3 disabled:no-underline">Mark reviewed</button></span>
