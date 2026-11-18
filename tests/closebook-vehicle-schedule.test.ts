@@ -206,38 +206,29 @@ test("the GST/HST record: amount and GST/HST deemed paid (T4 allowance, T5 actua
   assert.equal(recordNature("actual", false), "Reimbursement of the business share of vehicle costs the owner paid personally. No ITC claimed.");
 });
 
-test("Paid to: one linked shareholder is used; several need a pick; none blocks; a missing business number blocks", () => {
-  const pat = { id: "11111111-1111-1111-1111-111111111111", name: "Pat Dummy" }, sam = { id: "22222222-2222-2222-2222-222222222222", name: "Sam Dummy" };
-  const one = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat] }));
-  assert.deepEqual([one.ready, one.record.payee?.name], [true, "Pat Dummy"]);
-  const two = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat, sam] }));
-  assert.deepEqual(two.problems.map((p) => [p.field, p.text, p.hard]), [["paidTo", "Choose who was paid.", true]]);
-  assert.equal(two.ready, false);
-  const picked = calcVehicle(inp({ businessKm: 12000, paidTo: sam.id }), birch({ payees: [pat, sam] }));
-  assert.deepEqual([picked.ready, picked.record.payee?.name], [true, "Sam Dummy"]);
-  const none = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [] }));
-  assert.deepEqual(none.problems.map((p) => p.text), ["Link the shareholder to the client record first."]);
+test("Paid to: the client record's Signing officer with their title; none blocks; a missing business number blocks", () => {
+  const officer = { id: "signing-officer", name: "Pat Dummy, Director" };
+  const one = calcVehicle(inp({ businessKm: 12000 }), birch({ payee: officer }));
+  assert.deepEqual([one.ready, one.record.payee?.name], [true, "Pat Dummy, Director"]);
+  const none = calcVehicle(inp({ businessKm: 12000 }), birch({ payee: null }));
+  assert.deepEqual(none.problems.map((p) => [p.field, p.text, p.hard]), [["paidTo", "Add the signing officer to the client record first.", true]]);
   assert.equal(none.ready, false);
-  const bn = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat], bnMissing: true }));
+  const bn = calcVehicle(inp({ businessKm: 12000 }), birch({ payee: officer, bnMissing: true }));
   assert.deepEqual(bn.problems.map((p) => p.text), ["Add the business number to the client record first."]);
   assert.equal(bn.ready, false);
-  assert.deepEqual(inputChanges(inp({ paidTo: pat.id }), inp({ paidTo: sam.id }), "2025-09-01", "2026-08-31", { [pat.id]: pat.name, [sam.id]: sam.name }),
-    [{ what: "Paid to", old: "Pat Dummy", new: "Sam Dummy" }]);
 });
 
 // ---------- Version 2b (Hashim, Nov 18, 2026): the blocks only where the GST/HST record prints.
 
-test("no shareholder or no business number blocks only where the ITC is claimed", () => {
-  const ctx = { payees: [], bnMissing: true };
+test("no signing officer or no business number blocks only where the ITC is claimed", () => {
+  const ctx = { payee: null, bnMissing: true };
   const ticked = calcVehicle(inp({ businessKm: 12000 }), birch(ctx));
-  assert.deepEqual(ticked.problems.map((p) => p.text), ["Link the shareholder to the client record first.", "Add the business number to the client record first."]);
+  assert.deepEqual(ticked.problems.map((p) => p.text), ["Add the signing officer to the client record first.", "Add the business number to the client record first."]);
   assert.equal(ticked.ready, false);
   const unticked = calcVehicle(inp({ businessKm: 12000, itc: false }), birch(ctx));
   assert.deepEqual([unticked.problems.length, unticked.ready, unticked.record.payee], [0, true, null]);
   const notRegistered = calcVehicle(inp({ businessKm: 12000 }), birch({ ...ctx, regular: false, factor: null, taxCode: null }));
   assert.deepEqual([notRegistered.problems.length, notRegistered.ready], [0, true]);
-  const two = [{ id: "11111111-1111-1111-1111-111111111111", name: "Pat Dummy" }, { id: "22222222-2222-2222-2222-222222222222", name: "Sam Dummy" }];
-  assert.equal(calcVehicle(inp({ businessKm: 12000, itc: false }), birch({ payees: two })).ready, true, "no pick needed without the record");
 });
 
 test("the ledger takes several accounts separated by commas", async () => {

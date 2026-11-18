@@ -13,8 +13,10 @@ import type { EntryFormData } from "./entry-form-server";
 import { loadVehicle, snapshotOf } from "./vehicle-server";
 import { calcVehicle, inputChanges, readInputs, ITC_ACCOUNT } from "./vehicle-schedule";
 import { formatAmount } from "./amount";
+import { loadHome } from "./home-office-server";
+import { calcHome, homeChanges, readHomeInputs, HOME_WP_REF } from "./home-office";
 
-export type SchedForm = { head: FormHead; date: string; lines: (FormLine & { sched?: string; isTax?: boolean })[]; seq?: string; edit?: string; schedule?: { inputs: unknown } | null };
+export type SchedForm = { head: FormHead; date: string; lines: (FormLine & { sched?: string; isTax?: boolean })[]; seq?: string; edit?: string; schedule?: { kind?: string; inputs: unknown } | null };
 
 // An account picked in the entry form, as the database takes it.
 const targetOf = (v: string): Partial<RpcLine> | null =>
@@ -26,16 +28,38 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   if (form.edit && entry?.origin !== "schedule") return { error: "Change this amount in its schedule: click the Schedule tag." };
   const access = await getAccess();
   const canItc = !!access && (access.is_owner || access.staff_id === f.file.reviewer_id);
-  const ref = await loadReference(supabase);
-  const rdata = await loadReportData(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
   const province = f.client?.province ?? "ON";
-  const vd = await loadVehicle(supabase, f.file, province, f.entries, f.accounts, rdata, entry?.id ?? null, canItc, data.opts);
+  // Piece 4: the schedule's kind: what was put in, else the one saved with the entry.
+  const storedKind = entry ? ((await supabase.from("cb_schedules").select("kind").eq("entry_id", entry.id).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
+  const kind = form.schedule?.kind === "home_office" ? "home_office" : form.schedule ? "vehicle" : storedKind ?? "vehicle";
+  if (form.schedule && storedKind && storedKind !== kind) return { error: "This entry holds another schedule." };
 
   // The schedule's lines: worked out again, or the entry's own when the schedule was not put in again.
   type L = { part: string; amount: number; memo: string; tax_code?: string | null; is_tax?: boolean; dflt: string };
   let sched: L[] = [];
   let payload: Record<string, unknown> | null = null;
-  if (form.schedule) {
+  if (form.schedule && kind === "home_office") {
+    const hd = await loadHome(supabase, f.file, province, f.accounts, entry?.id ?? null, canItc, data.opts);
+    const inputs = readHomeInputs(form.schedule.inputs);
+    if (!canItc) inputs.itc = hd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
+    const r = calcHome(inputs, hd.ctx, hd.names);
+    const hard = r.problems.find((p) => p.hard);
+    if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };
+    inputs.paidTo = null;   // Paid to is the client record's Signing officer (piece 4), saved in the snapshot
+    sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
+      dflt: l.is_tax ? `chart:${ITC_ACCOUNT}` : hd.acct[l.number] ?? `chart:${l.number}` }));
+    payload = {
+      kind: "home_office", itc: inputs.itc, inputs,
+      snapshot: { province: hd.ctx.province, regular: hd.ctx.regular, factor: hd.ctx.factor, taxCode: hd.ctx.taxCode, payee: r.record.payee },
+      result: { sharePct: r.sharePct, expense: r.expense, itc: r.itc, owed: r.owed, totalPaid: r.totalPaid, totalGst: r.totalGst, working: r.working },
+      lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
+      changes: hd.stored ? homeChanges({ ...hd.stored.inputs, paidTo: null }, inputs) : [],
+      summary: `Owed to the owner ${formatAmount(r.owed)} (${r.sharePct})`,
+    };
+  } else if (form.schedule) {
+    const ref = await loadReference(supabase);
+    const rdata = await loadReportData(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
+    const vd = await loadVehicle(supabase, f.file, province, f.entries, f.accounts, rdata, entry?.id ?? null, canItc, data.opts);
     const inputs = readInputs(form.schedule.inputs);
     if (!canItc) inputs.itc = vd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
     const r = calcVehicle(inputs, vd.ctx, vd.names);
@@ -44,14 +68,14 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
       dflt: l.account ?? (l.is_tax ? `chart:${ITC_ACCOUNT}` : vd.acct[l.number] ?? `chart:${l.number}`) }));
     const fmt = formatAmount(r.used === "allowance" ? r.allowance ?? 0 : r.actual ?? 0);
-    const people = Object.fromEntries((vd.ctx.payees ?? []).map((p) => [p.id, p.name]));
+
     // One linked shareholder, or no GST/HST record (not registered, quick method, ITC unticked): nothing chosen.
-    if ((vd.ctx.payees ?? []).length === 1 || !(vd.ctx.regular && inputs.itc)) inputs.paidTo = null;
+    inputs.paidTo = null;   // Paid to is the client record's Signing officer (piece 4), saved in the snapshot
     payload = {
       kind: "vehicle", method: inputs.method, choice: inputs.choice, itc: inputs.itc, inputs, snapshot: { ...snapshotOf(vd), payee: r.record.payee },
       result: { allowance: r.allowance, actual: r.actual, used: r.used, higher: r.higher, sharePct: r.sharePct, itc: r.itc, company: r.company, working: r.working, parts: r.parts, alreadyKm: r.alreadyKm },
       lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
-      changes: vd.stored ? inputChanges(vd.stored.inputs, inputs, f.file.year_start, f.file.year_end, people) : [],
+      changes: vd.stored ? inputChanges({ ...vd.stored.inputs, paidTo: null }, inputs, f.file.year_start, f.file.year_end) : [],
       summary: r.used === "allowance" ? `Per-km allowance ${fmt} used` : `Actual costs, ${r.sharePct}, ${fmt} used`,
     };
   } else {
@@ -82,6 +106,6 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   const date = /^\d{4}-\d{2}-\d{2}$/.test(form.date) ? form.date : null;
   return { args: {
     p_file: f.file.id, p_entry: entry?.id ?? null, p_kind: form.head.kind, p_reason: reasonFor({ ...form.head, reverse: false }, false), p_note: form.head.memo, p_reverse: false,
-    p_lines: rpc, p_wp_ref: form.head.wpRef || "Vehicle schedule", p_date: date, p_attachments: [...(entry?.attachments ?? []), ...paths].slice(0, 10), p_seq: seq, p_schedule: payload,
+    p_lines: rpc, p_wp_ref: form.head.wpRef || (kind === "home_office" ? HOME_WP_REF : "Vehicle schedule"), p_date: date, p_attachments: [...(entry?.attachments ?? []), ...paths].slice(0, 10), p_seq: seq, p_schedule: payload,
   } };
 }

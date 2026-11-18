@@ -31,9 +31,9 @@ export type VehicleCtx = {
   regular: boolean;                  // registered for GST/HST on the regular method (ITC claimed)
   company: CompanyAccount[];         // empty when another Vehicle schedule takes them
   taxCode: string | null;            // the sales tax code on lines that carry GST/HST (for the GST/HST return)
-  // Version 2: the people linked to the client as shareholders (Paid to), and whether a GST/HST-registered client
-  // has no business number. Left out (tests of the figures alone), nothing is checked.
-  payees?: { id: string; name: string }[];
+  // Version 2: Paid to (piece 4: the client record's Signing officer and Signer title) and whether a GST/HST-registered
+  // client has no business number. Left out (tests of the figures alone), nothing is checked.
+  payee?: { id: string; name: string } | null;   // the Signing officer, "Name, Title"; null: none on the client record
   bnMissing?: boolean;
 };
 
@@ -150,13 +150,10 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
   let payee: { id: string; name: string } | null = null;
   // Version 2b: only where the GST/HST record prints, that is a registered file on the regular method with "Claim the ITC" ticked.
   const prints = ctx.regular && inp.itc;
-  if (ctx.payees && prints) {
-    if (ctx.payees.length === 0) problems.push({ field: "paidTo", text: "Link the shareholder to the client record first.", hard: true });
-    else if (ctx.payees.length === 1) payee = ctx.payees[0];
-    else {
-      payee = ctx.payees.find((p) => p.id === inp.paidTo) ?? null;
-      if (!payee) problems.push({ field: "paidTo", text: "Choose who was paid.", hard: true });
-    }
+  // Piece 4: Paid to is the client record's Signing officer with their Signer title (CaseWare takes the person from the client profile).
+  if (ctx.payee !== undefined && prints) {
+    if (ctx.payee) payee = ctx.payee;
+    else problems.push({ field: "paidTo", text: "Add the signing officer to the client record first.", hard: true });
   }
   if (ctx.bnMissing && prints) problems.push({ field: "bn", text: "Add the business number to the client record first.", hard: true });
 

@@ -25,6 +25,7 @@ import { QBO_TYPES } from "../entries-tab";
 import { initials } from "../shell/shell";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { loadVehicle } from "@/lib/closebook/vehicle-server";
+import { loadHome } from "@/lib/closebook/home-office-server";
 import { ConfirmDelete } from "../vehicle-window";
 
 const KIND_WORD: Record<string, string> = { AJE: "Adjusting (AJE)", RJE: "Reclassifying (RJE)", TJE: "Tax, from ProFile (TJE)" };
@@ -116,7 +117,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
               <tr key={i} className={`border-b border-sand-100 ${l.is_tax ? "text-ink-2" : ""}`}><td className="py-1.5 text-ink-3">{l.is_tax ? "" : i + 1}</td><td className="py-1.5">{accName(l.account_id)}</td>
                 <td className="py-1.5 text-ink-2">{l.memo}</td>
                 {[l.amount > 0, l.amount < 0].map((side, k) => <td key={k} className="py-1.5 text-right tabular-nums">{side && l.schedule_part && (canChange
-                  ? <Link href={`${here}&edit=1&sched=1`} title="From the Vehicle schedule: change it there" className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</Link>
+                  ? <Link href={`${here}&edit=1&sched=1`} title={`From the ${entry.wp_ref}: change it there`} className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</Link>
                   : <span className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span>)}{side ? money(Math.abs(l.amount)) : ""}</td>)}
                 {form.ctx.registered && <td className="py-1.5 pl-4 text-ink-2">{l.is_tax ? "" : l.tax_code ? form.codes.find((c) => c.code === l.tax_code)?.name ?? l.tax_code : "No tax"}</td>}</tr>
             ))}
@@ -142,7 +143,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           </div>
           <p className="text-[12px] text-ink-3">{entry.attachments?.length ? `Attachments: ${entry.attachments.map((p) => p.split("/").pop()!.replace(/^\d+-/, "")).join(", ")}` : "No attachment"}
             {" · "}{entry.reverse_next_year ? "Reverses on the first day of next year" : "Not reversed next year"}
-            {entry.origin === "revenue_check" ? " · From the revenue check" : entry.origin === "expenses_personal" ? " · Expenses paid personally" : entry.origin === "schedule" ? " · From the Vehicle schedule" : ""}</p>
+            {entry.origin === "revenue_check" ? " · From the revenue check" : entry.origin === "expenses_personal" ? " · Expenses paid personally" : entry.origin === "schedule" ? ` · From the ${entry.wp_ref}` : ""}</p>
         </div>
         <div className="flex justify-end rounded-b-[10px] border-t border-sand-200 bg-sand-50 px-5 py-3"><Link href={closeHref} className="btn-secondary btn-compact">Close</Link></div>
       </Frame>
@@ -194,12 +195,16 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   }
   // Piece 3: the Vehicle schedule, on every full file (a new entry, or the entry it fills).
   const schedEntry = edit && entry?.origin === "schedule" ? entry : undefined;
-  const vehicle = !origin && !init.std && !sp.new?.match(/^(dup|rev):/) && (!edit || schedEntry)
+  // Piece 4: the kind of schedule the entry holds decides which window it reopens; a new entry offers both.
+  const schedKind = schedEntry ? (((await supabase.from("cb_schedules").select("kind").eq("entry_id", schedEntry.id).maybeSingle()).data as { kind: string } | null)?.kind === "home_office" ? "home_office" as const : "vehicle" as const) : undefined;
+  const offer = !origin && !init.std && !sp.new?.match(/^(dup|rev):/) && (!edit || schedEntry);
+  const vehicle = offer && schedKind !== "home_office"
     ? await loadVehicle(supabase, file, province, entries, accounts, await rdata, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
+  const home = offer && schedKind !== "vehicle" ? await loadHome(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
       <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
-        vehicle={vehicle} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
+        vehicle={vehicle} home={home} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
   );
 }

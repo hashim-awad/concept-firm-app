@@ -2,6 +2,7 @@
 // standard header block (client, schedule name, year end, W/P ref, prepared by, reviewed by), the inputs, the
 // working and the entry's lines, stamped "Working paper: not for the client". The figures are the saved schedule's,
 // worked out again from what it was saved with (its rates, ITC factor and company-paid figures). History records it.
+// Piece 4: the Home office schedule prints the same way (its areas or share, the cost rows and the working).
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { loadFile } from "@/lib/closebook/server";
@@ -12,6 +13,8 @@ import { calcVehicle, choiceName, methodName, readInputs, recordNature, shortDat
 import { gstPeriods, type Frequency } from "@/lib/closebook/gst-return";
 import { ctxOfSnapshot } from "@/lib/closebook/vehicle-server";
 import { entryNo } from "@/lib/closebook/reports";
+import { calcHome, readHomeInputs, HOME_NATURE } from "@/lib/closebook/home-office";
+import type { HomeSnapshot } from "@/lib/closebook/home-office-server";
 
 const STAMP = "Working paper: not for the client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -23,16 +26,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!/^[0-9a-f-]{36}$/.test(id) || !/^[0-9a-f-]{36}$/.test(entryId)) return new Response("Not found", { status: 404 });
   const supabase = await createClient();
   const [f, { data: s }] = await Promise.all([loadFile(supabase, id),
-    supabase.from("cb_schedules").select("id, entry_id, inputs, snapshot, itc_claim").eq("file_id", id).eq("entry_id", entryId).maybeSingle()]);
+    supabase.from("cb_schedules").select("id, entry_id, kind, inputs, snapshot, itc_claim").eq("file_id", id).eq("entry_id", entryId).maybeSingle()]);
   const e = f?.entries.find((x) => x.id === entryId);
   if (!f || !s || !e) return new Response("Not found", { status: 404 });
-  const snap = s.snapshot as VehicleSnapshot;
-  const inputs = { ...readInputs(s.inputs), itc: s.itc_claim as boolean };
-  const r = calcVehicle(inputs, ctxOfSnapshot(f.file, snap));
-  const y = yearParts(f.file.year_start, f.file.year_end);
+  const home = s.kind === "home_office";
+  const schedName = home ? "Home office schedule" : "Vehicle schedule";
   const client = f.client?.legal_name ?? "";
   const no = entryNo(f.file.year_end, e).split(" ")[0];
-  const ctx: WpCtx = { client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "Vehicle schedule", stamp: STAMP,
+  const ctx: WpCtx = { client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: schedName, stamp: STAMP,
     preparedBy: f.names.get(e.created_by ?? "") ?? "", reviewedBy: e.reviewed_by ? f.names.get(e.reviewed_by) ?? "" : "", wpBox: true };
 
   const NO = [false, false, false, false];
@@ -42,6 +43,36 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const money = (c: number | null) => (c === null ? "Not entered" : formatAmount(c));
   const layout = { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => C.border, paddingTop: () => 2.5, paddingBottom: () => 2.5 };
 
+  // The schedule's own part: its inputs and working, and the figures for the GST/HST record.
+  let top: any[], rec: { amountLabel: string; amount: number; gst: number; claim: boolean; payee: string; nature: string };
+  if (home) {
+    const hs = (s.snapshot ?? {}) as HomeSnapshot;
+    const hin = { ...readHomeInputs(s.inputs), itc: s.itc_claim as boolean };
+    const hr = calcHome(hin, { province: hs.province, regular: hs.regular, factor: hs.factor, taxCode: hs.taxCode });
+    const rows: [string, string][] = hin.mode === "area"
+      ? [["Home area (sq ft)", (hin.homeSqft ?? 0).toLocaleString("en-CA")], ["Office area (sq ft)", (hin.officeSqft ?? 0).toLocaleString("en-CA")], ["Business share", hr.sharePct]]
+      : [["Business share (typed)", hr.sharePct]];
+    rows.push(hs.regular ? ["Claim the ITC", `${hin.itc ? "Yes" : "No"} (${hs.factor ? `${hs.factor.numerator}/${hs.factor.denominator}` : "no factor"}, ${PROVINCE_NAMES[hs.province] ?? hs.province})`]
+      : ["GST/HST", "Not registered, or on the quick method: amounts are tax included"]);
+    const costBody = [[head("Cost"), head("Amount paid", true), ...(hs.regular ? [head("GST/HST in it", true)] : []), head(`Business ${hr.sharePct}`, true)],
+      ...hr.rows.map((x) => [cell(x.label), cell(x.paid ? formatAmount(x.paid) : "–", { alignment: "right" }), ...(hs.regular ? [cell(x.gstText || "–", { alignment: "right" })] : []),
+        cell(x.paid ? formatAmount(x.business) : "–", { alignment: "right" })]),
+      [cell("Total", { bold: true }), cell(formatAmount(hr.totalPaid), { alignment: "right", bold: true, border: [false, true, false, false] }),
+        ...(hs.regular ? [cell(formatAmount(hr.totalGst), { alignment: "right", bold: true, border: [false, true, false, false] })] : []),
+        cell(formatAmount(hr.totalBusiness), { alignment: "right", bold: true, border: [false, true, false, false] })]];
+    top = [{ columns: [
+      { width: 250, stack: [{ text: "Inputs", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
+        { table: { widths: [120, "*"], body: rows.map(([a, b]) => [cell(a, { color: C.grey }), cell(b)]) }, layout, fontSize: 8.5 }] },
+      { width: "*", stack: [{ text: "Costs", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
+        { table: { headerRows: 1, widths: hs.regular ? ["*", 75, 75, 80] : ["*", 90, 90], body: costBody }, layout, fontSize: 8.5 },
+        { text: hr.working, fontSize: 8, color: C.grey, margin: [0, 6, 0, 0] }] },
+    ], columnGap: 24, margin: [0, 0, 0, 12] }];
+    rec = { amountLabel: "Amount of the reimbursement", amount: hr.record.amount, gst: hr.record.gst, claim: hr.record.claim, payee: hs.payee?.name ?? "", nature: HOME_NATURE };
+  } else {
+  const snap = s.snapshot as VehicleSnapshot;
+  const inputs = { ...readInputs(s.inputs), itc: s.itc_claim as boolean };
+  const r = calcVehicle(inputs, ctxOfSnapshot(f.file, snap));
+  const y = yearParts(f.file.year_start, f.file.year_end);
   const inputRows: [string, string][] = [["Method", methodName(inputs.method)]];
   if (inputs.method === "prorated") inputRows.push(["Business km in the year", km(inputs.businessKm)]);
   else {
@@ -56,6 +87,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (snap.regular) inputRows.push(["Claim the ITC", `${inputs.itc ? "Yes" : "No"} (${snap.factor ? `${snap.factor.numerator}/${snap.factor.denominator}` : "no factor"}, ${PROVINCE_NAMES[snap.province] ?? snap.province})`]);
   else inputRows.push(["GST/HST", "Not registered, or on the quick method: amounts are tax included"]);
   inputRows.push(["Used", `${r.used === "allowance" ? "Per-km allowance" : `Actual costs, ${r.sharePct}`} (${choiceName(inputs.choice).toLowerCase()})`]);
+  top = [{ columns: [
+      { width: 330, stack: [{ text: "Inputs", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
+        { table: { widths: [190, "*"], body: inputRows.map(([a, b]) => [cell(a, { color: C.grey }), cell(b)]) }, layout, fontSize: 8.5 }] },
+      { width: "*", stack: [{ text: "Working", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
+        { table: { widths: ["*", 80], body: [
+          [cell("Per-km allowance", { bold: true }), cell(money(r.allowance), { alignment: "right", bold: true })],
+          [cell(r.actual === null ? "Actual costs" : `Actual costs, ${r.sharePct}`, { bold: true }), cell(money(r.actual), { alignment: "right", bold: true })],
+        ] }, layout, fontSize: 9 },
+        { ul: r.working, fontSize: 8, lineHeight: 1.3, color: C.grey, margin: [0, 6, 0, 0] }] },
+    ], columnGap: 24, margin: [0, 0, 0, 12] }];
+  rec = { amountLabel: r.used === "allowance" ? "Amount of the allowance" : "Amount of the reimbursement", amount: r.record.amount, gst: r.record.gst, claim: r.record.claim,
+    payee: snap.payee?.name ?? "", nature: recordNature(r.used, r.record.claim) };
+  }
 
   const acc = new Map(f.accounts.map((a) => [a.id, a]));
   const lineRows = e.lines.map((l) => { const a = acc.get(l.account_id); return [cell(`${a?.number ? `${a.number} ` : ""}${a?.name ?? ""}`), cell(l.memo ?? "", { color: C.grey }),
@@ -69,32 +113,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const date = e.entry_date ?? f.file.year_end;
   const freq = (["annual", "quarterly", "monthly"].includes(setup.gst_frequency ?? "") ? setup.gst_frequency : null) as Frequency | null;
   const period = freq ? gstPeriods(f.file.year_start, f.file.year_end, freq, { annual: 3, period: 1 }).find((x) => date >= x.start && date <= x.end) : undefined;
-  const rec = r.record;
   // Version 2b: the record prints only where the ITC is claimed (registered, regular method, "Claim the ITC" ticked).
   const recordBox = registered && rec.claim ? [
     { text: "GST/HST record", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
     { table: { widths: [150, "*"], body: [
       ["Corporation", `${client}, GST/HST number ${f.client?.business_number || "not on the client record"} ${setup.gst_rt || "RT0001"}`],
-      ["Paid to", snap.payee?.name || "Not on the client record"],
-      [r.used === "allowance" ? "Amount of the allowance" : "Amount of the reimbursement", formatAmount(rec.amount)],
+      ["Paid to", rec.payee || "Not on the client record"],
+      [rec.amountLabel, formatAmount(rec.amount)],
       ["GST/HST deemed paid", formatAmount(rec.gst)],
       ["Reporting period", period ? `${shortDate(period.start)} to ${shortDate(period.end)}` : "Filing frequency not set in step 1"],
-      ["Nature", recordNature(r.used, rec.claim)],
+      ["Nature", rec.nature],
     ].map(([a, b]) => [cell(a, { color: C.grey }), cell(b)]) }, layout: { ...layout, hLineWidth: () => 0.6, vLineWidth: () => 0.6, vLineColor: () => C.border }, fontSize: 8.5, margin: [0, 0, 0, 12] },
   ] : [];
 
   const def = wpDocument(ctx, [[
-    headerBlock(ctx, "Vehicle schedule (owner's car)", "Vehicle schedule"),
-    { columns: [
-      { width: 330, stack: [{ text: "Inputs", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
-        { table: { widths: [190, "*"], body: inputRows.map(([a, b]) => [cell(a, { color: C.grey }), cell(b)]) }, layout, fontSize: 8.5 }] },
-      { width: "*", stack: [{ text: "Working", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
-        { table: { widths: ["*", 80], body: [
-          [cell("Per-km allowance", { bold: true }), cell(money(r.allowance), { alignment: "right", bold: true })],
-          [cell(r.actual === null ? "Actual costs" : `Actual costs, ${r.sharePct}`, { bold: true }), cell(money(r.actual), { alignment: "right", bold: true })],
-        ] }, layout, fontSize: 9 },
-        { ul: r.working, fontSize: 8, lineHeight: 1.3, color: C.grey, margin: [0, 6, 0, 0] }] },
-    ], columnGap: 24, margin: [0, 0, 0, 12] },
+    headerBlock(ctx, home ? "Home office schedule" : "Vehicle schedule (owner's car)", schedName),
+    ...top,
     ...recordBox,
     { text: `Entry ${no} ${e.kind}: ${e.note}`, bold: true, color: C.navy, margin: [0, 0, 0, 4] },
     { table: { headerRows: 1, widths: [200, "*", 80, 80], body: [[head("Account"), head("Description"), head("Debit", true), head("Credit", true)], ...lineRows,
@@ -103,6 +137,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   ]]);
   const pdf = await renderWpPdf(def);
   await supabase.rpc("cb_schedule_printed", { p_schedule: s.id });
-  const base = `${client} Vehicle schedule ${no}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim();
+  const base = `${client} ${schedName} ${no}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim();
   return new Response(new Uint8Array(pdf), { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${base}.pdf"`, "cache-control": "private, no-store" } });
 }
