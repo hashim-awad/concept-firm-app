@@ -43,13 +43,14 @@ select test.check('a number in use is refused', test.try(format($f$select public
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Next number', false, '[{"line":"8860.00","amount":10},{"line":"2620.00","amount":-10}]', 'Payables listing') as e8 \gset
 select test.check('a blank number takes the next one', (select seq from public.cb_entries where id = :'e8') = 8);
 
--- Edit replaces the entry in one step, keeping its number and where it came from.
+-- Edit changes the entry in place, keeping its number, its id and where it came from (piece 2; before it, Edit
+-- replaced the entry with a new one).
 select public.cb_add_revenue_entry(:'f', 'Commission booked twice.', format('[{"account":"%s","amount":40},{"account":"%s","amount":-40}]', :'rev', :'chq')::jsonb, false, 20) as rv \gset
 select test.check('the revenue fix takes a typed number too', (select seq || ':' || origin || ':' || wp_ref from public.cb_entries where id = :'rv') = '20:revenue_check:Revenue check');
 select public.cb_edit_entry(:'rv', 'AJE', 'correction', 'Commission booked twice in December.', false, format('[{"account":"%s","amount":45},{"account":"%s","amount":-45}]', :'rev', :'chq')::jsonb, 'Revenue check') as rv2 \gset
 select test.check('an edited entry keeps its number and origin, with the new lines',
   (select seq || ':' || origin || ':' || note from public.cb_entries where id = :'rv2') = '20:revenue_check:Commission booked twice in December.'
-  and not exists (select 1 from public.cb_entries where id = :'rv')
+  and :'rv2' = :'rv'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'rv2') = 45);
 select test.check('the edit still checks every rule', test.try(format($f$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Bad', false, '[{"line":"8860.00","amount":5},{"line":"2620.00","amount":-4}]', 'Payables listing')$f$, :'rv2')) like '%does not balance%');
 -- An approved entry cannot change (the delete rule).

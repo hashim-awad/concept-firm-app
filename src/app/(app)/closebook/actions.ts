@@ -211,7 +211,8 @@ export async function addEntry(formData: FormData) {
     p_date: date, p_standard: form!.standard, p_seq: seq };
   let res: { data: unknown; error: { message: string } | null };
   if (form!.edit) {
-    // Edit (CaseWare): the entry is replaced in one step, keeping its number and its attachments.
+    // Edit (CaseWare): piece 2, the entry changes in place (same id, number, creator, standard entry link); its
+    // attachments are kept and new ones added. History records each change (cb_edit_entry).
     const { data: old } = await supabase.from("cb_entries").select("attachments").eq("id", form!.edit).eq("file_id", id).maybeSingle();
     res = await supabase.rpc("cb_edit_entry", { p_entry: form!.edit, ...args, p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
   } else if (form!.origin === "revenue_check") {
