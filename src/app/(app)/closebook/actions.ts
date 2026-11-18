@@ -14,6 +14,8 @@ import { loadFile } from "@/lib/closebook/server";
 import { DATA_SOURCE, MONTHLY_READY, fullYearStart, yearPeriod, type DataSource } from "@/lib/closebook/files";
 import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
+import { scheduleSaveArgs, type SchedForm } from "@/lib/closebook/vehicle-save";
+import { entryNo } from "@/lib/closebook/reports";
 import { STEP_KEYS, stepTitle, type StepKey } from "@/lib/closebook/steps";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -190,6 +192,9 @@ export async function addEntry(formData: FormData) {
   const f = await loadFile(supabase, id);
   if (!f) redirect(withMessage(dialog, "error", "File not found."));
   const data = await loadEntryForm(supabase, f!.file, f!.client?.province ?? "ON", f!.client?.legal_name ?? "The client");
+  // Piece 3: an entry made from a schedule (or one with schedule lines) is saved with its schedule.
+  const sf = form! as SchedForm;
+  if (sf.schedule || sf.lines.some((l) => l.sched)) return saveScheduleEntry(formData, supabase, f!, sf, data, dialog, id);
   const std = form!.standard ? data.standard.find((x) => x.id === form!.standard) ?? null : null;
   const plan = planEntry({ ...form!.head, reason: undefined }, form!.lines, new Map(data.opts.map((o) => [o.value, o])), new Map(data.codes.map((c) => [c.code, c])), data.ctx,
     new Map(data.gifiLines.map(([no, , type]) => [no, type])), std);
@@ -225,6 +230,31 @@ export async function addEntry(formData: FormData) {
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
   const msg = form!.edit ? "Entry changed. It goes to the reviewer again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer.";
+  const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
+  redirect(withMessage(after, "msg", msg));
+}
+
+async function saveScheduleEntry(formData: FormData, supabase: Awaited<ReturnType<typeof createClient>>, f: NonNullable<Awaited<ReturnType<typeof loadFile>>>,
+  form: SchedForm, data: Awaited<ReturnType<typeof loadEntryForm>>, dialog: string, id: string) {
+  const paths: string[] = [];
+  const files = formData.getAll("attachments").filter((x): x is File => x instanceof File && x.size > 0);
+  if (files.length > 10) redirect(withMessage(dialog, "error", "Up to 10 attachments. Nothing was saved."));
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) redirect(withMessage(dialog, "error", `${file.name} is over 20 MB. Nothing was saved.`));
+    const path = `closebook/${id}/entries/${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
+    const up = await createAdminClient().storage.from("documents").upload(path, new Uint8Array(await file.arrayBuffer()), { contentType: file.type || "application/octet-stream", upsert: false });
+    if (up.error) redirect(withMessage(dialog, "error", `${file.name} was not saved: ${up.error.message}. Nothing was saved.`));
+    paths.push(path);
+  }
+  const built = await scheduleSaveArgs(supabase, f, form, data, paths);
+  if ("error" in built) redirect(withMessage(dialog, "error", `Nothing was saved. ${built.error}`));
+  const res = await supabase.rpc("cb_save_schedule_entry", (built as { args: Record<string, unknown> }).args);
+  revalidatePath(`/closebook/${id}`);
+  if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
+  const { data: e } = await supabase.from("cb_entries").select("kind, number, seq").eq("id", res.data as string).maybeSingle();
+  // The green pill (round 27): "Saved AJE 2026-003".
+  const no = e ? entryNo(f.file.year_end, e as { kind: string; number: number; seq: number }) : "";
+  const msg = e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }

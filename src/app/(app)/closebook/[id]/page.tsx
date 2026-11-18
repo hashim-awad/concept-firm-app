@@ -626,13 +626,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   };
 
   // Round 15b: the journal entry dialog, over whichever tab opened it.
-  const keep = new URLSearchParams(Object.entries(sp).filter(([k, v]) => typeof v === "string" && !["new", "open", "edit", "acct", "msg", "error"].includes(k)) as [string, string][]);
+  const keep = new URLSearchParams(Object.entries(sp).filter(([k, v]) => typeof v === "string" && !["new", "open", "edit", "acct", "sched", "msg", "error"].includes(k)) as [string, string][]);
   const closeHref = `/closebook/${id}${keep.toString() ? `?${keep}` : ""}`;
   const dialogQ = new URLSearchParams(keep);
   for (const k of ["new", "open", "acct"]) if (str(sp[k])) dialogQ.set(k, str(sp[k])!);
   const dialog = await entryDialog({ supabase, file, province: client?.province ?? "ON", clientName: client?.legal_name ?? "The client", entries, accounts, names,
-    me: access.staff_id ?? "", isReviewer: isReviewer || access.is_owner, editable, closeHref, here: `/closebook/${id}?${dialogQ}`,
-    sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), error: messageFrom(sp.error) } });
+    me: access.staff_id ?? "", isReviewer: isReviewer || access.is_owner, editable, closeHref, here: `/closebook/${id}?${dialogQ}`, rdata: rdataP,
+    sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), sched: str(sp.sched), error: messageFrom(sp.error) } });
 
   // Round 34: "3.3 sign-off removed: <reason>", from History, for the person whose action removed it (last minute).
   const signoffPill = subs ? await loadSignoffPill(supabase, id, access.staff_id ?? "") : null;

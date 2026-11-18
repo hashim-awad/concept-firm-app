@@ -17,8 +17,8 @@ import { Circle } from "./entry-dialog";
 
 export type EntryStatus = "Needs review" | "Reviewed" | "No review needed";
 export const entryStatus = (e: CbEntry): EntryStatus => (!e.needs_review ? "No review needed" : e.reviewed_at ? "Reviewed" : "Needs review");
-type Source = "Typed" | "Standard entry" | "Revenue check" | "Expenses paid personally";
-const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.origin === "revenue_check" ? "Revenue check" : e.origin === "expenses_personal" ? "Expenses paid personally"
+type Source = "Typed" | "Standard entry" | "Revenue check" | "Expenses paid personally" | "Schedule";
+const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.origin === "revenue_check" ? "Revenue check" : e.origin === "expenses_personal" ? "Expenses paid personally" : e.origin === "schedule" ? "Schedule"
   : /^Standard entry/.test(e.wp_ref ?? "") || e.standard_id ? "Standard entry" : "Typed");
 const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px]";
 const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `(${t})` : t; };
@@ -43,7 +43,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
       <PanelHead>Review</PanelHead>
       {(["Needs review", "Reviewed", "No review needed"] as EntryStatus[]).map((s) => <PanelLink key={s} href={q({ status: sp.status === s ? undefined : s })} on={sp.status === s} count={count((r) => r.status === s)}>{s}</PanelLink>)}
       <PanelHead>Source</PanelHead>
-      {(["Typed", "Standard entry", "Revenue check", "Expenses paid personally"] as Source[]).map((s) => <PanelLink key={s} href={q({ source: sp.source === s ? undefined : s })} on={sp.source === s} count={count((r) => r.source === s)}>{s}</PanelLink>)}
+      {(["Typed", "Standard entry", "Revenue check", "Expenses paid personally", "Schedule"] as Source[]).map((s) => <PanelLink key={s} href={q({ source: sp.source === s ? undefined : s })} on={sp.source === s} count={count((r) => r.source === s)}>{s}</PanelLink>)}
     </>
   );
   const shown = rows.filter((r) => (!sp.type || r.type === sp.type) && (!sp.status || r.status === sp.status) && (!sp.source || r.source === sp.source));
@@ -89,7 +89,10 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
               <ChevronRight className="h-3.5 w-3.5 text-navy-600" aria-hidden />
               <Link href={open} scroll={false} className="tabular-nums font-medium text-navy-700 hover:underline">{entryNo(file.year_end, e).split(" ")[0]}</Link><span className="text-ink-3">{e.kind}</span>
               <span className="whitespace-nowrap">{formatDate(e.entry_date ?? file.year_end)}</span>
-              <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.note}</Link><span className="truncate text-ink-3">{e.wp_ref || "–"}</span>
+              <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.note}</Link>{e.origin === "schedule"
+                ? <span className="flex min-w-0 items-center gap-1.5"><Link href={e.reviewed_at || !editable || file.phase === "locked" ? open : `${open}&edit=1&sched=1`} scroll={false} className="truncate font-medium text-navy-700 underline" data-wp-link>{e.wp_ref}</Link>
+                  <span className="rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span></span>
+                : <span className="truncate text-ink-3">{e.wp_ref || "–"}</span>}
               <span className="text-right tabular-nums">{money(total)}</span>
               <span className="flex items-center gap-1">
                 <Circle kind="p" text={initials(prep)} title={`Prepared by ${prep} · ${formatDate(e.created_at)}`} />
