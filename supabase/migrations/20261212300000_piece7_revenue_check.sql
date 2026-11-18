@@ -14,8 +14,10 @@ alter table public.cb_revenue_checks add column if not exists added_by uuid refe
 
 create or replace function private.cb_revenue_added(p_file uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
+  -- The acceptances are read through to_jsonb: a database whose cb_revenue_checks lacks one of those columns (found on
+  -- the Test database: t4a_accepted_at) still creates this function and reads the others.
   select exists (select 1 from public.cb_revenue_checks r where r.file_id = p_file and (r.added_at is not null or r.explanation <> '' or r.t4a_explanation <> ''
-           or r.t4a_none or r.accepted_at is not null or r.t4a_accepted_at is not null))
+           or r.t4a_none or to_jsonb(r) ->> 'accepted_at' is not null or to_jsonb(r) ->> 't4a_accepted_at' is not null))
       or exists (select 1 from public.cb_revenue_sources s where s.file_id = p_file and s.kind <> 'gst_returns')
       or exists (select 1 from public.cb_entries e where e.file_id = p_file and e.origin = 'revenue_check');
 $$;
