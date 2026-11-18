@@ -71,7 +71,7 @@ function layout(siteUrl: string, greeting: string, lines: string[], button?: { h
     : "";
   return `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1c1f1e;line-height:1.5">
 <div style="max-width:520px;margin:0 auto;padding:24px">
-<p style="margin:0 0 20px"><img src="${escapeHtml(siteUrl)}/brand/studio-logo-navy.png" alt="Concept Studio" width="150" height="59" style="display:block;border:0"></p>
+<p style="margin:0 0 20px"><img src="${escapeHtml(siteUrl)}/brand/c-studio-navy-email.png" alt="Concept Studio" width="145" height="36" style="display:block;border:0;width:145px;height:36px"></p>
 <p style="margin:0 0 12px">${greeting}</p>${paragraphs}${cta}
 <p style="margin:24px 0 0;color:#5f6663;font-size:13px">${escapeHtml(FIRM)}</p>
 </div></body></html>`;
