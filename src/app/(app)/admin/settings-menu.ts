@@ -41,6 +41,8 @@ export const GEAR: [string, GearDef[]][] = [
       { key: "thresholds", label: "Thresholds", open: ["owner"], dir: "closebook/thresholds" },
       { key: "policy", label: "Note 1 policy", open: ["owner"], dir: "closebook/policy" },
       { key: "due-dates", label: "GST/HST due dates", open: ["owner"], dir: "closebook/gst" },
+      // Piece 1 (Hashim, Nov 18, 2026): the CRA's per-km allowance rates and the ITC factors. Owners only.
+      { key: "cra-rates", label: "CRA rates", open: ["owner"], dir: "closebook/cra-rates" },
     ] },
     { label: "Connections", href: "/admin/connections", open: ["owner"], dir: "taxdome-import" },
     { label: "Data retention", href: "/admin/retention", open: ["settings"], settingKeys: ["retention_months"], dir: "settings/retention" },

@@ -3,6 +3,7 @@ import { SettingsShell } from "../settings-shell";
 import { formatDate } from "@/lib/dates";
 import { requireOwner } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
+import { describeCraChange } from "@/lib/closebook/cra-rates";
 
 type Entry = { id: number; occurred_at: string; actor_id: string | null; action: string; entity_type: string; entity_id: string | null; details: Record<string, unknown> };
 
@@ -17,6 +18,8 @@ const ENTITY_LABEL: Record<string, string> = {
   questions: "Screening question",
   rules: "Screening rule",
   service_lines: "Service line",
+  cb_cra_km_rates: "CRA per-km rates",
+  cb_cra_itc_factors: "CRA ITC factor",
 };
 
 export default async function ActivityPage() {
@@ -57,6 +60,7 @@ function describe(e: Entry, staffName: Map<string, string>, roleName: Map<string
   const oldRow = (e.details?.old ?? {}) as Record<string, unknown>;
   const newRow = (e.details?.new ?? {}) as Record<string, unknown>;
   if (e.action === "bootstrap_owner") return `First owner set: ${staffName.get(e.entity_id ?? "") ?? ""}`;
+  if (e.entity_type.startsWith("cb_cra_")) return describeCraChange(e.entity_type, e.action, oldRow, newRow);
   if (e.entity_type === "role_permissions") {
     const area = String(newRow.area_key ?? oldRow.area_key ?? "");
     const role = roleName.get(String(newRow.role_id ?? oldRow.role_id)) ?? "role";

@@ -149,3 +149,33 @@ export async function updateGstSettings(formData: FormData) {
   revalidatePath(back.split("?")[0]);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : "Saved."));
 }
+
+// Piece 1 (Hashim, Nov 18, 2026): Closebook rules › CRA rates. The per-km allowance rates by year and the ITC
+// factor per province. Owners only here and in the database (cb_save_km_rates, cb_save_itc_factor).
+const CRA = "/admin/closebook-rules?tab=cra-rates";
+const kmRate = (f: FormData, k: string) => { const v = s(f, k).replace(/[$\s]/g, ""); return v === "" ? null : Number(v); };
+
+export async function saveKmRates(formData: FormData) {
+  await owner(CRA);
+  const isNew = s(formData, "new") === "true";
+  const yearText = s(formData, "year");
+  const year = /^\d{4}$/.test(yearText) ? Number(yearText) : null;
+  const rates = ["first_prov", "after_prov", "first_terr", "after_terr"].map((k) => kmRate(formData, k));
+  const stay = (msgKind: "msg" | "error", text: string) => redirect(withMessage(isNew ? `${CRA}&add=1` : `${CRA}&edit=${yearText}`, msgKind, text));
+  if (year === null) stay("error", "Type the year as four digits, for example 2026.");
+  if (rates.some((r) => r !== null && !Number.isFinite(r))) stay("error", "Each rate is dollars per km, for example 0.73.");
+  const { error } = await (await createClient()).rpc("cb_save_km_rates", {
+    p_year: year, p_first_prov: rates[0], p_after_prov: rates[1], p_first_terr: rates[2], p_after_terr: rates[3], p_new: isNew,
+  });
+  revalidatePath("/admin/closebook-rules");
+  if (error) stay("error", error.message);
+  redirect(withMessage(CRA, "msg", isNew ? `${year} added.` : `${year} saved.`));
+}
+
+export async function saveItcFactor(formData: FormData) {
+  await owner(CRA);
+  const province = s(formData, "province");
+  const { error } = await (await createClient()).rpc("cb_save_itc_factor", { p_province: province, p_factor: s(formData, "factor") });
+  revalidatePath("/admin/closebook-rules");
+  redirect(withMessage(`${CRA}${error ? `&itc=${province}` : ""}`, error ? "error" : "msg", error ? error.message : "ITC factor saved."));
+}
