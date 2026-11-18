@@ -134,9 +134,17 @@ export function flagged(last: number, final: number, amount: number, percent: nu
   return (change / Math.abs(last)) * 100 > percent;
 }
 
+// Piece 6 (Hashim, Nov 18, 2026): tax entries never raise a flag. The flag is tested on the final balance less this year's
+// TJE lines, against last year's balance as before; accounts whose tax code (their own, else their GIFI line's) is INCTAX or
+// AMORT are never flagged. The lead sheets still show the final balance. The database applies the same rule
+// (private.cb_step_problems).
+export const NO_FLAG_TAX = ["INCTAX", "AMORT"];
+export const flagTaxFree = (accountTax: string | null | undefined, line: Line | undefined) => NO_FLAG_TAX.includes(accountTax ?? line?.default_tax_code ?? "");
+
 export function leadSheets(
-  accounts: { id: string; number: string; name: string; line_no: string | null; last_year: number; this_year: number; last_year_line?: string | null }[],
+  accounts: { id: string; number: string; name: string; line_no: string | null; last_year: number; this_year: number; last_year_line?: string | null; tax_code?: string | null }[],
   entryTotals: Map<string, number>, lines: Map<string, Line>, sheets: { code: string; name: string }[], flag: { amount: number; percent: number },
+  tjeTotals?: Map<string, number>,
 ): LeadSheet[] {
   const out = new Map(sheets.map((s) => [s.code, { code: s.code, name: s.name, rows: [] as LeadRow[], last: 0, before: 0, entries: 0, final: 0 }]));
   for (const a of accounts) {
@@ -148,7 +156,9 @@ export function leadSheets(
     const change = Math.round((final - a.last_year) * 100) / 100;
     const row: LeadRow = { id: a.id, number: a.number, name: a.name, line, last: a.last_year, before: a.this_year, entries, final, change,
       // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
-      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, flagged: !/^36(00|60)/.test(line) && flagged(a.last_year, final, flag.amount, flag.percent), reclass: reclassNote(a.last_year_line, line) };
+      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100,
+      flagged: !/^36(00|60)/.test(line) && !(tjeTotals && flagTaxFree(a.tax_code, lines.get(line)))
+        && flagged(a.last_year, Math.round((final - (tjeTotals?.get(a.id) ?? 0)) * 100) / 100, flag.amount, flag.percent), reclass: reclassNote(a.last_year_line, line) };
     const s = out.get(sheet)!;
     s.rows.push(row); s.last += a.last_year; s.before += a.this_year; s.entries += entries; s.final += final;
   }
