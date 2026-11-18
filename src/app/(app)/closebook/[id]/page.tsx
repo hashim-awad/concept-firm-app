@@ -47,8 +47,7 @@ import type { Line } from "@/lib/closebook/gst-return";
 import { loadClose } from "@/lib/closebook/close-server";
 import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
-import { ExpensesForm } from "./expenses-form";
-import { loadExpenses, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
+import { loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankingPage } from "./step3/banking-page";
 import { LineWindow } from "./step3/feed-windows";
 import { feedLock, loadRounding, loadSignoffPill, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
@@ -59,7 +58,6 @@ import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-
 import { OpeningSchedule } from "./opening-schedule";
 import { accountChoices } from "@/lib/closebook/schedule";
 import { loadReportData } from "@/lib/closebook/report-data";
-import { keepsOwnBooks } from "@/lib/closebook/books";
 import { ReportView, REPORTS, type ReportKey } from "./report-view";
 import { gifiFor } from "@/lib/closebook/gifi-server";
 import { loadBank } from "@/lib/closebook/bank-server";
@@ -345,8 +343,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           cents: Math.round(Number(ln.amount) * 100), memo: (ln.memo ?? "") as string, account: ((ln.account as unknown as { name: string } | null)?.name ?? "") }} /></>;
     }
   } else if (step === "entries") {
-    // Step 5, Checks (round 15b): the revenue check, the shareholder loans and the expenses paid personally,
-    // each a working paper. Entries themselves live on the Entries tab.
+    // Step 5, Checks (round 15b): the revenue check and the shareholder loans, each a working paper. Entries
+    // themselves live on the Entries tab. Piece 4b: the Expenses paid personally paper is retired.
     const full = file.file_type === "full";
     const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
     const p = pickPaper(stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false }));
@@ -358,18 +356,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
     } else if (p === "sh") body = <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />;
-    else if (p === "expenses") {
-      const exp = await loadExpenses(supabase, file);
-      const booked = entries.filter((e) => e.origin === "expenses_personal");
-      body = exp ? <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Expenses paid personally">
-        {booked.length > 0 && <p className="border-b border-sand-200 px-3.5 py-2 text-[12.5px] text-ink-2">Booked: {booked.map((e) => (
-          <Link key={e.id} href={`/closebook/${id}?area=entries&open=${e.id}`} className="font-semibold text-navy-700 hover:underline">{entryNo(file.year_end, e)}</Link>))}</p>}
-        {open ? <div className="px-3.5 py-3"><ExpensesForm fileId={id} yearEnd={file.year_end} defs={exp.defs} chart={exp.chart} province={client?.province ?? "ON"} autoEntry={exp.autoEntry}
-          clientList={keepsOwnBooks(file)} ctx={{ registered: exp.registered, quick: exp.quick, autoTax: exp.autoTax }} shown={exp.shown} shareholders={exp.shareholders}
-          options={exp.options} defaults={exp.defaults} chosen={exp.chosen} rolledFrom={exp.rolledFrom} /></div>
-          : <p className="px-3.5 py-2.5 text-[12.5px] text-ink-3">Read-only.</p>}
-      </section> : soon("The \"Expenses paid personally\" standard entry is missing. Ask an owner.");
-    } else body = soon("No checks apply to this file.");
+    else body = soon("No checks apply to this file.");
   } else if (step === "review") {
     // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
     // are one click away, where the preparer explains the flagged changes for step 5.

@@ -69,7 +69,6 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
               <li><Link href={`${base}?area=entries&new=journal`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-navy-50"><Plus className="h-3.5 w-3.5" />Journal entry</Link></li>
               {standard.length > 0 && <><li className="mt-1 border-t border-sand-200 px-3 pt-2 pb-0.5 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">From a standard entry</li>
                 {standard.map((x) => <li key={x.id}><Link href={`${base}?area=entries&new=std:${x.id}`} className="block py-1.5 pr-3 pl-6 hover:bg-navy-50">{x.name}</Link></li>)}</>}
-              {(file.setup as Record<string, unknown> | null)?.owner_paid === true && <li className="mt-1 border-t border-sand-200 pt-1"><Link href={`${base}?step=entries&paper=expenses`} className="block px-3 py-1.5 hover:bg-navy-50">Expenses paid personally</Link></li>}
             </ul>
           </Popover>
         )}

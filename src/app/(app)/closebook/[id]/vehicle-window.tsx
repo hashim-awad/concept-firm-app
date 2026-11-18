@@ -5,7 +5,6 @@
 // against the actual costs, the working, "Claim the ITC", and "Put it in the entry". The figures are worked out by
 // src/lib/closebook/vehicle-schedule.ts, the same code the server runs before saving.
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { X } from "lucide-react";
 import { formatAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { calcVehicle, shortDate, yearParts, PROVINCE_NAMES, type Choice, type Method, type VehicleInputs, type VehicleResult } from "@/lib/closebook/vehicle-schedule";

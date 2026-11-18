@@ -15,6 +15,8 @@ import { calcVehicle, inputChanges, readInputs, ITC_ACCOUNT } from "./vehicle-sc
 import { formatAmount } from "./amount";
 import { loadHome } from "./home-office-server";
 import { calcHome, homeChanges, readHomeInputs, HOME_WP_REF } from "./home-office";
+import { loadExpensesSchedule } from "./expenses-schedule-server";
+import { calcExpenses, expChanges, readExpInputs, EXP_WP_REF } from "./expenses-schedule";
 
 export type SchedForm = { head: FormHead; date: string; lines: (FormLine & { sched?: string; isTax?: boolean })[]; seq?: string; edit?: string; schedule?: { kind?: string; inputs: unknown } | null };
 
@@ -31,14 +33,33 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   const province = f.client?.province ?? "ON";
   // Piece 4: the schedule's kind: what was put in, else the one saved with the entry.
   const storedKind = entry ? ((await supabase.from("cb_schedules").select("kind").eq("entry_id", entry.id).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
-  const kind = form.schedule?.kind === "home_office" ? "home_office" : form.schedule ? "vehicle" : storedKind ?? "vehicle";
+  const kind = form.schedule?.kind === "home_office" || form.schedule?.kind === "expenses" ? form.schedule.kind : form.schedule ? "vehicle" : storedKind ?? "vehicle";
   if (form.schedule && storedKind && storedKind !== kind) return { error: "This entry holds another schedule." };
 
   // The schedule's lines: worked out again, or the entry's own when the schedule was not put in again.
   type L = { part: string; amount: number; memo: string; tax_code?: string | null; is_tax?: boolean; dflt: string };
   let sched: L[] = [];
   let payload: Record<string, unknown> | null = null;
-  if (form.schedule && kind === "home_office") {
+  if (form.schedule && kind === "expenses") {
+    // Piece 4b: Expenses paid personally. Each line on the account chosen in the schedule.
+    const xd = await loadExpensesSchedule(supabase, f.file, province, f.accounts, entry?.id ?? null, canItc, data.opts);
+    const inputs = readExpInputs(form.schedule.inputs);
+    if (!canItc) inputs.itc = xd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
+    const r = calcExpenses(inputs, xd.ctx);
+    const hard = r.problems.find((p) => p.hard);
+    if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };
+    sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
+      dflt: l.account ?? (l.is_tax ? `chart:${ITC_ACCOUNT}` : xd.acct[l.number] ?? `chart:${l.number}`) }));
+    const usedAccts = Object.fromEntries(inputs.lines.filter((l) => l.acct && xd.ctx.accts[l.acct]).map((l) => [l.acct!, xd.ctx.accts[l.acct!]]));
+    payload = {
+      kind: "expenses", itc: inputs.itc, inputs,
+      snapshot: { province: xd.ctx.province, regular: xd.ctx.regular, factor: xd.ctx.factor, taxCode: xd.ctx.taxCode, mealsCode: xd.ctx.mealsCode, accts: usedAccts, payee: r.record.payee },
+      result: { expense: r.expense, itc: r.itc, owed: r.owed, working: r.working },
+      lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
+      changes: xd.stored ? expChanges(xd.stored.inputs, inputs, { ...(xd.stored.snapshot?.accts ?? {}), ...xd.ctx.accts }) : [],
+      summary: `Owed to the owner ${formatAmount(r.owed)} (${r.rows.filter((x) => x.paid).length} lines)`,
+    };
+  } else if (form.schedule && kind === "home_office") {
     const hd = await loadHome(supabase, f.file, province, f.accounts, entry?.id ?? null, canItc, data.opts);
     const inputs = readHomeInputs(form.schedule.inputs);
     if (!canItc) inputs.itc = hd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
@@ -106,6 +127,6 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   const date = /^\d{4}-\d{2}-\d{2}$/.test(form.date) ? form.date : null;
   return { args: {
     p_file: f.file.id, p_entry: entry?.id ?? null, p_kind: form.head.kind, p_reason: reasonFor({ ...form.head, reverse: false }, false), p_note: form.head.memo, p_reverse: false,
-    p_lines: rpc, p_wp_ref: form.head.wpRef || (kind === "home_office" ? HOME_WP_REF : "Vehicle schedule"), p_date: date, p_attachments: [...(entry?.attachments ?? []), ...paths].slice(0, 10), p_seq: seq, p_schedule: payload,
+    p_lines: rpc, p_wp_ref: form.head.wpRef || (kind === "home_office" ? HOME_WP_REF : kind === "expenses" ? EXP_WP_REF : "Vehicle schedule"), p_date: date, p_attachments: [...(entry?.attachments ?? []), ...paths].slice(0, 10), p_seq: seq, p_schedule: payload,
   } };
 }

@@ -90,7 +90,8 @@ test("open type flags hold the matching step and show on step 7", () => {
 test("step papers show only when they apply", () => {
   const base = { full: true, shareholders: false, ownerPaid: false, gst: false };
   assert.deepEqual(stepPapers("entries", base).map((p) => p.key), ["revenue"]);
-  assert.deepEqual(stepPapers("entries", { ...base, shareholders: true, ownerPaid: true }).map((p) => p.name), ["Revenue check", "Shareholder loans", "Expenses paid personally"]);
+  // Piece 4b (approved change): the Expenses paid personally paper is retired; the setup answer adds nothing.
+  assert.deepEqual(stepPapers("entries", { ...base, shareholders: true, ownerPaid: true }).map((p) => p.name), ["Revenue check", "Shareholder loans"]);
   assert.deepEqual(stepPapers("entries", { ...base, full: false, shareholders: true }).map((p) => p.key), ["sh"]);
   assert.deepEqual(stepPapers("t2", base).map((p) => p.name), ["GIFI file", "Tax workpaper", "T2 tie-out"]);
   assert.deepEqual(stepPapers("t2", { ...base, gst: true }).map((p) => p.key), ["gifi", "taxwp", "tie", "gst"]);
