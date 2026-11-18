@@ -110,7 +110,7 @@ export function ReclassifyPage({ data, initialAccount }: { data: ReclassifyData;
               <th className="px-2 py-2"><input type="checkbox" aria-label="Tick every line that matches" checked={allTicked} disabled={!movable.length || data.locked}
                 onChange={() => setTicked(allTicked ? new Set() : new Set(movable.map((r) => r.id)))} /></th>
               <th className={th}>Date</th><th className={th}>Source</th><th className={th}>Account no.</th><th className={th}>Account</th><th className={th}>Description</th><th className={th}>Sales tax</th>
-              <th className={`${th} text-right`}>Amount</th></tr></thead>
+              <th className={`${th} text-right`} title="The amount before sales tax">Net amount</th></tr></thead>
             <tbody>{rows.slice(0, shown).map((r) => <Row key={r.id} r={r} on={ticked.has(r.id)} toggle={toggle} taxName={taxName} />)}</tbody>
           </table>
           {!rows.length && <p className="px-4 py-4 text-[13.5px] text-ink-3">No transactions match.</p>}

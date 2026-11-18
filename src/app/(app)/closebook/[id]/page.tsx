@@ -566,12 +566,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const tbLeft = (
     <>
       <PanelHead>Views</PanelHead>
-      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k}>{l}</PanelLink>)}
+      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
       <PanelHead>Reports</PanelHead>
       {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
-      {/* Round 38: tools that change many lines at once (QuickBooks Online's Reclassify Transactions). */}
-      <PanelHead>Tools</PanelHead>
-      <PanelLink href={`/closebook/${id}?area=tb&tool=reclassify`} on={tool === "reclassify"}>Reclassify transactions</PanelLink>
     </>
   );
   let left: React.ReactNode = stepRail, folded: React.ReactNode = stepRailFolded, content: React.ReactNode = body;
@@ -642,6 +639,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
+      tools={{ on: !!tool, journal: editable && file.file_type === "full" && file.phase !== "locked" }}
       history={access.is_owner} left={left} folded={folded} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}
