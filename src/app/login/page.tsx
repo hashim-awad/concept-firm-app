@@ -1,7 +1,11 @@
+import { STUDIO_ICONS } from "@/components/ds/brand";
 import Link from "next/link";
 import { AuthCard, Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import { signIn } from "./actions";
+
+// Round 37: staff screens show the C Studio tab icon (client pages keep the Concept icon).
+export const metadata = { icons: STUDIO_ICONS };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const sp = await searchParams;

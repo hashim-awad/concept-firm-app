@@ -1,6 +1,10 @@
+import { STUDIO_ICONS } from "@/components/ds/brand";
 import Link from "next/link";
 import { AuthCard } from "@/components/ui";
 import { requestReset } from "./actions";
+
+// Round 37: staff screens show the C Studio tab icon (client pages keep the Concept icon).
+export const metadata = { icons: STUDIO_ICONS };
 
 export default function ForgotPasswordPage() {
   return (

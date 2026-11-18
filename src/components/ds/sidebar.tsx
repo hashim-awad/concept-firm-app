@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, Pin, PinOff, Search } from "lucide-react";
-import { StudioLogo } from "./brand";
+import { StudioLogo, StudioMark } from "./brand";
 
 // children: sub-items, shown under the item when it is open (its page or one of theirs is showing).
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: string; soon?: boolean; children?: NavItem[] };
@@ -33,14 +33,14 @@ function parse(raw: string): string[] {
 //   counts as a 16 px pill at the right; the selected item a light background, 40 px tall, 8 px corners,
 //   inset 2 px left and 9 px right. Sub-items: label at 36 px, a guide line at 16 px, the selected one a
 //   3 px bar on that line.
-//   Unpinned: 64 px wide, icons centred in the same 40 px rows, "CA" for the logo, the selected icon in a
+//   Unpinned: 64 px wide, icons centred in the same 40 px rows, the C Studio mark (32 px) for the logo, the selected icon in a
 //   rounded square, the label as a tooltip on hover.
 //   One pin button at the bottom: "Unpin menu" / "Pin menu".
 export function Sidebar({ groups, footer, user, onSearch, bottom, compact, pin }: { groups: NavGroup[]; footer?: ReactNode; user?: { name: string; role: string }; onSearch?: () => void; bottom?: NavItem; compact?: boolean; pin?: MenuPin }) {
   const closed = parse(useSyncExternalStore(subscribe, readClosed, () => "[]"));
   if (compact) return (
     <aside className="flex h-full w-16 flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white" aria-label="Main menu" data-menu="unpinned">
-      <Link href="/" className="grid h-14 shrink-0 place-items-center text-[17px] font-extrabold tracking-tight" title="Concept Studio" aria-label="Concept Studio">CA</Link>
+      <Link href="/" className="grid h-14 shrink-0 place-items-center" title="Concept Studio" aria-label="Concept Studio"><StudioMark tone="white" size={32} /></Link>
       {onSearch && <div className="flex justify-center"><IconButton label="Find a client" onClick={onSearch}><Search aria-hidden /></IconButton></div>}
       <nav aria-label="Main" className="sidebar-scroll flex flex-1 flex-col items-center overflow-y-auto pt-1">
         {groups.flatMap((g) => g.items.filter((i) => !i.soon)).map((i) => <IconLink key={i.label} i={i} />)}
@@ -53,7 +53,8 @@ export function Sidebar({ groups, footer, user, onSearch, bottom, compact, pin }
   const toggle = (label: string) => writeClosed(closed.includes(label) ? closed.filter((x) => x !== label) : [...closed, label]);
   return (
     <aside className="flex h-full w-[232px] flex-col bg-gradient-to-b from-navy-800 to-navy-950 text-white" aria-label="Main menu" data-menu="pinned">
-      <div className="px-4 pt-4 pb-3 [@media(max-height:820px)]:pt-3 [@media(max-height:820px)]:pb-2"><StudioLogo tone="white" height={46} /></div>
+      {/* The C Studio logo, 36 px tall, its left edge in line with the menu icons (8 px). */}
+      <Link href="/" aria-label="Concept Studio" className="block pt-4 pr-[9px] pb-3 pl-2 [@media(max-height:820px)]:pt-3 [@media(max-height:820px)]:pb-2"><StudioLogo tone="white" height={36} priority /></Link>
       {onSearch && (
         <div className="pr-[9px] pb-2 pl-[2px]">
           <button type="button" onClick={onSearch}
