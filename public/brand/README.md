@@ -28,4 +28,6 @@ Navy #142E64, green #86BC25, white.
 | studio-apple-touch-icon.png | 180 px, navy mark on white |
 
 Client pages, signing pages, emails and documents keep the Concept logo and the Concept tab icon (src/app/icon.svg).
-studio-logo-navy.png / -white.png: the old Studio logo, still used by staff emails (email clients do not show SVG).
+c-studio-navy-email.png: c-studio-navy-500.svg drawn on white at 2x (290 x 72), shown 145 x 36 in every staff-only email
+(invites, password resets and changes, lead alerts); email clients do not show SVG.
+studio-logo-navy.png / -white.png: the old Studio logo, no longer used; kept so emails already sent still show it.

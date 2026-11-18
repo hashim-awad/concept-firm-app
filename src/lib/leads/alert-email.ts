@@ -31,7 +31,7 @@ export function buildLeadAlert(kind: "new" | "reminder", l: AlertLead, siteUrl: 
   const href = `${siteUrl}/leads/${encodeURIComponent(l.id)}`;
   const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1c1f1e;line-height:1.5">
 <div style="max-width:520px;margin:0 auto;padding:24px">
-<p style="margin:0 0 20px"><img src="${esc(siteUrl)}/brand/studio-logo-navy.png" alt="Concept Studio" width="150" height="59" style="display:block;border:0"></p>
+<p style="margin:0 0 20px"><img src="${esc(siteUrl)}/brand/c-studio-navy-email.png" alt="Concept Studio" width="145" height="36" style="display:block;border:0;width:145px;height:36px"></p>
 <p style="margin:0 0 12px">${esc(intro)}</p>
 <table style="border-collapse:collapse;margin:0 0 16px">${rows}</table>
 <p style="margin:20px 0"><a href="${esc(href)}" style="background:#1A3C7C;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Open the lead</a></p>
