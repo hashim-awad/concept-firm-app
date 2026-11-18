@@ -44,6 +44,17 @@ select test.check('T1: History has the lines, old and new',
 select test.check('T1: only what changed is in History (description and lines)',
   (select string_agg(reason, ',' order by reason) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 'Description,Lines');
 
+-- Piece 2b: "Last changed by" for anyone who can view Closebook; History itself stays owner-only.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('2b: staff see who changed the entry last and when (the owner, today)',
+  (select changed_by || ' · ' || (changed_at::date = current_date) from public.cb_entry_last_change(:'e1')) = 'Test Owner A · true');
+select test.check('2b: staff still cannot read the file history (round 8 rule)', (select count(*) from public.cb_file_history where file_id = :'f') = 0);
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select test.check('2b: owners see the same line, and can read the history', (select changed_by from public.cb_entry_last_change(:'e1')) = 'Test Owner A'
+  and (select count(*) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 2);
+reset role;
+
 -- Other fields: type, date, W/P ref, number; a number in use is refused.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -109,6 +120,12 @@ select public.cb_add_entry(:'f', 'AJE', 'accrual', 'Licence fee accrual, Septemb
 reset role;
 insert into t4 select 'delete and add (before)', string_agg(s, ',' order by s) from unnest(array['code', 'entries', 'review', 't2']) s
   where not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = s);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('2b: a new entry that took a deleted entry''s number shows no "Last changed" line', not exists (select 1 from public.cb_entry_last_change(:'e1')));
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Never changed', false, '[{"chart":"60000","amount":20},{"chart":"21100","amount":-20}]', 'Payables listing') as e9 \gset
+select test.check('2b: a new, unedited entry shows no "Last changed" line', not exists (select 1 from public.cb_entry_last_change(:'e9')));
+reset role;
 select test.check('T4: an edit clears steps 5, 7 and 8 and keeps step 4, as before',
   (select cleared from t4 where how = 'edit in place') = 'entries,review,t2' and (select cleared from t4 where how = 'delete and add (before)') = 'entries,review,t2');
 select test.check('T4: the reason names the entry', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'entries' and detail like 'Entry 2026-001%'));
