@@ -80,7 +80,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     rows.push(hs.regular ? ["Claim the ITC", `${hin.itc ? "Yes" : "No"} (${hs.factor ? `${hs.factor.numerator}/${hs.factor.denominator}` : "no factor"}, ${PROVINCE_NAMES[hs.province] ?? hs.province})`]
       : ["GST/HST", "Not registered, or on the quick method: amounts are tax included"]);
     const costBody = [[head("Cost"), head("Amount paid", true), ...(hs.regular ? [head("GST/HST in it", true)] : []), head(`Business ${hr.sharePct}`, true)],
-      ...hr.rows.map((x) => [cell(x.label), cell(x.paid ? formatAmount(x.paid) : "–", { alignment: "right" }), ...(hs.regular ? [cell(x.gstText || "–", { alignment: "right" })] : []),
+      ...hr.rows.map((x) => [cell(x.office ? `${x.label}  (100%)` : x.label), cell(x.paid ? formatAmount(x.paid) : "–", { alignment: "right" }), ...(hs.regular ? [cell(x.gstText || "–", { alignment: "right" })] : []),
         cell(x.paid ? formatAmount(x.business) : "–", { alignment: "right" })]),
       [cell("Total", { bold: true }), cell(formatAmount(hr.totalPaid), { alignment: "right", bold: true, border: [false, true, false, false] }),
         ...(hs.regular ? [cell(formatAmount(hr.totalGst), { alignment: "right", bold: true, border: [false, true, false, false] })] : []),
