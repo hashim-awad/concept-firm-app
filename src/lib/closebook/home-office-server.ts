@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CbFileRow } from "./files";
 import type { CbAccount } from "./server";
 import { defaultTaxCode } from "./sales-tax";
-import { HOME_EXPENSE, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT, readHomeInputs, type HomeCtx, type HomeInputs } from "./home-office";
+import { HOME_EXPENSE, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT, readHomeInputs, upgradeHomeInputs, type HomeCtx, type HomeInputs } from "./home-office";
 
 export type HomeStored = { id: string; entry_id: string; itc_claim: boolean; inputs: HomeInputs; snapshot: HomeSnapshot | null };
 // What the schedule was calculated with, kept with it (the PDF prints from it).
@@ -55,8 +55,9 @@ export async function loadHome(supabase: SupabaseClient, file: CbFileRow, provin
     if (row) hints = readHomeInputs(row.inputs);
   }
   const f = factor as { numerator: number; denominator: number } | null;
+  const ctx: HomeCtx = { province, regular, factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, taxCode: regular ? defaultTaxCode("GST/HST", province, HOME_EXPENSE) : null, payee, bnMissing };
+  // Piece 4c: a schedule saved with the piece 4 rows shows in the new rows (read only; nothing is written back).
   return {
-    ctx: { province, regular, factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, taxCode: regular ? defaultTaxCode("GST/HST", province, HOME_EXPENSE) : null, payee, bnMissing },
-    stored, hints, canItc, acct, names,
+    ctx, stored: stored ? { ...stored, inputs: upgradeHomeInputs(stored.inputs, ctx) } : null, hints: hints ? upgradeHomeInputs(hints, ctx) : null, canItc, acct, names,
   };
 }

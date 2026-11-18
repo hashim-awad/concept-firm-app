@@ -77,7 +77,7 @@ export function HomeWindow({ data, initial, canPrint, printHref, onPut, onClose 
             <tbody>
               {r.rows.map((row) => (
                 <tr key={row.key} className="border-b border-sand-100 align-top">
-                  <td className="px-2 py-1.5">{row.label}{rowProblems.filter((p) => p.field === row.key).map((p) => <span key={p.text} role="alert" className="block text-[12px] text-danger">{p.text}</span>)}</td>
+                  <td className="px-2 py-1.5">{row.label}{row.office && <span className="ml-1.5 rounded bg-navy-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-navy-700" data-office-tag>100%</span>}{rowProblems.filter((p) => p.field === row.key).map((p) => <span key={p.text} role="alert" className="block text-[12px] text-danger">{p.text}</span>)}</td>
                   <td className="px-2 py-1"><input aria-label={`${row.label} amount paid`} inputMode="decimal" value={paid[row.key] ?? ""} onChange={(e) => setPaid({ ...paid, [row.key]: e.target.value })}
                     onBlur={(e) => setPaid({ ...paid, [row.key]: tidyAmount(e.target.value) })} className={cell} />
                     {h?.costs[row.key as CostKey]?.paid != null && <span className="block text-right text-[11px] text-ink-3">Last year: {money(h.costs[row.key as CostKey]!.paid)}</span>}</td>
