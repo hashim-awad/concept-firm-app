@@ -23,6 +23,9 @@ import { JournalForm, type JournalInit } from "../journal-form";
 import { NoteOnItem } from "../note-on-item";
 import { QBO_TYPES } from "../entries-tab";
 import { initials } from "../shell/shell";
+import type { ReportData } from "@/lib/closebook/report-data";
+import { loadVehicle } from "@/lib/closebook/vehicle-server";
+import { ConfirmDelete } from "../vehicle-window";
 
 const KIND_WORD: Record<string, string> = { AJE: "Adjusting (AJE)", RJE: "Reclassifying (RJE)", TJE: "Tax, from ProFile (TJE)" };
 const money = (n: number) => (Math.abs(n) / 1).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,11 +40,11 @@ function Frame({ closeHref, children, wide = true }: { closeHref: string; childr
   );
 }
 
-export async function entryDialog({ supabase, file, province, clientName, entries, accounts, names, me, isReviewer, editable, sp, closeHref, here }: {
+export async function entryDialog({ supabase, file, province, clientName, entries, accounts, names, me, isReviewer, editable, sp, closeHref, here, rdata }: {
   supabase: SupabaseClient; file: CbFileRow; province: string; clientName: string; entries: CbEntry[]; accounts: CbAccount[]; names: Map<string, string>;
   me: string; isReviewer: boolean; editable: boolean;
-  sp: { new?: string; open?: string; edit?: string; acct?: string; error?: string | null };
-  closeHref: string; here: string;
+  sp: { new?: string; open?: string; edit?: string; acct?: string; sched?: string; error?: string | null };
+  closeHref: string; here: string; rdata: Promise<ReportData>;
 }): Promise<ReactNode> {
   if (!sp.new && !sp.open) return null;
   if (file.file_type !== "full") return null;
@@ -57,10 +60,13 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     return a?.account_key.startsWith("chart:") && form.opts.some((o) => o.value === a.account_key) ? a.account_key : accountId;
   })());
   // An entry's own lines, back as the form's lines (the GIFI/HST lines are worked out again).
-  const linesOf = (e: CbEntry, flip = false): FormLine[] => e.lines.filter((l) => !l.is_tax).map((l) => {
+  // Piece 3: when editing, a schedule's lines keep their part (the Schedule tag), its GST/HST lines included.
+  const linesOf = (e: CbEntry, flip = false): FormLine[] => e.lines.filter((l) => !l.is_tax || (!flip && l.schedule_part)).map((l) => {
     const v = flip ? -l.amount : l.amount;
-    return { ...blankLine(), acct: optOf(l.account_id), desc: l.memo ?? "", dr: v > 0 ? cents(v) : "", cr: v < 0 ? cents(v) : "", tax: l.tax_code ?? "none" };
+    return { ...blankLine(), acct: optOf(l.account_id), desc: l.memo ?? "", dr: v > 0 ? cents(v) : "", cr: v < 0 ? cents(v) : "", tax: l.tax_code ?? "none",
+      ...(!flip && l.schedule_part ? { sched: l.schedule_part, isTax: !!l.is_tax } : {}) };
   });
+  const pdfHref = (e: CbEntry) => `/closebook/${file.id}/schedule-pdf?entry=${e.id}`;
   const formProps = { fileId: file.id, yearStart: file.year_start, yearEnd: file.year_end, clientList: file.books === "client_software" || file.books === "bookkeeper",
     opts: form.opts, gifiLines: form.gifiLines, codes: form.codes, ctx: form.ctx, standard: form.standard, threshold: form.threshold, qboTypes: QBO_TYPES,
     closeHref, backHref: here, problem: sp.error ?? null };
@@ -90,23 +96,28 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           <span className="flex-1" />
           {canChange && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
           {entry.origin === "expenses_personal" && editable && !locked && <Link href={`${base}?step=entries&paper=expenses`} className={act}>Open the paper</Link>}
-          {editable && !locked && entry.origin !== "expenses_personal" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
+          {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
+          {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}
           {canChange && <form action={deleteEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} />
-            <button type="submit" className="btn-secondary btn-compact border-danger/30 text-danger">Delete</button></form>}
+            {entry.origin === "schedule" ? <ConfirmDelete message="Delete the entry and its schedule?" /> : <button type="submit" className="btn-secondary btn-compact border-danger/30 text-danger">Delete</button>}</form>}
           <Link href={closeHref} aria-label="Close" className="ml-1 rounded p-1 text-ink-3 hover:bg-sand-100"><X className="h-[18px] w-[18px]" /></Link>
         </div>
         <div className="grid max-h-[calc(100vh-200px)] gap-4 overflow-y-auto px-5 py-4">
           <div className="grid gap-4 md:grid-cols-[8rem_9rem_12rem_minmax(0,1fr)_12rem]">
             {fieldsRow("No.", <span className="tabular-nums">{no}</span>)}{fieldsRow("Date", formatDate(entry.entry_date ?? file.year_end))}{fieldsRow("Type", KIND_WORD[entry.kind] ?? entry.kind)}
-            {fieldsRow("Description", entry.note)}{fieldsRow("W/P ref", entry.wp_ref || "–")}
+            {fieldsRow("Description", entry.note)}{fieldsRow("W/P ref", entry.origin === "schedule"
+              ? <Link href={canChange ? `${here}&edit=1&sched=1` : pdfHref(entry)} className="font-semibold text-navy-700 underline" data-wp-link>{entry.wp_ref}</Link> : entry.wp_ref || "–")}
           </div>
           <table className="w-full border-collapse text-[13px]">
             <thead><tr className="border-b border-sand-200 text-left text-[11px] font-semibold text-ink-3"><th className="w-8 py-1.5">#</th><th className="py-1.5">Account</th><th className="py-1.5">Description</th>
               <th className="py-1.5 text-right">Debit</th><th className="py-1.5 text-right">Credit</th>{form.ctx.registered && <th className="py-1.5 pl-4">Sales tax</th>}</tr></thead>
             <tbody>{lines.map((l, i) => (
               <tr key={i} className={`border-b border-sand-100 ${l.is_tax ? "text-ink-2" : ""}`}><td className="py-1.5 text-ink-3">{l.is_tax ? "" : i + 1}</td><td className="py-1.5">{accName(l.account_id)}</td>
-                <td className="py-1.5 text-ink-2">{l.memo}</td><td className="py-1.5 text-right tabular-nums">{l.amount > 0 ? money(l.amount) : ""}</td><td className="py-1.5 text-right tabular-nums">{l.amount < 0 ? money(-l.amount) : ""}</td>
+                <td className="py-1.5 text-ink-2">{l.memo}</td>
+                {[l.amount > 0, l.amount < 0].map((side, k) => <td key={k} className="py-1.5 text-right tabular-nums">{side && l.schedule_part && (canChange
+                  ? <Link href={`${here}&edit=1&sched=1`} title="From the Vehicle schedule: change it there" className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</Link>
+                  : <span className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span>)}{side ? money(Math.abs(l.amount)) : ""}</td>)}
                 {form.ctx.registered && <td className="py-1.5 pl-4 text-ink-2">{l.is_tax ? "" : l.tax_code ? form.codes.find((c) => c.code === l.tax_code)?.name ?? l.tax_code : "No tax"}</td>}</tr>
             ))}
               <tr className="font-bold"><td /><td className="py-1.5 text-right" colSpan={2}>Total</td><td className="border-t border-ink py-1.5 text-right tabular-nums">{money(dr)}</td><td className="border-t border-ink py-1.5 text-right tabular-nums">{money(dr)}</td>{form.ctx.registered && <td />}</tr></tbody>
@@ -131,7 +142,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           </div>
           <p className="text-[12px] text-ink-3">{entry.attachments?.length ? `Attachments: ${entry.attachments.map((p) => p.split("/").pop()!.replace(/^\d+-/, "")).join(", ")}` : "No attachment"}
             {" · "}{entry.reverse_next_year ? "Reverses on the first day of next year" : "Not reversed next year"}
-            {entry.origin === "revenue_check" ? " · From the revenue check" : entry.origin === "expenses_personal" ? " · Expenses paid personally" : ""}</p>
+            {entry.origin === "revenue_check" ? " · From the revenue check" : entry.origin === "expenses_personal" ? " · Expenses paid personally" : entry.origin === "schedule" ? " · From the Vehicle schedule" : ""}</p>
         </div>
         <div className="flex justify-end rounded-b-[10px] border-t border-sand-200 bg-sand-50 px-5 py-3"><Link href={closeHref} className="btn-secondary btn-compact">Close</Link></div>
       </Frame>
@@ -148,6 +159,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     title = `Edit journal entry ${entryNo(file.year_end, entry).split(" ")[0]}`;
     edit = entry.id; kept = entry.attachments ?? [];
     origin = entry.origin === "revenue_check" ? "revenue_check" : undefined;
+    if (entry.origin === "schedule") lock = { kind: true };
     if (origin) lock = { kind: true, wp: true };
     init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
   } else if (sp.new?.startsWith("std:")) {
@@ -180,9 +192,14 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   } else {
     init = sp.acct ? { lines: [{ ...blankLine(), acct: optOf(sp.acct) }, blankLine()] } : {};
   }
+  // Piece 3: the Vehicle schedule, on every full file (a new entry, or the entry it fills).
+  const schedEntry = edit && entry?.origin === "schedule" ? entry : undefined;
+  const vehicle = !origin && !init.std && !sp.new?.match(/^(dup|rev):/) && (!edit || schedEntry)
+    ? await loadVehicle(supabase, file, province, entries, accounts, await rdata, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
-      <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept} />
+      <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
+        vehicle={vehicle} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
   );
 }

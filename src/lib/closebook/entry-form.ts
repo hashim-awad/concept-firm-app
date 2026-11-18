@@ -8,7 +8,9 @@ import { formatAmount, parseAmount } from "./amount.ts";
 // the file on save), "line:8670.00" (a GIFI line with no chart account) or "new" (a new account in the
 // books of a client who keeps their own, named on the line).
 export type AcctOpt = { value: string; label: string; type: string; line_no: string; group: string };
-export type FormLine = { acct: string; dr: string; cr: string; desc: string; tax: string; newName: string; newType: string; newLine: string };
+// Piece 3: a line filled by a schedule carries its part (sched) and, on a GST/HST line, isTax. Its amount is the
+// schedule's; only its account and description change in the form.
+export type FormLine = { acct: string; dr: string; cr: string; desc: string; tax: string; newName: string; newType: string; newLine: string; sched?: string; isTax?: boolean };
 // Round 15b: the dialog has no Reason field. The reason is worked out from the entry (reasonFor); "inclusive"
 // is QuickBooks Online's "Amounts are: including tax".
 export type FormHead = { kind: string; reason?: string; wpRef: string; memo: string; reverse: boolean; inclusive?: boolean };

@@ -7,6 +7,7 @@
 // first day of next year". Save, Save and new, Cancel. Save only when the entry passes every rule.
 // There is no Reason field: the reason the database's rules use is worked out from the entry (reasonFor).
 import { useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { useUnsavedGuard } from "@/components/save-state";
@@ -16,6 +17,9 @@ import type { TaxCode, TaxContext } from "@/lib/closebook/sales-tax";
 import { addEntry } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
 import { amountTone } from "@/components/amount";
+import { DESCRIPTION, ITC_ACCOUNT, WP_REF, emptyInputs, type VehicleInputs, type VehicleResult } from "@/lib/closebook/vehicle-schedule";
+import type { VehicleData } from "@/lib/closebook/vehicle-server";
+import { VehicleWindow } from "./vehicle-window";
 
 const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
@@ -24,11 +28,13 @@ const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Ca
 export type JournalInit = { head?: Partial<FormHead>; lines?: FormLine[]; std?: string; seq?: string; date?: string; balanceLast?: boolean };
 
 export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes,
-  init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [] }: {
+  init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, openSchedule = false, printHref = "" }: {
   fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string][];
   codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
   init?: JournalInit; lock?: { kind?: boolean; wp?: boolean }; origin?: string; edit?: string;
   closeHref: string; backHref: string; problem?: string | null; keptAttachments?: string[];
+  // Piece 3: the Vehicle schedule (every full file); printHref once the entry is saved.
+  vehicle?: VehicleData; openSchedule?: boolean; printHref?: string;
 }) {
   const optMap = useMemo(() => new Map(opts.map((o) => [o.value, o])), [opts]);
   const codeMap = useMemo(() => new Map(codes.map((c) => [c.code, c])), [codes]);
@@ -53,7 +59,33 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const [typed, setTyped] = useState<Record<number, string>>({});
   const [stdAmount, setStdAmount] = useState("");
   const std = s0 ? { kind: s0.kind, reason: s0.reason, reverse: s0.reverse } : null;
-  const plan = planEntry(head, lines, optMap, codeMap, ctx, lineTypes, std);
+  // Piece 3: lines from a schedule keep the schedule's amounts; the entry form's rules apply to the other lines.
+  const [vIn, setVIn] = useState<VehicleInputs | null>(null);
+  const [vOpen, setVOpen] = useState(openSchedule && !!vehicle);
+  const [menu, setMenu] = useState(false);
+  const schedLines = lines.filter((l) => l.sched);
+  const hasSched = schedLines.length > 0;
+  const other = hasSched ? lines.filter((l) => !l.sched && (l.acct || l.dr.trim() || l.cr.trim())) : lines;
+  const plan0 = planEntry(head, other, optMap, codeMap, ctx, lineTypes, std);
+  const sDr = schedLines.reduce((n, l) => n + (parseAmount(l.dr) ?? 0), 0), sCr = schedLines.reduce((n, l) => n + (parseAmount(l.cr) ?? 0), 0);
+  const plan = hasSched ? { ...plan0, dr: plan0.dr + sDr, cr: plan0.cr + sCr, problems: [
+    ...schedLines.filter((l) => !l.isTax && !l.acct).map(() => "A schedule line needs an account."),
+    ...plan0.problems.filter((p) => !(other.length === 0 && p === "Enter at least two lines."))] } : plan0;
+  const putSchedule = (inputs: VehicleInputs, r: VehicleResult) => {
+    const prev = new Map(schedLines.map((l) => [l.sched!, l]));
+    const fresh: FormLine[] = r.lines.map((l) => {
+      const p = prev.get(l.part);
+      const dflt = l.account ?? vehicle?.acct[l.number] ?? `chart:${l.number}`;
+      return { ...blankLine(), acct: l.is_tax ? vehicle?.acct[ITC_ACCOUNT] ?? `chart:${ITC_ACCOUNT}` : p?.acct || dflt, desc: p?.desc || l.memo,
+        dr: l.amount > 0 ? formatAmount(l.amount) : "", cr: l.amount < 0 ? formatAmount(-l.amount) : "", tax: l.tax_code ?? "none", sched: l.part, isTax: !!l.is_tax };
+    });
+    const keep = lines.filter((l) => !l.sched && (l.acct || l.dr.trim() || l.cr.trim()));
+    setLines([...fresh, ...keep]);
+    setHead({ ...head, kind: "AJE", wpRef: WP_REF, memo: head.memo.trim() ? head.memo : DESCRIPTION, reverse: false, inclusive: false });
+    setDate(yearEnd);
+    setVIn(inputs);
+    setVOpen(false);
+  };
   const setLine = (i: number, patch: Partial<FormLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const labelOf = (v: string) => (v === "new" ? "New account in the client’s books" : optMap.get(v)?.label ?? "");
   const byLabel = useMemo(() => new Map(opts.map((o) => [o.label, o.value])), [opts]);
@@ -71,7 +103,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   // Round 21 (QuickBooks Online): Save closes the dialog with the note; leaving with changes (Cancel, the X,
   // another link) asks "Save your changes?" first.
   const formRef = useRef<HTMLFormElement>(null), saveRef = useRef<HTMLButtonElement>(null);
-  const snap = JSON.stringify({ head, date, lines, seq, stdAmount });
+  const snap = JSON.stringify({ head, date, lines, seq, stdAmount, vIn });
   const [first] = useState(snap);
   useUnsavedGuard(snap !== first, { form: () => formRef.current,
     save: () => { if (ok) formRef.current?.requestSubmit(saveRef.current); return false; } });
@@ -84,11 +116,12 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
       <input type="hidden" name="file_id" value={fileId} />
       <input type="hidden" name="back" value={backHref} />
       <input type="hidden" name="done" value={closeHref} />
-      <input type="hidden" name="form" value={JSON.stringify({ head, date, lines, standard: s0?.id ?? null, seq, origin: origin ?? null, edit: edit ?? null })} />
+      <input type="hidden" name="form" value={JSON.stringify({ head, date, lines, standard: s0?.id ?? null, seq, origin: origin ?? null, edit: edit ?? null, schedule: vIn ? { inputs: vIn } : null })} />
       <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3">
         <h2 className="text-[15px] font-bold">{title}</h2>
         {origin === "revenue_check" && <span className="rounded bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-700">From the revenue check</span>}
         {s0 && <span className="rounded bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-700">Standard entry: {s0.name}</span>}
+        {hasSched && <span className="rounded bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-700">From the Vehicle schedule</span>}
         <span className="flex-1" />
         <Link href={closeHref} aria-label="Close" className="rounded p-1 text-ink-3 hover:bg-sand-100"><X className="h-[18px] w-[18px]" /></Link>
       </div>
@@ -101,8 +134,9 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
           <label className={fld}>Type<select value={head.kind} disabled={lock.kind} onChange={(e) => setHead({ ...head, kind: e.target.value })} className={box}>
             {KIND.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
           <label className={fld}>Description<input value={head.memo} onChange={(e) => setHead({ ...head, memo: e.target.value })} maxLength={500} placeholder="Prints on the client entry list" className={box} /></label>
-          <label className={fld}>W/P ref<input value={head.wpRef} readOnly={lock.wp} onChange={(e) => setHead({ ...head, wpRef: e.target.value })} list="wp-refs" maxLength={120} className={`${box} ${lock.wp ? "bg-sand-50" : ""}`} />
-            <datalist id="wp-refs">{WP_REFS.map((r) => <option key={r} value={r} />)}</datalist></label>
+          {hasSched ? <div className={fld}>W/P ref<button type="button" onClick={() => setVOpen(true)} className="h-[30px] text-left text-[13px] font-semibold text-navy-700 underline" data-wp-link>{head.wpRef || WP_REF}</button></div>
+            : <label className={fld}>W/P ref<input value={head.wpRef} readOnly={lock.wp} onChange={(e) => setHead({ ...head, wpRef: e.target.value })} list="wp-refs" maxLength={120} className={`${box} ${lock.wp ? "bg-sand-50" : ""}`} />
+            <datalist id="wp-refs">{WP_REFS.map((r) => <option key={r} value={r} />)}</datalist></label>}
         </div>
 
         {(s0 || ctx.registered) && (
@@ -110,7 +144,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
             {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums ${amountTone(stdAmount)}`} /></label>}
             {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: needs review` : "No review needed"}</span>}
             <span className="flex-1" />
-            {ctx.registered && !s0 && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
+            {ctx.registered && !s0 && !hasSched && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
               <option value="exc">Before tax</option><option value="inc">Including tax</option></select></label>}
           </div>
         )}
@@ -125,9 +159,9 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
               <tr key={i} className="border-b border-sand-100 align-top">
                 <td className="py-1.5 text-ink-3">{i + 1}</td>
                 <td className="py-1 pr-2">
-                  <input aria-label={`Line ${i + 1} account`} list="acct-list" value={typed[i] ?? labelOf(l.acct)} placeholder="Search accounts"
+                  <input aria-label={`Line ${i + 1} account`} list="acct-list" value={typed[i] ?? (labelOf(l.acct) || (l.isTax ? `${ITC_ACCOUNT} GST/HST payable` : ""))} placeholder="Search accounts" readOnly={l.isTax}
                     onChange={(e) => { const v = e.target.value; setTyped({ ...typed, [i]: v }); const hit = v === labelOf("new") ? "new" : byLabel.get(v); setLine(i, { acct: hit ?? "" }); }}
-                    onBlur={() => { const t = { ...typed }; delete t[i]; setTyped(t); }} className={`${box} w-full`} />
+                    onBlur={() => { const t = { ...typed }; delete t[i]; setTyped(t); }} className={`${box} w-full ${l.isTax ? "bg-sand-50" : ""}`} />
                   {l.acct === "new" && (
                     <span className="mt-1 grid gap-1">
                       <input aria-label={`Line ${i + 1} new account name`} value={l.newName} onChange={(e) => setLine(i, { newName: e.target.value })} maxLength={80} placeholder="Name, in plain words" className={box} />
@@ -137,16 +171,27 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                   )}
                 </td>
                 <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} description`} value={l.desc} onChange={(e) => setLine(i, { desc: e.target.value })} maxLength={200} className={`${box} w-full`} /></td>
+                {l.sched ? (["dr", "cr"] as const).map((side) => (
+                  <td key={side} className="py-1 pr-2"><span className="flex h-[30px] items-center justify-end gap-1.5 rounded-md bg-sand-50 px-2 tabular-nums" aria-label={`Line ${i + 1} ${side === "dr" ? "debit" : "credit"}`} data-sched-amount={l.sched}>
+                    {l[side] && <button type="button" onClick={() => setVOpen(true)} title="From the Vehicle schedule: change it there" className="rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700 hover:bg-navy-100">Schedule</button>}{l[side]}</span></td>
+                )) : <>
                 <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} debit`} inputMode="decimal" value={l.dr} onChange={(e) => setLine(i, { dr: e.target.value })} onBlur={(e) => setLine(i, { dr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.dr)}`} /></td>
-                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.cr)}`} /></td>
-                {ctx.registered && <td className="py-1 pl-2"><select aria-label={`Line ${i + 1} sales tax`} value={l.tax} onChange={(e) => setLine(i, { tax: e.target.value })} className={`${box} w-full`}>
-                  <option value="" disabled>Choose</option><option value="none">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>}
-                <td className="py-1.5 text-center">{lines.length > 2 && <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger"><X className="h-3.5 w-3.5" /></button>}</td>
+                <td className="py-1 pr-2"><input aria-label={`Line ${i + 1} credit`} inputMode="decimal" value={l.cr} onChange={(e) => setLine(i, { cr: e.target.value })} onBlur={(e) => setLine(i, { cr: tidyAmount(e.target.value) })} className={`${box} w-full text-right tabular-nums ${amountTone(l.cr)}`} /></td></>}
+                {ctx.registered && (l.sched ? <td className="py-1.5 pl-2 text-[12.5px] text-ink-2">{l.isTax ? "GST/HST" : l.tax && l.tax !== "none" ? codes.find((c) => c.code === l.tax)?.name ?? l.tax : "No tax"}</td>
+                  : <td className="py-1 pl-2"><select aria-label={`Line ${i + 1} sales tax`} value={l.tax} onChange={(e) => setLine(i, { tax: e.target.value })} className={`${box} w-full`}>
+                  <option value="" disabled>Choose</option><option value="none">No tax</option>{codes.filter((c) => c.parts.some((p) => p.rate > 0)).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></td>)}
+                <td className="py-1.5 text-center">{lines.length > 2 && !l.sched && <button type="button" aria-label={`Remove line ${i + 1}`} onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger"><X className="h-3.5 w-3.5" /></button>}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div><button type="button" onClick={() => setLines([...lines, blankLine()])} className="btn-secondary btn-compact">+ Line</button></div>
+        <div className="flex items-center gap-2"><button type="button" onClick={() => setLines([...lines, blankLine()])} className="btn-secondary btn-compact">+ Line</button>
+          {vehicle && <span className="relative">
+            <button type="button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)} onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }} className="btn-secondary btn-compact">From a schedule<ChevronDown className="h-3.5 w-3.5" /></button>
+            {menu && <span role="menu" className="absolute top-full left-0 z-10 mt-1 grid min-w-[220px] rounded-lg border border-sand-200 bg-white py-1 shadow-[0_10px_30px_rgba(11,26,58,.18)]">
+              <button type="button" role="menuitem" autoFocus onClick={() => { setMenu(false); setVOpen(true); }} onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}
+                className="px-3 py-1.5 text-left text-[13px] hover:bg-sand-50 focus:bg-sand-50 focus:outline-none">Vehicle (owner&apos;s car)</button></span>}
+          </span>}</div>
 
         {/* The GIFI/HST posting as its own line, then the totals: debits equal credits, the tax included. */}
         <table className="ml-auto w-full max-w-[640px] border-collapse text-[13px]">
@@ -173,6 +218,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         {!edit && <button type="submit" name="then" value="new" className="btn-secondary btn-compact" disabled={!ok}>Save and new</button>}
         <button ref={saveRef} type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
       </div>
+      {vehicle && vOpen && <VehicleWindow data={vehicle} initial={vIn ?? (vehicle.stored ? { ...vehicle.stored.inputs, itc: vehicle.stored.itc_claim } : emptyInputs())}
+        canPrint={!!printHref && !!vehicle.stored && !vIn} printHref={printHref} onPut={putSchedule} onClose={() => setVOpen(false)} />}
     </form>
   );
 }
