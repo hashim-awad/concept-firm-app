@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
-import { flagged, reclassNote } from "@/lib/closebook/matching";
+import { flagged, NO_FLAG_TAX, reclassNote } from "@/lib/closebook/matching";
 import { KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
@@ -21,9 +21,10 @@ const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleS
 // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
 export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag }: {
+export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax }: {
   fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; isOwner: boolean; editable: boolean;
   view: "groups" | "accounts" | "gifi"; drill?: string; col?: string; flag: { amount: number; percent: number };
+  lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
 }) {
   const base = `/closebook/${fileId}`;
   const tb = trialBalance(data.accounts, data.postings);
@@ -40,7 +41,9 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
   const row = (t: TbLine): TbRow => {
     const a = idOf.get(t.key);
     const k = byKind.get(t.key) ?? { aje: 0, tje: 0 };
-    const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && flagged(t.last / 100, t.final / 100, flag.amount, flag.percent);
+    // Piece 6: the flag leaves out this year's tax entries and never applies to INCTAX or AMORT accounts.
+    const taxFree = !!lineTax && NO_FLAG_TAX.includes(a?.tax_code ?? lineTax.get(t.line_no ?? "") ?? "");
+    const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && !taxFree && flagged(t.last / 100, (t.final - (lineTax ? k.tje : 0)) / 100, flag.amount, flag.percent);
     return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, gifi: (t.line_no ?? "").replace(/\.00$/, ""), prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
       final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
   };

@@ -41,6 +41,9 @@ export function TbTab(p: Props) {
   const byNo = new Map(lines.map((l) => [l.line_no, l]));
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
+  // Piece 6: this year's tax entries, left out of the flag test.
+  const tjeTotals = new Map<string, number>();
+  for (const e of entries) if (e.kind === "TJE") for (const l of e.lines) tjeTotals.set(l.account_id, (tjeTotals.get(l.account_id) ?? 0) + l.amount);
   const finalOf = (a: CbAccount) => a.this_year + (entryTotals.get(a.id) ?? 0);
   const thisImport = imports.find((i) => i.target === "this_year");
   // Round 6 item 2: the QuickBooks Online Account List, an optional second upload for files that import a
@@ -162,7 +165,7 @@ export function TbTab(p: Props) {
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
           unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Match every account to a GIFI line: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
-              groups={leadSheets(accounts, entryTotals, byNo, sheets, flag).map((g): LeadGroup => {
+              groups={leadSheets(accounts, entryTotals, byNo, sheets, flag, tjeTotals).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
                   id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
                   final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
