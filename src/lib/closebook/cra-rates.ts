@@ -43,3 +43,35 @@ export function describeCraChange(table: string, action: string, oldRow: Record<
   }
   return "";
 }
+
+// Round 1b of piece 1 (Hashim, Nov 18, 2026): a refused save keeps what was typed and shows each message in red
+// under the field it concerns. These checks match the database's (cb_save_km_rates, cb_save_itc_factor), so most
+// refusals are caught before anything is sent; a refusal the database still makes is placed by fieldOfKmError.
+export type FieldErrors = Record<string, string>;
+const RATE = /^\d{0,2}(\.\d{1,2})?$/;
+
+export function checkKmForm(v: Record<string, string>, isNew: boolean): FieldErrors {
+  const e: FieldErrors = {};
+  if (isNew && !/^\d{4}$/.test(v.year ?? "")) e.year = "Type the year as four digits, for example 2026.";
+  else if (isNew && (Number(v.year) < 2000 || Number(v.year) > 2100)) e.year = "Type a year from 2000 to 2100.";
+  for (const [k] of KM_COLUMNS) {
+    const t = (v[k] ?? "").replace(/[$\s]/g, "");
+    if (!t) e[k] = "Fill in this rate.";
+    else if (!/^\d*\.?\d+$/.test(t) || !(Number(t) > 0) || Number(t) >= 10) e[k] = "Dollars per km, for example 0.73.";
+    else if (!RATE.test(t)) e[k] = "At most two decimals, for example 0.73.";
+  }
+  return e;
+}
+
+// Where a database refusal belongs: the year field, or the form as a whole.
+export const fieldOfKmError = (msg: string) => (/year|already in the table|not in the table/i.test(msg) ? "year" : "form");
+
+// A factor typed as two whole numbers ("13/113"). null when it is fine; spaces around the numbers are fine.
+export function checkFactor(text: string): string | null {
+  const m = /^\s*(\d{1,6})\s*\/\s*(\d{1,6})\s*$/.exec(text);
+  if (!m) return "Type the factor as two whole numbers with a slash, for example 13/113.";
+  const [n, d] = [Number(m[1]), Number(m[2])];
+  if (!(n > 0 && d > n)) return "The top number must be more than 0 and smaller than the bottom number, for example 13/113.";
+  return null;
+}
+export const sameFactor = (a: string, b: string) => a.replace(/\s/g, "") === b.replace(/\s/g, "");
