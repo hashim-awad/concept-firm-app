@@ -164,7 +164,7 @@ export function TbTab(p: Props) {
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
-                  id: r.id, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
+                  id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
                   final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
                 }));
                 // Round 35 (Hashim, CaseWare): the lead sheet code shows here, and only here.

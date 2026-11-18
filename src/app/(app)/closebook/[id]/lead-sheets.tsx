@@ -9,9 +9,10 @@ import { explainFlagInline } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
 
 export const REASONS: Record<string, string> = {
-  new_asset: "New asset", new_loan: "New loan", revenue_grew: "Revenue grew", one_time: "One-time expense", reclassified: "Reclassified", error_fixed: "Error found and fixed",
+  new_asset: "New asset", new_loan: "New loan", revenue_grew: "Revenue grew", revenue_fell: "Revenue fell", one_time: "One-time expense", reclassified: "Reclassified", error_fixed: "Error found and fixed",
+  other: "Other",   // round 38: "Revenue fell" and "Other" (with a note, as every reason)
 };
-export type LeadAcc = { id: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string };
+export type LeadAcc = { id: string; key?: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string };
   reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
 export type LeadGroup = { code: string; name: string; last: string; before: string; entries: string; final: string; change: string; flags: number; open: number; rows: LeadAcc[] };
 
@@ -26,6 +27,10 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
   const shown = onlyFlags ? groups.filter((g) => g.flags) : groups;
   const toggle = (c: string) => setOpenCodes((s) => { const n = new Set(s); if (n.has(c)) n.delete(c); else n.add(c); return n; });
   const cols = full ? 7 : 6;
+  // Round 38: every amount opens the account's ledger (as on the Trial balance), with "‹ Lead sheets" to come back.
+  const back = `/closebook/${fileId}?step=review&view=lead`;
+  const amt = (r: LeadAcc, v: string) => (r.key && v ? <Link href={`/closebook/${fileId}?area=reporting&report=gl&account=${encodeURIComponent(r.key)}&back=${encodeURIComponent(back)}`}
+    className="hover:text-navy-700 hover:underline" data-lead-amount={r.number || r.name}>{v}</Link> : v);
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -55,8 +60,8 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
                     <span className="block text-xs text-muted">{r.line}</span>
                     {r.reclass && <span className="block text-xs text-ink-2">{r.reclass}</span>}
                     {r.note && <span className="block text-xs text-success">{REASONS[r.note.reason]}: {r.note.note}</span>}</td>
-                  <td className="text-right tabular-nums">{r.last}</td><td className="text-right tabular-nums">{r.before}</td>{full && <td className="text-right tabular-nums">{r.entries}</td>}
-                  <td className="text-right tabular-nums font-medium">{r.final}</td><td className="text-right tabular-nums">{r.change}</td>
+                  <td className="text-right tabular-nums">{amt(r, r.last)}</td><td className="text-right tabular-nums">{amt(r, r.before)}</td>{full && <td className="text-right tabular-nums">{amt(r, r.entries)}</td>}
+                  <td className="text-right tabular-nums font-medium">{amt(r, r.final)}</td><td className="text-right tabular-nums">{amt(r, r.change)}</td>
                   <td className="text-right tabular-nums">{r.pct}{r.flagged && <AlertCircle className={`ml-1.5 inline h-4 w-4 ${r.note ? "text-success" : "text-warning"}`} aria-label={r.note ? "Flagged, explained" : "Flagged"} />}</td>
                   <td>{r.flagged && editable && <button type="button" onClick={() => setPanel(r)} aria-label={`Explain: ${r.name}`} title="Explain" className="rounded p-1.5 text-ink-3 hover:bg-sand-100 hover:text-navy-700"><Pencil className="h-4 w-4" /></button>}</td>
                 </tr>

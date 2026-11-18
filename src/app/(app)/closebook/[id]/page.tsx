@@ -22,6 +22,8 @@ import { entriesArea } from "./areas/entries-area";
 import { notesArea } from "./areas/notes-area";
 import { statementsArea } from "./areas/statements-area";
 import { ReportingBack, ReportingList, questionsReport } from "./areas/reporting-area";
+import { ReclassifyPage } from "./areas/reclassify";
+import { loadReclassify } from "@/lib/closebook/reclassify-server";
 import { statements as fsStatements, trialBalance } from "@/lib/closebook/reports";
 import { ReviewNotes } from "./review-notes";
 import { loadHistory } from "@/lib/closebook/history";
@@ -560,18 +562,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       </TipLink>))}</>
   );
   const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
+  const tool = str(sp.tool) === "reclassify" && area === "tb" ? "reclassify" : undefined;
   const tbLeft = (
     <>
       <PanelHead>Views</PanelHead>
-      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k}>{l}</PanelLink>)}
+      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
       <PanelHead>Reports</PanelHead>
-      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k}>{l}</PanelLink>)}
+      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
     </>
   );
   let left: React.ReactNode = stepRail, folded: React.ReactNode = stepRailFolded, content: React.ReactNode = body;
   if (area === "tb") {
     left = tbLeft; folded = null;
-    content = report && report !== "tb"
+    content = tool === "reclassify"
+      ? <ReclassifyPage data={await loadReclassify(supabase, file, rdata, entries)} initialAccount={str(sp.account)} />
+      : report && report !== "tb"
       ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
           data={rdata} yearEnd={file.year_end} yearStart={file.year_start}
           todo={[
@@ -634,6 +639,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
+      tools={{ on: !!tool, journal: editable && file.file_type === "full" && file.phase !== "locked" }}
       history={access.is_owner} left={left} folded={folded} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}

@@ -4,7 +4,7 @@
 // a click outside or Escape closes them. A toast for "Saved" and refusals that never covers a control.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { notify } from "@/components/save-state";
 import Link from "next/link";
 import { PinButton, Tip, useTip } from "@/components/ds/sidebar";
@@ -159,5 +159,54 @@ export function LeftPanel({ children, folded: foldedNode, pinned: saved = true }
         <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />
       </div>
     </aside>
+  );
+}
+
+// Round 38b (Hashim, Nov 18, 2026; benchmark QuickBooks Online Accountant's "Accountant tools" menu): "Tools ▾" in the
+// file tabs. A menu, not a page: it opens on a click (or Enter / Space), closes on a choice, Escape or a click outside;
+// the arrow keys move between items. One item per tool. "New journal entry" opens the journal window over the page the
+// person is on (the window saves back to that page); "Reclassify transactions" opens its page.
+export function ToolsMenu({ fileId, on, journal }: { fileId: string; on: boolean; journal: boolean }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null), btn = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname(), params = useSearchParams();
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); btn.current?.focus(); } };
+    document.addEventListener("mousedown", onDoc); document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  // The page as it is now, without a dialog or message already in its address, plus the journal window.
+  const keep = new URLSearchParams([...params.entries()].filter(([k]) => !["new", "open", "edit", "acct", "msg", "error"].includes(k)));
+  keep.set("new", "journal");
+  const items: { label: string; href: string }[] = [
+    ...(journal ? [{ label: "New journal entry", href: `${pathname}?${keep}` }] : []),
+    { label: "Reclassify transactions", href: `/closebook/${fileId}?area=tb&tool=reclassify` },
+  ];
+  const move = (e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const els = [...(box.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    const i = els.indexOf(document.activeElement as HTMLElement);
+    els[(i + (e.key === "ArrowDown" ? 1 : els.length - 1)) % els.length]?.focus();
+  };
+  return (
+    <div ref={box} className="relative flex" onKeyDown={move} data-tools-menu>
+      <button ref={btn} type="button" aria-haspopup="menu" aria-expanded={open} aria-current={on ? "page" : undefined}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setOpen(true); setTimeout(() => box.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus(), 0); } }}
+        className={`flex items-center gap-1 border-b-2 px-3 text-[13px] font-semibold ${on ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>
+        Tools<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+      </button>
+      {open && (
+        <ul role="menu" aria-label="Tools" className="absolute top-full left-0 z-50 mt-1 w-60 rounded-[8px] border border-sand-200 bg-white py-1 shadow-[0_12px_32px_rgba(15,35,80,.18)]">
+          {items.map((it) => (
+            <li key={it.label} role="none"><Link role="menuitem" href={it.href} scroll={false} onClick={() => setOpen(false)}
+              className="block px-3.5 py-2 text-[13px] text-ink hover:bg-navy-50 focus:bg-navy-50 focus:outline-none">{it.label}</Link></li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

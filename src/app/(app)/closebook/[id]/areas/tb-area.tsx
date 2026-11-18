@@ -120,6 +120,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
       <div className="flex items-start gap-2 border-b border-sand-200 px-4 py-2.5">
         <p className="min-w-0 flex-1 text-[12.5px] font-semibold"><Link href={close} className="text-navy-700 hover:underline">Trial balance</Link> <span className="text-ink-3">›</span> <span className="text-ink">{label} · {COL[col] ?? "Final"} {col === "prelim" || col === "final" ? "" : ""}</span></p>
         <Link href={`${base}?report=gl&account=${encodeURIComponent(drill)}&back=${encodeURIComponent(here)}`} className="inline-flex items-center gap-1 text-xs text-navy-700 hover:underline"><ExternalLink className="h-3.5 w-3.5" />Open full page</Link>
+        <Link href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(drill)}`} className="text-xs text-navy-700 hover:underline" data-drill-reclassify>Reclassify</Link>
         <Link href={close} aria-label="Close" className="rounded p-0.5 text-ink-2 hover:bg-sand-100"><X className="h-4 w-4" /></Link>
       </div>
       <div className="flex-1 overflow-y-auto">{body}</div>

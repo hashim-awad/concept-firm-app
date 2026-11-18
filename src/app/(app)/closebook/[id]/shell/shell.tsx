@@ -12,7 +12,7 @@ import type { StepStatus } from "@/lib/closebook/review-server";
 import { addNote, signStep, unsignStep } from "../../actions";
 import { signSubstep, unsignSubstep } from "../../banking-actions";
 import { setPeople } from "../../round16-actions";
-import { Drawer, FileToast, LeftPanel, Popover } from "./ui";
+import { Drawer, FileToast, LeftPanel, Popover, ToolsMenu } from "./ui";
 import { StepMenu, type StepMenuProps } from "./step-menu";
 
 export type Area = "steps" | "tb" | "entries" | "reporting" | "notes" | "statements";
@@ -62,10 +62,11 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   );
 }
 
-export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, pinned, toast, notes, people, done, children }: {
+export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, pinned, toast, notes, people, done, tools, children }: {
   fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
   history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number; people?: PeopleProps;
   done?: { n: number; of: number }; children: ReactNode; pinned?: boolean;
+  tools?: { on: boolean; journal: boolean };   // round 38b: the Tools menu (on: a tool's page is open; journal: New journal entry offered)
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -83,7 +84,7 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
       </header>
-      <ShellTabs fileId={fileId} area={area} toast={toast} notes={notes} />
+      <ShellTabs fileId={fileId} area={area} toast={toast} notes={notes} tools={tools ?? { on: false, journal: false }} />
       <div className="flex flex-1">
         {left !== null && <LeftPanel folded={folded} pinned={pinned}>{left}</LeftPanel>}
         {/* Card headings in small capitals on every file screen (round 15). */}
@@ -93,15 +94,20 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
   );
 }
 
-function ShellTabs({ fileId, area, toast, notes }: { fileId: string; area: Area; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number }) {
+// Round 38b (Hashim, Nov 18, 2026; benchmark QuickBooks Online Accountant's "Accountant tools"): "Tools ▾" after
+// Entries is a menu, not a page. A tool's page (Reclassify) marks Tools, not Trial balance, as where the person is.
+function ShellTabs({ fileId, area, toast, notes, tools }: { fileId: string; area: Area; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number;
+  tools: { on: boolean; journal: boolean } }) {
+  const here = (k: Area) => k === area && !tools.on;
   return (
     <nav aria-label="File" className="sticky top-[106px] z-30 flex h-10 print:hidden flex-none items-stretch gap-1 border-b border-sand-200 bg-white px-4">
-      {AREAS.map(([k, label]) => (
-        <Link key={k} href={k === "steps" ? `/closebook/${fileId}` : `/closebook/${fileId}?area=${k}`} aria-current={k === area ? "page" : undefined}
-          className={`flex items-center gap-1.5 border-b-2 px-3 text-[13px] font-semibold ${k === area ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>
+      {AREAS.flatMap(([k, label]) => [
+        <Link key={k} href={k === "steps" ? `/closebook/${fileId}` : `/closebook/${fileId}?area=${k}`} aria-current={here(k) ? "page" : undefined}
+          className={`flex items-center gap-1.5 border-b-2 px-3 text-[13px] font-semibold ${here(k) ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>
           {label}{k === "notes" && notes > 0 && <span className="grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{notes}</span>}
-        </Link>
-      ))}
+        </Link>,
+        ...(k === "entries" ? [<ToolsMenu key="tools" fileId={fileId} on={tools.on} journal={tools.journal} />] : []),
+      ])}
       <FileToast msg={toast.msg} error={toast.error} info={toast.info} />
     </nav>
   );
