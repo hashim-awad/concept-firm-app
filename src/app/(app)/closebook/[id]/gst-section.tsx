@@ -17,11 +17,13 @@ const plain = (c: number) => (c / 100).toLocaleString("en-US", { minimumFraction
 const TOTAL: Line[] = ["105", "108", "109", "112", "113"];
 const chip = (ok: boolean, yes: string, no: string) => <span className={`rounded px-2 py-0.5 text-xs font-semibold ${ok ? "bg-success-soft text-success" : "bg-danger/10 text-danger"}`}>{ok ? yes : no}</span>;
 
-export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fileId: string; g: GstData; editable: boolean; isOwner: boolean; drill: { period: number; line: Line } | null; names: Map<string, string> }) {
+// Piece 7: revenueBox, the GST/HST revenue comparison (a registrant's full file), below the 21500 box.
+export function GstSection({ fileId, g, editable, isOwner, drill, names, revenueBox }: { fileId: string; g: GstData; editable: boolean; isOwner: boolean; drill: { period: number; line: Line } | null; names: Map<string, string>; revenueBox?: React.ReactNode }) {
   if (!g.applies) return (
     <section id="gst" aria-label="GST/HST return" className="card">
       <h2 className="font-semibold">GST/HST return</h2>
       <p className="mt-1 text-sm text-ink-2">{g.reason}</p>
+      {revenueBox && <div className="mt-4">{revenueBox}</div>}
     </section>
   );
   const href = (p: number, l: Line) => `/closebook/${fileId}?step=t2&gst=${p}&line=${l}#gst-drill`;
@@ -102,6 +104,7 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names }: { fil
         {row?.note && <p className="px-3 py-1.5 text-xs">Explained: {row.note}</p>}
         {row?.accepted_at && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(row.accepted_by ?? "") ?? ""}: {row.accepted_why}</p>}
       </div>
+      {revenueBox}
       {/* Round 13 fix 3: on a quick method file the difference is the tax the company keeps, booked as income. */}
       {g.quick && c.diffCents > 0 && editable && allPrepared && (
         <div aria-label="Quick method gain" className="rounded-lg border border-navy-200 bg-navy-50/40 p-3 text-sm">
