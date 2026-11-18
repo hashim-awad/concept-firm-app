@@ -75,6 +75,10 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     const accName = (id: string) => { const a = byId.get(id); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : ""; };
     const act = "btn-secondary btn-compact";
     const prep = names.get(entry.created_by ?? "") ?? "";
+    // Piece 2b: who changed the entry last and when, from its latest "Entry changed" row in History. The function
+    // gives only the name and date, to anyone who can view Closebook; History itself stays owner-only.
+    const { data: lastRows } = await supabase.rpc("cb_entry_last_change", { p_entry: entry.id });
+    const last = ((lastRows ?? []) as { changed_by: string; changed_at: string }[])[0];
     const rev = entry.reviewed_by ? names.get(entry.reviewed_by) ?? "" : "";
     const fieldsRow = (label: string, value: ReactNode) => <div className="grid gap-0.5"><span className="text-[11.5px] font-semibold text-ink-3">{label}</span><span className="text-[13px]">{value}</span></div>;
     return (
@@ -112,6 +116,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
               <h3 className="border-b border-sand-200 px-3.5 py-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Sign-off</h3>
               <div className="grid gap-2 px-3.5 py-2.5 text-[12.5px]">
                 <p className="flex items-center gap-2"><Circle kind="p" text={initials(prep)} />Prepared by {prep} · {formatDate(entry.created_at)}</p>
+                {last && <p className="pl-8 text-[12.5px] text-ink-2" data-entry-last-change>Last changed by {last.changed_by} · {formatDate(last.changed_at)}</p>}
                 {entry.needs_review ? (
                   <div className="flex items-center gap-2">{entry.reviewed_at ? <><Circle kind="r" text={initials(rev)} />Reviewed by {rev} · {formatDate(entry.reviewed_at)}</>
                     : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} /><button type="submit" className="btn btn-compact">Approve</button></form>}</>}</div>
