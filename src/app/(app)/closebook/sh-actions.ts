@@ -1,6 +1,7 @@
 "use server";
-// Step 5, round 14: the shareholder loan schedule. The schedule is worked out here from the live postings
-// and saved with the books' fingerprint; every rule is checked again in the database.
+// Round 14: the shareholder loan schedule, worked out here from the live postings and saved with the books' fingerprint;
+// every rule is checked again in the database. Piece 8 (Hashim, Nov 18, 2026): the reviewer answers it in step 7
+// ("Update" saves the figures); the shareholder name is set on the account in the Trial balance tab.
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getAccess, canEdit } from "@/lib/access";
@@ -11,10 +12,11 @@ import { loadShLoans, toSavedGroup, toSavedRow } from "@/lib/closebook/sh-server
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 // The notice goes in the query, the anchor after it, so the page opens on the schedule with the notice.
-const back = (id: string, kind: "msg" | "error" = "error", text = "") => withMessage(`/closebook/${id}?step=entries&paper=sh`, kind, text);
-const done = (id: string, error: { message: string } | null, ok: string): never => {
+const back = (id: string, kind: "msg" | "error" = "error", text = "", to = "") =>
+  withMessage(to.startsWith(`/closebook/${id}?`) ? to : `/closebook/${id}?step=review`, kind, text);
+const done = (id: string, error: { message: string } | null, ok: string, to = ""): never => {
   revalidatePath(`/closebook/${id}`);
-  redirect(back(id, error ? "error" : "msg", error ? error.message : ok));
+  redirect(back(id, error ? "error" : "msg", error ? error.message : ok, to));
 };
 async function editor(id: string) {
   const a = await getAccess();
@@ -31,7 +33,7 @@ export async function prepareShSchedule(formData: FormData) {
   const sh = await loadShLoans(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
   const { error } = await supabase.rpc("cb_prepare_sh_schedule", { p_file: id, p_rows: sh.rows.map((r) => toSavedRow(r, sh.owners[r.key])), p_groups: sh.groups.map(toSavedGroup) });
   const off = sh.rows.filter((r) => !r.tied).length;
-  done(id, error, off ? `Schedule prepared. ${off} account${off === 1 ? " does" : "s do"} not tie to the trial balance.` : "Schedule prepared. Every account ties to the trial balance.");
+  done(id, error, off ? `Updated. ${off} account${off === 1 ? " does" : "s do"} not tie to the trial balance.` : "Updated. Every account ties to the trial balance.");
 }
 
 export async function answerShFlag(formData: FormData) {
@@ -53,7 +55,7 @@ export async function setShOwner(formData: FormData) {
   const id = s(formData, "file_id");
   await editor(id);
   const { error } = await (await createClient()).rpc("cb_set_sh_owner", { p_file: id, p_account: s(formData, "account"), p_shareholder: Number(s(formData, "shareholder")) });
-  done(id, error, "Shareholder saved. Prepare the schedule again.");
+  done(id, error, "Shareholder saved. Click Update.");
 }
 
 // "Repaid by": the preparer confirms the figures worked out from this year's postings.
@@ -62,4 +64,19 @@ export async function confirmShRepaid(formData: FormData) {
   await editor(id);
   const { error } = await (await createClient()).rpc("cb_confirm_sh_repaid", { p_file: id, p_group: s(formData, "group") });
   done(id, error, "Confirmed.");
+}
+
+// Piece 8: "Noted: repay by <date>" on an account owed by the shareholder at year-end (the reviewer, step 7).
+export async function noteShDue(formData: FormData) {
+  const id = s(formData, "file_id");
+  const { error } = await (await createClient()).rpc("cb_note_sh_due", { p_file: id, p_account: s(formData, "account") });
+  done(id, error, "Noted.");
+}
+
+// Piece 8: the shareholder's name on a shareholder account ("Who is who"), from the account in the Trial balance tab.
+export async function setShName(formData: FormData) {
+  const id = s(formData, "file_id");
+  await editor(id);
+  const { error } = await (await createClient()).rpc("cb_set_sh_name", { p_file: id, p_account: s(formData, "account"), p_name: s(formData, "name") });
+  done(id, error, "Shareholder name saved.", s(formData, "back"));
 }

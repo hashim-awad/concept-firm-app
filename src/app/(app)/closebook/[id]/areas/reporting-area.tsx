@@ -13,6 +13,8 @@ const FINANCIAL: [string, string, string][] = [
   ["pl", "Income statement", "Revenue and expenses for the year."],
   ["gl", "General ledger", "Every posting to every account."],
   ["journal", "Journal", "Every entry, in date order."],
+  // Piece 8: read from the ledger; the reviewer answers its questions in step 7.
+  ["sh", "Shareholder loans", "Each shareholder account's balance for the year and what is owed at year-end."],
 ];
 
 // Round 35: a report opened from step 7 (an account's ledger) goes back to "‹ Review"; round 38: from step 7's
@@ -20,7 +22,9 @@ const FINANCIAL: [string, string, string][] = [
 export function ReportingBack({ fileId, back }: { fileId: string; back?: string | null }) {
   const review = !!back && /[?&]step=review\b/.test(back);
   const lead = review && /[?&]view=lead\b/.test(back!);
-  return <Link href={review ? back! : `/closebook/${fileId}?area=reporting`} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline" data-reporting-back>{lead ? "‹ Lead sheets" : review ? "‹ Review" : "‹ Reporting"}</Link>;
+  // Piece 8: a ledger opened from the Shareholder loans report goes back to it.
+  const sh = !review && !!back && back.startsWith(`/closebook/${fileId}?`) && /[?&]report=sh\b/.test(back);
+  return <Link href={review || sh ? back! : `/closebook/${fileId}?area=reporting`} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline" data-reporting-back>{lead ? "‹ Lead sheets" : review ? "‹ Review" : sh ? "‹ Shareholder loans" : "‹ Reporting"}</Link>;
 }
 
 export function ReportingList({ fileId }: { fileId: string }) {

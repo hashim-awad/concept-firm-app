@@ -35,9 +35,10 @@ import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/
 import { TbTab } from "./tb-tab";
 import { entryDialog } from "./areas/entry-dialog";
 import { RevenueCheck } from "./revenue-check";
-import { ShSchedule } from "./sh-schedule";
+import { ShReview, owedLine, type ShNotedRow } from "./sh-review";
 import { loadShLoans } from "@/lib/closebook/sh-server";
 import { flagText, type ShFlag } from "@/lib/closebook/sh-loans";
+import { cardTitle } from "@/lib/closebook/sh-report";
 import { T2Step } from "./t2-step";
 import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
@@ -56,6 +57,8 @@ import { feedLock, loadRounding, loadSignoffPill, loadSubsteps, SUBS, type SubKe
 import { BankFeed } from "./feed/bank-feed";
 import { saveSetup } from "../actions";
 import { addRevenueCheck } from "../round9-actions";
+import { ShReportView } from "./areas/sh-report";
+import { loadShNames, loadShReport } from "@/lib/closebook/sh-report-server";
 import { loadFeed } from "@/lib/closebook/feed-server";
 import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
@@ -346,14 +349,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           cents: Math.round(Number(ln.amount) * 100), memo: (ln.memo ?? "") as string, account: ((ln.account as unknown as { name: string } | null)?.name ?? "") }} /></>;
     }
   } else if (step === "entries") {
-    // Step 5, Adjustments (piece 5; round 15b's papers kept): the revenue check and the shareholder loans are working
-    // papers under the step, each on its own screen when chosen. With no paper chosen, the Adjustments page: last
+    // Step 5, Adjustments (piece 5; round 15b's papers kept): the revenue check is a working paper
+    // under the step, each on its own screen when chosen. With no paper chosen, the Adjustments page: last
     // year's line, the Schedules table and the Entries tab's list. Piece 4b: the Expenses paid personally paper is retired.
     const full = file.file_type === "full";
-    const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
     // Piece 7: the revenue check shows only once added ("+ Add revenue check", or anything saved in it before piece 7).
     const rev5 = full ? await loadRevenue(supabase, id) : null;
-    const list5 = stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false, revenue: !!rev5?.state.added });
+    // Piece 8: the shareholder loans moved to Reporting and step 7.
+    const list5 = stepPapers("entries", { full, shareholders: false, ownerPaid: setup.owner_paid === true, gst: false, revenue: !!rev5?.state.added });
     pp.list = list5; pp.key = list5.find((x) => x.key === str(sp.paper))?.key;
     const p = pp.key;
     const open = editable && file.phase !== "locked";
@@ -363,7 +366,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const rev = rev5!;
       body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
-    } else if (p === "sh") body = <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />;
+    }
     else {
       const base5 = href("entries");
       const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
@@ -387,6 +390,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
       const { data: rl } = bankFile ? await supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, reviewer_reason").eq("file_id", id).eq("status", "reviewer").order("txn_date") : { data: [] };
       const rev7 = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
+      // Piece 8: the shareholder loans (the report, the saved figures and the reviewer's notes).
+      const [shRep, shData, { data: shNotedRaw }] = await Promise.all([loadShReport(supabase, file, accounts, entries, ref.lines, ref.sheets),
+        loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets), supabase.from("cb_sh_noted").select("account_key, closing, due_on, noted_by, noted_at").eq("file_id", id)]);
+      const shNoted = ((shNotedRaw ?? []) as ShNotedRow[]).map((x) => ({ ...x, closing: Number(x.closing) }));
       const groups: ReviewGroup[] = [
         { key: "opening", title: "Opening balance differences", step: "step 2", items: openingRow?.needs_reviewer
           ? [{ href: href("opening"), label: "Difference with last year's closing balances", detail: openingRow.reviewer_reason ?? "", amount: amt(openingRow.this_year) }] : [] },
@@ -400,12 +407,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         // Piece 7: the GST/HST revenue comparison moved to step 8; a difference over the threshold still waits here.
         { key: "gst_revenue", title: "GST/HST revenue", step: "step 8", items: rev7 ? gstRevenueWaiting(rev7).map((w) => ({ href: `${paperHref("t2", "gst")}#gst-revenue`, label: w.label,
           detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [] },
-        { key: "sh", title: "Shareholder loans", step: "step 5", items: await (async () => {
-          // Round 14: flags the preparer answered, per shareholder (last year's part not repaid; repaid near year end).
-          const { data: fl } = await supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null);
-          return ((fl ?? []) as { account_key: string; flag: ShFlag; note: string; closing: number }[]).map((f) => ({ href: paperHref("entries", "sh"),
-            label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: f.note, amount: amt(Number(f.closing)) }));
-        })() },
+        // Piece 8: the shareholder loans are the reviewer's, here in step 7 (the panel below answers them).
+        { key: "sh", title: "Shareholder loans", step: "step 7", items: [
+          ...shRep.cards.filter((c) => c.owedBy).map((c) => {
+            const n = shNoted.find((x) => x.account_key === c.key);
+            const ok = !!n && Math.round(n.closing * 100) === -c.closingCents && n.due_on === c.dueOn;
+            return { href: `${href("review")}#sh-review`, label: `${cardTitle(c)}: ${owedLine(-c.closingCents, c.dueOn!)}`, detail: ok ? "Noted." : "To note.", amount: amt(c.closingCents / 100) };
+          }),
+          ...((await supabase.from("cb_sh_flags").select("account_key, flag, closing").eq("file_id", id).is("accepted_at", null)).data ?? [] as { account_key: string; flag: ShFlag; closing: number }[])
+            .map((f: { account_key: string; flag: ShFlag; closing: number }) => ({ href: `${href("review")}#sh-review`,
+              label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: "To decide.", amount: amt(Number(f.closing)) })),
+        ] },
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 6", items: bankFile ? [] : accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
           { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
@@ -434,7 +446,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
           accounts={acctRows} stepFour={href("code")} />;
       }
-      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount} />;
+      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
+        extra={shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} names={names} /> : null} />;
     }
   } else if (step === "mapping") {
     body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
@@ -601,12 +614,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}
-          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} />;
+          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} />;
   } else if (area === "reporting") {
     // Round 32: the Reporting tab. A report opens full page with "‹ Reporting" at the top left.
     left = null; folded = null;
     content = str(sp.report) === "questions"
       ? await questionsReport({ supabase, fileId: id, editable: editable && file.phase !== "locked", sp: { acct: str(sp.qacct), status: str(sp.qstatus) } })
+      // Piece 8: Reporting > Shareholder loans.
+      : str(sp.report) === "sh" ? <ShReportView fileId={id} r={await loadShReport(supabase, file, accounts, entries, ref.lines, ref.sheets)} yearStart={file.year_start} yearEnd={file.year_end} />
       : report
         ? <><ReportingBack fileId={id} back={backHref} /><ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
             data={rdata} yearEnd={file.year_end} yearStart={file.year_start} todo={[]} /></>

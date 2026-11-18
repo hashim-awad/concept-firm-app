@@ -15,16 +15,19 @@ import type { ReviewNote } from "@/lib/closebook/review-server";
 import { PageTitle } from "../shell/shell";
 import { TB_HELP } from "../shell/help";
 import { TbTable, type TbRow, type TbGroupRow } from "./tb-table";
+import { isShAccount } from "@/lib/closebook/sh-loans";
+import { setShName } from "../../sh-actions";
 
 const SECTION: Record<number, string> = { 0: "Assets", 1: "Liabilities", 2: "Equity", 3: "Revenue", 4: "Expenses" };
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
 export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax }: {
+export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames }: {
   fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; isOwner: boolean; editable: boolean;
   view: "groups" | "accounts" | "gifi"; drill?: string; col?: string; flag: { amount: number; percent: number };
   lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
+  shNames?: Map<string, string>;          // piece 8: the shareholder's name on each shareholder account
 }) {
   const base = `/closebook/${fileId}`;
   const tb = trialBalance(data.accounts, data.postings);
@@ -69,7 +72,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
   } else {
     tableGroups = groups.map((g) => ({ code: g.code, name: g.name, section: sectionOf(g), rows: g.rows.map(row) }));
   }
-  const drillPanel = drill ? <Drill fileId={fileId} data={data} tb={tb} drill={drill} col={col ?? "final"} view={view} /> : null;
+  const drillPanel = drill ? <Drill fileId={fileId} data={data} tb={tb} drill={drill} col={col ?? "final"} view={view} shName={shNames?.get(drill) ?? ""} editable={editable} /> : null;
   return (
     <>
       <PageTitle help={TB_HELP} right={<span className="text-[12.5px] text-ink-3">{formatDate(file.year_start)} to {formatDate(file.year_end)}</span>}>
@@ -82,13 +85,24 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
 }
 
 // The drill panel: one level, with the path back to the trial balance.
-function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: ReportData; tb: TbLine[]; drill: string; col: string; view: string }) {
+function Drill({ fileId, data, tb, drill, col, view, shName = "", editable = false }: { fileId: string; data: ReportData; tb: TbLine[]; drill: string; col: string; view: string; shName?: string; editable?: boolean }) {
   const base = `/closebook/${fileId}`;
   const t = tb.find((x) => x.key === drill);
   if (!t) return null;
   const here = `${base}?area=tb&tbv=${view}&drill=${encodeURIComponent(drill)}&col=${col}`;
   const close = `${base}?area=tb&tbv=${view}#a-${encodeURIComponent(drill)}`;
-  const label = `${t.number ? `${t.number} ` : ""}${t.name}`;
+  const label = `${t.number ? `${t.number} ` : ""}${t.name}${shName ? ` · ${shName}` : ""}`;
+  // Piece 8 ("Who is who", benchmark CaseWare: each client's account names are its own): the shareholder's name on a
+  // shareholder account. It shows in Reporting > Shareholder loans, step 7 and the exports; nothing on the statements.
+  const acctLine = data.accounts.find((a) => a.key === drill)?.line_no ?? null;
+  const shField = isShAccount({ key: drill, line_no: acctLine }) ? (
+    <form action={setShName} className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-4 py-2 text-[12.5px]" data-sh-name-form>
+      <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={drill} /><input type="hidden" name="back" value={here} />
+      <label className="flex items-center gap-2 font-semibold">Shareholder
+        <input name="name" defaultValue={shName} maxLength={120} disabled={!editable} placeholder="Optional, for example Pat Dummy" aria-label="Shareholder" className="input input-compact w-56 font-normal" /></label>
+      {editable && <button type="submit" className="btn-secondary btn-compact">Save</button>}
+    </form>
+  ) : null;
   const COL: Record<string, string> = { prelim: "Prelim", final: "Final", adjust: "Adjust", reclass: "Reclass" };
   const withBack = (href: string) => `${href}${href.includes("?") ? "&" : "?"}back=${encodeURIComponent(here)}`;
   const entryHref = (ref: string) => withBack(`${base}?area=entries&entry=${ref}`) + `#entry-${ref}`;
@@ -126,6 +140,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
         <Link href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(drill)}`} className="text-xs text-navy-700 hover:underline" data-drill-reclassify>Reclassify</Link>
         <Link href={close} aria-label="Close" className="rounded p-0.5 text-ink-2 hover:bg-sand-100"><X className="h-4 w-4" /></Link>
       </div>
+      {shField}
       <div className="flex-1 overflow-y-auto">{body}</div>
     </aside>
   );

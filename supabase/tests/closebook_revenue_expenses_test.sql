@@ -76,7 +76,8 @@ select public.cb_save_revenue_check(:'f', '', 'The return was filed before the d
 reset role;
 reset request.jwt.claims;
 select test.check('the revenue check is done', array(select x from unnest(private.cb_step5_problems(:'f')) x where x like 'Revenue check:%') = '{}');
-select test.check('round 14: the file has a shareholder account, so step 5 also waits for the schedule', private.cb_step5_problems(:'f') @> array['Shareholder loan schedule: prepare it.']);
+select test.check('piece 8: the shareholder loans are no longer step 5''s; step 7 has them', not (private.cb_step5_problems(:'f') @> array['Shareholder loan schedule: prepare it.'])
+  and private.cb_sh_review_problems(:'f') = array['Shareholder loans: click Update to work out the figures.']);
 
 -- A5: a difference over the threshold goes to the reviewer and waits on the step 6 list.
 set role authenticated;
