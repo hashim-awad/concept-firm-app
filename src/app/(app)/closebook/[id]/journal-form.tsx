@@ -23,9 +23,14 @@ import { HOME_DESCRIPTION, HOME_WP_REF, emptyHomeInputs, type HomeInputs, type H
 import type { HomeData } from "@/lib/closebook/home-office-server";
 import { VehicleWindow } from "./vehicle-window";
 import { HomeWindow } from "./home-window";
+import { EXP_DESCRIPTION, EXP_WP_REF, emptyExpInputs, type ExpInputs, type ExpResult } from "@/lib/closebook/expenses-schedule";
+import type { ExpData } from "@/lib/closebook/expenses-schedule-server";
+import { ExpensesWindow } from "./expenses-window";
 
-type SchedKind = "vehicle" | "home_office";
-const SCHED_NAME: Record<SchedKind, string> = { vehicle: "Vehicle schedule", home_office: "Home office schedule" };
+type SchedKind = "vehicle" | "home_office" | "expenses";
+const SCHED_NAME: Record<SchedKind, string> = { vehicle: "Vehicle schedule", home_office: "Home office schedule", expenses: "Expenses paid personally schedule" };
+const SCHED_REF: Record<SchedKind, [string, string]> = { vehicle: [WP_REF, DESCRIPTION], home_office: [HOME_WP_REF, HOME_DESCRIPTION], expenses: [EXP_WP_REF, EXP_DESCRIPTION] };
+type SchedInputs = VehicleInputs | HomeInputs | ExpInputs;
 
 const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
@@ -34,7 +39,7 @@ const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Ca
 export type JournalInit = { head?: Partial<FormHead>; lines?: FormLine[]; std?: string; seq?: string; date?: string; balanceLast?: boolean };
 
 export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes,
-  init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, schedKind, openSchedule = false, printHref = "" }: {
+  init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, expenses, schedKind, openSchedule = false, printHref = "" }: {
   fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string][];
   codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
   init?: JournalInit; lock?: { kind?: boolean; wp?: boolean }; origin?: string; edit?: string;
@@ -43,6 +48,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   vehicle?: VehicleData; openSchedule?: boolean; printHref?: string;
   // Piece 4: the Home office schedule; schedKind: the schedule an entry being edited holds.
   home?: HomeData; schedKind?: SchedKind;
+  // Piece 4b: the Expenses paid personally schedule.
+  expenses?: ExpData;
 }) {
   const optMap = useMemo(() => new Map(opts.map((o) => [o.value, o])), [opts]);
   const codeMap = useMemo(() => new Map(codes.map((c) => [c.code, c])), [codes]);
@@ -68,7 +75,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const [stdAmount, setStdAmount] = useState("");
   const std = s0 ? { kind: s0.kind, reason: s0.reason, reverse: s0.reverse } : null;
   // Piece 3: lines from a schedule keep the schedule's amounts; the entry form's rules apply to the other lines.
-  const [sIn, setSIn] = useState<{ kind: SchedKind; inputs: VehicleInputs | HomeInputs } | null>(null);
+  const [sIn, setSIn] = useState<{ kind: SchedKind; inputs: SchedInputs } | null>(null);
   const [kind, setKind] = useState<SchedKind | null>(schedKind ?? null);
   const [open, setOpen] = useState<SchedKind | null>(openSchedule ? schedKind ?? (vehicle ? "vehicle" : null) : null);
   const setVOpen = (v: boolean) => setOpen(v ? kind ?? "vehicle" : null);
@@ -81,17 +88,18 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const plan = hasSched ? { ...plan0, dr: plan0.dr + sDr, cr: plan0.cr + sCr, problems: [
     ...schedLines.filter((l) => !l.isTax && !l.acct).map(() => "A schedule line needs an account."),
     ...plan0.problems.filter((p) => !(other.length === 0 && p === "Enter at least two lines."))] } : plan0;
-  const putLines = (k: SchedKind, inputs: VehicleInputs | HomeInputs, sl: SchedLine[], acctMap: Record<string, string>) => {
+  const putLines = (k: SchedKind, inputs: SchedInputs, sl: SchedLine[], acctMap: Record<string, string>) => {
     const prev = new Map(schedLines.map((l) => [l.sched!, l]));
     const fresh: FormLine[] = sl.map((l) => {
       const p = prev.get(l.part);
       const dflt = l.account ?? acctMap[l.number] ?? `chart:${l.number}`;
-      return { ...blankLine(), acct: l.is_tax ? acctMap[ITC_ACCOUNT] ?? `chart:${ITC_ACCOUNT}` : p?.acct || dflt, desc: p?.desc || l.memo,
+      return { ...blankLine(), acct: l.is_tax ? acctMap[ITC_ACCOUNT] ?? `chart:${ITC_ACCOUNT}` : k === "expenses" && l.account ? dflt : p?.acct || dflt,
+        desc: k === "expenses" && l.account ? l.memo : p?.desc || l.memo,
         dr: l.amount > 0 ? formatAmount(l.amount) : "", cr: l.amount < 0 ? formatAmount(-l.amount) : "", tax: l.tax_code ?? "none", sched: l.part, isTax: !!l.is_tax };
     });
     const keep = lines.filter((l) => !l.sched && (l.acct || l.dr.trim() || l.cr.trim()));
     setLines([...fresh, ...keep]);
-    setHead({ ...head, kind: "AJE", wpRef: k === "home_office" ? HOME_WP_REF : WP_REF, memo: head.memo.trim() ? head.memo : k === "home_office" ? HOME_DESCRIPTION : DESCRIPTION, reverse: false, inclusive: false });
+    setHead({ ...head, kind: "AJE", wpRef: SCHED_REF[k][0], memo: head.memo.trim() ? head.memo : SCHED_REF[k][1], reverse: false, inclusive: false });
     setDate(yearEnd);
     setSIn({ kind: k, inputs });
     setKind(k);
@@ -99,6 +107,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   };
   const putSchedule = (inputs: VehicleInputs, r: VehicleResult) => putLines("vehicle", inputs, r.lines, vehicle?.acct ?? {});
   const putHome = (inputs: HomeInputs, r: HomeResult) => putLines("home_office", inputs, r.lines, home?.acct ?? {});
+  const putExpenses = (inputs: ExpInputs, r: ExpResult) => putLines("expenses", inputs, r.lines, expenses?.acct ?? {});
   const setLine = (i: number, patch: Partial<FormLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const labelOf = (v: string) => (v === "new" ? "New account in the client’s books" : optMap.get(v)?.label ?? "");
   const byLabel = useMemo(() => new Map(opts.map((o) => [o.label, o.value])), [opts]);
@@ -199,7 +208,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
           </tbody>
         </table>
         <div className="flex items-center gap-2"><button type="button" onClick={() => setLines([...lines, blankLine()])} className="btn-secondary btn-compact">+ Line</button>
-          {(vehicle || home) && <span className="relative">
+          {(vehicle || home || expenses) && <span className="relative">
             <button type="button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)} onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }} className="btn-secondary btn-compact">From a schedule<ChevronDown className="h-3.5 w-3.5" /></button>
             {menu && <span role="menu" className="absolute top-full left-0 z-10 mt-1 grid min-w-[220px] rounded-lg border border-sand-200 bg-white py-1 shadow-[0_10px_30px_rgba(11,26,58,.18)]">
               {/* One schedule per entry: while the entry holds one, the other item is off. */}
@@ -208,7 +217,10 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                 className="px-3 py-1.5 text-left text-[13px] hover:bg-sand-50 focus:bg-sand-50 focus:outline-none disabled:text-ink-3">Vehicle (owner&apos;s car)</button>}
               {home && <button type="button" role="menuitem" disabled={hasSched && kind !== "home_office"} title={hasSched && kind !== "home_office" ? "This entry holds another schedule" : undefined}
                 onClick={() => { setMenu(false); setOpen("home_office"); }} onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}
-                className="px-3 py-1.5 text-left text-[13px] hover:bg-sand-50 focus:bg-sand-50 focus:outline-none disabled:text-ink-3">Home office</button>}</span>}
+                className="px-3 py-1.5 text-left text-[13px] hover:bg-sand-50 focus:bg-sand-50 focus:outline-none disabled:text-ink-3">Home office</button>}
+              {expenses && <button type="button" role="menuitem" disabled={hasSched && kind !== "expenses"} title={hasSched && kind !== "expenses" ? "This entry holds another schedule" : undefined}
+                onClick={() => { setMenu(false); setOpen("expenses"); }} onKeyDown={(e) => { if (e.key === "Escape") setMenu(false); }}
+                className="px-3 py-1.5 text-left text-[13px] hover:bg-sand-50 focus:bg-sand-50 focus:outline-none disabled:text-ink-3">Expenses paid personally</button>}</span>}
           </span>}</div>
 
         {/* The GIFI/HST posting as its own line, then the totals: debits equal credits, the tax included. */}
@@ -240,6 +252,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         canPrint={!!printHref && !!vehicle.stored && !sIn} printHref={printHref} onPut={putSchedule} onClose={() => setOpen(null)} />}
       {home && open === "home_office" && <HomeWindow data={home} initial={(sIn?.kind === "home_office" ? sIn.inputs as HomeInputs : null) ?? (home.stored ? { ...home.stored.inputs, itc: home.stored.itc_claim } : emptyHomeInputs())}
         canPrint={!!printHref && !!home.stored && !sIn} printHref={printHref} onPut={putHome} onClose={() => setOpen(null)} />}
+      {expenses && open === "expenses" && <ExpensesWindow data={expenses} initial={(sIn?.kind === "expenses" ? sIn.inputs as ExpInputs : null) ?? (expenses.stored ? { ...expenses.stored.inputs, itc: expenses.stored.itc_claim } : emptyExpInputs())}
+        canPrint={!!printHref && !!expenses.stored && !sIn} printHref={printHref} onPut={putExpenses} onClose={() => setOpen(null)} />}
     </form>
   );
 }

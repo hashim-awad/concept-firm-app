@@ -3,6 +3,8 @@
 // working and the entry's lines, stamped "Working paper: not for the client". The figures are the saved schedule's,
 // worked out again from what it was saved with (its rates, ITC factor and company-paid figures). History records it.
 // Piece 4: the Home office schedule prints the same way (its areas or share, the cost rows and the working).
+// Piece 4b: the Expenses paid personally schedule lists every line (account, what it was, amount paid, GST/HST,
+// business %, expense, ITC).
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { loadFile } from "@/lib/closebook/server";
@@ -15,6 +17,8 @@ import { ctxOfSnapshot } from "@/lib/closebook/vehicle-server";
 import { entryNo } from "@/lib/closebook/reports";
 import { calcHome, readHomeInputs, HOME_NATURE } from "@/lib/closebook/home-office";
 import type { HomeSnapshot } from "@/lib/closebook/home-office-server";
+import { calcExpenses, pctText, readExpInputs, EXP_NATURE } from "@/lib/closebook/expenses-schedule";
+import type { ExpSnapshot } from "@/lib/closebook/expenses-schedule-server";
 
 const STAMP = "Working paper: not for the client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,8 +33,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     supabase.from("cb_schedules").select("id, entry_id, kind, inputs, snapshot, itc_claim").eq("file_id", id).eq("entry_id", entryId).maybeSingle()]);
   const e = f?.entries.find((x) => x.id === entryId);
   if (!f || !s || !e) return new Response("Not found", { status: 404 });
-  const home = s.kind === "home_office";
-  const schedName = home ? "Home office schedule" : "Vehicle schedule";
+  const home = s.kind === "home_office", exp = s.kind === "expenses";
+  const schedName = home ? "Home office schedule" : exp ? "Expenses paid personally schedule" : "Vehicle schedule";
   const client = f.client?.legal_name ?? "";
   const no = entryNo(f.file.year_end, e).split(" ")[0];
   const ctx: WpCtx = { client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: schedName, stamp: STAMP,
@@ -45,7 +49,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   // The schedule's own part: its inputs and working, and the figures for the GST/HST record.
   let top: any[], rec: { amountLabel: string; amount: number; gst: number; claim: boolean; payee: string; nature: string };
-  if (home) {
+  if (exp) {
+    const xs = (s.snapshot ?? {}) as ExpSnapshot;
+    const xin = { ...readExpInputs(s.inputs), itc: s.itc_claim as boolean };
+    const xr = calcExpenses(xin, { province: xs.province, regular: xs.regular, factor: xs.factor, taxCode: xs.taxCode, mealsCode: xs.mealsCode, accts: xs.accts ?? {} });
+    const used = xr.rows.filter((x) => x.paid);
+    const right = { alignment: "right" };
+    const tot = { alignment: "right", bold: true, border: [false, true, false, false] };
+    const body = [[head("Account"), head("What it was"), head("Amount paid", true), ...(xs.regular ? [head("GST/HST", true)] : []), head("Business %", true), head("Expense", true), ...(xs.regular ? [head("ITC", true)] : [])],
+      ...used.map((x) => [cell(`${x.label}${x.meals && xs.regular ? " (meals: half the GST/HST)" : ""}`), cell(x.what, { color: C.grey }), cell(formatAmount(x.paid), right),
+        ...(xs.regular ? [cell(x.gstText || "0.00", right)] : []), cell(pctText(x.pctBp), right), cell(formatAmount(x.expense), right), ...(xs.regular ? [cell(formatAmount(x.itc), right)] : [])]),
+      [cell("Total", { bold: true }), cell(""), cell(formatAmount(used.reduce((n, x) => n + x.paid, 0)), tot), ...(xs.regular ? [cell(formatAmount(used.reduce((n, x) => n + x.gst, 0)), tot)] : []),
+        cell(""), cell(formatAmount(xr.expense), tot), ...(xs.regular ? [cell(formatAmount(xr.itc), tot)] : [])]];
+    const facts: [string, string][] = [xs.regular ? ["Claim the ITC", `${xin.itc ? "Yes" : "No"} (${xs.factor ? `${xs.factor.numerator}/${xs.factor.denominator}` : "no factor"}, ${PROVINCE_NAMES[xs.province] ?? xs.province})`]
+      : ["GST/HST", "Not registered, or on the quick method: amounts are tax included"], ["Owed to the owner", formatAmount(xr.owed)]];
+    top = [
+      { table: { widths: [120, "*"], body: facts.map(([a, b]) => [cell(a, { color: C.grey }), cell(b)]) }, layout, fontSize: 8.5, margin: [0, 0, 0, 8] },
+      { text: "Lines", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
+      { table: { headerRows: 1, widths: xs.regular ? [150, "*", 60, 55, 50, 60, 50] : [170, "*", 70, 60, 70], body }, layout, fontSize: 8.5 },
+      { text: xr.working, fontSize: 8, color: C.grey, margin: [0, 6, 0, 12] },
+    ];
+    rec = { amountLabel: "Amount of the reimbursement", amount: xr.record.amount, gst: xr.record.gst, claim: xr.record.claim, payee: xs.payee?.name ?? "", nature: EXP_NATURE };
+  } else if (home) {
     const hs = (s.snapshot ?? {}) as HomeSnapshot;
     const hin = { ...readHomeInputs(s.inputs), itc: s.itc_claim as boolean };
     const hr = calcHome(hin, { province: hs.province, regular: hs.regular, factor: hs.factor, taxCode: hs.taxCode });
@@ -127,7 +152,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   ] : [];
 
   const def = wpDocument(ctx, [[
-    headerBlock(ctx, home ? "Home office schedule" : "Vehicle schedule (owner's car)", schedName),
+    headerBlock(ctx, home ? "Home office schedule" : exp ? "Expenses paid personally" : "Vehicle schedule (owner's car)", schedName),
     ...top,
     ...recordBox,
     { text: `Entry ${no} ${e.kind}: ${e.note}`, bold: true, color: C.navy, margin: [0, 0, 0, 4] },

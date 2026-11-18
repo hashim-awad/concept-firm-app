@@ -26,6 +26,7 @@ import { initials } from "../shell/shell";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { loadVehicle } from "@/lib/closebook/vehicle-server";
 import { loadHome } from "@/lib/closebook/home-office-server";
+import { loadExpensesSchedule } from "@/lib/closebook/expenses-schedule-server";
 import { ConfirmDelete } from "../vehicle-window";
 
 const KIND_WORD: Record<string, string> = { AJE: "Adjusting (AJE)", RJE: "Reclassifying (RJE)", TJE: "Tax, from ProFile (TJE)" };
@@ -49,7 +50,6 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
 }): Promise<ReactNode> {
   if (!sp.new && !sp.open) return null;
   if (file.file_type !== "full") return null;
-  const base = `/closebook/${file.id}`;
   const entry = sp.open ? entries.find((e) => e.id === sp.open) : sp.new?.match(/^(dup|rev):/) ? entries.find((e) => e.id === sp.new!.slice(4)) : undefined;
   // Round 35: ?open= names an entry. Anything else (a report's old link, a typo) opens nothing, never a blank new entry.
   if (sp.open && !entry && !sp.new) return null;
@@ -96,7 +96,6 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
             {entry.reviewed_at ? "Reviewed" : entry.needs_review ? "Needs review" : "No review needed"}</span>
           <span className="flex-1" />
           {canChange && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
-          {entry.origin === "expenses_personal" && editable && !locked && <Link href={`${base}?step=entries&paper=expenses`} className={act}>Open the paper</Link>}
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
           {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}
@@ -196,15 +195,18 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   // Piece 3: the Vehicle schedule, on every full file (a new entry, or the entry it fills).
   const schedEntry = edit && entry?.origin === "schedule" ? entry : undefined;
   // Piece 4: the kind of schedule the entry holds decides which window it reopens; a new entry offers both.
-  const schedKind = schedEntry ? (((await supabase.from("cb_schedules").select("kind").eq("entry_id", schedEntry.id).maybeSingle()).data as { kind: string } | null)?.kind === "home_office" ? "home_office" as const : "vehicle" as const) : undefined;
+  // Piece 4b: or the Expenses paid personally schedule.
+  const storedKind = schedEntry ? ((await supabase.from("cb_schedules").select("kind").eq("entry_id", schedEntry.id).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
+  const schedKind = schedEntry ? (storedKind === "home_office" || storedKind === "expenses" ? storedKind : "vehicle" as const) : undefined;
   const offer = !origin && !init.std && !sp.new?.match(/^(dup|rev):/) && (!edit || schedEntry);
-  const vehicle = offer && schedKind !== "home_office"
+  const vehicle = offer && (!schedKind || schedKind === "vehicle")
     ? await loadVehicle(supabase, file, province, entries, accounts, await rdata, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
-  const home = offer && schedKind !== "vehicle" ? await loadHome(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
+  const home = offer && (!schedKind || schedKind === "home_office") ? await loadHome(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
+  const expenses = offer && (!schedKind || schedKind === "expenses") ? await loadExpensesSchedule(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
       <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
-        vehicle={vehicle} home={home} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
+        vehicle={vehicle} home={home} expenses={expenses} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
   );
 }

@@ -27,7 +27,6 @@ export function HomeWindow({ data, initial, canPrint, printHref, onPut, onClose 
   const [gst, setGst] = useState<Record<string, string | null>>(Object.fromEntries(COST_ROWS.map((r) => [r.key, initial.costs[r.key]?.gst == null ? null : money(initial.costs[r.key]!.gst)])));
   const [itc, setItc] = useState(initial.itc);
 
-  const prints = data.ctx.regular && itc;
   const pctBp = (() => { const v = pct.replace(/[\s%]/g, ""); return /^\d{1,3}(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : null; })();
   const inputs: HomeInputs = {
     mode, homeSqft: readSq(home), officeSqft: readSq(office), pctBp: mode === "pct" ? pctBp : null,
