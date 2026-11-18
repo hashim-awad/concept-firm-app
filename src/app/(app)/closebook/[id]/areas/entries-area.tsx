@@ -23,28 +23,44 @@ const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.or
 const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px]";
 const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `(${t})` : t; };
 
-export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard, rounding = [] }: {
+// Piece 5 (Hashim, Nov 18, 2026): the same list on step 5, "Entries this year". There the step list keeps the left
+// panel, so the filters sit in a strip above the list, and every link stays on step 5 (listBase).
+export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard, rounding = [], listBase, title = "Entries" }: {
   supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; names: Map<string, string>;
   sp: { type?: string; status?: string; source?: string; entry?: string; back?: string };
   editable: boolean; isReviewer: boolean; standard: { id: string; name: string }[];
   rounding?: { gifi: string; title: string; cents: number }[];   // round 23: posted by itself from 3.1, one per T2 line under 1.00
+  listBase?: string; title?: string;
 }) {
   const base = `/closebook/${file.id}`;
+  const lb = listBase ?? `${base}?area=entries`;
   const { data: std } = await supabase.from("cb_entries").select("id, standard_id").eq("file_id", file.id);
   const stdOf = new Map(((std ?? []) as { id: string; standard_id: string | null }[]).map((x) => [x.id, x.standard_id]));
   const rows = entries.map((e) => ({ e, type: e.kind, status: entryStatus(e), source: sourceOf({ ...e, standard_id: stdOf.get(e.id) ?? null }) }));
   const count = (f: (r: (typeof rows)[number]) => boolean) => rows.filter(f).length;
-  const q = (o: Record<string, string | undefined>) => `${base}?area=entries${Object.entries({ type: sp.type, status: sp.status, source: sp.source, ...o }).filter(([, v]) => v).map(([k, v]) => `&${k}=${encodeURIComponent(v!)}`).join("")}`;
+  const q = (o: Record<string, string | undefined>) => `${lb}${Object.entries({ type: sp.type, status: sp.status, source: sp.source, ...o }).filter(([, v]) => v).map(([k, v]) => `&${k}=${encodeURIComponent(v!)}`).join("")}`;
+  // The filters, with their counts: the Entries tab's left panel, or a strip on step 5.
+  const groups: { head: string; links: { key: string; href: string; on: boolean; count: number; label: string }[] }[] = [
+    { head: "Type", links: [{ key: "all", href: q({ type: undefined }), on: !sp.type, count: rows.length, label: "All" },
+      ...([["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax (TJE)"]] as const).map(([t, l]) => ({ key: t, href: q({ type: t }), on: sp.type === t, count: count((r) => r.type === t), label: l }))] },
+    { head: "Review", links: (["Needs review", "Reviewed", "No review needed"] as EntryStatus[]).map((s) => ({ key: s, href: q({ status: sp.status === s ? undefined : s }), on: sp.status === s, count: count((r) => r.status === s), label: s })) },
+    { head: "Source", links: (["Typed", "Standard entry", "Revenue check", "Expenses paid personally", "Schedule"] as Source[]).map((s) => ({ key: s, href: q({ source: sp.source === s ? undefined : s }), on: sp.source === s, count: count((r) => r.source === s), label: s })) },
+  ];
   const left = (
     <>
-      <PanelHead>Type</PanelHead>
-      <PanelLink href={q({ type: undefined })} on={!sp.type} count={rows.length}>All</PanelLink>
-      {([["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax (TJE)"]] as const).map(([t, l]) => <PanelLink key={t} href={q({ type: t })} on={sp.type === t} count={count((r) => r.type === t)}>{l}</PanelLink>)}
-      <PanelHead>Review</PanelHead>
-      {(["Needs review", "Reviewed", "No review needed"] as EntryStatus[]).map((s) => <PanelLink key={s} href={q({ status: sp.status === s ? undefined : s })} on={sp.status === s} count={count((r) => r.status === s)}>{s}</PanelLink>)}
-      <PanelHead>Source</PanelHead>
-      {(["Typed", "Standard entry", "Revenue check", "Expenses paid personally", "Schedule"] as Source[]).map((s) => <PanelLink key={s} href={q({ source: sp.source === s ? undefined : s })} on={sp.source === s} count={count((r) => r.source === s)}>{s}</PanelLink>)}
+      {groups.map((g) => [<PanelHead key={g.head}>{g.head}</PanelHead>, ...g.links.map((x) => <PanelLink key={x.key} href={x.href} on={x.on} count={x.count}>{x.label}</PanelLink>)])}
     </>
+  );
+  const strip = (
+    <div className="mb-2 grid gap-1.5 rounded-[10px] border border-sand-200 bg-white px-3 py-2 text-[12px]" data-entry-filters>
+      {groups.map((g) => (
+        <div key={g.head} className="flex flex-wrap items-center gap-1.5">
+          <span className="w-16 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{g.head}</span>
+          {g.links.map((x) => <Link key={x.key} href={x.href} scroll={false} aria-current={x.on ? "true" : undefined}
+            className={`rounded-full border px-2 py-0.5 ${x.on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{x.label} <span className={x.on ? "text-white/80" : "text-ink-3"}>{x.count}</span></Link>)}
+        </div>
+      ))}
+    </div>
   );
   const shown = rows.filter((r) => (!sp.type || r.type === sp.type) && (!sp.status || r.status === sp.status) && (!sp.source || r.source === sp.source));
   const marked = sp.entry;
@@ -66,13 +82,14 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         {editable && file.phase !== "locked" && file.file_type === "full" && (
           <Popover align="right" width="w-64" label="New entry" button={<span className="btn btn-compact"><Plus className="h-3.5 w-3.5" />New entry<ChevronDown className="h-3.5 w-3.5" /></span>}>
             <ul className="-mx-3 -my-1.5 grid text-[13px]">
-              <li><Link href={`${base}?area=entries&new=journal`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-navy-50"><Plus className="h-3.5 w-3.5" />Journal entry</Link></li>
+              <li><Link href={`${lb}&new=journal`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-navy-50"><Plus className="h-3.5 w-3.5" />Journal entry</Link></li>
               {standard.length > 0 && <><li className="mt-1 border-t border-sand-200 px-3 pt-2 pb-0.5 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">From a standard entry</li>
-                {standard.map((x) => <li key={x.id}><Link href={`${base}?area=entries&new=std:${x.id}`} className="block py-1.5 pr-3 pl-6 hover:bg-navy-50">{x.name}</Link></li>)}</>}
+                {standard.map((x) => <li key={x.id}><Link href={`${lb}&new=std:${x.id}`} className="block py-1.5 pr-3 pl-6 hover:bg-navy-50">{x.name}</Link></li>)}</>}
             </ul>
           </Popover>
         )}
-      </>}>Entries <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
+      </>}>{title} <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
+      {listBase && strip}
       <section className="overflow-hidden rounded-[10px] border border-sand-200 bg-white" aria-label="Entries">
         <div className={`grid ${COLS} gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3`}>
           <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span>Sign-off</span>
@@ -80,7 +97,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         {shown.map(({ e }) => {
           const total = e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
           const on = e.id === marked;
-          const open = `${base}?area=entries${["type", "status", "source"].map((k) => (sp as Record<string, string | undefined>)[k] ? `&${k}=${encodeURIComponent((sp as Record<string, string>)[k])}` : "").join("")}&open=${e.id}`;
+          const open = `${lb}${["type", "status", "source"].map((k) => (sp as Record<string, string | undefined>)[k] ? `&${k}=${encodeURIComponent((sp as Record<string, string>)[k])}` : "").join("")}&open=${e.id}`;
           const prep = names.get(e.created_by ?? "") ?? "";
           const rev = e.reviewed_by ? names.get(e.reviewed_by) ?? "" : "";
           return (
@@ -100,7 +117,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
                   : isReviewer && editable && file.phase !== "locked" ? (
                     <Popover align="right" width="w-60" label="Review" button={<Circle kind="no" title="Not reviewed" />}>
                       <p className="font-semibold">Reviewer</p><p className="mb-2 text-ink-3">Not reviewed.</p>
-                      <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} /><button type="submit" className="btn btn-compact">Approve</button></form>
+                      <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} />{listBase && <input type="hidden" name="back" value={listBase} />}<button type="submit" className="btn btn-compact">Approve</button></form>
                     </Popover>) : <Circle kind="no" title="Not reviewed" />}
               </span>
             </div>

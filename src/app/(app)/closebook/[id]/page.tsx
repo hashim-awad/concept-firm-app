@@ -19,6 +19,7 @@ import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-sta
 import { stepHelp } from "./shell/help";
 import { TbArea } from "./areas/tb-area";
 import { entriesArea } from "./areas/entries-area";
+import { adjustmentsTop } from "./areas/adjustments";
 import { notesArea } from "./areas/notes-area";
 import { statementsArea } from "./areas/statements-area";
 import { ReportingBack, ReportingList, questionsReport } from "./areas/reporting-area";
@@ -343,11 +344,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           cents: Math.round(Number(ln.amount) * 100), memo: (ln.memo ?? "") as string, account: ((ln.account as unknown as { name: string } | null)?.name ?? "") }} /></>;
     }
   } else if (step === "entries") {
-    // Step 5, Checks (round 15b): the revenue check and the shareholder loans, each a working paper. Entries
-    // themselves live on the Entries tab. Piece 4b: the Expenses paid personally paper is retired.
+    // Step 5, Adjustments (piece 5; round 15b's papers kept): the revenue check and the shareholder loans are working
+    // papers under the step, each on its own screen when chosen. With no paper chosen, the Adjustments page: last
+    // year's line, the Schedules table and the Entries tab's list. Piece 4b: the Expenses paid personally paper is retired.
     const full = file.file_type === "full";
     const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
-    const p = pickPaper(stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false }));
+    const list5 = stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false });
+    pp.list = list5; pp.key = list5.find((x) => x.key === str(sp.paper))?.key;
+    const p = pp.key;
     const open = editable && file.phase !== "locked";
     if (!full) body = soon("Monthly file: entries are made in QuickBooks.");
     else if (p === "revenue") {
@@ -356,7 +360,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
     } else if (p === "sh") body = <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />;
-    else body = soon("No checks apply to this file.");
+    else {
+      const base5 = href("entries");
+      const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
+      const [top, ea] = await Promise.all([
+        adjustmentsTop({ supabase, file, entries, base: base5, editable, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
+        entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, listBase: base5, title: "Entries this year",
+          rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
+          sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
+      ]);
+      body = <>{top}{ea.content}</>;
+    }
   } else if (step === "review") {
     // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
     // are one click away, where the preparer explains the flagged changes for step 5.
@@ -527,7 +541,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     <>
       <PanelHead>Steps</PanelHead>
       {steps.flatMap((x) => [
-        <div key={x.key} data-step-row={x.key} className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-1.5 ${x.key === step && area === "steps" && !showHistory && !papers.length ? "bg-navy-50" : "hover:bg-sand-50"}`}>
+        <div key={x.key} data-step-row={x.key} className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-1.5 ${x.key === step && area === "steps" && !showHistory && (!papers.length || !paper) ? "bg-navy-50" : "hover:bg-sand-50"}`}>
           <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex h-10 min-w-0 flex-1 items-center gap-2 pl-2 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
             <StepMark n={x.n} p={stepProgress(x.key, progress)} /><span className="leading-snug">{x.name}</span>
           </Link>

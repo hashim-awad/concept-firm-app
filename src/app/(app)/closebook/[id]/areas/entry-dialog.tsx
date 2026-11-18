@@ -99,7 +99,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
           {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}
-          {canChange && <form action={deleteEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} />
+          {canChange && <form action={deleteEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} />{closeHref.includes("step=entries") && <input type="hidden" name="back" value={closeHref} />}
             {entry.origin === "schedule" ? <ConfirmDelete message="Delete the entry and its schedule?" /> : <button type="submit" className="btn-secondary btn-compact border-danger/30 text-danger">Delete</button>}</form>}
           <Link href={closeHref} aria-label="Close" className="ml-1 rounded p-1 text-ink-3 hover:bg-sand-100"><X className="h-[18px] w-[18px]" /></Link>
         </div>
@@ -130,7 +130,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
                 {last && <p className="pl-8 text-[12.5px] text-ink-2" data-entry-last-change>Last changed by {last.changed_by} · {formatDate(last.changed_at)}</p>}
                 {entry.needs_review ? (
                   <div className="flex items-center gap-2">{entry.reviewed_at ? <><Circle kind="r" text={initials(rev)} />Reviewed by {rev} · {formatDate(entry.reviewed_at)}</>
-                    : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} /><button type="submit" className="btn btn-compact">Approve</button></form>}</>}</div>
+                    : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} />{closeHref.includes("step=entries") && <input type="hidden" name="back" value={closeHref} />}<button type="submit" className="btn btn-compact">Approve</button></form>}</>}</div>
                 ) : <p className="flex items-center gap-2 text-ink-3"><Circle kind="none" />No review needed: a standard entry at or under the threshold.</p>}
               </div>
             </section>
