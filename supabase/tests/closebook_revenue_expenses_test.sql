@@ -23,6 +23,8 @@ select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', '[
   {"number":"60200","name":"Meals","amount":500},{"number":"70600","name":"Vehicle expenses","amount":500}]');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '41000' then '8000.00' when '64250' then '8862.00'
   when '23000' then '2781.10' when '60200' then '8523.00' else '9281.00' end) from public.cb_accounts where file_id = :'f';
+-- Piece 7: the revenue check is added by the preparer ("+ Add revenue check").
+select public.cb_add_revenue_check(:'f');
 reset role;
 reset request.jwt.claims;
 
@@ -30,7 +32,7 @@ reset request.jwt.claims;
 select test.check('A1: TB revenue is every revenue account, as a positive amount', (private.cb_revenue_state(:'f') ->> 'tb')::numeric = 20000);
 select test.check('A1: a realtor starts with the brokerage''s commission statement',
   private.cb_step5_problems(:'f') @> array['Revenue check: enter the brokerage''s commission statement.']);
-select test.check('A2: a registrant also enters the GST/HST returns', private.cb_step5_problems(:'f') @> array['Revenue check: enter the revenue on the year''s GST/HST returns.']);
+select test.check('A2: a registrant also enters the GST/HST returns (piece 7: in step 8)', private.cb_step8_problems(:'f') @> array['GST/HST revenue: enter the revenue on the year''s GST/HST returns and attach them.']);
 select test.check('A6: a realtor enters the brokerage''s T4A, or says there is none', private.cb_step5_problems(:'f') @> array['Revenue check: enter the brokerage''s T4A, or say there is none.']);
 select test.check('a check with no source is open work for the preparer, not a difference: nothing waits for the reviewer',
   private.cb_step5_waiting(:'f') = '{}' and not (private.cb_revenue_state(:'f') ->> 'waiting')::boolean);
@@ -65,7 +67,8 @@ reset request.jwt.claims;
 select test.check('A4: the fix entry says it came from the revenue check', (select origin || '|' || wp_ref || '|' || entry_date from public.cb_entries where id = :'fix') = 'revenue_check|Revenue check|2026-12-31');
 select test.check('A4: the fix clears the difference', (private.cb_revenue_state(:'f') ->> 'diff')::numeric = 0);
 -- Round 14: step 5 also lists the shareholder loan schedule; these checks are on the revenue check's own lines.
-select test.check('A2: the GST/HST difference opens after the fix', array(select x from unnest(private.cb_step5_problems(:'f')) x where x like 'Revenue check:%') = array['Revenue check: explain the difference with the GST/HST returns.']);
+select test.check('A2: the GST/HST difference opens after the fix (piece 7: in step 8)', array(select x from unnest(private.cb_step5_problems(:'f')) x where x like 'Revenue check:%') = '{}'
+  and private.cb_step8_problems(:'f') @> array['GST/HST revenue: explain the difference between the books and the returns.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('A4: one line only', test.try(format($q$select public.cb_save_revenue_check(%L, repeat('x', 201), '', '', false)$q$, :'f')) = 'Keep each explanation to one line (200 characters).');
@@ -115,7 +118,7 @@ select test.check('A4: T4A (8,500.00) became 8,500.00: its explanation is open a
   (private.cb_revenue_state(:'f') ->> 't4a_diff')::numeric = 8500 and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference between the T4A and the commission statement.']);
 select test.check('A5: and its acceptance too: it waits again', private.cb_step5_waiting(:'f') = array['T4A difference of 8,500.00, over the review threshold.']);
 select test.check('A4: GST/HST (1,000.00) became 1,000.00: its explanation is open again',
-  (private.cb_revenue_state(:'f') ->> 'gst_diff')::numeric = 1000 and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference with the GST/HST returns.']);
+  (private.cb_revenue_state(:'f') ->> 'gst_diff')::numeric = 1000 and private.cb_step8_problems(:'f') @> array['GST/HST revenue: explain the difference between the books and the returns.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_remove_revenue_source(id) from public.cb_revenue_sources where file_id = :'f' and kind = 'gst_returns';
@@ -123,7 +126,9 @@ select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return, ame
 select public.cb_add_revenue_source(:'f', 'slips', '', 'T5018', 100, 'files/t5018.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('A5: the GST/HST check over the threshold waits for the reviewer', private.cb_step5_waiting(:'f') @> array['GST/HST returns difference of 7,000.00, over the review threshold.']);
+select test.check('A5: the GST/HST check over the threshold waits for the reviewer (piece 7: in step 8, not step 5)', (private.cb_revenue_state(:'f') ->> 'gst_waiting')::boolean
+  and private.cb_step8_problems(:'f') @> array['GST/HST revenue: explain the difference between the books and the returns.']
+  and not exists (select 1 from unnest(private.cb_step5_waiting(:'f')) x where x like 'GST/HST%'));
 select test.check('A4: an explanation written for another difference is open again',
   private.cb_step5_problems(:'f') @> array['Revenue check: the difference changed since it was explained. Check the explanation and save it again.']);
 select test.check('A5: a new revenue difference waits again', private.cb_step5_waiting(:'f') @> array['Revenue difference of 8,900.00, over the review threshold.']);

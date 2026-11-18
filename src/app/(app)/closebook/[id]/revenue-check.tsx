@@ -1,7 +1,7 @@
 // Step 5, the revenue check (round 9, Hashim, Nov 27, 2026). Benchmark: CaseWare's tie-out working paper:
 // the trial balance figure, each source with its total and report, the difference to the cent, and how
 // the difference was cleared (explained in one line, or fixed with an entry made from here). Revenue ties
-// to its source, never to bank deposits. GST/HST registrants also tie to the year's returns; a realtor's
+// to its source, never to bank deposits. (Piece 7: the GST/HST returns comparison moved to step 8.) A realtor's
 // T4A from the brokerage ties to the commission statement. A difference left over the review threshold
 // waits for the reviewer on the step 6 list. The database applies the same rules to step 5's sign-off.
 import { formatDate } from "@/lib/dates";
@@ -28,11 +28,9 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
   names: Map<string, string>; hasFix: boolean; fixHref: string;
 }) {
   const primary = sources.filter((x) => ["commission_statement", "sales_report", "processor_report", "slips"].includes(x.kind) || (x.kind === "t4a" && x.payer === "other"));
-  const gst = sources.filter((x) => x.kind === "gst_returns"), t4a = sources.filter((x) => x.kind === "t4a" && x.payer === "brokerage");
+  const t4a = sources.filter((x) => x.kind === "t4a" && x.payer === "brokerage");
   const comm = sources.filter((x) => x.kind === "commission_statement");
-  // Round 13: a file whose GST/HST return is built in Closebook takes the return's figure (step 8).
-  const fromReturn = !!st.gst_from_return;
-  const hasSrc = primary.length > 0, hasGst = fromReturn ? st.n_gst > 0 : gst.length > 0, hasT4a = t4a.length > 0 && comm.length > 0;
+  const hasSrc = primary.length > 0, hasT4a = t4a.length > 0 && comm.length > 0;
   // An explanation counts only for the signed difference it was written for: 500.00 and (500.00) are
   // different differences (the database applies the same rule). Round 15: one short status per check.
   const pill = (cls: string, t: React.ReactNode, title?: string) => <span title={title} className={`rounded px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${cls}`}>{t}</span>;
@@ -44,11 +42,11 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
       : explained ? pill("bg-navy-100 text-navy-800", "Explained")
       : text && explainedFor !== null ? pill("bg-danger-soft text-danger", "Explain again", `Explained for ${neg(explainedFor)}; the difference is now ${neg(diff)}`)
       : pill("bg-danger-soft text-danger", "To explain");
-  const accept = (check: "revenue" | "gst" | "t4a", waiting: boolean, explained: boolean) => waiting && explained && isOwner && editable && (
+  const accept = (check: "revenue" | "t4a", waiting: boolean, explained: boolean) => waiting && explained && isOwner && editable && (
     <form action={acceptRevenueDifference} className="inline"><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="check" value={check} />
       <button type="submit" className="ml-1.5 text-[11px] font-semibold text-navy-700 underline">Accept</button></form>
   );
-  const explainCell = (name: "explanation" | "gst_explanation" | "t4a_explanation", value: string, diff: number, has: boolean) => (
+  const explainCell = (name: "explanation" | "t4a_explanation", value: string, diff: number, has: boolean) => (
     has && diff !== 0 ? <textarea form="rev-explain" name={name} defaultValue={value} maxLength={200} disabled={!editable} aria-label="Explanation" placeholder="Explain in one line" rows={1}
       className="block w-full min-w-[14rem] resize-none rounded border border-sand-300 px-1.5 py-0.5 text-[12.5px] leading-snug [field-sizing:content] disabled:border-transparent disabled:bg-transparent" /> : <span className="text-ink-3">{value}</span>
   );
@@ -61,19 +59,20 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
   );
   const kinds = st.realtor ? ["commission_statement", "t4a", "sales_report", "processor_report", "slips"] : ["sales_report", "processor_report", "slips", "t4a", "commission_statement"];
   const th = "px-2.5 py-1.5 font-semibold";
-  const gstSrc = fromReturn ? (st.n_gst ? st.gst : null) : gst.length ? st.gst : null;
 
   return (
     <section id="revenue-check" aria-label="Revenue check" className="mb-3.5 rounded-[10px] border border-sand-200 bg-white">
       <form id="rev-explain" action={saveRevenueCheck}><input type="hidden" name="file_id" value={fileId} /></form>
       <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5">
+        {/* Piece 7: printed like the other schedules. */}
+        <a href={`/closebook/${fileId}/revenue-pdf`} target="_blank" rel="noreferrer" className="btn-secondary btn-compact">Print schedule (PDF)</a>
         <span className="flex-1" />
         {editable && (
           <Popover align="right" width="w-[34rem]" label="Add a source" button={<span className="btn-secondary btn-compact">+ Source</span>}>
             <form action={addRevenueSource} className="grid grid-cols-2 gap-2.5">
               <input type="hidden" name="file_id" value={fileId} />
               <label className="col-span-2 grid gap-1 text-xs font-semibold">Source<select name="kind" className="input input-compact">
-                {kinds.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}{st.registrant && !fromReturn && <option value="gst_returns">{KIND.gst_returns}</option>}</select></label>
+                {kinds.map((k) => <option key={k} value={k}>{KIND[k]}</option>)}</select></label>
               <label className="grid gap-1 text-xs font-semibold">T4A paid by<select name="payer" defaultValue={st.realtor ? "brokerage" : "other"} className="input input-compact">
                 <option value="brokerage">The brokerage</option><option value="other">Another payer</option></select></label>
               <label className="grid gap-1 text-xs font-semibold">Label<input name="label" maxLength={120} className="input input-compact" /></label>
@@ -97,14 +96,6 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
               <td className="px-2.5 py-1.5">{status(hasSrc, st.realtor ? "No statement" : "No source", st.diff, st.explanation, st.explained, st.explained_diff, st.waiting, st.accepted_by, st.accepted_at, st.accepted_diff)}{accept("revenue", st.waiting, st.explained)}</td>
               <td className="px-2.5 py-1.5">{explainCell("explanation", st.explanation, st.diff, hasSrc)}{hasFix && <span className="block text-[11px] text-ink-3">Entry made: W/P Revenue check</span>}</td></tr>
             {primary.map(sourceRow)}
-            {st.registrant && <>
-              <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">GST/HST {fromReturn ? "return" : "returns"}</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{<Num n={fromReturn ? st.tb_gst ?? st.tb : st.tb} />}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{gstSrc === null ? "–" : <Num n={gstSrc} />}</td>
-                <td className="px-2.5 py-1.5 text-right tabular-nums">{hasGst ? <Num n={st.gst_diff} /> : "–"}</td>
-                <td className="px-2.5 py-1.5">{status(hasGst, fromReturn ? "Prepare in step 8" : "Not entered", st.gst_diff, st.gst_explanation, st.gst_explained, st.gst_explained_diff, st.gst_waiting, st.gst_accepted_by, st.gst_accepted_at, st.gst_accepted_diff)}{accept("gst", st.gst_waiting, st.gst_explained)}</td>
-                <td className="px-2.5 py-1.5">{explainCell("gst_explanation", st.gst_explanation, st.gst_diff, hasGst)}</td></tr>
-              {!fromReturn && gst.map(sourceRow)}
-            </>}
             {st.realtor && <>
               <tr className="border-t border-sand-100"><td className="px-2.5 py-1.5">T4A to commission statement</td>
                 <td className="px-2.5 py-1.5 text-right tabular-nums">{comm.length ? <Num n={st.commission} /> : "–"}</td><td className="px-2.5 py-1.5 text-right tabular-nums">{t4a.length ? <Num n={st.t4a} /> : "–"}</td>
@@ -120,7 +111,8 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
       {/* Fields not shown in the table keep their saved value. */}
       {editable && <>
         {(!hasSrc || st.diff === 0) && <input form="rev-explain" type="hidden" name="explanation" value={st.explanation} />}
-        {(!st.registrant || !hasGst || st.gst_diff === 0) && <input form="rev-explain" type="hidden" name="gst_explanation" value={st.gst_explanation} />}
+        {/* Piece 7: the GST/HST note is step 8's; saving here keeps it as it is. */}
+        <input form="rev-explain" type="hidden" name="gst_explanation" value={st.gst_explanation} />
         {(!st.realtor || !hasT4a || st.t4a_diff === 0) && <input form="rev-explain" type="hidden" name="t4a_explanation" value={st.t4a_explanation} />}
         {t4a.length > 0 && st.t4a_none && <input form="rev-explain" type="hidden" name="t4a_none" value="on" />}
       </>}

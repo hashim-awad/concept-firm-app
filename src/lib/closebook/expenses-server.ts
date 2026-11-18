@@ -14,6 +14,8 @@ export type RevenueState = {
   gst_accepted_diff: number | null; gst_accepted_by: string | null; gst_accepted_at: string | null; t4a_accepted_diff: number | null; t4a_accepted_by: string | null; t4a_accepted_at: string | null;
   // From the database: over the threshold, a source entered, and not accepted at this signed amount.
   waiting: boolean; gst_waiting: boolean; t4a_waiting: boolean;
+  // Piece 7: the revenue check was added on this file ("+ Add revenue check", or saved before piece 7).
+  added: boolean;
 };
 export type RevenueSource = { id: string; kind: string; payer: string; label: string; amount: number; attachment: string; created_at: string };
 
@@ -31,16 +33,17 @@ export async function loadRevenue(supabase: SupabaseClient, fileId: string) {
     explained_diff: raw.explained_diff == null ? null : n(raw.explained_diff), gst_explained_diff: raw.gst_explained_diff == null ? null : n(raw.gst_explained_diff),
     t4a_explained_diff: raw.t4a_explained_diff == null ? null : n(raw.t4a_explained_diff), accepted_diff: raw.accepted_diff == null ? null : n(raw.accepted_diff),
     gst_accepted_diff: raw.gst_accepted_diff == null ? null : n(raw.gst_accepted_diff), t4a_accepted_diff: raw.t4a_accepted_diff == null ? null : n(raw.t4a_accepted_diff),
-    waiting: raw.waiting === true, gst_waiting: raw.gst_waiting === true, t4a_waiting: raw.t4a_waiting === true,
+    waiting: raw.waiting === true, gst_waiting: raw.gst_waiting === true, t4a_waiting: raw.t4a_waiting === true, added: raw.added === true,
   };
   return { state, sources: ((src ?? []) as RevenueSource[]).map((x) => ({ ...x, amount: Number(x.amount) })) };
 }
-// What waits for the reviewer on step 6, one item per check (A5).
+// What waits for the reviewer on step 7, one item per check (A5). Piece 7: the GST/HST returns difference is step 8's.
 export const revenueWaiting = (s: RevenueState) => [
   ...(s.waiting ? [{ label: "Revenue difference over the review threshold", diff: s.diff, explained: s.explained, text: s.explanation }] : []),
-  ...(s.gst_waiting ? [{ label: "GST/HST returns difference over the review threshold", diff: s.gst_diff, explained: s.gst_explained, text: s.gst_explanation }] : []),
   ...(s.t4a_waiting ? [{ label: "T4A difference over the review threshold", diff: s.t4a_diff, explained: s.t4a_explained, text: s.t4a_explanation }] : []),
 ];
+export const gstRevenueWaiting = (s: RevenueState) =>
+  s.gst_waiting ? [{ label: "GST/HST revenue difference over the review threshold", diff: s.gst_diff, explained: s.gst_explained, text: s.gst_explanation }] : [];
 
 export type ExpensesData = {
   standardId: string; defs: ExpenseDef[]; autoTax: string; autoEntry: boolean; registered: boolean; quick: boolean;

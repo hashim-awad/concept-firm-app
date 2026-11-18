@@ -139,7 +139,8 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
 // on the step.
 export type PaperKey = "accounts" | "feeds" | "reconcile" | "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
 export type Paper = { key: PaperKey; name: string };
-export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean; bank?: boolean };
+// Piece 7: revenue false = no revenue check added on this file (step 5 offers "+ Add revenue check" instead).
+export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean; bank?: boolean; revenue?: boolean };
 export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
   const p = (key: PaperKey, name: string, on = true): Paper[] => (on ? [{ key, name }] : []);
   switch (step) {
@@ -148,7 +149,7 @@ export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
     // Round 23: Banking's sub-steps, each with its own sign-offs (bank and card files).
     case "records": return [...p("accounts", "3.1 Bank accounts & T2 tie-out", !!f.bank), ...p("feeds", "3.2 Bank feeds", !!f.bank), ...p("reconcile", "3.3 Reconcile", !!f.bank)];
     // Piece 4b (Hashim, Nov 18, 2026): the "Expenses paid personally" paper is retired; the schedule is in the entry window.
-    case "entries": return [...p("revenue", "Revenue check", f.full), ...p("sh", "Shareholder loans", f.shareholders)];
+    case "entries": return [...p("revenue", "Revenue check", f.full && f.revenue !== false), ...p("sh", "Shareholder loans", f.shareholders)];
     case "t2": return [...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
     case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];
     case "lock": return [...p("checklist", "Checklist"), ...p("email", "Client email"), ...p("documents", "Documents"), ...p("filing", "Filing and lock")];

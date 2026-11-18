@@ -28,8 +28,9 @@ export async function lastYearLine(supabase: SupabaseClient, file: CbFileRow): P
   return rows.length ? `Last year: ${rows.map((r) => `${SHORT[r.kind] ?? r.kind} ${formatAmount(amountOf(r.entry!.lines))}`).join(" · ")}` : "";
 }
 
-export async function adjustmentsTop({ supabase, file, entries, papers, base, editable }: {
+export async function adjustmentsTop({ supabase, file, entries, papers, base, editable, addRevenue }: {
   supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; base: string; editable: boolean;
+  addRevenue?: React.ReactNode;   // Piece 7: "+ Add revenue check", at the right of the heading, until it is added
   papers: { name: string; href: string; status: Progress }[];   // Revenue check, Shareholder loans: as the step list offers them
 }) {
   const [last, { data: sch }] = await Promise.all([lastYearLine(supabase, file), supabase.from("cb_schedules").select("kind, entry_id").eq("file_id", file.id)]);
@@ -41,7 +42,7 @@ export async function adjustmentsTop({ supabase, file, entries, papers, base, ed
   return (
     <>
       {last && <p className="mb-4 rounded-[10px] border border-sand-200 bg-white px-4 py-2.5 text-[13px] text-ink-3" data-last-year>{last}</p>}
-      <h2 className="mb-2 text-[14px] font-semibold">Schedules</h2>
+      <div className="mb-2 flex items-center justify-between gap-3"><h2 className="text-[14px] font-semibold">Schedules</h2>{addRevenue}</div>
       <section className="mb-5 overflow-hidden rounded-[10px] border border-sand-200 bg-white" aria-label="Schedules">
         <table className="w-full border-collapse text-[12.5px]" data-schedules>
           <thead><tr className="border-b border-sand-200 bg-sand-50 text-left text-[11px] font-semibold tracking-[.06em] text-ink-3 uppercase">

@@ -43,17 +43,19 @@ import { env } from "@/lib/env";
 import { StatementsStep } from "./statements-step";
 import { CloseStep } from "./close-step";
 import { GstSection } from "./gst-section";
+import { GstRevenueBox } from "./gst-revenue-box";
 import { gstFor } from "@/lib/closebook/gst-server";
 import type { Line } from "@/lib/closebook/gst-return";
 import { loadClose } from "@/lib/closebook/close-server";
 import { FirstYearQuestion } from "./opening-first-year";
 import { loadPackage, type PackageData } from "@/lib/closebook/fs-server";
-import { loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
+import { gstRevenueWaiting, loadRevenue, revenueWaiting } from "@/lib/closebook/expenses-server";
 import { BankingPage } from "./step3/banking-page";
 import { LineWindow } from "./step3/feed-windows";
 import { feedLock, loadRounding, loadSignoffPill, loadSubsteps, SUBS, type SubKey } from "@/lib/closebook/banking-server";
 import { BankFeed } from "./feed/bank-feed";
 import { saveSetup } from "../actions";
+import { addRevenueCheck } from "../round9-actions";
 import { loadFeed } from "@/lib/closebook/feed-server";
 import { gifiCodeInfo, livePostings, rebuildTb } from "@/lib/closebook/tb-build-server";
 import { OpeningSchedule } from "./opening-schedule";
@@ -349,14 +351,16 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // year's line, the Schedules table and the Entries tab's list. Piece 4b: the Expenses paid personally paper is retired.
     const full = file.file_type === "full";
     const sh = await loadShLoans(supabase, file, accounts, entries, ref.lines, ref.sheets);
-    const list5 = stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false });
+    // Piece 7: the revenue check shows only once added ("+ Add revenue check", or anything saved in it before piece 7).
+    const rev5 = full ? await loadRevenue(supabase, id) : null;
+    const list5 = stepPapers("entries", { full, shareholders: sh.rows.length > 0 || sh.status.applies, ownerPaid: setup.owner_paid === true, gst: false, revenue: !!rev5?.state.added });
     pp.list = list5; pp.key = list5.find((x) => x.key === str(sp.paper))?.key;
     const p = pp.key;
     const open = editable && file.phase !== "locked";
     if (!full) body = soon("Monthly file: entries are made in QuickBooks.");
     else if (p === "revenue") {
       const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
-      const rev = await loadRevenue(supabase, id);
+      const rev = rev5!;
       body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
         isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
     } else if (p === "sh") body = <ShSchedule fileId={id} sh={sh} editable={open} isOwner={access.is_owner} names={names} />;
@@ -364,7 +368,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const base5 = href("entries");
       const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
       const [top, ea] = await Promise.all([
-        adjustmentsTop({ supabase, file, entries, base: base5, editable, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
+        adjustmentsTop({ supabase, file, entries, base: base5, editable, addRevenue: open && rev5 && !rev5.state.added ? (
+          <form action={addRevenueCheck}><input type="hidden" name="file_id" value={id} />
+            <button className="text-[13px] font-medium text-navy-700 underline" data-add-revenue>+ Add revenue check</button></form>) : undefined, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
         entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, listBase: base5, title: "Entries this year",
           rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
           sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
@@ -380,6 +386,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const amt = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${t})` : t; };
       const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
       const { data: rl } = bankFile ? await supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, reviewer_reason").eq("file_id", id).eq("status", "reviewer").order("txn_date") : { data: [] };
+      const rev7 = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
       const groups: ReviewGroup[] = [
         { key: "opening", title: "Opening balance differences", step: "step 2", items: openingRow?.needs_reviewer
           ? [{ href: href("opening"), label: "Difference with last year's closing balances", detail: openingRow.reviewer_reason ?? "", amount: amt(openingRow.this_year) }] : [] },
@@ -388,11 +395,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
         { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
           { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
-        { key: "revenue", title: "Revenue check", step: "step 5", items: await (async () => {
-          const r = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
-          return r ? revenueWaiting(r).map((w) => ({ href: paperHref("entries", "revenue"), label: w.label,
-            detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [];
-        })() },
+        { key: "revenue", title: "Revenue check", step: "step 5", items: rev7 ? revenueWaiting(rev7).map((w) => ({ href: paperHref("entries", "revenue"), label: w.label,
+          detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [] },
+        // Piece 7: the GST/HST revenue comparison moved to step 8; a difference over the threshold still waits here.
+        { key: "gst_revenue", title: "GST/HST revenue", step: "step 8", items: rev7 ? gstRevenueWaiting(rev7).map((w) => ({ href: `${paperHref("t2", "gst")}#gst-revenue`, label: w.label,
+          detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [] },
         { key: "sh", title: "Shareholder loans", step: "step 5", items: await (async () => {
           // Round 14: flags the preparer answered, per shareholder (last year's part not repaid; repaid near year end).
           const { data: fl } = await supabase.from("cb_sh_flags").select("account_key, flag, note, closing").eq("file_id", id).neq("note", "").is("accepted_at", null);
@@ -443,7 +450,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const dl = /^\d+$/.test(str(sp.gst) ?? "") && /^1\d\d$/.test(str(sp.line) ?? "") ? { period: Number(str(sp.gst)), line: str(sp.line) as Line } : null;
     // Round 15b: the papers GIFI file, Tax workpaper, T2 tie-out and, for a registrant's full file, GST/HST return.
     const p = pickPaper(stepPapers("t2", { full: file.file_type === "full", shareholders: false, ownerPaid: false, gst: !!gst }));
-    body = p === "gst" && gst ? <GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} />
+    // Piece 7: the revenue on the year's GST/HST returns against the books (moved from step 5), a registrant's full file.
+    const rev8 = p === "gst" && file.file_type === "full" ? await loadRevenue(supabase, id) : null;
+    const revenueBox = rev8?.state.registrant ? <GstRevenueBox fileId={id} st={rev8.state} sources={rev8.sources} editable={editable && file.phase !== "locked"} isOwner={access.is_owner}
+      names={names} back={`/closebook/${id}?step=t2&paper=gst`} /> : undefined;
+    body = p === "gst" && gst ? <GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} revenueBox={revenueBox} />
       : g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} paper={p} />
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
