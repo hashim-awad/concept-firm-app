@@ -8,6 +8,7 @@ import type { AcctOpt, StdOpt, StdSide } from "./entry-form";
 import { defaultTaxCode, type TaxCode, type TaxContext, type TaxPart } from "./sales-tax";
 import type { CbFileRow } from "./files";
 
+export const RETIRED_STANDARD = ["Home office", "Auto expenses"];
 export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; nextNo: string };
 
 export async function loadTaxCodes(supabase: SupabaseClient, province: string, yearEnd: string): Promise<TaxCode[]> {
@@ -71,7 +72,11 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
   };
   // The debit's sales tax, for this client's province (round 3 item 1): never a code set at firm level.
   const taxFor = (mode: string, account: string) => (mode === "taxable" ? defaultTaxCode("GST/HST", province, account) ?? "" : mode === "none" ? "none" : "");
+  // Piece 4 (Hashim, Nov 18, 2026): "Home office" and "Auto expenses" are retired from the list for new entries (the
+  // Home office and Vehicle schedules replace them). Their records and sales tax settings stay, so Expenses paid
+  // personally and entries already made from them keep working.
   const standard = ((std ?? []) as { id: string; name: string; kind: string; reason: string; debit_account: string; credit_account: string; memo: string; wp_ref: string; reverse_next_year: boolean; tax_mode: string }[])
+    .filter((x) => !RETIRED_STANDARD.includes(x.name))
     .filter((x) => chartOf.has(x.debit_account) && chartOf.has(x.credit_account))
     .map((x) => ({ id: x.id, name: x.name, kind: x.kind, reason: x.reason, memo: x.memo, wp_ref: x.wp_ref, reverse: x.reverse_next_year, debit: side(x.debit_account), credit: side(x.credit_account),
       tax: taxFor(x.tax_mode, x.debit_account), taxMode: x.tax_mode }));
