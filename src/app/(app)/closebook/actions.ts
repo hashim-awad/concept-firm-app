@@ -263,14 +263,15 @@ export async function reviewEntry(formData: FormData) {
   const id = s(formData, "file_id");
   const { error } = await (await createClient()).rpc("cb_review_entry", { p_entry: s(formData, "entry") });
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry approved."));
+  // Piece 5: back to the page the list was on (step 5 or the Entries tab).
+  redirect(withMessage(sameFile(id, s(formData, "back")) || enBack(id), error ? "error" : "msg", error ? error.message : "Entry approved."));
 }
 
 export async function deleteEntry(formData: FormData) {
   const id = s(formData, "file_id");
   const { error } = await (await createClient()).rpc("cb_delete_entry", { p_entry: s(formData, "entry") });
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(enBack(id), error ? "error" : "msg", error ? error.message : "Entry deleted."));
+  redirect(withMessage(sameFile(id, s(formData, "back")) || enBack(id), error ? "error" : "msg", error ? error.message : "Entry deleted."));
 }
 
 // For files imported before matching ran by itself: match the accounts still open.

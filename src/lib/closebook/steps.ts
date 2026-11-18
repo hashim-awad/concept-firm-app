@@ -48,7 +48,7 @@ export function stepTitle(key: string, books: string): string {
   const bank = fromStatements(books);
   const names: Record<string, [number, string]> = { setup: [1, "Set up"], opening: [2, "Opening balances"],
     records: [3, bank ? "Banking" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
-    entries: [5, "Checks"], mapping: [6, "GIFI mapping"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
+    entries: [5, "Adjustments"], mapping: [6, "GIFI mapping"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
   const n = names[key];
   return n ? `${n[0]}. ${n[1]}` : key;
 }
@@ -75,7 +75,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
     { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
-    { key: "entries", n: 5, name: "Checks", who: f.people.preparer, note: "" },
+    { key: "entries", n: 5, name: "Adjustments", who: f.people.preparer, note: "" },
     { key: "mapping", n: 6, name: "GIFI mapping", who: f.people.reviewer,
       note: f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : bank ? "Reviewer" : "Reviewer checks the matches" },
     { key: "review", n: 7, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },

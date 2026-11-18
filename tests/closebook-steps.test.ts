@@ -16,7 +16,7 @@ test("a new file opens on step 1; ten steps in order", () => {
   const r = fileSteps(facts({}));
   assert.equal(r.current, "setup");
   assert.deepEqual(r.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.deepEqual(r.steps.map((x) => x.name), ["Set up", "Opening balances", "Banking", "Code transactions", "Checks", "GIFI mapping", "Review", "Tax returns", "Statements", "Deliver and lock"]);
+  assert.deepEqual(r.steps.map((x) => x.name), ["Set up", "Opening balances", "Banking", "Code transactions", "Adjustments", "GIFI mapping", "Review", "Tax returns", "Statements", "Deliver and lock"]);
 });
 
 test("bank files: step 2 waits for the preparer's sign-off on last year's balance sheet", () => {
