@@ -1,3 +1,4 @@
+import { STUDIO_ICONS } from "@/components/ds/brand";
 import { requireAccess, canView, canEdit, letterTypes } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ds/overlays";
@@ -11,6 +12,9 @@ import { draftsByTab } from "@/lib/studio/template-status";
 import { Suspense } from "react";
 import { NavProgress } from "@/components/nav-progress";
 import { readMenuPins } from "@/lib/menu-pins";
+
+// Round 37: staff screens show the C Studio tab icon (client pages keep the Concept icon).
+export const metadata = { icons: STUDIO_ICONS };
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();

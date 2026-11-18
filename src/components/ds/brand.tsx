@@ -27,14 +27,31 @@ export function Logo({ tone = "navy", height = 36, priority }: { tone?: "navy" |
   );
 }
 
-// Concept Studio: the app's own name and logo, on every staff screen and staff email.
-// Client-facing pages use the firm's logo (<Logo>), never this one.
-const STUDIO = { white: "/brand/studio-logo-white.png", navy: "/brand/studio-logo-navy.png", w: 360, h: 141 };
+// The C Studio logo (Hashim, Nov 18, 2026): the app's own name and logo on staff screens. The supplied SVGs,
+// already outlined (no font), used as they are: navy #142E64, green #86BC25, white. Client-facing pages and
+// documents use the firm's logo (<Logo>), never this one. (Staff emails still use the PNG in public/brand.)
+const STUDIO = { white: "/brand/c-studio-white-500.svg", navy: "/brand/c-studio-navy-500.svg", w: 541.87, h: 134.96 };
 export function StudioLogo({ tone = "navy", height = 40, priority }: { tone?: "navy" | "white"; height?: number; priority?: boolean }) {
   return (
-    <Image src={STUDIO[tone]} alt="Concept Studio" width={Math.round((STUDIO.w / STUDIO.h) * height)} height={height} priority={priority} className="h-auto max-w-full" />
+    <Image src={STUDIO[tone]} alt="Concept Studio" width={Math.round((STUDIO.w / STUDIO.h) * height)} height={height} priority={priority} unoptimized
+      className="block max-w-full" style={{ height, width: "auto" }} data-studio-logo={tone} />
   );
 }
+// The C on its own (the folded menu).
+export function StudioMark({ tone = "white", size = 32 }: { tone?: "navy" | "white"; size?: number }) {
+  return <Image src={`/brand/c-mark-${tone}.svg`} alt="Concept Studio" width={size} height={size} unoptimized className="block" data-studio-mark={tone} />;
+}
+
+// The browser tab icons for staff screens (client pages keep the Concept icon, src/app/icon.svg). The SVG turns
+// its navy ring white on a dark browser; the PNGs (16, 32, 48 px) come in navy and, for dark mode, white.
+export const STUDIO_ICONS = {
+  icon: [
+    { url: "/brand/studio-icon.svg", type: "image/svg+xml" },
+    ...[16, 32, 48].map((s) => ({ url: `/brand/studio-icon-${s}.png`, sizes: `${s}x${s}`, type: "image/png", media: "(prefers-color-scheme: light)" })),
+    ...[16, 32, 48].map((s) => ({ url: `/brand/studio-icon-dark-${s}.png`, sizes: `${s}x${s}`, type: "image/png", media: "(prefers-color-scheme: dark)" })),
+  ],
+  apple: [{ url: "/brand/studio-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+};
 
 // The firm's name for client pages and documents. Its address, phone and email are not here: they come from Settings ›
 // Firm details › Contact (round 33, src/lib/firm-contact.ts).
