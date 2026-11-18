@@ -2,7 +2,7 @@
 // Piece 3 (Hashim, Nov 18, 2026): the Vehicle schedule's figures, exactly as the piece's tests T1 to T14 give them.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calcVehicle, emptyInputs, inputChanges, mulDiv, readInputs, yearParts, type CompanyAccount, type VehicleCtx, type VehicleInputs } from "../src/lib/closebook/vehicle-schedule.ts";
+import { calcVehicle, emptyInputs, inputChanges, mulDiv, readInputs, recordNature, yearParts, type CompanyAccount, type VehicleCtx, type VehicleInputs } from "../src/lib/closebook/vehicle-schedule.ts";
 
 const RATES = [
   { year: 2024, first_prov: 0.70, after_prov: 0.64, first_terr: 0.74, after_terr: 0.68 },
@@ -69,10 +69,10 @@ test("T3 a calendar year: 5,000 × 0.73 + 7,000 × 0.67", () => {
   assert.equal(r.lines[0].amount, 738053);
 });
 
-const t4 = (over: Partial<VehicleInputs> = {}) => inp({ businessKm: 12000, totalKm: 20000, ownerPaid: 937000, ownerGst: 65000, ...over });
+const t4in = (over: Partial<VehicleInputs> = {}) => inp({ businessKm: 12000, totalKm: 20000, ownerPaid: 937000, ownerGst: 65000, ...over });
 
 test("T4 both sources, the allowance is higher", () => {
-  const r = calcVehicle(t4(), birch({ company: FUEL }));
+  const r = calcVehicle(t4in(), birch({ company: FUEL }));
   assert.equal(r.sharePct, "60.00%");
   assert.equal(r.company.total, 45000);
   assert.equal(r.actual, 589200);
@@ -88,7 +88,7 @@ test("T4 both sources, the allowance is higher", () => {
 });
 
 test("T5 actual costs chosen with Use this instead; Use the higher one returns to T4", () => {
-  const r = calcVehicle(t4({ choice: "actual" }), birch({ company: FUEL }));
+  const r = calcVehicle(t4in({ choice: "actual" }), birch({ company: FUEL }));
   assert.equal(r.used, "actual");
   assert.deepEqual(entry(r), ["Dr 70600 5232.00", "Dr 21500 390.00", "Cr 23000 5622.00", "Dr 23000 180.00", "Cr 70600 159.29", "Cr 21500 20.71"]);
   assert.equal(r.debits, 580200);
@@ -96,11 +96,11 @@ test("T5 actual costs chosen with Use this instead; Use the higher one returns t
   assert.equal(net("23000"), -544200);
   assert.equal(39822 + net("70600"), 547093);
   assert.equal(mulDiv(911822, 60, 100), 547093);
-  assert.deepEqual(entry(calcVehicle(t4({ choice: "higher" }), birch({ company: FUEL }))), entry(calcVehicle(t4(), birch({ company: FUEL }))));
+  assert.deepEqual(entry(calcVehicle(t4in({ choice: "higher" }), birch({ company: FUEL }))), entry(calcVehicle(t4in(), birch({ company: FUEL }))));
 });
 
 test("T6 actual higher at 12,500 total km", () => {
-  const r = calcVehicle(t4({ totalKm: 12500 }), birch({ company: FUEL }));
+  const r = calcVehicle(t4in({ totalKm: 12500 }), birch({ company: FUEL }));
   assert.equal(r.sharePct, "96.00%");
   assert.equal(r.actual, 942720);
   assert.equal(r.higher, "actual");
@@ -111,15 +111,15 @@ test("T6 actual higher at 12,500 total km", () => {
 test("T7 company-paid only: the allowance and both parts", () => {
   const r = calcVehicle(inp({ businessKm: 12000 }), birch({ company: FUEL }));
   assert.equal(r.used, "allowance");
-  assert.deepEqual(entry(r), entry(calcVehicle(t4(), birch({ company: FUEL }))));
+  assert.deepEqual(entry(r), entry(calcVehicle(t4in(), birch({ company: FUEL }))));
   assert.ok(!r.problems.length);
 });
 
 test("T8 the blocks", () => {
-  const over = calcVehicle(t4({ businessKm: 21000 }), birch({ company: FUEL }));
+  const over = calcVehicle(t4in({ businessKm: 21000 }), birch({ company: FUEL }));
   assert.deepEqual(over.problems.map((p) => [p.field, p.text, p.hard]), [["business", "Business km can't be more than total km.", true]]);
   assert.equal(over.ready, false);
-  const noTotal = calcVehicle(t4({ totalKm: null }), birch({ company: FUEL }));
+  const noTotal = calcVehicle(t4in({ totalKm: null }), birch({ company: FUEL }));
   assert.deepEqual(noTotal.problems.map((p) => [p.field, p.text, p.hard]), [["total", "Enter total km to compare actual costs.", false]]);
   assert.equal(noTotal.ready, true, "the allowance stays usable");
   assert.equal(noTotal.used, "allowance");
@@ -159,7 +159,7 @@ test("T13 not registered (or quick method): no GST/HST lines, amounts tax includ
 test("T14 the rate changed to 0.74 and another 100.00 of fuel", () => {
   const rates = RATES.map((r) => (r.year === 2026 ? { ...r, first_prov: 0.74 } : r));
   const fuel = [{ ...FUEL[0], cost: 39822 + 8850, gst: 5178 + 1150 }];
-  const r = calcVehicle(t4(), birch({ rates, company: fuel }));
+  const r = calcVehicle(t4in(), birch({ rates, company: fuel }));
   assert.equal(r.allowance, 835000);
   assert.equal(r.itc, 96062);
   assert.equal(r.company.total, 55000);
@@ -178,5 +178,49 @@ test("History wording of a changed input; the window's values are read safely", 
   assert.deepEqual(inputChanges(inp({ businessKm: 12000 }), inp({ method: "detailed", partKm: [4000, 8000] }), "2025-09-01", "2026-08-31").map((c) => c.what),
     ["Method", "Business km in the year", "Business km, Sep 1 to Dec 31, 2025", "Business km, Jan 1 to Aug 31, 2026"]);
   assert.deepEqual(readInputs({ method: "x", businessKm: -5, totalKm: 20000.4, choice: "actual", itc: false }),
-    { method: "prorated", businessKm: null, partKm: [], alreadyKm: null, totalKm: 20000, ownerPaid: null, ownerGst: null, choice: "actual", itc: false });
+    { method: "prorated", businessKm: null, partKm: [], alreadyKm: null, totalKm: 20000, ownerPaid: null, ownerGst: null, choice: "actual", itc: false, paidTo: null });
+});
+
+// ---------- Version 2 (Hashim, Nov 18, 2026).
+
+test("T17 and T18: Alberta and British Columbia at 5/105, the GST code on the expense line", () => {
+  for (const province of ["AB", "BC"]) {
+    const r = calcVehicle(inp({ businessKm: 12000 }), birch({ province, factor: { numerator: 5, denominator: 105 }, taxCode: "GST" }));
+    assert.equal(r.allowance, 830000);
+    assert.equal(r.itc, 39524);
+    assert.deepEqual(entry(r), ["Dr 70600 7904.76", "Dr 21500 395.24", "Cr 23000 8300.00"]);
+    assert.equal(r.lines[0].tax_code, "GST");
+  }
+});
+
+test("the GST/HST record: amount and GST/HST deemed paid (T4 allowance, T5 actual costs)", () => {
+  const t4 = calcVehicle(t4in(), birch({ company: FUEL }));
+  assert.deepEqual([t4.record.amount, t4.record.gst, t4.record.claim], [830000, 95487, true]);
+  const t5 = calcVehicle(t4in({ choice: "actual" }), birch({ company: FUEL }));
+  assert.deepEqual([t5.record.amount, t5.record.gst], [562200, 39000]);
+  const off = calcVehicle(t4in({ itc: false }), birch({ company: FUEL }));
+  assert.deepEqual([off.record.amount, off.record.gst, off.record.claim], [830000, 0, false]);
+  assert.equal(recordNature("allowance", true), "Per-km allowance for business use of the owner's own vehicle. Reasonable allowance under ITA 6(1)(b). ITC under ETA s.174.");
+  assert.equal(recordNature("actual", true), "Reimbursement of the business share of vehicle costs the owner paid personally. ITC under ETA s.175 on the GST/HST shown on the owner's receipts.");
+  assert.equal(recordNature("allowance", false), "Per-km allowance for business use of the owner's own vehicle. Reasonable allowance under ITA 6(1)(b). No ITC claimed.");
+  assert.equal(recordNature("actual", false), "Reimbursement of the business share of vehicle costs the owner paid personally. No ITC claimed.");
+});
+
+test("Paid to: one linked shareholder is used; several need a pick; none blocks; a missing business number blocks", () => {
+  const pat = { id: "11111111-1111-1111-1111-111111111111", name: "Pat Dummy" }, sam = { id: "22222222-2222-2222-2222-222222222222", name: "Sam Dummy" };
+  const one = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat] }));
+  assert.deepEqual([one.ready, one.record.payee?.name], [true, "Pat Dummy"]);
+  const two = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat, sam] }));
+  assert.deepEqual(two.problems.map((p) => [p.field, p.text, p.hard]), [["paidTo", "Choose who was paid.", true]]);
+  assert.equal(two.ready, false);
+  const picked = calcVehicle(inp({ businessKm: 12000, paidTo: sam.id }), birch({ payees: [pat, sam] }));
+  assert.deepEqual([picked.ready, picked.record.payee?.name], [true, "Sam Dummy"]);
+  const none = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [] }));
+  assert.deepEqual(none.problems.map((p) => p.text), ["Link the shareholder to the client record first."]);
+  assert.equal(none.ready, false);
+  const bn = calcVehicle(inp({ businessKm: 12000 }), birch({ payees: [pat], bnMissing: true }));
+  assert.deepEqual(bn.problems.map((p) => p.text), ["Add the business number to the client record first."]);
+  assert.equal(bn.ready, false);
+  assert.deepEqual(inputChanges(inp({ paidTo: pat.id }), inp({ paidTo: sam.id }), "2025-09-01", "2026-08-31", { [pat.id]: pat.name, [sam.id]: sam.name }),
+    [{ what: "Paid to", old: "Pat Dummy", new: "Sam Dummy" }]);
 });

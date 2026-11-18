@@ -18,6 +18,7 @@ export type VehicleInputs = {
   ownerGst: number | null;           // the GST/HST in those costs
   choice: Choice;                    // "higher" until "Use this instead"
   itc: boolean;                      // Claim the ITC (regular registrants only)
+  paidTo?: string | null;            // version 2: the shareholder paid (a person linked to the client), when several are linked
 };
 // One vehicle account's company-paid costs in the year: before tax and the GST/HST posted with them.
 export type CompanyAccount = { account: string; number: string; name: string; cost: number; gst: number };
@@ -30,6 +31,10 @@ export type VehicleCtx = {
   regular: boolean;                  // registered for GST/HST on the regular method (ITC claimed)
   company: CompanyAccount[];         // empty when another Vehicle schedule takes them
   taxCode: string | null;            // the sales tax code on lines that carry GST/HST (for the GST/HST return)
+  // Version 2: the people linked to the client as shareholders (Paid to), and whether a GST/HST-registered client
+  // has no business number. Left out (tests of the figures alone), nothing is checked.
+  payees?: { id: string; name: string }[];
+  bnMissing?: boolean;
 };
 
 export const TERRITORIES = ["YT", "NT", "NU"];
@@ -85,7 +90,7 @@ export type SchedLine = {
   amount: number;                     // cents: debit positive, credit negative
   memo: string; tax_code?: string; is_tax?: boolean;
 };
-export type Problem = { field: "business" | "total" | "ownerGst" | "rates" | "factor" | "km"; text: string; hard: boolean };
+export type Problem = { field: "business" | "total" | "ownerGst" | "rates" | "factor" | "km" | "paidTo" | "bn"; text: string; hard: boolean };
 export type VehicleResult = {
   parts: PartRow[]; byMonth: boolean; alreadyKm: number; businessKm: number;
   allowance: number | null; itc: number;
@@ -95,6 +100,9 @@ export type VehicleResult = {
   actual: number | null;
   higher: "allowance" | "actual"; used: "allowance" | "actual";
   lines: SchedLine[]; debits: number;
+  // Version 2, the GST/HST record (CRA GST/HST Memorandum 9-3, para 66): the amount paid to the owner (the allowance,
+  // or the reimbursement of the owner part) and the GST/HST deemed paid in it (the ITC claimed), and who was paid.
+  record: { amount: number; gst: number; claim: boolean; payee: { id: string; name: string } | null };
   problems: Problem[]; ready: boolean;
   working: string[];
 };
@@ -138,6 +146,17 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
   if (ownerGst > ownerPaid) problems.push({ field: "ownerGst", text: "The GST/HST can't be more than the costs the owner paid.", hard: true });
   if (total === null && (ownerPaid > 0 || ownerGst > 0)) problems.push({ field: "total", text: "Enter total km to compare actual costs.", hard: false });
   if (business <= 0) problems.push({ field: "km", text: "Enter the business km.", hard: true });
+  // Version 2: who was paid, and the corporation's GST/HST number, from the client record.
+  let payee: { id: string; name: string } | null = null;
+  if (ctx.payees) {
+    if (ctx.payees.length === 0) problems.push({ field: "paidTo", text: "Link the shareholder to the client record first.", hard: true });
+    else if (ctx.payees.length === 1) payee = ctx.payees[0];
+    else {
+      payee = ctx.payees.find((p) => p.id === inp.paidTo) ?? null;
+      if (!payee) problems.push({ field: "paidTo", text: "Choose who was paid.", hard: true });
+    }
+  }
+  if (ctx.bnMissing) problems.push({ field: "bn", text: "Add the business number to the client record first.", hard: true });
 
   const allowance = missing.length ? null : parts.reduce((n, p) => n + p.amount, 0);
   const company = { cost: ctx.company.reduce((n, a) => n + a.cost, 0), gst: ctx.regular ? ctx.company.reduce((n, a) => n + a.gst, 0) : 0, total: 0 };
@@ -183,6 +202,10 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
     add({ part: "personal_gst", ...std(ITC_ACCOUNT), amount: -gst, memo: "GST/HST on the personal share", is_tax: true });
   }
   const debits = lines.reduce((n, l) => n + (l.amount > 0 ? l.amount : 0), 0);
+  const part = (k: string) => lines.find((l) => l.part === k)?.amount ?? 0;
+  const record = used === "allowance"
+    ? { amount: allowance ?? 0, gst: part("allowance_itc"), claim: claim, payee }
+    : { amount: part("owner") + part("owner_itc"), gst: part("owner_itc"), claim: claim, payee };
   const itcShown = lines.filter((l) => l.part === "allowance_itc" || l.part === "owner_itc").reduce((n, l) => n + l.amount, 0);
 
   // ---------- The working, in small grey lines.
@@ -198,7 +221,7 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
   const hard = problems.some((p) => p.hard);
   return {
     parts, byMonth: y.byMonth, alreadyKm: already, businessKm: business, allowance, itc: itcShown, company, share, sharePct, actual, higher, used,
-    lines, debits, problems, ready: !hard && lines.length >= 2, working,
+    lines, debits, record, problems, ready: !hard && lines.length >= 2, working,
   };
 }
 
@@ -207,12 +230,13 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
 export type VehicleSnapshot = {
   province: string; regular: boolean; factor: { numerator: number; denominator: number } | null; taxCode: string | null;
   rates: KmRates[]; company: CompanyAccount[]; companyIn: string;   // companyIn: "in the first car's schedule (2026-003 AJE)"
+  payee?: { id: string; name: string } | null;                       // version 2: who was paid, for the GST/HST record
 };
-export const emptyInputs = (): VehicleInputs => ({ method: "prorated", businessKm: null, partKm: [], alreadyKm: null, totalKm: null, ownerPaid: null, ownerGst: null, choice: "higher", itc: true });
+export const emptyInputs = (): VehicleInputs => ({ method: "prorated", businessKm: null, partKm: [], alreadyKm: null, totalKm: null, ownerPaid: null, ownerGst: null, choice: "higher", itc: true, paidTo: null });
 
 // History: each input changed, in words ("Business km in the year: 12,000 → 10,000").
 const show = (v: number | null | undefined, money = false) => (v === null || v === undefined ? "empty" : money ? formatAmount(v) : kmText(v));
-export function inputChanges(was: VehicleInputs, now: VehicleInputs, yearStart: string, yearEnd: string) {
+export function inputChanges(was: VehicleInputs, now: VehicleInputs, yearStart: string, yearEnd: string, people: Record<string, string> = {}) {
   const y = yearParts(yearStart, yearEnd);
   const out: { what: string; old: string; new: string }[] = [];
   if (was.method !== now.method) out.push({ what: "Method", old: methodName(was.method), new: methodName(now.method) });
@@ -226,6 +250,7 @@ export function inputChanges(was: VehicleInputs, now: VehicleInputs, yearStart: 
   ];
   for (const [what, a, b, money] of pairs) if ((a ?? null) !== (b ?? null)) out.push({ what, old: show(a, money), new: show(b, money) });
   if (was.choice !== now.choice) out.push({ what: "Used", old: choiceName(was.choice), new: choiceName(now.choice) });
+  if ((was.paidTo ?? null) !== (now.paidTo ?? null)) out.push({ what: "Paid to", old: was.paidTo ? people[was.paidTo] ?? "someone no longer linked" : "empty", new: now.paidTo ? people[now.paidTo] ?? "" : "empty" });
   return out;
 }
 export const methodName = (m: Method) => (m === "prorated" ? "Prorated" : "Detailed");
@@ -240,5 +265,13 @@ export function readInputs(raw: unknown): VehicleInputs {
     businessKm: num(r.businessKm), partKm: Array.isArray(r.partKm) ? r.partKm.slice(0, 5).map(num) : [], alreadyKm: num(r.alreadyKm),
     totalKm: num(r.totalKm), ownerPaid: num(r.ownerPaid), ownerGst: num(r.ownerGst),
     choice: r.choice === "allowance" || r.choice === "actual" ? r.choice : "higher", itc: r.itc !== false,
+    paidTo: typeof r.paidTo === "string" && /^[0-9a-f-]{36}$/.test(r.paidTo) ? r.paidTo : null,
   };
+}
+
+// Version 2: the "Nature" line of the GST/HST record.
+export function recordNature(used: "allowance" | "actual", claim: boolean): string {
+  return used === "allowance"
+    ? `Per-km allowance for business use of the owner's own vehicle. Reasonable allowance under ITA 6(1)(b). ${claim ? "ITC under ETA s.174." : "No ITC claimed."}`
+    : `Reimbursement of the business share of vehicle costs the owner paid personally. ${claim ? "ITC under ETA s.175 on the GST/HST shown on the owner's receipts." : "No ITC claimed."}`;
 }

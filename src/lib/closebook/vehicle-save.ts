@@ -44,11 +44,13 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
       dflt: l.account ?? (l.is_tax ? `chart:${ITC_ACCOUNT}` : vd.acct[l.number] ?? `chart:${l.number}`) }));
     const fmt = formatAmount(r.used === "allowance" ? r.allowance ?? 0 : r.actual ?? 0);
+    const people = Object.fromEntries((vd.ctx.payees ?? []).map((p) => [p.id, p.name]));
+    if ((vd.ctx.payees ?? []).length === 1) inputs.paidTo = null;   // one linked shareholder: nothing chosen, the name is the record's
     payload = {
-      kind: "vehicle", method: inputs.method, choice: inputs.choice, itc: inputs.itc, inputs, snapshot: snapshotOf(vd),
+      kind: "vehicle", method: inputs.method, choice: inputs.choice, itc: inputs.itc, inputs, snapshot: { ...snapshotOf(vd), payee: r.record.payee },
       result: { allowance: r.allowance, actual: r.actual, used: r.used, higher: r.higher, sharePct: r.sharePct, itc: r.itc, company: r.company, working: r.working, parts: r.parts, alreadyKm: r.alreadyKm },
       lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
-      changes: vd.stored ? inputChanges(vd.stored.inputs, inputs, f.file.year_start, f.file.year_end) : [],
+      changes: vd.stored ? inputChanges(vd.stored.inputs, inputs, f.file.year_start, f.file.year_end, people) : [],
       summary: r.used === "allowance" ? `Per-km allowance ${fmt} used` : `Actual costs, ${r.sharePct}, ${fmt} used`,
     };
   } else {

@@ -32,17 +32,24 @@ const cents = (n: number) => Math.round(Number(n) * 100);
 
 export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, province: string, entries: CbEntry[], accounts: CbAccount[], rdata: ReportData,
   entryId: string | null, canItc: boolean, opts: { value: string; line_no: string }[]): Promise<VehicleData> {
-  const [{ data: rates }, { data: factor }, { data: auto }, { data: schedules }, { data: chart }, { data: prev }] = await Promise.all([
+  const [{ data: rates }, { data: factor }, { data: auto }, { data: schedules }, { data: chart }, { data: prev }, { data: client }, { data: links }] = await Promise.all([
     supabase.from("cb_cra_km_rates").select("year, first_prov, after_prov, first_terr, after_terr").order("year"),
     supabase.from("cb_cra_itc_factors").select("numerator, denominator").eq("province", province).maybeSingle(),
     supabase.from("cb_standard_entries").select("id").eq("name", "Auto expenses").maybeSingle(),
     supabase.from("cb_schedules").select("id, entry_id, method, choice, itc_claim, inputs, snapshot, result, created_at").eq("file_id", file.id).eq("kind", "vehicle").order("created_at").order("id"),
     supabase.from("cb_chart_accounts").select("number, name, line_no"),
     supabase.from("cb_files").select("id").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle(),
+    // Version 2: the GST/HST record names the corporation's number and the person paid, from the client record.
+    supabase.from("clients").select("legal_name, business_number").eq("id", file.client_id).maybeSingle(),
+    supabase.from("client_links").select("linked_id, created_at, linked:linked_id(legal_name)").eq("client_id", file.client_id).eq("relationship", "shareholder").order("created_at"),
   ]);
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   // The same reading of the GST/HST answers as Expenses paid personally and the entry form.
-  const regular = setup.gst_registered !== false && setup.quick_method !== true;
+  const registered = setup.gst_registered !== false;
+  const regular = registered && setup.quick_method !== true;
+  const payees = ((links ?? []) as unknown as { linked_id: string; linked: { legal_name: string } | null }[])
+    .map((l) => ({ id: l.linked_id, name: l.linked?.legal_name ?? "" })).filter((p) => p.name);
+  const bnMissing = registered && !((client as { business_number?: string } | null)?.business_number ?? "");
   const list = ((schedules ?? []) as StoredSchedule[]).map((s) => ({ ...s, inputs: readInputs(s.inputs) }));
   const stored = entryId ? list.find((s) => s.entry_id === entryId) ?? null : null;
   const first = list[0];
@@ -120,7 +127,8 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
   const f = factor as { numerator: number; denominator: number } | null;
   return {
     ctx: { yearStart: file.year_start, yearEnd: file.year_end, province, rates: ((rates ?? []) as KmRates[]).map((r) => ({ year: r.year, first_prov: Number(r.first_prov), after_prov: Number(r.after_prov), first_terr: Number(r.first_terr), after_terr: Number(r.after_terr) })),
-      factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, regular, company, taxCode: regular ? defaultTaxCode("GST/HST", province, EXPENSE_ACCOUNT) : null },
+      factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, regular, company, taxCode: regular ? defaultTaxCode("GST/HST", province, EXPENSE_ACCOUNT) : null,
+      payees, bnMissing },
     companyIn, ledger, stored, hints, canItc, acct, names, provinceName: province,
   };
 }
@@ -129,6 +137,7 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
 export const snapshotOf = (d: VehicleData): VehicleSnapshot => ({
   province: d.ctx.province, regular: d.ctx.regular, factor: d.ctx.factor, taxCode: d.ctx.taxCode,
   rates: d.ctx.rates.filter((r) => r.year >= +d.ctx.yearStart.slice(0, 4) && r.year <= +d.ctx.yearEnd.slice(0, 4)), company: d.ctx.company, companyIn: d.companyIn,
+  payee: null,
 });
 // The saved schedule's own context (the PDF, and "what was saved"): its snapshot, else today's.
 export const ctxOfSnapshot = (file: CbFileRow, s: VehicleSnapshot): VehicleCtx => ({

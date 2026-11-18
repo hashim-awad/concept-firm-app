@@ -29,9 +29,12 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
   const [gst, setGst] = useState(money(initial.ownerGst));
   const [choice, setChoice] = useState<Choice>(initial.choice);
   const [itc, setItc] = useState(initial.itc);
+  const [paidTo, setPaidTo] = useState(initial.paidTo ?? "");
+  const payees = data.ctx.payees ?? [];
   const inputs: VehicleInputs = {
     method, businessKm: readKm(business), partKm: parts.map(readKm), alreadyKm: readKm(already), totalKm: readKm(total),
     ownerPaid: parseAmount(paid), ownerGst: data.ctx.regular ? parseAmount(gst) : null, choice, itc,
+    paidTo: payees.length > 1 ? paidTo || null : null,
   };
   const r = calcVehicle(inputs, data.ctx, data.names);
   const err = (field: string) => r.problems.filter((p) => p.field === field).map((p) => <span key={p.text} role="alert" className="text-[12px] font-normal text-danger">{p.text}</span>);
@@ -48,7 +51,8 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
   const province = PROVINCE_NAMES[data.ctx.province] ?? data.ctx.province;
   const factor = data.ctx.factor ? `${data.ctx.factor.numerator}/${data.ctx.factor.denominator}` : "no factor";
   const higherIsUsed = r.used === r.higher;
-  const generalProblems = r.problems.filter((p) => p.field === "rates" || p.field === "factor");
+  // Version 2: the record's blocks show with the others under the boxes; with several shareholders the pick list holds its own.
+  const generalProblems = r.problems.filter((p) => p.field === "rates" || p.field === "factor" || p.field === "bn" || (p.field === "paidTo" && payees.length === 0));
 
   const card = (kind: "allowance" | "actual", title: string, amount: number | null) => {
     const used = r.used === kind;
@@ -93,6 +97,10 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
                   {y.parts.map((p, i) => kmBox(`Business km, ${p.label}`, parts[i] ?? "", (v) => setParts(parts.map((x, j) => (j === i ? v : x))), km(h?.partKm[i]), i === 0 ? err("business") : null))}
                 </>}
               {kmBox("Total km in the year (optional)", total, setTotal, km(h?.totalKm), err("total"), "Total km in the year")}
+              {payees.length > 1 && <label className={fld}>Paid to
+                <select aria-label="Paid to" value={paidTo} onChange={(e) => setPaidTo(e.target.value)} className="input input-compact w-64 text-[13px] font-normal text-ink">
+                  <option value="">Choose the shareholder</option>{payees.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                <span className="text-[11.5px] font-normal text-ink-3">The shareholders linked to the client record.</span>{err("paidTo")}</label>}
             </div>
             <div className="grid content-start gap-3">
               <label className={fld}>Car costs the owner paid personally (optional)
