@@ -33,7 +33,7 @@ const cents = (n: number) => Math.round(Number(n) * 100);
 
 export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, province: string, entries: CbEntry[], accounts: CbAccount[], rdata: ReportData,
   entryId: string | null, canItc: boolean, opts: { value: string; line_no: string }[]): Promise<VehicleData> {
-  const [{ data: rates }, { data: factor }, { data: auto }, { data: schedules }, { data: chart }, { data: prev }, { data: client }, { data: links }] = await Promise.all([
+  const [{ data: rates }, { data: factor }, { data: auto }, { data: schedules }, { data: chart }, { data: prev }, { data: client }] = await Promise.all([
     supabase.from("cb_cra_km_rates").select("year, first_prov, after_prov, first_terr, after_terr").order("year"),
     supabase.from("cb_cra_itc_factors").select("numerator, denominator").eq("province", province).maybeSingle(),
     supabase.from("cb_standard_entries").select("id").eq("name", "Auto expenses").maybeSingle(),
@@ -41,15 +41,15 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
     supabase.from("cb_chart_accounts").select("number, name, line_no"),
     supabase.from("cb_files").select("id").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle(),
     // Version 2: the GST/HST record names the corporation's number and the person paid, from the client record.
-    supabase.from("clients").select("legal_name, business_number").eq("id", file.client_id).maybeSingle(),
-    supabase.from("client_links").select("linked_id, created_at, linked:linked_id(legal_name)").eq("client_id", file.client_id).eq("relationship", "shareholder").order("created_at"),
+    supabase.from("clients").select("legal_name, business_number, signing_officer, signer_title").eq("id", file.client_id).maybeSingle(),
   ]);
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   // The same reading of the GST/HST answers as Expenses paid personally and the entry form.
   const registered = setup.gst_registered !== false;
   const regular = registered && setup.quick_method !== true;
-  const payees = ((links ?? []) as unknown as { linked_id: string; linked: { legal_name: string } | null }[])
-    .map((l) => ({ id: l.linked_id, name: l.linked?.legal_name ?? "" })).filter((p) => p.name);
+  // Piece 4: Paid to is the Signing officer with their Signer title, from the client record.
+  const cl = (client ?? {}) as { signing_officer?: string; signer_title?: string };
+  const payee = (cl.signing_officer ?? "").trim() ? { id: "signing-officer", name: [cl.signing_officer!.trim(), (cl.signer_title ?? "").trim()].filter(Boolean).join(", ") } : null;
   const bnMissing = registered && !((client as { business_number?: string } | null)?.business_number ?? "");
   const list = ((schedules ?? []) as StoredSchedule[]).map((s) => ({ ...s, inputs: readInputs(s.inputs) }));
   const stored = entryId ? list.find((s) => s.entry_id === entryId) ?? null : null;
@@ -133,7 +133,7 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
   return {
     ctx: { yearStart: file.year_start, yearEnd: file.year_end, province, rates: ((rates ?? []) as KmRates[]).map((r) => ({ year: r.year, first_prov: Number(r.first_prov), after_prov: Number(r.after_prov), first_terr: Number(r.first_terr), after_terr: Number(r.after_terr) })),
       factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, regular, company, taxCode: regular ? defaultTaxCode("GST/HST", province, EXPENSE_ACCOUNT) : null,
-      payees, bnMissing },
+      payee, bnMissing },
     companyIn, ledger, stored, hints, canItc, acct, names, provinceName: province,
     ledgerAll: `/closebook/${file.id}?area=reporting&report=gl&account=${encodeURIComponent(allKeys.join(","))}`,
     ledgerNumbers: rdata.bankFile ? VEHICLE_ACCOUNTS : ledger.map((l) => l.number),

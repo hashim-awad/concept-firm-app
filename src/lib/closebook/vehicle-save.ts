@@ -45,8 +45,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     const r = calcHome(inputs, hd.ctx, hd.names);
     const hard = r.problems.find((p) => p.hard);
     if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };
-    const people = Object.fromEntries((hd.ctx.payees ?? []).map((p) => [p.id, p.name]));
-    if ((hd.ctx.payees ?? []).length === 1 || !(hd.ctx.regular && inputs.itc)) inputs.paidTo = null;
+    inputs.paidTo = null;   // Paid to is the client record's Signing officer (piece 4), saved in the snapshot
     sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
       dflt: l.is_tax ? `chart:${ITC_ACCOUNT}` : hd.acct[l.number] ?? `chart:${l.number}` }));
     payload = {
@@ -54,7 +53,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
       snapshot: { province: hd.ctx.province, regular: hd.ctx.regular, factor: hd.ctx.factor, taxCode: hd.ctx.taxCode, payee: r.record.payee },
       result: { sharePct: r.sharePct, expense: r.expense, itc: r.itc, owed: r.owed, totalPaid: r.totalPaid, totalGst: r.totalGst, working: r.working },
       lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
-      changes: hd.stored ? homeChanges(hd.stored.inputs, inputs, people) : [],
+      changes: hd.stored ? homeChanges({ ...hd.stored.inputs, paidTo: null }, inputs) : [],
       summary: `Owed to the owner ${formatAmount(r.owed)} (${r.sharePct})`,
     };
   } else if (form.schedule) {
@@ -69,14 +68,14 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     sched = r.lines.map((l) => ({ part: l.part, amount: l.amount, memo: l.memo, tax_code: l.tax_code ?? null, is_tax: !!l.is_tax,
       dflt: l.account ?? (l.is_tax ? `chart:${ITC_ACCOUNT}` : vd.acct[l.number] ?? `chart:${l.number}`) }));
     const fmt = formatAmount(r.used === "allowance" ? r.allowance ?? 0 : r.actual ?? 0);
-    const people = Object.fromEntries((vd.ctx.payees ?? []).map((p) => [p.id, p.name]));
+
     // One linked shareholder, or no GST/HST record (not registered, quick method, ITC unticked): nothing chosen.
-    if ((vd.ctx.payees ?? []).length === 1 || !(vd.ctx.regular && inputs.itc)) inputs.paidTo = null;
+    inputs.paidTo = null;   // Paid to is the client record's Signing officer (piece 4), saved in the snapshot
     payload = {
       kind: "vehicle", method: inputs.method, choice: inputs.choice, itc: inputs.itc, inputs, snapshot: { ...snapshotOf(vd), payee: r.record.payee },
       result: { allowance: r.allowance, actual: r.actual, used: r.used, higher: r.higher, sharePct: r.sharePct, itc: r.itc, company: r.company, working: r.working, parts: r.parts, alreadyKm: r.alreadyKm },
       lines: r.lines.map((l) => ({ schedule_part: l.part, amount: l.amount / 100, is_tax: !!l.is_tax })),
-      changes: vd.stored ? inputChanges(vd.stored.inputs, inputs, f.file.year_start, f.file.year_end, people) : [],
+      changes: vd.stored ? inputChanges({ ...vd.stored.inputs, paidTo: null }, inputs, f.file.year_start, f.file.year_end) : [],
       summary: r.used === "allowance" ? `Per-km allowance ${fmt} used` : `Actual costs, ${r.sharePct}, ${fmt} used`,
     };
   } else {

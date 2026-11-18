@@ -33,7 +33,7 @@ export type HomeCtx = {
   province: string; regular: boolean;
   factor: { numerator: number; denominator: number } | null;
   taxCode: string | null;
-  payees?: { id: string; name: string }[];
+  payee?: { id: string; name: string } | null;   // the Signing officer, "Name, Title"; null: none on the client record
   bnMissing?: boolean;
 };
 export type HomeProblem = { field: "area" | "pct" | "factor" | "paidTo" | "bn" | "share" | "paid" | CostKey; text: string; hard: boolean };
@@ -93,13 +93,10 @@ export function calcHome(inp: HomeInputs, ctx: HomeCtx, names: Record<string, st
   // Who was paid, and the GST/HST number: only where the GST/HST record prints (version 2b, as the vehicle schedule).
   let payee: { id: string; name: string } | null = null;
   const prints = ctx.regular && inp.itc;
-  if (ctx.payees && prints) {
-    if (ctx.payees.length === 0) problems.push({ field: "paidTo", text: "Link the shareholder to the client record first.", hard: true });
-    else if (ctx.payees.length === 1) payee = ctx.payees[0];
-    else {
-      payee = ctx.payees.find((p) => p.id === inp.paidTo) ?? null;
-      if (!payee) problems.push({ field: "paidTo", text: "Choose who was paid.", hard: true });
-    }
+  // Piece 4: Paid to is the client record's Signing officer with their Signer title (CaseWare takes the person from the client profile).
+  if (ctx.payee !== undefined && prints) {
+    if (ctx.payee) payee = ctx.payee;
+    else problems.push({ field: "paidTo", text: "Add the signing officer to the client record first.", hard: true });
   }
   if (ctx.bnMissing && prints) problems.push({ field: "bn", text: "Add the business number to the client record first.", hard: true });
 

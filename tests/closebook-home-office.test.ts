@@ -73,14 +73,13 @@ test("T10: not registered (or quick method): no GST/HST at all", () => {
   assert.deepEqual(r.problems, []);
 });
 
-test("T12/T13: the record and Paid to only where the ITC is claimed", () => {
-  const pat = { id: "11111111-1111-1111-1111-111111111111", name: "Pat Dummy" }, sam = { id: "22222222-2222-2222-2222-222222222222", name: "Sam Dummy" };
-  const r = calcHome(inp(), { ...ON, payees: [pat] });
-  assert.deepEqual([r.record.amount, r.record.gst, r.record.payee?.name], [133860, 2860, "Pat Dummy"]);
-  assert.deepEqual(calcHome(inp(), { ...ON, payees: [pat, sam] }).problems.map((p) => p.text), ["Choose who was paid."]);
-  assert.deepEqual(calcHome(inp(), { ...ON, payees: [], bnMissing: true }).problems.map((p) => p.text),
-    ["Link the shareholder to the client record first.", "Add the business number to the client record first."]);
-  const off = calcHome(inp({ itc: false }), { ...ON, payees: [], bnMissing: true });
+test("T12/T14/T15: the record; Paid to is the Signing officer; blocks only where the ITC is claimed", () => {
+  const officer = { id: "signing-officer", name: "Pat Dummy, Director" };
+  const r = calcHome(inp(), { ...ON, payee: officer });
+  assert.deepEqual([r.record.amount, r.record.gst, r.record.payee?.name, r.ready], [133860, 2860, "Pat Dummy, Director", true]);
+  assert.deepEqual(calcHome(inp(), { ...ON, payee: null, bnMissing: true }).problems.map((p) => p.text),
+    ["Add the signing officer to the client record first.", "Add the business number to the client record first."]);
+  const off = calcHome(inp({ itc: false }), { ...ON, payee: null, bnMissing: true });
   assert.deepEqual([off.problems.length, off.ready, off.record.payee], [0, true, null]);
 });
 

@@ -19,19 +19,19 @@ export type HomeData = {
 
 export async function loadHome(supabase: SupabaseClient, file: CbFileRow, province: string, accounts: CbAccount[], entryId: string | null, canItc: boolean,
   opts: { value: string; line_no: string }[]): Promise<HomeData> {
-  const [{ data: factor }, { data: schedules }, { data: chart }, { data: prev }, { data: client }, { data: links }] = await Promise.all([
+  const [{ data: factor }, { data: schedules }, { data: chart }, { data: prev }, { data: client }] = await Promise.all([
     supabase.from("cb_cra_itc_factors").select("numerator, denominator").eq("province", province).maybeSingle(),
     supabase.from("cb_schedules").select("id, entry_id, itc_claim, inputs, snapshot").eq("file_id", file.id).eq("kind", "home_office").order("created_at").order("id"),
     supabase.from("cb_chart_accounts").select("number, name, line_no"),
     supabase.from("cb_files").select("id").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("clients").select("business_number").eq("id", file.client_id).maybeSingle(),
-    supabase.from("client_links").select("linked_id, created_at, linked:linked_id(legal_name)").eq("client_id", file.client_id).eq("relationship", "shareholder").order("created_at"),
+    supabase.from("clients").select("business_number, signing_officer, signer_title").eq("id", file.client_id).maybeSingle(),
   ]);
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const registered = setup.gst_registered !== false;
   const regular = registered && setup.quick_method !== true;
-  const payees = ((links ?? []) as unknown as { linked_id: string; linked: { legal_name: string } | null }[])
-    .map((l) => ({ id: l.linked_id, name: l.linked?.legal_name ?? "" })).filter((p) => p.name);
+  // Piece 4: Paid to is the Signing officer with their Signer title, from the client record.
+  const cl = (client ?? {}) as { signing_officer?: string; signer_title?: string };
+  const payee = (cl.signing_officer ?? "").trim() ? { id: "signing-officer", name: [cl.signing_officer!.trim(), (cl.signer_title ?? "").trim()].filter(Boolean).join(", ") } : null;
   const bnMissing = registered && !((client as { business_number?: string } | null)?.business_number ?? "");
   const list = ((schedules ?? []) as HomeStored[]).map((s) => ({ ...s, inputs: readHomeInputs(s.inputs) }));
   const stored = entryId ? list.find((s) => s.entry_id === entryId) ?? null : null;
@@ -56,7 +56,7 @@ export async function loadHome(supabase: SupabaseClient, file: CbFileRow, provin
   }
   const f = factor as { numerator: number; denominator: number } | null;
   return {
-    ctx: { province, regular, factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, taxCode: regular ? defaultTaxCode("GST/HST", province, HOME_EXPENSE) : null, payees, bnMissing },
+    ctx: { province, regular, factor: f ? { numerator: f.numerator, denominator: f.denominator } : null, taxCode: regular ? defaultTaxCode("GST/HST", province, HOME_EXPENSE) : null, payee, bnMissing },
     stored, hints, canItc, acct, names,
   };
 }

@@ -26,14 +26,13 @@ export function HomeWindow({ data, initial, canPrint, printHref, onPut, onClose 
   const [paid, setPaid] = useState<Record<string, string>>(Object.fromEntries(COST_ROWS.map((r) => [r.key, money(initial.costs[r.key]?.paid)])));
   const [gst, setGst] = useState<Record<string, string | null>>(Object.fromEntries(COST_ROWS.map((r) => [r.key, initial.costs[r.key]?.gst == null ? null : money(initial.costs[r.key]!.gst)])));
   const [itc, setItc] = useState(initial.itc);
-  const [paidTo, setPaidTo] = useState(initial.paidTo ?? "");
-  const payees = data.ctx.payees ?? [];
+
   const prints = data.ctx.regular && itc;
   const pctBp = (() => { const v = pct.replace(/[\s%]/g, ""); return /^\d{1,3}(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : null; })();
   const inputs: HomeInputs = {
     mode, homeSqft: readSq(home), officeSqft: readSq(office), pctBp: mode === "pct" ? pctBp : null,
     costs: Object.fromEntries(COST_ROWS.map((r) => [r.key, { paid: parseAmount(paid[r.key] ?? ""), gst: gst[r.key] == null || gst[r.key] === "" ? null : parseAmount(gst[r.key]!) }])),
-    itc, paidTo: prints && payees.length > 1 ? paidTo || null : null,
+    itc, paidTo: null,
   };
   const r = calcHome(inputs, data.ctx, data.names);
   const err = (field: string) => r.problems.filter((p) => p.field === field).map((p) => <span key={p.text} role="alert" className="text-[12px] font-normal text-danger">{p.text}</span>);
@@ -44,7 +43,7 @@ export function HomeWindow({ data, initial, canPrint, printHref, onPut, onClose 
   const cell = "input input-compact w-full text-right text-[13px] tabular-nums";
   const factor = data.ctx.factor ? `${data.ctx.factor.numerator}/${data.ctx.factor.denominator}` : "no factor";
   const province = PROVINCE_NAMES[data.ctx.province] ?? data.ctx.province;
-  const general = r.problems.filter((p) => ["factor", "bn"].includes(p.field) || (p.field === "paidTo" && payees.length === 0));
+  const general = r.problems.filter((p) => ["factor", "bn"].includes(p.field) || p.field === "paidTo");
   const rowProblems = r.problems.filter((p) => COST_ROWS.some((c) => c.key === p.field));
   const share = r.sharePct ? r.sharePct : "–";
 
@@ -102,10 +101,6 @@ export function HomeWindow({ data, initial, canPrint, printHref, onPut, onClose 
               Claim the ITC ({factor}, {province}){!data.canItc && <span className="text-[12px] text-ink-3">Reviewer can change</span>}
             </label>
           )}
-          {prints && payees.length > 1 && <label className={`${fld} max-w-[320px]`}>Paid to
-            <select aria-label="Paid to" value={paidTo} onChange={(e) => setPaidTo(e.target.value)} className="input input-compact text-[13px] font-normal text-ink">
-              <option value="">Choose the shareholder</option>{payees.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
-            <span className="text-[11.5px] font-normal text-ink-3">The shareholders linked to the client record.</span>{err("paidTo")}</label>}
         </div>
         <div className="flex flex-wrap items-center gap-3 rounded-b-[10px] border-t border-sand-200 bg-sand-50 px-5 py-3">
           {canPrint ? <a href={printHref} target="_blank" rel="noreferrer" className="btn-secondary btn-compact">Print schedule (PDF)</a>
