@@ -33,7 +33,7 @@ test("the sample trial balance gives the sample's codes and amounts exactly", ()
 test("the file matches QuickBooks' layout: header positions, CRLF, 2 decimals, no total lines", () => {
   const tb = trialBalance();
   const r = gifiCodes(tb, new Map(), byNo);
-  const file = gifiFile({ bn: "000000000RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" }, r.codes);
+  const file = gifiFile({ bn: "999999999RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" }, r.codes);
   const [head, ...rows] = file.split("\r\n");
   const ours = head.split(","), theirs = sample.split("\r\n")[0].split(",");
   assert.equal(ours.length, theirs.length, "24 header fields");
@@ -81,7 +81,7 @@ test("a balanced trial balance ties and is ready", () => {
 });
 
 // Round 10 (Hashim, Nov 27, 2026).
-const head = { bn: "000000000RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" };
+const head = { bn: "999999999RC0001", legalName: "Test Co Inc.", address: "100 SAMPLE ST", city: "Kitchener", province: "ON", postal: "N2N 0A1", yearEnd: "2026-03-31", created: "2026-11-12" };
 
 test("round 10: with QuickBooks' own vendor and software, the file is the sample byte for byte", () => {
   const r = gifiCodes(trialBalance(), new Map(), byNo);

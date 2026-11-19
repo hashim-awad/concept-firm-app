@@ -4,7 +4,7 @@ id,Account Name,State,Account Type,Bills,Credits,Team Member #1,Team Member #2,T
 900003,Cedar Sample Corp.,Active,Company,,,,,,,T2,,,,,,,,,,,,,July 31,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Alberta,,,Dummy Contact,,,
 900004,Pine Example Inc.,Active,Company,,,,,,,T2,,,,,,,,,100000004,,,,sometime in spring,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,British Columbia,,,Dummy Contact,,,
 900005,Spruce Placeholder Ltd.,Active,Company,,,,,,,T2,,,,,,,,,100000005,,,,,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,
-900006,Pat Dummy-Person,Active,Individual,,,,,,,T2,,,,,,,,,,000-000-000,,,Dec 31,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,
+900006,Pat Dummy-Person,Active,Individual,,,,,,,T2,,,,,,,,,,999-999-999,,,Dec 31,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,
 900007,Willow Not T2 Inc.,Active,Company,,,,,,,"T1, BK",,,,,,,,,100000007,,,,Mar 31,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,
 900008,Aspen Twin Co.,Active,Company,,,,,,,T2,,,,,,,,,100000008,,,,Jun 30,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,
 900009,Aspen Twin Co. (copy),Active,Company,,,,,,,T2,,,,,,,,,100000008,,,,Jun 30,,,"DUMMY note, must never be read",,ignore me,,,,,,,,,,,,,,,,,,,,,,,1 Dummy St,,,Ontario,,,Dummy Contact,,,

@@ -25,7 +25,7 @@ select test.check('no duplicate Business Numbers', test.try($$select public.appl
 select test.check('no duplicate TaxDome ids', test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"101","legal_name":"Copy Inc.","bn":"","fye":"","tags":["T2"]}]')$$) <> 'OK');
 select test.check('the owner cannot edit TaxDome fields by hand', test.try($$update public.clients set year_end_md = '06-30' where taxdome_account_id = '101'$$) like '%come from TaxDome%'
   and test.try($$update public.clients set legal_name = 'Other' where taxdome_account_id = '101'$$) like '%come from TaxDome%'
-  and test.try($$update public.clients set business_number = '111111111' where id = '00000000-0000-0000-0000-0000000000c1'$$) like '%come from TaxDome%');
+  and test.try($$update public.clients set business_number = '333333333' where id = '00000000-0000-0000-0000-0000000000c1'$$) like '%come from TaxDome%');
 select test.check('a new client cannot be given a Business Number by hand', test.try($$insert into public.clients (kind, legal_name, business_number) values ('corporation', 'Hand Inc.', '222333444')$$) like '%TaxDome import%');
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
