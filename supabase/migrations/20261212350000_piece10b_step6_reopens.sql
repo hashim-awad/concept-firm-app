@@ -8,6 +8,7 @@
 --     changes clear steps 6, 7 and 8 (and step 4 on trial balance files); the owner's decision on an account sent to the
 --     reviewer clears nothing; a revenue check or an entry's note, reason, W/P ref or attachments leave step 6 signed.
 --   * An entry edited without changing its lines (a note, reason, W/P ref or attachments) leaves step 6 signed.
+--   * A posted line split again reopens steps 6 and 8; a bank account's chart account changed reopens step 6.
 --   * Step 6's refusal: "N flagged change(s) to explain in Flagged changes."
 -- Functions only (each as on main, with the piece 10b lines). No table or column is dropped. No data is changed: nothing is
 -- cleared when this runs; a sign-off is cleared only by a later change, with its reason in History. Safe to run twice.
@@ -136,8 +137,11 @@ begin
   end if;
   if v_step = 'records' and exists (select 1 from public.cb_files where id = v_file and books in ('statements', 'paper')) then
     perform private.cb_clear_substeps(v_file, array['3.2', '3.3'], coalesce(nullif(v_txt, ''), v_why));   -- round 34
-    -- Piece 10b: statement lines or statements moved the balances: step 6 reopens even when step 3 is not fully signed.
-    perform private.cb_clear_step(v_file, 'compare', coalesce(nullif(v_txt, ''), v_why));
+    -- Piece 10b: statement lines or statements added or removed move the balances: step 6 reopens even when step 3 is not
+    -- fully signed. A statement changed in place (its file replaced, its source) moves nothing.
+    if tg_op <> 'UPDATE' then
+      perform private.cb_clear_step(v_file, 'compare', coalesce(nullif(v_txt, ''), v_why));
+    end if;
   else
     perform private.cb_clear_step(v_file, v_step, coalesce(nullif(v_txt, ''), v_why));
   end if;
@@ -312,12 +316,16 @@ CREATE OR REPLACE FUNCTION private.cb_banking_changed()
 AS $function$
 declare v_file uuid := coalesce(new.file_id, old.file_id); v_what text[];
 begin
-  -- Piece 10b: an account's opening balance moves the trial balance: step 6 reopens even when no sub-step is signed.
+  -- Piece 10b: an account's opening balance, or its chart account, moves the trial balance: step 6 reopens even when no
+-- sub-step is signed.
   -- (Nested: books_opening is read only for cb_bank_accounts.)
   if tg_table_name = 'cb_bank_accounts' then
     if tg_op = 'UPDATE' then
       if new.books_opening is distinct from old.books_opening then
         perform private.cb_clear_step(v_file, 'compare', format('%s: opening balance changed', new.name));
+      elsif new.chart_account is distinct from old.chart_account or new.number is distinct from old.number then
+        -- The account's balance moves to another trial balance row.
+        perform private.cb_clear_step(v_file, 'compare', format('%s: chart account changed', new.name));
       end if;
     elsif tg_op = 'INSERT' then
       if coalesce(new.books_opening, 0) <> 0 then perform private.cb_clear_step(v_file, 'compare', format('%s: account added', new.name)); end if;
@@ -435,3 +443,26 @@ begin
   return p_entry;
 end;
 $function$;
+
+-- Piece 10b: a posted line split again moves balances between accounts: steps 6 and 8 reopen (and 7 through the chain), with
+-- the line in History. Step 4's own sign-off rule is unchanged. The reviewer's decision on a line clears nothing, as before.
+create or replace function private.cb_split_changed() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare v_row public.cb_line_splits := case when tg_op = 'DELETE' then old else new end; l public.cb_bank_lines; v_txt text;
+begin
+  if coalesce(current_setting('cb.review', true), '') = 'on' then return null; end if;
+  select * into l from public.cb_bank_lines where id = v_row.line_id;
+  if l.id is null or l.status in ('new', 'excluded') then return null; end if;
+  v_txt := format('%s %s: split changed', to_char(l.txn_date, 'Mon FMDD'), left(l.description, 40));
+  perform private.cb_clear_step(v_row.file_id, 'compare', v_txt);
+  perform private.cb_clear_step(v_row.file_id, 't2', v_txt);
+  return null;
+end;
+$$;
+revoke all on function private.cb_split_changed() from public, anon, authenticated;
+drop trigger if exists cb_changed_splits on public.cb_line_splits;
+create trigger cb_changed_splits after insert or delete on public.cb_line_splits for each row execute function private.cb_split_changed();
+drop trigger if exists cb_changed_splits_edit on public.cb_line_splits;
+create trigger cb_changed_splits_edit after update of chart_account, tax_code, amount on public.cb_line_splits for each row
+  when (old.chart_account is distinct from new.chart_account or old.tax_code is distinct from new.tax_code or old.amount is distinct from new.amount)
+  execute function private.cb_split_changed();

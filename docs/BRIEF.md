@@ -548,9 +548,11 @@ In short:
     did not match the code, where step 4, trial balance and opening changes clear steps 7 and 8 but not step 5): an AJE or RJE
     added or deleted, its lines changed, or its type or date changed; a step 4 coding change; a trial balance import; an
     opening balance change; and on bank and card files, statement lines added or removed, a statement added or deleted, or an
-    account's opening balance changed, even when step 3 is not fully signed. Steps 7 and 8 clear through the chain as before.
+    account's opening balance or chart account changed, even when step 3 is not fully signed; a posted line split again
+    (steps 6 and 8; step 4's own rule is unchanged). Steps 7 and 8 clear through the chain as before.
     Step 5's own rules do not change: step 4, trial balance and opening changes still do not clear step 5.
-  - These leave step 6 signed: a revenue check explanation or source, an entry's note, reason, W/P ref or attachments, an
+  - These leave step 6 signed: a statement changed in place (its file replaced), a split's memo, a revenue check explanation
+    or source, an entry's note, reason, W/P ref or attachments (an entry edit reopens step 6 only when a line changes), an
     entry approved, a TJE (step 8 only, piece 6), and the owner's decision on an account sent to the reviewer (clears nothing).
     Explanations, ticks and answers clear steps 6 and 7 only; GIFI line, tax code and type changes clear steps 6, 7 and 8 (and
     step 4 on trial balance files), as in piece 10. History names the change on each clearing.

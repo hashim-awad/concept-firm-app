@@ -34,12 +34,12 @@ select id as itp from public.cb_accounts where file_id = :'f' and number = '2680
 
 select test.check('fixture: no flag before the entry', (:flags) = 'none');
 
--- ---------- T1: steps 4 to 8 signed; an AJE moves office expenses from 10,000.00 to 18,000.00 (last year 9,500.00): a new flag.
+-- ---------- T1: steps 4 to 8 signed; an AJE (a cheque not recorded) moves office expenses from 10,000.00 to 18,000.00 (last year 9,500.00): a new flag.
 :signed;
 select test.check('fixture: steps 4 to 8 signed', (:state) = 'code,compare,entries,review,t2');
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_add_entry(:'f', 'AJE', 'correction', 'Office invoices missed at year end.', false,
-  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 8000), jsonb_build_object('account', :'chq', 'amount', -8000)), 'Payables listing') as aje \gset
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Cheque for office invoices not recorded.', false,
+  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 8000), jsonb_build_object('account', :'chq', 'amount', -8000)), 'Bank statement') as aje \gset
 reset role; reset request.jwt.claims;
 select test.check('T1: the AJE clears steps 5, 6, 7 and 8 (step 4 stays)', (:state) = 'code');
 select test.check('T1: History gives the reason on step 6', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'compare' and detail like 'Entry 2026-001%'));
@@ -61,8 +61,8 @@ select test.check('T2: a TJE clears step 8 only', (:state) = 'code,compare,entri
 -- ---------- Changes that move no balance leave step 6 signed (Hashim's answer: balance moves only).
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_edit_entry(:'aje', 'AJE', 'correction', 'Office invoices missed at year end, see listing.', false,
-  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 8000), jsonb_build_object('account', :'chq', 'amount', -8000)), 'Payables listing');
+select public.cb_edit_entry(:'aje', 'AJE', 'correction', 'Cheque for office invoices not recorded, see statement.', false,
+  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 8000), jsonb_build_object('account', :'chq', 'amount', -8000)), 'Bank statement');
 reset role; reset request.jwt.claims;
 select test.check('an AJE re-saved with the same lines and a new note clears step 5, not step 6',
   (:state) = 'code,compare');
@@ -146,3 +146,18 @@ set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-000
 select public.cb_save_bank_account(:'b', :'bchq', 'chequing', 'Dummy Chq', '2468', 5100.00, false, false, true);
 reset role; reset request.jwt.claims;
 select test.check('the last four digits changed (no balance moves) leave step 6 signed', (:bstate) = 'code,compare,entries,review');
+:bsigned;
+update public.cb_bank_accounts set chart_account = '10100' where id = :'bchq';
+select test.check('a bank account''s chart account changed (its balance moves to another row) clears step 6', (:bstate) not like '%compare%');
+
+-- A posted line split again: steps 6 and 8 (and 7) clear; step 4 stays (its rule is unchanged).
+:bsigned;
+insert into public.cb_line_splits (file_id, line_id, row_no, chart_account, tax_code, amount)
+select :'b', id, 1, '63000', tax_code_or_default, -3.00 from (select id, 'EXEMPT' tax_code_or_default from public.cb_bank_lines where file_id = :'b' and status = 'done' limit 1) x
+on conflict do nothing;
+select test.check('a posted line split clears step 6, not step 4 or step 5', (:bstate) = 'code,entries');
+select test.check('History names the line', exists (select 1 from public.cb_file_history where file_id = :'b' and action = 'signoff_cleared' and step = 'compare' and detail like '%: split changed'));
+:bsigned;
+update public.cb_line_splits set memo = 'just a memo' where file_id = :'b';
+select test.check('a split memo changed moves nothing: step 6 stays', (:bstate) = 'code,compare,entries,review');
+
