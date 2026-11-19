@@ -51,11 +51,11 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
   const lastYear = lastYearMatches(now, prior, master);
 
   // The suggestion box: the selection's suggestions, each shown once.
-  const sugg = useMemo(() => {
+  const sugg = (() => {
     const m = new Map<string, { s: Suggestion; ids: string[] }>();
     for (const id of selected) { const s = suggest(byId.get(id)!, prior, master); if (!s) continue; const e = m.get(s.chart) ?? { s, ids: [] }; e.ids.push(id); m.set(s.chart, e); }
     return [...m.values()].sort((x, y) => y.ids.length - x.ids.length);
-  }, [selected.join(","), prior, master]); // eslint-disable-line react-hooks/exhaustive-deps
+  })();
 
   const pick = (id: string, e: { shiftKey: boolean }) => {
     setSel((cur) => {
@@ -115,7 +115,8 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
     router.refresh();
   };
   // After a refresh the server's figures are the truth again (another person may have changed something).
-  useEffect(() => { setChart(Object.fromEntries(accounts.map((a) => [a.id, a.chart ?? null]))); }, [accounts]);
+  const [seen, setSeen] = useState(accounts);
+  if (seen !== accounts) { setSeen(accounts); setChart(Object.fromEntries(accounts.map((a) => [a.id, a.chart ?? null]))); }
 
   const unassignAll = async () => {
     const n = now.filter((a) => a.chart && !a.key.startsWith("new:")).length;
@@ -129,9 +130,9 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
   };
 
   // Drag and drop: the selection (or the row dragged) onto a master account, or back onto the left pane.
-  const dragIds = useRef<string[]>([]);
-  const onDrag = (id: string) => { dragIds.current = sel.has(id) ? selected : [id]; };
-  const dropOn = (to: string | null) => (e: React.DragEvent) => { e.preventDefault(); const ids = dragIds.current; dragIds.current = []; if (ids.length) void assign(ids, to); };
+  const [dragIds, setDragIds] = useState<string[]>([]);
+  const onDrag = (id: string) => setDragIds(sel.has(id) ? selected : [id]);
+  const dropOn = (to: string | null) => (e: React.DragEvent) => { e.preventDefault(); const ids = dragIds; setDragIds([]); if (ids.length) void assign(ids, to); };
 
   // Keyboard on the tree: arrows move, Right and Left open and close a parent, Space ticks, Shift+Space extends the range.
   const listRef = useRef<HTMLDivElement>(null);
@@ -145,11 +146,8 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
   };
 
   // The right pane: groups by lead sheet name, each master account with the client accounts on it.
-  const on = useMemo(() => {
-    const m = new Map<string, ClientAcct[]>();
-    for (const a of now) if (a.chart) { const l = m.get(a.chart) ?? []; l.push(a); m.set(a.chart, l); }
-    return m;
-  }, [chart]); // eslint-disable-line react-hooks/exhaustive-deps
+  const on = new Map<string, ClientAcct[]>();
+  for (const a of now) if (a.chart) { const l = on.get(a.chart) ?? []; l.push(a); on.set(a.chart, l); }
   const q = search.trim().toLowerCase();
   const shown = q.length >= 2 ? master.filter((m) => m.number.includes(q) || m.name.toLowerCase().includes(q)) : master;
   const sheetOf = (m: MasterAcct) => m.sheet || "Clearing (must be nil at year end)";
@@ -162,7 +160,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
         <p className="text-sm" data-assign-head><b>{assigned}</b> of <b>{countedAll.length}</b> accounts with a balance assigned · <b>{left}</b> left</p>
         <span className="ml-auto flex items-center gap-2">
           {stack[0] && <button type="button" disabled={!can} onClick={() => void undo(stack[0])} className="btn-secondary btn-compact" data-undo><Undo2 className="h-4 w-4" aria-hidden />Undo: {stack[0].label}</button>}
-          <button type="button" disabled={!can || assigned === 0} onClick={() => void unassignAll()} className="btn-secondary btn-compact text-danger">Unassign all…</button>
+          <button type="button" disabled={!can || assigned === 0} onClick={() => void unassignAll()} className="btn-danger btn-compact">Unassign all…</button>
         </span>
       </div>
       {locked && <p className="rounded-md border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-ink-2">{locked}</p>}
@@ -219,7 +217,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
                 {sugg.slice(0, 4).map(({ s, ids }) => (
                   <div key={s.chart} className="flex items-center gap-3">
                     <p className="flex-1 text-sm"><b>Suggested: {s.chart} {byNo.get(s.chart)?.name}</b><br /><span className="text-xs text-ink-2">{s.why}{ids.length < selected.length ? ` · ${ids.length} of ${selected.length}` : ""}</span></p>
-                    <button type="button" disabled={!can} className="btn-primary btn-compact" onClick={() => void assign(ids, s.chart, s.source)}>Assign {ids.length}</button>
+                    <button type="button" disabled={!can} className="btn btn-compact" onClick={() => void assign(ids, s.chart, s.source)}>Assign {ids.length}</button>
                   </div>
                 ))}
               </div>

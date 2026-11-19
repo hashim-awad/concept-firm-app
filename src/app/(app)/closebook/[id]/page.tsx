@@ -495,7 +495,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     {
       // Every amount as the working papers show it: a negative in brackets (round 9b item 2).
       const amt = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${t})` : t; };
-      const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
       const { data: rl } = bankFile ? await supabase.from("cb_bank_lines").select("id, account_id, txn_date, description, amount, reviewer_reason").eq("file_id", id).eq("status", "reviewer").order("txn_date") : { data: [] };
       const rev7 = file.file_type === "full" ? (await loadRevenue(supabase, id)).state : null;
       // Piece 8: the shareholder loans (the report, the saved figures and the reviewer's notes).

@@ -104,3 +104,32 @@ test("T4: step 8's first paper is Match accounts to GIFI on every file; the old 
   assert.equal(stepFromLegacy("tb", "accounts", "client_software"), "code");
   assert.equal(stepFromLegacy("tb", "accounts", "statements"), "t2");
 });
+
+test("T7: no GIFI code on trial balance file screens before step 8 (step 4, the entry form, step 3's import note, the help)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const code = (f: string) => readFileSync(f, "utf8").split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).map((l) => l.replace(/\{\/\*.*?\*\/\}/g, "")).join("\n");
+  for (const f of ["src/app/(app)/closebook/[id]/assign-step.tsx", "src/app/(app)/closebook/[id]/areas/booked-mark.tsx", "src/lib/closebook/assign.ts"])
+    assert.doesNotMatch(code(f), /GIFI|\b\d{4}\.\d{2}\b/, f);
+  const help = readFileSync("src/app/(app)/closebook/[id]/shell/help.tsx", "utf8");
+  const line = (k: string) => help.split("\n").find((l) => l.trimStart().startsWith(`${k}: <>`)) ?? "";
+  assert.match(line("code"), /"Assign each of the client's accounts to a master account/);
+  assert.doesNotMatch(line("code").split('" : "')[1] ?? "", /GIFI/);
+  assert.match(line("review"), /An account sent to the reviewer is decided in step 8/);
+  const tb = readFileSync("src/app/(app)/closebook/[id]/tb-tab.tsx", "utf8");
+  assert.match(tb, /accounts imported\. Assign them to the master chart in/);
+  // The entry form names the master account for a new client account, not a GIFI line.
+  assert.match(readFileSync("src/lib/closebook/entry-form.ts", "utf8"), /with its QuickBooks type and master account/);
+});
+
+test("T3: the client entry list: new accounts first, then each entry with the client's numbers and names; monthly files' title", async () => {
+  const { clientListTable } = await import("../src/lib/closebook/client-list.ts");
+  const { clientListTitle, takesClientEntryList } = await import("../src/lib/closebook/books.ts");
+  const t = clientListTable("Entries to record in QuickBooks", [{ name: "Year-end accounting fee", type: "Expenses" }],
+    [{ no: "2026-001", kind: "AJE", memo: "Accrue the fee", lines: [{ number: "", name: "Year-end accounting fee", cents: 350000 }, { number: "2100.02", name: "Accrued liabilities", cents: -350000 }] }]);
+  assert.deepEqual(t.rows.map((r) => r.cells), [["New accounts to create", null, null], ["Year-end accounting fee (Expenses)", null, null], ["", null, null], ["Entries to record", null, null],
+    ["2026-001 AJE: Accrue the fee", null, null], ["Year-end accounting fee", 350000, null], ["2100.02 Accrued liabilities", null, 350000], ["Total", 350000, 350000]]);
+  assert.equal(clientListTitle({ books: "concept_qbo" }), "Entries to record in QuickBooks");
+  assert.equal(clientListTitle({ books: "client_software" }), "Entries to record in your books");
+  assert.equal(takesClientEntryList({ books: "concept_qbo" }), true);
+  assert.equal(takesClientEntryList({ books: "statements" }), false);
+});

@@ -196,3 +196,27 @@ select public.cb_create_file(:'client', '2024-12-31', '2024-01-01', '', 'full', 
 select test.check('T6: a bank-statement file is unchanged: no Assign', test.try(format('select public.cb_assign(%L, %L, %L)', :'b', '[{"account":"00000000-0000-0000-0000-000000000000","chart":"10000"}]', 'x accounts'))
   = 'Bank-statement files use the master chart already.');
 :out;
+
+-- T2: when each master account sits on the account's previous line, the figures do not move: every line total, net income,
+-- total assets and the shareholder account stay as they were.
+:prep;
+select public.cb_create_file(:'client', '2023-12-31', '2023-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as t2 \gset
+select public.cb_import_tb(:'t2', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":5000},{"number":"1010","name":"Savings","amount":2000},
+  {"number":"4000","name":"Commissions","amount":-20000},{"number":"6000","name":"Ads","amount":3000},{"number":"6100","name":"Fees","amount":1000},
+  {"number":"2300","name":"Due to shareholder","amount":-1000},{"number":"3000","name":"Retained earnings","amount":10000}]');
+-- Before R2 these files carried lines only (here set by the old matching function, which now finds the master account).
+select public.cb_map_account(id, case number when '1000' then '1002.00' when '1010' then '1002.00' when '4000' then '8000.00' when '6000' then '8521.00'
+  when '6100' then '8862.00' when '2300' then '2781.10' else '3600.00' end) from public.cb_accounts where file_id = :'t2';
+:out;
+create temp table t2_before as select line_no, sum(this_year) s from public.cb_accounts where file_id = :'t2' group by line_no;
+select private.cb_match_ties(:'t2') as ties_before \gset
+:prep;
+-- Step 4 assigns each account to a master account on its previous line (10100 Savings on 1002, 40100 Service revenue on 8000).
+select public.cb_assign(:'t2', (select jsonb_agg(jsonb_build_object('account', id, 'chart', case number when '1010' then '10100' when '4000' then '40100' else chart_account end))
+  from public.cb_accounts where file_id = :'t2'), 'Assigned 7 accounts');
+:out;
+select test.check('T2: every line total is as before', not exists (
+  select 1 from (select line_no, sum(this_year) s from public.cb_accounts where file_id = :'t2' group by line_no) a full join t2_before b using (line_no) where a.s is distinct from b.s));
+select test.check('T2: net income and total assets tie as before', private.cb_match_ties(:'t2') = :'ties_before'::jsonb);
+select test.check('T2: the shareholder account stays on its line, as shareholder 1', (select line_no || '|' || chart_account from public.cb_accounts where file_id = :'t2' and number = '2300') = '2781.10|23000');
+select test.check('T2: no account is left without a master account', not exists (select 1 from public.cb_accounts where file_id = :'t2' and chart_account is null and this_year <> 0));
