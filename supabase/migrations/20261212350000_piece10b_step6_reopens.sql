@@ -370,6 +370,7 @@ declare
   v_label text;
   v_old_lines text;
   v_new_lines text;
+  v_old_all text; v_new_all text;   -- piece 10b
   v_seq int;
   r record;
 begin
@@ -398,14 +399,19 @@ begin
    where id = p_entry
   returning * into v_new;
   -- The lines, written again by the same rules as a new entry.
-  -- Piece 10b: the lines' own triggers leave step 6 alone here; step 6 reopens below only when the lines differ.
+  -- Piece 10b: the lines' own triggers leave step 6 alone here; step 6 reopens below only when the lines differ
+  -- (every line, sales tax lines included: account and amount).
+  select coalesce(string_agg(l.account_id::text || ':' || l.amount::text, ',' order by l.account_id, l.amount), '') into v_old_all
+    from public.cb_entry_lines l where l.entry_id = p_entry;
   perform set_config('cb.lines_rewrite', 'on', true);
   delete from public.cb_entry_lines where entry_id = p_entry;
   perform private.cb_entry_write_lines(p_entry, v_file, p_kind, p_reason, p_reverse, p_lines);
   perform set_config('cb.lines_rewrite', '', true);
   v_new_lines := private.cb_entry_lines_text(p_entry);
   -- A TJE that stays a TJE clears step 8 only (piece 6); a change of type reopens step 6 through cb_changed.
-  if v_new_lines is distinct from v_old_lines and not (v_e.kind = 'TJE' and p_kind = 'TJE') then
+  select coalesce(string_agg(l.account_id::text || ':' || l.amount::text, ',' order by l.account_id, l.amount), '') into v_new_all
+    from public.cb_entry_lines l where l.entry_id = p_entry;
+  if v_new_all is distinct from v_old_all and not (v_e.kind = 'TJE' and p_kind = 'TJE') then
     perform private.cb_clear_step(v_e.file_id, 'compare', format('Entry %s changed: lines', private.cb_entry_label(p_entry)));
   end if;
 

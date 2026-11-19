@@ -7,17 +7,19 @@
 #       Luhn check). A number touching a letter before it (wb123..., a hash) is not a business number; "RC0001" after it is.
 #   (b) a client name from the CLIENT_NAMES secret (one name per line, kept outside the repository). When it is not set, (b) is
 #       skipped with a warning and (a) still runs.
-# A hit names the file and line (or the commit), never the value found. Lines removed are not scanned.
-# On main itself (nothing to compare) the whole repository is scanned. Binary files are listed by name for a person to check.
+# A hit names the file and line (or the commit), never the value found. File names are scanned too. Lines removed are not.
+# On main itself (nothing to compare) the whole repository is scanned. Binary files are not read: on a branch each one the
+# branch adds or changes shows as a warning on the run, for a person to check.
 #
 # The secret: passed only through the environment, read by the script below and never printed. No "set -x".
 set -euo pipefail
 set +x
 cd "$(dirname "$0")/../.."
 BASE="${BASE_REF:-origin/main}"
-NAMES_FILE=""
-cleanup() { if [[ -n "$NAMES_FILE" ]]; then rm -f "$NAMES_FILE"; fi; }
+NAMES_FILE=""; FILES=""; MSGS=""
+cleanup() { rm -f -- ${NAMES_FILE:+"$NAMES_FILE"} ${FILES:+"$FILES"} ${MSGS:+"$MSGS"}; }
 trap cleanup EXIT
+FILES="$(umask 077; mktemp)"; MSGS="$(umask 077; mktemp)"
 if [[ -n "${CLIENT_NAMES:-}" ]]; then
   NAMES_FILE="$(umask 077; mktemp)"
   printf '%s\n' "$CLIENT_NAMES" > "$NAMES_FILE"
@@ -26,20 +28,19 @@ unset CLIENT_NAMES
 
 if git rev-parse --verify -q "$BASE" >/dev/null && [[ "$(git rev-parse HEAD)" != "$(git rev-parse "$BASE")" ]]; then
   MODE=branch
-  git diff --name-only -z --diff-filter=ACMR "$BASE"...HEAD > "${TMPDIR:-/tmp}/name-check-files.$$"
-  git log --format='%h%x00%B%x1e' "$BASE"..HEAD > "${TMPDIR:-/tmp}/name-check-msgs.$$"
+  git diff --name-only -z --diff-filter=ACMR "$BASE"...HEAD > "$FILES"
+  git log --format='%h%x00%B%x1e' "$BASE"..HEAD > "$MSGS"
 else
   MODE=tree
-  git ls-files -z > "${TMPDIR:-/tmp}/name-check-files.$$"
-  : > "${TMPDIR:-/tmp}/name-check-msgs.$$"
+  git ls-files -z > "$FILES"
 fi
-FILES="${TMPDIR:-/tmp}/name-check-files.$$"; MSGS="${TMPDIR:-/tmp}/name-check-msgs.$$"
-trap 'cleanup; rm -f "$FILES" "$MSGS"' EXIT
 
 python3 -I - "$MODE" "$FILES" "$MSGS" "$NAMES_FILE" <<'PY'
 import os, re, sys
 mode, files_path, msgs_path, names_path = sys.argv[1:5]
-NUM = re.compile(r'(?<![0-9A-Za-z_])(\d{9}|\d{3}[ -]\d{3}[ -]\d{3})(?!\d)')
+# 9 digits not touching a letter, digit or underscore before them ("BN" right before them still counts), plain or 3-3-3 with
+# a space, dash, dot or slash between groups. "RC0001" after them still counts.
+NUM = re.compile(r'(?:(?<=BN)|(?<=bn)|(?<![0-9A-Za-z_]))(\d{9}|\d{3}[ ./-]\d{3}[ ./-]\d{3})(?!\d)')
 def bn_like(raw):
     d = re.sub(r'\D', '', raw)
     total = 0
@@ -54,6 +55,7 @@ names = []
 if names_path:
     for n in open(names_path, encoding='utf-8', errors='replace').read().replace('\r', '').split('\n'):
         n = ' '.join(n.split())
+        if 0 < len(n) < 3: print('WARNING: a CLIENT_NAMES entry under 3 characters was skipped.')
         if len(n) >= 3: names.append(re.compile(r'(?<!\w)' + re.escape(n).replace(r'\ ', r'\s+') + r'(?!\w)', re.I))
 hits = []
 def scan(text, where):
@@ -68,6 +70,7 @@ for f in [x for x in open(files_path, 'rb').read().decode('utf-8', 'replace').sp
         raw = open(f, 'rb').read()
     except (FileNotFoundError, IsADirectoryError):
         continue
+    scan(f, lambda no, f=f: f'{f} (file name)')
     if b'\0' in raw[:8192]:
         binaries.append(f); continue
     scan(raw.decode('utf-8', 'replace'), lambda no, f=f: f'{f}:{no}')
@@ -79,10 +82,11 @@ for rec in open(msgs_path, encoding='utf-8', errors='replace').read().split('\x1
 print(f'Name check ({"files changed against main and commit messages" if mode == "branch" else "whole repository"}).')
 if not names_path:
     print('WARNING: CLIENT_NAMES is not set: client names were not checked. Business numbers were.')
+gh = 'GITHUB_ACTIONS' in os.environ
 for b in binaries:
-    print(f'Not scanned (binary), check by hand: {b}')
+    print(f'::warning file={b}::Not scanned (binary): check it by hand' if gh and mode == 'branch' else f'Not scanned (binary), check by hand: {b}')
 for h in hits:
-    print(f'::error::{h} (value hidden)' if "GITHUB_ACTIONS" in os.environ else f'FOUND {h} (value hidden)')
+    print(f'::error::{h} (value hidden)' if gh else f'FOUND {h} (value hidden)')
 if hits:
     print(f'{len(hits)} hit(s). Replace each value with made-up data (a number that fails the check digit, a dummy name), then push again.')
     sys.exit(1)

@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
+import { after } from "node:test";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,8 +15,11 @@ const luhn = (d: string) => [...d].reverse().reduce((t, c, i) => { let n = Numbe
 const passing = (() => { const s = String(Date.now()).slice(-8); for (let c = 0; c < 10; c++) if (luhn(s + c)) return s + c; throw new Error("no check digit"); })();
 const failing = passing.slice(0, 8) + String((Number(passing[8]) + 1) % 10);
 
+const made: string[] = [];
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
 function repo() {
   const dir = mkdtempSync(join(tmpdir(), "name-check-"));
+  made.push(dir);
   const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, stdio: "pipe", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.test", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.test" } });
   git("init", "-q", "-b", "main");
   mkdirSync(join(dir, "scripts/checks"), { recursive: true });
@@ -62,4 +66,11 @@ test("written 3-3-3, in a commit message, and client names from CLIENT_NAMES", (
   assert.match(n.out, /b\.md:2: a client name \(value hidden\)/);
   assert.equal(n.out.toLowerCase().includes("willow"), false, "the name is never printed");
   assert.equal(/b\.md:3/.test(n.out), false, "a number touching letters is not a business number");
+  // "BN" right before the number, and dots between groups, still count.
+  const { dir: d3, git: g3 } = repo();
+  writeFileSync(join(d3, "c.txt"), `BN${passing}\n${passing.slice(0, 3)}.${passing.slice(3, 6)}.${passing.slice(6)}\n`);
+  g3("add", "."); g3("commit", "-q", "-m", "c");
+  const c = run(d3);
+  assert.match(c.out, /c\.txt:1:/); assert.match(c.out, /c\.txt:2:/);
+  assert.equal(c.out.includes(passing), false);
 });
