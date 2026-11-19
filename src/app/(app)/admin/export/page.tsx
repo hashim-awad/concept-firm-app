@@ -1,12 +1,12 @@
 import { SettingsShell } from "../settings-shell";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, todayToronto } from "@/lib/dates";
 
 // Download full export (decision 9): Hashim downloads it once a month and keeps it in the firm's
 // secure storage. Supabase backs up the database daily; this adds the stored files.
 export default async function ExportPage() {
-  await requireOwner();
+  await requireAdmin("exports");
   const supabase = await createClient();
   const { data } = await supabase.from("settings").select("value").eq("key", "last_full_export").maybeSingle();
   const last = data?.value as { at?: string; tables?: number; rows?: number; files?: number } | undefined;
@@ -22,7 +22,7 @@ export default async function ExportPage() {
         <li>A manifest with each file&rsquo;s size and fingerprint, and a README.</li>
       </ul>
       <p>Supabase keeps daily database backups, but they do not include stored files. This export does.</p>
-      <p>Owners only.</p>
+      <p>Admins only.</p>
     </>}>
       <section className="card grid gap-4">
         <p className="text-sm">

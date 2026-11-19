@@ -8,10 +8,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Oak Test Realty Inc.', 'ON') returning id as client \gset
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Elm Test Realty Inc.', 'ON') returning id as client2 \gset
 set role authenticated;
@@ -66,7 +66,7 @@ select test.check('the books changed: prepare again', private.cb_gst_problems(:'
 -- Settings.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('only an owner changes the GST/HST settings', test.try($q$select public.cb_update_gst_settings(3, 1, null, null, '[]')$q$) like 'Only an owner%');
+select test.check('only an owner changes the GST/HST settings', test.try($q$select public.cb_update_gst_settings(3, 1, null, null, '[]')$q$) like 'Only an Admin%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_update_gst_settings(3, 1, 0.01, 30000, '[{"province":"ON","rate":0.088},{"province":"BC","rate":""}]');
 reset role;

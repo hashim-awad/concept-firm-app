@@ -1,5 +1,5 @@
 // GST/HST rates from the CRA rates page, as checked on the date below. The app loads these
-// as pending rates; an owner must approve them before any quote or proposal uses them
+// as pending rates; an Admin must approve them before any quote or proposal uses them
 // (decision 22). When CRA changes a rate, update this table in a release and load again.
 // GST/HST only: Concept does not collect PST or QST.
 export const CRA_RATES_PAGE = "https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/gst-hst-businesses/charge-collect-which-rate/calculator.html";

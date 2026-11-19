@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { inviteStaff, changeRole, setActive, savePhone } from "../staff/actions";
 
 type StaffRow = { id: string; full_name: string; email: string; phone: string; credentials: string; title: string; role_id: string; is_active: boolean; created_at: string };
-type RoleRow = { id: string; name: string; is_owner: boolean; role_permissions?: { area_key: string; level: string }[] };
+type RoleRow = { id: string; name: string; cb_prepare: boolean; cb_review: boolean; role_permissions?: { area_key: string; level: string }[] };
+// R3a-1: Admin is Edit on Staff accounts and Settings on the role.
+const roleAdmin = (r: RoleRow) => ["staff_accounts", "settings"].every((k) => r.role_permissions?.some((p) => p.area_key === k && p.level === "edit"));
 
-// People: everyone who can sign in. Shown on Team and roles. Everyone edits their own phone; only owners
+// People: everyone who can sign in. Shown on Team and roles. Everyone edits their own phone; only Admins
 // change roles (decision 48; the database enforces it in set_staff_role).
 export async function PeopleSection({ access }: { access: Access }) {
   const editable = canEdit(access, "staff_accounts");
@@ -14,16 +16,16 @@ export async function PeopleSection({ access }: { access: Access }) {
 
   const [{ data: staff }, { data: roles }] = await Promise.all([
     supabase.from("staff").select("id, full_name, email, phone, credentials, title, role_id, is_active, created_at").order("full_name"),
-    supabase.from("roles").select("id, name, is_owner, role_permissions(area_key, level)").order("is_owner", { ascending: false }).order("name"),
+    supabase.from("roles").select("id, name, cb_prepare, cb_review, role_permissions(area_key, level)").order("name"),
   ]);
   const roleList = (roles ?? []) as RoleRow[];
   const roleName = new Map(roleList.map((r) => [r.id, r.name]));
-  // Round 8b: Closebook preparer is a permission on the role (Closebook at Edit), shown next to the role.
-  // Owners prepare and review every file.
-  const preparer = new Set(roleList.filter((r) => !r.is_owner && r.role_permissions?.some((p) => p.area_key === "closebook" && p.level === "edit")).map((r) => r.id));
+  // R3a-1: Closebook preparer is Closebook at Edit plus the Prepare switch; reviewer is the Review switch.
+  const cbEdit = (r: RoleRow) => r.role_permissions?.some((p) => p.area_key === "closebook" && p.level === "edit") ?? false;
+  const preparer = new Set(roleList.filter((r) => cbEdit(r) && r.cb_prepare && !r.cb_review).map((r) => r.id));
   const extra = (roleId: string) => preparer.has(roleId) ? <span className="ml-2 inline-flex rounded-full bg-navy-50 px-2 py-0.5 text-xs font-medium text-navy-700 ring-1 ring-navy-200 ring-inset">+ Closebook preparer</span> : null;
-  // Non-owners never see the Owner role as a choice. The database enforces the full rule.
-  const assignable = roleList.filter((r) => access.is_owner || !r.is_owner);
+  // Only an Admin may give an Admin role. The database enforces the full rule.
+  const assignable = roleList.filter((r) => access.admin || !roleAdmin(r));
 
   return (
     <>
@@ -87,7 +89,7 @@ export async function PeopleSection({ access }: { access: Access }) {
                     ) : [s.phone, s.credentials, s.title].filter(Boolean).join(" · ")}
                   </td>
                   <td>
-                    {access.is_owner && !isSelf ? (
+                    {access.admin && !isSelf ? (
                       <form action={changeRole} className="flex items-center gap-2">
                         <input type="hidden" name="staff_id" value={s.id} />
                         <select name="role_id" defaultValue={s.role_id} className="input py-1" aria-label={`Role for ${s.full_name}`}>

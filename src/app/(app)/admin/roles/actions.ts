@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { withMessage } from "@/lib/messages";
+import { CB_SWITCHES } from "./rights";
 
 export async function createRole(formData: FormData) {
   const supabase = await createClient();
@@ -13,37 +14,29 @@ export async function createRole(formData: FormData) {
   });
   if (error) redirect(withMessage("/admin/team?tab=roles", "error", friendly(error.message)));
   revalidatePath("/admin/team");
-  redirect(withMessage(`/admin/roles/${data}`, "msg", "Role created. Every area starts at No access. Set the levels below."));
+  redirect(withMessage(`/admin/roles/${data}`, "msg", "Role created. Closebook starts at Edit with Prepare on; every other area at No access. Set the levels below."));
 }
 
+// Piece R3a-1: one save for the whole role (name, levels, Letters boxes, Closebook switches), in one database
+// transaction (save_role). The database gives only what the saver holds and refuses a save that leaves no Admin.
 export async function saveRole(formData: FormData) {
   const roleId = String(formData.get("role_id"));
   const page = `/admin/roles/${roleId}`;
   const supabase = await createClient();
-
-  const { error: nameError } = await supabase.rpc("update_role", {
-    p_role_id: roleId,
-    p_name: String(formData.get("name") ?? ""),
-    p_description: String(formData.get("description") ?? ""),
-  });
-  if (nameError) redirect(withMessage(page, "error", friendly(nameError.message)));
-
   const levels: Record<string, string> = {};
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("level:")) levels[key.slice(6)] = String(value);
   }
-  const { error } = await supabase.rpc("set_role_permissions", { p_role_id: roleId, p_levels: levels });
+  const on = (k: string) => formData.get(k) === "on";
+  const { error } = await supabase.rpc("save_role", {
+    p_role_id: roleId,
+    p_name: String(formData.get("name") ?? ""),
+    p_description: String(formData.get("description") ?? ""),
+    p_levels: levels,
+    p_letters: { t1: on("can_t1_letters"), corporate: on("can_corporate_letters"), final: on("can_final_letters") },
+    p_switches: Object.fromEntries(CB_SWITCHES.map((c) => [c.key, on(`cb:${c.key}`)])),
+  });
   if (error) redirect(withMessage(page, "error", friendly(error.message)));
-
-  // Round 19: the letter types this role prepares. The Owner role always has both and is not changed.
-  const { data: role } = await supabase.from("roles").select("is_owner").eq("id", roleId).maybeSingle();
-  if (role && !role.is_owner) {
-    const { error: lettersError } = await supabase.rpc("set_role_letters", {
-      p_role_id: roleId, p_t1: formData.get("can_t1_letters") === "on", p_corporate: formData.get("can_corporate_letters") === "on",
-    });
-    if (lettersError) redirect(withMessage(page, "error", friendly(lettersError.message)));
-  }
-
   revalidatePath("/admin/team");
   redirect(withMessage(page, "msg", "Role saved."));
 }

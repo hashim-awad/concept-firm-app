@@ -8,9 +8,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Birch Dummy Expenses Inc.', 'ON') returning id as client \gset
@@ -35,7 +35,7 @@ select test.check('One schedule per entry: an expenses entry is not put in as a 
 select test.check('the preparer cannot untick the ITC',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65000","amount":226,"schedule_part":"exp_1"},{"chart":"23000","amount":-226,"schedule_part":"exp_due"}]',
-    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'Only the file''s reviewer or an owner can change "Claim the ITC".');
+    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
 
 -- T2: a second use on the same file: its own entry and its own schedule.
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Expenses paid personally', false,

@@ -1,6 +1,6 @@
 import "server-only";
 // Round 33 (Hashim, Nov 17, 2026): the firm's address, phone and email for client pages come from Studio's settings
-// (Settings › Firm details › Contact, owners only), never from code. Read with the server key: client pages have no session.
+// (Settings › Firm details › Contact, Admins only), never from code. Read with the server key: client pages have no session.
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 

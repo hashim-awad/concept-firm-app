@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -11,9 +11,9 @@ type Std = { id: string; name: string; kind: string; debit_account: string; cred
 
 // Standard entries (Hashim, Nov 15, 2026, layout item 6). Owners set the accounts, type, memo and W/P ref;
 // in step 5 staff pick one and enter the amount only. Round 17: no Reason field; the action works it out
-// from the type and the reverse box, as the journal entry dialog does (round 15b). Owners only.
+// from the type and the reverse box, as the journal entry dialog does (round 15b). Admins only.
 export async function StandardEntriesView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: list }, { data: chart }] = await Promise.all([
     supabase.from("cb_standard_entries").select("id, name, kind, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").eq("style", "simple").order("sort_order"),

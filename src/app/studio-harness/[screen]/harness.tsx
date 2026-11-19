@@ -8,7 +8,7 @@ import { WorkspaceHeader } from "@/components/studio/kit";
 import { AppSidebar } from "../../(app)/app-sidebar";
 import { MainArea } from "../../(app)/main-area";
 
-type Init = { env: ScreenEnv; isOwner: boolean; key: number };
+type Init = { env: ScreenEnv; finalRight: boolean; key: number };
 
 export function Harness({ screen, signOut }: { screen: "corporate" | "t1" | "proposal"; signOut: () => Promise<void> }) {
   const [init, setInit] = useState<Init | null>(null);
@@ -17,12 +17,12 @@ export function Harness({ screen, signOut }: { screen: "corporate" | "t1" | "pro
     (window as unknown as { __harnessInit: (i: Omit<Init, "key">) => void }).__harnessInit = (i) => setInit({ ...i, key: Date.now() });
   }, []);
   if (!init) return <p id="harness-waiting">Waiting for test data.</p>;
-  const props = { key: init.key, env: init.env, clients: [], isOwner: init.isOwner };
+  const props = { key: init.key, env: init.env, clients: [], finalRight: init.finalRight };
   const title = { corporate: "Corporate Letter", t1: "Personal Tax Letter (T1)", proposal: "Proposal" }[screen];
   // Same frame as the app: sidebar (dummy test user) and the full-width document area.
   return (
     <div id="harness-ready" className="min-h-screen bg-paper md:flex">
-      <AppSidebar signOut={signOut} access={{ fullName: "Test User", roleName: "Owner", isOwner: true, leads: true, vault: true, pricing: true, screening: true, templates: true, documents: true, documentsEdit: true, clients: true, taxRates: true, staff: true, settings: true, closebook: true }} counts={{ quotesAwaiting: 2, lettersAwaiting: 0, leadsNew: 0 }} />
+      <AppSidebar signOut={signOut} access={{ fullName: "Test User", roleName: "Owner", admin: true, leads: true, vault: true, pricing: true, screening: true, templates: true, documents: true, documentsEdit: true, clients: true, taxRates: true, staff: true, settings: true, closebook: true }} counts={{ quotesAwaiting: 2, lettersAwaiting: 0, leadsNew: 0 }} />
       <MainArea workspace>
         <WorkspaceHeader title={title} description="Test page with made-up data." />
         {screen === "corporate" && <CorporateLetterScreen {...props} />}

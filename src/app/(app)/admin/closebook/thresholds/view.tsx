@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
@@ -7,9 +7,9 @@ import { loadCbSettings } from "@/lib/closebook/settings";
 import { fieldHelp, type SP, type View } from "../../settings-shell";
 import { updateCbSettings } from "../actions";
 
-// Closebook rules, Thresholds tab (Phase 3 batch, section 7). Owners only.
+// Closebook rules, Thresholds tab (Phase 3 batch, section 7). Admins only.
 export async function ThresholdsView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const c = await loadCbSettings(await createClient());
   if (!c) return { help: null, body: <p className="card text-sm text-warning">Closebook settings are not loaded yet.</p> };
   const fields: [string, string, number, string, string?][] = [

@@ -10,8 +10,8 @@ import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
-export function T1LetterScreen({ env, clients, isOwner, handlers, initial, startClientId, today }: {
-  env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
+export function T1LetterScreen({ env, clients, finalRight, handlers, initial, startClientId, today }: {
+  env: ScreenEnv; clients: StudioClientRow[]; finalRight: boolean; handlers?: DocumentHandlers;
   initial?: { f: Record<string, any>; clientId?: string; documentId?: string }; today?: string; startClientId?: string;
 }) {
   const [box] = useState(() => makeEngine(env));
@@ -24,11 +24,11 @@ export function T1LetterScreen({ env, clients, isOwner, handlers, initial, start
   const standalone = s.card === "standalone";
   const scr = standalone
     ? { checks: [{ lvl: "ok", msg: "Master wording. Sent from TaxDome; nothing to issue here." }] as Check[], ok: false, message: "Standalone T1 letters are sent from TaxDome.", showSaveClient: false }
-    : t1Screen(e, s, { client, loaded: env.loaded, isOwner, acks: ctl.acks });
+    : t1Screen(e, s, { client, loaded: env.loaded, finalRight, acks: ctl.acks });
   const html = standalone ? out.masterHtml : e.t1Html(s);
 
   useEffect(() => {
-    if (!handlers) (window as any).__studioScreen = () => { const o = ctl.output(); const st = o.s; return JSON.parse(JSON.stringify({ s: st, checks: st.card === "standalone" ? [] : t1Screen(e, st, { client: null, loaded: env.loaded, isOwner, acks: ctl.acks }).checks, blocks: o.blocks, pdf: st.card === "standalone" ? null : e.pdfDoc(st, o.blocks, env.images.LH), fileName: o.fileName, html: st.card === "standalone" ? o.masterHtml : e.t1Html(st) })); };
+    if (!handlers) (window as any).__studioScreen = () => { const o = ctl.output(); const st = o.s; return JSON.parse(JSON.stringify({ s: st, checks: st.card === "standalone" ? [] : t1Screen(e, st, { client: null, loaded: env.loaded, finalRight, acks: ctl.acks }).checks, blocks: o.blocks, pdf: st.card === "standalone" ? null : e.pdfDoc(st, o.blocks, env.images.LH), fileName: o.fileName, html: st.card === "standalone" ? o.masterHtml : e.t1Html(st) })); };
   });
 
   const str = (k: string) => String(f[k] ?? "");

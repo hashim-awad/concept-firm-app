@@ -41,13 +41,13 @@ for (const c of CORPORATE) {
   });
 }
 
-test("server refuses Final for a non-owner, and without a verified client record", () => {
+test("server refuses Final without the Final right, and without a verified client record", () => {
   const ctl = new CorporateLetter(screenEngine(), TODAY);
   for (const [k, v] of Object.entries(CORPORATE[0].fields)) ctl.set(k, v as string | boolean);
   CORPORATE[0].feeAmounts.forEach((a, i) => ctl.setFee(i, "amt", a));
   const snap = plain({ f: { ...ctl.f, reviewed: true }, fees: ctl.fees, mode: "final", acks: {} });
   const e = () => engineFor("corporate_letter", data, BLANK_PNG);
-  assert.equal(rebuild("corporate_letter", e(), snap, verified, false, TODAY).scr.message, "Only Hashim can issue a Final letter.");
+  assert.equal(rebuild("corporate_letter", e(), snap, verified, false, TODAY).scr.message, 'You need "Can issue Final and send for signing" to issue a Final letter.');
   assert.equal(rebuild("corporate_letter", e(), snap, null, true, TODAY).scr.message, "Final needs a client record with a verified legal name.");
   assert.equal(rebuild("corporate_letter", e(), snap, { ...verified, "Legal name": "Example Holdings Inc.", "Signing officer": "Taylor Sample", "Signer title": "Director", Salutation: "Taylor", "Street address": "1 Test Street", City: "Kitchener", "Postal code": "N2A 1A1" }, true, TODAY).scr.ok, true);
   const noReview = plain({ ...snap, f: { ...snap.f, reviewed: false } });

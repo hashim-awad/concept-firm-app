@@ -23,9 +23,9 @@ export type SaveResult = { ok: true; documentId: string; versionId: string; vers
 export async function saveDocument(supabase: SupabaseClient, access: Access, input: SaveInput): Promise<SaveResult> {
   if (!canEdit(access, "documents")) return { ok: false, error: "You do not have permission to make documents." };
   if (!["corporate_letter", "t1_letter", "proposal"].includes(input.kind)) return { ok: false, error: "Unknown document type." };
-  // Round 19: each role prepares only the letter types ticked on it (owners: every type). The database checks again.
-  if (input.kind === "t1_letter" && !access.is_owner && !access.letters?.t1) return { ok: false, error: "Your role does not include T1 letters." };
-  if (input.kind === "corporate_letter" && !access.is_owner && !access.letters?.corporate) return { ok: false, error: "Your role does not include corporate letters." };
+  // Round 19: each role prepares only the letter types ticked on it (R3a-1: no owner shortcut). The database checks again.
+  if (input.kind === "t1_letter" && !access.letters.t1) return { ok: false, error: "Your role does not include T1 letters." };
+  if (input.kind === "corporate_letter" && !access.letters.corporate) return { ok: false, error: "Your role does not include corporate letters." };
   const data = await loadStudioData(supabase, access);
   const client = input.clientId ? data.clients.find((c) => c.url === input.clientId) ?? null : null;
   if (input.clientId && !client) return { ok: false, error: "That client record was not found." };
@@ -35,14 +35,14 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
 
   let sig = BLANK_PNG;
   if (final) {
-    if (!access.is_owner) return { ok: false, error: input.kind === "proposal" ? "Only Hashim can issue a Final monthly quote." : "Only Hashim can issue a Final letter." };
+    if (!access.letters.final) return { ok: false, error: input.kind === "proposal" ? 'You need "Can issue Final and send for signing" to issue a Final monthly quote.' : 'You need "Can issue Final and send for signing" to issue a Final letter.' };
     const loaded = input.kind === "proposal" ? BLANK_PNG : await loadSignature(supabase);
     if (!loaded) return { ok: false, error: "Upload the signature image under Settings before issuing a Final letter." };
     sig = loaded;
   }
 
   let b: Built;
-  try { b = rebuild(input.kind, engineFor(input.kind, data, sig), input.snapshot, client, access.is_owner, today()); }
+  try { b = rebuild(input.kind, engineFor(input.kind, data, sig), input.snapshot, client, access.letters.final, today()); }
   catch (err) { return { ok: false, error: err instanceof Error ? err.message : "Could not build the document." }; }
   if (!b.scr.ok) return { ok: false, error: b.scr.message || "Fix the items listed first." };
 
@@ -52,7 +52,7 @@ export async function saveDocument(supabase: SupabaseClient, access: Access, inp
   if (final && input.kind === "proposal") {
     const prov = String(input.snapshot?.f?.province ?? "");
     const { data: rate } = ["ON", "AB", "BC"].includes(prov) ? await supabase.rpc("approved_tax_rate", { p_province: prov }) : { data: null };
-    if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An owner approves rates under GST/HST rates first." };
+    if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An Admin approves rates under GST/HST rates first." };
   }
 
   // Front office batch, section 7: a Final letter is sent for online signing. Its signers and the email

@@ -45,7 +45,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
 
   // The clean-up link shows only while the clean-up still has something to do (needed again in Live).
   let cleanupPending = false;
-  if (access.is_owner) {
+  if ((access.admin && access.permissions.pricing === "edit")) {
     const { items: all, lineKeys, t1Offers } = await loadItems(supabase);
     const r = planCleanup(all, lineKeys, t1Offers);
     cleanupPending = r.plan.length > 0 || r.blockers.length > 0;
@@ -61,7 +61,7 @@ export default async function PriceBookPage({ searchParams }: PageProps<"/admin/
   return (
     <SettingsShell title="Price book" help={<>
       <p>All prices are before tax. Quotes take prices only from here. A price change starts on its date and never changes a quote already made.</p>
-      <p>Only an owner can apply the price book clean-up.</p>
+      <p>Only an Admin can apply the price book clean-up.</p>
     </>}
       actions={editable ? (
           <FormDialog label="Add item" title="Add an item">

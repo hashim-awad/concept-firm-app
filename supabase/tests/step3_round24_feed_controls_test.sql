@@ -26,9 +26,9 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Maple Dummy Realty Inc.', 'ON') returning id as client \gset
 \set A '''00000000-0000-0000-0000-00000000000a'''
@@ -172,9 +172,9 @@ select test.check('the removal is in the history, with the reason', exists (sele
 -- ---------- Purge (rule 11; T10) and accounts (rule 16; T11)
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('T11: an account with an excluded statement cannot be deleted', test.try(format($q$select public.cb_remove_bank_account(%L)$q$, :'chq')) like '%imported or excluded%');
-select test.check('purge is for a statement excluded as Wrong client only', test.try(format($q$select public.cb_purge_statement(%L)$q$, :'sep2')) = 'Only an owner can purge.');
+select test.check('purge is for a statement excluded as Wrong client only', test.try(format($q$select public.cb_purge_statement(%L)$q$, :'sep2')) = 'Only an Admin can purge.');
 select public.cb_exclude_statement(:'sep', 'wrong_client', '');
-select test.check('T10: a preparer cannot purge', test.try(format($q$select public.cb_purge_statement(%L)$q$, :'sep')) = 'Only an owner can purge.');
+select test.check('T10: a preparer cannot purge', test.try(format($q$select public.cb_purge_statement(%L)$q$, :'sep')) = 'Only an Admin can purge.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('an owner cannot purge a statement excluded for another reason', test.try(format($q$select public.cb_purge_statement(%L)$q$, :'sep2')) = 'Only a statement excluded as Wrong client can be purged.');
 reset role;
@@ -230,5 +230,6 @@ select test.check('equal: no problem', test.tie(:'f') = '{}');
 -- ---------- Safe to run twice
 reset role;
 \i supabase/migrations/20261212010000_round24_feed_controls.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('a second run changes no line', (select count(*) from public.cb_bank_lines where file_id = :'f' and acct_date is null) = 0
   and (select count(*) from public.cb_excluded_statements where file_id = :'f') = 1);

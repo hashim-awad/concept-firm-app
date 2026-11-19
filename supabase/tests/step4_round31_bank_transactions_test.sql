@@ -111,6 +111,7 @@ reset role;
 update public.cb_bank_lines set status = 'ask_client', asked_at = null where id = test.l('SOFTWARE DUMMY');
 insert into public.cb_vendor_rules (client_id, vendor_key, chart_account, tax_code) values (:'client', 'SAMPLE PRINT SHOP GUELPH ON', '60000', 'HST_ON');
 \i supabase/migrations/20261212080000_round31_step4_bank_transactions.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice, and a line on the old question list becomes a Pending line with the flag',
   (select status = 'new' and asked_at is not null from public.cb_bank_lines where id = test.l('SOFTWARE DUMMY'))
   and (select (length(d) - length(replace(d, 'Round 31: Pending lines', ''))) / length('Round 31: Pending lines') = 1
@@ -119,4 +120,5 @@ select test.check('a vendor rule moves into the rules list once: Description con
   (select count(*) = 1 and min(direction) = 'any' and min(conditions -> 0 ->> 'value') = 'SAMPLE PRINT SHOP GUELPH ON' and min(priority) = 2
      from public.cb_bank_rules where client_id = :'client' and from_vendor_rule is not null));
 \i supabase/migrations/20261212080000_round31_step4_bank_transactions.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('copied once only', (select count(*) = 1 from public.cb_bank_rules where client_id = :'client' and from_vendor_rule is not null));

@@ -6,9 +6,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role; reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Birch Dummy Design Inc.', 'ON') returning id as client \gset
 
 -- A trial balance file (dummy figures, mock L).
@@ -81,7 +81,7 @@ select test.check('T1: reviewed with the new key', exists (select 1 from public.
 -- T9: the "yes" shows in step 7 and waits there until the reviewer marks it reviewed. T4: the new account too.
 select test.check('T9/T4: step 7 waits on the new account and the "yes"', private.cb_review_problems(:'f') @> array['New accounts this year: 1 to mark reviewed.', 'What changed this year: 1 "yes" answer to mark reviewed.']);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T4: only the reviewer marks it reviewed', test.try(format('select public.cb_review_new_account(%L, %L, true)', :'f', '67300')) = 'Only the reviewer marks it reviewed. Reviewers are owners.');
+select test.check('T4: only the reviewer marks it reviewed', test.try(format('select public.cb_review_new_account(%L, %L, true)', :'f', '67300')) = 'Only the reviewer marks it reviewed. Reviewers need the Review right.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_review_new_account(:'f', '67300', true);
 select public.cb_review_year_change(:'f', 'loans', true);

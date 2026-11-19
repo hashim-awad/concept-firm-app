@@ -60,6 +60,7 @@ select test.check('Replace file no longer checks digits', position('v_digits) >=
 -- ---------- Safe to run twice
 reset role;
 \i supabase/migrations/20261212040000_round28_statement_rules.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice: each patch placed once', (select (length(d) - length(replace(d, 'Round 28: a line with no effect', ''))) / length('Round 28: a line with no effect') = 1
   and (length(d) - length(replace(d, 'cb_bank_info_lines', ''))) / length('cb_bank_info_lines') = 1
   from (select pg_get_functiondef('private.cb_add_statement(uuid, uuid, text, numeric, numeric, jsonb, date, date, numeric, numeric, text)'::regprocedure) d) x)

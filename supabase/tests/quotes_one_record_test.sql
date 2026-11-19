@@ -50,14 +50,14 @@ select test.check('a declined quote cannot be declined again', test.try(format($
 
 -- The list: totals only with Pricing
 select test.check('the owner sees the total', (select total_cents from public.quote_list() where id = :'q') = 29900);
-select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing":"none","leads":"view"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing":"none","leads":"view"}');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('staff without Pricing see the quote, not the total', (select client = 'Jane Dummy' and total_cents is null from public.quote_list() where id = :'q'));
 select test.check('staff without Pricing cannot read the quote table', (select count(*) from public.quotes) = 0);
 reset role;
 reset request.jwt.claims;
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing":"none","leads":"none"}') from (select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', true)) x;
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing":"none","leads":"none"}') from (select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', true)) x;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('staff without Leads cannot list quotes', test.try('select * from public.quote_list()') like 'You do not have access%');

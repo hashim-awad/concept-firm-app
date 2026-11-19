@@ -75,6 +75,7 @@ select test.check('an imported statement is never read again',
 -- ---------- Safe to run twice
 reset role;
 \i supabase/migrations/20261212030000_round26_card_period.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice: each patch placed once', (select (length(d) - length(replace(d, 'Round 26: the period', ''))) / length('Round 26: the period') = 1
   and (length(d) - length(replace(d, 'card_last4', ''))) / length('card_last4') = 1
   from (select pg_get_functiondef('private.cb_add_statement(uuid, uuid, text, numeric, numeric, jsonb, date, date, numeric, numeric, text)'::regprocedure) d) x));

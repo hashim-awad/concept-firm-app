@@ -6,8 +6,8 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing":"none","leads":"view","price_book":"view"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing":"none","leads":"view","price_book":"view"}');
 reset role;
 reset request.jwt.claims;
 
@@ -90,7 +90,7 @@ reset role;
 -- The owner button: staff cannot use it; for an owner it gives the same checks (a draft exists here).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot use the publish button', test.try($$select public.publish_t1_screening_now()$$) like 'Only an owner%');
+select test.check('staff cannot use the publish button', test.try($$select public.publish_t1_screening_now()$$) like 'Only an Admin%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('owner sees the exact reason', test.try($$select public.publish_t1_screening_now()$$) like '%a personal draft exists%');
 reset role;

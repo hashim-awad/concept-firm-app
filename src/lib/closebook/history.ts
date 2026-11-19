@@ -1,5 +1,5 @@
 // Round 24 (Hashim, Nov 16, 2026, rule 20): the file's history (the clock in the file header). Every event: when,
-// who, what, the statement or line, the reason, the old and new values. Append-only in the database. Owners read it.
+// who, what, the statement or line, the reason, the old and new values. Append-only in the database. The Review right reads it (R3a-1).
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type HistoryRow = { at: string; who: string; action: string; step: string; detail: string; ref: string; reason: string; old: string; new: string; erased: boolean };

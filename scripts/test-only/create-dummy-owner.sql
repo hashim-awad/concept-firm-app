@@ -51,9 +51,10 @@ begin
     values (v_id::text, v_id, jsonb_build_object('sub', v_id::text, 'email', i.email, 'email_verified', true), 'email', now(), now());
   end if;
 
-  select * into v from public.roles where is_owner limit 1;
+  -- Piece R3a-1: there is no Owner role; the dummy login gets the role with Admin (Edit on Staff accounts and Settings).
+  select r.* into v from public.roles r where private.role_is_admin(r.id) order by (r.name = 'Partner') desc, r.created_at limit 1;
   if v.id is null then
-    raise exception 'No Owner role found.';
+    raise exception 'No role with Admin found.';
   end if;
   if exists (select 1 from public.staff where id = v_id) then
     update public.staff set role_id = v.id, is_active = true, full_name = i.full_name, email = i.email where id = v_id;

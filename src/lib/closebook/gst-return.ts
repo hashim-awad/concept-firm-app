@@ -9,7 +9,7 @@
 // remittance rate; 106 ITCs on capital purchases only; 107 the credit on the first part of the year's
 // eligible sales. The rates, the credit and its limit are settings (Settings, Sales tax rates, Quick method
 // rates), never this file. Round 20 (Hashim, Nov 15, 2026): two remittance rates, Services and Goods for
-// resale; the client's step 1 answer picks one (services when not answered), an owner approves each rate,
+// resale; the client's step 1 answer picks one (services when not answered), an Admin approves each rate,
 // and the return says which rate it used. A missing or unapproved rate is named, never guessed.
 import { addMonths } from "./fs-email.ts";
 import { entryLineTax, type TaxCode, type TaxContext } from "./sales-tax.ts";

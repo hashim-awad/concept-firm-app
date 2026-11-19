@@ -30,7 +30,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const supabase = await createClient();
   const f = await loadFile(supabase, id);
   if (!f) return new Response("Not found", { status: 404 });
-  // Round 24 (rule 20): the file history in the working papers (owners read it).
+  // Round 24 (rule 20): the file history in the working papers (the Review right reads it, R3a-1).
   if (report === "history") {
     const rows = await loadHistory(supabase, id, f.names, q.get("step"));
     const when = (iso: string) => `${formatDate(iso)} ${new Date(iso).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;

@@ -37,7 +37,7 @@ export default async function RulePage({ params, searchParams }: PageProps<"/adm
               <label htmlFor="kind" className="label">Type of rule</label>
               <select id="kind" name="kind" defaultValue={r?.kind ?? "add_item"} className="input">
                 <option value="add_item">Price: add an item to the quote</option>
-                <option value="out_of_scope">Out of scope: no quote, flag for an owner</option>
+                <option value="out_of_scope">Out of scope: no quote, flag for an Admin</option>
                 <option value="check">Check: stop the form and show a message</option>
               </select>
             </div>

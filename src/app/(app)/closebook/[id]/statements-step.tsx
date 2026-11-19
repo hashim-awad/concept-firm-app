@@ -16,7 +16,7 @@ const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
 
 // Round 15b: the step's papers, Package and MAL signing (CaseWare's document map). Without a paper, both.
-export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl, paper }: { fileId: string; pk: PackageData; editable: boolean; isOwner: boolean; siteUrl: string; paper?: string }) {
+export function StatementsStep({ fileId, pk, editable, canReview, siteUrl, paper }: { fileId: string; pk: PackageData; editable: boolean; canReview: boolean; siteUrl: string; paper?: string }) {
   const show = (k: string) => !paper || paper === k;
   const f = pk.fields;
   const doc = (d: string, fmt = "pdf") => `/closebook/${fileId}/package?doc=${d}&format=${fmt}`;
@@ -53,7 +53,7 @@ export function StatementsStep({ fileId, pk, editable, isOwner, siteUrl, paper }
               <tr key={d}><td>{name}</td><td className="whitespace-nowrap text-ink-2">{by}</td>
                 <td className="whitespace-nowrap text-right">{pk.blocked.length ? <span className="text-xs text-ink-3">Stopped</span> : <>
                   <a href={doc(d)} target="_blank" className="text-sm text-navy-700 underline">PDF</a>
-                  {isOwner && <a href={doc(d, "docx")} className="ml-3 text-sm text-navy-700 underline">Word (reviewer)</a>}</>}</td></tr>
+                  {canReview && <a href={doc(d, "docx")} className="ml-3 text-sm text-navy-700 underline">Word (reviewer)</a>}</>}</td></tr>
             ))}
           </tbody>
         </table>

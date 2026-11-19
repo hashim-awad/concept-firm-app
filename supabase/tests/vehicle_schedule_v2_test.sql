@@ -6,9 +6,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Birch Dummy Two Cars Inc.', 'ON') returning id as client \gset
@@ -32,7 +32,7 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('Fix 5: the preparer is refused by the database',
   test.try(format($q$select public.cb_save_schedule_entry(%L, null, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :lines, replace(:sched, '"itc":true', '"itc":false'))) = 'Only the file''s reviewer or an owner can change "Claim the ITC".');
+    :'f', :lines, replace(:sched, '"itc":true', '"itc":false'))) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
 reset role;
 -- The rule is in the trigger, so a delete that does not go through cb_delete_entry is refused too.
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Vehicle, owner''s car', false, :lines, 'Vehicle schedule', null, '{}', null, :sched) as car3 \gset

@@ -6,7 +6,7 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
 insert into storage.objects (bucket_id, name) values ('documents', 't1-quotes/q1/signed-abc.pdf'), ('documents', 'vault/c1/letter.pdf');
@@ -14,9 +14,9 @@ insert into storage.objects (bucket_id, name) values ('documents', 't1-quotes/q1
 -- Staff and the public cannot use it.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot list the tables', test.try('select public.export_tables()') like '%Only an owner%');
-select test.check('staff cannot read rows', test.try($$select public.export_rows('staff', 0, 10)$$) like '%Only an owner%');
-select test.check('staff cannot list the files', test.try('select public.export_files()') like '%Only an owner%');
+select test.check('staff cannot list the tables', test.try('select public.export_tables()') like '%Only an Admin%');
+select test.check('staff cannot read rows', test.try($$select public.export_rows('staff', 0, 10)$$) like '%Only an Admin%');
+select test.check('staff cannot list the files', test.try('select public.export_files()') like '%Only an Admin%');
 reset role;
 reset request.jwt.claims;
 set role anon;

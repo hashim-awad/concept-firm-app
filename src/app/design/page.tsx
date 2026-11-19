@@ -115,7 +115,7 @@ export default function DesignPage() {
 
       <Section id="feedback" title="Alerts, dialogs and toasts" note="Dialogs confirm anything that cannot be undone. Toasts confirm that something worked.">
         <div className="grid gap-3 md:grid-cols-2">
-          <Alert tone="info" title="Rates need approval">The GST/HST table must be approved by an owner before quotes use it.</Alert>
+          <Alert tone="info" title="Rates need approval">The GST/HST table must be approved by an Admin before quotes use it.</Alert>
           <Alert tone="success" title="Signed">Both spouses signed on Nov 7, 2026.</Alert>
           <Alert tone="warning" title="Expires in 3 days">The client has not signed yet.</Alert>
           <Alert tone="danger" title="Province missing">This quote cannot be made until the client&apos;s province is entered.</Alert>

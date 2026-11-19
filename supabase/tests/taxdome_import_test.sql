@@ -8,7 +8,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 insert into public.clients (id, kind, legal_name) values ('00000000-0000-0000-0000-0000000000c1', 'corporation', 'Alpha Realty Inc');
 
 select test.check('an all-or-nothing import: a bad row stops everything',
@@ -29,7 +29,7 @@ select test.check('the owner cannot edit TaxDome fields by hand', test.try($$upd
 select test.check('a new client cannot be given a Business Number by hand', test.try($$insert into public.clients (kind, legal_name, business_number) values ('corporation', 'Hand Inc.', '222333444')$$) like '%TaxDome import%');
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot import', test.try($$select public.apply_taxdome_import('[]')$$) like 'Only an owner%');
+select test.check('staff cannot import', test.try($$select public.apply_taxdome_import('[]')$$) like 'Only an Admin%');
 select test.check('staff sets the balance-due period and the exclude switch', test.try($$update public.clients set t2_balance_due_months = 3, t2_exclude_deadlines = true where taxdome_account_id = '201'$$) = 'OK');
 select test.check('saved', (select t2_balance_due_months = 3 and t2_exclude_deadlines from public.clients where taxdome_account_id = '201'));
 select test.check('only 2 or 3 months', test.try($$update public.clients set t2_balance_due_months = 4 where taxdome_account_id = '201'$$) <> 'OK');

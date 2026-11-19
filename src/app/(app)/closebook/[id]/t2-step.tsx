@@ -26,7 +26,7 @@ const whole = (v: number) => v.toLocaleString("en-US");
 // paper, all of them (the export routes and tests use it that way).
 // Piece R1 (workpaper finding 16): "Match accounts to GIFI" as the first paper is the page's default only (page.tsx pickPaper);
 // called with no paper, this still shows every paper it has.
-export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean; rounding?: RoundingLine; paper?: string }) {
+export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; canReview: boolean; rounding?: RoundingLine; paper?: string }) {
   const show = (k: string) => !paper || paper === k;
   const hidden = <input type="hidden" name="file_id" value={fileId} />;
   const anyOpen = g.tieItems.some((t) => t.open);
@@ -110,7 +110,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
             <table className="w-full text-sm"><thead><tr className="text-left text-xs text-ink-3"><th className="px-3 py-1">Account</th><th className="px-3 py-1">GIFI</th><th className="px-3 py-1 text-right">Amount</th><th className="px-3 py-1">Schedule 1</th><th className="px-3 py-1 text-right">Effect</th></tr></thead>
               <tbody>{s.accounts.map((a, i) => (
                 <tr key={i}><td className="px-3 py-0.5">{a.label}</td><td className="px-3 py-0.5 tabular-nums">{a.gifi}</td><td className={`px-3 py-0.5 text-right tabular-nums ${negativeTone(a.amount)}`}>{fmt(a.amount)}</td>
-                  <td className="px-3 py-0.5">{a.note}{a.code === "REVIEW" && isOwner && editable && (
+                  <td className="px-3 py-0.5">{a.note}{a.code === "REVIEW" && canReview && editable && (
                     <form action={setReviewTreatment} className="mt-1 flex items-center gap-2">{hidden}<input type="hidden" name="line" value={a.line_no} />
                       <select name="treatment" defaultValue={g.treatments.get(a.line_no) ?? ""} aria-label={`${a.label}: treatment`} className="input input-compact pr-8" style={{ width: "13rem" }}>
                         <option value="">Not set</option>{(Object.keys(TREATMENT) as Treatment[]).map((t) => <option key={t} value={t}>{TREATMENT[t]}</option>)}</select>
@@ -126,7 +126,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
           return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (an amount in brackets is a deduction)</span>
             <span className={`tabular-nums ${negativeTone(net)}`}>{net === 0 ? "–" : fmt(net)}</span></p>;
         })()}
-        {isOwner && editable && (
+        {canReview && editable && (
           <form action={setBookAmortization} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-2 text-sm">{hidden}
             <input type="hidden" name="on" value={g.bookAmortization ? "0" : "1"} />
             <span>Amortization for this client: <b>{g.bookAmortization ? "book amortization (CCA is not compared)" : "CCA (the tie-out compares CCA with the amortization booked)"}</b></span>
@@ -159,7 +159,7 @@ export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }:
                   : !t.open && t.accepted ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {staff.get(t.accepted.by) ?? "the reviewer"}: {t.accepted.reason}</span>
                   : <span className="grid gap-1"><span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Blocks the preparer&rsquo;s sign-off</span>
                       {t.accepted && <span className="text-xs text-ink-2">Accepted at {fmt(t.accepted.diff)}; the difference changed.</span>}
-                      {isOwner && editable && !g.stale && (
+                      {canReview && editable && !g.stale && (
                         <form action={acceptT2Difference} className="flex flex-wrap items-center gap-2">{hidden}<input type="hidden" name="item" value={t.key} />
                           <input name="reason" required minLength={3} maxLength={300} placeholder="Why it is accepted" aria-label={`${t.label}: reason`} className="input input-compact" style={{ width: "16rem" }} />
                           <button type="submit" className="btn-secondary btn-compact">Accept</button></form>)}</span>}</td></tr>

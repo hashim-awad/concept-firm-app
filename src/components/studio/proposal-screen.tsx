@@ -11,7 +11,7 @@ import { ChecksPanel, Hint, Labelled, ModeSwitch, Panel, Paper, PROVINCES, Row, 
 import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
 // live: the builder in Quotes (front office batch, section 5). The proposal saves itself as a Draft
-// quote, the Letter details step completes each option's engagement letter, and an owner sends it
+// quote, the Letter details step completes each option's engagement letter, and an Admin sends it
 // for online signing. Without it (the screen parity page) the screen is Studio's, unchanged.
 export type ProposalLive = {
   quoteId?: string; leadId?: string;
@@ -20,8 +20,8 @@ export type ProposalLive = {
   remove: (quoteId: string) => Promise<{ ok: boolean; error?: string }>;
 };
 
-export function ProposalScreen({ env, clients, isOwner, handlers, initial, startClientId, approvedTax, today, recent, prefill, live }: {
-  env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
+export function ProposalScreen({ env, clients, finalRight, handlers, initial, startClientId, approvedTax, today, recent, prefill, live }: {
+  env: ScreenEnv; clients: StudioClientRow[]; finalRight: boolean; handlers?: DocumentHandlers;
   initial?: { f: Record<string, string>; opts: any[]; rec: number; clientId?: string; documentId?: string }; today?: string; startClientId?: string; approvedTax?: Record<string, string>; recent?: ReactNode;
   prefill?: { f: Record<string, string>; offer: string }; live?: ProposalLive;
 }) {
@@ -44,7 +44,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
   const [clientId, setClientId] = useState(initial?.clientId ?? startClientId ?? "");
   const e = ctl.e, f = ctl.f;
   const s = ctl.state();
-  const scr = proposalScreen(e, s, { client: null, loaded: env.loaded, isOwner, acks: {}, live: !!live });
+  const scr = proposalScreen(e, s, { client: null, loaded: env.loaded, finalRight, acks: {}, live: !!live });
   const html = e.pHtml(s);
 
   // ---- Quotes: save as a Draft, Letter details, Send for signing ----
@@ -135,7 +135,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
   ) };
 
   useEffect(() => {
-    if (!handlers) (window as any).__studioScreen = () => { const st = ctl.state(); return JSON.parse(JSON.stringify({ s: st, checks: proposalScreen(e, st, { client: null, loaded: env.loaded, isOwner, acks: {} }).checks, blocks: e.pBuild(st), pdf: e.pPdf(st), html: e.pHtml(st) })); };
+    if (!handlers) (window as any).__studioScreen = () => { const st = ctl.state(); return JSON.parse(JSON.stringify({ s: st, checks: proposalScreen(e, st, { client: null, loaded: env.loaded, finalRight, acks: {} }).checks, blocks: e.pBuild(st), pdf: e.pPdf(st), html: e.pHtml(st) })); };
   });
 
   const txt = (k: string, extra?: object) => <TextIn id={"p_" + k} value={f[k] ?? ""} onValue={(v) => act((c) => c.set(k, v))} {...extra} />;
@@ -266,7 +266,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
           <Panel>
             {approvedTax && !approvedTax[f.province] && (
               <p role="status" className="rounded-lg bg-warning-soft px-3 py-2 text-[13px] text-[#5C3D00]">
-                No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final monthly quote needs one: an owner approves rates under GST/HST rates. Drafts are fine.
+                No approved GST/HST rate for {f.province === "OTHER" ? "this province" : f.province}. A Final monthly quote needs one: an Admin approves rates under GST/HST rates. Drafts are fine.
               </p>
             )}
             {approvedTax?.[f.province] && <p className="text-[13px] text-ink-3">Tax on this monthly quote: {approvedTax[f.province]} (approved rate).</p>}
@@ -274,7 +274,7 @@ export function ProposalScreen({ env, clients, isOwner, handlers, initial, start
             {live ? (
               <div className="grid gap-3">
                 <p className="text-[13px] text-ink-3" role="status">{saveNote || "Not saved yet: it saves as a draft once you start."}</p>
-                {isOwner ? (
+                {finalRight ? (
                   <Button type="button" disabled={!quoteId || !scr.ok || !letterOk || sending} onClick={send}>{sending ? "Sending..." : "Send for signing"}</Button>
                 ) : <p className="text-[13px] text-ink-3">Hashim sends monthly quotes. It waits in Quotes as a draft.</p>}
                 {(!scr.ok || !letterOk) && <p className="text-[13px] text-ink-3">To send: fix the items above{letterOk ? "" : " and complete Letter details"}.</p>}

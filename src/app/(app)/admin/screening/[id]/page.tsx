@@ -110,7 +110,7 @@ export default async function EditorPage({ params, searchParams }: PageProps<"/a
                   <td>
                     {r.kind === "add_item"
                       ? `Add ${item ? `${item.name}${showPrices ? ` (${formatCents(item.amount_cents)})` : ""}` : r.item_code}${qtyQ ? `, times the answer to “${qtyQ.prompt}”` : ""}`
-                      : r.kind === "out_of_scope" ? `No quote. Flag for an owner: ${r.message}` : `Stop and show: ${r.message}`}
+                      : r.kind === "out_of_scope" ? `No quote. Flag for an Admin: ${r.message}` : `Stop and show: ${r.message}`}
                   </td>
                   <td className="text-right"><Link href={`/admin/screening/${id}/rule/${r.id}`} className="btn-secondary">{editable ? "Edit" : "View"}</Link></td>
                 </tr>

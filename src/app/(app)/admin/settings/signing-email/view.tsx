@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
@@ -7,9 +7,9 @@ import { messageFrom } from "@/lib/messages";
 import { saveSigningEmail } from "./actions";
 
 // Email sending (Hashim, Nov 12, 2026): Studio sends the signing email from the issuing person's own
-// Microsoft 365 mailbox. One switch per path. Owners only.
+// Microsoft 365 mailbox. One switch per path. Admins only.
 export async function SigningEmailView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin();
   const { data } = await (await createClient()).rpc("signing_email_settings");
   const v = (data ?? {}) as { letters?: boolean; quotes?: boolean; proposals?: boolean };
   return {
@@ -18,7 +18,7 @@ export async function SigningEmailView(sp: SP): Promise<View> {
       <h4>Quotes</h4>
       <p>The switches for T1, year-end and monthly quotes come after New letters are tested. Until then, staff copy their emails and send them from Outlook.</p>
       <p>The Test app only emails the firm&rsquo;s own addresses, never a client. Each staff mailbox must be allowed in Microsoft 365 (an application access policy) before it can send.</p>
-      <p>Owners only.</p>
+      <p>Admins only.</p>
     </>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />

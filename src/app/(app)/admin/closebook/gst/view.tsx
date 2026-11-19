@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -10,12 +10,12 @@ import { updateGstSettings } from "../actions";
 import { addQuickProvince, addQuickRate, approveAllQuickRates, decideQuickCredit, setQuickCredit, setQuickRateStatus } from "./actions";
 
 // GST/HST settings (round 13, Hashim, Nov 14, 2026): CRA's due-date rule for each filing frequency, and the
-// quick method's remittance rates and credit. Owners only.
+// quick method's remittance rates and credit. Admins only.
 // Round 17: two tabs on two pages (Closebook rules, Due dates; Sales tax rates, Quick method).
 // Round 20 (Hashim, Nov 15, 2026; fixed before merge): benchmark QuickBooks Online, which shows only the tax
 // agencies you use. The page lists only the provinces in use (Ontario, Alberta, British Columbia to start;
 // "Add a province" adds one), one row each: Services, Goods for resale, From, Source, Approved. CRA's
-// figures come pre-filled as drafts; an owner approves them with one click, and nothing applies until then.
+// figures come pre-filled as drafts; an Admin approves them with one click, and nothing applies until then.
 // A missing rate shows "Not set" in grey; the return itself still flags a quick method return with no
 // approved rate. The credit is one line above the table, with the same draft and approval.
 const PROVINCES: Record<string, string> = { AB: "Alberta", BC: "British Columbia", MB: "Manitoba", NB: "New Brunswick", NL: "Newfoundland and Labrador", NS: "Nova Scotia",
@@ -36,7 +36,7 @@ type Draft = { rate: number; limit: number; source_url: string; source_name?: st
 type Credit = { rate: number | null; limit: number | null; draft: Draft | null; sourceUrl: string | null; sourceName: string; checkedOn: string | null; approvedAt: string | null; approver: string | null };
 
 async function loadGst() {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: s }, { data: rows }, { data: provs }] = await Promise.all([
     supabase.from("cb_settings").select("gst_due_months_annual, gst_due_months_period, quick_credit_rate, quick_credit_limit, quick_credit_draft, quick_credit_source_url, quick_credit_source_name, quick_credit_checked_on, quick_credit_approved_at, approver:quick_credit_approved_by(full_name)").maybeSingle(),
@@ -67,7 +67,7 @@ const DUE = [
 const QUICK = [
   { label: "Services and Goods for resale", hint: "The rate the return multiplies the client's sales (tax included) by, for the province of its permanent establishment. Step 1 says which rate applies to the client (Services by default)." },
   { label: "From", hint: "CRA's date: the rates apply to reporting periods beginning on or after it. All periods when blank." },
-  { label: "Drafts", hint: "New figures wait as drafts. The approved rate applies until you approve the draft. Nothing applies until an owner approves it." },
+  { label: "Drafts", hint: "New figures wait as drafts. The approved rate applies until you approve the draft. Nothing applies until an Admin approves it." },
   { label: "Not set", hint: "No approved rate. A quick method return for a client in that province says the rate is missing and does not guess." },
 ];
 const link = (href: string, text: string) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-navy-700 underline">{text}</a>;
@@ -105,7 +105,7 @@ export async function QuickMethodView(sp: SP): Promise<View> {
   const source = (r: QuickRow) => r.source_url
     ? <span className="whitespace-nowrap">{srcLink(r.source_url, r.source_name)}{r.checked_on && <span className="text-ink-3"> · checked {month(r.checked_on)}</span>}</span>
     : <span className="text-ink-3">Not recorded</span>;
-  const who = (name: string | null | undefined, at: string | null) => `${name ?? "An owner"}, ${formatDateTime(at)}`;
+  const who = (name: string | null | undefined, at: string | null) => `${name ?? "An Admin"}, ${formatDateTime(at)}`;
   const statusForm = (id: string, status: "approved" | "retired", label: string, plain = false) => (
     <form action={setQuickRateStatus}><input type="hidden" name="id" value={id} /><input type="hidden" name="status" value={status} />
       <button className={plain ? "text-sm text-ink-2 underline" : "btn h-8 px-3 text-sm"} type="submit">{label}</button></form>

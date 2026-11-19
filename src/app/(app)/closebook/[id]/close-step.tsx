@@ -1,5 +1,5 @@
 // Step 10, "Deliver and lock" (round 12). Benchmark: CaseWare's completion and lockdown (the checklist,
-// the documents, the sign-offs, then one lock an owner can lift with a reason); the client email and its
+// the documents, the sign-offs, then one lock that someone with the Lock and unlock right can lift with a reason); the client email and its
 // documents follow Appendix C. Nothing is sent from Closebook.
 import { formatDate } from "@/lib/dates";
 import type { CloseData } from "@/lib/closebook/close-server";
@@ -24,8 +24,8 @@ const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 
 // Round 15b: the step's papers, Checklist, Client email, Documents, Filing and lock (CaseWare's document
 // map). Without a paper, all of them.
-export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersion = "v2", notIndependent = false, editable, isOwner, names, paper }: {
-  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; checklistVersion?: "v1" | "v2"; notIndependent?: boolean; editable: boolean; isOwner: boolean; names: Map<string, string>; paper?: string;
+export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersion = "v2", notIndependent = false, editable, admin, canLock, names, paper }: {
+  fileId: string; d: CloseData; checklist: ChecklistRow[]; checklistTrial: boolean; checklistVersion?: "v1" | "v2"; notIndependent?: boolean; editable: boolean; admin: boolean; canLock: boolean; names: Map<string, string>; paper?: string;
 }) {
   const show = (k: string) => !paper || paper === k;
   const c = d.close, s = d.status, locked = d.locked, open = !!s.mal_signed_at;
@@ -45,7 +45,7 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersi
       {/* 7. The completion checklist: open once the MAL is signed; 10 and 11 filled by Closebook. */}
       {open ? (
         <Checklist fileId={fileId} checklist={checklist} problems={s.lock.filter((x) => x.startsWith("Checklist: ")).map((x) => x.slice(11))} editable={can}
-          back={`/closebook/${fileId}?step=lock&paper=checklist`} trial={checklistTrial} version={checklistVersion} isOwner={isOwner} notIndependent={notIndependent} />
+          back={`/closebook/${fileId}?step=lock&paper=checklist`} trial={checklistTrial} version={checklistVersion} admin={admin} notIndependent={notIndependent} />
       ) : (
         <section aria-label="Completion checklist" className={CARD}>
           <div className={HEAD}><h3 className={H}>Completion checklist</h3><span className="text-[12.5px] text-ink-3">Opens when the MAL is signed</span></div>
@@ -203,18 +203,18 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersi
         <div className={HEAD}><h3 className={H}>Lock</h3></div>
         <div className="grid gap-3 px-3.5 py-3">
         {locked ? (
-          isOwner ? (
+          canLock ? (
             <form action={reopenFile} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="file_id" value={fileId} />
               <input name="why" required minLength={5} maxLength={300} placeholder="Why the file is reopened" aria-label="Reason to reopen" className="input" style={{ width: "28rem", maxWidth: "100%" }} />
               <button className="btn-secondary">Reopen the file</button>
             </form>
-          ) : <p className="text-[12.5px] text-ink-3">Owners reopen.</p>
+          ) : <p className="text-[12.5px] text-ink-3">Someone with the Lock and unlock right reopens the file.</p>
         ) : (<>
           {s.lock.length > 0 ? (
             <ul role="alert" className="text-[12.5px] text-danger">{s.lock.map((x) => <li key={x}>Not yet: {x}</li>)}</ul>
           ) : <p className="text-[12.5px] text-success">Ready to lock.</p>}
-          {isOwner && editable && (
+          {canLock && editable && (
             <form action={lockFile} className="flex flex-wrap items-center gap-3">
               <input type="hidden" name="file_id" value={fileId} />
               <button className="btn btn-compact">Lock the file</button>

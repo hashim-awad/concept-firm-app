@@ -9,7 +9,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 reset role;
 
 \set c '{"first_name":"Jane","last_name":"Dummy","email":"Jane.Dummy@example.test","phone":"519-555-0100","province":"ON"}'
@@ -50,7 +50,7 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff read leads', (select count(*) from public.leads) = 6);
 select test.check('staff mark a lead lost', test.try($$update public.leads set status = 'lost', notes = 'No reply' where first_name = 'Jane'$$) = 'OK');
 select test.check('closing date set', (select closed_at is not null from public.leads where first_name = 'Jane'));
-select test.check('staff cannot reassign', test.try($$update public.leads set assigned_to = null where first_name = 'Jane'$$) like 'Only an owner%');
+select test.check('staff cannot reassign', test.try($$update public.leads set assigned_to = null where first_name = 'Jane'$$) like 'You need Edit on Leads and Settings%');
 select test.check('what the client entered cannot change', test.try($$update public.leads set email = 'x@y.co' where first_name = 'Jane'$$) like 'What the client entered%');
 select test.check('staff cannot delete leads', test.try($$delete from public.leads$$) <> 'OK' or (select count(*) from public.leads) = 6);
 select test.check('staff cannot run the deletion', test.try($$select public.purge_closed_leads()$$) <> 'OK');

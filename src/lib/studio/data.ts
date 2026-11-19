@@ -62,7 +62,7 @@ export async function loadStudioData(supabase: SupabaseClient, access: Access): 
 
 export const SIGNATURE_PATH = "signature/signature.png";
 
-// The signature image as a data URL. Readable by owners only (storage policy).
+// The signature image as a data URL. Readable by Admins and people with the Final right (storage policy, R3a-1).
 export async function loadSignature(supabase: SupabaseClient): Promise<string | null> {
   const { data, error } = await supabase.storage.from("brand-private").download(SIGNATURE_PATH);
   if (error || !data) return null;

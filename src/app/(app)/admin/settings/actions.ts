@@ -31,7 +31,7 @@ export async function saveRetention(formData: FormData) {
   redirect(withMessage(`${PAGE}/retention`, error ? "error" : "msg", error ? error.message : "Retention period saved."));
 }
 
-// Signer names per document type (decision 25). Owners only; the database checks again.
+// Signer names per document type (decision 25). Admins only; the database checks again.
 export async function saveSigner(formData: FormData) {
   const key = String(formData.get("key") ?? "");
   const supabase = await createClient();
@@ -43,7 +43,7 @@ export async function saveSigner(formData: FormData) {
   redirect(withMessage(`${PAGE}/signers`, error ? "error" : "msg", error ? error.message : "Signer name saved."));
 }
 
-// The signature image goes to private storage (owners only), never into the code.
+// The signature image goes to private storage (Admins only), never into the code.
 export async function uploadSignature(formData: FormData) {
   const file = formData.get("signature");
   const fail = (m: string) => redirect(withMessage(`${PAGE}/signature`, "error", m));
@@ -55,7 +55,7 @@ export async function uploadSignature(formData: FormData) {
   if (!bytes.subarray(0, 8).equals(PNG)) fail("The signature must be a PNG image, ideally with a clear background.");
   const supabase = await createClient();
   const up = await supabase.storage.from("brand-private").upload("signature/signature.png", bytes, { contentType: "image/png", upsert: true });
-  if (up.error) fail("Only an owner can upload the signature.");
+  if (up.error) fail("Only an Admin can upload the signature.");
   const { error } = await supabase.rpc("update_setting", { p_key: "signature_image", p_value: { uploaded: true } });
   revalidatePath(PAGE, "layout");
   redirect(withMessage(`${PAGE}/signature`, error ? "error" : "msg", error ? error.message : "Signature saved. It appears only on Final letters."));
@@ -104,7 +104,7 @@ export async function saveStartPage(formData: FormData) {
   redirect(withMessage(`${PAGE}/start-page`, error ? "error" : "msg", error ? error.message : formData.get("open") === "on" ? "The public start page is open." : "The public start page is closed."));
 }
 
-// Round 33: the firm's contact details for client pages. Owners only; the database checks again.
+// Round 33: the firm's contact details for client pages. Admins only; the database checks again.
 export async function saveFirmContact(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_firm_contact", {

@@ -8,7 +8,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 -- Made-up Studio items, as the import would add them.
 insert into public.catalogue_items (service_line_id, code, name, unit_label, price_type)
 select id, v.code, v.name, v.unit, 'Fixed' from public.service_lines, (values ('PTX-110', 'T1 single', 'per return'), ('PTX-120', 'Rental', 'per property'), ('PTX-125', 'Investment sales', 'per return')) v(code, name, unit)
@@ -18,7 +18,7 @@ insert into public.item_prices (item_id, amount_cents, effective_from) select id
 select test.check('published screening uses the seed items', exists (select 1 from public.rules r join public.questionnaires q on q.id = r.questionnaire_id where q.status = 'published' and r.item_code = 'T1_RENTAL'));
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot apply', test.try($$select public.apply_catalogue_cleanup('[{"op":"replace_item","from":"T1_RENTAL","to":"PTX-120"}]')$$) like 'Only an owner%');
+select test.check('staff cannot apply', test.try($$select public.apply_catalogue_cleanup('[{"op":"replace_item","from":"T1_RENTAL","to":"PTX-120"}]')$$) like 'Only an Admin%');
 select test.check('staff still cannot change published rules', test.try($$update public.rules set item_code = 'PTX-120' where item_code = 'T1_RENTAL'$$) <> 'OK'
   or exists (select 1 from public.rules where item_code = 'T1_RENTAL'));
 

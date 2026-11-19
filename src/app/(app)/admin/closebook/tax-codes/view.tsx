@@ -1,13 +1,13 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import type { SP, View } from "../../settings-shell";
 
 // Chart and GIFI, Tax codes tab (Phase 3 batch 4.3): the 11 codes. Each GIFI line carries a default; only
-// the reviewer changes an account's code; REVIEW means the reviewer decides for that client. Owners only.
+// the reviewer changes an account's code; REVIEW means the reviewer decides for that client. Admins only.
 export async function TaxCodesView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: codes }, { data: lines }] = await Promise.all([
     supabase.from("cb_tax_codes").select("code, name, schedule1_effect, used_for").order("sort_order"),

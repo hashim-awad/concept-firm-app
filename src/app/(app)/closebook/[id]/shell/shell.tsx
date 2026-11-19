@@ -26,7 +26,7 @@ const STATUS_CLS: Record<FileStatus, string> = {
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 export const money = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 
-// Round 16 (CaseWare Cloud engagement properties): the file's preparer and reviewer, changed by an owner.
+// Round 16 (CaseWare Cloud engagement properties): the file's preparer and reviewer, changed by an Admin with Edit on Closebook (R3a-1).
 export type PeopleProps = { preparer: { id: string; name: string }; reviewer: { id: string; name: string }; canChange: boolean;
   preparers: { id: string; name: string }[]; reviewers: { id: string; name: string }[]; back: string; error?: string | null };
 function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
@@ -51,7 +51,7 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
         <p className="font-semibold">People</p>
         <label className="grid gap-1 text-[11.5px] font-semibold text-ink-2">Preparer
           <select name="preparer" defaultValue={p.preparer.id} className="input input-compact text-[13px] font-normal text-ink">{p.preparers.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        {/* Only owners are offered as reviewer: the database refuses anyone else. */}
+        {/* Only people with the Review right are offered as reviewer: the database refuses anyone else. */}
         <label className="grid gap-1 text-[11.5px] font-semibold text-ink-2">Reviewer
           <select name="reviewer" defaultValue={p.reviewer.id} className="input input-compact text-[13px] font-normal text-ink">{p.reviewers.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
         {sameLine}
@@ -127,7 +127,8 @@ export function PanelLink({ href, on, children, count, title }: { href: string; 
 // ---------------------------------------------------------------------------------------------------
 // Sign-off circles.
 // ---------------------------------------------------------------------------------------------------
-type SignProps = { fileId: string; step: string; st: StepStatus | undefined; names: Map<string, string>; me: string; isOwner: boolean; editable: boolean; back: string;
+type SignProps = { fileId: string; step: string; st: StepStatus | undefined; names: Map<string, string>; me: string; editable: boolean; back: string;
+  canPrepare: boolean; canReview: boolean; canRemove: boolean;   // R3a-1: the Closebook switches on the person's role
   preparerElsewhere?: boolean; size?: "sm" | "lg"; align?: "left" | "right"; side?: "below" | "right";
   sub?: string;     // round 23: a Banking sub-step (3.1, 3.2, 3.3), signed on its own
   subsOf?: { key: string; href: string; prepared: boolean; reviewed: boolean }[] };   // round 34: step 3 on a bank file, signed in its sub-steps
@@ -148,7 +149,7 @@ function Circle({ kind, who, size }: { kind: "none" | "prepared" | "reviewed"; w
 
 export function SignCircles(p: SignProps) {
   // Round 21: in the step list the box opens beside the circle (CaseWare Cloud), floating above the page.
-  const { fileId, step, st, names, me, isOwner, editable, back, size = "sm", align = "left", side = size === "sm" ? "right" : "below" } = p;
+  const { fileId, step, st, names, me, canPrepare, canReview, canRemove, editable, back, size = "sm", align = "left", side = size === "sm" ? "right" : "below" } = p;
   const review = step === "review";
   const prepared = !!st?.prepared_at, reviewed = !!st?.reviewed_at;
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
@@ -157,9 +158,12 @@ export function SignCircles(p: SignProps) {
     <form action={p.sub ? signSubstep : signStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{p.sub && hidden("sub", p.sub)}{hidden("role", role)}{hidden("back", back)}
       <button type="submit" className="btn btn-compact">{label}</button></form>
   );
+  // R3a-1 (decision 6B): your own sign-off, or anyone's with the Remove others' sign-offs switch.
+  const mine = (role: "prepared" | "reviewed") => (role === "prepared" ? st?.prepared_by : st?.reviewed_by) === me;
+  const canUndo = (role: "prepared" | "reviewed") => mine(role) || canRemove;
   const undo = (role: "prepared" | "reviewed") => (
     <form action={p.sub ? unsignSubstep : unsignStep} className="mt-2">{hidden("file_id", fileId)}{hidden("step", step)}{p.sub && hidden("sub", p.sub)}{hidden("role", role)}{hidden("back", back)}
-      <button type="submit" className="btn-secondary btn-compact">Take back my sign-off</button></form>
+      <button type="submit" className="btn-secondary btn-compact">{mine(role) ? "Take back my sign-off" : "Remove this sign-off"}</button></form>
   );
   const problems = st?.problems ?? [];
   // Round 34: step 3 on a bank file has no sign-off of its own. Its circles say what is left, in the normal info style.
@@ -177,8 +181,8 @@ export function SignCircles(p: SignProps) {
       <p className="font-bold">{prepared ? `Prepared by ${name(st!.prepared_by)}` : "Preparer"}</p>
       <p className="text-ink-3">{prepared ? formatDate(st!.prepared_at) : "Not signed"}</p>
       {!prepared && problems.length > 0 && <ul className="mt-2 list-disc pl-4 text-xs text-ink-2">{problems.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
-      {!prepared && p.subsOf ? subsNote("prepared") : !prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : signForm("prepared", "Sign as preparer"))}
-      {prepared && !reviewed && editable && st?.prepared_by === me && !p.subsOf && undo("prepared")}
+      {!prepared && p.subsOf ? subsNote("prepared") : !prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : canPrepare ? signForm("prepared", "Sign as preparer") : <p className="mt-2 text-xs text-ink-3">You need the Prepare right to sign as preparer.</p>)}
+      {prepared && !reviewed && editable && canUndo("prepared") && !p.subsOf && undo("prepared")}
     </Popover>
   );
   const rev = (
@@ -186,9 +190,9 @@ export function SignCircles(p: SignProps) {
       <p className="font-bold">{reviewed ? `Reviewed by ${name(st!.reviewed_by)}` : "Reviewer"}</p>
       <p className="text-ink-3">{reviewed ? formatDate(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
-      {!reviewed && p.subsOf ? subsNote("reviewed") : !reviewed && editable && (isOwner ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
-        : <p className="mt-2 text-xs text-ink-3">Only owners review.</p>)}
-      {reviewed && editable && isOwner && !p.subsOf && undo("reviewed")}
+      {!reviewed && p.subsOf ? subsNote("reviewed") : !reviewed && editable && (canReview ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
+        : <p className="mt-2 text-xs text-ink-3">You need the Review right to sign as reviewer.</p>)}
+      {reviewed && editable && canUndo("reviewed") && !p.subsOf && undo("reviewed")}
     </Popover>
   );
   return <span className="inline-flex items-center gap-1.5">{prep}{rev}</span>;

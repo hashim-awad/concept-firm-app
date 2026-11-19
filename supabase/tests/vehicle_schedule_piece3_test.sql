@@ -9,9 +9,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 \set C '''00000000-0000-0000-0000-00000000000c'''
 \set A '''00000000-0000-0000-0000-00000000000a'''
 set role authenticated;
@@ -65,7 +65,7 @@ select test.check('T10: Reclassify refuses any line of the entry, the added norm
 \set ulines '''[{"chart":"70600","amount":8300,"schedule_part":"allowance"},{"chart":"23000","amount":-8300,"schedule_part":"allowance_due"}]'''
 select test.check('T12: the preparer cannot change Claim the ITC',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :'e', :ulines, :unticked)) = 'Only the file''s reviewer or an owner can change "Claim the ITC".');
+    :'f', :'e', :ulines, :unticked)) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Vehicle, owner''s car', false, :ulines, 'Vehicle schedule', null, '{}', null, :unticked) as e3 \gset
 select test.check('T12/T9: put in again by the reviewer: same entry, Dr 70600 8,300.00, Cr 23000 8,300.00', :'e3' = :'e'

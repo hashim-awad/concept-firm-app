@@ -22,6 +22,7 @@ grant execute on all functions in schema test to service_role;
 revoke all on public.cb_question_links, public.cb_files, public.cb_line_questions, public.cb_line_files from service_role;
 select test.check('without the rights, the server key cannot read the links (the Live symptom)', not has_table_privilege('service_role', 'public.cb_question_links', 'select'));
 \i supabase/migrations/20261212110000_round32_server_rights_no_code.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('after the fix the server key reads links, files, questions and receipts',
   has_table_privilege('service_role', 'public.cb_question_links', 'select') and has_table_privilege('service_role', 'public.cb_files', 'select')
   and has_table_privilege('service_role', 'public.cb_line_questions', 'select') and has_table_privilege('service_role', 'public.cb_line_files', 'select')
@@ -92,9 +93,9 @@ select test.check('the app''s storage buckets exist', (select count(*) = 3 from 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 update public.cb_files set preparer_id = '00000000-0000-0000-0000-00000000000c' where id = :'f';
 set role service_role;
 select public.cb_question_link_error(repeat('5', 64), 'read the link: permission denied for table cb_question_links');

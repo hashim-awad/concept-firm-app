@@ -142,11 +142,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const { file, client, docs, accounts, imports, names, entries } = data;
   // Started now, read at the end: the report figures for the header and the people on the file.
   const rdataP = loadReportData(supabase, file, accounts, entries, ref.lines, ref.sheets);
-  const staffP = supabase.from("staff").select("id, full_name, is_active, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").order("full_name");
+  const staffP = supabase.from("staff").select("id, full_name, is_active, role:roles!staff_role_id_fkey(cb_prepare, cb_review, role_permissions(area_key, level))").order("full_name");
   const isReviewer = access.staff_id === file.reviewer_id;
-  // Notes by role (round 15b): the file's reviewer, or an owner who does not prepare it, reviews; everyone
-  // else prepares (replies and marks fixed).
-  const preparerRole = !isReviewer && (!access.is_owner || access.staff_id === file.preparer_id);
+  // R3a-1: the Closebook switches on the person's role (no Owner role).
+  const cb = access.closebook, rv = cb.review;
+  // Notes by role (round 15b): the file's reviewer, or someone with the Review right who does not prepare it,
+  // reviews; everyone else prepares (replies and marks fixed).
+  const preparerRole = !isReviewer && (!rv || access.staff_id === file.preparer_id);
   const editable = canEdit(access, "closebook");
   // Full names (round 8b item 9): two staff can share a first name.
   const people = { preparer: names.get(file.preparer_id) ?? "", reviewer: names.get(file.reviewer_id) ?? "" };
@@ -211,7 +213,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const asked = (str(sp.step) === "mapping" ? "compare" : str(sp.step)) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
-  const showHistory = access.is_owner && str(sp.history) === "1";
+  const showHistory = rv && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
   // Round 15b (CaseWare's document map): a step's working papers, each its own screen. The step's branch
@@ -224,7 +226,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={extra.at ?? href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
-      noteStep={access.is_owner && ["code", "compare"].includes(base) ? base : undefined} />
+      noteStep={rv && ["code", "compare"].includes(base) ? base : undefined} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
   // Piece R1 (Hashim, Nov 19, 2026): "Group" always means the lead sheet, by name, with no GIFI code. GIFI codes show only in
@@ -285,7 +287,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         mismatch: gl && lockedSet.has(gl) ? "Locked line: choose one of its sub-lines" : [typeFlag(flagAcc, gline) === "open" ? typeFlagText(flagAcc, gline) : "", sideFlagText(flagAcc, gline, fin)].filter(Boolean).join(" "),
         typeFlag: typeFlag(flagAcc, gline), sideFlag: sideFlag(flagAcc, gline, fin), tax: a.tax_code ?? group?.default_tax_code ?? "", taxDefault: group?.default_tax_code ?? "",
         taxOverride: !!a.tax_code, attention: false, groupLabel: sheetName(a.line_no), lineType: a.line_no ? byNo.get(a.line_no)?.line_type : undefined, overridden: !!a.gifi_override,
-        confirm: a.mapping_source === "suggested" || (a.needs_reviewer && (isReviewer || access.is_owner)) };
+        confirm: a.mapping_source === "suggested" || (a.needs_reviewer && (isReviewer || rv)) };
     };
     const back = encodeURIComponent(paperHref("t2", "match"));
     const fixOf = (kind: string, a: (typeof accounts)[number]) => kind === "clearing" ? { href: `${href("entries")}&new=journal&acct=${a.id}&back=${back}`, label: "New entry" }
@@ -316,7 +318,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const tieNote = clearingCents && Math.round((Number(st.ties.assets_chart) - Number(st.ties.assets_gifi)) * 100) === clearingCents
       ? `Total assets differ by the Clearing accounts' balance (${amt(clearingCents / 100)}). The difference goes once they are cleared by an entry.` : undefined;
     return <MatchStep tieNote={tieNote} fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} groupOptions={groupChoices} taxes={ref.taxes}
-      isReviewer={isReviewer || access.is_owner} editable={editable && file.phase !== "locked"} />;
+      isReviewer={isReviewer || rv} editable={editable && file.phase !== "locked"} />;
   };
 
   // Reports (Hashim, Nov 15, 2026): full pages under "Reports" in the step list, built live every time.
@@ -454,14 +456,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       pp.list = stepPapers("records", { full: true, shareholders: false, ownerPaid: false, gst: false, bank: true });
       pp.key = first.paper;
       body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
-        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} isOwner={access.is_owner}
-        lock={feedLock(subs, access.is_owner || access.staff_id === file.reviewer_id, access.staff_id)} />;
+        names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} admin={access.admin}
+        lock={feedLock(subs, cb.remove_signoffs || access.staff_id === file.reviewer_id, access.staff_id)} />;
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
       // Round 31 (Hashim, Nov 17, 2026): QuickBooks Online's Bank transactions page (Pending, Posted, Excluded).
       ? <BankFeed data={await loadFeed(supabase, { id, client_id: file.client_id, year_start: file.year_start, year_end: file.year_end }, client?.province ?? "ON", setup)}
-          editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} initialAccount={str(sp.account)} focusLine={str(sp.line) ?? null} initialRules={str(sp.rules) === "1"} openAsk={str(sp.ask) === "1"} />
+          editable={editable && file.phase !== "locked"} isReviewer={isReviewer || rv} initialAccount={str(sp.account)} focusLine={str(sp.line) ?? null} initialRules={str(sp.rules) === "1"} openAsk={str(sp.ask) === "1"} />
       : await assignPage();   // piece R2: Assign mapping (mock O)
     // Round 24: a line's accounting date and memo, from step 4 (the date opens it).
     if (bankFile && str(sp.ln) && editable && file.phase !== "locked") {
@@ -487,7 +489,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const form = await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client");
       const rev = rev5!;
       body = <RevenueCheck fileId={id} st={rev.state} sources={rev.sources} opts={form.opts} revenueOpts={form.opts.filter((o) => o.type === "Revenue")} editable={open}
-        isOwner={access.is_owner} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
+        canReview={rv} names={names} hasFix={entries.some((e) => e.origin === "revenue_check")} fixHref={`${paperHref("entries", "revenue")}&new=revenue`} />;
     }
     else {
       const base5 = href("entries");
@@ -540,7 +542,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         // Piece R2 (item 3): the accounts for the reviewer's decision are decided in step 8's Match accounts to GIFI on every file.
       ];
       // Piece 10: each "yes" in step 6's "What changed this year" waits here until the reviewer marks it reviewed.
-      const ycOpen = file.phase !== "locked" && editable && access.is_owner;
+      const ycOpen = file.phase !== "locked" && editable && rv;
       groups.push({ key: "year_changes", title: "What changed this year", step: "step 6", items: YEAR_QUESTIONS.flatMap(([q, text]) => {
         const y = yearChanges.find((x) => x.question === q && x.answer && !x.reviewed_at);
         return y ? [{ href: `${href("compare")}#year-changes`, label: `${text}: Yes`, detail: y.note, action: ycOpen ? <MarkReviewed fileId={id} question={q} /> : undefined }] : [];
@@ -549,7 +551,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
       const amt7 = (c: number) => amt(c / 100);
       const lineName7 = sheetName;   // piece R1: the group is the lead sheet, by name
-      const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} isOwner={access.is_owner}
+      const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} canReview={rv}
         rows={cmp7.newAccounts.map((r) => { const t = newTicks.find((x) => x.account_key === r.key);
           return { key: r.key, label: `${r.number ? `${r.number} ` : ""}${r.name}`, line: lineName7(r.line), amount: amt7(r.finalCents),
             ledger: `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(r.key)}&back=${encodeURIComponent(href("review"))}`,
@@ -568,11 +570,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         const acctRows: ReviewAccountRow[] = [];
         const feed = await loadFeed(supabase, { id, client_id: file.client_id, year_start: file.year_start, year_end: file.year_end }, client?.province ?? "ON", setup);
         listCount = feed.lines.filter((l) => l.status === "reviewer").length + acctRows.length;
-        list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || access.is_owner} focusLine={str(sp.line) ?? null}
+        list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || rv} focusLine={str(sp.line) ?? null}
           accounts={acctRows} stepFour={href("code")} />;
       }
       body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
-        extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} names={names} /> : null}</>} />;
+        extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} canReview={rv} names={names} /> : null}</>} />;
     }
   } else if (step === "compare") {
     // Piece 10 (Hashim, Nov 19, 2026; mock L; CaseWare Cloud's analytical review): "Compare to last year", the preparer's page.
@@ -622,18 +624,18 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const rounding = fsm ? (curFail ? { stopped: `Not worked out: a tie-out fails in step 9 (${curFail.name}).` } : { fix: fsm.profileFix }) : undefined;
     // Piece 7: the revenue on the year's GST/HST returns against the books (moved from step 5), a registrant's full file.
     const rev8 = p === "gst" && file.file_type === "full" ? await loadRevenue(supabase, id) : null;
-    const revenueBox = rev8?.state.registrant ? <GstRevenueBox fileId={id} st={rev8.state} sources={rev8.sources} editable={editable && file.phase !== "locked"} isOwner={access.is_owner}
+    const revenueBox = rev8?.state.registrant ? <GstRevenueBox fileId={id} st={rev8.state} sources={rev8.sources} editable={editable && file.phase !== "locked"} canReview={rv}
       names={names} back={`/closebook/${id}?step=t2&paper=gst`} /> : undefined;
     if (p === "match") {
       body = accounts.length ? await matchPaper() : soon("Match accounts to GIFI opens once there is a trial balance.");
-    } else body = p === "gst" && gst ? <GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} drill={dl} names={names} revenueBox={revenueBox} />
-      : g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} rounding={rounding} paper={p} />
+    } else body = p === "gst" && gst ? <GstSection fileId={id} g={gst} editable={editable && file.phase !== "locked"} canReview={rv} drill={dl} names={names} revenueBox={revenueBox} />
+      : g ? <T2Step fileId={id} g={g} staff={names} editable={editable && file.phase !== "locked"} canReview={rv} rounding={rounding} paper={p} />
       : soon("The GIFI file opens once there is a trial balance.");
   } else if (step === "statements") {
     // Step 9 (round 11): the year-end package, its fields and the MAL's signing.
     pk = accounts.length ? await loadPackage(supabase, id) : null;
     const p = pickPaper(stepPapers("statements", { full: true, shareholders: false, ownerPaid: false, gst: false }));
-    body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} siteUrl={env.siteUrl()} paper={p} />
+    body = pk ? <StatementsStep fileId={id} pk={pk} editable={editable && file.phase !== "locked"} canReview={rv} siteUrl={env.siteUrl()} paper={p} />
       : soon("The package opens once there is a trial balance.");
   } else {
     // Step 10 (round 8b, round 12): the completion checklist, then delivery and the lock.
@@ -659,7 +661,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // record and the lock.
     const cd = accounts.length ? await loadClose(supabase, id) : null;
     const p = pickPaper(stepPapers("lock", { full: true, shareholders: false, ownerPaid: false, gst: false }));
-    body = cd ? <CloseStep fileId={id} d={cd} checklist={checklist} checklistTrial={!appr} checklistVersion={checklistVersion} notIndependent={(acc as { q5?: string } | null)?.q5 === "no"} editable={editable} isOwner={access.is_owner} names={names} paper={p} />
+    body = cd ? <CloseStep fileId={id} d={cd} checklist={checklist} checklistTrial={!appr} checklistVersion={checklistVersion} notIndependent={(acc as { q5?: string } | null)?.q5 === "no"} editable={editable} admin={access.admin} canLock={cb.lock} names={names} paper={p} />
       : soon("Step 10 opens once there is a trial balance.");
   }
 
@@ -671,9 +673,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Step 9: a stopped package (a failed tie-out, named) blocks the sign-off like the database's own checks.
   const stStep = step === "statements" && pk?.blocked.length && review.status[step] ? { ...review.status[step], problems: [...new Set([...pk.blocked, ...(review.status[step].problems ?? [])])] } : review.status[step];
   const stepNotesList = review.notes.filter((n) => n.step === step);
-  const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} isOwner={access.is_owner}
+  const stepNotes = <ReviewNotes fileId={id} notes={stepNotesList} names={names} canReview={rv}
     canFix={preparerRole} editable={editable && file.phase !== "locked"} back={stepBack} />;
-  const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, isOwner: access.is_owner,
+  const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, canPrepare: cb.prepare, canReview: rv, canRemove: cb.remove_signoffs,
     editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year,
     // Round 34: step 3 on a bank file is signed in 3.1, 3.2 and 3.3; its own circles say which are left.
     subsOf: k === "records" && subs ? SUBS.map((x) => ({ key: x.key, href: paperHref("records", x.paper), prepared: !!subs[x.key].prepared_at, reviewed: !!subs[x.key].reviewed_at })) : undefined });
@@ -695,7 +697,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       <StepTitle n={cur.n} name={cur.name} paper={paperName} action={subAction} sub={paper === "revenue" ? "W/P Revenue check" : paper === "acceptance" ? <InfoTip>CSRS 4200, acceptance and continuance: the preparer answers; the reviewer signs it with step 1. It rolls forward each year for confirmation.</InfoTip> : undefined} sign={sub && subSt ? { ...signFor(step, subSt, stepBack), sub: sub.key as SubKey, subsOf: undefined } : SIGNED_STEPS.includes(step) ? signFor(step, stStep, stepBack) : null}
         issues={sub && subSt ? { problems: subSt.reviewed_at ? [] : subSt.problems, waiting: [], review: false } : { problems: stStep?.reviewed_at ? [] : stStep?.problems ?? [], waiting: stStep?.reviewed_at ? [] : stStep?.waiting ?? [], review: step === "review" }}
         notesPanel={stepNotesList.length ? stepNotes : null} notesOpen={stepNotesList.filter((x) => x.status !== "cleared").length} next={step === current ? next : undefined}
-        addNoteFor={access.is_owner && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
+        addNoteFor={rv && editable && file.phase !== "locked" ? { fileId: id, step, back: stepBack } : null}
         exports={exports} help={stepHelp(step, bankFile)}
         menu={editable && file.phase !== "locked" ? { fileId: id, step, n: cur.n, back: stepBack,
           clear: step === "records" || step === "review" ? "nothing" : stStep?.prepared_at ? "signed" : "ok" } : null} />
@@ -772,7 +774,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
             { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
           ].filter((t) => t.n > 0)} />
-      : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
+      : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} canReview={rv} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}
           lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} noteStep={current} />;
   } else if (area === "reporting") {
@@ -792,23 +794,23 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {
-    const na = notesArea({ fileId: id, notes: review.notes, steps, names, isOwner: access.is_owner, canFix: preparerRole,
+    const na = notesArea({ fileId: id, notes: review.notes, steps, names, canReview: rv, canFix: preparerRole,
       editable: editable && file.phase !== "locked", sp: { status: str(sp.status), step: str(sp.nstep), who: str(sp.who) } });
     left = na.left; folded = null; content = na.content;
   } else if (area === "statements") {
-    const sa = await statementsArea({ supabase, fileId: id, data: rdata, isOwner: access.is_owner, sp: { doc: str(sp.doc), line: str(sp.line) } });
+    const sa = await statementsArea({ supabase, fileId: id, data: rdata, canReview: rv, sp: { doc: str(sp.doc), line: str(sp.line) } });
     left = sa.left; folded = null; content = sa.content;
   }
 
   // Round 16: the people on the file (CaseWare engagement properties). Only owners are offered as reviewer.
   const { data: staffRows } = await staffP;
-  type StaffRow = { id: string; full_name: string; is_active: boolean; role: { is_owner: boolean; role_permissions: { area_key: string; level: string }[] } | null };
+  type StaffRow = { id: string; full_name: string; is_active: boolean; role: { cb_prepare: boolean; cb_review: boolean; role_permissions: { area_key: string; level: string }[] } | null };
   const staffAll = ((staffRows ?? []) as unknown as StaffRow[]).filter((x) => x.is_active);
   const peopleProps = {
     preparer: { id: file.preparer_id, name: people.preparer }, reviewer: { id: file.reviewer_id, name: people.reviewer },
-    canChange: access.is_owner && file.phase !== "locked",
-    preparers: staffAll.filter((x) => x.role?.is_owner || x.role?.role_permissions.some((r) => r.area_key === "closebook" && r.level === "edit")).map((x) => ({ id: x.id, name: x.full_name })),
-    reviewers: staffAll.filter((x) => x.role?.is_owner).map((x) => ({ id: x.id, name: x.full_name })),
+    canChange: access.admin && canEdit(access, "closebook") && file.phase !== "locked",
+    preparers: staffAll.filter((x) => !!x.role?.cb_prepare && x.role.role_permissions.some((r) => r.area_key === "closebook" && r.level === "edit")).map((x) => ({ id: x.id, name: x.full_name })),
+    reviewers: staffAll.filter((x) => !!x.role?.cb_review).map((x) => ({ id: x.id, name: x.full_name })),
     back: `/closebook/${id}${Object.keys(sp).length ? `?${new URLSearchParams(Object.entries(sp).filter(([k, v]) => typeof v === "string" && !["msg", "error", "people_error"].includes(k)) as [string, string][])}` : ""}`,
     error: str(sp.people_error) ?? null,
   };
@@ -819,7 +821,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const dialogQ = new URLSearchParams(keep);
   for (const k of ["new", "open", "acct"]) if (str(sp[k])) dialogQ.set(k, str(sp[k])!);
   const dialog = await entryDialog({ supabase, file, province: client?.province ?? "ON", clientName: client?.legal_name ?? "The client", entries, accounts, names,
-    me: access.staff_id ?? "", isReviewer: isReviewer || access.is_owner, editable, closeHref, here: `/closebook/${id}?${dialogQ}`, rdata: rdataP,
+    me: access.staff_id ?? "", isReviewer: isReviewer || rv, editable, closeHref, here: `/closebook/${id}?${dialogQ}`, rdata: rdataP,
     sp: { new: str(sp.new), open: str(sp.open), edit: str(sp.edit), acct: str(sp.acct), sched: str(sp.sched), error: messageFrom(sp.error) } });
 
   // Round 34: "3.3 sign-off removed: <reason>", from History, for the person whose action removed it (last minute).
@@ -828,7 +830,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
       tools={{ on: !!tool, journal: editable && file.phase !== "locked" }}
-      history={access.is_owner} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
+      history={rv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">‹ Back</Link>}
       {content}

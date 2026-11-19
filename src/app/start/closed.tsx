@@ -11,5 +11,5 @@ export async function Closed() {
 }
 
 export function PreviewNote() {
-  return <p className="mb-6 rounded-lg border border-warning/30 bg-warning-soft px-4 py-2 text-sm">Preview for staff. The public cannot see this page until an owner opens it in the gear menu, Online sales, Start page.</p>;
+  return <p className="mb-6 rounded-lg border border-warning/30 bg-warning-soft px-4 py-2 text-sm">Preview for staff. The public cannot see this page until an Admin opens it in the gear menu, Online sales, Start page.</p>;
 }

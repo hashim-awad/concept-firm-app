@@ -44,5 +44,6 @@ select test.check('a change in Fix it clears the reason', (select error is null 
 
 reset role;
 \i supabase/migrations/20261212060000_round30_card_dates.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice', (select (length(d) - length(replace(d, 'Round 30', ''))) / length('Round 30') = 2
   from (select pg_get_functiondef('private.cb_add_statement(uuid, uuid, text, numeric, numeric, jsonb, date, date, numeric, numeric, text)'::regprocedure) d) x));

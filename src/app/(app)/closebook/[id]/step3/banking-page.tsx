@@ -30,11 +30,11 @@ const PAPER: Record<SubKey, string> = { "3.1": "accounts", "3.2": "feeds", "3.3"
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const PAGE = 50;
 
-export async function BankingPage({ supabase, file, names, sp, editable, sub, subs, isOwner = false, lock = null }: {
+export async function BankingPage({ supabase, file, names, sp, editable, sub, subs, admin = false, lock = null }: {
   supabase: SupabaseClient; file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null };
   names: Map<string, string>; sp: Sp; editable: boolean; sub: SubKey;
   subs?: Awaited<ReturnType<typeof loadSubsteps>>;   // already read by the file page
-  isOwner?: boolean; lock?: Lock;                    // round 24: Purge is for owners; a signed 3.2 or 3.3 asks first
+  admin?: boolean; lock?: Lock;                      // round 24: Purge is for Admins (R3a-1); a signed 3.2 or 3.3 asks first
 }) {
   const fileId = file.id;
   const d = await loadBanking(supabase, file, names, false, subs);
@@ -115,7 +115,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
                   <td className="py-2.5">{span(x.period_start, x.period_end)}<span className="block text-[12.5px] text-ink-3">{x.lines} line{x.lines === 1 ? "" : "s"}{x.hasFile ? <> · <a href={`/closebook/${fileId}/statement-pdf?x=${x.id}`} className="underline">file</a></> : null}</span></td>
                   <td className="py-2.5">{reasonLabel(x.reason, x.note)}</td>
                   <td className="py-2.5 text-ink-2">{x.by}<span className="block text-[12.5px] text-ink-3">{formatDate(x.at)}</span></td>
-                  <td className="py-2.5 text-right">{editable && <ExcludedActions fileId={fileId} statement={x.id} canPurge={isOwner && x.reason === "wrong_client"} />}</td>
+                  <td className="py-2.5 text-right">{editable && <ExcludedActions fileId={fileId} statement={x.id} canPurge={admin && x.reason === "wrong_client"} />}</td>
                 </tr>
               ))}
               {!viewing.excluded.length && <tr><td colSpan={4} className="py-4 text-center text-ink-3">None excluded.</td></tr>}

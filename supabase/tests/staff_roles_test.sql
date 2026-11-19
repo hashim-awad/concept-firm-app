@@ -15,7 +15,7 @@ select test.check('RLS on for every public table',
 -- Bootstrap
 select private.bootstrap_owner('Owner.A@example.test', 'Test Owner A');
 select test.check('second bootstrap refused',
-  test.try($$select private.bootstrap_owner('owner.d@example.test', 'D')$$) like 'An owner already exists%');
+  test.try($$select private.bootstrap_owner('owner.d@example.test', 'D')$$) like 'An Admin already exists%');
 
 -- Anonymous visitor sees nothing and cannot call actions
 set role anon;
@@ -37,22 +37,22 @@ select test.check('saving an unchanged role succeeds',
 select test.check('saving an unchanged role writes no log entry', not exists (
   select 1 from public.activity_log where entity_type = 'roles' and action = 'update'
      and entity_id = (select id::text from public.roles where name = 'Reviewer')));
-select test.check('owner cannot change Owner role permissions', test.try($$select public.set_role_permissions(
-  (select id from public.roles where is_owner), '{"leads":"none"}')$$) like '%locked%');
-select test.check('owner cannot rename Owner role', test.try($$select public.update_role(
-  (select id from public.roles where is_owner), 'Boss', '')$$) like '%locked%');
-select test.check('owner cannot delete Owner role', test.try($$select public.delete_role(
-  (select id from public.roles where is_owner))$$) like '%still assigned%' );
+select test.check('R3a-1: lowering the only Admin role is refused (safety rule)', test.try($$select public.set_role_permissions(
+  (select id from public.roles where name = 'Partner'), '{"staff_accounts":"view"}'); set constraints all immediate$$) like 'Not saved. At least one active person must keep Edit on Staff accounts and Settings%');
+select test.check('R3a-1: there is no Owner role; Partner is a title like any other', not exists (select 1 from public.roles where is_owner)
+  and test.try($$update public.roles set is_owner = true where name = 'Partner'$$) like 'permission denied%');
+select test.check('a role with people cannot be deleted', test.try($$select public.delete_role(
+  (select id from public.roles where name = 'Partner'))$$) like '%still assigned%' );
 select test.check('add B as Reviewer', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000b',
   'Test Reviewer B', 'reviewer.b@example.test', (select id from public.roles where name = 'Reviewer'))$$) = 'OK');
 select test.check('add C as Staff', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000c',
-  'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'))$$) = 'OK');
-select test.check('add D as Owner', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000d',
-  'Test Owner D', 'owner.d@example.test', (select id from public.roles where is_owner))$$) = 'OK');
+  'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'))$$) = 'OK');
+select test.check('add D as Partner', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000d',
+  'Test Owner D', 'owner.d@example.test', (select id from public.roles where name = 'Partner'))$$) = 'OK');
 select test.check('add_staff refuses wrong email', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
-  'E', 'someone.else@example.test', (select id from public.roles where name = 'Staff'))$$) like 'Login not found%');
+  'E', 'someone.else@example.test', (select id from public.roles where name = 'Accountant'))$$) like 'Login not found%');
 select test.check('owner cannot change own role', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Staff'))$$) like '%your own role%');
+  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Accountant'))$$) like '%your own role%');
 select test.check('owner cannot switch self off', test.try($$select public.set_staff_active(
   '00000000-0000-0000-0000-00000000000a', false)$$) like '%your own account%');
 select test.check('rotate needs 2 people', test.try($$select public.update_setting('lead_assignment',
@@ -72,23 +72,23 @@ select test.check('B sees staff list', (select count(*) from public.staff) = 4);
 select test.check('B cannot read activity log', (select count(*) from public.activity_log) = 0);
 select test.check('B reads settings (view)', (select count(*) from public.settings) >= 2);
 select test.check('B cannot change settings', test.try($$select public.update_setting('retention_months', '12')$$) like 'You do not have permission%');
-select test.check('B cannot create roles', test.try($$select public.create_role('Sneaky')$$) like 'Only an owner%');
+select test.check('B cannot create roles', test.try($$select public.create_role('Sneaky')$$) like 'Only an Admin%');
 select test.check('B cannot change permissions', test.try($$select public.set_role_permissions(
-  (select id from public.roles where name = 'Reviewer'), '{"price_book":"edit"}')$$) like 'Only an owner%');
-select test.check('B cannot add an owner', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
-  'E', 'new.e@example.test', (select id from public.roles where is_owner))$$) like '%beyond your own access%');
+  (select id from public.roles where name = 'Reviewer'), '{"price_book":"edit"}')$$) like 'Only an Admin%');
+select test.check('B cannot add a Partner', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
+  'E', 'new.e@example.test', (select id from public.roles where name = 'Partner'))$$) like '%beyond your own access%');
 select test.check('B cannot give a role beyond own access', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
-  'E', 'new.e@example.test', (select id from public.roles where name = 'Staff'))$$) like '%beyond your own access%');
+  'E', 'new.e@example.test', (select id from public.roles where name = 'Accountant'))$$) like '%beyond your own access%');
 select test.check('B can add E as Reviewer', test.try($$select public.add_staff('00000000-0000-0000-0000-00000000000e',
   'Test New E', 'new.e@example.test', (select id from public.roles where name = 'Reviewer'))$$) = 'OK');
 select test.check('B cannot change an owner', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an owner can change roles%');
+  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an Admin can change roles%');
 select test.check('B cannot switch off an owner', test.try($$select public.set_staff_active(
   '00000000-0000-0000-0000-00000000000d', false)$$) like '%more access than you%');
 select test.check('B cannot change own role', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000b', (select id from public.roles where name = 'Staff'))$$) like 'Only an owner can change roles%');
+  '00000000-0000-0000-0000-00000000000b', (select id from public.roles where name = 'Accountant'))$$) like 'Only an Admin can change roles%');
 select test.check('B (staff-account editor) cannot change a Reviewer''s role: owners only', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000e', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an owner can change roles%');
+  '00000000-0000-0000-0000-00000000000e', (select id from public.roles where name = 'Reviewer'))$$) like 'Only an Admin can change roles%');
 select test.check('B can still set own phone', test.try($$select public.update_staff_phone('00000000-0000-0000-0000-00000000000b', '226-555-0101')$$) = 'OK');
 select test.check('B can switch off E', test.try($$select public.set_staff_active('00000000-0000-0000-0000-00000000000e', false)$$) = 'OK');
 select test.check('B can rename self', test.try($$select public.update_staff_name('00000000-0000-0000-0000-00000000000b', 'Test Reviewer Bee')$$) = 'OK');
@@ -102,15 +102,15 @@ select test.check('inactive staff: no roles', (select count(*) from public.roles
 -- Owner D demotes A, then nobody can remove the last owner
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000d"}';
 select test.check('owner D demotes A', test.try($$select public.set_staff_role(
-  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Staff'))$$) = 'OK');
+  '00000000-0000-0000-0000-00000000000a', (select id from public.roles where name = 'Accountant'))$$) = 'OK');
 reset role;
 reset request.jwt.claims;
 select test.check('last owner cannot be removed even from the SQL editor', test.try($$
-  update public.staff set role_id = (select id from public.roles where name = 'Staff')
-  where id = '00000000-0000-0000-0000-00000000000d'; set constraints all immediate$$) like '%at least one active owner%');
+  update public.staff set role_id = (select id from public.roles where name = 'Accountant')
+  where id = '00000000-0000-0000-0000-00000000000d'; set constraints all immediate$$) like '%Edit on Staff accounts and Settings%');
 select test.check('last owner cannot be switched off', test.try($$
   update public.staff set is_active = false where id = '00000000-0000-0000-0000-00000000000d';
-  set constraints all immediate$$) like '%at least one active owner%');
+  set constraints all immediate$$) like '%Edit on Staff accounts and Settings%');
 select test.check('activity log records actor', exists (
   select 1 from public.activity_log where actor_id = '00000000-0000-0000-0000-00000000000d' and entity_type = 'staff'));
 create table public.zz_probe (id int);

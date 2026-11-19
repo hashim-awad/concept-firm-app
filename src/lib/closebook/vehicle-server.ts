@@ -24,7 +24,7 @@ export type VehicleData = {
   ledgerAll: string; ledgerNumbers: string[];   // "Open the ledger": the general ledger on the vehicle accounts
   stored: StoredSchedule | null;         // the schedule saved with this entry
   hints: VehicleInputs | null;           // last year's inputs (never copied in)
-  canItc: boolean;                       // the file's reviewer or an owner
+  canItc: boolean;                       // the file's reviewer or anyone with the Review right
   acct: Record<string, string>;          // the entry form's account for 70600, 21500 and 23000 on this file
   names: Record<string, string>;         // account numbers to names, for the lines
   provinceName: string;

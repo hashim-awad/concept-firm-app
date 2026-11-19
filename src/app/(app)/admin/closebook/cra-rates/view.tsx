@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { formatDateTime } from "@/lib/dates";
@@ -9,14 +9,14 @@ import { ItcTable, KmTable } from "./forms";
 import type { SP, View } from "../../settings-shell";
 
 // Piece 1 of the step 5 restructure (Hashim, Nov 18, 2026; benchmark CaseWare Cloud's firm-level settings, where
-// the firm keeps the rates its working papers use). Closebook rules › CRA rates, owners only (round 17: the menu
+// the firm keeps the rates its working papers use). Closebook rules › CRA rates, Admins only (round 17: the menu
 // shows the tab only to owners; no lock icons). The per-km allowance rates by calendar year and the ITC factor on
 // allowances and reimbursements per province. The firm types the rates; nothing is loaded. Nothing reads them yet:
 // the Vehicle allowance schedule will (piece 3). Every add or change is in Settings › Activity log, and the latest
 // show in the History list here, as on Sales tax rates. Round 1b: a year opens for change when clicked; the ITC
 // table has one Save; a refused save keeps what was typed, with the message in red under its field (forms.tsx).
 export async function CraRatesView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: km }, { data: itc }, { data: staff }, { data: log }] = await Promise.all([
     supabase.from("cb_cra_km_rates").select("*").order("year", { ascending: false }),
@@ -37,7 +37,7 @@ export async function CraRatesView(sp: SP): Promise<View> {
 
   return {
     help: <>
-      <p>The CRA rates the schedules use. Owners type them in from the CRA. Nothing uses them yet: the Vehicle allowance schedule will.</p>
+      <p>The CRA rates the schedules use. Admins type them in from the CRA. Nothing uses them yet: the Vehicle allowance schedule will.</p>
       <p><b>Per-km allowance rates</b>: dollars per km for each calendar year, for the first 5,000 km and for each km after, in the provinces and in the territories. Click a year to change it.</p>
       <p><b>ITC factor</b>: the share of an allowance or reimbursement that is GST/HST, as a fraction, for example 13/113 in Ontario. Change any rows, then Save once.</p>
       <p>Every add and change is kept in Settings › Activity log, with who, when, and the old and new values.</p>

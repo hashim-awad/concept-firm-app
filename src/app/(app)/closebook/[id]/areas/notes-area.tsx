@@ -9,8 +9,8 @@ import { PageTitle, PanelHead, PanelLink } from "../shell/shell";
 
 const STATUS: [ReviewNote["status"], string][] = [["open", "Open"], ["fixed", "Fixed"], ["cleared", "Cleared"]];
 
-export function notesArea({ fileId, notes, steps, names, isOwner, canFix, editable, sp }: {
-  fileId: string; notes: ReviewNote[]; steps: Step[]; names: Map<string, string>; isOwner: boolean; canFix: boolean; editable: boolean;
+export function notesArea({ fileId, notes, steps, names, canReview, canFix, editable, sp }: {
+  fileId: string; notes: ReviewNote[]; steps: Step[]; names: Map<string, string>; canReview: boolean; canFix: boolean; editable: boolean;
   sp: { status?: string; step?: string; who?: string };
 }) {
   const base = `/closebook/${fileId}`;
@@ -40,7 +40,7 @@ export function notesArea({ fileId, notes, steps, names, isOwner, canFix, editab
     <>
       <PageTitle>Review notes <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
       {!shown.length && <p className="rounded-[10px] border border-sand-200 bg-white px-4 py-3 text-[12.5px] text-ink-3">No review notes.</p>}
-      <ul className="grid max-w-4xl gap-2.5">{shown.map((n) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} isOwner={isOwner} canFix={canFix} editable={editable} back={back} itemLink={link(n)} />)}</ul>
+      <ul className="grid max-w-4xl gap-2.5">{shown.map((n) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} canReview={canReview} canFix={canFix} editable={editable} back={back} itemLink={link(n)} />)}</ul>
     </>
   );
   return { left, content };

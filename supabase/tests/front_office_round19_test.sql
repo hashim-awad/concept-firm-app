@@ -11,19 +11,19 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.create_role('Bookkeeper', 'T1 letters only') as bk \gset
 select public.set_role_permissions(:'bk', '{"documents":"edit","leads":"none","pricing":"none","clients":"edit","closebook":"edit"}');
-select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Accountant'));
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Bookkeeper C', 'book.c@example.test', :'bk'::uuid);
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"documents":"view","leads":"none","pricing":"view","clients":"view"}');
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"documents":"view","leads":"none","pricing":"view","clients":"view"}');
 
 -- ---------- Letter permissions on the role
 select test.check('a new role starts with no letter types', (select not can_t1_letters and not can_corporate_letters from public.roles where id = :'bk'));
 select test.check('the owner ticks T1 letters on the role', test.try(format($q$select public.set_role_letters(%L, true, false)$q$, :'bk')) = 'OK');
 select test.check('the change is in the activity log', exists (select 1 from public.activity_log where action = 'role_letters_changed' and entity_id::text = :'bk' and details ->> 't1' = 'true'));
-select test.check('the Owner role cannot be changed', test.try(format($q$select public.set_role_letters(%L, false, false)$q$, (select id from public.roles where is_owner))) like 'The Owner role%');
-select test.check('owners have every letter type', public.my_access() -> 'letters' = '{"t1": true, "corporate": true}');
+select test.check('piece R3a-1: there is no Owner role', not exists (select 1 from public.roles where is_owner));
+select test.check('the Partner has every letter type', public.my_access() -> 'letters' = '{"t1": true, "final": true, "corporate": true}');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot change roles', test.try(format($q$select public.set_role_letters(%L, true, true)$q$, :'bk')) like 'Only an owner%');
-select test.check('my_access gives the role''s letter types', public.my_access() -> 'letters' = '{"t1": true, "corporate": false}');
+select test.check('staff cannot change roles', test.try(format($q$select public.set_role_letters(%L, true, true)$q$, :'bk')) like 'Only an Admin%');
+select test.check('my_access gives the role''s letter types', public.my_access() -> 'letters' = '{"t1": true, "final": false, "corporate": false}');
 select test.check('a T1 letter draft is allowed', test.try($q$insert into public.documents (kind, title) values ('t1_letter', 'Dummy T1')$q$) = 'OK');
 select test.check('a corporate letter draft is refused', test.try($q$insert into public.documents (kind, title) values ('corporate_letter', 'Dummy corporate')$q$) like 'Your role does not include corporate letters%');
 
@@ -84,7 +84,7 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('Staff (both boxes): corporate and T1 letters',
   (select count(*) from public.letter_list()) = 5);
 reset role;
-update public.role_permissions set level = 'none' where area_key = 'pricing' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'none' where area_key = 'pricing' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 select test.check('a signed monthly quote follows the corporate box, not Pricing', (select count(*) from public.letter_list()) = 5
   and exists (select 1 from public.letter_list() where id = '00000000-0000-0000-0000-0000000000f2'));
@@ -92,15 +92,16 @@ select test.check('a signed monthly quote follows the corporate box, not Pricing
 -- ---------- The first-time ticks run once
 reset role;
 reset request.jwt.claims;
-update public.roles set can_t1_letters = false, can_corporate_letters = false where name = 'Staff';
+update public.roles set can_t1_letters = false, can_corporate_letters = false where name = 'Accountant';
 \i supabase/migrations/20261208000000_round19_front_office.sql
-select test.check('running the migration again does not tick a box an owner cleared', (select not can_t1_letters and not can_corporate_letters from public.roles where name = 'Staff'));
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
+select test.check('running the migration again does not tick a box an owner cleared', (select not can_t1_letters and not can_corporate_letters from public.roles where name = 'Accountant'));
 
 -- ---------- Deadlines: mark done before a date, undo the batch the same day, reopen a line
 \set items '''[{"client_id":"00000000-0000-0000-0000-0000000000c1","year_end":"2025-12-31","kind":"filing"},{"client_id":"00000000-0000-0000-0000-0000000000c1","year_end":"2025-12-31","kind":"balance"},{"client_id":"00000000-0000-0000-0000-0000000000c2","year_end":"2025-12-31","kind":"filing"}]'''
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('only an owner marks done in one step', test.try(format($q$select public.deadlines_mark_done_before('2026-11-01', 'Filed before Studio', %L)$q$, :items)) like 'Only an owner%');
+select test.check('only an owner marks done in one step', test.try(format($q$select public.deadlines_mark_done_before('2026-11-01', 'Filed before Studio', %L)$q$, :items)) like 'Only an Admin%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the reason is required', test.try(format($q$select public.deadlines_mark_done_before('2026-11-01', ' ', %L)$q$, :items)) like 'Give the reason%');
 select test.check('an unknown deadline type is refused', test.try($q$select public.deadlines_mark_done_before('2026-11-01', 'Filed before Studio', '[{"client_id":"00000000-0000-0000-0000-0000000000c1","year_end":"2025-12-31","kind":"gst"}]')$q$) like 'A deadline in the list is not valid%');

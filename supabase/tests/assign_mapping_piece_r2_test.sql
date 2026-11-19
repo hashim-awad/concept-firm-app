@@ -6,9 +6,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role; reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Aspen Dummy Realty Team Inc.', 'ON') returning id as client \gset
 \set C '\'00000000-0000-0000-0000-00000000000c\''
 \set A '\'00000000-0000-0000-0000-00000000000a\''
@@ -283,7 +283,7 @@ select test.check('security: the preparer cannot assign an account sent to the r
 select test.check('security: an account from another file is refused', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
   json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'m' limit 1), 'chart', '60100')), 'Assigned 1 account')) = 'An account is not in this file.');
 :out;
-update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 :prep;
 select test.check('security: without Edit, every new action is refused',
   test.try(format('select public.cb_unassign_all(%L)', :'sr')) like 'You need Edit on Closebook%'
@@ -293,7 +293,7 @@ select test.check('security: without Edit, every new action is refused',
   and test.try(format('select public.cb_keep_line_move(%L)', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%'
   and test.try(format('select public.cb_save_tb_opening_re(%L, 1)', :'sr')) like 'You need Edit on Closebook%');
 :out;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 update public.cb_files set phase = 'locked' where id = :'sr';
 :prep;
 select test.check('security: Unassign all on a locked file is refused', test.try(format('select public.cb_unassign_all(%L)', :'sr')) = 'This file is locked.');

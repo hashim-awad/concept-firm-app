@@ -7,9 +7,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 
 select test.check('no rates are loaded by the migration', not exists (select 1 from public.cb_cra_km_rates) and not exists (select 1 from public.cb_cra_itc_factors));
 
@@ -43,9 +43,9 @@ select test.check('T2: 2026 is back to 0.73, updated by the owner', (select firs
 -- T3: a staff member who is not an owner cannot change anything (reading is allowed, for the schedules later).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T3: staff cannot add a year', test.try($q$select public.cb_save_km_rates(2027, 0.75, 0.69, 0.79, 0.73, true)$q$) = 'Only an owner can change the CRA rates.');
-select test.check('T3: staff cannot change a year', test.try($q$select public.cb_save_km_rates(2026, 0.99, 0.67, 0.77, 0.71, false)$q$) = 'Only an owner can change the CRA rates.');
-select test.check('T3: staff cannot change a factor', test.try($q$select public.cb_save_itc_factor('ON', '5/105')$q$) = 'Only an owner can change the CRA rates.');
+select test.check('T3: staff cannot add a year', test.try($q$select public.cb_save_km_rates(2027, 0.75, 0.69, 0.79, 0.73, true)$q$) = 'Only an Admin can change the CRA rates.');
+select test.check('T3: staff cannot change a year', test.try($q$select public.cb_save_km_rates(2026, 0.99, 0.67, 0.77, 0.71, false)$q$) = 'Only an Admin can change the CRA rates.');
+select test.check('T3: staff cannot change a factor', test.try($q$select public.cb_save_itc_factor('ON', '5/105')$q$) = 'Only an Admin can change the CRA rates.');
 select test.check('T3: staff cannot write the tables directly', test.try($q$insert into public.cb_cra_km_rates (year, first_prov, after_prov, first_terr, after_terr) values (2030, 1, 1, 1, 1)$q$) like '%permission denied%'
   and test.try($q$update public.cb_cra_itc_factors set numerator = 1$q$) like '%permission denied%');
 select test.check('T3: nothing changed', (select first_prov from public.cb_cra_km_rates where year = 2026) = 0.73 and not exists (select 1 from public.cb_cra_km_rates where year = 2027));

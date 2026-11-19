@@ -1,12 +1,12 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
 import type { SP, View } from "../../settings-shell";
 
-// Chart and GIFI, Lead sheets tab (Phase 3 batch 4.4): 20 groups, CaseWare-style letters. Owners only.
+// Chart and GIFI, Lead sheets tab (Phase 3 batch 4.4): 20 groups, CaseWare-style letters. Admins only.
 export async function LeadSheetsView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: sheets }, { data: lines }] = await Promise.all([
     supabase.from("cb_lead_sheets").select("code, name").order("sort_order"),

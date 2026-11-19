@@ -18,7 +18,7 @@ const done = (error: { message: string } | null, msg: string, back = PAGE) => {
 };
 async function owner() {
   const a = await getAccess();
-  if (!a?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner changes the quick method rates."));
+  if (!(!!a && (a.admin && a.permissions.closebook === "edit"))) redirect(withMessage(PAGE, "error", "Only an Admin changes the quick method rates."));
 }
 // "8.8" or "8.8%" to 0.088; blank to null; anything else to NaN.
 const pct = (v: string) => { const t = v.replace(/[%\s]/g, ""); return t === "" ? null : Number(t) / 100; };

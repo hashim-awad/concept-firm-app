@@ -9,7 +9,7 @@ const PAGE = "/admin/settings/signing-email";
 
 export async function saveSigningEmail(formData: FormData) {
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner can change how signing emails are sent."));
+  if (!(!!access && access.admin)) redirect(withMessage(PAGE, "error", "Only an Admin can change how signing emails are sent."));
   const on = (k: string) => formData.get(k) === "on";
   const { error } = await (await createClient()).rpc("set_signing_email", { p_letters: on("letters"), p_quotes: on("quotes"), p_proposals: on("proposals") });
   revalidatePath(PAGE);

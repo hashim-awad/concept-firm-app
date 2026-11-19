@@ -33,7 +33,7 @@ export default async function CorporateLetterPage({ searchParams }: PageProps<"/
   return (
     <>
       <WorkspaceHeader title="Corporate Letter" description="One letter per corporate client. Tick the services; each adds its own section." />
-      <CorporateLetterScreen env={env} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={fromProposalClient ?? startClientId} proposalPick={proposalPick as never}
+      <CorporateLetterScreen env={env} clients={corporations(data.clients)} finalRight={access.letters.final} today={today} initial={initial} startClientId={fromProposalClient ?? startClientId} proposalPick={proposalPick as never}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>
   );

@@ -31,7 +31,7 @@ Already built and kept for Phase 2: staff logins, roles and permissions, activit
 | 11 | Vercel seats | Hashim only. Staff log in to the app through Supabase. |
 | 12 | Email | Microsoft 365. Staff login emails go through the firm's M365 mail, not Supabase's built-in sender. |
 | 13 | DNS | Hashim manages the domain. Claude guides click by click when connecting studio.conceptaccounting.ca. |
-| 14 | Roles and permissions | Role-based access managed by owners on the admin page. See "Roles and permissions". |
+| 14 | Roles and permissions | Role-based access managed by Admins on the admin page (R3a-1: no Owner role). See "Roles and permissions". |
 | 15 | Lead assignment | A rule set by owners in settings, never a hard-coded person. See "Lead flow". |
 | 16 | Old triage items | Hashim is pricing each one and will send it as a price or as out of scope. "Required documents missing" is dropped from screening (TaxDome handles it after sign-up). |
 | 17 | Lead sources | Website, Referral, Existing client, Brokerage or team partner, Talk or event, Social media, Other. Owners can edit this list. |
@@ -187,11 +187,22 @@ Every screen we build is as tidy as Closebook's Trial balance tab after the Quic
 ## Roles and permissions
 - Roles are defined in the app. Each role has a permission per area: leads, clients, quotes and documents, vault, price book and rules, tax rates, engagement terms, custom line, staff accounts, exports, settings, and **Pricing** (price book, quote amounts, quote breakdowns, Issue quote; batch section 2). Staff without Pricing see leads, clients and documents with no prices anywhere.
 - Each permission is one of: no access, view, edit.
-- Owners create roles, change permissions and assign people to roles from the admin page, without code changes.
-- Owner role: full access, cannot be edited. At setup: Hashim Awad and Asmaa Ibrahim.
-- Only an owner can grant or remove the owner role. The app always keeps at least one active owner.
-- All other staff get a role an owner assigns.
-- Every change to roles, permissions and role assignments is recorded in the activity log.
+- Piece R3a-1 (Hashim, Nov 19, 2026; benchmark CaseWare Cloud, where Admin is a right, not a title): there is no Owner role.
+  Roles are titles only: Partner, Manager, Senior accountant, Accountant (more can be created). Admin means Edit on both Staff
+  accounts and Settings. People with Admin create roles, change permissions and assign people to roles, without code changes;
+  nobody can give a level, a Letters box or a Closebook switch beyond their own, or raise their own role.
+- Safety rule: at least one active person always keeps Edit on Staff accounts and Settings. Any change that would remove the
+  last one (a role edit, a role change, switching an account off, deleting a role) is refused.
+- Letters boxes on every role: Can prepare T1 letters, Can prepare corporate letters, and (R3a-1) Can issue Final and send for
+  signing (Partner only at start). The signature image and signer names are Admin only.
+- Closebook switches on every role (R3a-1): Prepare ("Work the steps and sign the preparer circle."), Review ("Sign the
+  reviewer circle and add review notes."), Partner sign-off ("Sign the partner circle (steps 1, 9 and 10).", applies from
+  R3a-2), Lock and unlock, Remove others' sign-offs (preparer and reviewer sign-offs, as in CaseWare; without it a person removes
+  only their own). Starting switches: Partner all five; Manager and Senior accountant Prepare and Review; Accountant Prepare;
+  a new role Closebook Edit with Prepare on.
+- All other staff get a role an Admin assigns. Every change to roles, permissions, switches and role assignments is recorded in
+  the activity log.
+- Earlier rule, replaced by R3a-1: "Owner role: full access, cannot be edited ... The app always keeps at least one active owner."
 
 ## Lead flow (personal and corporate)
 1. Public start page: the client chooses **My personal tax return** or **My company** (small text: "Year-end, tax return or monthly bookkeeping"). Questions: batch sections 4 (personal) and 10 (company).
@@ -542,6 +553,29 @@ In short:
 - Step 5 restructure plan (Hashim, Nov 18, 2026; benchmark CaseWare Cloud). The plan of the Round A message as updated by Hashim's brief, built as 11 small pieces, one branch, PR and at most one migration each, merged one at a time. When all are done: 1 Set up, 2 Opening balances, 3 Banking, 4 Code transactions (unchanged); 5 Adjustments (last year's line, the Schedules table, the existing entries list); 6 Compare to last year (new key; flagged changes, new accounts, accounts not used, what changed this year); 7 Review (the reviewer's step, also holding the reviewer's GIFI checks and the shareholder loan answers); 8 Tax returns (as built, plus the GST/HST revenue comparison); 9 Statements and 10 Deliver and lock (unchanged). GIFI matching becomes a view in the Trial balance tab; the Entries tab goes once step 5 holds the list.
   - Pieces: 1 CRA rates page; 2 edit an entry in place; 3 the schedule engine and Vehicle allowance; 4 Home office, and "Home office" and "Auto expenses" hidden from "From a standard entry" (their records and tax settings stay, so Expenses paid personally works as now); 5 step 5 becomes "Adjustments"; 6 TJEs keep steps 5, 6 and 7 signed (a TJE still clears step 8) and lead sheet flags ignore tax entries; 7 the revenue check becomes a schedule, its GST/HST figure moves to step 8; 8 shareholder loans move to Reporting and to the reviewer in step 7; 9 GIFI matching as a Trial balance view with a Tools shortcut; 10 step 6 becomes "Compare to last year" (the only piece that changes a step key; the new step 6 starts unsigned on every file, nothing is copied); 11 the Entries tab goes and the step texts are corrected.
   - Rules for every piece: steps 1 to 4 untouched; no schedule or step is switched on or off by a setup answer (reading a fact about the client is fine: "Claim the ITC" shows and is ticked when the file is registered on the regular method, as Expenses paid personally does); no step key or number changes unless the piece says so; no migration drops a table or column; no data change to any Live file; an existing test changes only where the piece approves it; the five sign-off gaps from Round A wait for their own round; the Lock message's TaxDome wording stays (staff screen). A person cannot create an account without a GIFI line (on trial balance files, since piece R2: without a master account); imports still save unmatched accounts (shown under "Unmatched"); Clearing 10900 and the two system rows stay exempt.
+- Piece R3a-1, roles are titles and Admin is a right (Hashim, Nov 19, 2026; mocks M1 to M3 approved with two changes;
+  benchmark CaseWare Cloud: security roles, sign-off roles and the engagement team are separate, Admin is a right).
+  - Roles: Owner renamed Partner and Staff renamed Accountant (same records, history kept); Manager and Senior accountant
+    added. Area levels: Partner Edit everywhere; the other three take the old Staff levels plus Closebook Edit; Letters boxes
+    ticked on all four. Exports: No access on every role except Partner. roles.is_owner and its index stay (no drops), all false.
+  - Admin = Edit on Staff accounts and Settings. The last-Admin safety rule is enforced in the database (deferred checks on
+    roles, role permissions and staff, with one lock so two Admins cannot remove each other at once).
+  - Every owner check is replaced by the right it protects (listed in the PR): Admin; Admin with the area it guards (Pricing,
+    Screening, Tax rates, Engagement terms, Clients, Closebook setup); Admin and Exports Edit for the full export; Leads and
+    Settings Edit to reassign a lead; the Closebook switches (Prepare, Review, Lock and unlock, Remove others' sign-offs); the new
+    Letters box for Final letters and sending proposals. Purging a statement: Admin. File History: the Review switch.
+  - Decisions (all Recommended unless noted): 1A area levels as above; 2A rename Owner and Staff; 3A new Letters box "Can issue
+    Final and send for signing", Partner only, signature and signers Admin; 4A History read with Review; 5A the Lock and unlock
+    switch is the control; 6B Remove others' sign-offs covers preparer and reviewer sign-offs; 7A the same person may still
+    prepare and review a step (labelled and logged) until R3a-2; 8A Partner sign-off shown with "Applies from R3a-2"; 9A Prepare
+    signs the preparer circle and is needed to be named preparer, working in a file stays with Closebook Edit; 10A full export
+    Admin and Exports Edit; 11A purge Admin; 12A a new role starts with Closebook Edit and Prepare on; 13A Closebook area text
+    "View: see the files. Edit: work in the files. The Closebook switches decide who prepares, reviews, signs as partner, locks
+    and removes sign-offs."; 14A tests updated ('Staff' to 'Accountant', owner messages); 15A an engagement's status needs Admin
+    and Documents Edit in the database, not only on screen.
+  - Live (read-only check, Nov 19): one active person on Owner, no other roles. The migration renames the role in place, so
+    that person's role id never changes; Partner gets every right on.
+  - Next: R3a-2, the file team (Preparer, Reviewer, Partner per file; only the named people sign their circles).
 - Piece R2, trial balance files: Assign mapping to the master chart; module headings; trial balance files take Closebook entries
   (Hashim, Nov 19, 2026, version 4; mock O; benchmark CaseWare Cloud "Assign accounts" and document map phases, then
   QuickBooks Online bank feed Undo).

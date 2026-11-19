@@ -4,8 +4,8 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"leads":"view"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"leads":"view"}');
 \set c '''{"first_name":"Jane","last_name":"Dummy","email":"Jane@Example.test","phone":"519-555-0100","province":"ON"}'''
 
 select public.create_phone_lead('personal', :c, '{"tax_year":2026,"household":{},"people":[{}]}', 'new', null, null) as l \gset

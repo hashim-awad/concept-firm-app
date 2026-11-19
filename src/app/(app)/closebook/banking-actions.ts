@@ -101,10 +101,10 @@ export async function restoreStatement(fileId: string, statement: string, confir
   return { ok: true };
 }
 
-// Owners only, a statement excluded as Wrong client: the file and its lines are erased (the stored PDF too).
+// Admins only (R3a-1), a statement excluded as Wrong client: the file and its lines are erased (the stored PDF too).
 export async function purgeStatement(fileId: string, statement: string): Promise<Guarded> {
   const a = await getAccess();
-  if (!a?.is_owner) return { ok: false, error: "Only an owner can purge." };
+  if (!(!!a && a.admin)) return { ok: false, error: "Only an Admin can purge." };
   const { data, error } = await (await createClient()).rpc("cb_purge_statement", { p_statement: statement });
   if (error) return { ok: false, error: plainError(error.message) };
   const d = data as { documents: string[]; reads: string[] };

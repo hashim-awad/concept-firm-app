@@ -50,7 +50,7 @@ export function buildAuthEmail(payload: HookPayload, siteUrl: string): AuthEmail
     const lines = [
       "The password for your Concept Studio login was just changed.",
       "If this was you, you do not need to do anything.",
-      "If it was not you, tell an owner of the firm today.",
+      "If it was not you, tell an Admin at the firm today.",
     ];
     return {
       to: user.email,

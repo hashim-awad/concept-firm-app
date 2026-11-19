@@ -63,7 +63,7 @@ export async function setPeople(formData: FormData) {
   const id = s(formData, "file_id");
   const back = sameFile(id, s(formData, "back"));
   const a = await getAccess();
-  if (!a?.is_owner) redirect(withMessage(back, "error", "Only an owner changes the preparer and reviewer."));
+  if (!(!!a && (a.admin && a.permissions.closebook === "edit"))) redirect(withMessage(back, "error", "Only an Admin with Edit on Closebook changes the preparer and reviewer."));
   const { error } = await (await createClient()).rpc("cb_set_people", { p_file: id, p_preparer: s(formData, "preparer"), p_reviewer: s(formData, "reviewer") });
   // A refusal also stays as a red line by Save, with the picker open (round 15 rule 9).
   if (error) { revalidatePath(`/closebook/${id}`); redirect(withMessage(`${back}${back.includes("?") ? "&" : "?"}people_error=${encodeURIComponent(error.message)}`, "error", error.message)); }

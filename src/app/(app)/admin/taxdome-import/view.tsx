@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { Notice } from "@/components/ui";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDateTime } from "@/lib/dates";
@@ -9,10 +9,10 @@ import type { SP, View } from "../settings-shell";
 import { saveTaxdomeLink } from "./actions";
 import { TypeTagsForm } from "./type-tags-form";
 
-// Import TaxDome export (decision 43): TaxDome is the master list of T2 clients. Owners only.
+// Import TaxDome export (decision 43): TaxDome is the master list of T2 clients. Admins only.
 // Round 18: the import opens as a dialog on Clients (/clients?import=1). This gives the line it shows.
 export async function taxdomeImportSummary(): Promise<string> {
-  await requireOwner();
+  await requireAdmin("clients");
   const supabase = await createClient();
   const [{ count: linked }, { data: last }] = await Promise.all([
     supabase.from("clients").select("id", { count: "exact", head: true }).not("taxdome_account_id", "is", null),
@@ -26,9 +26,9 @@ export const TAXDOME_IMPORT_HELP = "TaxDome is the master list of T2 clients. Im
 
 type OnOther = { id: string; legal_name: string; taxdome_tags: string[] | null };
 
-// Connections (round 17): the link to a TaxDome account. Round 18: the type each TaxDome tag gives. Owners only.
+// Connections (round 17): the link to a TaxDome account. Round 18: the type each TaxDome tag gives. Admins only.
 export async function ConnectionsView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("clients");
   const supabase = await createClient();
   const [{ data: url }, { data: map }, { data: other }] = await Promise.all([
     supabase.rpc("taxdome_account_url"),

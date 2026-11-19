@@ -6,12 +6,12 @@ import { formatDateTime } from "@/lib/dates";
 import { loadSettings } from "../data";
 import { uploadSignature } from "../actions";
 
-// Owners only, as before.
+// Admins only, as before.
 export async function SignatureView(sp: SP): Promise<View> {
   const { byKey } = await loadSettings(true);
   const sigInfo = (byKey.get("signature_image") ?? { uploaded: false }) as { uploaded: boolean; uploaded_at?: string };
   return {
-    help: <><p>Placed only on Final letters, which only an owner can issue. Stored privately in Canada and readable by owners only. Never stored in the app&rsquo;s code.</p><p>Owners only. Changes are recorded in the activity log.</p></>,
+    help: <><p>Placed only on Final letters, which only an Admin can issue. Stored privately in Canada and readable by Admins and the Final right only. Never stored in the app&rsquo;s code.</p><p>Admins only. Changes are recorded in the activity log.</p></>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <form action={uploadSignature} className="card space-y-3">

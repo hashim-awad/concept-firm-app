@@ -5,6 +5,19 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 export const CHANGELOG: ChangeEntry[] = [
   {
     date: "2026-11-19",
+    title: "Roles are titles; Admin is a right",
+    points: [
+      "There is no Owner role. The roles are Partner, Manager, Senior accountant and Accountant. Owner became Partner, with every right. Staff became Accountant.",
+      "Admin is not a role. Anyone whose role has Edit on Staff accounts and Settings is an Admin and manages roles and staff. The app refuses a change that would leave no active Admin.",
+      "Each role has five Closebook switches: Prepare, Review, Partner sign-off (applies from the next piece), Lock and unlock, and Remove others' sign-offs. The roles list shows them.",
+      "Signing the preparer circle needs Prepare. Signing the reviewer circle, adding review notes and reading a file's History need Review. Locking and reopening a file needs Lock and unlock.",
+      "You can always take back your own sign-off. Removing someone else's preparer or reviewer sign-off needs Remove others' sign-offs, and is logged.",
+      "A new Letters box, Can issue Final and send for signing, controls who issues Final letters and sends quotes for signing. Only an Admin changes the signature and signers.",
+      "A role can be given only levels, boxes and switches the person saving it has. New roles start with Closebook at Edit and Prepare on.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Trial balance files: Assign mapping, and entries in Closebook",
     points: [
       "Files that start from a trial balance are now called Trial balance files. Files built from bank and card statements are Bank-statement files.",

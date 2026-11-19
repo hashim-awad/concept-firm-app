@@ -8,9 +8,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Birch Dummy Home Office Inc.', 'ON') returning id as client \gset
@@ -35,7 +35,7 @@ select test.check('One schedule per entry: a home office entry is not put in as 
 select test.check('T3: the preparer cannot untick the ITC',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]',
-    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'Only the file''s reviewer or an owner can change "Claim the ITC".');
+    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Home office', false,
   '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]', 'Home office schedule', null, '{}', null,

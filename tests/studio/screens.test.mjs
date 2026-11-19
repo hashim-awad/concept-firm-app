@@ -61,7 +61,7 @@ async function openApp(screen) {
   await app.goto(`${APP}/studio-harness/${screen}`, { waitUntil: "networkidle" });
   await app.waitForSelector("#harness-waiting");
   await app.evaluate(({ floors, cat }) => window.__harnessInit({
-    env: { floors, floorsOk: true, cat, loaded: true, signer: { name: "", title: "" }, images: { LH: "LH", SIG: "SIG", ILLUS: "ILLUS" } }, isOwner: true,
+    env: { floors, floorsOk: true, cat, loaded: true, signer: { name: "", title: "" }, images: { LH: "LH", SIG: "SIG", ILLUS: "ILLUS" } }, finalRight: true,
   }), { floors, cat: CAT });
   await app.waitForSelector("#harness-ready");
 }

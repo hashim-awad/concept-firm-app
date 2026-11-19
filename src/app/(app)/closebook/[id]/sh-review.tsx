@@ -16,12 +16,12 @@ const pill = (cls: string, t: React.ReactNode, title?: string) => <span title={t
 // The step 7 line for an account owed by the shareholder at year-end.
 export const owedLine = (closingCents: number, dueOn: string) => `Owed by the shareholder at year-end: ${money(closingCents)}. Repay by ${shortDay(dueOn)}`;
 
-export function ShReview({ fileId, sh, report, noted, editable, isOwner, names }: {
-  fileId: string; sh: ShData; report: ShReport; noted: ShNotedRow[]; editable: boolean; isOwner: boolean; names: Map<string, string>;
+export function ShReview({ fileId, sh, report, noted, editable, canReview, names }: {
+  fileId: string; sh: ShData; report: ShReport; noted: ShNotedRow[]; editable: boolean; canReview: boolean; names: Map<string, string>;
 }) {
   const st = sh.status;
   const current = !!st.prepared_at && !st.stale;
-  const can = editable && isOwner;
+  const can = editable && canReview;
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const reportHref = `/closebook/${fileId}?area=reporting&report=sh&back=${encodeURIComponent(`/closebook/${fileId}?step=review`)}`;
   const YEAR = Number(sh.yearEnd.slice(0, 4));

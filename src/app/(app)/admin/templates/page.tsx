@@ -29,19 +29,19 @@ export default async function TemplatesPage({ searchParams }: PageProps<"/admin/
   const keys = changed.size ? templateKeys(data.signers, state.live, templates.map((t) => t.k)) : new Map<string, Set<string>>();
   const changesIn = (k: string) => [...(keys.get(k) ?? [])].filter((x) => changed.has(x)).length;
   const tab = (TEMPLATE_TABS.find(([k]) => k === sp.tab)?.[0] ?? "letters") as TemplateTab;
-  const drafts = (k: TemplateTab) => (access.is_owner ? templates.filter((t) => tabOf(t.k) === k && statuses.get(t.k)?.draft).length : 0);
+  const drafts = (k: TemplateTab) => ((access.admin && access.permissions.engagement_terms === "edit") ? templates.filter((t) => tabOf(t.k) === k && statuses.get(t.k)?.draft).length : 0);
   const list = templates.filter((t) => tabOf(t.k) === tab);
 
   return (
     <SettingsShell title="Templates" href="/admin/templates" active={tab} tabs={TEMPLATE_TABS.map(([key, label]) => ({ key, label, count: drafts(key) }))}
-      help={<><p>The wording of your letters, quotes, emails and Closebook papers. Open a template to read it; click any text to change it. Changes go into letters when an owner publishes them.</p>
-        <p>A draft template needs an owner&rsquo;s approval before it is used. The owner opens it, reads it, ticks &ldquo;I read it&rdquo; and approves it at the bottom.</p>
+      help={<><p>The wording of your letters, quotes, emails and Closebook papers. Open a template to read it; click any text to change it. Changes go into letters when an Admin publishes them.</p>
+        <p>A draft template needs an Admin&rsquo;s approval before it is used. The Admin opens it, reads it, ticks &ldquo;I read it&rdquo; and approves it at the bottom.</p>
         <p>Published wording: <b>{state.live?.label ?? e.EL_VERSION}</b>{state.live?.date ? `, ${formatDate(state.live.date)}` : ""}.</p></>}
       actions={<Link href="/admin/templates/history" className={buttonClass("secondary")}><History className="h-4 w-4" aria-hidden />History</Link>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {changed.size > 0 && (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-ds)] border border-[#EED9A8] bg-[#FFF8E1] px-4 py-3">
-          <p className="text-sm text-[#5C3D00]"><b>{changed.size} unpublished change{changed.size === 1 ? "" : "s"}.</b> Letters keep using the published wording until an owner publishes.</p>
+          <p className="text-sm text-[#5C3D00]"><b>{changed.size} unpublished change{changed.size === 1 ? "" : "s"}.</b> Letters keep using the published wording until an Admin publishes.</p>
           <Link href="/admin/templates/publish" className={buttonClass("primary", "sm")}><Send className="h-4 w-4" aria-hidden />Review and publish</Link>
         </div>
       )}

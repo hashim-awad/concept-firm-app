@@ -49,7 +49,7 @@ export const whereUsed = (key: string): string => TEMPLATE_INFO[key]?.[1] ?? "";
 export const approvedWord = (key: string) => (INTERNAL_TEMPLATES.has(key) ? "Approved for use" : "Ready for clients");
 export const approveButton = (key: string) => (INTERNAL_TEMPLATES.has(key) ? "Approve for use" : "Mark ready for clients");
 
-// A template's status: a draft until an owner approves it. Templates in use before approvals were recorded
+// A template's status: a draft until an Admin approves it. Templates in use before approvals were recorded
 // (status "Live" or "In use" in the code) have no approval record: they say so.
 export type TemplateStatus = { draft: boolean; word: string; by?: string; on?: string };
 export function templateStatus(t: { k: string; status: string }, approval?: { by?: string | null; on: string } | null): TemplateStatus {

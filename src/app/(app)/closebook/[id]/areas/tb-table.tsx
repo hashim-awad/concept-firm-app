@@ -23,8 +23,8 @@ const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleS
 const pctOf = (final: number, prior: number) => (!prior ? (final ? "n/a" : "–") : final && (final > 0) !== (prior > 0) ? "n/m" : `${(((Math.abs(final) - Math.abs(prior)) / Math.abs(prior)) * 100).toFixed(1)}%`);
 const DRILL: Partial<Record<ColKey, string>> = { prelim: "prelim", adjust: "adjust", aje: "adjust", tje: "adjust", reclass: "reclass", final: "final" };
 
-export function TbTable({ fileId, groups, view, year, isOwner, editable, exportBase, openKey, noteStep = "compare" }: {
-  fileId: string; groups: TbGroupRow[]; view: "groups" | "accounts"; year: number; isOwner: boolean; editable: boolean; exportBase: string;
+export function TbTable({ fileId, groups, view, year, canReview, editable, exportBase, openKey, noteStep = "compare" }: {
+  fileId: string; groups: TbGroupRow[]; view: "groups" | "accounts"; year: number; canReview: boolean; editable: boolean; exportBase: string;
   openKey?: string;   // piece R1: an old drill= link (no column) opens the account panel once
   noteStep?: string;  // piece R1: the step the panel's review note is filed under
 }) {
@@ -112,7 +112,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
     <td className="w-[1%] px-2 text-right whitespace-nowrap text-ink-3" onClick={(e) => e.stopPropagation()}>
       {r.id && editable ? <span className="inline-flex items-center gap-2">
         <Link href={`/closebook/${fileId}?area=tb&tbv=${view}&new=journal&acct=${r.id}`} scroll={false} title="New entry on this account" aria-label={`New entry on ${r.name}`} className="hover:text-navy-700"><Plus className="h-3.5 w-3.5" /></Link>
-        {isOwner ? (
+        {canReview ? (
           <Popover align="right" width="w-80" label={r.notes ? `${r.notes} review note${r.notes === 1 ? "" : "s"}` : "Add review note"}
             button={<span className={`relative ${r.notes ? "text-danger" : "hover:text-navy-700"}`}><MessageSquare className="h-3.5 w-3.5" fill={r.notes ? "currentColor" : "none"} />{r.notes > 0 && <span className="absolute -top-2 -right-1.5 text-[9px] font-bold">{r.notes}</span>}</span>}>
             <form action={addNote} className="grid gap-2 text-left">
@@ -202,7 +202,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           </tbody>
         </table>
       </div>
-      {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} isOwner={isOwner} editable={editable} onClose={closePanel} noteStep={noteStep} />}
+      {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} canReview={canReview} editable={editable} onClose={closePanel} noteStep={noteStep} />}
     </section>
   );
 }

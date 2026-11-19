@@ -20,7 +20,7 @@ export default async function T1LetterPage({ searchParams }: PageProps<"/documen
   return (
     <>
       <WorkspaceHeader title="Personal Tax Letter (T1)" description="Personal tax engagement letters for individuals and families." />
-      <T1LetterScreen env={env} clients={individuals(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId}
+      <T1LetterScreen env={env} clients={individuals(data.clients)} finalRight={access.letters.final} today={today} initial={initial} startClientId={startClientId}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>
   );

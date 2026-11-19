@@ -7,8 +7,8 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
-select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Staff D', 'staff.d@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
+select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Staff D', 'staff.d@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
 -- Round 8b: Closebook preparer is a permission on a role (Closebook at Edit), not a role of its own.
@@ -16,19 +16,19 @@ reset request.jwt.claims;
 select test.check('there is no "Closebook preparer" role', not exists (select 1 from public.roles where name = 'Closebook preparer'));
 insert into public.roles (name) values ('Front desk') returning id as fd \gset
 update public.staff set role_id = :'fd' where id = '00000000-0000-0000-0000-00000000000d';
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 select test.check('Staff with Closebook at Edit keeps Leads and Quotes too',
   (select string_agg(area_key || ':' || level, ',' order by area_key) from public.role_permissions rp join public.roles r on r.id = rp.role_id
-    where r.name = 'Staff' and area_key in ('closebook', 'leads', 'documents')) = 'closebook:edit,documents:edit,leads:edit');
+    where r.name = 'Accountant' and area_key in ('closebook', 'leads', 'documents')) = 'closebook:edit,documents:edit,leads:edit');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Larch Test Realty Inc.', 'ON') returning id as client \gset
 
 -- People: the reviewer is an owner; the preparer needs Closebook preparer access.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('a reviewer who is not an owner is refused',
-  test.try(format($q$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000c'::uuid, '00000000-0000-0000-0000-00000000000c'::uuid)$q$, :'client')) = 'The reviewer must be an owner.');
+  test.try(format($q$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000c'::uuid, '00000000-0000-0000-0000-00000000000c'::uuid)$q$, :'client')) = 'The reviewer needs the Review right (Settings, Team and roles).');
 select test.check('a preparer without Closebook access is refused',
-  test.try(format($q$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000d'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid)$q$, :'client')) like 'The preparer needs Closebook preparer access%');
+  test.try(format($q$select public.cb_create_file(%L, '2026-12-31', '2026-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000d'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid)$q$, :'client')) like 'The preparer needs Closebook Edit and the Prepare right%');
 select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000c'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) as f \gset
 
 -- The preparer works the file.
@@ -46,7 +46,7 @@ select test.check('step 1: the acceptance record is needed too',
 select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q5_note":"","q9":"yes"}'::jsonb);
 select public.cb_acceptance_confirm_client(:'f');
 select public.cb_sign_step(:'f', 'setup', 'prepared');
-select test.check('the preparer cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) like 'Only the reviewer signs as reviewer%');
+select test.check('the preparer cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) like 'You need the Review right to sign as reviewer%');
 select test.check('the preparer cannot add a review note', test.try(format($q$select public.cb_add_note(%L, 'setup', 'step', null, 'x')$q$, :'f')) like 'Only the reviewer adds review notes%');
 select test.check('step 3: nothing imported yet', test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'f')) = 'Not yet: Import the trial balance.');
 select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', '[

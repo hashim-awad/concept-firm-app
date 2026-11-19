@@ -177,5 +177,6 @@ select test.check('cb_step_status shows step 3''s problems', (public.cb_step_sta
 reset role;
 \i supabase/migrations/20261211010000_round22_step3_accounts.sql
 \i supabase/migrations/20261211020000_round22_undo_status.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('a second run keeps the accounts and their numbers', (select count(*) from public.cb_bank_accounts where file_id = :'f') = 4
   and (select number from public.cb_bank_accounts where id = :'chq2') = '10010');

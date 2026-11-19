@@ -13,7 +13,7 @@ export async function LeadAssignmentView(sp: SP): Promise<View> {
   const people = (staff ?? []) as { id: string; full_name: string }[];
   const assignment = (byKey.get("lead_assignment") ?? { mode: "unassigned", staff_ids: [] }) as Assignment;
   return {
-    help: <><p>Who gets each new lead from the public forms. Owners can reassign any lead later.</p><p>{readOnlyNote(editable)}</p></>,
+    help: <><p>Who gets each new lead from the public forms. People with Edit on Leads and Settings can reassign any lead later.</p><p>{readOnlyNote(editable)}</p></>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <SaveForm action={saveLeadAssignment} aria-label="Lead assignment" className="card">

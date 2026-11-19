@@ -7,7 +7,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 
 select test.check('T1 rule values start at the checked figures', (select value ->> 'moving_km' from public.settings where key = 't1_rules') = '40'
   and (select (value ->> 't1135_simple_over')::int from public.settings where key = 't1_rules') = 100000

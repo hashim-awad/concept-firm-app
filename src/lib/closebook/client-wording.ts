@@ -1,6 +1,6 @@
 // The client entry list's own words (Hashim, Nov 15, 2026), as editable wording pieces on the Templates
 // page: plain words, grade 7, no em dashes. The template starts as a Trial: it shows "needs your OK" until
-// an owner approves it there. Fixed ids: never reuse or renumber one (saved edits are stored by key).
+// an Admin approves it there. Fixed ids: never reuse or renumber one (saved edits are stored by key).
 import type { QPiece } from "../t1-quote/wording.ts";
 
 const key = (id: number) => `wb1${id.toString(16).padStart(8, "0")}`;
@@ -54,7 +54,7 @@ export const CB_CHECKLIST_V1: QPiece[] = [
   Q(12, "The file holds the working papers for the work: the trial balance, the entries, the schedules and the sign-offs."),
 ];
 // Round 32 (Hashim, Nov 18, 2026): the email that sends the client questions (Templates, "Closebook · Client questions
-// email"; an owner approves it as other templates). {1}, {2}: the fills named beside each piece. Fixed ids.
+// email"; an Admin approves it as other templates). {1}, {2}: the fills named beside each piece. Fixed ids.
 const qkey = (id: number) => `wb3${id.toString(16).padStart(8, "0")}`;
 const E = (id: number, text: string): QPiece => ({ key: qkey(id), text, fills: [], fns: ["cbquestionsemail"] });
 export const CB_QUESTIONS_EMAIL = {

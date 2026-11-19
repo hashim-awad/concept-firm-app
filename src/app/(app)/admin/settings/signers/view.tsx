@@ -15,7 +15,7 @@ export async function SignersView(sp: SP): Promise<View> {
   const { access, editable, byKey } = await loadSettings();
   const signer = (k: string) => (byKey.get(k) ?? { name: "", title: "Director" }) as { name: string; title: string };
   return {
-    help: <><p>The name and title printed in the signature block. Only an owner can change these.</p><p>{readOnlyNote(editable)}</p></>,
+    help: <><p>The name and title printed in the signature block. Only an Admin can change these.</p><p>{readOnlyNote(editable)}</p></>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <section className="card">
@@ -25,15 +25,15 @@ export async function SignersView(sp: SP): Promise<View> {
               <input type="hidden" name="key" value={key} />
               <div>
                 <label htmlFor={`${key}-name`} className="label">{label}</label>
-                <input id={`${key}-name`} name="name" defaultValue={signer(key).name} disabled={!access.is_owner} className="input" />
+                <input id={`${key}-name`} name="name" defaultValue={signer(key).name} disabled={!access.admin} className="input" />
                 <span className="text-xs text-muted">{hint}</span>
               </div>
               <div>
                 <label htmlFor={`${key}-title`} className="label">Title</label>
-                <input id={`${key}-title`} name="title" defaultValue={signer(key).title} disabled={!access.is_owner} className="input" />
+                <input id={`${key}-title`} name="title" defaultValue={signer(key).title} disabled={!access.admin} className="input" />
                 <span className="text-xs">&nbsp;</span>
               </div>
-              {access.is_owner && <span className="inline-flex w-fit items-center gap-2 mb-5"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
+              {access.admin && <span className="inline-flex w-fit items-center gap-2 mb-5"><SaveFormButton className="btn" /><SaveFormDiscard /></span>}
             </SaveForm>
           ))}
         </div>

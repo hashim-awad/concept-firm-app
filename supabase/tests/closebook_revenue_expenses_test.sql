@@ -6,10 +6,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Spruce Test Realty Inc.', 'ON') returning id as client \gset
 
 set role authenticated;
@@ -145,7 +145,7 @@ select test.check('B7: vehicle and equipment purchases are capital, for the revi
   (select string_agg(account || ':' || capital || ':' || to_reviewer, ',' order by sort_order) from public.cb_standard_entry_lines where standard_id = :'std' and key in ('vehicle_purchase', 'equipment')) = '15300:true:true,15200:true:true');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('B7: staff cannot change the lines', test.try(format($q$select public.cb_save_standard_entry_line(%L, 'meals', '60200', 'taxable', false)$q$, :'std')) = 'Only owners change standard entries.');
+select test.check('B7: staff cannot change the lines', test.try(format($q$select public.cb_save_standard_entry_line(%L, 'meals', '60200', 'taxable', false)$q$, :'std')) = 'Only Admins change standard entries.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('B7: CRA payments only to 21400, 21500 or 21300', test.try(format($q$select public.cb_save_standard_entry_line(%L, 'cra', '60000', 'none', false)$q$, :'std')) = 'Choose one of 21400, 21500, 21300.');
 select test.check('B7: the entry itself cannot be deleted', test.try(format($q$select public.cb_delete_standard_entry(%L)$q$, :'std')) like 'The "Expenses paid personally" entry is set by its lines%');

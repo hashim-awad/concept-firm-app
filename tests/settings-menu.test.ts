@@ -17,23 +17,24 @@ const allCode = (dir: string): string => readdirSync(dir).map((f) => {
   const p = join(dir, f);
   return statSync(p).isDirectory() ? allCode(p) : /\.tsx?$/.test(f) ? readFileSync(p, "utf8") : "";
 }).join("\n");
-const units = defs.flatMap((d) => (d.tabs ?? [{ key: "", label: d.label, open: d.open!, ownerOnly: d.ownerOnly, settingKeys: d.settingKeys, dir: d.dir! }]).map((t) => ({ ...t, label: d.tabs ? `${d.label} › ${t.label}` : d.label, href: d.href })));
+const units = defs.flatMap((d) => (d.tabs ?? [{ key: "", label: d.label, open: d.open!, adminOnly: d.adminOnly, settingKeys: d.settingKeys, dir: d.dir! }]).map((t) => ({ ...t, label: d.tabs ? `${d.label} › ${t.label}` : d.label, href: d.href })));
 
-// Owner-only keys in the latest update_setting: a branch that calls private.is_owner().
+// Owner-only keys in the latest update_setting: a branch that calls private.is_admin().
 function ownerKeys(): Set<string> {
   const files = readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
   let body = "";
   for (const f of files) {
     const s = readFileSync(join("supabase/migrations", f), "utf8");
-    const i = s.lastIndexOf("function public.update_setting(");
-    if (i >= 0) body = s.slice(i, s.indexOf("$$;", i));
+    // Piece R3a-1: function dumps are upper case and quoted with $function$.
+    const i = s.toLowerCase().lastIndexOf("function public.update_setting(");
+    if (i >= 0) { const q = s.slice(i).match(/\$(function)?\$;/); body = s.slice(i, q ? i + q.index! : undefined); }
   }
   const re = /(?:if|elsif) p_key (?:=|in) (\([^)]*\)|'[^']+') then/g;
   const marks = [...body.matchAll(re)];
   const owner = new Set<string>();
   marks.forEach((m, n) => {
     const branch = body.slice(m.index!, n + 1 < marks.length ? marks[n + 1].index : undefined);
-    if (branch.includes("private.is_owner()")) for (const k of m[1].matchAll(/'([^']+)'/g)) owner.add(k[1]);
+    if (branch.includes("private.is_admin()")) for (const k of m[1].matchAll(/'([^']+)'/g)) owner.add(k[1]);
   });
   assert.ok(owner.size > 0, "found update_setting");
   return owner;
@@ -41,10 +42,10 @@ function ownerKeys(): Set<string> {
 
 function checkAccess(code: string, open: Open[], label: string) {
   const o = open.join("+");
-  if (o === "owner") assert.match(code, /requireOwner\(\)|loadSettings\(true\)/, label);
+  if (o === "admin") assert.match(code, /requireAdmin\(|loadSettings\(true\)/, label);
   else if (o === "everyone") assert.match(code, /requireAccess\(\)/, label);
   else if (o === "settings") assert.match(code, /loadSettings\(\)/, label);
-  else if (o === "staff_accounts+owner") assert.ok(code.includes('canView(access, "staff_accounts")') && code.includes("access.is_owner"), label);
+  else if (o === "staff_accounts+admin") assert.ok(code.includes('canView(access, "staff_accounts")') && code.includes("access.admin"), label);
   else assert.match(code, new RegExp(`requireAccess(WithPricing)?\\("${o}"`), label);
 }
 
@@ -66,12 +67,12 @@ test("settings pages: owner-only changes match update_setting in the database", 
   for (const u of units.filter((x) => x.settingKeys)) {
     const flags = u.settingKeys!.map((k) => owner.has(k));
     assert.ok(flags.every((f) => f === flags[0]), `${u.label}: keys disagree`);
-    assert.equal(!!u.ownerOnly, flags[0], `${u.label}: ownerOnly must be ${flags[0]}`);
+    assert.equal(!!u.adminOnly, flags[0], `${u.label}: adminOnly must be ${flags[0]}`);
   }
 });
 
 test("an owner-only action is really checked in the code", () => {
-  for (const u of units.filter((x) => x.ownerOnly && !x.settingKeys)) assert.match(allCode(join(ADMIN, u.dir)), /is_owner|requireOwner/, u.label);
+  for (const u of units.filter((x) => x.adminOnly && !x.settingKeys)) assert.match(allCode(join(ADMIN, u.dir)), /\.admin\b|requireAdmin/, u.label);
 });
 
 test("every page under /admin is a menu entry, a tab's old address that redirects, or a detail page", () => {
@@ -100,9 +101,9 @@ test("no permission lock icons on the settings pages", () => {
 });
 
 test("the gear shows staff only what they can open; owners see the template count", () => {
-  const staff = { is_owner: false, permissions: { settings: "view", engagement_terms: "view" } } as never;
+  const staff = { admin: false, permissions: { settings: "view", engagement_terms: "view" } } as never;
   const all = Object.fromEntries(["settings", "engagement_terms", "pricing", "price_book", "tax_rates", "staff_accounts"].map((k) => [k, "edit"]));
-  const owner = { is_owner: true, permissions: all } as never;
+  const owner = { admin: true, permissions: all } as never;
   const s = gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items.map((i) => i.label));
   assert.deepEqual(s.sort(), ["Change log", "Closebook", "Data retention", "Emails", "Firm details", "Lead sources", "Letters and quotes", "Online sales", "Schedules and terms", "T1 rule values"].sort());
   assert.equal(gearMenu(staff, { closebook: 2 }).flatMap((c) => c.items).find((i) => i.label === "Closebook")?.count, undefined);

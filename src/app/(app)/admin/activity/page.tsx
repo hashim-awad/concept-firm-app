@@ -1,7 +1,7 @@
 import { formatDateTime } from "@/components/ui";
 import { SettingsShell } from "../settings-shell";
 import { formatDate } from "@/lib/dates";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { describeCraChange } from "@/lib/closebook/cra-rates";
 
@@ -23,7 +23,7 @@ const ENTITY_LABEL: Record<string, string> = {
 };
 
 export default async function ActivityPage() {
-  await requireOwner();
+  await requireAdmin();
   const supabase = await createClient();
   const [{ data: entries }, { data: staff }, { data: roles }] = await Promise.all([
     supabase.from("activity_log").select("id, occurred_at, actor_id, action, entity_type, entity_id, details").order("occurred_at", { ascending: false }).limit(200),
@@ -59,7 +59,7 @@ export default async function ActivityPage() {
 function describe(e: Entry, staffName: Map<string, string>, roleName: Map<string, string>): string {
   const oldRow = (e.details?.old ?? {}) as Record<string, unknown>;
   const newRow = (e.details?.new ?? {}) as Record<string, unknown>;
-  if (e.action === "bootstrap_owner") return `First owner set: ${staffName.get(e.entity_id ?? "") ?? ""}`;
+  if (e.action === "bootstrap_owner") return `First Admin set: ${staffName.get(e.entity_id ?? "") ?? ""}`;
   if (e.entity_type.startsWith("cb_cra_")) return describeCraChange(e.entity_type, e.action, oldRow, newRow);
   if (e.entity_type === "role_permissions") {
     const area = String(newRow.area_key ?? oldRow.area_key ?? "");

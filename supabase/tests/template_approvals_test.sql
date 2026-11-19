@@ -7,7 +7,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff cannot approve a template', test.try($$insert into public.template_approvals (template_key, template_name, el_version) values ('sPayroll', 'Schedule: payroll', 'EL v3.31')$$) like '%row-level security%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
