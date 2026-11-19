@@ -50,14 +50,14 @@ select (public.cb_assign(:'f', (select jsonb_agg(jsonb_build_object('account', i
 select test.check('T1c: one Assign assigns all 8, in one action', (select count(*) from public.cb_accounts where file_id = :'f' and chart_account = '60000') = 8
   and (select jsonb_array_length(items) from public.cb_assign_actions where id = :'act1') = 8);
 select test.check('T1: the group follows the master account (D6)', not exists (select 1 from public.cb_accounts where file_id = :'f' and chart_account = '60000' and line_no is distinct from '8521.00'));
-select test.check('T1c: History lists the action', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Assigned 8 accounts to 60000 Advertising'));
+select test.check('T1c: History lists the action', exists (select 1 from public.cb_file_history where file_id = :'f' and detail like 'Assigned 8 accounts to 60000 Advertising: 6000.01 Sub 0-1 (none to 60000); %'));   -- security review: History names each account
 -- Undo: one call returns all 8.
 :prep;
 select public.cb_undo_assign(:'act1');
 :out;
 select test.check('T1c: Undo returns all 8 to Unassigned', not exists (select 1 from public.cb_accounts where file_id = :'f' and chart_account = '60000')
   and (select undone_at is not null from public.cb_assign_actions where id = :'act1'));
-select test.check('T1c: History lists the Undo', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Undo: Assigned 8 accounts to 60000 Advertising'));
+select test.check('T1c: History lists the Undo', exists (select 1 from public.cb_file_history where file_id = :'f' and detail like 'Undo: Assigned 8 accounts to 60000 Advertising: % (60000 to none)%'));
 :prep;
 select test.check('T1c: an action is undone once', test.try(format('select public.cb_undo_assign(%L)', :'act1')) = 'This action is already undone.');
 select (public.cb_assign(:'f', (select jsonb_agg(jsonb_build_object('account', id, 'chart', '60000')) from public.cb_accounts where file_id = :'f' and parent_key = '6000'), 'Assigned 8 accounts to 60000 Advertising')) ->> 'action' as act2 \gset
@@ -251,4 +251,40 @@ update public.cb_files set phase = 'locked' where id = :'tx';
 :prep;
 select test.check('the pick is refused on a locked file', test.try(format('select public.cb_pick_chart_account(%L, %L, %L)', :'tx', '12250', (select id from public.cb_accounts where file_id = :'tx' and number = '1250')))
   = 'This file is locked.');
+:out;
+
+-- Security review: Undo puts back the step 8 override and the reviewer flag; an account sent to the reviewer is the reviewer's;
+-- a user without Edit, an account from another file, and Unassign all on a locked file are refused.
+:prep;
+select public.cb_create_file(:'client', '2021-12-31', '2021-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as sr \gset
+select public.cb_import_tb(:'sr', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":500},{"number":"6000","name":"Ads","amount":100},{"number":"4000","name":"Commissions","amount":-600}]');
+select public.cb_assign(:'sr', (select jsonb_agg(jsonb_build_object('account', id, 'chart', case number when '1000' then '10000' when '6000' then '60000' else '40100' end)) from public.cb_accounts where file_id = :'sr'), 'Assigned 3 accounts');
+select public.cb_set_gifi_override((select id from public.cb_accounts where file_id = :'sr' and number = '6000'), '8524.00');
+select (public.cb_unassign_all(:'sr')) ->> 'action' as ua \gset
+:out;
+select test.check('security: unassigning drops the override with a History line', exists (select 1 from public.cb_file_history where file_id = :'sr' and detail like '6000 Ads: GIFI override 8524 dropped%'));
+:prep;
+select public.cb_undo_assign(:'ua');
+:out;
+select test.check('security: Undo puts the override back', (select gifi_override from public.cb_accounts where file_id = :'sr' and number = '6000') = '8524.00');
+update public.cb_accounts set needs_reviewer = true, reviewer_reason = 'Which line?' where file_id = :'sr' and number = '6000';
+:prep;
+select test.check('security: the preparer cannot assign an account sent to the reviewer', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
+  json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'), 'chart', '60100')), 'Assigned 1 account')) = 'This account waits for the reviewer''s decision.');
+select test.check('security: an account from another file is refused', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
+  json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'m' limit 1), 'chart', '60100')), 'Assigned 1 account')) = 'An account is not in this file.');
+:out;
+update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+:prep;
+select test.check('security: without Edit, every new action is refused',
+  test.try(format('select public.cb_unassign_all(%L)', :'sr')) like 'You need Edit on Closebook%'
+  and test.try(format('select public.cb_undo_assign(%L)', :'ua')) like 'You need Edit on Closebook%'
+  and test.try(format('select public.cb_pick_chart_account(%L, %L, %L)', :'sr', '60000', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%'
+  and test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) like 'You need Edit on Closebook%'
+  and test.try(format('select public.cb_keep_line_move(%L)', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%');
+:out;
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.cb_files set phase = 'locked' where id = :'sr';
+:prep;
+select test.check('security: Unassign all on a locked file is refused', test.try(format('select public.cb_unassign_all(%L)', :'sr')) = 'This file is locked.');
 :out;

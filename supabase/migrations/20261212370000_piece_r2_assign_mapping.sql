@@ -119,7 +119,13 @@ begin
   if tg_op = 'UPDATE' and new.chart_account is distinct from old.chart_account then
     v_line := case when new.chart_account is null then null else (select line_no from public.cb_chart_accounts where number = new.chart_account) end;
     new.line_no := v_line;
-    if new.chart_account is null then new.gifi_override := null; new.line_move_ok := null; end if;
+    if new.chart_account is null then
+      if old.gifi_override is not null then
+        perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format('%s: GIFI override %s dropped (unassigned in step 4)', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
+          replace(old.gifi_override, '.00', '')), null, null, btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Unassigned', 'GIFI ' || replace(old.gifi_override, '.00', ''), null);
+      end if;
+      new.gifi_override := null; new.line_move_ok := null;
+    end if;
     -- R1's override rolls forward on these files when the master account is first set (the year just before only).
     if old.chart_account is null and new.chart_account is not null and new.gifi_override is null and v_line is not null then
       select a.gifi_override into v_prev from public.cb_files f
@@ -171,7 +177,7 @@ $$;
 -- p_items: [{account, chart}] (chart null to unassign). p_source: last_year, type, name or manual.
 create or replace function public.cb_assign(p_file uuid, p_items jsonb, p_label text, p_source text default 'manual') returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_file public.cb_files; v jsonb; a public.cb_accounts; v_chart public.cb_chart_accounts; v_items jsonb := '[]'::jsonb; v_id uuid; v_n int := 0;
+declare v_file public.cb_files; v jsonb; a public.cb_accounts; v_chart public.cb_chart_accounts; v_items jsonb := '[]'::jsonb; v_id uuid; v_n int := 0; v_list text[] := '{}';
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook to assign accounts.');
   select * into v_file from public.cb_files where id = p_file for update;
@@ -192,8 +198,13 @@ begin
       perform private.require(v_chart.number is not null, 'Choose a master account.');
     end if;
     if a.chart_account is not distinct from nullif(v ->> 'chart', '') then continue; end if;
+    -- An account sent to the reviewer is the reviewer's to decide (as cb_set_gifi_override).
+    perform private.require(not a.needs_reviewer or private.cb_is_reviewer(v_file), 'This account waits for the reviewer''s decision.');
+    -- Undo puts back everything this changes: the master account, the step 8 override and decisions, the reviewer flag.
     v_items := v_items || jsonb_build_array(jsonb_build_object('account', a.id, 'before', a.chart_account, 'after', nullif(v ->> 'chart', ''),
-      'before_source', a.assign_source));
+      'before_source', a.assign_source, 'before_override', a.gifi_override, 'before_move_ok', a.line_move_ok,
+      'before_reviewer', a.needs_reviewer, 'before_mapping', a.mapping_source));
+    v_list := v_list || format('%s (%s to %s)', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name), coalesce(a.chart_account, 'none'), coalesce(nullif(v ->> 'chart', ''), 'none'));
     update public.cb_accounts set chart_account = nullif(v ->> 'chart', ''), line_no = v_chart.line_no,
            assign_source = case when nullif(v ->> 'chart', '') is null then null else coalesce(p_source, 'manual') end,
            mapping_source = case when nullif(v ->> 'chart', '') is null then null else 'preparer' end,
@@ -210,15 +221,19 @@ begin
   end loop;
   if v_n = 0 then return jsonb_build_object('action', null, 'n', 0); end if;
   insert into public.cb_assign_actions (file_id, label, items, done_by) values (p_file, left(btrim(p_label), 300), v_items, (select auth.uid())) returning id into v_id;
-  perform private.cb_log_event(p_file, 'assign', 'code', left(btrim(p_label), 300), null, null, null, null, null, null, null);
+  -- History names every account and its old and new master account (written here, not taken from the screen).
+  perform private.cb_log_event(p_file, 'assign', 'code', left(format('%s: %s', btrim(p_label), array_to_string(v_list, '; ')), 4000), null, null, null, null, null, null, null);
   update public.cb_files set updated_at = now() where id = p_file;
   return jsonb_build_object('action', v_id, 'n', v_n);
 end;
 $$;
 
 create or replace function public.cb_unassign_all(p_file uuid) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v_items jsonb; v_n int;
+declare v_items jsonb; v_n int; v_file public.cb_files;
 begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook to assign accounts.');
+  select * into v_file from public.cb_files where id = p_file;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked.');
   select coalesce(jsonb_agg(jsonb_build_object('account', id, 'chart', null)), '[]'::jsonb), count(*) into v_items, v_n
     from public.cb_accounts where file_id = p_file and chart_account is not null and not client_new and account_key not in ('opening', 'uncoded');
   perform private.require(v_n > 0, 'No account is assigned.');
@@ -245,7 +260,10 @@ begin
   for v in select * from jsonb_array_elements(r.items) loop
     v_chart := nullif(v ->> 'before', '');
     update public.cb_accounts set chart_account = v_chart, line_no = (select line_no from public.cb_chart_accounts where number = v_chart),
-           assign_source = nullif(v ->> 'before_source', ''), mapping_source = case when v_chart is null then null else 'preparer' end,
+           assign_source = nullif(v ->> 'before_source', ''),
+           mapping_source = case when v ? 'before_mapping' then nullif(v ->> 'before_mapping', '') when v_chart is null then null else 'preparer' end,
+           gifi_override = nullif(v ->> 'before_override', ''), line_move_ok = nullif(v ->> 'before_move_ok', ''),
+           needs_reviewer = coalesce((v ->> 'before_reviewer')::boolean, needs_reviewer),
            mapped_by = (select auth.uid()), mapped_at = now()
      where id = (v ->> 'account')::uuid;
     if v_chart is not null then
@@ -254,7 +272,9 @@ begin
     end if;
   end loop;
   update public.cb_assign_actions set undone_at = now() where id = r.id;
-  perform private.cb_log_event(r.file_id, 'assign', 'code', 'Undo: ' || r.label, null, null, null, null, null, null, null);
+  perform private.cb_log_event(r.file_id, 'assign', 'code', left('Undo: ' || r.label || ': ' || (select string_agg(format('%s (%s to %s)', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
+    coalesce(nullif(i ->> 'after', ''), 'none'), coalesce(nullif(i ->> 'before', ''), 'none')), '; ') from jsonb_array_elements(r.items) i join public.cb_accounts a on a.id = (i ->> 'account')::uuid), 4000),
+    null, null, null, null, null, null, null);
   return jsonb_build_object('undone', r.id);
 end;
 $$;
@@ -325,6 +345,8 @@ begin
   perform private.require(a.id is not null, 'Account not found.');
   perform private.require(v_file.phase <> 'locked', 'This file is locked.');
   perform private.require(private.cb_is_reviewer(v_file), 'The reviewer decides.');
+  perform private.require(private.cb_is_tb(a.file_id) and private.cb_prior_line(a.file_id, a.account_key) is distinct from a.line_no,
+    'This account''s line did not change from last year.');
   v_label := btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name);
   update public.cb_accounts set line_move_ok = a.line_no where id = a.id;
   perform private.cb_log_event(a.file_id, 'account_reviewed', 't2', format('%s: line changed from last year, kept', v_label), null, null, v_label,
