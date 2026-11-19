@@ -3,7 +3,7 @@
 // own account numbers and names, ready to book in QuickBooks. Amounts in cents (the Excel writer writes dollars). Pure.
 import type { ReportTable, TableRow } from "./report-table.ts";
 
-export type ListEntry = { no: string; kind: string; memo: string; lines: { number: string; name: string; cents: number }[] };
+export type ListEntry = { no: string; kind: string; memo: string; date?: string | null; lines: { number: string; name: string; cents: number }[] };
 export function clientListTable(title: string, fresh: { name: string; type: string }[], entries: ListEntry[]): ReportTable {
   const rows: TableRow[] = [];
   if (fresh.length) {
@@ -13,7 +13,8 @@ export function clientListTable(title: string, fresh: { name: string; type: stri
   }
   rows.push({ cells: ["Entries to record", null, null], bold: true });
   for (const e of entries) {
-    rows.push({ cells: [`${e.no} ${e.kind}: ${e.memo}`, null, null], bold: true });
+    // An entry not dated the year end (an opening RJE, dated the first day of the year) says its date.
+    rows.push({ cells: [`${e.no} ${e.kind}${e.date ? `, dated ${e.date}` : ""}: ${e.memo}`, null, null], bold: true });
     for (const l of e.lines) rows.push({ cells: [`${l.number ? `${l.number} ` : ""}${l.name}`, l.cents > 0 ? l.cents : null, l.cents < 0 ? -l.cents : null], indent: 1 });
     const dr = e.lines.reduce((s, l) => s + Math.max(l.cents, 0), 0);
     rows.push({ cells: ["Total", dr, dr], bold: true });

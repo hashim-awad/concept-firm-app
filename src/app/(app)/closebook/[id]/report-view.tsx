@@ -5,7 +5,7 @@
 // the row it came from.
 import Link from "next/link";
 import type { PostingKind } from "@/lib/closebook/tb-build";
-import { journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type StmtGroup, type StmtSection, type TbLine } from "@/lib/closebook/reports";
+import { CLEARING_TOTAL, journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type StmtGroup, type StmtSection, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { formatDate } from "@/lib/dates";
 import { InfoTip } from "@/components/ds/info-tip";
@@ -178,7 +178,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
                 {sec(s.bs.assets, "Total assets")}
                 {sec(s.bs.liabilities, "Total liabilities")}
                 {sec(s.bs.equity, "Total equity")}
-                {s.bs.clearing && sec(s.bs.clearing, "Total clearing accounts", true)}
+                {s.bs.clearing && sec(s.bs.clearing, CLEARING_TOTAL, true)}
                 {s.bs.unsorted && sec(s.bs.unsorted, "Total not yet sorted", true)}
                 {grand("Total liabilities and equity", s.bs.totalLE)}
               </>

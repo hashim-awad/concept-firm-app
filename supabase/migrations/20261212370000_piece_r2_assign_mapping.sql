@@ -478,6 +478,12 @@ begin
       if v_flag_amount <> v_file.opening_re_stated then
         v_out := v_out || format('Retained earnings at the start do not tie to step 2. At the start: %s. Step 2 (T2 line 3849): %s. Difference: %s.',
           private.cb_money(v_flag_amount), private.cb_money(v_file.opening_re_stated), private.cb_money(v_flag_amount - v_file.opening_re_stated));
+        -- Dividends option A (Hashim, Nov 19): name each dividends or prior period account still carrying last year's balance.
+        v_out := v_out || coalesce((select array_agg(format('%s carries %s from last year: if QuickBooks did not close it, move that balance to retained earnings with one RJE dated the first day of the year.',
+                 btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name), private.cb_money(a.last_year)) order by a.number, a.name)
+          from public.cb_accounts a join public.cb_chart_accounts c on c.number = a.chart_account
+         where a.file_id = p_file and c.line_no >= '3700' and c.line_no < '3750' and a.last_year <> 0
+           and not exists (select 1 from public.cb_entries e join public.cb_entry_lines l on l.entry_id = e.id where e.file_id = p_file and e.kind = 'RJE' and l.account_id = a.id)), '{}'::text[]);
       end if;
     end if;
     v_out := v_out || coalesce((select array_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
@@ -880,7 +886,7 @@ begin
 end;
 $function$;
 
--- Entries on trial balance files (item 5; D12a, D12b; Opening Balance Equity, option A).
+-- Entries on trial balance files (item 5; D12a, D12b; Opening Balance Equity, option A; dividends carried in QuickBooks, option A).
 CREATE OR REPLACE FUNCTION private.cb_entry_write_lines(p_entry uuid, p_file cb_files, p_kind text, p_reason text, p_reverse boolean, p_lines jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -895,6 +901,11 @@ declare
   v_cnt int;
   v_obe boolean := false;
   v_obe_acc uuid;
+  v_div boolean := false;
+  v_div_acc uuid;
+  v_div_amt numeric;
+  v_div_last numeric;
+  v_div_name text;
   v_re_now numeric;
   v jsonb;
   v_acc uuid;
@@ -917,6 +928,16 @@ begin
     select max(a.id::text) filter (where private.cb_obe(a))::uuid, count(*) filter (where private.cb_obe(a)), count(*) filter (where a.line_no like '3600.%')
       into v_obe_acc, v_cnt, v_n_re from jsonb_array_elements(p_lines) l join public.cb_accounts a on a.id = nullif(l ->> 'account', '')::uuid and a.file_id = v_fid;
     v_obe := v_cnt = 1 and v_n_re = 1;
+    -- Hashim (Nov 19, 2026, dividends option A): QuickBooks never closes a dividends account (or one assigned to 31500 Prior
+    -- period adjustments), so it carries last year's balance into this year. One RJE per such account, at the start of the
+    -- year, moves exactly last year's balance to retained earnings: two lines, that account and retained earnings.
+    if not v_obe then
+      select max(a.id::text) filter (where c.line_no >= '3700' and c.line_no < '3750' and a.last_year <> 0)::uuid,
+             count(*) filter (where c.line_no >= '3700' and c.line_no < '3750' and a.last_year <> 0)
+        into v_div_acc, v_cnt from jsonb_array_elements(p_lines) l join public.cb_accounts a on a.id = nullif(l ->> 'account', '')::uuid and a.file_id = v_fid
+        left join public.cb_chart_accounts c on c.number = a.chart_account;
+      v_div := v_cnt = 1 and v_n_re = 1;
+    end if;
   end if;
   for v in select * from jsonb_array_elements(p_lines) loop
     v_chart := null; v_cn := null;
@@ -978,7 +999,7 @@ begin
     end if;
     -- Retained earnings only moves through a prior period adjustment, which posts to GIFI 3720.
     v_re := v_line like '3600.%' or v_key in ('gifi:3660', 'gifi:3600');
-    if v_re and not v_obe then
+    if v_re and not v_obe and not v_div then
       perform private.require(p_reason = 'prior_period', 'A line on retained earnings needs the reason "Prior period adjustment".');
       v_line := '3720.00'; v_acc := null;
       if v_own then v_name := 'Prior period adjustments'; v_type := 'Equity'; end if;
@@ -1041,6 +1062,24 @@ begin
     update public.cb_entries set entry_date = p_file.year_start where id = p_entry and entry_date is distinct from p_file.year_start;
     perform private.cb_log_event(v_fid, 'entry_obe', 'entries', 'Opening Balance Equity cleared to retained earnings (RJE), checked against step 2',
       null, null, null, null, null, null, null);
+  end if;
+  if v_div then
+    select a.last_year, btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name) into v_div_last, v_div_name from public.cb_accounts a where a.id = v_div_acc;
+    select coalesce(sum(amount), 0) into v_div_amt from public.cb_entry_lines where entry_id = p_entry and account_id = v_div_acc;
+    perform private.require(p_file.opening_re_stated is not null, 'Enter last year''s closing retained earnings in step 2 first.');
+    perform private.require(not exists (select 1 from public.cb_entries e join public.cb_entry_lines l on l.entry_id = e.id
+        where e.file_id = v_fid and e.id <> p_entry and e.kind = 'RJE' and l.account_id = v_div_acc
+          and exists (select 1 from public.cb_entry_lines r join public.cb_accounts ra on ra.id = r.account_id where r.entry_id = e.id and ra.line_no like '3600.%')),
+      format('%s: last year''s balance is already moved to retained earnings by another entry.', v_div_name));
+    perform private.require(v_div_amt = -v_div_last,
+      format('The entry must move %s''s balance from last year exactly: last year %s, this entry %s.', v_div_name, private.cb_money(v_div_last), private.cb_money(-v_div_amt)));
+    select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_re_now from public.cb_accounts a where a.file_id = v_fid and a.line_no like '3600.%';
+    perform private.require(v_re_now = p_file.opening_re_stated,
+      format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
+        private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated)));
+    update public.cb_entries set entry_date = p_file.year_start where id = p_entry and entry_date is distinct from p_file.year_start;
+    perform private.cb_log_event(v_fid, 'entry_dividends', 'entries', format('%s: last year''s balance %s moved to retained earnings (RJE), checked against step 2',
+      v_div_name, private.cb_money(v_div_last)), null, null, null, null, null, null, null);
   end if;
   perform private.require(p_kind <> 'RJE' or v_income = 0, 'A reclassifying entry (RJE) cannot change the result. Use an AJE.');
   perform private.require(p_reason <> 'prior_period' or v_ppa_line, 'The reason "Prior period adjustment" needs a line on 31500 Prior period adjustments.');

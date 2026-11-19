@@ -303,10 +303,13 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   };
   // D12b: with several client accounts on one master account, the one entries and schedules post to (rolls forward).
+  // The choice last sent to the server: a blur and a close right after it (mouse on X) save it once.
+  const sent = useRef(pick ?? "");
   const choose = async (key: string) => {
-    const a = accts.find((x) => x.key === key); if (!a) return;
+    const a = accts.find((x) => x.key === key); if (!a || sent.current === key) return;
+    sent.current = key;
     const err = await pickChartAccountInline(fileId, m.number, a.id);
-    if (err) notify(err, "error"); else { setTaking(key); notify(`Entries to ${m.number} ${m.name} go to ${label(a)}.`); router.refresh(); }
+    if (err) { sent.current = taking ?? ""; notify(err, "error"); } else { setTaking(key); notify(`Entries to ${m.number} ${m.name} go to ${label(a)}.`); router.refresh(); }
   };
   const shut = () => { const p = pending.current; if (p.choice && p.choice !== p.taking) void choose(p.choice); onClose(); };
   useEffect(() => { close.current = shut; });

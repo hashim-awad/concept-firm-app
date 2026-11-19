@@ -334,3 +334,38 @@ select test.check('1A: a new trial balance reopens step 6', not exists (select 1
 select test.check('security: a figure that is not a number is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', 'NaN')) = 'Type the amount as printed on the T2.');
 select test.check('security: a figure too large is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', '1e13')) = 'Type the amount as printed on the T2.');
 :out;
+
+-- Dividends carried in QuickBooks (Hashim, Nov 19, option A): one RJE per dividends account, dated the first day of the year,
+-- moving exactly last year's balance to retained earnings; it must make the step 6 tie.
+:prep;
+select public.cb_create_file(:'client', '2019-12-31', '2019-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as dv \gset
+-- QuickBooks: dividends 25,000.00 (20,000.00 from last year never closed, 5,000.00 this year); retained earnings 100,000.00
+-- credit, of which 20,000.00 is last year's dividends never closed. Last year's T2 line 3849: 80,000.00.
+select public.cb_import_tb(:'dv', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":75000},{"number":"3400","name":"Dividends","amount":25000},{"number":"3000","name":"Retained earnings","amount":-100000}]');
+select public.cb_import_tb(:'dv', 'last_year', 'client_software', 'tb-ly.csv', '[{"number":"1000","name":"Chequing","amount":80000},{"number":"3400","name":"Dividends","amount":20000},{"number":"3000","name":"Retained earnings","amount":-100000}]');
+select public.cb_assign(:'dv', format('[{"account":"%s","chart":"10000"},{"account":"%s","chart":"32200"},{"account":"%s","chart":"31000"}]',
+  (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), (select id from public.cb_accounts where file_id = :'dv' and number = '3400'),
+  (select id from public.cb_accounts where file_id = :'dv' and number = '3000'))::jsonb, 'Assigned 3 accounts');
+select public.cb_save_tb_opening_re(:'dv', 80000);
+:out;
+select id as dvd from public.cb_accounts where file_id = :'dv' and number = '3400' \gset
+select id as dvre from public.cb_accounts where file_id = :'dv' and number = '3000' \gset
+select test.check('dividends: step 6 names the account carrying last year''s balance', private.cb_step_problems(:'dv', 'compare')
+  @> array['3400 Dividends carries 20,000.00 from last year: if QuickBooks did not close it, move that balance to retained earnings with one RJE dated the first day of the year.']);
+:prep;
+select test.check('dividends: refused when the amount differs from last year''s balance, naming both', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Close last year''s dividends', false, '[{"account":"%s","amount":-15000},{"account":"%s","amount":15000}]', 'QuickBooks trial balance')$q$,
+  :'dv', :'dvd', :'dvre')) = 'The entry must move 3400 Dividends''s balance from last year exactly: last year 20,000.00, this entry 15,000.00.');
+select test.check('dividends: one RJE of last year''s balance is accepted', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Close last year''s dividends', false, '[{"account":"%s","amount":-20000},{"account":"%s","amount":20000}]', 'QuickBooks trial balance')$q$,
+  :'dv', :'dvd', :'dvre')) = 'OK');
+select test.check('dividends: a second RJE on the same account is refused', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Again', false, '[{"account":"%s","amount":-20000},{"account":"%s","amount":20000}]', 'QuickBooks trial balance')$q$,
+  :'dv', :'dvd', :'dvre')) = '3400 Dividends: last year''s balance is already moved to retained earnings by another entry.');
+:out;
+select test.check('dividends: this year''s dividends show 5,000.00, not 25,000.00', private.cb_account_final(:'dvd') = 5000);
+select test.check('dividends: retained earnings at the start tie to step 2 (80,000.00)', not exists (select 1 from unnest(private.cb_step_problems(:'dv', 'compare')) p where p like 'Retained earnings at the start%' or p like '%carries%from last year%'));
+select test.check('dividends: the entry is dated the first day of the year', (select entry_date from public.cb_entries where file_id = :'dv' and kind = 'RJE') = '2019-01-01');
+select test.check('dividends: History records it', exists (select 1 from public.cb_file_history where file_id = :'dv' and action = 'entry_dividends'
+  and detail = '3400 Dividends: last year''s balance 20,000.00 moved to retained earnings (RJE), checked against step 2'));
+:prep;
+select test.check('dividends: any other entry to retained earnings still needs a prior period adjustment', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
+  :'dv', (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), :'dvre')) = 'A line on retained earnings needs the reason "Prior period adjustment".');
+:out;

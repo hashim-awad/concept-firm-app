@@ -622,6 +622,12 @@ In short:
     accounts on 10900 Clearing show under "Clearing accounts (must be nil at year end)", on screen and in documents, apart from
     "Not yet sorted". The account entries take (several client accounts on one master account) is picked in step 4's master
     account window, also after step 4 is signed; it is optional ("If left blank, the entry window asks").
+  - Dividends carried in QuickBooks (Hashim, Nov 19, 2026, option A): on trial balance files only, a client account assigned to
+    a dividends master account (lines 3700 to 3740) or to 31500 Prior period adjustments (3720) that has a balance in last year's
+    column may take one RJE, dated the first day of the year, from that account to retained earnings. The amount must equal the
+    account's last-year balance exactly, and after the entry step 6's tie (retained earnings at the start = step 2's T2 line 3849)
+    must hold; otherwise refused, naming both figures. Logged in History and listed on the client entry list, so the client's
+    QuickBooks is closed the same way. While the tie fails, step 6 names each such account still carrying last year's balance.
   - Existing files (item 4): read-only Live count first (scripts/checks/r2-tb-chart-count.sql); the data move gives an account
     a master account only when exactly one master account sits on its current line (D3), sets chart_account only, never the
     line, skips locked files (D15). Live count (Hashim, Nov 19): no rows, no trial balance files on Live; the data move is left

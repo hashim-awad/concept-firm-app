@@ -155,6 +155,8 @@ test("decision 2A: Clearing accounts on a trial balance file have their own head
   const names = tbByGroup(tb, () => null).groups.map((g) => g.name);
   assert.ok(names.includes("Clearing accounts (must be nil at year end)"), names.join(", "));
   assert.ok(names.includes("Not yet sorted"), names.join(", "));
+  // One label for the Clearing total everywhere.
+  assert.equal(tbByGroup(tb, () => null).groups.find((g) => g.code === "clearing")?.total.name, "Total clearing accounts");
 });
 
 test("decision 2A: the balance sheet shows Clearing apart from Not yet sorted, also while accounts are mixed", async () => {
@@ -169,4 +171,15 @@ test("decision 2A: the balance sheet shows Clearing apart from Not yet sorted, a
   assert.equal(s.bs.unsorted?.now, 100000);
   // Both count in total liabilities and equity.
   assert.equal(s.bs.totalLE.now, -25000);
+});
+
+test("dividends option A: the client entry list gives an opening RJE its own date", async () => {
+  const { clientListTable } = await import("../src/lib/closebook/client-list.ts");
+  const t = clientListTable("Entries to record in your books", [], [
+    { no: "2026-001", kind: "RJE", memo: "Close last year's dividends to retained earnings", date: "2025-10-01",
+      lines: [{ number: "3400", name: "Dividends", cents: -2000000 }, { number: "3100", name: "Retained earnings", cents: 2000000 }] },
+    { no: "2026-002", kind: "AJE", memo: "Accrue the fee", date: null, lines: [{ number: "6600", name: "Fees", cents: 100 }, { number: "2100", name: "Accrued", cents: -100 }] }]);
+  const heads = t.rows.filter((r) => r.bold).map((r) => r.cells[0]);
+  assert.ok(heads.includes("2026-001 RJE, dated 2025-10-01: Close last year's dividends to retained earnings"), heads.join(" | "));
+  assert.ok(heads.includes("2026-002 AJE: Accrue the fee"), heads.join(" | "));
 });

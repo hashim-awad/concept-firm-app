@@ -25,6 +25,8 @@ export const UNSORTED = "unsorted";
 // heading, on screen and in documents, apart from accounts not yet sorted. Bank-statement files are unchanged.
 export const CLEARING = "clearing";
 export const CLEARING_NAME = "Clearing accounts (must be nil at year end)";
+// One label for the Clearing total everywhere (screen, working papers, client entry list).
+export const CLEARING_TOTAL = "Total clearing accounts";
 // Last year's net income, when last year's income statement (Schedule 125) was not entered: a trial
 // balance line so last year's column balances.
 export const NI_LAST = "ni-last";
@@ -121,7 +123,7 @@ export function tbByGroup(tb: TbLine[], info: (l: string | null) => LineInfo | n
     map.get(k)!.rows.push(r);
   }
   const groups = [...map.values()].sort((a, b) => groupSort(a.g, b.g))
-    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, `Total ${g.name.charAt(0).toLowerCase()}${g.name.slice(1)}`, rows) }));
+    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, g.code === CLEARING ? CLEARING_TOTAL : `Total ${g.name.charAt(0).toLowerCase()}${g.name.slice(1)}`, rows) }));
   return { groups, total: sumRows("total", "Total (debits less credits)", tb) };
 }
 
