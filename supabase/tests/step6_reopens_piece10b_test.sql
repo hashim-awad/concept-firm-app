@@ -95,6 +95,21 @@ select public.cb_delete_entry(:'aje2');
 reset role; reset request.jwt.claims;
 select test.check('an AJE deleted clears step 6', (:state) = 'code');
 
+-- An AJE edited so that only its sales tax lines change (the other lines the same) reopens step 6 (security review item 4).
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Office supplies with tax.', false,
+  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 100, 'tax_code', 'HST_ON'), jsonb_build_object('account', :'itp', 'amount', 13, 'is_tax', true),
+    jsonb_build_object('account', :'chq', 'amount', -113)), 'Bank statement') as aje3 \gset
+reset role; reset request.jwt.claims;
+:signed;
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_edit_entry(:'aje3', 'AJE', 'correction', 'Office supplies with tax.', false,
+  jsonb_build_array(jsonb_build_object('account', :'off', 'amount', 100, 'tax_code', 'HST_ON'), jsonb_build_object('account', :'itp', 'amount', 12, 'is_tax', true),
+    jsonb_build_object('account', :'itx', 'amount', 1, 'is_tax', true), jsonb_build_object('account', :'chq', 'amount', -113)), 'Bank statement');
+reset role; reset request.jwt.claims;
+select test.check('the non-tax lines are the same before and after', private.cb_entry_lines_text(:'aje3') like '%Office expenses Dr 100.00 HST_ON%');
+select test.check('only the sales tax lines changed: step 6 reopens', (:state) = 'code');
+
 -- ---------- T5: an explanation clears steps 6 and 7, not 5 or 8 (unchanged from piece 10).
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -150,12 +165,12 @@ select test.check('the last four digits changed (no balance moves) leave step 6 
 update public.cb_bank_accounts set chart_account = '10100' where id = :'bchq';
 select test.check('a bank account''s chart account changed (its balance moves to another row) clears step 6', (:bstate) not like '%compare%');
 
--- A posted line split again: steps 6 and 8 (and 7) clear; step 4 stays (its rule is unchanged).
+-- A posted line split again: a coding change (Hashim, option A): steps 4, 6, 7 and 8 clear; step 5 stays.
 :bsigned;
 insert into public.cb_line_splits (file_id, line_id, row_no, chart_account, tax_code, amount)
 select :'b', id, 1, '63000', tax_code_or_default, -3.00 from (select id, 'EXEMPT' tax_code_or_default from public.cb_bank_lines where file_id = :'b' and status = 'done' limit 1) x
 on conflict do nothing;
-select test.check('a posted line split clears step 6, not step 4 or step 5', (:bstate) = 'code,entries');
+select test.check('a posted line split clears steps 4, 6 and 7 (and 8), not step 5', (:bstate) = 'entries');
 select test.check('History names the line', exists (select 1 from public.cb_file_history where file_id = :'b' and action = 'signoff_cleared' and step = 'compare' and detail like '%: split changed'));
 :bsigned;
 update public.cb_line_splits set memo = 'just a memo' where file_id = :'b';

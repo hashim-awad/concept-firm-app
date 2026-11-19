@@ -8,7 +8,7 @@
 --     changes clear steps 6, 7 and 8 (and step 4 on trial balance files); the owner's decision on an account sent to the
 --     reviewer clears nothing; a revenue check or an entry's note, reason, W/P ref or attachments leave step 6 signed.
 --   * An entry edited without changing its lines (a note, reason, W/P ref or attachments) leaves step 6 signed.
---   * A posted line split again reopens steps 6 and 8; a bank account's chart account changed reopens step 6.
+--   * A posted line split again clears steps 4, 6, 7 and 8 (a coding change); a bank account's chart account changed reopens step 6.
 --   * Step 6's refusal: "N flagged change(s) to explain in Flagged changes."
 -- Functions only (each as on main, with the piece 10b lines). No table or column is dropped. No data is changed: nothing is
 -- cleared when this runs; a sign-off is cleared only by a later change, with its reason in History. Safe to run twice.
@@ -444,8 +444,8 @@ begin
 end;
 $function$;
 
--- Piece 10b: a posted line split again moves balances between accounts: steps 6 and 8 reopen (and 7 through the chain), with
--- the line in History. Step 4's own sign-off rule is unchanged. The reviewer's decision on a line clears nothing, as before.
+-- Piece 10b: a posted line split again is a coding change, as recoding a line: steps 4, 6, 7 and 8 clear, with the line in
+-- History. The reviewer's decision on a line clears nothing, as before.
 create or replace function private.cb_split_changed() returns trigger
 language plpgsql security definer set search_path = '' as $$
 declare v_row public.cb_line_splits := case when tg_op = 'DELETE' then old else new end; l public.cb_bank_lines; v_txt text;
@@ -454,8 +454,9 @@ begin
   select * into l from public.cb_bank_lines where id = v_row.line_id;
   if l.id is null or l.status in ('new', 'excluded') then return null; end if;
   v_txt := format('%s %s: split changed', to_char(l.txn_date, 'Mon FMDD'), left(l.description, 40));
-  perform private.cb_clear_step(v_row.file_id, 'compare', v_txt);
-  perform private.cb_clear_step(v_row.file_id, 't2', v_txt);
+  -- Hashim's decision (Nov 19, 2026, option A): a coding change, as recoding a line: step 4 clears, and steps 6, 7 and 8
+  -- through the chain.
+  perform private.cb_clear_step(v_row.file_id, 'code', v_txt);
   return null;
 end;
 $$;

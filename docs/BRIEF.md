@@ -549,7 +549,8 @@ In short:
     added or deleted, its lines changed, or its type or date changed; a step 4 coding change; a trial balance import; an
     opening balance change; and on bank and card files, statement lines added or removed, a statement added or deleted, or an
     account's opening balance or chart account changed, even when step 3 is not fully signed; a posted line split again
-    (steps 6 and 8; step 4's own rule is unchanged). Steps 7 and 8 clear through the chain as before.
+    (a coding change, Hashim's decision: steps 4, 6, 7 and 8, as recoding a line). Steps 7 and 8 clear through the chain as
+    before.
     Step 5's own rules do not change: step 4, trial balance and opening changes still do not clear step 5.
   - These leave step 6 signed: a statement changed in place (its file replaced), a split's memo, a revenue check explanation
     or source, an entry's note, reason, W/P ref or attachments (an entry edit reopens step 6 only when a line changes), an
@@ -571,6 +572,12 @@ In short:
     stay signed "Hashim Abouelfetouh, CPA" (decision 25 stands); no new disclosure for data processed outside Canada (the
     engagement letter covers third-party software); a client reminder on day 7 for unsigned quotes, with a staff email and a
     bell notice on signing, is a separate front office piece; two-step sign-in is on for GitHub, Vercel and Supabase.
+  - For the next security piece (Hashim, Nov 19, 2026; security review of piece 10b, not built now): the name check only lists
+    binary files a branch adds or changes (as warnings) and should fail on an unreviewed one (a reviewed list by path and
+    hash); it does not scan branch names, PR titles and bodies, tags, commit authors, commit messages on main, removed lines
+    or history, or numbers split across lines; CLIENT_NAMES is offered to every pushed branch, so make "name-check" a required
+    check on main and keep write access limited (CODEOWNERS for scripts/checks and .github/workflows); the three old values
+    stay in git history and on old remote branches (delete merged branches; no history rewrite, Hashim's decision).
   - Migration 20261212350000 (functions and triggers only; no drops; no data change; safe to run twice).
 - Piece 10, step 6 becomes "Compare to last year" (Hashim, Nov 19, 2026, version 2; mock L; benchmark CaseWare Cloud's analytical
   review: last year against this year, with the preparer's explanations and the reviewer's sign-off). The only piece that changes a
