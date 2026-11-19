@@ -22,6 +22,7 @@ export type Row = {
   buildUp?: { text: string; amount: string }[];
   // Piece R1: step 8's GIFI override. groupLabel: the account's group line; lineType: its type (an override keeps it).
   groupLabel?: string; lineType?: string; overridden?: boolean;
+  confirm?: boolean;   // step 8: Save on the line it is on now decides it (a suggestion, or the reviewer on an account waiting for them)
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
 export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit"; type?: string };
@@ -129,7 +130,7 @@ function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<strin
         <td><button type="button" aria-expanded={shown} onClick={(e) => { e.stopPropagation(); setShown(!shown); }} className="text-left"><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${shown ? "rotate-90" : ""}`} aria-hidden /><b className="tabular-nums">{g.lineNo.replace(/\.00$/, "")}</b> {g.label}</button></td>
         <td className="text-ink-2">{`(${g.count})`}</td>
         <td>{g.warn && <span title={g.warn} aria-label={g.warn}><AlertCircle className="h-5 w-5 text-warning" /></span>}</td>
-        <td className={`text-right tabular-nums ${g.warn ? "font-semibold text-danger" : ""}`}>{g.total}</td>
+        <td className={`text-right tabular-nums ${g.warn ? "font-semibold text-warning" : ""}`}>{g.total}</td>
       </tr>
       {shown && g.ids.map((id) => {
         const r = byId.get(id)!;
@@ -155,7 +156,7 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
   useEffect(() => { closeRef.current = onClose; });
   useEffect(() => {
     opener.current = document.activeElement;
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.defaultPrevented) closeRef.current(); };   // an open list takes the first Escape
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("keydown", esc); (opener.current as HTMLElement | null)?.focus?.(); };
   }, []);
@@ -175,6 +176,7 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
   const save = () => start(async () => {
     setErr("");
     if (hit && hit.no !== r.lineNo) { const e = mode === "override" ? await overrideInline(fileId, r.id, hit.no) : await matchInline(fileId, r.id, hit.no); if (e) { setErr(e); return; } }
+    else if (mode === "override" && r.confirm) { const e = await overrideInline(fileId, r.id, r.lineNo); if (e) { setErr(e); return; } }
     if (taxChanged) { const e = await taxCodeInline(fileId, r.id, tax); if (e) { setErr(e); return; } }
     onClose();
   });
@@ -197,6 +199,7 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
         <div className="grid gap-1 text-sm"><p className="font-semibold">{mode === "override" ? "GIFI line now" : "From"}</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : mode === "group" ? "No group yet" : "Not matched yet")}</p>
           {mode === "override" && r.overridden && canPick && <button type="button" disabled={pending} className="justify-self-start text-sm text-navy-700 underline"
             onClick={() => start(async () => { const e = await overrideInline(fileId, r.id, ""); if (e) setErr(e); else onClose(); })}>Use the group&rsquo;s line</button>}</div>
+        {mode === "override" && r.confirm && canPick && <p className="text-xs text-ink-3">Save with no new line keeps this line and settles the item.</p>}
         {canPick ? (
           <div className="grid gap-1">
             <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} autoFocus={!confirmFirst}
@@ -231,7 +234,7 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
         )}
         {err && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{err}</p>}
         <div className="mt-auto flex flex-wrap items-center gap-3">
-          <button type="button" onClick={save} disabled={pending || (!(hit && hit.no !== r.lineNo) && !taxChanged)} className="btn">{pending ? "Saving..." : "Save"}</button>
+          <button type="button" onClick={save} disabled={pending || (!(hit && hit.no !== r.lineNo) && !taxChanged && !(mode === "override" && r.confirm && canPick))} className="btn">{pending ? "Saving..." : "Save"}</button>
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
           {mode !== "group" && !isReviewer && !r.needsReviewer && (
             <button type="button" disabled={pending} className="ml-auto text-sm text-navy-700 underline"
@@ -272,7 +275,7 @@ function LinePicker({ options, value, onChange, balance, autoFocus = true, label
           if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((i) => Math.min(i + 1, list.length - 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
           else if (e.key === "Enter" && open && list[active]) { e.preventDefault(); pick(list[active]); }
-          else if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); }   // the first Escape closes the list, the next the window
+          else if (e.key === "Escape" && open) { e.preventDefault(); e.stopPropagation(); setOpen(false); }   // the first Escape closes the list, the next the window
         }} />
       {side && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAll(!all); setOpen(true); }} className="mt-1 text-xs text-navy-700 underline">{all ? `Show only ${side} lines` : "Show all lines"}</button>}
       {open && list.length > 0 && (
@@ -281,7 +284,7 @@ function LinePicker({ options, value, onChange, balance, autoFocus = true, label
             <li key={o.no} role="option" aria-selected={i === active} aria-disabled={o.locked} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
               title={o.locked ? "Locked: choose one of its sub-lines" : undefined}
               className={`flex items-baseline gap-2 px-3 py-2 text-sm ${o.locked ? "cursor-not-allowed text-ink-3" : "cursor-pointer"} ${i === active && !o.locked ? "bg-navy-50" : ""}`}>
-              <span className="flex-1"><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.slice(o.no.length + 1)}</span>
+              <span className="flex-1"><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.replace(/^\S+\s/, "")}</span>
               {o.locked && <Lock className="h-3.5 w-3.5 shrink-0 self-center text-ink-3" aria-label="Locked" />}
               <span className="text-xs text-ink-3 italic">{o.section}</span>
               {o.hint && <span title={o.hint} aria-label={`CRA: ${o.hint}`} className="ml-auto shrink-0 text-ink-3"><Info className="h-3.5 w-3.5" /></span>}

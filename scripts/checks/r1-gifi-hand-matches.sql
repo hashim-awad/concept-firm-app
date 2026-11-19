@@ -16,3 +16,12 @@ where a.line_no is distinct from c.line_no
 group by a.file_id
 order by a.file_id;
 -- No rows at all = 0 accounts differ.
+
+-- Second count (accounting review of the build): accounts on bank-statement files still on a suggested line, not confirmed.
+-- Step 8's box now lists them until saved once in Match accounts to GIFI (before R1 nothing waited on them). Counts only.
+select a.file_id, count(*) as suggested
+from public.cb_accounts a
+join public.cb_files f on f.id = a.file_id and f.books in ('statements', 'paper')
+where a.mapping_source = 'suggested'
+group by a.file_id
+order by a.file_id;

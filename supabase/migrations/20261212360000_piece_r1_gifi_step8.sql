@@ -599,7 +599,7 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION private.cb_entry_write_lines(p_entry uuid, p_file cb_files, p_kind text, p_reason text, p_reverse boolean, p_lines jsonb)
+CREATE OR REPLACE FUNCTION private.cb_entry_write_lines(p_entry uuid, p_file public.cb_files, p_kind text, p_reason text, p_reverse boolean, p_lines jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -842,15 +842,19 @@ end;
 $$;
 
 -- Set or remove an account's GIFI override (step 8, bank-statement files). p_line null, or the group's own line, removes it.
+-- Saving the line the account is on now is a decision too (accounting review of the build): it confirms a suggested line,
+-- and when the reviewer (or an owner) saves an account waiting for the reviewer it clears that item, as cb_map_account does.
+-- The reviewer's decision clears no sign-off; a changed line clears step 8.
 create or replace function public.cb_set_gifi_override(p_account uuid, p_line text) returns void
 language plpgsql security definer set search_path = '' as $$
 declare a public.cb_accounts; v_file public.cb_files; v_line text := nullif(btrim(coalesce(p_line, '')), ''); v_group_type text; v_type text;
   v_label text; v_old text; v_new text;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  -- The file first, then the account, as cb_confirm_type does (security finding 3: one lock order).
+  select * into v_file from public.cb_files where id = (select file_id from public.cb_accounts where id = p_account) for update;
   select * into a from public.cb_accounts where id = p_account for update;
   perform private.require(a.id is not null, 'Account not found.');
-  select * into v_file from public.cb_files where id = a.file_id for update;
   perform private.require(v_file.phase <> 'locked', 'This file is locked.');
   perform private.require(v_file.books in ('statements', 'paper'), 'On this file, match accounts to GIFI in step 4.');
   perform private.require(a.account_key not in ('chart:10900', 'opening', 'uncoded'),
@@ -865,10 +869,21 @@ begin
     select line_type into v_type from public.cb_master_lines where line_no = v_line;
     perform private.require(v_type = v_group_type,
       format('This is a GIFI line for %s. The account''s group is for %s: choose a line of the same type.', lower(v_type), lower(v_group_type)));
+    -- Retained earnings moves only through a prior period adjustment (3720): never an override onto 3600 or 3660.
+    perform private.require(left(v_line, 4) not in ('3600', '3660'), 'Retained earnings is not a line to move an account to. Use a prior period adjustment (3720) through an entry.');
+  end if;
+  v_label := btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name);
+  if a.mapping_source = 'suggested' then
+    update public.cb_accounts set mapping_source = case when private.cb_is_reviewer(v_file) then 'reviewer' else 'preparer' end, mapped_by = (select auth.uid()), mapped_at = now() where id = a.id;
+  end if;
+  if a.needs_reviewer and private.cb_is_reviewer(v_file) then
+    update public.cb_accounts set needs_reviewer = false, review_note = format('Decided in step 8: GIFI %s', replace(coalesce(v_line, a.line_no), '.00', '')),
+           review_by = (select auth.uid()), review_at = now(), review_cents = round(this_year * 100) where id = a.id;
+    perform private.cb_log_event(a.file_id, 'account_reviewed', 't2', 'Account decided in step 8', null, null, v_label,
+      format('GIFI %s', replace(coalesce(v_line, a.line_no), '.00', '')), a.reviewer_reason, 'Reviewed');
   end if;
   if v_line is not distinct from a.gifi_override then return; end if;
   update public.cb_accounts set gifi_override = v_line where id = a.id;
-  v_label := btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name);
   v_old := replace(coalesce(a.gifi_override, a.line_no), '.00', '');
   v_new := replace(coalesce(v_line, a.line_no), '.00', '');
   perform private.cb_log_event(a.file_id, 'gifi_override', 't2', format('%s: GIFI %s to %s', v_label, v_old, v_new), null, null, v_label, null, 'GIFI ' || v_old, 'GIFI ' || v_new);
@@ -893,6 +908,9 @@ begin
      and exists (select 1 from public.cb_master_lines o join public.cb_master_lines g on g.line_no = new.line_no
                   where o.line_no = v and o.mappable and not o.locked and o.line_type = g.line_type) then
     new.gifi_override := v;
+    -- Security finding 2: the carried line is in the new file's History.
+    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format('%s: GIFI %s carried from last year', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
+      replace(v, '.00', '')), null, null, btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Carried from last year', 'GIFI ' || replace(new.line_no, '.00', ''), 'GIFI ' || replace(v, '.00', ''));
   end if;
   return new;
 end;
@@ -900,6 +918,26 @@ $$;
 drop trigger if exists cb_override_roll on public.cb_accounts;
 create trigger cb_override_roll before insert on public.cb_accounts for each row execute function private.cb_override_roll();
 
+-- Accounting review of the build: a group changed to a line of another type drops an override that no longer fits, with a
+-- History line (the database never keeps an override of another type).
+create or replace function private.cb_override_group() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.gifi_override is not null and new.line_no is distinct from old.line_no
+     and (new.line_no is null or (select line_type from public.cb_master_lines where line_no = new.line_no)
+                                  is distinct from (select line_type from public.cb_master_lines where line_no = new.gifi_override)) then
+    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format('%s: GIFI %s dropped, the group changed to another type',
+      btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), replace(new.gifi_override, '.00', '')), null, null,
+      btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Group changed', 'GIFI ' || replace(new.gifi_override, '.00', ''), 'GIFI ' || coalesce(replace(new.line_no, '.00', ''), 'none'));
+    new.gifi_override := null;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists cb_override_group on public.cb_accounts;
+create trigger cb_override_group before update of line_no on public.cb_accounts for each row execute function private.cb_override_group();
+
+revoke all on function private.cb_override_group() from public, anon, authenticated;
 revoke all on function private.cb_eff_line(text, numeric), private.cb_match_items(uuid), private.cb_match_ties(uuid), private.cb_match_problems(uuid),
   private.cb_override_roll() from public, anon, authenticated;
 revoke all on function public.cb_match_state(uuid), public.cb_set_gifi_override(uuid, text) from public, anon;

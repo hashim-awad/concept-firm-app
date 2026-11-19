@@ -226,7 +226,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const byNo = new Map(ref.lines.map((l) => [l.line_no, l]));
     const lockedSet = lockedLines(ref.lines);
     const amt = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${t})` : t; };
-    const label = (no: string | null | undefined) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
+    const label = (no: string | null | undefined) => (no ? `${no.replace(/\.00$/, "")} ${byNo.get(no)?.name ?? ""}` : "");
     const panelRow = (a: (typeof accounts)[number]): MatchPanelRow => {
       const fin = finalOf(a), gl = a.gifi_override ?? a.line_no, gline = gl ? byNo.get(gl) : undefined, eff = effectiveLine(gl, fin, byNo);
       const group = a.line_no ? byNo.get(effectiveLine(a.line_no, fin, byNo) ?? a.line_no) : undefined;
@@ -235,7 +235,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         lineNo: gl ?? "", lineLabel: eff ? label(eff) : "", movedFrom: eff && eff !== gl ? gl ?? "" : "", source: "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason,
         mismatch: gl && lockedSet.has(gl) ? "Locked line: choose one of its sub-lines" : [typeFlag(flagAcc, gline) === "open" ? typeFlagText(flagAcc, gline) : "", sideFlagText(flagAcc, gline, fin)].filter(Boolean).join(" "),
         typeFlag: typeFlag(flagAcc, gline), sideFlag: sideFlag(flagAcc, gline, fin), tax: a.tax_code ?? group?.default_tax_code ?? "", taxDefault: group?.default_tax_code ?? "",
-        taxOverride: !!a.tax_code, attention: false, groupLabel: label(a.line_no), lineType: a.line_no ? byNo.get(a.line_no)?.line_type : undefined, overridden: !!a.gifi_override };
+        taxOverride: !!a.tax_code, attention: false, groupLabel: label(a.line_no), lineType: a.line_no ? byNo.get(a.line_no)?.line_type : undefined, overridden: !!a.gifi_override,
+        confirm: a.mapping_source === "suggested" || (a.needs_reviewer && (isReviewer || access.is_owner)) };
     };
     const back = encodeURIComponent(paperHref("t2", "match"));
     const fixOf = (kind: string, a: (typeof accounts)[number]) => kind === "clearing" ? { href: `${href("entries")}&new=journal&acct=${a.id}&back=${back}`, label: "New entry" }
@@ -248,7 +249,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     });
     const rows = matchRows(accounts, entryTotal, byNo, new Set(st.items.map((i) => i.account_id)));
     const panelRows = Object.fromEntries(rows.flatMap((r) => r.accounts.map((s) => [s.id, panelRow(accounts.find((x) => x.id === s.id)!)])));
-    const options = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: ref.craText.get(l.gifi_code) ?? "",
+    const options = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, section: l.section ?? "", hint: ref.craText.get(l.gifi_code) ?? "",
       locked: lockedSet.has(l.line_no), normal: normalSide(l), type: l.line_type }));
     return <MatchStep fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} taxes={ref.taxes}
       isReviewer={isReviewer || access.is_owner} editable={editable && file.phase !== "locked"} />;
@@ -475,7 +476,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         // Piece 10: the reviewer's GIFI checks are step 7's; each opens the account on the Trial balance tab's GIFI matching view.
         { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: bankFile ? [] : accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
-          { href: `/closebook/${id}?area=tb&tbv=match&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
+          { href: `${href("code")}&view=accounts&edit=${a.id}&back=${encodeURIComponent(href("review"))}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
             detail: a.needs_reviewer ? a.reviewer_reason : [typeFlag(a, lineOf(a.line_no)) === "open" ? typeFlagText(a, lineOf(a.line_no)) : "", sideFlagText(a, lineOf(a.line_no), finalOf(a))].filter(Boolean).join(" "),
             amount: amt(finalOf(a)) })) },
       ];
@@ -530,7 +531,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const st6 = review.status.compare;
       // Piece R1 (item 4): an account with no group opens the existing Change window ("Choose a group") over the page.
       const lockedSet6 = lockedLines(ref.lines);
-      const groupOptions = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no} ${l.name}`, section: l.section ?? "", hint: "", locked: lockedSet6.has(l.line_no), normal: normalSide(l), type: l.line_type }));
+      const groupOptions = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, section: l.section ?? "", hint: "", locked: lockedSet6.has(l.line_no), normal: normalSide(l), type: l.line_type }));
       const groupPick = (key: string): MatchPanelRow | undefined => {
         const a = accounts.find((x) => x.account_key === key);
         if (!a) return undefined;
@@ -708,7 +709,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}
-          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} />;
+          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} noteStep={current} />;
   } else if (area === "reporting") {
     // Round 32: the Reporting tab. A report opens full page with "‹ Reporting" at the top left.
     left = null; folded = null;

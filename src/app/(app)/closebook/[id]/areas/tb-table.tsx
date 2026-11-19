@@ -23,9 +23,10 @@ const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleS
 const pctOf = (final: number, prior: number) => (!prior ? (final ? "n/a" : "–") : final && (final > 0) !== (prior > 0) ? "n/m" : `${(((Math.abs(final) - Math.abs(prior)) / Math.abs(prior)) * 100).toFixed(1)}%`);
 const DRILL: Partial<Record<ColKey, string>> = { prelim: "prelim", adjust: "adjust", aje: "adjust", tje: "adjust", reclass: "reclass", final: "final" };
 
-export function TbTable({ fileId, groups, view, year, isOwner, editable, exportBase, openKey }: {
+export function TbTable({ fileId, groups, view, year, isOwner, editable, exportBase, openKey, noteStep = "compare" }: {
   fileId: string; groups: TbGroupRow[]; view: "groups" | "accounts"; year: number; isOwner: boolean; editable: boolean; exportBase: string;
   openKey?: string;   // piece R1: an old drill= link (no column) opens the account panel once
+  noteStep?: string;  // piece R1: the step the panel's review note is filed under
 }) {
   const [panel, setPanel] = useState<TbRow | null>(() => (openKey ? groups.flatMap((g) => g.rows).find((r) => r.key === openKey) ?? null : null));
   // The panel is not in the address: an old link's drill= is dropped once the panel is open, so a reload does not reopen it.
@@ -190,7 +191,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
                 <Fragment key={g.code}>
                   {section && <tr><td colSpan={shown.length + 3} className="bg-white px-3 pt-3 pb-1 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{section}</td></tr>}
                   {grouped && <tr data-group-head="" data-path={path} className="cursor-pointer border-b border-navy-100 bg-navy-50 font-bold text-navy-700 hover:bg-navy-100" onClick={() => toggleGroup(g.code)}>
-                    <td colSpan={2} className={`px-2 py-[5px] whitespace-nowrap ${sticky}`}>{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" />}{hl(g.name)}</td>
+                    <td colSpan={2} className={`px-2 py-[5px] whitespace-nowrap ${sticky}`}><button type="button" aria-expanded={open} onClick={(e) => { e.stopPropagation(); toggleGroup(g.code); }} className="text-left font-bold">{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{hl(g.name)}</button></td>
                     {shown.map(([k]) => cell(null, k, k === "pct" ? pctOf(tot.final, tot.last) : (tot[k as keyof typeof tot] as number), true))}<td />
                   </tr>}
                   {(!grouped || (open && accts)) && g.rows.map((r) => accountRow(r, path))}
@@ -201,7 +202,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           </tbody>
         </table>
       </div>
-      {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} isOwner={isOwner} editable={editable} onClose={closePanel} />}
+      {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} isOwner={isOwner} editable={editable} onClose={closePanel} noteStep={noteStep} />}
     </section>
   );
 }

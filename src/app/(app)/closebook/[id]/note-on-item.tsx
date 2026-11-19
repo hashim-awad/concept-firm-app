@@ -5,12 +5,12 @@ import { useState } from "react";
 import { MessageSquarePlus } from "lucide-react";
 import { addNote } from "../actions";
 
-export function NoteOnItem({ fileId, step, targetType, targetId, back, label = "Review note", icon = false }: {
-  fileId: string; step: string; targetType: "account" | "entry" | "bank_line"; targetId: string; back: string; label?: string; icon?: boolean;
+export function NoteOnItem({ fileId, step, targetType, targetId, back, label = "Review note", icon = false, linkClass = "text-xs text-navy-700 underline" }: {
+  fileId: string; step: string; targetType: "account" | "entry" | "bank_line"; targetId: string; back: string; label?: string; icon?: boolean; linkClass?: string;
 }) {
   const [open, setOpen] = useState(false);
-  if (!open) return icon ? <button type="button" onClick={() => setOpen(true)} aria-label={label} title={label} className="text-[#9aa0ae] hover:text-navy-700"><MessageSquarePlus className="h-[15px] w-[15px]" /></button>
-    : <button type="button" onClick={() => setOpen(true)} className="text-xs text-navy-700 underline">{label}</button>;
+  if (!open) return icon ? <button type="button" onClick={() => setOpen(true)} aria-label={label} title={label} className="text-ink-3 hover:text-navy-700"><MessageSquarePlus className="h-[15px] w-[15px]" /></button>
+    : <button type="button" onClick={() => setOpen(true)} className={linkClass}>{label}</button>;
   return (
     <form action={addNote} className="grid w-full min-w-[16rem] gap-1.5">
       <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="step" value={step} />

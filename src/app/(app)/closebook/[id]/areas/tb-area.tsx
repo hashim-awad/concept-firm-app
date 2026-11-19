@@ -16,17 +16,19 @@ import { PageTitle } from "../shell/shell";
 import { TB_HELP } from "../shell/help";
 import { TbTable, type TbRow, type TbGroupRow } from "./tb-table";
 import { isShAccount } from "@/lib/closebook/sh-loans";
+import { EscClose } from "./esc-close";
 
 const SECTION: Record<number, string> = { 0: "Assets", 1: "Liabilities", 2: "Equity", 3: "Revenue", 4: "Expenses" };
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
 export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames }: {
+export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames, noteStep }: {
   fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; isOwner: boolean; editable: boolean;
   view: "groups" | "accounts"; drill?: string; col?: string; flag: { amount: number; percent: number };
   lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
   shNames?: Map<string, string>;          // piece 8: the shareholder's name on each shareholder account
+  noteStep?: string;                      // piece R1 (workpaper 15): the step a note from the account panel is filed under (the current open step)
 }) {
   const base = `/closebook/${fileId}`;
   const tb = trialBalance(data.accounts, data.postings);
@@ -71,7 +73,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     <>
       <PageTitle help={TB_HELP} right={<span className="text-[12.5px] text-ink-3">{formatDate(file.year_start)} to {formatDate(file.year_end)}</span>}>
         Trial balance · {view === "accounts" ? "Accounts" : "Groups"}</PageTitle>
-      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} isOwner={isOwner} editable={editable} openKey={drill && !col ? drill : undefined}
+      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} isOwner={isOwner} editable={editable} openKey={drill && !col ? drill : undefined} noteStep={noteStep}
         exportBase={`${base}/report-export?report=tb${view === "accounts" ? "&view=flat" : ""}`} />
       {drillPanel}
     </>
@@ -125,6 +127,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
         <Link href={close} aria-label="Close" className="rounded p-0.5 text-ink-2 hover:bg-sand-100"><X className="h-4 w-4" /></Link>
       </div>
       <div className="flex-1 overflow-y-auto">{body}</div>
+      <EscClose href={close} />
     </aside>
   );
 }

@@ -8,13 +8,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ChevronRight, Pencil } from "lucide-react";
 import { Panel, type Option, type Row } from "./accounts-table";
-import { InfoTip } from "@/components/ds/info-tip";
 import type { MatchRow, TieItem } from "@/lib/closebook/match-gifi";
 
 export type BoxItem = { row: Row; why: string; cents: number; kind: string; fix?: { href: string; label: string } };
 
 const amt = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
-// The ties line keeps the sign of the figure (net income, total assets), as the T2 does.
+// The ties line keeps the sign of the figure (net income, total assets), as the T2 does; a difference in brackets when
+// negative (Hashim, Nov 15, 2026, item C), as the database message says it.
 const fig = (c: number) => (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function MatchStep({ fileId, rows, panelRows, box, ties, options, taxes, isReviewer, editable }: {
@@ -53,7 +53,7 @@ export function MatchStep({ fileId, rows, panelRows, box, ties, options, taxes, 
 
       <section aria-label="GIFI lines" className="card overflow-x-auto p-0">
         <table className="table table-compact">
-          <thead><tr><th>GIFI line</th><th>Accounts</th><th className="w-40 text-right">Amount<InfoTip align="right">Debits show as positive, credits in brackets.</InfoTip></th><th className="w-10"></th></tr></thead>
+          <thead><tr><th>GIFI line</th><th>Accounts</th><th className="w-40 text-right">Amount</th><th className="w-10"></th></tr></thead>
           <tbody>{rows.map((g) => {
             const on = shown.has(g.code);
             return [
@@ -80,8 +80,8 @@ export function MatchStep({ fileId, rows, panelRows, box, ties, options, taxes, 
       </section>
 
       <p className="text-sm" data-ties>Ties: {ties.map((t, i) => (
-        <span key={t.code}>{i > 0 && " · "}{t.label} {fig(t.chart)} {t.ok ? <>= GIFI {t.code} <span className="font-semibold text-success" aria-label="ties">✓</span></>
-          : <span className="font-semibold text-danger">does not equal GIFI {t.code} {fig(t.gifi)}: a difference of {fig(t.diff)}</span>}</span>
+        <span key={t.code}>{i > 0 && " · "}{t.ok ? <>{t.label} {amt(t.chart)} = GIFI {t.code} <span className="font-semibold text-success" aria-label="ties">✓</span></>
+          : <span className="font-semibold text-danger">{t.label} {amt(t.chart)} · GIFI {t.code} {amt(t.gifi)} · Out of balance {amt(t.diff)}</span>}</span>
       ))}</p>
 
       {open && <Panel key={open.r.id} fileId={fileId} r={open.r} options={options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} mode={open.mode} />}

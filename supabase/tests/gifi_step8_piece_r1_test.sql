@@ -120,6 +120,7 @@ reset role; reset request.jwt.claims;
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values
   (:'f2', 'chart:65100', '65100', 'Office expenses', '8810.00', 0, 'chart'), (:'f2', 'chart:40100', '40100', 'Commission income', '8000.00', 0, 'chart');
 select test.check('the override rolls forward with the account', (select gifi_override from public.cb_accounts where file_id = :'f2' and number = '65100') = '8811.00');
+select test.check('the carried override is in the new file''s History', exists (select 1 from public.cb_file_history where file_id = :'f2' and action = 'gifi_override' and detail = '65100 Office expenses: GIFI 8811 carried from last year'));
 select test.check('an account with no override stays without', (select gifi_override from public.cb_accounts where file_id = :'f2' and number = '40100') is null);
 
 -- ---------- Wording (items 4 and 7).
@@ -129,3 +130,28 @@ select test.check('step 10: Banking, Code transactions, Adjustments', private.cb
 -- schedule turns stale when the migration runs.
 select test.check('no override: the fingerprint is the old one', private.cb_tb_fingerprint(:'tbf') = (select md5(coalesce(string_agg(a.id::text || ':' || coalesce(a.line_no, '') || ':'
   || coalesce(a.tax_code, '') || ':' || private.cb_account_final(a.id)::text, ',' order by a.id), '')) from public.cb_accounts a where a.file_id = :'tbf'));
+
+-- ---------- Accounting review of the build (fixes 1 to 4).
+select test.check('fix 1: the reviewer''s pick clears the waiting item from step 8''s box', not exists (select 1 from private.cb_match_items(:'f') i where i.account_id = :'chq'));
+update public.cb_accounts set needs_reviewer = true where id = :'off';
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_set_gifi_override(:'off', '8811.00');   -- the reviewer keeps the line it is on
+reset role; reset request.jwt.claims;
+select test.check('fix 1: saving the same line settles it, with History', not (select needs_reviewer from public.cb_accounts where id = :'off')
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'account_reviewed' and ref_label = '65100 Office expenses'));
+update public.cb_accounts set mapping_source = 'suggested' where id = :'off';
+select test.check('fix 2: a suggestion shows in the box', exists (select 1 from private.cb_match_items(:'f') i where i.account_id = :'off' and i.reason = 'suggested'));
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_set_gifi_override(:'off', '8811.00');
+reset role; reset request.jwt.claims;
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'f', 'chart:30000', '30000', 'Common shares', '3500.00', 0, 'chart');
+select id as shr from public.cb_accounts where file_id = :'f' and number = '30000' \gset
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('fix 4: retained earnings (3600) is refused as an override on an equity account',
+  test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3600.00')) = 'Retained earnings is not a line to move an account to. Use a prior period adjustment (3720) through an entry.');
+reset role; reset request.jwt.claims;
+select test.check('fix 2: saving the line confirms the suggestion', (select mapping_source from public.cb_accounts where id = :'off') = 'preparer'
+  and not exists (select 1 from private.cb_match_items(:'f') i where i.account_id = :'off'));
+update public.cb_accounts set line_no = '8000.00' where id = :'off';
+select test.check('fix 3: a group of another type drops the override, with History', (select gifi_override from public.cb_accounts where id = :'off') is null
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '65100 Office expenses: GIFI 8811 dropped, the group changed to another type'));
