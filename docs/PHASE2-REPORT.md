@@ -1,6 +1,6 @@
 # Concept Studio: status report, end of Phase 2
 
-Prepared Nov 10, 2026, for the review before Phase 3. Sources: docs/STATUS.md, docs/BRIEF.md (decisions 1 to 56), docs/SETUP.md, docs/PHASE2-BATCH.md, and the GitHub deploy history. No client data in this report.
+Prepared Nov 10, 2026, for the review before Phase 3. Sources: docs/STATUS.md (retired Nov 19, 2026; see docs/BRIEF.md), docs/BRIEF.md (decisions 1 to 56), docs/SETUP.md, docs/PHASE2-BATCH.md, and the GitHub deploy history. No client data in this report.
 
 ## 1. Summary
 
@@ -90,7 +90,7 @@ Decisions 38 to 56 in docs/BRIEF.md. Key ones for Phase 3 readers:
 - Screening questions page on Live:
   - It still shows an old unused "Corporate tax" draft (version 1). The company form does not use it. Delete it, or I can hide it.
   - Its labels now match the start page: "My personal tax return" and "My company" (PR #17, Nov 10).
-- docs/STATUS.md:
+- docs/STATUS.md (retired Nov 19, 2026; see docs/BRIEF.md):
   - The header date and the "In progress", "Waiting on Hashim" and "Next steps" sections are out of date.
   - The Phase 2 section is current.
   - This report replaces the stale parts. Tidy STATUS before Phase 3.

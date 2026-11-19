@@ -4,6 +4,490 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-19",
+    title: "Closebook: GIFI in one place, step 8 Match accounts to GIFI",
+    points: [
+      "On bank-statement files, step 8 opens with a new paper, Match accounts to GIFI. It lists each GIFI code with its accounts and a total, a box of accounts that need a decision, and two ties to the cent.",
+      "Step 8 cannot be signed, and the GIFI file cannot be exported, until the box is empty and both ties hold.",
+      "In step 8 an account can go on a different GIFI line for the tax return only. The GIFI file, T2 tie-out and tax workpaper use it. The statements, lead sheets and flags keep the account's group. Changing it clears step 8 only, and it rolls forward to next year's file.",
+      "GIFI codes no longer show on everyday screens: the Trial balance tab, Tools, reports, the ledger, the Statements drill and the shareholder loans card. Group now means the lead sheet, by name.",
+      "The Trial balance account panel shows the shareholder name, a Tax row and the notes. Cancel takes you back to where you were, and old matching links still open.",
+    ],
+  },
+  {
+    date: "2026-11-19",
+    title: "Closebook: step 6 reopens when a balance moves",
+    points: [
+      "A signed step 6 is cleared when a balance moves: an AJE or RJE added, deleted or with its lines changed, a step 4 coding change, a trial balance import, an opening balance change, or statements and statement lines added or removed.",
+      "Step 6 stays signed for a TJE, a revenue check change, an entry's note, W/P ref or attachments, an entry approved, and the owner's decision on an account sent to the reviewer.",
+      "Splitting a posted line again counts as a coding change. It clears steps 4, 6, 7 and 8.",
+      "History names the change each time. The step 6 message now reads to explain in Flagged changes.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: step 6 becomes Compare to last year",
+    points: [
+      "Step 6 is now Compare to last year. It has four parts: Flagged changes (with the Lead sheets view, moved from step 7), New accounts this year, Accounts not used this year, and What changed this year (six questions; a yes needs a note).",
+      "The new step 6 starts unsigned on every file.",
+      "Step 7 now holds the reviewer's GIFI checks, the list of new accounts and their GIFI lines with Mark reviewed, and each yes answer with Mark reviewed.",
+      "An explanation, a tick or an answer clears steps 6 and 7 only. A GIFI line, tax code or type change clears steps 6, 7 and 8. A TJE clears step 8 only.",
+      "Old links to the GIFI mapping step open step 6.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: GIFI matching in the Trial balance tab",
+    points: [
+      "The Trial balance tab has a GIFI matching view. It shows the same matching screen as step 6, with the accounts that need a decision, By account, By GIFI line and the Change GIFI line panel.",
+      "A new filter, Unmatched, shows only accounts with no GIFI line. It leaves out Clearing (10900) and unused accounts. Step 6 has it too.",
+      "Tools now has Match accounts to GIFI, so the view opens from any tab.",
+      "Match them now returns you to the page you ran it from.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: shareholder loans move to Reporting and to the reviewer",
+    points: [
+      "The Shareholder loans paper is gone from step 5. Step 5's sign-off no longer waits for it.",
+      "Reporting has Shareholder loans: one card per shareholder account with the opening balance, money paid to or for the shareholder, money paid in, each entry on its own line, and the closing balance. A summary comes first when there are two or more accounts.",
+      "Every amount opens the ledger. The report exports to Excel and to PDF, stamped Working paper: not for the client.",
+      "In step 7 the reviewer updates the figures, decides the flags, confirms Repaid by and notes the repay-by date for any balance the shareholder owes at year-end. Step 7 waits until this is done.",
+      "Each shareholder account in the Trial balance tab has an optional Shareholder name. It rolls forward to next year's file.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: revenue check is an added schedule; GST/HST revenue moves to step 8",
+    points: [
+      "Step 5 has + Add revenue check beside the Schedules heading. If nobody adds it, step 5 does not ask for it. Files that already used it keep it.",
+      "Once added, the revenue check works as before and can print as a PDF.",
+      "Step 8's GST/HST return page has a new box: revenue in the books, revenue on the year's GST/HST returns, the difference and a note. Step 8 cannot be signed on a registrant's file until this is done.",
+      "Step 7's list for the reviewer adds a GST/HST revenue item that links to step 8.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: tax entries (TJE) no longer reopen steps 5 to 7",
+    points: [
+      "Adding, changing or deleting a TJE no longer clears the sign-offs on steps 5, 6 and 7. It still clears step 8, because the final GIFI export is out of date.",
+      "Changing an entry's type to or from TJE still clears step 5, as before.",
+      "Lead sheet flags now leave out this year's TJE lines. Income tax and amortization accounts are never flagged.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: step 5 becomes Adjustments",
+    points: [
+      "Step 5 is now called Adjustments.",
+      "It shows last year's schedule entries on one line, when last year's file has them.",
+      "A Schedules table lists the revenue check and shareholder loans, then each schedule made this year with its amount, its entry and Open.",
+      "Below it, Entries this year is the full Entries tab list, with its filters, New entry, Client entry list and Approve.",
+      "Approve and Delete now bring you back to the page you were on.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: Home office rows match the client's form",
+    points: [
+      "The Home office schedule now has twelve rows, in the same order as the client's home office form.",
+      "Repairs to the office only is a separate row, counted 100% to the business.",
+      "The business column now adds to exactly the amount owed to the owner. Any rounding goes on the largest row.",
+      "A share that is not exact to two decimals shows to four.",
+      "Schedules saved before this change open with their old rows mapped to the new ones. Their entries do not change.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: Expenses paid personally becomes a schedule",
+    points: [
+      "From a schedule in the entry window now lists Expenses paid personally, beside Vehicle and Home office. Use it as many times as needed; each use is its own entry.",
+      "Each line has an expense account, what it was, the amount paid, the GST/HST in it and the business share. GST/HST fills itself in Ontario and Alberta. Meals claim half the GST/HST.",
+      "The entry debits each expense and the ITC, and credits what is owed to the owner.",
+      "The old 31-line form and its Settings section are retired. Old entries still open, read only.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: Home office schedule; Paid to from the Signing officer",
+    points: [
+      "From a schedule in the entry window now lists Home office, beside Vehicle (owner's car).",
+      "The Home office window takes the home and office areas, or a typed share, and the year's costs. It works out the amount owed and the ITC, and puts them in the entry.",
+      "Home office and Auto expenses are no longer offered as standard entries. Old entries still open.",
+      "On both schedules, Paid to is the Signing officer on the client record. If none is set where the GST/HST record prints, the schedule asks you to add one first.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: the Vehicle schedule",
+    points: [
+      "The entry window has From a schedule, with Vehicle (owner's car). It works on every full file.",
+      "The Vehicle schedule window compares the per-km allowance with actual costs, shows last year's figures in grey, and puts the result in an AJE with the W/P ref Vehicle schedule.",
+      "Only the reviewer or an owner can tick Claim the ITC.",
+      "Print schedule makes a one-page PDF, stamped Working paper: not for the client. On registered files it includes the GST/HST record.",
+      "The Entries tab shows a Schedule tag and can filter by it. History records each change to the schedule.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Closebook: edit an entry in place",
+    points: [
+      "Editing an entry now changes it in place. It keeps its number, who made it and when, and its link to a standard entry or schedule.",
+      "History gets one Entry changed row for each thing that changed, with the old and new value.",
+      "The entry window shows Last changed by, with the name and date, when an entry was changed after it was first saved.",
+      "The rules are the same: an approved entry cannot change, and an edited entry goes back to the reviewer.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Settings: CRA rates page",
+    points: [
+      "Settings, Closebook rules has a new CRA rates tab, for owners only.",
+      "It holds the per-km allowance rates by year, and the ITC factor on allowances and reimbursements for each province and territory.",
+      "A wrong entry is refused with a red message under the field, and nothing is saved.",
+      "Every change goes to the Activity log with the old and new value. No rates are loaded; an owner enters them.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Closebook: Reclassify transactions and the Tools menu",
+    points: [
+      "The file tabs have a Tools menu after Entries, with New journal entry and Reclassify transactions.",
+      "Reclassify transactions finds lines by account, date, source and sales tax, and moves the ticked lines to another account in one step. The window lists the sign-offs that will be removed. Undo puts every line back.",
+      "Bank-side lines, transfers, opening balances, split lines and locked files are greyed, with the reason on hover.",
+      "On the lead sheets every account amount opens its ledger. Explain the change adds Revenue fell and Other, and every reason needs a note.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "The C Studio logo",
+    points: [
+      "The C Studio logo replaces the words Concept Studio in the main menu and on the sign-in pages. The folded menu shows the C mark.",
+      "The browser tab shows the C Studio icon on staff screens. Client pages keep the Concept icon.",
+      "Staff emails (invites, password emails and lead alerts) show the new logo. Client emails do not change.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Menus fold like TaxDome; tables fit the window",
+    points: [
+      "The main menu and the steps panel each have a pin. Unpinned, they fold to icons, with names on hover. Your choice is kept across pages and sign-ins.",
+      "Inside a Closebook file, below 1440 px wide, the main menu stays folded whatever your pin.",
+      "Step 4 and step 7 tables fit the window with no sideways scroll. The ITC column is off by default; switch it on with the gear. Click a row to open it.",
+      "Excel headers and footers now print Concept Accounting & Advisory in full.",
+      "Notify client errors are in plain words and say that nothing went to the client. An email with one question says 1 question.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Closebook: step 7 working list for the reviewer",
+    points: [
+      "Step 7 lists the bank lines waiting for the reviewer in step 4's table, with a short Why on each line.",
+      "The reviewer can change the account and sales tax in place. The change posts at once, with Undo.",
+      "Mark reviewed is for the file's reviewer or an owner. An account decision needs a note, and holds while the balance stays the same.",
+      "Asking the client about a posted line keeps it posted. Posting or excluding a line closes its questions that are still waiting.",
+      "Step 7 has a question column and its own Notify client button.",
+      "Expand all on reports no longer opens a new journal entry. Lead sheet codes now show only on the lead sheets.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Closebook: sign-offs are removed only when what they signed changes",
+    points: [
+      "Saving an internal note or an accounting date in step 4 no longer removes the 3.2 and 3.3 sign-offs.",
+      "3.2 and 3.3 are removed only by a change to an account's statements or bank lines. 3.3 is also removed by an outstanding item.",
+      "An account's opening balance removes 3.1 and 3.3. Its GIFI line, T2 line, chart account or last four digits remove 3.1 only.",
+      "History and a message say which sign-offs were removed and why.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Client questions: internal notes never reach the client",
+    points: [
+      "The question popover has two tabs: Ask the client, and Internal note. An internal note never goes on a client page, email, Excel file or PDF.",
+      "The client page shows only questions that were sent, on open lines.",
+      "A question not yet sent can be edited, deleted or moved to the internal note. A sent question cannot change.",
+      "The Notify window lists the exact questions that will be sent. The client page footer takes the firm's contact details from Settings.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Closebook: Reporting tab and client questions",
+    points: [
+      "Files have a Reporting tab. It holds Client questions and the existing reports.",
+      "In step 4 the question column lets you ask the client about a line, with saved questions. Asking posts nothing. The black bar can ask about every ticked line at once.",
+      "Notify client emails the client from your own mailbox through Microsoft 365, or Copy link gives you the link to send yourself.",
+      "The client opens one link, with no code, and answers each question, with files if needed. The line shows as Answered at once, and the new bell in the top bar gives a notice.",
+      "Each file has one live link. It ends after 30 days, at the next send or Copy link, or when the file is locked.",
+      "Settings, Team holds each person's credentials and title for the email signature.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    title: "Closebook: step 4 works like QuickBooks Online's Bank transactions",
+    points: [
+      "Step 4 shows one card per bank, card and loan account, then the tabs Pending, Posted and Excluded.",
+      "The toolbar has search, dates, filters with counts, page size, Print and Export.",
+      "A Pending line keeps its account and tax but posts nothing until you click Post. Undo returns it to Pending as it was.",
+      "Transfers between the client's accounts pair up and post once. Rules fill Pending lines that have nothing chosen; a client rule comes before a firm rule.",
+      "Tick lines to use the black bar at the bottom: Post, Edit, Exclude or Ask client. Excluded lines need the reviewer's tick before sign-off.",
+      "The Posted column shows who posted each line, or AUTO for a rule.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Statement uploads: every file gets a result",
+    points: [
+      "The upload window shows results only for the files you just uploaded, and opens empty the next time.",
+      "Every file gets a line: transactions added, to fix, refused with the reason, could not read, or a copy of an earlier upload.",
+      "A refused upload is logged in History. An import that does not go through waits in To fix with its reason.",
+      "A card line printed on the statement but dated a few days before the period is accepted.",
+      "In 3.3, click a row to open its line.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Statements: no account checks; loan statements",
+    points: [
+      "A statement goes to the account you pick, as in QuickBooks Online. A statement in the wrong account is excluded and uploaded to the right one.",
+      "The last digits read from a statement show in View statements, for information.",
+      "Lines that do not change the balance are shown greyed, No effect on balance, and never post.",
+      "Loan statements use the date the bank applied the payment, so transfers pair with chequing. Principal paid is checked against the payment, interest and insurance.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Larger windows and one note at a time",
+    points: [
+      "Large windows such as Fix it and View statements have an expand icon. Esc returns them to normal size.",
+      "Messages show as one pill near the bottom of the screen. Success is green and fades after 3 seconds. A refusal is red and stays until closed.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Card statements with several cardholders; Fix it",
+    points: [
+      "A business card's cardholder sections now read as one account, with every line on every page.",
+      "The card check compares each kind of line with the statement summary and says what is missing.",
+      "Fix it can add a missing line, remove a line with a reason, or read the statement again. Each change is logged.",
+      "Database errors no longer show on screen. You see a plain message instead.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Bank accounts: last year's T2 line",
+    points: [
+      "Each bank or card account has a Last year's T2 line. It is for a case such as a line of credit put with the credit cards on last year's T2.",
+      "3.1 groups accounts by last year's T2 line. A T2 line with an amount but no account shows, so the missing account is clear.",
+      "This year's GIFI line does not follow this field.",
+      "The lead sheets show Reclassified from one line to another on an account that moved.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Bank feed controls and faster pages",
+    points: [
+      "An imported line posts nothing until it has an account. The trial balance rebuilds only when something posts.",
+      "A statement is never deleted. It can be excluded with a reason and restored. Only an owner can purge one, for Wrong client.",
+      "The bank's own data on a line cannot be changed. Each line has an accounting date and a memo.",
+      "The file history cannot be edited, filters by step, and exports to Excel and PDF.",
+      "Pages in a Closebook file load faster. A thin bar at the top shows that your click was received.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Closebook: step 3 becomes Banking",
+    points: [
+      "Step 3 on bank files has three parts, each signed on its own: 3.1 Bank accounts and T2 tie-out, 3.2 Bank feeds, and 3.3 Reconcile.",
+      "3.1 ties the accounts to last year's T2, line by line. A difference under 1.00 posts by itself as rounding.",
+      "3.2 takes PDFs, photos or a CSV in one window. Statements that add up go in by themselves.",
+      "3.3 shows each account's opening, money in, money out and closing against the bank. Find it shows the first month that differs.",
+      "A change clears only the parts it touches.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    title: "Step 3 fixes from the first Live use",
+    points: [
+      "Statements that share one day with the next statement are no longer refused as overlaps.",
+      "Uploading the same statement twice keeps one copy.",
+      "Each gap in the statements is one red row, naming the statements before and after it.",
+      "A difference under 1.00 against last year's T2 shows as rounding, because the T2 is in whole dollars.",
+      "The month strip has four colours: covered, missing, waiting to check and outside the year.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "Closebook: step 3 Bank statements rework",
+    points: [
+      "Step 3 shows only; every task opens in a window. The Next bar is the one to-do list.",
+      "Upload statements asks for the account first. Add account sets the type, number and GIFI line.",
+      "Account cards show status only, with a strip of the year's months.",
+      "Missing months, differences at the start and end of the year, and outstanding items are handled from the Next bar.",
+      "The same statement file cannot be imported twice.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "Closebook: file page, saving, opening balances and negative amounts",
+    points: [
+      "Steps show a grey number, a blue ring when started, or a green tick when signed. The header shows how many of the 10 steps are done.",
+      "Save shows Saved with the time. Leaving with changes asks Save, Discard or Stay. Editing a signed step asks first.",
+      "Step 2 asks whether this is the first year after incorporation, has Schedule 100 and Schedule 125 tabs, and checks retained earnings. Each line with an amount needs a chart account, and a source PDF is needed to sign.",
+      "Every amount box takes a minus or brackets. Negatives show in red brackets on screen.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "Bank statement PDF to CSV: keep statements until Done",
+    points: [
+      "Downloading a CSV or Excel no longer deletes the statement. You can download it again.",
+      "Done deletes every statement on your page at once. Anything left is deleted 24 hours after it was converted.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "New year-end file: year line and Data source",
+    points: [
+      "The New year-end file page shows the year on one line, with Change for the dates. A reason is needed only when the year is not 12 months.",
+      "Data source replaces File type and How the books are kept: The client's books, or Bank and card statements.",
+      "Our QuickBooks file (monthly client) is hidden for now.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "Bank statement PDF to CSV, transfers and quick method rates",
+    points: [
+      "Step 3 has Upload PDF statements. The gear menu's Tools has Bank statement PDF to CSV. PDFs and photos are read and checked before import.",
+      "Verify details shows the statement beside the lines. The difference must be 0.00 before import.",
+      "The standalone tool keeps nothing: statements are deleted after download or after 24 hours.",
+      "Step 4 suggests Transfer between your accounts for equal amounts in and out within 5 days.",
+      "Quick method rates by province are set in Settings and must be approved by an owner. Step 1 asks whether Services or Goods for resale applies.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "Front office: letters in Engagements, one word for offers",
+    points: [
+      "Engagements has two tabs, Engagements and Letters. The Engagement letters menu item is gone; its link opens the Letters tab.",
+      "Letters lists every letter, including ones signed outside Studio, with a Type filter for Corporate and T1.",
+      "Roles have Can prepare T1 letters and Can prepare corporate letters. Final and sending stay with owners.",
+      "Staff screens say quote for every offer: T1 quote, Year-end quote and Monthly quote. Client documents still say Proposal.",
+      "My day's T2 deadlines keep who marked a line done and why, with Show done and Reopen. Owners can mark done before a date. An EFILE number in Closebook marks the T2 deadline done.",
+    ],
+  },
+  {
+    date: "2026-11-15",
+    title: "The client page is the hub",
+    points: [
+      "The client page has tabs: Overview, Engagements and letters, Quotes, Closebook files, Documents and Activity. New for this client starts a letter, quote or Closebook file.",
+      "The basis and users of the statements are kept on the client record, up to 5 users.",
+      "Closebook step 1 shows the users and basis on one line, with Confirm.",
+      "Client types come from TaxDome tags. A type set by hand is never overwritten.",
+      "Import from TaxDome opens as a window. A year-end change must be ticked by an owner before it applies.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "The frame: top bar, left menu and gear menu",
+    points: [
+      "Every page has a top bar with Find a client, + New, Help, the gear and your name.",
+      "The left menu is My day, Leads, Quotes, Clients, Engagements, Engagement letters, Closebook and Documents.",
+      "The gear menu has Your firm, Lists, Templates and Tools. Settings pages are grouped there, and old links still open.",
+      "Templates has four tabs. Each says where it is used and whether it is a draft or ready. Approval is at the bottom of each template.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Templates: Closebook templates can be found and approved",
+    points: [
+      "Templates lists the Closebook client entry list and the completion checklist, with their status.",
+      "Owners can now approve them. Before, approval was refused.",
+      "Step 10's draft questions label links to the checklist template.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: readiness before real files",
+    points: [
+      "Step 1 has an acceptance record of 9 questions. It rolls forward and must be answered before step 1 is signed.",
+      "The step 10 checklist has 13 questions, as a draft in Templates for approval.",
+      "Owners pick and change the preparer and reviewer. Only owners can be the reviewer. My files shows your role and next action.",
+      "A first-year file can have no opening balances, once the reviewer confirms. Its statements have no prior-year column.",
+      "An info icon explains each Closebook screen.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: working papers and the journal entry window",
+    points: [
+      "Each step lists its working papers under it in the step list.",
+      "GIFI mapping is now step 6 and Review is step 7.",
+      "Entries are on the Entries tab only. New entry opens one journal entry window, with Edit, Duplicate, Reverse and Delete.",
+      "In step 4 coded lines show as plain text with Undo.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: CaseWare Cloud layout",
+    points: [
+      "Inside a file the menu folds to icons, with one dark header and five tabs: Steps, Trial balance, Entries, Notes and Statements.",
+      "Sign-off circles show in the step list and on each step title.",
+      "Explanations moved into the help panel, behind the question mark.",
+      "Nothing about how Closebook works changed.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: shareholder loan schedule",
+    points: [
+      "Step 5 has a shareholder loan schedule for each shareholder account: opening balance, movements by kind and closing balance, tied to the trial balance.",
+      "When a shareholder owes the company at year-end, the s.15(2) repayment date shows on the schedule and on My day.",
+      "Next year's file asks whether it was repaid by that date. Yes needs evidence; No goes to the reviewer.",
+      "The Settings thresholds include the number of days for the repaid-near-year-end flag.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: GST/HST return for year-end clients",
+    points: [
+      "Step 8 builds the GST/HST return for full files built from bank and card statements, beside the T2.",
+      "Step 1 asks for the RT account and whether the GST/HST year is the fiscal year.",
+      "The return is built from what was posted, and each line opens its postings. It checks against the GST/HST account and shows any difference.",
+      "Quick method files are supported. The rates are in Settings.",
+      "Step 10 records each return's filing date and confirmation number before the file can be locked.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: statement lines and step 10 Deliver and lock",
+    points: [
+      "Statement captions changed for capital leases, prepaid expenses, shareholder balances, rent and a few expense lines.",
+      "Step 10 has the completion checklist, the client email, a zip of documents for TaxDome and the filing record.",
+      "An owner locks a file once everything is done. A locked file is read only. An owner can reopen it with a reason.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: step 9 year-end package",
+    points: [
+      "Step 9 builds the year-end package: cover, compilation report, statements, notes, management letter (MAL) and minute book letter. A PDF for the client and a Word copy for owners.",
+      "Fields that are empty show To fill and block the preparer.",
+      "The package is a draft until the signing officer signs the MAL online. The MAL can be sent only after the reviewer signs step 9, and not before the day after year-end.",
+      "Amounts are rounded the ProFile way. Step 8 says what to change in ProFile if the balance sheet is out by a dollar or two.",
+    ],
+  },
+  {
+    date: "2026-11-14",
+    title: "Closebook: step 8, GIFI file and T2 tie-out",
+    points: [
+      "Step 8 exports the GIFI file for ProFile, before tax entries and final. A failed check stops the export and names it.",
+      "A change after the final export marks it out of date and reopens step 8.",
+      "The tax workpaper lists Schedule 1 items, on screen, in Excel and in PDF.",
+      "The preparer types four figures from ProFile and attaches the T2. Each difference blocks the preparer until fixed or accepted by the reviewer.",
+    ],
+  },
+  {
     date: "2026-11-13",
     title: "Clients and engagements follow the signing",
     points: [
