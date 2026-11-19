@@ -128,7 +128,7 @@ select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A', 20000, 'fil
 select public.cb_sign_step(:'f', 'entries', 'prepared');
 reset role;
 reset request.jwt.claims;
-select test.check('step 6: flagged changes to explain', private.cb_step_problems(:'f', 'compare') @> array['3 flagged changes to explain on the lead sheets.']);
+select test.check('step 6: flagged changes to explain', private.cb_step_problems(:'f', 'compare') @> array['3 flagged changes to explain in Flagged changes.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_explain_flag(id, 'revenue_grew', 'First full year of trading.') from public.cb_accounts where file_id = :'f';
