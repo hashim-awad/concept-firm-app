@@ -11,7 +11,9 @@ Account no,Account name,Type,Master line,Master line name,Income tax code,Sales 
 12000,Prepaid expenses,Asset,1484.00,Prepaid expenses,BS,None,None,
 12100,Deposits paid,Asset,1486.00,Security/tender deposits,BS,None,None,
 12200,Income taxes recoverable,Asset,1483.00,Taxes recoverable/refundable,BS,None,None,
+12250,GST/HST receivable,Asset,1066.00,Taxes receivable,BS,None,None,GST/HST refund owing to the business (a debit balance on the return)
 12500,Term deposits and GICs,Asset,1181.00,Canadian term deposits,BS,None,None,
+12900,Other current assets,Asset,1480.00,Other current assets,BS,None,None,
 13000,Due from shareholder 1,Asset,1301.10,Due from shareholder 1,BS,None,None,Moves to 23000 Due to shareholder 1 when negative
 13050,Due from shareholder 2,Asset,1301.20,Due from shareholder 2,BS,None,None,Moves to 23050 Due to shareholder 2 when negative
 13100,Due from director,Asset,1303.00,Due from director(s),BS,None,None,A director who is not a shareholder: outside the shareholder loan schedule

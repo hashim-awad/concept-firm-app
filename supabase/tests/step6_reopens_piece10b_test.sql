@@ -18,7 +18,7 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_create_file(:'client', '2026-08-31', '2025-09-01', '', 'full', 'client_software', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000a') as f \gset
 \set tb '[{"number":"10100","name":"Chequing","amount":110000},{"number":"40100","name":"Commission income","amount":-200000},{"number":"65100","name":"Office expenses","amount":10000},{"number":"60000","name":"Wages","amount":80000}]'
 select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', :'tb');
-select public.cb_map_account(id, case number when '10100' then '1002.00' when '40100' then '8000.00' when '65100' then '8810.00' else '9060.00' end) from public.cb_accounts where file_id = :'f';
+select public.cb_map_account(id, case number when '10100' then '1002.00' when '40100' then '8000.00' when '65100' then '8810.00' else '9066.00' end) from public.cb_accounts where file_id = :'f';
 reset role; reset request.jwt.claims;
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, last_year, mapping_source)
 values (:'f', '90000', '90000', 'Income tax expense', '9990.00', 0, 0, 'preparer'), (:'f', '26800', '26800', 'Income taxes payable', '2680.00', 0, 0, 'preparer');

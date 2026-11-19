@@ -70,11 +70,9 @@ export async function importTrialBalance(formData: FormData) {
     p_file: id, p_target: s(formData, "target") === "last_year" ? "last_year" : "this_year", p_source: s(formData, "source"), p_file_name: f.name, p_rows: tb.rows,
   });
   if (error) redirect(withMessage(back, "error", error.message));
-  const m = await matchFile(await createClient(), id);
+  // Piece R2 (D5): no automatic matching after the import; step 4 suggests a master account for each account.
   revalidatePath(`/closebook/${id}`);
-  const matched = m.history + m.suggested;
-  redirect(withMessage(`${back}${m.reviewer ? "&view=attention" : ""}`, "msg",
-    `Imported ${data} accounts, balanced at ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Matched ${matched} for step 4${m.history ? ` (${m.history} from last year)` : ""}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
+  redirect(withMessage(back, "msg", `Imported ${data} accounts. Assign them in step 4.`));
 }
 
 // ---------- Matching (batch 4.5) ----------
@@ -145,7 +143,7 @@ export async function importAccountList(formData: FormData) {
   if (error) redirect(withMessage(back, "error", error.message));
   const r = data as { rows: number; matched: number; accounts_without: number };
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, "msg", `Read ${r.rows} accounts from the Account List. ${r.matched} account${r.matched === 1 ? "" : "s"} in the trial balance took their type from it.${r.accounts_without ? ` ${r.accounts_without === 1 ? "1 account still has no type: it shows" : `${r.accounts_without} accounts still have no type: they show`} "Type not checked" in step 7.` : ""}`));
+  redirect(withMessage(back, "msg", `Read ${r.rows} accounts from the Account List. ${r.matched} account${r.matched === 1 ? "" : "s"} in the trial balance took their type from it.${r.accounts_without ? ` ${r.accounts_without === 1 ? "1 account still has no type: it shows" : `${r.accounts_without} accounts still have no type: they show`} "Type not checked" in step 8.` : ""}`));
 }
 
 // Row actions on the Trial balance tab: they save on the spot and return any problem as text.

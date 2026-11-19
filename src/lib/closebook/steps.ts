@@ -49,10 +49,22 @@ const s = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : 
 export function stepTitle(key: string, books: string): string {
   const bank = fromStatements(books);
   const names: Record<string, [number, string]> = { setup: [1, "Set up"], opening: [2, "Opening balances"],
-    records: [3, bank ? "Banking" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
+    records: [3, bank ? "Banking" : "Import trial balance"], code: [4, bank ? "Code transactions" : "Assign mapping"],
     entries: [5, "Adjustments"], compare: [6, "Compare to last year"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
   const n = names[key];
   return n ? `${n[0]}. ${n[1]}` : key;
+}
+
+// Piece R2 (Hashim, Nov 19, 2026; CaseWare Cloud's document map phases): the 10 steps in 4 modules, display only. Module 2
+// reads "TRIAL BALANCE" on trial balance files and "BOOKKEEPING" on bank-statement files. Keys and numbers do not change.
+export type Module = { key: "planning" | "books" | "fieldwork" | "completion"; name: string; steps: StepKey[] };
+export function stepModules(books: string): Module[] {
+  return [
+    { key: "planning", name: "PLANNING", steps: ["setup"] },
+    { key: "books", name: fromStatements(books) ? "BOOKKEEPING" : "TRIAL BALANCE", steps: ["opening", "records", "code"] },
+    { key: "fieldwork", name: "FIELDWORK", steps: ["entries", "compare", "review", "t2"] },
+    { key: "completion", name: "COMPLETION", steps: ["statements", "lock"] },
+  ];
 }
 
 export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next: string } {
@@ -64,7 +76,9 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
   // Imported trial balances bring last year's column with them; bank files sign step 2 off.
   const openingDone = bank ? op.signed : f.imported;
   const cd = f.coding ?? { lines: 0, open: 0, reviewer: 0, ask: 0 };
-  const matched = bank ? cd.lines > 0 && cd.open + cd.reviewer + cd.ask === 0 : f.imported && f.accounts > 0 && f.unmatched === 0 && f.waiting === 0 && !f.typeFlags;
+  // Piece R2: on a trial balance file step 4 is done when every account with a balance has a master account (the GIFI and
+  // type checks are in step 8).
+  const matched = bank ? cd.lines > 0 && cd.open + cd.reviewer + cd.ask === 0 : f.imported && f.accounts > 0 && f.unmatched === 0;
 
   const base: Omit<Step, "state" | "word" | "notes">[] = [
     { key: "setup", n: 1, name: "Set up", who: f.people.preparer,
@@ -73,10 +87,10 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
       // Round 8b: the step's sign-off is its Prepared by; the sub-line only says what the step is.
       note: op.firstYear ? "First year: no opening balances" : bank ? "Last year's balance sheet" : "From the trial balance import" },
     // Round 23 (Hashim): step 3 on a bank file is "Banking", with sub-steps 3.1 to 3.3.
-    { key: "records", n: 3, name: bank ? "Banking" : "Get the records", who: f.people.preparer,
+    { key: "records", n: 3, name: bank ? "Banking" : "Import trial balance", who: f.people.preparer,
       note: bank ? (!f.statements ? "Upload the statements" : f.bankGaps ? "Months still missing" : "All in") : f.imported ? "Trial balance imported" : "Import the trial balance" },
-    { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
-      note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
+    { key: "code", n: 4, name: bank ? "Code transactions" : "Assign mapping", who: f.people.preparer,
+      note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched ? `${f.unmatched} to assign` : "All assigned" },
     { key: "entries", n: 5, name: "Adjustments", who: f.people.preparer, note: "" },
     { key: "compare", n: 6, name: "Compare to last year", who: f.people.preparer, note: "Last year against this year" },
     { key: "review", n: 7, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },
@@ -108,8 +122,8 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     records: !bank ? "Import the client's trial balance, and the QuickBooks Account List if they use QuickBooks." : f.statements && f.bankGaps ? `${f.bankGaps}: they show on each account below. You can start coding the lines already in.`
       : "Upload the bank and card statements in Concept's template: one month or the whole year per file.",
     code: bank ? (cd.open ? `Post ${s(cd.open, "pending line")}: each needs an account and a sales tax code${cd.ask ? ` (${cd.ask} asked of the client)` : ""}.`
-      : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : f.unmatched + f.waiting ? `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`
-      : `${s(f.typeFlags ?? 0, "account")} on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer (${f.people.reviewer}).`,
+      : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`)
+      : f.unmatched ? `Assign ${s(f.unmatched, "account")} with a balance to the master chart.` : "Every account with a balance is assigned: sign step 4.",
     entries: "Finish the checks and post the year-end entries.",
     review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 7.`,
     compare: "Explain the flagged changes, confirm the new accounts, tick Seen and answer the questions, then sign off.",
@@ -132,6 +146,7 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
   if (view === "gifi") return "t2";
   if (view === "lead") return "compare";   // piece 10: the lead sheets view is in step 6
   if (view === "accounts" && fromStatements(books)) return "t2";   // piece R1: GIFI matching is step 8's first paper
+  // Piece R2: on a trial balance file the old matching address opens step 4, Assign mapping.
   return fromStatements(books) ? "compare" : "code";
 }
 
@@ -151,8 +166,8 @@ export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
     case "records": return [...p("accounts", "3.1 Bank accounts & T2 tie-out", !!f.bank), ...p("feeds", "3.2 Bank feeds", !!f.bank), ...p("reconcile", "3.3 Reconcile", !!f.bank)];
     // Piece 4b (Hashim, Nov 18, 2026): the "Expenses paid personally" paper is retired; the schedule is in the entry window.
     case "entries": return [...p("revenue", "Revenue check", f.full && f.revenue !== false), ...p("sh", "Shareholder loans", f.shareholders)];
-    // Piece R1 (Hashim, Nov 19, 2026): "Match accounts to GIFI" first, on bank-statement files (trial balance files match in step 4 until R2).
-    case "t2": return [...p("match", "Match accounts to GIFI", !!f.bank), ...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
+    // Piece R1 (Hashim, Nov 19, 2026): "Match accounts to GIFI" first; piece R2: on every file.
+    case "t2": return [...p("match", "Match accounts to GIFI"), ...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
     case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];
     case "lock": return [...p("checklist", "Checklist"), ...p("email", "Client email"), ...p("documents", "Documents"), ...p("filing", "Filing and lock")];
     default: return [];

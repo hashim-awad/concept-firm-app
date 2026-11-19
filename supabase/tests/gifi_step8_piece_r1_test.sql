@@ -105,15 +105,21 @@ reset role; reset request.jwt.claims;
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'tbf', 'acc1', '1000', 'Bank TB', '1002.00', 100, 'preparer');
 select id as tba from public.cb_accounts where file_id = :'tbf' and number = '1000' \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('trial balance files match in step 4', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'tba', '1001.00')) = 'On this file, match accounts to GIFI in step 4.');
+-- Piece R2 (item 2, D18): trial balance files take the step 8 override, with R1's rules.
+select test.try(format('select public.cb_set_gifi_override(%L, %L)', :'tba', '1001.00')) as tbo \gset
+reset role; reset request.jwt.claims;
+select test.check('piece R2: a trial balance file takes the step 8 override', :'tbo' = 'OK' and (select gifi_override from public.cb_accounts where id = :'tba') = '1001.00');
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_set_gifi_override(:'tba', null);
 select public.cb_send_to_reviewer(:'chq', 'Which line?');
 select test.check('the preparer cannot pick for an account waiting for the reviewer', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'chq', '1001.00')) = 'This account waits for the reviewer''s decision.');
 reset role; reset request.jwt.claims;
 select test.check('the waiting account is in step 8''s box', (:items) = '10100:reviewer');
 select test.check('step 7 on a bank file no longer waits for it', not exists (select 1 from unnest(private.cb_review_problems(:'f')) p where p like '%waiting for the reviewer''s decision%'));
 update public.cb_accounts set needs_reviewer = true where id = :'tba';
-select test.check('step 7 on a trial balance file still waits for it', private.cb_review_problems(:'tbf') @> array['1 account waiting for the reviewer''s decision.']);
-select test.check('trial balance files have no Match box', private.cb_match_problems(:'tbf') = '{}');
+-- Piece R2 (item 3, D18): step 7's GIFI checks moved to step 8 on trial balance files too.
+select test.check('piece R2: step 7 on a trial balance file no longer waits for it', not exists (select 1 from unnest(private.cb_review_problems(:'tbf')) p where p like '%waiting for the reviewer''s decision%'));
+select test.check('piece R2: step 8 on a trial balance file holds it in the Match box', private.cb_match_problems(:'tbf') @> array['1 account needs a decision in Match accounts to GIFI.']);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_set_gifi_override(:'chq', '1001.00');
 reset role; reset request.jwt.claims;

@@ -36,13 +36,14 @@ reset request.jwt.claims;
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:'f', 'compare', '00000000-0000-0000-0000-00000000000c', now());
 select test.check('items waiting for the reviewer do not hold the preparer', (select count(*) from public.cb_step_signoffs where file_id = :'f' and prepared_at is not null) = 2);
 
--- The reviewer cannot sign while anything waits: piece 10, in step 7.
-select test.check('the reviewer cannot sign step 7 while items wait',
-  private.cb_review_problems(:'f') @> array['1 account waiting for the reviewer''s decision.', '1 account on a GIFI line of another type.']);
+-- The reviewer cannot sign while anything waits: piece R2 (item 3), in step 8's Match box on a trial balance file too.
+select test.check('the reviewer cannot sign step 8 while items wait',
+  private.cb_match_problems(:'f') @> array['2 accounts need a decision in Match accounts to GIFI.']
+  and (select string_agg(reason, ',' order by reason) from private.cb_match_items(:'f')) = 'reviewer,type');
 -- The reviewer decides both: the preparer's sign-offs stay.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_map_account(id, '8230.00') from public.cb_accounts where file_id = :'f' and name = 'Mystery receipts';
+select public.cb_map_account(id, '8231.00') from public.cb_accounts where file_id = :'f' and name = 'Mystery receipts';   -- piece R2: 8230 holds two master accounts
 select public.cb_confirm_type(id, 'Small tools under the capitalization limit, expensed by policy.') from public.cb_accounts where file_id = :'f' and name = 'Computer gear';
 reset role;
 reset request.jwt.claims;
@@ -60,7 +61,7 @@ reset request.jwt.claims;
 select test.check('any other change, even by the reviewer, clears the sign-offs',
   not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare')));
 select test.check('and the history names it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'compare'
-  and detail = 'Office costs: GIFI 8810 to 8811'));
+  and detail = 'Office costs: Office expenses to Office stationery and supplies'));   -- piece R2 (item 6): no GIFI code before step 8
 
 -- A bank-statement file: a line sent to the reviewer.
 set role authenticated;
