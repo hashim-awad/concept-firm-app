@@ -50,7 +50,10 @@ select test.check('the flag carries last year''s part', (select closing = 4000 f
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_answer_sh_flag(:'f', 'sh:1', 'earlier_debit', '4,000.00 owed since 2025. The shareholder says it will be repaid in March.');
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_confirm_sh_repaid(:'f', 'sh:1');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer cannot accept a flag', test.try(format($q$select public.cb_accept_sh_flag(%L, 'sh:1', 'earlier_debit', 'ok then')$q$, :'f')) like 'Only the reviewer accepts%');
 reset role;
 reset request.jwt.claims;
@@ -84,7 +87,10 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_build_tb(:'f', '[{"key":"chart:23000","number":"23000","name":"Due to shareholder 1","line_no":"2781.10","amount":9000,"last":5000,"reviewer":""},
   {"key":"chart:10000","number":"10000","name":"Chequing","line_no":"1002.00","amount":-9000,"last":-5000,"reviewer":""}]');
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the books changed: no confirming until it is prepared again', test.try(format($q$select public.cb_confirm_sh_repaid(%L, 'sh:1')$q$, :'f')) like 'The books changed%');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 reset role;
 reset request.jwt.claims;
 select test.check('the books changed: prepare again', private.cb_sh_problems(:'f') = array['Shareholder loan schedule: the books changed after it was prepared. Prepare it again.']);
@@ -97,7 +103,10 @@ select public.cb_build_tb(:'f', '[{"key":"chart:23000","number":"23000","name":"
 select public.cb_prepare_sh_schedule(:'f', :'rows', '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:23000"],"opening":5000,"closing":8000,"reductions":1000,"last_part":4000,"this_part":4000,"due_on":"2027-12-31",
   "prior_due_on":"2026-12-31","prior_opening":5000,"prior_repaid":1000,"prior_unpaid":4000,"flags":["earlier_debit"],"flag_amounts":{"earlier_debit":4000}}]');
 select public.cb_answer_sh_flag(:'f', 'sh:1', 'earlier_debit', '4,000.00 owed since 2025.');
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_confirm_sh_repaid(:'f', 'sh:1');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 
 -- My day: this year's part only, until the next file confirms it was repaid in full.
 select test.check('the preparer sees this year''s part and its date', (select amount = 4000 and due_on = '2027-12-31' and shareholder = 1 and next_file = :'f2' and unpaid is null and accounts = '23000 Due to shareholder 1'
@@ -114,7 +123,10 @@ select public.cb_build_tb(:'f2', '[{"key":"chart:13000","number":"13000","name":
 select public.cb_prepare_sh_schedule(:'f2', '[{"account_key":"chart:13000","number":"13000","name":"Due from shareholder 1","line_no":"1301.10","opening":8000,"closing":4000,"tb":4000,"shareholder":1,"owner_source":"chart"}]',
   '[{"group_key":"sh:1","shareholder":1,"accounts":["chart:13000"],"opening":8000,"closing":4000,"reductions":4000,"last_part":4000,"this_part":0,"due_on":"",
     "prior_due_on":"2027-12-31","prior_opening":8000,"prior_repaid":4000,"prior_unpaid":4000,"flags":["earlier_debit"],"flag_amounts":{"earlier_debit":4000}}]');
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_confirm_sh_repaid(:'f2', 'sh:1');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('repaid in part: on My day with what is unpaid', (select unpaid = 4000 from public.cb_sh_due_list() where file_id = :'f'));
 select public.cb_build_tb(:'f2', '[{"key":"chart:13000","number":"13000","name":"Due from shareholder 1","line_no":"1301.10","amount":0,"last":8000,"reviewer":""},
   {"key":"chart:10000","number":"10000","name":"Chequing","line_no":"1002.00","amount":0,"last":-8000,"reviewer":""}]');
@@ -124,7 +136,10 @@ select public.cb_prepare_sh_schedule(:'f2', '[{"account_key":"chart:13000","numb
 reset role;
 select test.check('re-prepared with new figures: the confirmation is asked again', 'Shareholder loan schedule: confirm "Repaid by" for 1 shareholder.' = any (private.cb_sh_problems(:'f2')));
 set role authenticated;
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_confirm_sh_repaid(:'f2', 'sh:1');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('repaid in full: off My day', not exists (select 1 from public.cb_sh_due_list() where file_id = :'f'));
 select test.check('no flag left on the next file', not exists (select 1 from public.cb_sh_flags where file_id = :'f2'));
 
@@ -177,7 +192,10 @@ update public.cb_files set phase = 'locked' where id = :'f';
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('locked: no new schedule', test.try(format($q$select public.cb_prepare_sh_schedule(%L, '[]', '[]')$q$, :'f')) = 'This file is locked or missing.');
+-- Piece 8: "Repaid by" is the reviewer's (an owner's).
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('locked: no confirming', test.try(format($q$select public.cb_confirm_sh_repaid(%L, 'sh:1')$q$, :'f')) = 'This file is locked or missing.');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 reset role;
 reset request.jwt.claims;
 select test.check('locked: the tables refuse writes', test.try(format($q$delete from public.cb_sh_groups where file_id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.');
