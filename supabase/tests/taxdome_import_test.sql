@@ -12,16 +12,16 @@ select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 
 insert into public.clients (id, kind, legal_name) values ('00000000-0000-0000-0000-0000000000c1', 'corporation', 'Alpha Realty Inc');
 
 select test.check('an all-or-nothing import: a bad row stops everything',
-  test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"201","legal_name":"Beta Holdings Ltd.","bn":"736174566","fye":"03-31","tags":["T2"],"province":"ON"},
+  test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"201","legal_name":"Beta Holdings Ltd.","bn":"222222222","fye":"03-31","tags":["T2"],"province":"ON"},
     {"op":"insert","taxdome_id":"202","legal_name":"Bad","bn":"12","fye":"","tags":["T2"]}]')$$) like '%9 digits%'
   and not exists (select 1 from public.clients where legal_name = 'Beta Holdings Ltd.'));
 select test.check('owner imports: one update, one insert', (select public.apply_taxdome_import('[
-  {"op":"update","client_id":"00000000-0000-0000-0000-0000000000c1","taxdome_id":"101","legal_name":"Alpha Realty Inc.","bn":"725603690","fye":"12-31","tags":["T2","BK"]},
-  {"op":"insert","taxdome_id":"201","legal_name":"Beta Holdings Ltd.","bn":"736174566","fye":"","tags":["T2"],"province":""}]')) = '{"added": 1, "updated": 1}');
-select test.check('matched client updated from TaxDome', (select legal_name || '|' || business_number || '|' || year_end_md || '|' || taxdome_account_id from public.clients where id = '00000000-0000-0000-0000-0000000000c1') = 'Alpha Realty Inc.|725603690|12-31|101');
+  {"op":"update","client_id":"00000000-0000-0000-0000-0000000000c1","taxdome_id":"101","legal_name":"Alpha Realty Inc.","bn":"111111111","fye":"12-31","tags":["T2","BK"]},
+  {"op":"insert","taxdome_id":"201","legal_name":"Beta Holdings Ltd.","bn":"222222222","fye":"","tags":["T2"],"province":""}]')) = '{"added": 1, "updated": 1}');
+select test.check('matched client updated from TaxDome', (select legal_name || '|' || business_number || '|' || year_end_md || '|' || taxdome_account_id from public.clients where id = '00000000-0000-0000-0000-0000000000c1') = 'Alpha Realty Inc.|111111111|12-31|101');
 select test.check('new client is a corporation, no province guessed as Ontario', (select kind || '|' || province || '|' || year_end_md from public.clients where taxdome_account_id = '201') = 'corporation|OTHER|');
 select test.check('import logged with counts only', (select details from public.activity_log where action = 'taxdome_import') = '{"added": 1, "updated": 1}');
-select test.check('no duplicate Business Numbers', test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"301","legal_name":"Copy Inc.","bn":"725603690","fye":"","tags":["T2"]}]')$$) <> 'OK');
+select test.check('no duplicate Business Numbers', test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"301","legal_name":"Copy Inc.","bn":"111111111","fye":"","tags":["T2"]}]')$$) <> 'OK');
 select test.check('no duplicate TaxDome ids', test.try($$select public.apply_taxdome_import('[{"op":"insert","taxdome_id":"101","legal_name":"Copy Inc.","bn":"","fye":"","tags":["T2"]}]')$$) <> 'OK');
 select test.check('the owner cannot edit TaxDome fields by hand', test.try($$update public.clients set year_end_md = '06-30' where taxdome_account_id = '101'$$) like '%come from TaxDome%'
   and test.try($$update public.clients set legal_name = 'Other' where taxdome_account_id = '101'$$) like '%come from TaxDome%'

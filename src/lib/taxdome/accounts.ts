@@ -40,7 +40,7 @@ export function parseYearEnd(raw: string): string {
   return `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-// "725603690 RC0001", "736174566 RC 0001", "725 603 690" -> "725603690". Fewer than 9 digits -> "".
+// "111111111 RC0001", "222222222 RC 0001", "111 111 111" -> "111111111". Fewer than 9 digits -> "".
 export function bn9(raw: string): string {
   const d = raw.replace(/\D/g, "");
   return d.length >= 9 ? d.slice(0, 9) : "";
