@@ -13,8 +13,14 @@ export async function createRole(formData: FormData) {
     p_description: String(formData.get("description") ?? ""),
   });
   if (error) redirect(withMessage("/admin/team?tab=roles", "error", friendly(error.message)));
+  // The database gives Closebook Edit and Prepare only if the creator has them (decision 12A); say what it did.
+  const { data: r } = await supabase.from("roles").select("cb_prepare, role_permissions(area_key, level)").eq("id", data).maybeSingle();
+  const cb = (r as { cb_prepare: boolean; role_permissions: { area_key: string; level: string }[] } | null);
+  const cbEdit = !!cb?.role_permissions.some((p) => p.area_key === "closebook" && p.level === "edit");
   revalidatePath("/admin/team");
-  redirect(withMessage(`/admin/roles/${data}`, "msg", "Role created. Closebook starts at Edit with Prepare on; every other area at No access. Set the levels below."));
+  redirect(withMessage(`/admin/roles/${data}`, "msg", cbEdit && cb?.cb_prepare
+    ? "Role created. Closebook starts at Edit with Prepare on; every other area at No access. Set the levels below."
+    : "Role created. Every area starts at No access. Set the levels below."));
 }
 
 // Piece R3a-1: one save for the whole role (name, levels, Letters boxes, Closebook switches), in one database

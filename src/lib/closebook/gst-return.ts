@@ -102,7 +102,7 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
     const type = q.type ?? "services";
     const where = q.province ? `, ${provinceName(q.province)}` : "";
     const rate = q.rates ? quickRateFor(q.rates, q.province ?? "", type, period.start) : q.rate;
-    if (rate === null) problems.push(`No approved quick method rate for ${QUICK_TYPE_LABEL[type]}${q.province ? ` in ${provinceName(q.province)}` : ""} for the period from ${short(period.start)}. An owner loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates.`);
+    if (rate === null) problems.push(`No approved quick method rate for ${QUICK_TYPE_LABEL[type]}${q.province ? ` in ${provinceName(q.province)}` : ""} for the period from ${short(period.start)}. An Admin loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates.`);
     else {
       L["103"] = Math.round(L["101"] * rate);
       rateUsed = `Quick method rate, ${QUICK_TYPE_LABEL[type]}${where}: ${pctText(rate)}`;

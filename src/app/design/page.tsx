@@ -154,7 +154,7 @@ export default function DesignPage() {
       <Section id="navigation" title="Navigation" note="Staff sidebar in Concept navy with grouped sections, like Concept Studio. Step tracker for multi-step work.">
         <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
           <div className="h-[860px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]" data-design-menu>
-            <Sidebar user={{ name: "Test Owner", role: "Owner" }} groups={[
+            <Sidebar user={{ name: "Test Partner", role: "Partner" }} groups={[
               { label: "Workspace", items: [
                 { href: "#navigation", label: "Home", icon: <Home /> },
                 { href: "#navigation", label: "Leads", icon: <Inbox />, badge: "12" },

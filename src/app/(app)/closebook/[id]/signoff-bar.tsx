@@ -52,8 +52,7 @@ export function SignoffBar({ fileId, step, st, names, me, canPrepare, canReview,
           <div className="mt-1 flex flex-wrap items-center gap-3">
             {!reviewed && editable && (canReview
               ? (review || prepared) && form("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer", review)
-              : <span className="inline-flex items-center gap-2"><button type="button" disabled className="btn-secondary btn-compact" aria-describedby={`rv-${step}`}>Sign as reviewer</button>
-                  <span id={`rv-${step}`} className="text-xs text-ink-3">You need the Review right to sign as reviewer.</span></span>)}
+              : <span className="text-xs text-ink-3">You need the Review right to sign as reviewer.</span>)}
             {reviewed && editable && canUndo("reviewed") && undo("reviewed")}
           </div>
         </div>

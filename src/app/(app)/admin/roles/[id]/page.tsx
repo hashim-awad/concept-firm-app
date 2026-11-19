@@ -31,10 +31,10 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
     .select(`id, name, description, can_t1_letters, can_corporate_letters, can_final_letters, ${CB_SWITCHES.map((c) => c.col).join(", ")}`).eq("id", id).maybeSingle();
   const role = data as unknown as RoleRow | null;
   if (!role) notFound();
-  const [{ data: areas }, { data: perms }, { count }] = await Promise.all([
+  const [{ data: areas }, { data: perms }, { data: people }] = await Promise.all([
     supabase.from("permission_areas").select("key, label, description, sort_order").order("sort_order"),
     supabase.from("role_permissions").select("area_key, level").eq("role_id", id),
-    supabase.from("staff").select("id", { count: "exact", head: true }).eq("role_id", id),
+    supabase.from("staff").select("is_active").eq("role_id", id),
   ]);
   const levelOf = new Map(((perms ?? []) as PermRow[]).map((p) => [p.area_key, p.level]));
   const mine = (area: string) => RANK[access.permissions[area as Area] ?? "none"] ?? 0;
@@ -43,12 +43,12 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
     ["can_corporate_letters", "Can prepare corporate letters", role.can_corporate_letters, access.letters.corporate],
     ["can_final_letters", "Can issue Final and send for signing", role.can_final_letters, access.letters.final],
   ];
-  const n = count ?? 0;
+  const n = (people ?? []).length, active = (people ?? []).filter((x: { is_active: boolean }) => x.is_active).length;
 
   return (
     <>
       <p className="mb-2 text-sm"><Link href="/admin/team?tab=roles" className="text-accent underline">All roles</Link></p>
-      <PageHeader title={role.name} description={`${n} staff member${n === 1 ? " has" : "s have"} this role.`} />
+      <PageHeader title={role.name} description={`${n} staff member${n === 1 ? " has" : "s have"} this role${n === active ? "" : ` (${active} active)`}.`} />
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
 
       <form action={saveRole} className="card space-y-5">
@@ -100,11 +100,11 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
               return (
                 <label key={c.key} className={`flex items-center justify-between gap-4 rounded-lg border border-sand-200 px-4 py-3 ${allowed ? "cursor-pointer" : "opacity-60"}`}>
                   <span>
-                    <span className="block font-medium">{c.label}{"later" in c && <span className="ml-2 rounded bg-background px-1.5 py-0.5 text-xs font-normal text-muted">{c.later}</span>}</span>
-                    <span className="block text-sm text-ink-2">{c.hint}</span>
+                    <span className="block font-medium">{c.label}{"later" in c && <span id={`cb-later-${c.key}`} className="ml-2 rounded bg-background px-1.5 py-0.5 text-xs font-normal text-muted">{c.later}</span>}</span>
+                    <span id={`cb-hint-${c.key}`} className="block text-sm text-ink-2">{c.hint}</span>
                   </span>
-                  <input type="checkbox" role="switch" name={`cb:${c.key}`} defaultChecked={on} disabled={!allowed} aria-label={c.label} className="peer sr-only" />
-                  <span aria-hidden className="relative h-6 w-11 flex-none rounded-full bg-sand-300 transition-colors peer-checked:bg-success peer-focus-visible:ring-2 peer-focus-visible:ring-navy-700 peer-focus-visible:ring-offset-2 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:left-[22px]" />
+                  <input type="checkbox" role="switch" name={`cb:${c.key}`} defaultChecked={on} disabled={!allowed} aria-describedby={`cb-hint-${c.key}${"later" in c ? ` cb-later-${c.key}` : ""}`} className="peer sr-only" />
+                  <span aria-hidden className="relative h-6 w-11 flex-none rounded-full border border-ink-3 bg-sand-300 transition-colors peer-checked:border-success peer-checked:bg-success peer-focus-visible:ring-2 peer-focus-visible:ring-navy-700 peer-focus-visible:ring-offset-2 after:absolute after:top-px after:left-px after:border after:border-ink-3 peer-checked:after:border-white after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:left-[21px]" />
                 </label>
               );
             })}
@@ -129,7 +129,7 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
       <form action={deleteRole} className="mt-6">
         <input type="hidden" name="role_id" value={role.id} />
         <button type="submit" className="btn-danger" disabled={n > 0}>Delete role</button>
-        {n > 0 && <span className="ml-3 text-sm text-muted">Move its staff to another role first.</span>}
+        {n > 0 && <span className="ml-3 text-sm text-muted">Move its staff to another role first, including anyone switched off.</span>}
       </form>
     </>
   );
