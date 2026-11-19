@@ -198,4 +198,4 @@ One step at a time, each confirmed with a screenshot.
    0 client links, 5 engagements, 0 proposals, 1 document with 1 version, 43 price book items, 9 packages and
    floors. After: 0 clients, engagements, proposals, documents, versions and import runs; price book (43) and
    packages (9) kept. The 1 stored PDF deleted from the Test "documents" bucket. Test now holds no real client data.
-9. Vercel Pro: charged automatically to the card on file. 2FA on Vercel, Supabase and GitHub: parked, low priority.
+9. Vercel Pro: charged automatically to the card on file. Two-step sign-in is on for GitHub, Vercel and Supabase (Nov 2026). Keep it required for every member.
