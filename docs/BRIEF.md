@@ -542,12 +542,100 @@ In short:
 - Step 5 restructure plan (Hashim, Nov 18, 2026; benchmark CaseWare Cloud). The plan of the Round A message as updated by Hashim's brief, built as 11 small pieces, one branch, PR and at most one migration each, merged one at a time. When all are done: 1 Set up, 2 Opening balances, 3 Banking, 4 Code transactions (unchanged); 5 Adjustments (last year's line, the Schedules table, the existing entries list); 6 Compare to last year (new key; flagged changes, new accounts, accounts not used, what changed this year); 7 Review (the reviewer's step, also holding the reviewer's GIFI checks and the shareholder loan answers); 8 Tax returns (as built, plus the GST/HST revenue comparison); 9 Statements and 10 Deliver and lock (unchanged). GIFI matching becomes a view in the Trial balance tab; the Entries tab goes once step 5 holds the list.
   - Pieces: 1 CRA rates page; 2 edit an entry in place; 3 the schedule engine and Vehicle allowance; 4 Home office, and "Home office" and "Auto expenses" hidden from "From a standard entry" (their records and tax settings stay, so Expenses paid personally works as now); 5 step 5 becomes "Adjustments"; 6 TJEs keep steps 5, 6 and 7 signed (a TJE still clears step 8) and lead sheet flags ignore tax entries; 7 the revenue check becomes a schedule, its GST/HST figure moves to step 8; 8 shareholder loans move to Reporting and to the reviewer in step 7; 9 GIFI matching as a Trial balance view with a Tools shortcut; 10 step 6 becomes "Compare to last year" (the only piece that changes a step key; the new step 6 starts unsigned on every file, nothing is copied); 11 the Entries tab goes and the step texts are corrected.
   - Rules for every piece: steps 1 to 4 untouched; no schedule or step is switched on or off by a setup answer (reading a fact about the client is fine: "Claim the ITC" shows and is ticked when the file is registered on the regular method, as Expenses paid personally does); no step key or number changes unless the piece says so; no migration drops a table or column; no data change to any Live file; an existing test changes only where the piece approves it; the five sign-off gaps from Round A wait for their own round; the Lock message's TaxDome wording stays (staff screen). A person cannot create an account without a GIFI line; imports still save unmatched accounts (shown under "Unmatched"); Clearing 10900 and the two system rows stay exempt.
+- Piece R2, trial balance files: Assign mapping to the master chart; module headings; trial balance files take Closebook entries
+  (Hashim, Nov 19, 2026, version 4; mock O; benchmark CaseWare Cloud "Assign accounts" and document map phases, then
+  QuickBooks Online bank feed Undo).
+  - Hashim's decisions of Nov 19, 2026:
+    - Trial balance import files (client's own books, bookkeeper, monthly): in step 4, each client account is matched to a
+      standard chart account. The client's own number and name stay on every report. GIFI follows from the chart account; the
+      step 8 override works as on bank files. This reverses the Nov 13 rule "imported accounts are never matched to the
+      standard chart".
+    - Trial balance files (including monthly QuickBooks clients): Closebook is the year-end tool for every file. They import
+      the QuickBooks trial balance, take entries in Closebook, and the entries go back to QuickBooks through the client entry
+      list. This lifts "Monthly files: entries are made in QuickBooks".
+  - Terms, on screen and here: "Trial balance file" (every file that starts from a trial balance: Concept's monthly
+    QuickBooks clients, clients' own software, bookkeepers); "Bank-statement file" (built from bank and card statements);
+    "Master chart" and "Master account" (the standard chart of accounts). Internal values stay as they are.
+  - Module headings (item 0, moved here from R3; Books closed stays in R3): PLANNING (step 1), TRIAL BALANCE on trial balance
+    files or BOOKKEEPING on bank-statement files (steps 2 to 4), FIELDWORK (5 to 8), COMPLETION (9 and 10). The folded rail
+    shows a thin rule between modules, no labels (D1). Trial balance file step names: 3 "Import trial balance", 4 "Assign
+    mapping". Keys and numbers unchanged. The file header slot reads "Trial balance" on trial balance files only; step 1 and
+    My files keep the data source label (D14, an exception to the Nov 15 rule). The "ours" data source line reads "We import
+    the QuickBooks trial balance. Year-end entries go back through the client entry list."
+  - Step 4 "Assign mapping" on trial balance files (mock O; the text wins over the mock on every difference, D1): two panes,
+    the step list folded on this page only (the saved pin is not changed). Header "<a> of <n> accounts with a balance
+    assigned · <left> left". Left "Unassigned (n)": the client's accounts as in their books, QuickBooks "Parent:Sub" as a
+    tree (a parent with its own balance shows "(own balance)" as its own row), tick a parent for its unassigned children,
+    shift-click for a range, filter, "Hide no balance" on by default, "Accept last year's matches (n)" beside it (hidden at 0).
+    Right "Master chart": "<n> selected · <total>", one suggestion box with "Assign <n>", search (2 characters or more), groups
+    by lead sheet name with each group's client account count and total, master accounts with count, total and Assign; drag
+    onto a row assigns; a master account's name opens its client accounts in a window over the page, each with Unassign. Every
+    row is listed (no "… more"). Keyboard: arrows open and close the tree, Space ticks, Shift+Space extends a range, Assign and
+    Unassign are the keyboard path for drag and drop, Escape closes windows. No GIFI code anywhere in step 4.
+    - Counted accounts (D9): a balance this year or last year, or an entry. The Account List upload adds the client's accounts
+      with no balance as rows; "Hide no balance" hides them and they never block the step.
+    - Suggestions, in order: last year's match (by number only when the name also matches, else "Name changed" for review;
+      names by the full Parent:Sub path; in the first R2 year, the single master account on last year's line) (D4); the
+      QuickBooks type and detail type from the Account List upload (detail type now read and stored, D11); the name. Last
+      year's matches are confirmed with "Accept last year's matches (n)"; others by Assign. Nothing is assigned without a click.
+    - Assign warns, with a confirm, when the selected accounts' QuickBooks types differ from the master account's type; the
+      account then goes to step 8's box as "Type does not match the GIFI line" for the reviewer (D10, D16).
+    - Undo and reset: after every Assign or Unassign the green message "Assigned 8 accounts to 60000 Advertising" with an Undo
+      button, about 10 seconds. "↶ Undo: <what>" top right reverses the last action in one database call, back up to 20
+      actions in the session; refused, naming the accounts, when any account in it changed since (D17). "Unassign all…" asks
+      "Unassign all <n> accounts? The trial balance and its figures stay as imported. Assignments carried from last year
+      return as suggestions." Every Assign, Unassign, Undo, Accept and Unassign all is in History with who and when.
+    - Once step 4 is signed, every mapping change (Assign, Unassign, Undo, Accept, Unassign all) is refused until the sign-off
+      is taken back (D7). Step 4 cannot be signed while a counted account is unassigned (database).
+    - Who: the preparer assigns and signs; the reviewer signs as today; History lists every change (D8).
+  - Data (item 2): cb_accounts.chart_account (nullable, the standard chart). On trial balance files a trigger keeps the group
+    (line_no) equal to the master account's line; the group changes only by changing the master account ("Choose a group" on
+    these files chooses a master account) (D6). Lead sheets, step 6, reports, revenue check and schedules read the group as on
+    bank files; shareholder loans, the director exclusion, shareholder 1 and 2, and the GST/HST account tests read
+    chart_account on trial balance files (bank files unchanged, D13). When an assignment puts an account on a different line
+    than last year, step 8's box lists it as "Line changed from last year"; the reviewer decides there whether to keep last
+    year's line as an override. No automatic override.
+  - Clearing (D7): a new master account on the same line clears step 4 only; one that moves the group clears steps 4, 6, 7 and
+    8 (9 and 10 through the chain) and withdraws a MAL out for signing. On trial balance files a tax code, type or override
+    change clears what it clears on bank files, no longer step 4. The item 4 data move clears nothing and writes one History
+    line per file. Trial balance files on Live whose step 4 is signed keep their sign-off.
+  - Step 3 import (D5): the automatic GIFI matching after a trial balance import is removed; suggestions are made in step 4.
+    Message: "Imported N accounts. Assign them in step 4." Sub-accounts are each their own account (the key keeps the
+    sub-account's own number or full Parent:Sub name) (D10).
+  - Step 8 on trial balance files (item 3): the "Match accounts to GIFI" paper as on bank files; step 7's GIFI checks on these
+    files move to step 8; the override works with R1's rules and rolls forward when the chart account is first set. Old step 4
+    matching addresses open the new step 4; old GIFI match addresses open step 8.
+  - Clearing accounts (D2, Hashim): payment app clearing (CAD and USD), Undeposited Funds and commission cheque clearing are
+    assigned to 10900 Clearing. The Clearing rules apply to chart_account 10900: step 6 holds while it has a balance; an entry to
+    cash (deposit in transit) or receivables clears it. New master accounts (Hashim approved, Nov 19): 12250 GST/HST receivable
+    (1066.00 Taxes receivable) and 12900 Other current assets (1480.00 Other current assets).
+  - QuickBooks Opening Balance Equity (Hashim, Nov 19; option A): assigned to 10900 Clearing (identified by QuickBooks type
+    Equity, else the name "Opening Balance Equity"); must be nil, step 6 holds while it has a balance. It is cleared by one RJE
+    to retained earnings at the start of the year: the only exception to "retained earnings only through prior period
+    adjustments (3720)", allowed only from this account, logged in History, and allowed only when step 2 holds last year's
+    closing retained earnings typed from the T2; after it, retained earnings at the start equal that figure.
+  - Existing files (item 4): read-only Live count first (scripts/checks/r2-tb-chart-count.sql); the data move gives an account
+    a master account only when exactly one master account sits on its current line (D3), sets chart_account only, never the
+    line, skips locked files (D15). Live count (Hashim, Nov 19): no rows, no trial balance files on Live; the data move is left
+    out of the migration, nothing to move.
+  - Entries on trial balance files (item 5): the monthly guard is removed; AJE, RJE and TJE work on every trial balance file,
+    schedules included. The entry writer posts to client accounts on every trial balance file (keepsOwnBooks unchanged, so the
+    package and loans do not change, D12a). The client account is found by master account; with several client accounts on
+    one master account the preparer picks one, remembered and rolled forward; never a parent with sub-accounts (D12b). A new
+    client account is created with a master account (replaces "a person cannot create an account without a GIFI line"). Each
+    entry can be marked "Booked in QuickBooks" (who, when); a trial balance re-import is refused while any entry is marked
+    booked (D12c). The client entry list works on every trial balance file in PDF and Excel; on monthly files it is titled
+    "Entries to record in QuickBooks" and is not in the client document zip (D12d, D12e).
+  - Wording (item 6): no GIFI code on trial balance file screens before step 8, except step 2's "Last year's T2 line".
+  - Later pieces (Hashim, Nov 19): mapping working paper (W/P TB.3); firm chart matching for monthly clients; the reviewer's
+    "Changes from last year" list; lifting the GIFI export, T2 tie-out, revenue check and New file blocks on monthly files;
+    equity carry-forward on QuickBooks files; sales tax code on client list lines; "reverse on day 1".
 - Piece R1, GIFI in one place: step 8 "Match accounts to GIFI" (Hashim, Nov 19, 2026, version 2; mocks M and N; benchmark
   CaseWare Cloud: an account has one grouping for the statements and one GIFI property for the tax return, mapped and checked
   at the tax stage; QuickBooks Online Workpapers > Tax mapping for the layout of the paper).
   - Hashim's decisions of Nov 19, 2026 on the module and GIFI review:
     - The 10 steps are grouped in 4 modules (Planning: 1; Bookkeeping and trial balance: 2 to 4; Fieldwork: 5 to 8;
-      Completion: 9 and 10). Keys and numbers unchanged. Built in piece R3.
+      Completion: 9 and 10). Keys and numbers unchanged. Headings built in piece R2.
     - Books closed: when the reviewer signs step 4 with steps 2 and 3 reviewed; button "Sign and close the books"; owner-only
       Reopen books with a reason clears steps 5 to 10; bookkeeping errors after closing go through a reopen, not an AJE; lines
       for the reviewer and excluded lines settled in step 4; trial balance stored at closing. Built in piece R3.
