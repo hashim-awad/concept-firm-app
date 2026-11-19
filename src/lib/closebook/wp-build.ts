@@ -15,7 +15,7 @@ export const WP_STAMP = "Working paper: not for the client";
 export const CLIENT_STAMP = "Entries to record in your books";
 export { keepsOwnBooks, takesClientEntryList } from "./books";
 import { clientListTitle } from "./books";
-import { clientListTable } from "./client-list";
+import { clientListTable, notFinalNote, unassignedCount } from "./client-list";
 import { reportXlsx } from "./xlsx-write";
 
 export type PdfQuery = { report: string; view?: string; account?: string; from?: string; to?: string; source?: string };
@@ -61,7 +61,8 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
     // The client's copy (round 8 item 6): no working paper references, and the entries page is called
     // "Entries to record".
     sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client" ? cbText(texts, CB_CLIENT.tbNote) : undefined),
-      entriesSection(ctx, entries, box, "TB.2", mode === "client" ? { title: "Entries to record", noRefs: true } : undefined)];
+      entriesSection(ctx, entries, box, "TB.2", mode === "client" ? { title: "Entries to record", noRefs: true,
+        notFinal: notFinalNote(unassignedCount(f.accounts, new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id))))) } : undefined)];
     if (mode === "client") {
       const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
       const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));
@@ -105,7 +106,7 @@ export async function buildClientListXlsx(supabase: SupabaseClient, fileId: stri
   });
   const title = clientListTitle(f.file);
   const client = f.client?.legal_name ?? "";
-  const bytes = reportXlsx(clientListTable(title, fresh, entries), [client, `Year ended ${f.file.year_end}`], draft ? `${title} · DRAFT FOR REVIEW` : title);
+  const bytes = reportXlsx(clientListTable(title, fresh, entries, notFinalNote(unassignedCount(f.accounts, used))), [client, `Year ended ${f.file.year_end}`], draft ? `${title} · DRAFT FOR REVIEW` : title);
   const filename = `${client} Entries to record ${f.file.year_end}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim() + ".xlsx";
   return { bytes, filename };
 }

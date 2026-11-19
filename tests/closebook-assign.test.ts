@@ -183,3 +183,18 @@ test("dividends option A: the client entry list gives an opening RJE its own dat
   assert.ok(heads.includes("2026-001 RJE, dated 2025-10-01: Close last year's dividends to retained earnings"), heads.join(" | "));
   assert.ok(heads.includes("2026-002 AJE: Accrue the fee"), heads.join(" | "));
 });
+
+test("client entry list: while counted accounts are unassigned, the net income is not final", async () => {
+  const { unassignedCount, notFinalNote, clientListTable } = await import("../src/lib/closebook/client-list.ts");
+  const accts = [
+    { id: "a", account_key: "6000", chart_account: null, this_year: 100, last_year: 0 },
+    { id: "b", account_key: "6100", chart_account: "66000", this_year: 100, last_year: 0 },
+    { id: "c", account_key: "6200", chart_account: null, this_year: 0, last_year: 0 },
+    { id: "d", account_key: "6300", chart_account: null, this_year: 0, last_year: 0 },
+    { id: "e", account_key: "uncoded", chart_account: null, this_year: 5, last_year: 0 },
+  ];
+  assert.equal(unassignedCount(accts, new Set(["d"])), 2);   // a (balance) and d (an entry); c has neither; uncoded is a system row
+  assert.equal(notFinalNote(2), "2 accounts not yet assigned: net income is not final.");
+  assert.equal(notFinalNote(0), null);
+  assert.equal(clientListTable("Entries", [], [], notFinalNote(1)).rows[0].cells[0], "1 account not yet assigned: net income is not final.");
+});

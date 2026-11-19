@@ -81,6 +81,21 @@ create or replace function private.cb_obe(a public.cb_accounts) returns boolean 
     or lower(regexp_replace(btrim(a.name), '\s+', ' ', 'g')) = 'opening balance equity')
 $$;
 
+-- Opening RJEs (Hashim, Nov 19, 2026; multiple entries, option A). An account's last-year balance is moved when an RJE has a
+-- line on it and a line on retained earnings.
+create or replace function private.cb_div_moved(p_acc uuid) returns boolean language sql stable set search_path = '' as $$
+  select exists (select 1 from public.cb_entries e join public.cb_entry_lines l on l.entry_id = e.id where l.account_id = p_acc and e.kind = 'RJE'
+    and exists (select 1 from public.cb_entry_lines r join public.cb_accounts ra on ra.id = r.account_id where r.entry_id = e.id and ra.line_no like '3600.%'))
+$$;
+-- What the opening RJEs still to come will move out of retained earnings at the start: the last-year balances of dividends and
+-- prior period accounts (lines 3700 to 3740) not yet moved, plus any Opening Balance Equity left. Each opening RJE must tie to
+-- step 2 once these are counted (the projected tie); step 6's tie stays the final check.
+create or replace function private.cb_opening_pending(p_file uuid) returns numeric language sql stable set search_path = '' as $$
+  select coalesce((select sum(a.last_year) from public.cb_accounts a join public.cb_chart_accounts c on c.number = a.chart_account
+           where a.file_id = p_file and c.line_no >= '3700' and c.line_no < '3750' and a.last_year <> 0 and not private.cb_div_moved(a.id)), 0)
+       + coalesce((select sum(private.cb_account_final(a.id)) from public.cb_accounts a where a.file_id = p_file and private.cb_obe(a)), 0)
+$$;
+
 -- The master account for a line written directly (cb_map_account, an old function no screen uses on these files):
 -- exactly one master account on the line; on 1002 and 8000 (same tax treatment) the first in chart order (D3).
 create or replace function private.cb_chart_for_line(p_line text) returns text language sql stable security definer set search_path = '' as $$
@@ -483,7 +498,7 @@ begin
                  btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name), private.cb_money(a.last_year)) order by a.number, a.name)
           from public.cb_accounts a join public.cb_chart_accounts c on c.number = a.chart_account
          where a.file_id = p_file and c.line_no >= '3700' and c.line_no < '3750' and a.last_year <> 0
-           and not exists (select 1 from public.cb_entries e join public.cb_entry_lines l on l.entry_id = e.id where e.file_id = p_file and e.kind = 'RJE' and l.account_id = a.id)), '{}'::text[]);
+           and not private.cb_div_moved(a.id)), '{}'::text[]);
       end if;
     end if;
     v_out := v_out || coalesce((select array_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
@@ -906,6 +921,7 @@ declare
   v_div_amt numeric;
   v_div_last numeric;
   v_div_name text;
+  v_pend numeric;
   v_re_now numeric;
   v jsonb;
   v_acc uuid;
@@ -1005,7 +1021,9 @@ begin
       if v_own then v_name := 'Prior period adjustments'; v_type := 'Equity'; end if;
     end if;
     if v_line like '3720.%' then
-      perform private.require(p_reason = 'prior_period', 'A line on 31500 Prior period adjustments needs the reason "Prior period adjustment".');
+      -- Dividends option A: the opening RJE that moves a 31500 account's balance from last year closes that figure; it is not
+      -- a prior period adjustment, so it may take the reason "correction".
+      perform private.require(p_reason = 'prior_period' or (v_div and v_acc = v_div_acc), 'A line on 31500 Prior period adjustments needs the reason "Prior period adjustment".');
       v_ppa_line := true;
     end if;
     if v_acc is null then
@@ -1055,9 +1073,12 @@ begin
     perform private.require(p_file.opening_re_stated is not null, 'Enter last year''s closing retained earnings in step 2 first.');
     perform private.require(private.cb_account_final(v_obe_acc) = 0, 'The entry must clear Opening Balance Equity to nil.');
     select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_re_now from public.cb_accounts a where a.file_id = v_fid and a.line_no like '3600.%';
-    perform private.require(v_re_now = p_file.opening_re_stated,
-      format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
-        private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated)));
+    v_pend := private.cb_opening_pending(v_fid);
+    perform private.require(v_re_now - v_pend = p_file.opening_re_stated, case when v_pend = 0
+      then format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
+        private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated))
+      else format('After this entry and the opening balances still to move (%s), retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
+        private.cb_money(v_pend), private.cb_money(v_re_now - v_pend), private.cb_money(p_file.opening_re_stated)) end);
     -- Decision 1A: the entry is dated the first day of the year.
     update public.cb_entries set entry_date = p_file.year_start where id = p_entry and entry_date is distinct from p_file.year_start;
     perform private.cb_log_event(v_fid, 'entry_obe', 'entries', 'Opening Balance Equity cleared to retained earnings (RJE), checked against step 2',
@@ -1074,9 +1095,12 @@ begin
     perform private.require(v_div_amt = -v_div_last,
       format('The entry must move %s''s balance from last year exactly: last year %s, this entry %s.', v_div_name, private.cb_money(v_div_last), private.cb_money(-v_div_amt)));
     select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_re_now from public.cb_accounts a where a.file_id = v_fid and a.line_no like '3600.%';
-    perform private.require(v_re_now = p_file.opening_re_stated,
-      format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
-        private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated)));
+    v_pend := private.cb_opening_pending(v_fid);
+    perform private.require(v_re_now - v_pend = p_file.opening_re_stated, case when v_pend = 0
+      then format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
+        private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated))
+      else format('After this entry and the opening balances still to move (%s), retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
+        private.cb_money(v_pend), private.cb_money(v_re_now - v_pend), private.cb_money(p_file.opening_re_stated)) end);
     update public.cb_entries set entry_date = p_file.year_start where id = p_entry and entry_date is distinct from p_file.year_start;
     perform private.cb_log_event(v_fid, 'entry_dividends', 'entries', format('%s: last year''s balance %s moved to retained earnings (RJE), checked against step 2',
       v_div_name, private.cb_money(v_div_last)), null, null, null, null, null, null, null);
@@ -1366,7 +1390,7 @@ create trigger cb_booked_guard before insert or update or delete on public.cb_en
 -- 7. Grants.
 revoke all on function private.cb_is_tb(uuid), private.cb_clearing(text, text), private.cb_obe(public.cb_accounts),
   private.cb_chart_for_line(text), private.cb_step4_signed(uuid), private.cb_prior_line(uuid, text), private.cb_assign_counted(public.cb_accounts),
-  private.cb_chart_sync(), private.cb_assign_changed(), private.cb_booked_guard() from public, anon, authenticated;
+  private.cb_chart_sync(), private.cb_assign_changed(), private.cb_booked_guard(), private.cb_div_moved(uuid), private.cb_opening_pending(uuid) from public, anon, authenticated;
 revoke all on function public.cb_assign(uuid, jsonb, text, text), public.cb_unassign_all(uuid), public.cb_undo_assign(uuid),
   public.cb_pick_chart_account(uuid, text, uuid), public.cb_mark_booked(uuid, boolean), public.cb_keep_line_move(uuid), public.cb_save_tb_opening_re(uuid, numeric) from public, anon;
 grant execute on function public.cb_assign(uuid, jsonb, text, text), public.cb_unassign_all(uuid), public.cb_undo_assign(uuid),

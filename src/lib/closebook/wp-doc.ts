@@ -171,7 +171,7 @@ export function journalSection(ctx: WpCtx, txns: JournalTxn[], source: (t: Journ
 // date: the entry's own date when it has one (an opening RJE is dated the first day of the year); else the year end.
 export type EntryDoc = { no: string; kind: string; wpRef: string; memo: string; date?: string | null; lines: { number: string; name: string; cents: number }[] };
 // client: the client's copy names the page "Entries to record" and leaves out the W/P references.
-export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string, client?: { title: string; noRefs: boolean }): any[] {
+export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string, client?: { title: string; noRefs: boolean; notFinal?: string | null }): any[] {
   const out: any[] = [headerBlock(ctx, client?.title ?? "Adjusting and reclass journal entries", wpRef),
     { text: `Period: ${monthDayYear(ctx.yearStart)} to ${monthDayYear(ctx.yearEnd)}`, color: C.grey, fontSize: 9.5, margin: [6, 0, 0, 10] }];
   if (!entries.length) out.push({ text: "No entries.", fontSize: 9, margin: [22, 0, 0, 10] });
@@ -195,6 +195,7 @@ export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBo
       layout: { hLineWidth: () => 0.6, vLineWidth: () => 0.6, hLineColor: () => C.border, vLineColor: () => C.border, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 } });
   }
   out.push(netIncomeBoxBlock(box));
+  if (client?.notFinal) out.push({ text: client.notFinal, bold: true, color: C.navy, fontSize: 9.5, margin: [22, 6, 0, 0] });
   return out;
 }
 

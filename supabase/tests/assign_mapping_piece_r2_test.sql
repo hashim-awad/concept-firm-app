@@ -369,3 +369,69 @@ select test.check('dividends: History records it', exists (select 1 from public.
 select test.check('dividends: any other entry to retained earnings still needs a prior period adjustment', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
   :'dv', (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), :'dvre')) = 'A line on retained earnings needs the reason "Prior period adjustment".');
 :out;
+
+-- Several opening RJEs (Hashim, Nov 19, option A, projected tie): each entry ties to step 2 once the other qualifying balances
+-- not yet moved, and any Opening Balance Equity left, are counted. Dividends non-eligible 12,000.00 and eligible 8,000.00 carried
+-- from last year, retained earnings 100,000.00 credit, step 2 80,000.00; entered in either order.
+\set tb2 '[{"number":"1000","name":"Chequing","amount":80000},{"number":"3410","name":"Dividends non-eligible","amount":12000},{"number":"3420","name":"Dividends eligible","amount":8000},{"number":"3000","name":"Retained earnings","amount":-100000}]'
+\set rje 'select test.try(format($q$select public.cb_add_entry(%L, ''RJE'', ''correction'', ''Close last year''''s dividends'', false, ''[{"account":"%s","amount":%s},{"account":"%s","amount":%s}]'', ''QuickBooks trial balance'')$q$, '
+:prep;
+select public.cb_create_file(:'client', '2018-12-31', '2018-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as d2a \gset
+select public.cb_create_file(:'client', '2017-12-31', '2017-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as d2b \gset
+select public.cb_import_tb(f, t, 'client_software', 'tb.csv', :'tb2') from unnest(array[:'d2a', :'d2b']::uuid[]) f, unnest(array['this_year', 'last_year']) t;
+select public.cb_assign(f, (select jsonb_agg(jsonb_build_object('account', id, 'chart', case number when '1000' then '10000' when '3410' then '32000' when '3420' then '32100' else '31000' end))
+  from public.cb_accounts where file_id = f), 'Assigned 4 accounts') from unnest(array[:'d2a', :'d2b']::uuid[]) f;
+select public.cb_save_tb_opening_re(f, 80000) from unnest(array[:'d2a', :'d2b']::uuid[]) f;
+:out;
+select (select id from public.cb_accounts where file_id = :'d2a' and number = '3410') as a_ne, (select id from public.cb_accounts where file_id = :'d2a' and number = '3420') as a_el,
+       (select id from public.cb_accounts where file_id = :'d2a' and number = '3000') as a_re, (select id from public.cb_accounts where file_id = :'d2b' and number = '3410') as b_ne,
+       (select id from public.cb_accounts where file_id = :'d2b' and number = '3420') as b_el, (select id from public.cb_accounts where file_id = :'d2b' and number = '3000') as b_re \gset
+:prep;
+select test.check('two dividends accounts: the first RJE (12,000.00) is accepted, counting the 8,000.00 still to move', (:rje :'d2a', :'a_ne', -12000, :'a_re', 12000))) = 'OK');
+select test.check('two dividends accounts: then the second (8,000.00)', (:rje :'d2a', :'a_el', -8000, :'a_re', 8000))) = 'OK');
+select test.check('two dividends accounts, the other order: 8,000.00 first', (:rje :'d2b', :'b_el', -8000, :'b_re', 8000))) = 'OK');
+select test.check('two dividends accounts, the other order: then 12,000.00', (:rje :'d2b', :'b_ne', -12000, :'b_re', 12000))) = 'OK');
+:out;
+select test.check('two dividends accounts: both files tie to step 2 and carry no dividends from last year',
+  not exists (select 1 from unnest(private.cb_step_problems(:'d2a', 'compare') || private.cb_step_problems(:'d2b', 'compare')) p where p like 'Retained earnings at the start%' or p like '%from last year%')
+  and private.cb_account_final(:'a_ne') = 0 and private.cb_account_final(:'a_el') = 0 and private.cb_account_final(:'b_ne') = 0 and private.cb_account_final(:'b_el') = 0);
+
+-- Opening Balance Equity (5,000.00 debit) plus one dividends account (15,000.00 from last year): retained earnings 100,000.00,
+-- step 2 80,000.00. The OBE RJE counts the dividends still to move; then the dividends RJE ties.
+:prep;
+select public.cb_create_file(:'client', '2016-12-31', '2016-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as ob \gset
+select public.cb_import_tb(:'ob', t, 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":80000},{"number":"","name":"Opening Balance Equity","amount":5000},{"number":"3400","name":"Dividends","amount":15000},{"number":"3000","name":"Retained earnings","amount":-100000}]')
+  from unnest(array['this_year', 'last_year']) t;
+select public.cb_assign(:'ob', (select jsonb_agg(jsonb_build_object('account', id, 'chart', case number when '1000' then '10000' when '3400' then '32200' when '3000' then '31000' else '10900' end))
+  from public.cb_accounts where file_id = :'ob'), 'Assigned 4 accounts');
+select public.cb_save_tb_opening_re(:'ob', 80000);
+:out;
+select (select id from public.cb_accounts where file_id = :'ob' and name = 'Opening Balance Equity') as o_obe, (select id from public.cb_accounts where file_id = :'ob' and number = '3400') as o_div,
+       (select id from public.cb_accounts where file_id = :'ob' and number = '3000') as o_re \gset
+:prep;
+select test.check('OBE plus dividends: a wrong OBE amount is refused, naming what is still to move', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-4000},{"account":"%s","amount":4000}]', 'QuickBooks trial balance')$q$,
+  :'ob', :'o_obe', :'o_re')) = 'The entry must clear Opening Balance Equity to nil.');
+select test.check('OBE plus dividends: the OBE RJE is accepted, counting the 15,000.00 still to move', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-5000},{"account":"%s","amount":5000}]', 'QuickBooks trial balance')$q$,
+  :'ob', :'o_obe', :'o_re')) = 'OK');
+select test.check('OBE plus dividends: then the dividends RJE', (:rje :'ob', :'o_div', -15000, :'o_re', 15000))) = 'OK');
+:out;
+select test.check('OBE plus dividends: step 6 ties', not exists (select 1 from unnest(private.cb_step_problems(:'ob', 'compare')) p where p like 'Retained earnings at the start%' or p like 'Opening Balance Equity%' or p like '%from last year%'));
+
+-- Low items: a 31500 account's opening RJE may take the reason "correction"; an unrelated RJE on it keeps the step 6 hint.
+:prep;
+select public.cb_create_file(:'client', '2015-12-31', '2015-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as pp \gset
+select public.cb_import_tb(:'pp', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":89500},{"number":"3500","name":"Prior period adjustments","amount":10000},{"number":"3600","name":"Other equity items","amount":500},{"number":"3000","name":"Retained earnings","amount":-100000}]');
+select public.cb_import_tb(:'pp', 'last_year', 'client_software', 'tb-ly.csv', '[{"number":"1000","name":"Chequing","amount":90000},{"number":"3500","name":"Prior period adjustments","amount":10000},{"number":"3000","name":"Retained earnings","amount":-100000}]');
+select public.cb_assign(:'pp', (select jsonb_agg(jsonb_build_object('account', id, 'chart', case number when '1000' then '10000' when '3500' then '31500' when '3600' then '31600' else '31000' end))
+  from public.cb_accounts where file_id = :'pp'), 'Assigned 4 accounts');
+select public.cb_save_tb_opening_re(:'pp', 90000);
+select public.cb_add_entry(:'pp', 'RJE', 'prior_period', 'Reclass', false, format('[{"account":"%s","amount":-1},{"account":"%s","amount":1}]',
+  (select id from public.cb_accounts where file_id = :'pp' and number = '3500'), (select id from public.cb_accounts where file_id = :'pp' and number = '3600'))::jsonb, 'Schedule');
+:out;
+select test.check('an RJE that does not move the account to retained earnings keeps the step 6 hint', private.cb_step_problems(:'pp', 'compare')
+  @> array['3500 Prior period adjustments carries 10,000.00 from last year: if QuickBooks did not close it, move that balance to retained earnings with one RJE dated the first day of the year.']);
+:prep;
+select test.check('a 31500 account''s opening RJE takes the reason "correction"', (:rje :'pp', (select id from public.cb_accounts where file_id = :'pp' and number = '3500'), -10000,
+  (select id from public.cb_accounts where file_id = :'pp' and number = '3000'), 10000))) = 'OK');
+:out;
+select test.check('then the hint goes and step 6 ties', not exists (select 1 from unnest(private.cb_step_problems(:'pp', 'compare')) p where p like 'Retained earnings at the start%' or p like '%from last year%'));

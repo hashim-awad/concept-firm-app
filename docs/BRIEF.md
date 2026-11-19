@@ -628,6 +628,11 @@ In short:
     account's last-year balance exactly, and after the entry step 6's tie (retained earnings at the start = step 2's T2 line 3849)
     must hold; otherwise refused, naming both figures. Logged in History and listed on the client entry list, so the client's
     QuickBooks is closed the same way. While the tie fails, step 6 names each such account still carrying last year's balance.
+  - Several opening RJEs (Hashim, Nov 19, 2026, option A): each opening RJE (Opening Balance Equity or a carried dividends or
+    prior period balance) must tie to step 2 once the other qualifying balances not yet moved, and any Opening Balance Equity
+    left, are counted (the projected tie), in any order. Each RJE still moves exactly its account's balance; step 6's tie stays the
+    final check. A 31500 account's opening RJE may take the reason "correction". A client entry list made while counted accounts
+    are unassigned says "N accounts not yet assigned: net income is not final."
   - Existing files (item 4): read-only Live count first (scripts/checks/r2-tb-chart-count.sql); the data move gives an account
     a master account only when exactly one master account sits on its current line (D3), sets chart_account only, never the
     line, skips locked files (D15). Live count (Hashim, Nov 19): no rows, no trial balance files on Live; the data move is left
