@@ -575,6 +575,15 @@ In short:
     and Documents Edit in the database, not only on screen.
   - Live (read-only check, Nov 19): one active person on Owner, no other roles. The migration renames the role in place, so
     that person's role id never changes; Partner gets every right on.
+  - Built and merged Nov 19, 2026 (PR #107, merge 627b006); Live database deploy the same day, firm-wide role tables only,
+    no client file changed. The build added four rules beyond the decisions (security review):
+    - A Closebook switch counts only on a role with Edit on Closebook. A role below Edit keeps its switches stored but they
+      do nothing; the roles list and role page say so.
+    - save_role, set_role_permissions and set_role_letters refuse to change a role that has more access than the person
+      saving it, so a lesser Admin cannot strip Partner.
+    - The engagement guard (15A) covers adding an engagement as well as updating one.
+    - The data move (Owner to Partner, Staff to Accountant, new roles) runs only while an Owner role exists, so a second run
+      changes nothing.
   - Next: R3a-2, the file team (Preparer, Reviewer, Partner per file; only the named people sign their circles).
 - Piece R2, trial balance files: Assign mapping to the master chart; module headings; trial balance files take Closebook entries
   (Hashim, Nov 19, 2026, version 4; mock O; benchmark CaseWare Cloud "Assign accounts" and document map phases, then
