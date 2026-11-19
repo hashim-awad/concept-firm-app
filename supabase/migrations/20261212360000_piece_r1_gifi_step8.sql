@@ -16,103 +16,12 @@
 --     refusal uses the step names on screen (item 7).
 -- No table or column is dropped. No data is changed: the new column starts empty on every account. Safe to run twice.
 
+-- Function bodies are checked when they run, not when created: the Test database's private schema can lag behind main
+-- (the PR deploy found private.cb_side_open missing there), and this file creates or replaces every function it calls.
+set check_function_bodies = off;
+
 alter table public.cb_accounts add column if not exists gifi_override text references public.cb_master_lines(line_no) on update cascade;
 comment on column public.cb_accounts.gifi_override is 'Piece R1: the GIFI line for the tax return when it differs from the group (line_no). Step 8 only, bank-statement files.';
-
--- The GIFI export's fingerprint: the trial balance's, plus the overrides. With no override it is exactly the trial balance
--- fingerprint, so no saved export turns stale when this runs.
-create or replace function private.cb_gifi_fingerprint(p_file uuid) returns text
-language sql stable security definer set search_path = '' as $$
-  select case when o.t is null then private.cb_tb_fingerprint(p_file) else md5(private.cb_tb_fingerprint(p_file) || '|' || o.t) end
-  from (select string_agg(a.id::text || '>' || a.gifi_override, ',' order by a.id) t from public.cb_accounts a
-         where a.file_id = p_file and a.gifi_override is not null) o;
-$$;
-
--- Hashim (Nov 19, 2026): the retained earnings continuity lines (3600 to 3849: retained earnings, dividends, prior period
--- adjustments) neither take nor give an override; they move only through entries.
-create or replace function private.cb_re_line(p_line text) returns boolean
-language sql immutable set search_path = '' as $$
-  select coalesce(left(p_line, 4) ~ '^\d{4}$' and left(p_line, 4)::int between 3600 and 3849, false);
-$$;
-
--- The line a balance is reported on: a paired line takes the balance on the other side (matching.ts effectiveLine).
-create or replace function private.cb_eff_line(p_line text, p_fin numeric) returns text
-language sql stable security definer set search_path = '' as $$
-  select case when p_line is null then null
-    when m.pair_line is null or coalesce(p_fin, 0) = 0 then p_line
-    when (m.line_type in ('Asset', 'Expense') and p_fin < 0) or (m.line_type not in ('Asset', 'Expense') and p_fin > 0) then m.pair_line
-    else p_line end
-  from (select 1) x left join public.cb_master_lines m on m.line_no = p_line;
-$$;
-
--- Step 8's box: every account on a bank-statement file that needs a decision, with one reason each, in this order:
--- clearing / opening / uncoded (system rows with a balance: no picker), no_group, reviewer, locked (a total or locked line),
--- suggested, type, side.
-create or replace function private.cb_match_items(p_file uuid) returns table (account_id uuid, reason text)
-language sql stable security definer set search_path = '' as $$
-  select x.id, x.reason from (
-    select a.id, a.number, a.name,
-      case
-        when a.account_key in ('chart:10900', 'opening', 'uncoded') then
-          case when private.cb_account_final(a.id) <> 0 then case a.account_key when 'chart:10900' then 'clearing' else a.account_key end end
-        when a.line_no is null then case when private.cb_account_used(a.id) then 'no_group' end
-        when a.needs_reviewer then 'reviewer'
-        when not coalesce(m.mappable, false) or coalesce(m.locked, false) then case when private.cb_account_final(a.id) <> 0 then 'locked' end
-        when a.mapping_source = 'suggested' then 'suggested'
-        when private.cb_flag_open(a.account_type, coalesce(a.gifi_override, a.line_no), a.type_confirm_reason, a.type_confirmed_line) then 'type'
-        when private.cb_side_open(a.id) then 'side'
-      end as reason
-    from public.cb_accounts a
-    join public.cb_files f on f.id = a.file_id and f.books in ('statements', 'paper')
-    left join public.cb_master_lines m on m.line_no = coalesce(a.gifi_override, a.line_no)
-    where a.file_id = p_file) x
-  where x.reason is not null
-  order by x.number, x.name;
-$$;
-
--- The two ties, to the cent (D6). Chart side: each account's group line after the paired line flip; an account with no group
--- counts by its account type (else its number's type, round 5), so it shows as a difference. GIFI side: the override when set, else the group, after the same
--- flip, as the GIFI file builds them (accounts with no line or on a total line are left out there).
-create or replace function private.cb_match_ties(p_file uuid) returns jsonb
-language sql stable security definer set search_path = '' as $$
-  with b as (
-    select a.id, coalesce(a.account_type, private.cb_type_from_number(a.number)) account_type, private.cb_account_final(a.id) fin, a.line_no, coalesce(a.gifi_override, a.line_no) gl
-      from public.cb_accounts a where a.file_id = p_file),
-  t as (
-    select b.fin,
-      coalesce((select m.line_type from public.cb_master_lines m where m.line_no = private.cb_eff_line(b.line_no, b.fin)), case when b.line_no is null then b.account_type end) ct,
-      (select m.line_type from public.cb_master_lines m where m.line_no = private.cb_eff_line(b.gl, b.fin) and m.mappable) gt
-      from b where b.fin <> 0)
-  select jsonb_build_object(
-    'ni_chart', coalesce(-sum(fin) filter (where ct in ('Revenue', 'Expense')), 0),
-    'ni_gifi', coalesce(-sum(fin) filter (where gt in ('Revenue', 'Expense')), 0),
-    'assets_chart', coalesce(sum(fin) filter (where ct = 'Asset'), 0),
-    'assets_gifi', coalesce(sum(fin) filter (where gt = 'Asset'), 0))
-  from t;
-$$;
-
--- What step 8 and the export wait for on a bank-statement file. Trial balance files: nothing here (step 4 and step 7 as before).
-create or replace function private.cb_match_problems(p_file uuid) returns text[]
-language plpgsql stable security definer set search_path = '' as $$
-declare v_out text[] := '{}'; v_n int; t jsonb;
-begin
-  if not exists (select 1 from public.cb_files where id = p_file and books in ('statements', 'paper')) then return v_out; end if;
-  select count(*) into v_n from private.cb_match_items(p_file);
-  if v_n > 0 then
-    v_out := v_out || format('%s account%s need%s a decision in Match accounts to GIFI.', v_n, case when v_n = 1 then '' else 's' end, case when v_n = 1 then 's' else '' end);
-  end if;
-  t := private.cb_match_ties(p_file);
-  if (t ->> 'ni_chart')::numeric <> (t ->> 'ni_gifi')::numeric then
-    v_out := v_out || format('Net income %s · GIFI 9999 %s · Out of balance %s.', private.cb_money((t ->> 'ni_chart')::numeric),
-      private.cb_money((t ->> 'ni_gifi')::numeric), private.cb_money((t ->> 'ni_chart')::numeric - (t ->> 'ni_gifi')::numeric));
-  end if;
-  if (t ->> 'assets_chart')::numeric <> (t ->> 'assets_gifi')::numeric then
-    v_out := v_out || format('Total assets %s · GIFI 2599 %s · Out of balance %s.', private.cb_money((t ->> 'assets_chart')::numeric),
-      private.cb_money((t ->> 'assets_gifi')::numeric), private.cb_money((t ->> 'assets_chart')::numeric - (t ->> 'assets_gifi')::numeric));
-  end if;
-  return v_out;
-end;
-$$;
 
 
 -- Type flags test the line the account is reported on: the GIFI override when set, else the group.
@@ -878,6 +787,108 @@ begin
 end;
 $function$;
 
+-- The GIFI export's fingerprint: the trial balance's, plus the overrides. With no override it is exactly the trial balance
+-- fingerprint, so no saved export turns stale when this runs.
+create or replace function private.cb_gifi_fingerprint(p_file uuid) returns text
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  return (select case when o.t is null then private.cb_tb_fingerprint(p_file) else md5(private.cb_tb_fingerprint(p_file) || '|' || o.t) end
+    from (select string_agg(a.id::text || '>' || a.gifi_override, ',' order by a.id) t from public.cb_accounts a
+           where a.file_id = p_file and a.gifi_override is not null) o);
+end;
+$$;
+
+-- Hashim (Nov 19, 2026): the retained earnings continuity lines (3600 to 3849: retained earnings, dividends, prior period
+-- adjustments) neither take nor give an override; they move only through entries.
+create or replace function private.cb_re_line(p_line text) returns boolean
+language sql immutable set search_path = '' as $$
+  select coalesce(left(p_line, 4) ~ '^\d{4}$' and left(p_line, 4)::int between 3600 and 3849, false);
+$$;
+
+-- The line a balance is reported on: a paired line takes the balance on the other side (matching.ts effectiveLine).
+create or replace function private.cb_eff_line(p_line text, p_fin numeric) returns text
+language sql stable security definer set search_path = '' as $$
+  select case when p_line is null then null
+    when m.pair_line is null or coalesce(p_fin, 0) = 0 then p_line
+    when (m.line_type in ('Asset', 'Expense') and p_fin < 0) or (m.line_type not in ('Asset', 'Expense') and p_fin > 0) then m.pair_line
+    else p_line end
+  from (select 1) x left join public.cb_master_lines m on m.line_no = p_line;
+$$;
+
+-- Step 8's box: every account on a bank-statement file that needs a decision, with one reason each, in this order:
+-- clearing / opening / uncoded (system rows with a balance: no picker), no_group, reviewer, locked (a total or locked line),
+-- suggested, type, side.
+create or replace function private.cb_match_items(p_file uuid) returns table (account_id uuid, reason text)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  return query select x.id, x.reason from (
+    select a.id, a.number, a.name,
+      case
+        when a.account_key in ('chart:10900', 'opening', 'uncoded') then
+          case when private.cb_account_final(a.id) <> 0 then case a.account_key when 'chart:10900' then 'clearing' else a.account_key end end
+        when a.line_no is null then case when private.cb_account_used(a.id) then 'no_group' end
+        when a.needs_reviewer then 'reviewer'
+        when not coalesce(m.mappable, false) or coalesce(m.locked, false) then case when private.cb_account_final(a.id) <> 0 then 'locked' end
+        when a.mapping_source = 'suggested' then 'suggested'
+        when private.cb_flag_open(a.account_type, coalesce(a.gifi_override, a.line_no), a.type_confirm_reason, a.type_confirmed_line) then 'type'
+        when private.cb_side_open(a.id) then 'side'
+      end as reason
+    from public.cb_accounts a
+    join public.cb_files f on f.id = a.file_id and f.books in ('statements', 'paper')
+    left join public.cb_master_lines m on m.line_no = coalesce(a.gifi_override, a.line_no)
+    where a.file_id = p_file) x
+  where x.reason is not null
+  order by x.number, x.name;
+end;
+$$;
+
+-- The two ties, to the cent (D6). Chart side: each account's group line after the paired line flip; an account with no group
+-- counts by its account type (else its number's type, round 5), so it shows as a difference. GIFI side: the override when set, else the group, after the same
+-- flip, as the GIFI file builds them (accounts with no line or on a total line are left out there).
+create or replace function private.cb_match_ties(p_file uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  return (with b as (
+    select a.id, coalesce(a.account_type, private.cb_type_from_number(a.number)) account_type, private.cb_account_final(a.id) fin, a.line_no, coalesce(a.gifi_override, a.line_no) gl
+      from public.cb_accounts a where a.file_id = p_file),
+  t as (
+    select b.fin,
+      coalesce((select m.line_type from public.cb_master_lines m where m.line_no = private.cb_eff_line(b.line_no, b.fin)), case when b.line_no is null then b.account_type end) ct,
+      (select m.line_type from public.cb_master_lines m where m.line_no = private.cb_eff_line(b.gl, b.fin) and m.mappable) gt
+      from b where b.fin <> 0)
+  select jsonb_build_object(
+    'ni_chart', coalesce(-sum(fin) filter (where ct in ('Revenue', 'Expense')), 0),
+    'ni_gifi', coalesce(-sum(fin) filter (where gt in ('Revenue', 'Expense')), 0),
+    'assets_chart', coalesce(sum(fin) filter (where ct = 'Asset'), 0),
+    'assets_gifi', coalesce(sum(fin) filter (where gt = 'Asset'), 0))
+  from t);
+end;
+$$;
+
+-- What step 8 and the export wait for on a bank-statement file. Trial balance files: nothing here (step 4 and step 7 as before).
+create or replace function private.cb_match_problems(p_file uuid) returns text[]
+language plpgsql stable security definer set search_path = '' as $$
+declare v_out text[] := '{}'; v_n int; t jsonb;
+begin
+  if not exists (select 1 from public.cb_files where id = p_file and books in ('statements', 'paper')) then return v_out; end if;
+  select count(*) into v_n from private.cb_match_items(p_file);
+  if v_n > 0 then
+    v_out := v_out || format('%s account%s need%s a decision in Match accounts to GIFI.', v_n, case when v_n = 1 then '' else 's' end, case when v_n = 1 then 's' else '' end);
+  end if;
+  t := private.cb_match_ties(p_file);
+  if (t ->> 'ni_chart')::numeric <> (t ->> 'ni_gifi')::numeric then
+    v_out := v_out || format('Net income %s · GIFI 9999 %s · Out of balance %s.', private.cb_money((t ->> 'ni_chart')::numeric),
+      private.cb_money((t ->> 'ni_gifi')::numeric), private.cb_money((t ->> 'ni_chart')::numeric - (t ->> 'ni_gifi')::numeric));
+  end if;
+  if (t ->> 'assets_chart')::numeric <> (t ->> 'assets_gifi')::numeric then
+    v_out := v_out || format('Total assets %s · GIFI 2599 %s · Out of balance %s.', private.cb_money((t ->> 'assets_chart')::numeric),
+      private.cb_money((t ->> 'assets_gifi')::numeric), private.cb_money((t ->> 'assets_chart')::numeric - (t ->> 'assets_gifi')::numeric));
+  end if;
+  return v_out;
+end;
+$$;
+
+
 -- Step 8's paper reads the box and the ties.
 create or replace function public.cb_match_state(p_file uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
@@ -1001,3 +1012,5 @@ revoke all on function private.cb_eff_line(text, numeric), private.cb_match_item
   private.cb_override_roll() from public, anon, authenticated;
 revoke all on function public.cb_match_state(uuid), public.cb_set_gifi_override(uuid, text) from public, anon;
 grant execute on function public.cb_match_state(uuid), public.cb_set_gifi_override(uuid, text) to authenticated;
+
+reset check_function_bodies;
