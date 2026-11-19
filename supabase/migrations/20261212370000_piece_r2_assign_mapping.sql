@@ -354,6 +354,25 @@ begin
 end;
 $$;
 
+-- Decision 1A (Hashim, Nov 19, 2026): step 2 on a trial balance file holds last year's closing retained earnings (T2 line 3849),
+-- typed as printed on the T2. Step 6 checks retained earnings at the start against it on every change (re-imports included);
+-- the Opening Balance Equity RJE needs it.
+create or replace function public.cb_save_tb_opening_re(p_file uuid, p_amount numeric) returns void
+language plpgsql security definer set search_path = '' as $$
+declare v_file public.cb_files; v_new numeric := round(p_amount, 2);
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked.');
+  perform private.require(v_file.books not in ('statements', 'paper'), 'On a bank-statement file, enter last year''s balance sheet in step 2.');
+  if v_file.opening_re_stated is not distinct from v_new then return; end if;
+  update public.cb_files set opening_re_stated = v_new, updated_at = now() where id = p_file;
+  perform private.cb_log_event(p_file, 'opening_re', 'opening', format('Last year''s closing retained earnings (T2 line 3849): %s to %s',
+    coalesce(private.cb_money(v_file.opening_re_stated), 'none'), coalesce(private.cb_money(v_new), 'none')), null, null, null, null, null, null, null);
+  perform private.cb_clear_step(p_file, 'opening', 'Last year''s closing retained earnings changed');
+end;
+$$;
+
 -- Step 4 and step 6 on trial balance files (items 1 and 2; D2, D9).
 CREATE OR REPLACE FUNCTION private.cb_step_problems(p_file uuid, p_step text)
  RETURNS text[]
@@ -441,6 +460,14 @@ begin
     end if;
     -- Piece R2 (D2, Hashim): client accounts on 10900 Clearing hold step 6 while they have a balance. Opening Balance Equity is
     -- cleared by one RJE to retained earnings; the others by an entry to cash (deposit in transit) or receivables.
+    -- Decision 1A: on a trial balance file, retained earnings at the start tie to step 2's closing figure, on every change.
+    if not v_bank and v_file.opening_re_stated is not null then
+      select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_flag_amount from public.cb_accounts a where a.file_id = p_file and a.line_no like '3600.%';
+      if v_flag_amount <> v_file.opening_re_stated then
+        v_out := v_out || format('Retained earnings at the start do not equal last year''s closing retained earnings in step 2: %s and %s.',
+          private.cb_money(v_flag_amount), private.cb_money(v_file.opening_re_stated));
+      end if;
+    end if;
     v_out := v_out || coalesce((select array_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
              case when private.cb_obe(a) then 'clear it to retained earnings with one RJE' else 'clear it with an entry to cash or receivables' end) order by a.number, a.name)
       from public.cb_accounts a where a.file_id = p_file and a.chart_account = '10900' and private.cb_account_final(a.id) <> 0), '{}'::text[]);
@@ -991,8 +1018,10 @@ begin
     perform private.require(private.cb_account_final(v_obe_acc) = 0, 'The entry must clear Opening Balance Equity to nil.');
     select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_re_now from public.cb_accounts a where a.file_id = v_fid and a.line_no like '3600.%';
     perform private.require(v_re_now = p_file.opening_re_stated,
-      format('After this entry, retained earnings at the start (%s) must equal last year''s closing retained earnings in step 2 (%s).',
+      format('After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: %s and %s.',
         private.cb_money(v_re_now), private.cb_money(p_file.opening_re_stated)));
+    -- Decision 1A: the entry is dated the first day of the year.
+    update public.cb_entries set entry_date = p_file.year_start where id = p_entry and entry_date is distinct from p_file.year_start;
     perform private.cb_log_event(v_fid, 'entry_obe', 'entries', 'Opening Balance Equity cleared to retained earnings (RJE), checked against step 2',
       null, null, null, null, null, null, null);
   end if;
@@ -1283,8 +1312,8 @@ revoke all on function private.cb_is_tb(uuid), private.cb_clearing(text, text), 
   private.cb_chart_for_line(text), private.cb_step4_signed(uuid), private.cb_prior_line(uuid, text), private.cb_assign_counted(public.cb_accounts),
   private.cb_chart_sync(), private.cb_assign_changed(), private.cb_booked_guard() from public, anon, authenticated;
 revoke all on function public.cb_assign(uuid, jsonb, text, text), public.cb_unassign_all(uuid), public.cb_undo_assign(uuid),
-  public.cb_pick_chart_account(uuid, text, uuid), public.cb_mark_booked(uuid, boolean), public.cb_keep_line_move(uuid) from public, anon;
+  public.cb_pick_chart_account(uuid, text, uuid), public.cb_mark_booked(uuid, boolean), public.cb_keep_line_move(uuid), public.cb_save_tb_opening_re(uuid, numeric) from public, anon;
 grant execute on function public.cb_assign(uuid, jsonb, text, text), public.cb_unassign_all(uuid), public.cb_undo_assign(uuid),
-  public.cb_pick_chart_account(uuid, text, uuid), public.cb_mark_booked(uuid, boolean), public.cb_keep_line_move(uuid) to authenticated;
+  public.cb_pick_chart_account(uuid, text, uuid), public.cb_mark_booked(uuid, boolean), public.cb_keep_line_move(uuid), public.cb_save_tb_opening_re(uuid, numeric) to authenticated;
 
 reset check_function_bodies;

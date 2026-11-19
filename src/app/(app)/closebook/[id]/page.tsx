@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/dates";
 import { dataSourceLabel, fileBy, firstName } from "@/lib/closebook/files";
 import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, stepModules, stepPapers, STEP_KEYS, type Paper, type PaperKey, type StepKey } from "@/lib/closebook/steps";
 import { AssignStep } from "./assign-step";
+import { TbOpeningRe } from "./tb-opening-re";
 import type { ClientAcct, MasterAcct, PriorMatch } from "@/lib/closebook/assign";
 import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, CB_CHECKLIST_V1, cbText } from "@/lib/closebook/client-wording";
@@ -343,7 +344,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const answer: "yes" | "no" | null = file.first_year ? "yes" : ffs?.first_year === false || !!earlier || hasData || (!bankFile && accounts.some((a) => Number(a.last_year) !== 0)) ? "no" : null;
     const question = <FirstYearQuestion fileId={id} back={href("opening")} answer={answer} earlier={!!earlier} hasData={hasData} editable={editable && file.phase !== "locked"} />;
     if (answer !== "no") body = question;
-    else if (!bankFile) body = <>{question}{soon("Last year's balances come with the trial balance import, in its last-year column.")}</>;
+    else if (!bankFile) body = <>{question}{soon("Last year's balances come with the trial balance import, in its last-year column.")}
+      <TbOpeningRe fileId={id} stated={file.opening_re_stated === null || file.opening_re_stated === undefined ? null : Number(file.opening_re_stated)} editable={editable && file.phase !== "locked"} /></>;
     else {
       const { info } = await gifiCodeInfo(supabase);
       const { data: gn } = await supabase.from("cb_gifi_codes").select("code, name, cb_gifi_versions!inner(is_current)").eq("cb_gifi_versions.is_current", true);

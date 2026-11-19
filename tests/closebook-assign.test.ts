@@ -146,3 +146,13 @@ test("D12b: a schedule's ITC line takes the client's single 12250 account when n
   assert.equal(optForChart([{ value: "a", chart: "21500" }, { value: "b", chart: "21500", picked: true }], "21500"), "b");
   assert.equal(optForChart([{ value: "a", chart: "21500" }, { value: "b", chart: "21500" }], "21500"), "");
 });
+
+test("decision 2A: Clearing accounts on a trial balance file have their own heading; others stay Not yet sorted", async () => {
+  const { trialBalance, tbByGroup } = await import("../src/lib/closebook/reports.ts");
+  const tb = trialBalance([{ key: "undeposited funds", number: "", name: "Undeposited Funds", line_no: null, lastCents: 0, chart: "10900" },
+    { key: "9999", number: "9999", name: "Mystery", line_no: null, lastCents: 0 }],
+    [{ key: "undeposited funds", cents: 125000, date: "2026-09-30", kind: "import", ref: "", label: "x" }, { key: "9999", cents: -125000, date: "2026-09-30", kind: "import", ref: "", label: "x" }] as never);
+  const names = tbByGroup(tb, () => null).groups.map((g) => g.name);
+  assert.ok(names.includes("Clearing accounts (must be nil at year end)"), names.join(", "));
+  assert.ok(names.includes("Not yet sorted"), names.join(", "));
+});

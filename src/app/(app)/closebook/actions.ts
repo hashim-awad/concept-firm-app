@@ -531,3 +531,12 @@ export async function keepLineMoveInline(fileId: string, account: string): Promi
   revalidatePath(`/closebook/${fileId}`);
   return error?.message ?? null;
 }
+
+// Decision 1A (Hashim, Nov 19, 2026): step 2 on a trial balance file, last year's closing retained earnings (T2 line 3849).
+export async function saveTbOpeningReInline(fileId: string, amount: number | null): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_save_tb_opening_re", { p_file: fileId, p_amount: amount });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}

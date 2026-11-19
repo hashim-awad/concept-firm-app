@@ -616,6 +616,12 @@ In short:
     to retained earnings at the start of the year: the only exception to "retained earnings only through prior period
     adjustments (3720)", allowed only from this account, logged in History, and allowed only when step 2 holds last year's
     closing retained earnings typed from the T2; after it, retained earnings at the start equal that figure.
+  - Hashim's decisions after the post-build reviews (Nov 19, 2026): 1A, step 2 on a trial balance file holds "Last year's closing
+    retained earnings (T2 line 3849)", typed as printed; step 6 checks retained earnings at the start against it on every change,
+    re-imports included; the Opening Balance Equity RJE is dated the first day of the year. 2A, on trial balance files the
+    accounts on 10900 Clearing show under "Clearing accounts (must be nil at year end)", on screen and in documents, apart from
+    "Not yet sorted". The account entries take (several client accounts on one master account) is picked in step 4's master
+    account window, also after step 4 is signed; it is optional ("If left blank, the entry window asks").
   - Existing files (item 4): read-only Live count first (scripts/checks/r2-tb-chart-count.sql); the data move gives an account
     a master account only when exactly one master account sits on its current line (D3), sets chart_account only, never the
     line, skips locked files (D15). Live count (Hashim, Nov 19): no rows, no trial balance files on Live; the data move is left

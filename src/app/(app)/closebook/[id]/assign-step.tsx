@@ -323,13 +323,12 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
           <div className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take>
             <label htmlFor="entries-take" className="font-semibold">Entries and schedules post to</label>
             <span className="flex items-center gap-2">
-              <select id="entries-take" value={choice} disabled={!canPick} onChange={(e) => setChoice(e.target.value)} className="input input-compact flex-1">
+              <select id="entries-take" value={choice} disabled={!canPick} onChange={(e) => setChoice(e.target.value)} onBlur={() => { if (choice && choice !== taking) void choose(choice); }} className="input input-compact flex-1">
                 <option value="">Not chosen</option>
                 {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
               </select>
-              {canPick && <button type="button" disabled={!choice || choice === taking} onClick={() => void choose(choice)} className="btn-secondary btn-compact">Save</button>}
             </span>
-            <span className="text-xs text-ink-3">Optional. If it is not chosen, the entry window asks when an entry needs this master account.</span>
+            <span className="text-xs text-ink-3">Optional. If left blank, the entry window asks.</span>
           </div>
         )}
         <ul className="divide-y divide-sand-100 text-sm">

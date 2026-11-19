@@ -105,14 +105,10 @@ select test.check('D2: an entry to cash clears it', not exists (select 1 from un
 :prep;
 select test.check('OBE: refused while step 2 has no closing retained earnings', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
   :'f', :'obe', :'re')) = 'Enter last year''s closing retained earnings in step 2 first.');
-:out;
-update public.cb_files set opening_re_stated = 5 where id = :'f';
-:prep;
+select public.cb_save_tb_opening_re(:'f', 5);   -- decision 1A: step 2's field on a trial balance file
 select test.check('OBE: refused when retained earnings would not tie to step 2', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
-  :'f', :'obe', :'re')) like 'After this entry, retained earnings at the start (0.00) must equal last year''s closing retained earnings in step 2 (5.00).');
-:out;
-update public.cb_files set opening_re_stated = 0 where id = :'f';
-:prep;
+  :'f', :'obe', :'re')) like 'After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: 0.00 and 5.00.');
+select public.cb_save_tb_opening_re(:'f', 0);
 select test.check('OBE: one RJE clears it to retained earnings when it ties', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
   :'f', :'obe', :'re')) = 'OK');
 select test.check('OBE: only from that account: retained earnings otherwise still needs a prior period adjustment',
@@ -120,6 +116,18 @@ select test.check('OBE: only from that account: retained earnings otherwise stil
   :'f', :'chq', :'re')) = 'A line on retained earnings needs the reason "Prior period adjustment".');
 :out;
 select test.check('OBE: History records it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_obe'));
+select test.check('decision 1A: the OBE entry is dated the first day of the year', (select entry_date from public.cb_entries where file_id = :'f' and note = 'Clear Opening Balance Equity') = '2026-01-01');
+select test.check('decision 1A: step 2''s figure is in History', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'opening_re'
+  and detail = 'Last year''s closing retained earnings (T2 line 3849): 5.00 to 0.00'));
+select test.check('decision 1A: retained earnings tie, so step 6 says nothing of them', not exists (select 1 from unnest(private.cb_step_problems(:'f', 'compare')) p where p like 'Retained earnings at the start%'));
+:prep;
+select public.cb_save_tb_opening_re(:'f', 250);
+:out;
+select test.check('decision 1A: a different step 2 figure holds step 6, with both figures', private.cb_step_problems(:'f', 'compare')
+  @> array['Retained earnings at the start do not equal last year''s closing retained earnings in step 2: 0.00 and 250.00.']);
+:prep;
+select public.cb_save_tb_opening_re(:'f', 0);
+:out;
 select test.check('OBE: it no longer holds step 6', not exists (select 1 from unnest(private.cb_step_problems(:'f', 'compare')) p where p like 'Opening Balance Equity%'));
 
 -- D7: a new master account on the same line clears step 4 only; one on another line also clears steps 6, 7 and 8.
@@ -287,4 +295,8 @@ update public.role_permissions set level = 'edit' where area_key = 'closebook' a
 update public.cb_files set phase = 'locked' where id = :'sr';
 :prep;
 select test.check('security: Unassign all on a locked file is refused', test.try(format('select public.cb_unassign_all(%L)', :'sr')) = 'This file is locked.');
+:out;
+
+:prep;
+select test.check('decision 1A: bank-statement files enter step 2 as before', test.try(format('select public.cb_save_tb_opening_re(%L, 1)', :'b')) like 'On a bank-statement file%');
 :out;

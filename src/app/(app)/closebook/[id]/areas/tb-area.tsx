@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import { flagged, NO_FLAG_TAX, reclassNote } from "@/lib/closebook/matching";
-import { KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
+import { CLEARING, CLEARING_NAME, KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import type { CbFileRow } from "@/lib/closebook/files";
@@ -59,7 +59,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     if (g.code === NI_LAST) return "Last year";
     const t = data.info(g.rows[0]?.line_no ?? null)?.type;
     const order: Record<string, number> = { Asset: 0, Liability: 1, Equity: 2, Revenue: 3, Expense: 4 };
-    return t ? SECTION[order[t]] ?? "Other" : "Not yet sorted";
+    return t ? SECTION[order[t]] ?? "Other" : g.code === CLEARING ? CLEARING_NAME : "Not yet sorted";   // piece R2, decision 2A
   };
   let tableGroups: TbGroupRow[];
   if (view === "accounts") {
