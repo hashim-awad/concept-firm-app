@@ -9,8 +9,9 @@ export type ClientAcct = {
   tbType?: string | null; detail?: string | null;
 };
 export type MasterAcct = { number: string; name: string; type: string; line: string | null; sheet: string };
-// Last year's decision for a client account: its master account and its name then (cb_client_mappings), or only the line it
-// was on (files from before R2: the single master account on that line is the suggestion).
+// Last year's decision for a client account: its master account and its name in the client's file just before (that file's
+// cb_accounts, page.tsx assignPage), or only the line it was on (files from before R2: the single master account on that line
+// is the suggestion). cb_client_mappings is a record of decisions; step 4 does not read it.
 export type PriorMatch = { chart: string | null; name: string | null; line: string | null };
 export type Suggestion = { chart: string; source: "last_year" | "type" | "name"; why: string; nameChanged?: boolean };
 

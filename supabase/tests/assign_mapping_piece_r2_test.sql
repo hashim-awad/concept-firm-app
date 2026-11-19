@@ -241,3 +241,14 @@ select public.cb_add_entry(:'tx', 'AJE', 'accrual', 'Accrue the fee with HST', f
 select test.check('the tax line takes the client''s GST/HST account on 12250, no new account', (select a.number from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id
   join public.cb_entries e on e.id = l.entry_id where e.file_id = :'tx' and l.is_tax) = '1250'
   and not exists (select 1 from public.cb_accounts where file_id = :'tx' and client_new and name ilike 'GST/HST%'));
+
+-- Test-runner finding: a pick is refused on a bank-statement file and on a locked file.
+:prep;
+select test.check('the pick is refused on a bank-statement file', test.try(format('select public.cb_pick_chart_account(%L, %L, %L)', :'b', '21500', (select id from public.cb_accounts where file_id = :'m' limit 1)))
+  = 'Only trial balance files pick a client account.');
+:out;
+update public.cb_files set phase = 'locked' where id = :'tx';
+:prep;
+select test.check('the pick is refused on a locked file', test.try(format('select public.cb_pick_chart_account(%L, %L, %L)', :'tx', '12250', (select id from public.cb_accounts where file_id = :'tx' and number = '1250')))
+  = 'This file is locked.');
+:out;
