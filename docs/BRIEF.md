@@ -593,7 +593,11 @@ In short:
   - Hashim's decision on the build review (Nov 19, 2026): "Group" always means the lead sheet, in plain words, with no GIFI
     code (for example "Due to shareholder and related parties"): the Trial balance Groups view, the account panel, the step 6
     and 7 "Group" column and step 8's box. "Choose a group" lists the lines under their lead sheet heading, by name only, no
-    code. GIFI codes show only in step 8 and the GIFI export. Retained earnings (3600) neither takes nor gives an override.
+    code. GIFI codes show only in step 8 and the GIFI export. Retained earnings, dividends and prior period adjustments
+    (3600 to 3849, the retained earnings continuity) neither take nor give an override (Hashim, Nov 19, 2026, pre-merge
+    review); they move only through entries. The override is in the GIFI export's fingerprint only: the GST/HST returns, the
+    21500 check and the shareholder loan schedule keep the trial balance fingerprint and are not touched by an override.
+    Last year's statement column follows the group too (built from last year's Closebook file when it had overrides).
     The one exception (Hashim, Nov 19, 2026): the Trial balance Groups view and the account panel keep equity split into the
     statement headings (Share capital, Retained earnings, Dividends); steps 6 and 7 keep the lead sheet names. Last year's T2
     line note reads "Last year on another T2 line", with no code.

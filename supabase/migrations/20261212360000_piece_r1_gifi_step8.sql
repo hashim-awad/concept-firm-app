@@ -19,6 +19,22 @@
 alter table public.cb_accounts add column if not exists gifi_override text references public.cb_master_lines(line_no) on update cascade;
 comment on column public.cb_accounts.gifi_override is 'Piece R1: the GIFI line for the tax return when it differs from the group (line_no). Step 8 only, bank-statement files.';
 
+-- The GIFI export's fingerprint: the trial balance's, plus the overrides. With no override it is exactly the trial balance
+-- fingerprint, so no saved export turns stale when this runs.
+create or replace function private.cb_gifi_fingerprint(p_file uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select case when o.t is null then private.cb_tb_fingerprint(p_file) else md5(private.cb_tb_fingerprint(p_file) || '|' || o.t) end
+  from (select string_agg(a.id::text || '>' || a.gifi_override, ',' order by a.id) t from public.cb_accounts a
+         where a.file_id = p_file and a.gifi_override is not null) o;
+$$;
+
+-- Hashim (Nov 19, 2026): the retained earnings continuity lines (3600 to 3849: retained earnings, dividends, prior period
+-- adjustments) neither take nor give an override; they move only through entries.
+create or replace function private.cb_re_line(p_line text) returns boolean
+language sql immutable set search_path = '' as $$
+  select coalesce(left(p_line, 4) ~ '^\d{4}$' and left(p_line, 4)::int between 3600 and 3849, false);
+$$;
+
 -- The line a balance is reported on: a paired line takes the balance on the other side (matching.ts effectiveLine).
 create or replace function private.cb_eff_line(p_line text, p_fin numeric) returns text
 language sql stable security definer set search_path = '' as $$
@@ -176,16 +192,47 @@ begin
 end;
 $function$;
 
--- D10: an override changed after the final export makes the export stale. With no override the text hashed is exactly as
--- before, so no saved export or shareholder schedule turns stale when this runs.
-CREATE OR REPLACE FUNCTION private.cb_tb_fingerprint(p_file uuid)
- RETURNS text
- LANGUAGE sql
+-- D10: the GIFI export is stale when the trial balance or an override changed (cb_gifi_fingerprint). The shared
+-- trial balance fingerprint (GST/HST returns, 21500 check, shareholder loans) is unchanged: an override touches none of them.
+CREATE OR REPLACE FUNCTION private.cb_t2_state(p_file uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  select md5(coalesce(string_agg(a.id::text || ':' || coalesce(a.line_no, '') || coalesce('>' || a.gifi_override, '') || ':' || coalesce(a.tax_code, '') || ':' || private.cb_account_final(a.id)::text, ',' order by a.id), ''))
-    from public.cb_accounts a where a.file_id = p_file;
+declare
+  v_file public.cb_files; e public.cb_gifi_exports; t public.cb_t2_tieouts; v_book boolean; v_items jsonb := '[]'; v_stale boolean;
+  k text; v_cb numeric; v_pf numeric; v_diff numeric; v_acc jsonb; v_compared boolean; v_round numeric;
+begin
+  select * into v_file from public.cb_files where id = p_file;
+  select * into e from public.cb_gifi_exports where file_id = p_file and kind = 'final' order by created_at desc limit 1;
+  select * into t from public.cb_t2_tieouts where file_id = p_file;
+  select coalesce(book_amortization, false) into v_book from public.cb_client_tax_settings where client_id = v_file.client_id;
+  v_book := coalesce(v_book, false);
+  select coalesce(t2_rounding, 5) into v_round from public.cb_settings limit 1;
+  v_round := coalesce(v_round, 5);
+  v_stale := e.id is not null and e.fingerprint <> private.cb_gifi_fingerprint(p_file);
+  if e.id is not null then
+    foreach k in array array['ni', 'assets', 'cca', 'tax'] loop
+      v_cb := coalesce((e.totals ->> case k when 'ni' then '9999' when 'assets' then '2599' when 'cca' then 'amort' else 'inctax' end)::numeric, 0);
+      v_pf := case k when 'ni' then t.net_income when 'assets' then t.total_assets when 'cca' then t.cca else t.income_tax end;
+      -- Closebook less ProFile (round 10 fix 6).
+      v_diff := case when v_pf is null then null else v_cb - v_pf end;
+      v_acc := t.accepted -> k;
+      v_compared := k <> 'cca' or not v_book;
+      v_items := v_items || jsonb_build_object('key', k, 'closebook', v_cb, 'profile', v_pf, 'diff', v_diff, 'compared', v_compared,
+        -- ProFile rounds the GIFI lines to whole dollars, so net income (9999) and total assets (2599) may
+        -- differ by the rounding allowed. CCA and income tax are typed from ProFile and booked to the cent:
+        -- they tie exactly.
+        'rounding', v_compared and k in ('ni', 'assets') and v_diff is not null and v_diff <> 0 and abs(v_diff) <= v_round,
+        'open', v_compared and v_diff is not null and abs(v_diff) > (case when k in ('ni', 'assets') then v_round else 0 end)
+          and (v_acc is null or (v_acc ->> 'diff')::numeric is distinct from v_diff));
+    end loop;
+  end if;
+  return jsonb_build_object('rounding', v_round, 'final_id', e.id, 'final_at', e.created_at, 'stale', v_stale, 'book_amortization', v_book,
+    'entered', t.file_id is not null and t.net_income is not null and t.total_assets is not null and t.cca is not null and t.income_tax is not null,
+    't2_pdf', t.t2_pdf, 'items', v_items);
+end;
 $function$;
 
 CREATE OR REPLACE FUNCTION private.cb_review_problems(p_file uuid)
@@ -294,7 +341,7 @@ begin
   perform private.require(v_failed is null, 'Export refused. ' || coalesce(v_failed, ''));
   perform private.require(p_content like '"GIFI01",%', 'The file is not a GIFI file.');
   insert into public.cb_gifi_exports (file_id, kind, file_name, content, totals, checks, fingerprint, created_by)
-  values (p_file, p_kind, btrim(p_file_name), p_content, p_totals, p_checks, private.cb_tb_fingerprint(p_file), (select auth.uid()))
+  values (p_file, p_kind, btrim(p_file_name), p_content, p_totals, p_checks, private.cb_gifi_fingerprint(p_file), (select auth.uid()))
   returning id into v_id;
   perform private.cb_log(p_file, 'gifi_exported', 't2', btrim(p_file_name));
   return v_id;
@@ -871,9 +918,9 @@ begin
     select line_type into v_type from public.cb_master_lines where line_no = v_line;
     perform private.require(v_type = v_group_type,
       format('This is a GIFI line for %s. The account''s group is for %s: choose a line of the same type.', lower(v_type), lower(v_group_type)));
-    -- Retained earnings moves only through a prior period adjustment (3720): never an override onto 3600 or 3660.
-    perform private.require(left(v_line, 4) not in ('3600', '3660'), 'Retained earnings is not a line to move an account to. Use a prior period adjustment (3720) through an entry.');
-    perform private.require(left(a.line_no, 4) not in ('3600', '3660'), 'Retained earnings stays on its line. Use a prior period adjustment (3720) through an entry.');
+    -- Retained earnings, dividends and prior period adjustments (3600 to 3849) move only through entries.
+    perform private.require(not private.cb_re_line(v_line) and not private.cb_re_line(a.line_no),
+      'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
   end if;
   v_label := btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name);
   if a.mapping_source = 'suggested' then
@@ -907,7 +954,7 @@ begin
     left join public.cb_accounts a on a.file_id = pf.id and a.account_key = new.account_key
    where f.id = new.file_id and f.books in ('statements', 'paper')
    order by pf.year_end desc limit 1;
-  if v is not null and v <> new.line_no and left(v, 4) not in ('3600', '3660') and left(new.line_no, 4) not in ('3600', '3660')
+  if v is not null and v <> new.line_no and not private.cb_re_line(v) and not private.cb_re_line(new.line_no)
      and exists (select 1 from public.cb_master_lines o join public.cb_master_lines g on g.line_no = new.line_no
                   where o.line_no = v and o.mappable and not o.locked and o.line_type = g.line_type) then
     new.gifi_override := v;
@@ -926,12 +973,14 @@ create trigger cb_override_roll before insert on public.cb_accounts for each row
 create or replace function private.cb_override_group() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- An override equal to the new group does nothing: it goes (cb_set_gifi_override keeps none either).
+  if new.gifi_override is not null and new.gifi_override = new.line_no then new.gifi_override := null; return new; end if;
   if new.gifi_override is not null and new.line_no is distinct from old.line_no
-     and (new.line_no is null or left(new.line_no, 4) in ('3600', '3660')   -- retained earnings neither takes nor gives an override
+     and (new.line_no is null or private.cb_re_line(new.line_no)   -- 3600 to 3849 neither take nor give an override
           or (select line_type from public.cb_master_lines where line_no = new.line_no)
              is distinct from (select line_type from public.cb_master_lines where line_no = new.gifi_override)) then
-    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format(case when left(coalesce(new.line_no, ''), 4) in ('3600', '3660')
-        then '%s: GIFI %s dropped, the group is now retained earnings' else '%s: GIFI %s dropped, the group changed to another type' end,
+    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format(case when private.cb_re_line(new.line_no)
+        then '%s: GIFI %s dropped, the group is now retained earnings, dividends or a prior period adjustment' else '%s: GIFI %s dropped, the group changed to another type' end,
       btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), replace(new.gifi_override, '.00', '')), null, null,
       btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Group changed', 'GIFI ' || replace(new.gifi_override, '.00', ''), 'GIFI ' || coalesce(replace(new.line_no, '.00', ''), 'none'));
     new.gifi_override := null;
@@ -942,7 +991,7 @@ $$;
 drop trigger if exists cb_override_group on public.cb_accounts;
 create trigger cb_override_group before update of line_no on public.cb_accounts for each row execute function private.cb_override_group();
 
-revoke all on function private.cb_override_group() from public, anon, authenticated;
+revoke all on function private.cb_override_group(), private.cb_gifi_fingerprint(uuid), private.cb_re_line(text) from public, anon, authenticated;
 revoke all on function private.cb_eff_line(text, numeric), private.cb_match_items(uuid), private.cb_match_ties(uuid), private.cb_match_problems(uuid),
   private.cb_override_roll() from public, anon, authenticated;
 revoke all on function public.cb_match_state(uuid), public.cb_set_gifi_override(uuid, text) from public, anon;

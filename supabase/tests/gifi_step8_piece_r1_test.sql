@@ -74,7 +74,9 @@ update public.cb_accounts set this_year = 18760 where id = :'chq';
 
 -- ---------- T3: an override clears step 8 (then 9 and 10) only; History names the account and the lines.
 :signed;
-select private.cb_tb_fingerprint(:'f') as fp0 \gset
+select private.cb_gifi_fingerprint(:'f') as fp0 \gset
+select private.cb_tb_fingerprint(:'f') as tb0 \gset
+select array_to_string(private.cb_gst_problems(:'f') || private.cb_sh_review_problems(:'f'), '|') as gs0 \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_set_gifi_override(:'off', '8811.00');
 reset role; reset request.jwt.claims;
@@ -82,7 +84,9 @@ select test.check('T3: steps 4, 5, 6 and 7 stay signed; 8 and 9 clear', (:state)
 select test.check('T3: History names the account, old and new line', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override'
   and detail = '65100 Office expenses: GIFI 8810 to 8811' and old_value = 'GIFI 8810' and new_value = 'GIFI 8811'));
 select test.check('T3: the step 8 clearing gives the same reason', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail = '65100 Office expenses: GIFI 8810 to 8811'));
-select test.check('T3: the export fingerprint changes', private.cb_tb_fingerprint(:'f') <> :'fp0');
+select test.check('T3: the GIFI export fingerprint changes', private.cb_gifi_fingerprint(:'f') <> :'fp0');
+select test.check('T3: the trial balance fingerprint (GST/HST returns, 21500, shareholder loans) does not', private.cb_tb_fingerprint(:'f') = :'tb0');
+select test.check('T3: GST/HST and shareholder loan checks unchanged', array_to_string(private.cb_gst_problems(:'f') || private.cb_sh_review_problems(:'f'), '|') = :'gs0');
 select test.check('T3: the group is unchanged', (select line_no from public.cb_accounts where id = :'off') = '8810.00');
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -148,7 +152,7 @@ insert into public.cb_accounts (file_id, account_key, number, name, line_no, thi
 select id as shr from public.cb_accounts where file_id = :'f' and number = '30000' \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('fix 4: retained earnings (3600) is refused as an override on an equity account',
-  test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3600.00')) = 'Retained earnings is not a line to move an account to. Use a prior period adjustment (3720) through an entry.');
+  test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3600.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
 reset role; reset request.jwt.claims;
 select test.check('fix 2: saving the line confirms the suggestion', (select mapping_source from public.cb_accounts where id = :'off') = 'preparer'
   and not exists (select 1 from private.cb_match_items(:'f') i where i.account_id = :'off'));
@@ -161,7 +165,7 @@ insert into public.cb_accounts (file_id, account_key, number, name, line_no, thi
 select id as re from public.cb_accounts where file_id = :'f' and number = '31000' \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('retained earnings cannot be moved to another equity line', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'re', '3500.00'))
-  = 'Retained earnings stays on its line. Use a prior period adjustment (3720) through an entry.');
+  = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
 reset role; reset request.jwt.claims;
 -- An equity account with an override whose group moves to retained earnings drops the override, with History.
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -170,4 +174,15 @@ reset role; reset request.jwt.claims;
 select test.check('fixture: common shares carry an override', (select gifi_override from public.cb_accounts where id = :'shr') = '3520.00');
 update public.cb_accounts set line_no = '3600.00' where id = :'shr';
 select test.check('a group moved to retained earnings drops the override, with History', (select gifi_override from public.cb_accounts where id = :'shr') is null
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '30000 Common shares: GIFI 3520 dropped, the group is now retained earnings'));
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '30000 Common shares: GIFI 3520 dropped, the group is now retained earnings, dividends or a prior period adjustment'));
+
+-- ---------- Hashim (Nov 19): 3600 to 3849 neither take nor give an override; an override equal to the group goes.
+update public.cb_accounts set line_no = '3500.00' where id = :'shr';
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('share capital cannot move to prior period adjustments (3720)', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3720.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
+select test.check('share capital cannot move to dividends (3700)', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3700.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
+select public.cb_set_gifi_override(:'shr', '3520.00');
+reset role; reset request.jwt.claims;
+update public.cb_accounts set line_no = '3520.00' where id = :'shr';
+select test.check('an override equal to the new group goes', (select gifi_override from public.cb_accounts where id = :'shr') is null);
+select test.check('no override: the GIFI fingerprint is the trial balance one', private.cb_gifi_fingerprint(:'tbf') = private.cb_tb_fingerprint(:'tbf'));
