@@ -78,8 +78,10 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         </p>
       )}
       <PageTitle right={<>
-        {file.books !== "statements" && file.books !== "paper" && entries.length > 0 && <a href={`/closebook/${file.id}/client-entries`} className="btn-secondary btn-compact">Client entry list (PDF)</a>}
-        {editable && file.phase !== "locked" && file.file_type === "full" && (
+        {file.books !== "statements" && file.books !== "paper" && entries.length > 0 && <>
+          <a href={`/closebook/${file.id}/client-entries`} className="btn-secondary btn-compact">Client entry list (PDF)</a>
+          <a href={`/closebook/${file.id}/client-entries?format=xlsx`} className="btn-secondary btn-compact">Client entry list (Excel)</a></>}
+        {editable && file.phase !== "locked" && (
           <Popover align="right" width="w-64" label="New entry" button={<span className="btn btn-compact"><Plus className="h-3.5 w-3.5" />New entry<ChevronDown className="h-3.5 w-3.5" /></span>}>
             <ul className="-mx-3 -my-1.5 grid text-[13px]">
               <li><Link href={`${lb}&new=journal`} className="flex items-center gap-2 px-3 py-1.5 hover:bg-navy-50"><Plus className="h-3.5 w-3.5" />Journal entry</Link></li>

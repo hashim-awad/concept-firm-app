@@ -17,7 +17,9 @@ export const SH_LINES = ["1301", "1302", "1303", "2180", "2181", "2182", "2183",
 // the schedule though they sit on the shareholder/director lines.
 export const CHART_DIRECTOR = new Set(["chart:13100", "chart:23150", "chart:25450"]);
 export const isShLine = (line_no: string | null | undefined) => !!line_no && SH_LINES.includes(line_no.slice(0, 4));
-export const isShAccount = (a: { key: string; line_no: string | null | undefined }) => isShLine(a.line_no) && !CHART_DIRECTOR.has(a.key);
+// Piece R2 (D13): on a trial balance file the client account's master account says the same (chart: its number).
+export const isShAccount = (a: { key: string; line_no: string | null | undefined; chart?: string | null }) => isShLine(a.line_no) && !CHART_DIRECTOR.has(a.key) && !CHART_DIRECTOR.has(`chart:${a.chart ?? ""}`);
+export const chartShareholder = (a: { key: string; chart?: string | null }): number | undefined => CHART_SHAREHOLDER[a.key] ?? (a.chart ? CHART_SHAREHOLDER[`chart:${a.chart}`] : undefined);
 // GIFI lines whose entries credit the shareholder: dividends declared (3700 to 3719) and salary or bonus.
 const DIVIDEND = (g: number) => g >= 3700 && g <= 3719;
 const SALARY = new Set([9060, 9063, 9065, 9066]);
@@ -38,12 +40,12 @@ export const KIND_LABEL: Record<ShKind, string> = {
 };
 export const KIND_ORDER: ShKind[] = ["paid", "repaid", "expenses", "dividends", "salary", "books", "other"];
 
-export type ShAccountIn = { key: string; number: string; name: string; line_no: string | null; tbCents: number; lastCents: number };
+export type ShAccountIn = { key: string; number: string; name: string; line_no: string | null; tbCents: number; lastCents: number; chart?: string | null };
 export type ShEntryInfo = { origin: string | null; gifis: string[] };
 export type ShItem = { date: string; kind: Posting["kind"]; ref: string; acct?: string; label: string; cents: number };
 export type ShMovement = { kind: ShKind; label: string; cents: number; items: ShItem[] };
 export type ShSchedule = {
-  key: string; number: string; name: string; line_no: string;
+  key: string; number: string; name: string; line_no: string; chart?: string | null;
   openingCents: number; openingItems: ShItem[]; movements: ShMovement[]; closingCents: number; tbCents: number; tied: boolean;
 };
 export type ShFlag = "earlier_debit" | "late_repayment";
@@ -144,7 +146,7 @@ export function buildSchedules(inp: ShInput): ShSchedule[] {
       return g;
     });
     const closingCents = openingCents + movements.reduce((t, m) => t + m.cents, 0);
-    out.push({ key: a.key, number: a.number, name: a.name, line_no: a.line_no ?? "", openingCents, openingItems, movements, closingCents, tbCents: a.tbCents, tied: closingCents === a.tbCents });
+    out.push({ key: a.key, number: a.number, name: a.name, line_no: a.line_no ?? "", chart: a.chart ?? null, openingCents, openingItems, movements, closingCents, tbCents: a.tbCents, tied: closingCents === a.tbCents });
   }
   return out.sort((x, y) => x.number.localeCompare(y.number));
 }

@@ -49,10 +49,11 @@ test("T2: the ties line, to the cent; a failing tie shows the difference", () =>
   assert.deepEqual(bad.map((t) => [t.ok, t.diff]), [[false, -124000], [false, 1]]);
 });
 
-test("step 8 papers: Match accounts to GIFI first on bank-statement files only (D7)", () => {
+// Piece R2 (item 3, D18): Match accounts to GIFI is step 8's first paper on trial balance files too.
+test("step 8 papers: Match accounts to GIFI first on every file (D7; piece R2)", () => {
   const base = { full: true, shareholders: false, ownerPaid: false, gst: false };
   assert.deepEqual(stepPapers("t2", { ...base, bank: true }).map((p) => p.name), ["Match accounts to GIFI", "GIFI file", "Tax workpaper", "T2 tie-out"]);
-  assert.deepEqual(stepPapers("t2", { ...base, bank: false }).map((p) => p.key), ["gifi", "taxwp", "tie"]);
+  assert.deepEqual(stepPapers("t2", { ...base, bank: false }).map((p) => p.key), ["match", "gifi", "taxwp", "tie"]);
 });
 
 test("T6: the old matching address opens step 8 on a bank file, step 4 on a trial balance file", () => {

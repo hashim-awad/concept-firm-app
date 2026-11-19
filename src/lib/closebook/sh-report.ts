@@ -24,7 +24,7 @@ type Acct = { key: string; number: string; name: string; line_no: string | null;
 // tbCents: the account's final trial balance in the ledger's sign (debit positive).
 export function buildShReport(inp: { accounts: Acct[]; postings: Posting[]; entries: Map<string, ShEntryRef>; own: boolean; yearEnd: string; holders: Map<string, string> }): ShReport {
   const cards: ShCard[] = [];
-  for (const a of inp.accounts.filter((x) => isShAccount({ key: x.key, line_no: x.line_no }))) {
+  for (const a of inp.accounts.filter((x) => isShAccount({ key: x.key, line_no: x.line_no, chart: (x as { chart?: string | null }).chart }))) {
     const ps = inp.postings.filter((p) => p.key === a.key);
     let opening = 0, paidTo = 0, paidIn = 0, books: number | null = null;
     const perEntry = new Map<string, number>();

@@ -13,7 +13,10 @@ import { loadWordingState } from "../studio/wording-state";
 
 export const WP_STAMP = "Working paper: not for the client";
 export const CLIENT_STAMP = "Entries to record in your books";
-export { keepsOwnBooks } from "./books";
+export { keepsOwnBooks, takesClientEntryList } from "./books";
+import { clientListTitle } from "./books";
+import { clientListTable } from "./client-list";
+import { reportXlsx } from "./xlsx-write";
 
 export type PdfQuery = { report: string; view?: string; account?: string; from?: string; to?: string; source?: string };
 
@@ -32,7 +35,8 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   const ctx: WpCtx = {
     client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "",
     // Nothing goes to a client before review: until every entry is approved the list says so.
-    stamp: mode === "client" ? CLIENT_STAMP : WP_STAMP, client_copy: mode === "client" ? { draft: !reviewSigned } : undefined,
+    // Piece R2 (D12e): on Concept's monthly QuickBooks files the list is "Entries to record in QuickBooks".
+    stamp: mode === "client" ? clientListTitle(f.file) : WP_STAMP, client_copy: mode === "client" ? { draft: !reviewSigned } : undefined,
     preparedBy: f.names.get(f.file.preparer_id) ?? "", reviewedBy: "", wpBox: mode === "wp",
   };
   const name = (key: string) => { const a = data.accounts.find((x) => x.key === key); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : key; };
@@ -53,7 +57,7 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
     const g = tbByGroup(tb, data.info);
     // Plain words for the client: no GIFI wording in a group heading.
     if (mode === "client") for (const x of g.groups) if (x.code === "50") { x.name = "Income taxes"; x.total.name = "Total income taxes"; }
-    title = ctx.packageName = mode === "client" ? CLIENT_STAMP : "Trial balance by group and journal entries";
+    title = ctx.packageName = mode === "client" ? clientListTitle(f.file) : "Trial balance by group and journal entries";
     // The client's copy (round 8 item 6): no working paper references, and the entries page is called
     // "Entries to record".
     sections = [tbGroupSection(ctx, g.groups, g.total, "TB.1", mode === "client" ? cbText(texts, CB_CLIENT.tbNote) : undefined),
@@ -81,5 +85,27 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   }
   const bytes = await renderWpPdf(wpDocument(ctx, sections as never[][]));
   const filename = `${client} ${mode === "client" ? "Entries to record" : title} ${f.file.year_end}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim() + ".pdf";
+  return { bytes, filename };
+}
+
+// Piece R2 (item 5): the client entry list in Excel: new accounts to create first, then the entries with the client's own
+// account numbers and names. "Draft for review" until the reviewer signs step 7, as the PDF.
+export async function buildClientListXlsx(supabase: SupabaseClient, fileId: string): Promise<{ bytes: Buffer; filename: string } | null> {
+  const f = await loadFile(supabase, fileId);
+  if (!f) return null;
+  const ref = await loadReference(supabase);
+  const data = await loadReportData(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
+  const { data: signed } = await supabase.from("cb_step_signoffs").select("reviewed_at").eq("file_id", fileId).eq("step", "review").maybeSingle();
+  const draft = !(signed as { reviewed_at: string | null } | null)?.reviewed_at;
+  const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
+  const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));
+  const entries = f.entries.map((e) => {
+    const [no, kind] = entryNo(f.file.year_end, e).split(" ");
+    return { no, kind, memo: e.note, lines: e.lines.map((l) => { const a = data.acctOf(l.account_id); return { number: a?.number ?? "", name: a?.name ?? "", cents: Math.round(l.amount * 100) }; }) };
+  });
+  const title = clientListTitle(f.file);
+  const client = f.client?.legal_name ?? "";
+  const bytes = reportXlsx(clientListTable(title, fresh, entries), [client, `Year ended ${f.file.year_end}`], draft ? `${title} · DRAFT FOR REVIEW` : title);
+  const filename = `${client} Entries to record ${f.file.year_end}`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim() + ".xlsx";
   return { bytes, filename };
 }

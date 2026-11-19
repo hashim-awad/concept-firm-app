@@ -11,7 +11,7 @@
 // - Journal: every posting in date order, grouped by its source, then the net income box.
 import type { Posting, PostingKind } from "./tb-build.ts";
 
-export type RepAccount = { key: string; number: string; name: string; line_no: string | null; lastCents: number };
+export type RepAccount = { key: string; number: string; name: string; line_no: string | null; lastCents: number; chart?: string | null };   // chart: piece R2, trial balance files
 // sheet: the lead sheet code; sheetName: its name ("Cash and bank").
 export type LineInfo = { type: string; sheet: string | null; sheetName: string };
 

@@ -36,8 +36,10 @@ export const blankLine = (): FormLine => ({ acct: "", dr: "", cr: "", desc: "", 
 const taxCode = (t: string) => (t && t !== "none" ? t : "");
 const isPpa = (line: string) => line.startsWith("3720") || line.startsWith("3600");
 
+// Piece R2 (item 5): on a trial balance file a new client account is created with a master account: newLine is then
+// "chart:NNNNN" and newLineOf gives its line.
 export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, AcctOpt>, codes: Map<string, TaxCode>, ctx: TaxContext, lineTypes: Map<string, string> = new Map(),
-  std?: { kind: string; reason: string; reverse: boolean } | null) {
+  std?: { kind: string; reason: string; reverse: boolean } | null, newLineOf: Map<string, string> = new Map()) {
   const out: RpcLine[] = [];
   let gst = 0, pst = 0, dr = 0, cr = 0;
   const problems: string[] = [];
@@ -53,9 +55,9 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
     if (d && c) { problems.push(`Line ${n}: a debit or a credit, not both.`); return; }
     if (!d && !c) { problems.push(`Line ${n}: enter the amount.`); return; }
     const o = opts.get(l.acct);
-    const lineNo = l.acct === "new" ? l.newLine : o?.line_no ?? "";
+    const lineNo = l.acct === "new" ? newLineOf.get(l.newLine) ?? l.newLine : o?.line_no ?? "";
     const type = l.acct === "new" ? lineTypes.get(l.newLine) ?? "" : o?.type ?? "";
-    if (l.acct === "new" && (l.newName.trim().length < 3 || !l.newType || !l.newLine)) problems.push(`Line ${n}: name the new account, with its QuickBooks type and GIFI line.`);
+    if (l.acct === "new" && (l.newName.trim().length < 3 || !l.newType || !l.newLine)) problems.push(`Line ${n}: name the new account, with its QuickBooks type and master account.`);
     if (isPpa(lineNo)) ppaLine = true;
     const code = taxCode(l.tax) ? codes.get(l.tax) ?? null : null;
     // Amounts including tax: the amount before tax is the one that, with its tax, gives what was typed.
@@ -65,7 +67,7 @@ export function planEntry(head: FormHead, lines: FormLine[], opts: Map<string, A
     const t = entryLineTax(net, code, type, ctx);
     gst += t.gstHst; pst += t.pst;
     const amount = net + t.toLine;
-    const target: Partial<RpcLine> = l.acct === "new" ? { line: l.newLine, new_name: l.newName.trim(), new_type: l.newType }
+    const target: Partial<RpcLine> = l.acct === "new" ? { ...(l.newLine.startsWith("chart:") ? { chart: l.newLine.slice(6) } : { line: l.newLine }), new_name: l.newName.trim(), new_type: l.newType }
       : l.acct.startsWith("chart:") ? { chart: l.acct.slice(6) } : l.acct.startsWith("line:") ? { line: l.acct.slice(5) } : { account: l.acct };
     out.push({ ...target, amount: amount / 100, memo: l.desc.trim(), ...(taxCode(l.tax) ? { tax_code: l.tax } : {}) });
   });

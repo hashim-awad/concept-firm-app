@@ -9,9 +9,11 @@ export type CbAccount = { id: string; account_key: string; number: string; name:
   type_confirm_reason?: string | null; type_confirmed_line?: string | null; type_confirmed_by?: string | null; type_confirmed_at?: string | null;
   mapping_source: string | null; needs_reviewer: boolean; reviewer_reason: string;
   gifi_override?: string | null;   // piece R1: the GIFI line for the tax return when it differs from the group (step 8, bank files)
+  // Piece R2: the master account (trial balance files), the QuickBooks parent and detail type, and Account List rows.
+  chart_account?: string | null; parent_key?: string | null; full_name?: string | null; tb_type?: string | null; qbo_detail_type?: string | null; in_list?: boolean;
   last_year_line?: string | null };   // round 25: the T2 line last year's figure came from, when it differs
 export type CbEntry = { id: string; kind: string; number: number; seq: number; wp_ref: string; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
-  reviewed_by: string | null; created_by: string | null; created_at: string; entry_date?: string | null; attachments?: string[]; origin?: string | null; standard_id?: string | null;
+  reviewed_by: string | null; created_by: string | null; created_at: string; entry_date?: string | null; attachments?: string[]; origin?: string | null; standard_id?: string | null; booked_at?: string | null; booked_by?: string | null;
   lines: { id?: string; account_id: string; amount: number; memo: string; tax_code?: string | null; is_tax?: boolean; schedule_part?: string | null }[] };
 export type CbImport = { target: string; source: string; file_name: string; rows: number; debit_total: number; credit_total: number; imported_at: string; who: { full_name: string } | null };
 export type ListedFile = CbFileRow & { client: { legal_name: string } | null; docs: CbDoc[];
@@ -41,12 +43,12 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags, province, signing_officer, street_address, city, postal_code").eq("id", f.client_id).maybeSingle(),
     supabase.from("cb_documents").select(DOC_COLS).eq("file_id", id).order("sort_order"),
-    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at, side_confirm_reason, side_confirmed_line, side_confirmed_by, side_confirmed_at, last_year_line, gifi_override").eq("file_id", id).order("number").order("name"),
+    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at, side_confirm_reason, side_confirmed_line, side_confirmed_by, side_confirmed_at, last_year_line, gifi_override, chart_account, parent_key, full_name, tb_type, qbo_detail_type, in_list").eq("file_id", id).order("number").order("name"),
     supabase.from("cb_imports").select("target, source, file_name, rows, debit_total, credit_total, imported_at, who:imported_by(full_name)").eq("file_id", id).order("imported_at", { ascending: false }),
     staffNames(supabase),
   ]);
   const { data: notes } = await supabase.from("cb_flag_notes").select("account_id, reason, note").eq("file_id", id);
-  const { data: entries } = await supabase.from("cb_entries").select("id, kind, number, seq, wp_ref, reason, note, reverse_next_year, needs_review, reviewed_at, reviewed_by, created_by, created_at, entry_date, attachments, origin, standard_id, lines:cb_entry_lines(id, account_id, amount, memo, tax_code, is_tax, schedule_part)")
+  const { data: entries } = await supabase.from("cb_entries").select("id, kind, number, seq, wp_ref, reason, note, reverse_next_year, needs_review, reviewed_at, reviewed_by, created_by, created_at, entry_date, attachments, origin, standard_id, booked_at, booked_by, lines:cb_entry_lines(id, account_id, amount, memo, tax_code, is_tax, schedule_part)")
     .eq("file_id", id).order("seq");
   return {
     notes: new Map(((notes ?? []) as { account_id: string; reason: string; note: string }[]).map((n) => [n.account_id, { reason: n.reason, note: n.note }])),

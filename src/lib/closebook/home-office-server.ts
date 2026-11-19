@@ -38,7 +38,7 @@ export async function loadHome(supabase: SupabaseClient, file: CbFileRow, provin
 
   // The entry form's account for each standard account the schedule posts to (a client's own books: their account on the line).
   const chartRows = (chart ?? []) as { number: string; name: string; line_no: string | null }[];
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const byKey = new Map(accounts.map((a) => [a.account_key, a]));
   const acct: Record<string, string> = {}, names: Record<string, string> = {};
   for (const n of [HOME_EXPENSE, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {

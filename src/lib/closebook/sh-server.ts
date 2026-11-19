@@ -6,7 +6,7 @@ import type { CbAccount, CbEntry } from "./server";
 import type { CbFileRow } from "./files";
 import { loadReportData } from "./report-data";
 import { keepsOwnBooks } from "./books";
-import { buildGroups, buildSchedules, CHART_SHAREHOLDER, type ShCarry, type ShDecision, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
+import { buildGroups, buildSchedules, chartShareholder, type ShCarry, type ShDecision, type ShEntryInfo, type ShFlag, type ShGroup, type ShSchedule } from "./sh-loans";
 
 export type ShFlagRow = { account_key: string; flag: ShFlag; closing: number; note: string; noted_by: string | null; noted_at: string | null; accepted_by: string | null; accepted_at: string | null; accepted_why: string; accepted_kind: "" | "included" | "not_included"; accepted_year: number | null };
 export type ShRepaidRow = { account_key: string; due_on: string; opening: number; repaid: number; unpaid: number; answered_by: string | null; answered_at: string };
@@ -44,7 +44,7 @@ export async function loadShLoans(supabase: SupabaseClient, file: CbFileRow, acc
   const info = new Map<string, ShEntryInfo>(entries.map((e) => [e.id, { origin: e.origin ?? null, gifis: e.lines.map((l) => lineOf.get(l.account_id) ?? "") }]));
   const windowDays = Number((set as { sh_repay_window_days?: number } | null)?.sh_repay_window_days ?? 30);
   const rows = buildSchedules({
-    accounts: data.accounts.map((a) => ({ key: a.key, number: a.number, name: a.name, line_no: a.line_no, tbCents: tb.get(a.key) ?? 0, lastCents: a.lastCents })),
+    accounts: data.accounts.map((a) => ({ key: a.key, number: a.number, name: a.name, line_no: a.line_no, tbCents: tb.get(a.key) ?? 0, lastCents: a.lastCents, chart: a.chart ?? null })),
     postings: data.postings, entries: info, own, yearEnd: file.year_end,
   }).filter((s) => s.openingCents || s.closingCents || s.tbCents || s.movements.length);
   // Each account's shareholder: the standard chart's, else the preparer's pick here, else the pick rolled
@@ -53,7 +53,7 @@ export async function loadShLoans(supabase: SupabaseClient, file: CbFileRow, acc
   const ps = ((picks ?? []) as unknown as Pick[]).sort((a, b) => b.file.year_end.localeCompare(a.file.year_end));
   const owners: ShData["owners"] = {};
   for (const r of rows) {
-    const chart = CHART_SHAREHOLDER[r.key];
+    const chart = chartShareholder(r);   // piece R2 (D13): by master account on a trial balance file
     const here = ps.find((p) => p.account_key === r.key && p.file.id === file.id);
     const before = ps.find((p) => p.account_key === r.key && p.file.id !== file.id);
     owners[r.key] = chart ? { shareholder: chart, source: "chart" } : here ? { shareholder: here.shareholder, source: "picked" }

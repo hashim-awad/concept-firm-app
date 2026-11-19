@@ -47,7 +47,7 @@ export async function loadExpensesSchedule(supabase: SupabaseClient, file: CbFil
     accts[o.value] = { label: o.label, tax: c ? TAX[c.tax_default] ?? "check" : "check", meals: mealsLine.has(o.line_no) };
   }
   // The entry form's account for 21500 and 23000 (a client's own books: their account on the same GIFI line).
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const byKey = new Map(accounts.map((a) => [a.account_key, a]));
   const acct: Record<string, string> = {};
   for (const n of [ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {

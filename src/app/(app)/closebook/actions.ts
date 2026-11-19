@@ -474,3 +474,60 @@ export async function saveChecklist(formData: FormData) {
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `Checklist saved: ${answers.length} of ${keys.length} answered.`));
 }
+
+// ---------- Piece R2: step 4 "Assign mapping" on trial balance files (one database call per action) ----------
+
+export async function assignInline(fileId: string, items: { account: string; chart: string | null }[], label: string, source = "manual"): Promise<{ action?: string; n?: number; error?: string }> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook to assign accounts." };
+  const { data, error } = await (await createClient()).rpc("cb_assign", { p_file: fileId, p_items: items, p_label: label, p_source: source });
+  if (error) return { error: error.message };
+  revalidatePath(`/closebook/${fileId}`);
+  const r = data as { action: string | null; n: number };
+  return { action: r.action ?? undefined, n: r.n };
+}
+
+export async function undoAssignInline(fileId: string, action: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook to assign accounts.";
+  const { error } = await (await createClient()).rpc("cb_undo_assign", { p_action: action });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+export async function unassignAllInline(fileId: string): Promise<{ action?: string; n?: number; error?: string }> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook to assign accounts." };
+  const { data, error } = await (await createClient()).rpc("cb_unassign_all", { p_file: fileId });
+  if (error) return { error: error.message };
+  revalidatePath(`/closebook/${fileId}`);
+  const r = data as { action: string | null; n: number };
+  return { action: r.action ?? undefined, n: r.n };
+}
+
+// D12b: the client account entries take when several sit on one master account.
+export async function pickChartAccountInline(fileId: string, chart: string, account: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_pick_chart_account", { p_file: fileId, p_chart: chart, p_account: account });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// D12c: "Booked in QuickBooks".
+export async function markBookedInline(fileId: string, entry: string, booked: boolean): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_mark_booked", { p_entry: entry, p_booked: booked });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// Step 8 (D6): the reviewer keeps a line that changed from last year.
+export async function keepLineMoveInline(fileId: string, account: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_keep_line_move", { p_account: account });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}

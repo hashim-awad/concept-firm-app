@@ -36,12 +36,14 @@ test("statements in and step 2 signed before the setup is signed: the file moves
   assert.equal(r.steps[0].state, "open");
 });
 
-test("imported trial balance: step 4 is Match accounts to GIFI, done when every account is matched", () => {
+// Piece R2 (items 0 and 1): step 4 on a trial balance file is "Assign mapping", done when every account with a balance has a
+// master account.
+test("imported trial balance: step 4 is Assign mapping, done when every account with a balance is assigned", () => {
   const tb = { books: "concept_qbo", imported: true, accounts: 10 };
-  const a = fileSteps(facts({ ...tb, unmatched: 2, waiting: 1 }));
-  assert.equal(a.steps[3].name, "Match accounts to GIFI");
+  const a = fileSteps(facts({ ...tb, unmatched: 3, waiting: 1 }));
+  assert.equal(a.steps[3].name, "Assign mapping");
   assert.equal(a.current, "code");
-  assert.match(a.next, /Match 3 accounts/);
+  assert.match(a.next, /Assign 3 accounts with a balance to the master chart/);
   const b = fileSteps(facts({ ...tb, docs: planning("signed") }));
   assert.equal(b.current, "entries");
   assert.equal(b.steps[0].state, "done");
@@ -76,13 +78,13 @@ test("old links land on the right step", () => {
 
 // Round 5 (Hashim, Nov 21, 2026): an account whose type differs from its GIFI line holds step 4 open and
 // shows on step 7 until the reviewer decides.
-test("open type flags hold the matching step and show on step 7", () => {
+// Piece R2 (item 3): open type flags no longer hold step 4 on a trial balance file; they wait in step 8's Match box.
+test("open type flags no longer hold step 4 on a trial balance file (step 8 has them)", () => {
   const r = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 2 }));
-  assert.equal(r.current, "code");
-  assert.equal(r.steps.find((s) => s.key === "code")!.note, "2 checks for the reviewer");
+  assert.equal(r.current, "entries");
+  assert.equal(r.steps.find((s) => s.key === "code")!.note, "All assigned");
   // Piece 10: the reviewer's checks are step 7's; step 6 is "Compare to last year".
   assert.equal(r.steps.find((s) => s.key === "compare")!.note, "Last year against this year");
-  assert.match(r.next, /^2 accounts on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer/);
   const ok = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 0 }));
   assert.equal(ok.steps.find((s) => s.key === "code")!.state, "done");
 });
@@ -94,8 +96,9 @@ test("step papers show only when they apply", () => {
   // Piece 4b (approved change): the Expenses paid personally paper is retired; the setup answer adds nothing.
   assert.deepEqual(stepPapers("entries", { ...base, shareholders: true, ownerPaid: true }).map((p) => p.name), ["Revenue check", "Shareholder loans"]);
   assert.deepEqual(stepPapers("entries", { ...base, full: false, shareholders: true }).map((p) => p.key), ["sh"]);
-  assert.deepEqual(stepPapers("t2", base).map((p) => p.name), ["GIFI file", "Tax workpaper", "T2 tie-out"]);
-  assert.deepEqual(stepPapers("t2", { ...base, gst: true }).map((p) => p.key), ["gifi", "taxwp", "tie", "gst"]);
+  // Piece R2 (item 3): Match accounts to GIFI first on every file.
+  assert.deepEqual(stepPapers("t2", base).map((p) => p.name), ["Match accounts to GIFI", "GIFI file", "Tax workpaper", "T2 tie-out"]);
+  assert.deepEqual(stepPapers("t2", { ...base, gst: true }).map((p) => p.key), ["match", "gifi", "taxwp", "tie", "gst"]);
   assert.deepEqual(stepPapers("statements", base).map((p) => p.name), ["Package", "MAL signing"]);
   assert.deepEqual(stepPapers("lock", base).map((p) => p.name), ["Checklist", "Client email", "Documents", "Filing and lock"]);
   assert.deepEqual(stepPapers("setup", base).map((p) => p.name), ["Setup questions", "Acceptance"]);

@@ -9,6 +9,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { BookedMark } from "./booked-mark";
 import { Pencil, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
@@ -49,7 +50,6 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   closeHref: string; here: string; rdata: Promise<ReportData>;
 }): Promise<ReactNode> {
   if (!sp.new && !sp.open) return null;
-  if (file.file_type !== "full") return null;
   const entry = sp.open ? entries.find((e) => e.id === sp.open) : sp.new?.match(/^(dup|rev):/) ? entries.find((e) => e.id === sp.new!.slice(4)) : undefined;
   // Round 35: ?open= names an entry. Anything else (a report's old link, a typo) opens nothing, never a blank new entry.
   if (sp.open && !entry && !sp.new) return null;
@@ -68,7 +68,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
       ...(!flip && l.schedule_part ? { sched: l.schedule_part, isTax: !!l.is_tax } : {}) };
   });
   const pdfHref = (e: CbEntry) => `/closebook/${file.id}/schedule-pdf?entry=${e.id}`;
-  const formProps = { fileId: file.id, yearStart: file.year_start, yearEnd: file.year_end, clientList: file.books === "client_software" || file.books === "bookkeeper",
+  const formProps = { fileId: file.id, yearStart: file.year_start, yearEnd: file.year_end, clientList: file.books !== "statements" && file.books !== "paper",   // piece R2 (D12a)
     opts: form.opts, gifiLines: form.gifiLines, codes: form.codes, ctx: form.ctx, standard: form.standard, threshold: form.threshold, qboTypes: QBO_TYPES,
     closeHref, backHref: here, problem: sp.error ?? null };
 
@@ -94,8 +94,9 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           <h2 className="text-[15px] font-bold">Journal entry {no}</h2>
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${entry.reviewed_at ? "bg-success-soft text-success" : entry.needs_review ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>
             {entry.reviewed_at ? "Reviewed" : entry.needs_review ? "Needs review" : "No review needed"}</span>
+          {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} editable={editable && !locked} />}
           <span className="flex-1" />
-          {canChange && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
+          {canChange && !entry.booked_at && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
           {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}

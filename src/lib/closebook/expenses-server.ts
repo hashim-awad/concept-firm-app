@@ -76,7 +76,7 @@ export async function loadExpenses(supabase: SupabaseClient, file: CbFileRow): P
       .eq("file.client_id", file.client_id).lte("file.year_end", file.year_end),
   ]);
   const charts = ((chart ?? []) as { number: string; name: string; account_type: string; line_no: string | null }[]).map((c) => ({ number: c.number, name: c.name, type: c.account_type, line_no: c.line_no ?? "" }));
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   // The client's own accounts, as cb_add_entry picks them: not new, numbered, first by number.
   type A = { id: string; account_key: string; number: string; name: string; line_no: string | null; client_new: boolean };
   const theirs = ((accts ?? []) as A[]).filter((a) => a.line_no && a.number && !a.client_new && !a.account_key.startsWith("line:") && !a.account_key.startsWith("gifi:"));

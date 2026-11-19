@@ -8,9 +8,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ChevronRight, Pencil } from "lucide-react";
 import { Panel, type Option, type Row } from "./accounts-table";
+import { notify } from "@/components/save-state";
+import { keepLineMoveInline, overrideInline } from "../actions";
 import type { MatchRow, TieItem } from "@/lib/closebook/match-gifi";
 
-export type BoxItem = { row: Row; why: string; cents: number; kind: string; fix?: { href: string; label: string } };
+// Piece R2 (D6): prior, last year's line for an account whose master account put it on another line (trial balance files).
+export type BoxItem = { row: Row; why: string; cents: number; kind: string; fix?: { href: string; label: string }; prior?: { line: string; label: string } };
 
 const amt = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 
@@ -20,6 +23,7 @@ export function MatchStep({ fileId, rows, panelRows, box, ties, options, groupOp
 }) {
   const [shown, setShown] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<{ r: Row; mode: "override" | "group" } | null>(null);
+  const act = async (p: Promise<string | null>) => { const err = await p; if (err) notify(err, "error"); };
   const toggle = (code: string) => setShown((s) => { const n = new Set(s); if (n.has(code)) n.delete(code); else n.add(code); return n; });
   const pencil = (r: Row, mode: "override" | "group" = "override") => editable && (
     <button type="button" onClick={() => setOpen({ r, mode })} title="Change the GIFI line" aria-label={`Change the GIFI line: ${r.name}`}
@@ -40,6 +44,9 @@ export function MatchStep({ fileId, rows, panelRows, box, ties, options, groupOp
                 <td className="text-right tabular-nums">{amt(b.cents)}</td>
                 <td className="text-right">{b.fix ? <Link href={b.fix.href} className="text-sm text-navy-700 underline">{b.fix.label}</Link>
                   : b.kind === "no_group" ? (editable && <button type="button" onClick={() => setOpen({ r: b.row, mode: "group" })} className="text-sm text-navy-700 underline">Choose a group</button>)
+                  : b.kind === "moved" && b.prior ? (!isReviewer ? <span className="text-xs text-ink-3">With the reviewer</span> : editable && <span className="grid justify-items-end gap-0.5">
+                      <button type="button" onClick={() => void act(overrideInline(fileId, b.row.id, b.prior!.line))} className="text-sm text-navy-700 underline">Keep last year&apos;s line ({b.prior.label})</button>
+                      <button type="button" onClick={() => void act(keepLineMoveInline(fileId, b.row.id))} className="text-sm text-navy-700 underline">Keep the new line</button></span>)
                   : b.kind === "reviewer" && !isReviewer ? <span className="text-xs text-ink-3">With the reviewer</span>
                   : pencil(b.row)}</td>
               </tr>

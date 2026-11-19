@@ -111,7 +111,7 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
 
   // ---------- The entry form's account for each standard account the schedule posts to.
   const chartRows = (chart ?? []) as { number: string; name: string; line_no: string | null }[];
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const acct: Record<string, string> = {}, names: Record<string, string> = {};
   for (const n of [EXPENSE_ACCOUNT, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {
     const c = chartRows.find((x) => x.number === n);

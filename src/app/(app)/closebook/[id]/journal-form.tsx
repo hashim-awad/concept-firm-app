@@ -40,7 +40,7 @@ export type JournalInit = { head?: Partial<FormHead>; lines?: FormLine[]; std?: 
 
 export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes,
   init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, expenses, schedKind, openSchedule = false, printHref = "" }: {
-  fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string][];
+  fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string, string?][];
   codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
   init?: JournalInit; lock?: { kind?: boolean; wp?: boolean }; origin?: string; edit?: string;
   closeHref: string; backHref: string; problem?: string | null; keptAttachments?: string[];
@@ -54,6 +54,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const optMap = useMemo(() => new Map(opts.map((o) => [o.value, o])), [opts]);
   const codeMap = useMemo(() => new Map(codes.map((c) => [c.code, c])), [codes]);
   const lineTypes = useMemo(() => new Map(gifiLines.map(([no, , type]) => [no, type])), [gifiLines]);
+  const newLineOf = useMemo(() => new Map(gifiLines.flatMap(([no, , , line]) => (line ? [[no, line] as [string, string]] : []))), [gifiLines]);
   const s0 = standard.find((x) => x.id === init.std);
   const [head, setHead] = useState<FormHead>({ kind: "AJE", wpRef: "", memo: "", reverse: false, inclusive: false,
     ...(s0 ? { kind: s0.kind, wpRef: s0.wp_ref, memo: s0.memo, reverse: s0.reverse } : {}), ...init.head });
@@ -65,7 +66,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
     while (l.length < 2) l.push(blankLine());
     if (!init.balanceLast) return l;
     // Fix with an entry: the last line takes whatever balances the entry, its tax included.
-    const p = planEntry(head, l.slice(0, -1), optMap, codeMap, ctx, lineTypes);
+    const p = planEntry(head, l.slice(0, -1), optMap, codeMap, ctx, lineTypes, null, newLineOf);
     const d = p.dr - p.cr;
     l[l.length - 1] = { ...l[l.length - 1], dr: d < 0 ? formatAmount(-d) : "", cr: d > 0 ? formatAmount(d) : "" };
     return l;
@@ -83,7 +84,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const schedLines = lines.filter((l) => l.sched);
   const hasSched = schedLines.length > 0;
   const other = hasSched ? lines.filter((l) => !l.sched && (l.acct || l.dr.trim() || l.cr.trim())) : lines;
-  const plan0 = planEntry(head, other, optMap, codeMap, ctx, lineTypes, std);
+  const plan0 = planEntry(head, other, optMap, codeMap, ctx, lineTypes, std, newLineOf);
   const sDr = schedLines.reduce((n, l) => n + (parseAmount(l.dr) ?? 0), 0), sCr = schedLines.reduce((n, l) => n + (parseAmount(l.cr) ?? 0), 0);
   const plan = hasSched ? { ...plan0, dr: plan0.dr + sDr, cr: plan0.cr + sCr, problems: [
     ...schedLines.filter((l) => !l.isTax && !l.acct).map(() => "A schedule line needs an account."),
@@ -188,7 +189,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                     <span className="mt-1 grid gap-1">
                       <input aria-label={`Line ${i + 1} new account name`} value={l.newName} onChange={(e) => setLine(i, { newName: e.target.value })} maxLength={80} placeholder="Name, in plain words" className={box} />
                       <select aria-label={`Line ${i + 1} QuickBooks type`} value={l.newType} onChange={(e) => setLine(i, { newType: e.target.value })} className={box}><option value="">QuickBooks type</option>{qboTypes.map((t) => <option key={t}>{t}</option>)}</select>
-                      <select aria-label={`Line ${i + 1} group`} value={l.newLine} onChange={(e) => setLine(i, { newLine: e.target.value })} className={box}><option value="">Group</option>{gifiLines.map(([no, name]) => <option key={no} value={no}>{no} {name}</option>)}</select>
+                      <select aria-label={`Line ${i + 1} master account`} value={l.newLine} onChange={(e) => setLine(i, { newLine: e.target.value })} className={box}><option value="">Master account</option>{gifiLines.map(([no, name]) => <option key={no} value={no}>{no.startsWith("chart:") ? name : `${no} ${name}`}</option>)}</select>
                     </span>
                   )}
                 </td>
