@@ -84,7 +84,7 @@ reset role;
 reset request.jwt.claims;
 -- Steps 1 to 8 reviewed (their own rules are tested in their rounds).
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
-select :'f', s, '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now() from unnest(array['setup', 'opening', 'records', 'code', 'entries', 'review', 'mapping', 't2']) s
+select :'f', s, '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now() from unnest(array['setup', 'opening', 'records', 'code', 'entries', 'compare', 'review', 't2']) s
 on conflict (file_id, step) do update set reviewed_by = excluded.reviewed_by, reviewed_at = excluded.reviewed_at;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';

@@ -542,6 +542,30 @@ In short:
 - Step 5 restructure plan (Hashim, Nov 18, 2026; benchmark CaseWare Cloud). The plan of the Round A message as updated by Hashim's brief, built as 11 small pieces, one branch, PR and at most one migration each, merged one at a time. When all are done: 1 Set up, 2 Opening balances, 3 Banking, 4 Code transactions (unchanged); 5 Adjustments (last year's line, the Schedules table, the existing entries list); 6 Compare to last year (new key; flagged changes, new accounts, accounts not used, what changed this year); 7 Review (the reviewer's step, also holding the reviewer's GIFI checks and the shareholder loan answers); 8 Tax returns (as built, plus the GST/HST revenue comparison); 9 Statements and 10 Deliver and lock (unchanged). GIFI matching becomes a view in the Trial balance tab; the Entries tab goes once step 5 holds the list.
   - Pieces: 1 CRA rates page; 2 edit an entry in place; 3 the schedule engine and Vehicle allowance; 4 Home office, and "Home office" and "Auto expenses" hidden from "From a standard entry" (their records and tax settings stay, so Expenses paid personally works as now); 5 step 5 becomes "Adjustments"; 6 TJEs keep steps 5, 6 and 7 signed (a TJE still clears step 8) and lead sheet flags ignore tax entries; 7 the revenue check becomes a schedule, its GST/HST figure moves to step 8; 8 shareholder loans move to Reporting and to the reviewer in step 7; 9 GIFI matching as a Trial balance view with a Tools shortcut; 10 step 6 becomes "Compare to last year" (the only piece that changes a step key; the new step 6 starts unsigned on every file, nothing is copied); 11 the Entries tab goes and the step texts are corrected.
   - Rules for every piece: steps 1 to 4 untouched; no schedule or step is switched on or off by a setup answer (reading a fact about the client is fine: "Claim the ITC" shows and is ticked when the file is registered on the regular method, as Expenses paid personally does); no step key or number changes unless the piece says so; no migration drops a table or column; no data change to any Live file; an existing test changes only where the piece approves it; the five sign-off gaps from Round A wait for their own round; the Lock message's TaxDome wording stays (staff screen). A person cannot create an account without a GIFI line; imports still save unmatched accounts (shown under "Unmatched"); Clearing 10900 and the two system rows stay exempt.
+- Piece 10, step 6 becomes "Compare to last year" (Hashim, Nov 19, 2026, version 2; mock L; benchmark CaseWare Cloud's analytical
+  review: last year against this year, with the preparer's explanations and the reviewer's sign-off). The only piece that changes a
+  step key: step 6's key is now "compare"; "mapping" is retired, never reused, and still accepted by the key rules so old rows fit
+  (nothing reads them). The new step 6 starts unsigned on every file; no sign-off is copied. Live check before release (read only,
+  Nov 19, 2026): 0 files had step 7 or later signed.
+  - Step 6 is the preparer's page, four sections: Flagged changes (the lead sheets' flag rule, thresholds and piece 6's tax entry
+    rule; last year, this year, change, %, reason from the existing 8, note; amounts open the ledger with "‹ Compare to last year";
+    the "Lead sheets view" link opens the lead sheets inside step 6, moved from step 7); New accounts this year (a balance this
+    year after entries and none last year, with its GIFI line and the preparer's "Confirmed"); Accounts not used this year (a
+    balance last year and none this year, one "Seen" tick, kept for that list); What changed this year (six yes/no questions; a
+    "yes" needs a short note). System rows and Clearing (10900) are left out of the two account lists.
+  - Step 6's sign-off needs: every flagged change explained (moved from step 5), every used account on a GIFI line and Clearing at
+    zero (moved from the old step 6), every new account confirmed on its current GIFI line, Seen ticked, every question answered,
+    no open review note. The reviewer signs after, as usual.
+  - Step 7 gains: the reviewer's GIFI checks (no account waiting for the reviewer, no open type or wrong-side flag), the list
+    "New accounts this year and their GIFI lines" with "Mark reviewed" (reviewer only), and each "yes" answer in "Waiting for the
+    reviewer" with "Mark reviewed". It keeps pieces 7 and 8. Its gate still needs steps 1 to 6 reviewed.
+  - Clearing: an explanation, a tick or an answer clears step 6 and step 7, not step 5 or step 8. A GIFI line, tax code or type
+    change clears steps 6, 7 and 8, and step 4 on a trial balance file, as before. The owner's decision on an account sent to the
+    reviewer clears nothing. A TJE clears step 8 only. The reviewer's "Mark reviewed" clears step 7 only. A changed GIFI line
+    needs the new account confirmed and reviewed again.
+  - GIFI matching stays on the Trial balance tab and Tools (piece 9); step 4 on trial balance files is unchanged. Old links to
+    "step=mapping" open step 6. Migration 20261212330000 (three new tables: cb_new_accounts, cb_compare_seen, cb_year_changes; no
+    drops; no data change; safe to run twice).
 - Piece 9, GIFI matching as a view in the Trial balance tab (Hashim, Nov 19, 2026, version 2; benchmark CaseWare Cloud: the
   mapping lives with the trial balance data and opens from the tools). Trial balance tab > "GIFI matching" (Hashim's name, so it
   is not confused with the existing "GIFI lines" view): step 6's matching screen, whole, with a new filter "Unmatched" (accounts

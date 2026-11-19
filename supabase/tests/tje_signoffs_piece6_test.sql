@@ -38,17 +38,17 @@ select id as amo from public.cb_accounts where file_id = :'f' and number = '8670
 
 -- Steps 5 to 8 signed (dummy fixture).
 create temporary table sign_all as select 1;
-\set signed 'insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) select :''f'', s, ''00000000-0000-0000-0000-00000000000c'', now() from unnest(array[''entries'', ''mapping'', ''review'', ''t2'']) s on conflict (file_id, step) do update set prepared_at = excluded.prepared_at, prepared_by = excluded.prepared_by'
-\set state 'select string_agg(step, \',\' order by step) from public.cb_step_signoffs where file_id = :''f'' and step in (''entries'', ''mapping'', ''review'', ''t2'') and prepared_at is not null'
+\set signed 'insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) select :''f'', s, ''00000000-0000-0000-0000-00000000000c'', now() from unnest(array[''entries'', ''compare'', ''review'', ''t2'']) s on conflict (file_id, step) do update set prepared_at = excluded.prepared_at, prepared_by = excluded.prepared_by'
+\set state 'select string_agg(step, \',\' order by step) from public.cb_step_signoffs where file_id = :''f'' and step in (''entries'', ''compare'', ''review'', ''t2'') and prepared_at is not null'
 :signed;
-select test.check('fixture: steps 5 to 8 signed', (:state) = 'entries,mapping,review,t2');
+select test.check('fixture: steps 5 to 8 signed', (:state) = 'compare,entries,review,t2');
 
 -- T1: a TJE added: steps 5, 6 and 7 stay signed; step 8 is cleared, with the reason in History.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12000), jsonb_build_object('account', :'itp', 'amount', -12000)), 'Income tax schedule') as tje \gset
 reset role; reset request.jwt.claims;
-select test.check('T1: a TJE keeps steps 5, 6 and 7; step 8 cleared', (:state) = 'entries,mapping,review');
+select test.check('T1: a TJE keeps steps 5, 6 and 7; step 8 cleared', (:state) = 'compare,entries,review');
 select test.check('T1: History says why step 8 was cleared', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail like 'Entry 2026-001 added%'));
 
 -- T2: the TJE's amount edited; then deleted: the same.
@@ -57,13 +57,13 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'tje', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12500), jsonb_build_object('account', :'itp', 'amount', -12500)), 'Income tax schedule');
 reset role; reset request.jwt.claims;
-select test.check('T2: the TJE edited: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'entries,mapping,review');
+select test.check('T2: the TJE edited: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'compare,entries,review');
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_delete_entry(:'tje');
 reset role; reset request.jwt.claims;
-select test.check('T2: the TJE deleted: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'entries,mapping,review');
+select test.check('T2: the TJE deleted: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'compare,entries,review');
 
 -- T4: an AJE added: cleared exactly as before (step 5, and 7 and 8 through the chain; step 6 stays).
 :signed;
@@ -71,7 +71,7 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing') as aje \gset
 reset role; reset request.jwt.claims;
-select test.check('T4: an AJE clears steps 5, 7 and 8 as before', (:state) = 'mapping');
+select test.check('T4: an AJE clears steps 5, 7 and 8 as before', (:state) = 'compare');
 
 -- T3: an AJE changed into a TJE, and back: each an AJE change.
 :signed;
@@ -79,16 +79,16 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'TJE', 'tax', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: AJE into TJE clears steps 5, 7 and 8', (:state) = 'mapping');
+select test.check('T3: AJE into TJE clears steps 5, 7 and 8', (:state) = 'compare');
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: TJE into AJE clears steps 5, 7 and 8', (:state) = 'mapping');
+select test.check('T3: TJE into AJE clears steps 5, 7 and 8', (:state) = 'compare');
 
--- T5, T6, T6b: the flags (step 5's own check).
-\set flags 'select coalesce((select p from unnest(private.cb_step_problems(:''f'', ''entries'')) p where p like ''%flagged change%''), ''none'')'
+-- T5, T6, T6b: the flags (step 6's check since piece 10).
+\set flags 'select coalesce((select p from unnest(private.cb_step_problems(:''f'', ''compare'')) p where p like ''%flagged change%''), ''none'')'
 select test.check('T6: the AJE moves accounting fees from 8,000.00 to 14,000.00: flagged as before', (:flags) = '1 flagged change to explain on the lead sheets.');
 select test.check('T5: income tax expense (INCTAX, 9,000.00 last year, nothing this year) is not flagged', (:flags) = '1 flagged change to explain on the lead sheets.');
 set role authenticated;

@@ -16,7 +16,7 @@ test("a new file opens on step 1; ten steps in order", () => {
   const r = fileSteps(facts({}));
   assert.equal(r.current, "setup");
   assert.deepEqual(r.steps.map((s) => s.n), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  assert.deepEqual(r.steps.map((x) => x.name), ["Set up", "Opening balances", "Banking", "Code transactions", "Adjustments", "GIFI mapping", "Review", "Tax returns", "Statements", "Deliver and lock"]);
+  assert.deepEqual(r.steps.map((x) => x.name), ["Set up", "Opening balances", "Banking", "Code transactions", "Adjustments", "Compare to last year", "Review", "Tax returns", "Statements", "Deliver and lock"]);
 });
 
 test("bank files: step 2 waits for the preparer's sign-off on last year's balance sheet", () => {
@@ -67,9 +67,9 @@ test("bank files: step 4 counts the Pending lines, then the reviewer's and the c
 test("old links land on the right step", () => {
   assert.equal(stepFromLegacy("tb", "transactions", "statements"), "records");
   assert.equal(stepFromLegacy("tb", "gifi", "statements"), "t2");
-  assert.equal(stepFromLegacy("tb", "lead", "concept_qbo"), "review");
+  assert.equal(stepFromLegacy("tb", "lead", "concept_qbo"), "compare");   // piece 10: the lead sheets view is in step 6
   assert.equal(stepFromLegacy("tb", "accounts", "concept_qbo"), "code");
-  assert.equal(stepFromLegacy("tb", "attention", "statements"), "mapping");
+  assert.equal(stepFromLegacy("tb", "attention", "statements"), "compare");
   assert.equal(stepFromLegacy("entries", undefined, "statements"), "entries");
   assert.equal(stepFromLegacy(undefined, undefined, "statements"), null);
 });
@@ -80,7 +80,8 @@ test("open type flags hold the matching step and show on step 7", () => {
   const r = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 2 }));
   assert.equal(r.current, "code");
   assert.equal(r.steps.find((s) => s.key === "code")!.note, "2 checks for the reviewer");
-  assert.equal(r.steps.find((s) => s.key === "mapping")!.note, "2 checks for the reviewer");
+  // Piece 10: the reviewer's checks are step 7's; step 6 is "Compare to last year".
+  assert.equal(r.steps.find((s) => s.key === "compare")!.note, "Last year against this year");
   assert.match(r.next, /^2 accounts on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer/);
   const ok = fileSteps(facts({ books: "client_software", docs: planning("signed"), imported: true, accounts: 5, typeFlags: 0 }));
   assert.equal(ok.steps.find((s) => s.key === "code")!.state, "done");

@@ -28,7 +28,7 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
   const toggle = (c: string) => setOpenCodes((s) => { const n = new Set(s); if (n.has(c)) n.delete(c); else n.add(c); return n; });
   const cols = full ? 7 : 6;
   // Round 38: every amount opens the account's ledger (as on the Trial balance), with "‹ Lead sheets" to come back.
-  const back = `/closebook/${fileId}?step=review&view=lead`;
+  const back = `/closebook/${fileId}?step=compare&view=lead`;   // piece 10: the lead sheets view is in step 6
   const amt = (r: LeadAcc, v: string) => (r.key && v ? <Link href={`/closebook/${fileId}?area=reporting&report=gl&account=${encodeURIComponent(r.key)}&back=${encodeURIComponent(back)}`}
     className="hover:text-navy-700 hover:underline" data-lead-amount={r.number || r.name}>{v}</Link> : v);
   return (
