@@ -157,8 +157,12 @@ $$;
 create or replace function private.cb_assign_changed() returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if new.line_no is distinct from old.line_no then return null; end if;
-  perform private.cb_clear_step(new.file_id, 'code', format('%s: master account %s to %s', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
-    coalesce(old.chart_account, 'none'), coalesce(new.chart_account, 'none')));
+  -- Step 4 only: nothing that rests on it moves (cb_clear_step would also clear steps 6 to 8).
+  if exists (select 1 from public.cb_step_signoffs where file_id = new.file_id and step = 'code') then
+    delete from public.cb_step_signoffs where file_id = new.file_id and step = 'code';
+    perform private.cb_log(new.file_id, 'signoff_cleared', 'code', format('%s: master account %s to %s', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
+      coalesce(old.chart_account, 'none'), coalesce(new.chart_account, 'none')));
+  end if;
   return null;
 end;
 $$;
@@ -411,11 +415,9 @@ begin
     end if;
     -- Piece R2 (D2, Hashim): client accounts on 10900 Clearing hold step 6 while they have a balance. Opening Balance Equity is
     -- cleared by one RJE to retained earnings; the others by an entry to cash (deposit in transit) or receivables.
-    select string_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
-             case when private.cb_obe(a) then 'clear it to retained earnings with one RJE' else 'clear it with an entry to cash or receivables' end), ' ' order by a.number, a.name)
-      into v_txt from public.cb_accounts a where a.file_id = p_file and a.chart_account = '10900' and private.cb_account_final(a.id) <> 0;
-    if v_txt is not null then v_out := v_out || v_txt; end if;
-    v_txt := null;
+    v_out := v_out || coalesce((select array_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
+             case when private.cb_obe(a) then 'clear it to retained earnings with one RJE' else 'clear it with an entry to cash or receivables' end) order by a.number, a.name)
+      from public.cb_accounts a where a.file_id = p_file and a.chart_account = '10900' and private.cb_account_final(a.id) <> 0), '{}'::text[]);
     -- b) Every new account confirmed, in the group it has now.
     select count(*) into v_n from private.cb_compare_accounts(p_file) x where x.kind = 'new'
        and not exists (select 1 from public.cb_new_accounts n where n.file_id = p_file and n.account_key = x.account_key and n.confirmed_line is not distinct from x.line_no);
