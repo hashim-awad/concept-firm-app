@@ -161,3 +161,7 @@ select test.check('History names the line', exists (select 1 from public.cb_file
 update public.cb_line_splits set memo = 'just a memo' where file_id = :'b';
 select test.check('a split memo changed moves nothing: step 6 stays', (:bstate) = 'code,compare,entries,review');
 
+-- A statement changed in place (its file name; no line, no balance) leaves step 6 signed.
+:bsigned;
+update public.cb_bank_statements set file_name = 'chq-renamed.pdf' where file_id = :'b' and file_name = 'chq.pdf';
+select test.check('a statement changed in place moves nothing: step 6 stays', (:bstate) like '%compare%');
