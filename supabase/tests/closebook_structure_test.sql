@@ -6,7 +6,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
+reset role;
+update public.role_permissions set level = 'none' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');   -- R3a-1 gives Accountant Closebook Edit; these checks need someone without it
+set role authenticated;
 reset role;
 reset request.jwt.claims;
 
@@ -27,15 +30,15 @@ select test.check('defaults: 5,000 and 20%, amortization equal to CCA', (select 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff without Closebook see no master lines', (select count(*) from public.cb_master_lines) = 0);
-select test.check('staff cannot change a line', test.try($$select public.cb_update_master_line('8810.00', 'X', 'Office expenses', 'FULL', '30', '', 'because')$$) like '%Only an owner%');
-select test.check('staff cannot change thresholds', test.try($$select public.cb_update_settings(1, 1, 1, 1, 1, 'amortization_equals_cca')$$) like '%Only an owner%');
+select test.check('staff cannot change a line', test.try($$select public.cb_update_master_line('8810.00', 'X', 'Office expenses', 'FULL', '30', '', 'because')$$) like '%Only an Admin%');
+select test.check('staff cannot change thresholds', test.try($$select public.cb_update_settings(1, 1, 1, 1, 1, 'amortization_equals_cca')$$) like '%Only an Admin%');
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('with Closebook view, staff read the lines', (select count(*) from public.cb_master_lines) = 419);
-select test.check('but still cannot change them', test.try($$select public.cb_add_sub_line('8810.00', 'Software', null, null, '', 'needed')$$) like '%Only an owner%');
+select test.check('but still cannot change them', test.try($$select public.cb_add_sub_line('8810.00', 'Software', null, null, '', 'needed')$$) like '%Only an Admin%');
 select test.check('and cannot write to the table directly', test.try($$update public.cb_master_lines set name = 'X' where line_no = '8810.00'$$) <> 'OK');
 reset role;
 reset request.jwt.claims;

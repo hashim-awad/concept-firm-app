@@ -7,7 +7,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 reset role;
 
 select test.check('RLS on for every public table',

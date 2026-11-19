@@ -7,7 +7,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 select test.check('owner loads several rates as pending', test.try($$insert into public.tax_rates (province, tax, rate_percent, effective_from, source_url, checked_on, checked_by) values
   ('ON', 'HST', 13, '2025-04-01', 'https://www.canada.ca/en/revenue-agency/x', '2026-11-08', '00000000-0000-0000-0000-00000000000a'),
   ('NS', 'HST', 14, '2025-04-01', 'https://www.canada.ca/en/revenue-agency/x', '2026-11-08', '00000000-0000-0000-0000-00000000000a'),

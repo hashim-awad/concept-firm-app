@@ -49,13 +49,13 @@ export default async function PublishPage({ searchParams }: PageProps<"/admin/te
             })}
           </ul>
           <div className="card flex flex-wrap items-center justify-between gap-4">
-            {access.is_owner ? (
+            {(access.admin && access.permissions.engagement_terms === "edit") ? (
               <form action={publishChanges} className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" />I read the {keys.length} change{keys.length === 1 ? "" : "s"}</label>
                 <button className="btn" type="submit">Publish changes</button>
                 <span className="text-xs text-muted">Recorded as {state.draft?.label}.</span>
               </form>
-            ) : <p className="text-sm text-muted">Waiting for an owner to publish.</p>}
+            ) : <p className="text-sm text-muted">Waiting for an Admin to publish.</p>}
             {editable && <form action={discardChanges}><button className="text-sm text-danger underline" type="submit">Discard all unpublished changes</button></form>}
           </div>
         </>

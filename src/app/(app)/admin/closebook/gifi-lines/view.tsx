@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -9,9 +9,9 @@ import type { SP, View } from "../../settings-shell";
 type Line = { line_no: string; name: string; gifi_code: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; locked: boolean };
 
 // Chart and GIFI, GIFI lines tab (Phase 3 batch 4.1 and section 7; mockup SetupGifi): the master lines
-// every client account matches to. Owners only. Changes apply to every open file and are logged.
+// every client account matches to. Admins only. Changes apply to every open file and are logged.
 export async function GifiLinesView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const supabase = await createClient();
   const [{ data: lines }, { data: sheets }, { data: version }] = await Promise.all([

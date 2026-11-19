@@ -2,7 +2,7 @@
 // where possible; database messages are plain sentences written in the migrations.
 const KNOWN: Record<string, string> = {
   "no-permission": "You do not have access to that page.",
-  "owners-only": "Only an owner can open that page.",
+  "owners-only": "Only an Admin can open that page.",
   "pricing-needed": "That page shows prices. Your role does not include the Pricing permission.",
 };
 

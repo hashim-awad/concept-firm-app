@@ -166,7 +166,7 @@ function QuestionRow({ fileId, q, text, saved, editable, onError }: { fileId: st
 
 // Step 7 (piece 10): "New accounts this year and their groups" (piece R1 wording), each marked reviewed by the reviewer.
 export type NewReviewRow = { key: string; label: string; line: string; amount: string; ledger: string; confirmed: boolean; reviewed: string };
-export function NewAccountsReview({ fileId, rows, editable, isOwner }: { fileId: string; rows: NewReviewRow[]; editable: boolean; isOwner: boolean }) {
+export function NewAccountsReview({ fileId, rows, editable, canReview }: { fileId: string; rows: NewReviewRow[]; editable: boolean; canReview: boolean }) {
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
   const left = rows.filter((r) => !r.reviewed).length;
@@ -184,8 +184,8 @@ export function NewAccountsReview({ fileId, rows, editable, isOwner }: { fileId:
                 <td className={`${td} text-right tabular-nums`}><Link href={r.ledger} className="text-navy-700 hover:underline">{r.amount}</Link></td>
                 <td className={td}>{r.confirmed ? "Confirmed" : <span className="text-warning">Not confirmed in step 6</span>}</td>
                 <td className={td}>{r.reviewed ? <span className="text-success">Reviewed · {r.reviewed}
-                    {isOwner && editable && <button type="button" disabled={pending} onClick={() => start(async () => setErr((await reviewNewAccount(fileId, r.key, false)) ?? ""))} className="ml-2 text-[12px] text-navy-700 underline">Undo</button>}</span>
-                  : isOwner && editable ? <button type="button" disabled={pending || !r.confirmed} onClick={() => start(async () => setErr((await reviewNewAccount(fileId, r.key, true)) ?? ""))}
+                    {canReview && editable && <button type="button" disabled={pending} onClick={() => start(async () => setErr((await reviewNewAccount(fileId, r.key, false)) ?? ""))} className="ml-2 text-[12px] text-navy-700 underline">Undo</button>}</span>
+                  : canReview && editable ? <button type="button" disabled={pending || !r.confirmed} onClick={() => start(async () => setErr((await reviewNewAccount(fileId, r.key, true)) ?? ""))}
                     className="btn-secondary btn-compact" data-mark-reviewed={r.label}>Mark reviewed</button> : <span className="text-ink-3">Reviewer</span>}</td>
               </tr>
             ))}

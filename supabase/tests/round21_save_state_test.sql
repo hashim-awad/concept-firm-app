@@ -8,16 +8,16 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 -- A role that only views Closebook, for the refusal without Edit.
 insert into public.roles (name) values ('Viewer R21') returning id as viewer_role \gset
-insert into public.role_permissions (role_id, area_key, level) select :'viewer_role', area_key, 'view' from public.role_permissions where role_id = (select id from public.roles where name = 'Staff') and area_key = 'closebook';
+insert into public.role_permissions (role_id, area_key, level) select :'viewer_role', area_key, 'view' from public.role_permissions where role_id = (select id from public.roles where name = 'Accountant') and area_key = 'closebook';
 set role authenticated;
 select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Viewer D', 'viewer.d@example.test', :'viewer_role');
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = :'viewer_role';
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
@@ -150,6 +150,7 @@ insert into public.cb_acceptance (file_id, q8, confirmed, answered)
 values (:'prior', 'confirmed', '{"basis":"standard","custom_basis_wording":"","users":[],"by":"00000000-0000-0000-0000-00000000000c","at":"2026-11-15T01:40:00+00:00"}', '{"q6":{"by":"x","at":"2026-11-15T01:40:00+00:00"}}');
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:'prior', 'setup', :C, now());
 \i supabase/migrations/20261210020000_round21_save_state.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('repair: 6 and 8 back to not confirmed', (select confirmed is null and q8 is null and not answered ? 'q6' and not answered ? 'q8' from public.cb_acceptance where file_id = :'f'));
 select test.check('repair: other answers and the users'' question 7 stay', (select q1 = 'yes' and answered ? 'q1' and users -> 0 ->> 'agreed' = 'yes' from public.cb_acceptance where file_id = :'f'));
 select test.check('repair: logged in the file history', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'acceptance_reset'
@@ -159,5 +160,6 @@ select test.check('repair: a file whose step 1 is signed is left alone', (select
 -- Confirmed again by the preparer, then the migration runs a second time: nothing changes.
 update public.cb_acceptance set confirmed = '{"basis":"standard","custom_basis_wording":"","users":[],"by":"00000000-0000-0000-0000-00000000000c","at":"2026-11-15T20:00:00+00:00"}', q8 = 'confirmed' where file_id = :'f';
 \i supabase/migrations/20261210020000_round21_save_state.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('run twice: a file reset once is not reset again', (select confirmed is not null from public.cb_acceptance where file_id = :'f')
   and (select count(*) = 1 from public.cb_file_history where file_id = :'f' and action = 'acceptance_reset'));

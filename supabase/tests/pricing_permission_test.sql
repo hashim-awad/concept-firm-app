@@ -8,7 +8,7 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 
 -- Made-up data, entered by the owner.
 insert into public.catalogue_items (service_line_id, code, name, unit_label, price_type)
@@ -42,11 +42,12 @@ select test.check('staff cannot add a document version', test.try($$insert into 
   and test.try($$insert into public.document_versions (document_id, version, mode, inputs, file_path, file_name, file_sha256, file_size)
     select id, 1, 'draft', '{}', 'x/1.pdf', 'a.pdf', repeat('a', 64), 10 from public.documents$$) <> 'OK');
 select test.check('staff still sees the document in the list', (select count(*) from public.documents) = 1);
-select test.check('staff can still update an engagement status', test.try($$update public.engagements set status = 'EL sent' where id = '00000000-0000-0000-0000-0000000000e1'$$) = 'OK');
+-- Piece R3a-1 (decision 15A): updating an engagement needs Admin with Edit on Documents (or the Final right).
+select test.check('staff cannot update an engagement status', test.try($$update public.engagements set status = 'EL sent' where id = '00000000-0000-0000-0000-0000000000e1'$$) like '%Only an Admin with Edit on Documents%');
 
 -- An owner can give Pricing to the Staff role; it then applies at once.
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing": "view"}');
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing": "view"}');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('with Pricing view, staff reads prices', (select count(*) from public.item_prices) > 0 and (select count(*) from public.engagement_fees()) = 1);
 select test.check('view is not edit', test.try($$insert into public.offers (offer, segment) values ('Y', 'Agent')$$) <> 'OK');

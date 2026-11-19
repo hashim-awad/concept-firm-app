@@ -6,10 +6,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
 -- Staff C prepares; owner A reviews.
@@ -68,9 +68,9 @@ update public.clients set basis = 'cash' where id = :'client';
 set role authenticated;
 
 -- 2. People: only an owner changes them; the reviewer must be an owner.
-select test.check('staff cannot change the people', test.try(format($f$select public.cb_set_people(%L, %L, %L)$f$, :'f', :C, :A)) like '%Only an owner%');
+select test.check('staff cannot change the people', test.try(format($f$select public.cb_set_people(%L, %L, %L)$f$, :'f', :C, :A)) like '%Only an Admin%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('a non-owner is refused as reviewer', test.try(format($f$select public.cb_set_people(%L, %L, %L)$f$, :'f', :A, :C)) like 'Test Staff C is not an owner%');
+select test.check('someone without the Review right is refused as reviewer', test.try(format($f$select public.cb_set_people(%L, %L, %L)$f$, :'f', :A, :C)) like 'Test Staff C does not have the Review right%');
 select public.cb_set_people(:'f', :A, :A);
 select test.check('an owner may prepare and review', (select preparer_id = reviewer_id from public.cb_files where id = :'f'));
 select public.cb_set_people(:'f', :C, :A);

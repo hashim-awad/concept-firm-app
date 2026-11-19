@@ -13,7 +13,7 @@ const orNull = (v: string) => (v === "" ? null : v);
 
 async function owner(back: string) {
   const a = await getAccess();
-  if (!a?.is_owner) redirect(withMessage(back, "error", "Only an owner can change Closebook setup."));
+  if (!(!!a && (a.admin && a.permissions.closebook === "edit"))) redirect(withMessage(back, "error", "Only an Admin can change Closebook setup."));
 }
 
 // Lock or unlock a main line that has sub-lines (Hashim, Nov 11, 2026): a locked line shows with a
@@ -92,7 +92,7 @@ export async function updateCbSettings(formData: FormData) {
   redirect(withMessage(back, err ? "error" : "msg", err ? err.message : "Saved."));
 }
 
-// Standard entries (Hashim, Nov 15, 2026, layout item 6). Owners only.
+// Standard entries (Hashim, Nov 15, 2026, layout item 6). Admins only.
 const STD = "/admin/closebook/standard-entries";
 // Round 17: the form has no Reason field (as the journal entry dialog in round 15b). The database still
 // keeps one (accrual, correction or tax), worked out the same way the dialog does (reasonFor): an entry
@@ -152,7 +152,7 @@ export async function updateGstSettings(formData: FormData) {
 }
 
 // Piece 1 (Hashim, Nov 18, 2026): Closebook rules › CRA rates. The per-km allowance rates by year and the ITC
-// factor per province. Owners only here and in the database (cb_save_km_rates, cb_save_itc_factor).
+// factor per province. Admins only here and in the database (cb_save_km_rates, cb_save_itc_factor).
 // Round 1b: a refused save keeps what was typed and puts each message under its field (useActionState); a good
 // save goes back to the tab with "Saved". The ITC table has one Save: every changed row is checked first, nothing
 // is saved if any row is wrong, and rows not changed are not sent (so they are not logged).
@@ -163,7 +163,7 @@ export async function saveKmRates(_prev: CraFormState, formData: FormData): Prom
   const a = await getAccess();
   const isNew = s(formData, "new") === "true";
   const values = Object.fromEntries(["year", "first_prov", "after_prov", "first_terr", "after_terr"].map((k) => [k, s(formData, k)]));
-  if (!a?.is_owner) return { values, errors: { form: "Only an owner can change the CRA rates." } };
+  if (!(!!a && (a.admin && a.permissions.closebook === "edit"))) return { values, errors: { form: "Only an Admin can change the CRA rates." } };
   const errors = checkKmForm(values, isNew);
   if (Object.keys(errors).length) return { values, errors };
   const num = (k: string) => Number(values[k].replace(/[$\s]/g, ""));
@@ -178,7 +178,7 @@ export async function saveKmRates(_prev: CraFormState, formData: FormData): Prom
 export async function saveItcFactors(_prev: CraFormState, formData: FormData): Promise<CraFormState> {
   const a = await getAccess();
   const values = Object.fromEntries(PROVINCES.map((p) => [p.code, s(formData, `itc_${p.code}`)]));
-  if (!a?.is_owner) return { values, errors: { form: "Only an owner can change the CRA rates." } };
+  if (!(!!a && (a.admin && a.permissions.closebook === "edit"))) return { values, errors: { form: "Only an Admin can change the CRA rates." } };
   const changed = PROVINCES.map((p) => p.code).filter((c) => !sameFactor(values[c], s(formData, `was_${c}`)));
   const errors: Record<string, string> = {};
   for (const c of changed) {

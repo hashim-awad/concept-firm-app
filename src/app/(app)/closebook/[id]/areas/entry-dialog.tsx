@@ -83,7 +83,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     const act = "btn-secondary btn-compact";
     const prep = names.get(entry.created_by ?? "") ?? "";
     // Piece 2b: who changed the entry last and when, from its latest "Entry changed" row in History. The function
-    // gives only the name and date, to anyone who can view Closebook; History itself stays owner-only.
+    // gives only the name and date, to anyone who can view Closebook; History itself needs the Review right (R3a-1).
     const { data: lastRows } = await supabase.rpc("cb_entry_last_change", { p_entry: entry.id });
     const last = ((lastRows ?? []) as { changed_by: string; changed_at: string }[])[0];
     const rev = entry.reviewed_by ? names.get(entry.reviewed_by) ?? "" : "";

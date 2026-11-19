@@ -7,10 +7,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
 set role authenticated;
@@ -58,8 +58,8 @@ select test.check('a firm rule takes no provincial code', test.try($$select publ
   and test.try($$insert into public.cb_firm_vendor_rules (vendor_key, chart_account, tax_code) values ('SAMPLE Y', '65100', 'HST_ON')$$) <> 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff read firm rules', (select count(*) from public.cb_firm_vendor_rules) = 1);
-select test.check('staff cannot save a firm rule', test.try($$select public.cb_save_firm_vendor_rule('SAMPLE X', '65100', 'taxable')$$) like '%owner%');
-select test.check('staff cannot delete a firm rule', test.try(format($f$select public.cb_delete_firm_vendor_rule(%L)$f$, (select id from public.cb_firm_vendor_rules limit 1))) like '%owner%');
+select test.check('staff cannot save a firm rule', test.try($$select public.cb_save_firm_vendor_rule('SAMPLE X', '65100', 'taxable')$$) like '%Admin%');
+select test.check('staff cannot delete a firm rule', test.try(format($f$select public.cb_delete_firm_vendor_rule(%L)$f$, (select id from public.cb_firm_vendor_rules limit 1))) like '%Admin%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_delete_firm_vendor_rule((select id from public.cb_firm_vendor_rules limit 1));
 select test.check('owners delete a firm rule', (select count(*) from public.cb_firm_vendor_rules) = 0);
@@ -116,7 +116,7 @@ select test.check('entries post to Clearing', (select count(*) from public.cb_en
 select test.check('four simple standard entries to start (round 9 adds one with lines)', (select string_agg(name, ',' order by sort_order) from public.cb_standard_entries where style = 'simple') = 'Home office,Auto expenses,Accounting fee accrual,Tax provision');
 select id as accrual from public.cb_standard_entries where name = 'Accounting fee accrual' \gset
 select id as taxp from public.cb_standard_entries where name = 'Tax provision' \gset
-select test.check('staff cannot change a standard entry', test.try(format($f$select public.cb_save_standard_entry(%L, 'X', 'AJE', 'accrual', '66000', '21100', '', '', false, 'none')$f$, :'accrual')) like '%owner%');
+select test.check('staff cannot change a standard entry', test.try(format($f$select public.cb_save_standard_entry(%L, 'X', 'AJE', 'accrual', '66000', '21100', '', '', false, 'none')$f$, :'accrual')) like '%Admin%');
 select test.check('standard entries carry a tax choice, never a code: home office no tax, the accounting fee taxable', (select string_agg(name || '=' || tax_mode, ',' order by sort_order) from public.cb_standard_entries where style = 'simple')
   = 'Home office=none,Auto expenses=line,Accounting fee accrual=taxable,Tax provision=none');
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"66000","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1 \gset

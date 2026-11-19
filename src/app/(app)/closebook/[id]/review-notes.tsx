@@ -11,13 +11,13 @@ const WORD: Record<ReviewNote["status"], [string, string]> = {
 };
 const TARGET: Record<ReviewNote["target_type"], string> = { step: "The step", account: "Account", entry: "Entry", bank_line: "Bank line" };
 
-// canFix: the file's preparer marks a note fixed (an owner who prepares the file too, as Hashim does).
-export function ReviewNotes({ fileId, notes, names, isOwner, canFix, editable, back, title = "Review notes" }: {
-  fileId: string; notes: ReviewNote[]; names: Map<string, string>; isOwner: boolean; canFix: boolean; editable: boolean; back: string; title?: string;
+// canFix: the file's preparer marks a note fixed (someone who prepares the file and holds Review too).
+export function ReviewNotes({ fileId, notes, names, canReview, canFix, editable, back, title = "Review notes" }: {
+  fileId: string; notes: ReviewNote[]; names: Map<string, string>; canReview: boolean; canFix: boolean; editable: boolean; back: string; title?: string;
 }) {
   if (!notes.length) return null;
   const open = notes.filter((n) => n.status !== "cleared"), cleared = notes.filter((n) => n.status === "cleared");
-  const one = (n: ReviewNote) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} isOwner={isOwner} canFix={canFix} editable={editable} back={back} />;
+  const one = (n: ReviewNote) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} canReview={canReview} canFix={canFix} editable={editable} back={back} />;
   return (
     <section aria-label={title} className="grid gap-2">
       <h3 className="flex items-center gap-2 text-[11px] font-bold tracking-[.08em] text-ink-3 uppercase">{title}
@@ -34,8 +34,8 @@ export function ReviewNotes({ fileId, notes, names, isOwner, canFix, editable, b
 // One note (round 15b, CaseWare Cloud's issues): a white card; the status chip carries the colour. Who,
 // when, the item it is on, the text and the replies; Reply, Mark fixed (the preparer), Clear (the
 // reviewer) as small actions. Shared by a step's Issues panel and the Notes tab.
-export function NoteCard({ fileId, n, names, isOwner, canFix, editable, back, itemLink }: {
-  fileId: string; n: ReviewNote; names: Map<string, string>; isOwner: boolean; canFix: boolean; editable: boolean; back: string; itemLink?: { href: string; label: string };
+export function NoteCard({ fileId, n, names, canReview, canFix, editable, back, itemLink }: {
+  fileId: string; n: ReviewNote; names: Map<string, string>; canReview: boolean; canFix: boolean; editable: boolean; back: string; itemLink?: { href: string; label: string };
 }) {
   const name = (id: string | null) => (id ? names.get(id) ?? "" : "");
   return (
@@ -51,7 +51,7 @@ export function NoteCard({ fileId, n, names, isOwner, canFix, editable, back, it
         <li key={r.id} className="text-[12.5px]"><span className="font-semibold">{name(r.created_by)}</span> <span className="text-ink-3">{formatDateTime(r.created_at)}</span><span className="block whitespace-pre-line">{r.body}</span></li>
       ))}</ul>}
       {n.status === "cleared" && <p className="text-[12px] text-ink-3">Cleared by {name(n.cleared_by)}, {formatDateTime(n.cleared_at)}</p>}
-      {n.status !== "cleared" && editable && <NoteActions fileId={fileId} noteId={n.id} status={n.status} back={back} canFix={canFix} canClear={isOwner && !canFix} />}
+      {n.status !== "cleared" && editable && <NoteActions fileId={fileId} noteId={n.id} status={n.status} back={back} canFix={canFix} canClear={canReview && !canFix} />}
     </li>
   );
 }

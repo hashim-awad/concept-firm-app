@@ -6,7 +6,7 @@ import { saveTaxdomeTypeTags } from "./actions";
 const TYPES = ["PREC", "Holdco", "Operating co", "Professional corp"];
 type Row = { key: number; tag: string; entity_type: string };
 
-// Round 18: Connections › Type from TaxDome tags. A table of Tag → Type that an owner edits and saves at once.
+// Round 18: Connections › Type from TaxDome tags. A table of Tag → Type that an Admin edits and saves at once.
 export function TypeTagsForm({ initial }: { initial: { tag: string; entity_type: string }[] }) {
   const [rows, setRows] = useState<Row[]>(() => initial.map((r, i) => ({ key: i, ...r })));
   const [next, setNext] = useState(initial.length);

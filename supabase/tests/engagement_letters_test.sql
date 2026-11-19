@@ -4,8 +4,8 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"documents":"view","leads":"none","pricing":"none"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"documents":"view","leads":"none","pricing":"none"}');
 reset role;
 insert into public.clients (id, kind, legal_name) values ('00000000-0000-0000-0000-0000000000c1', 'corporation', 'Dummy Dental PC');
 insert into public.engagements (id, client_id, title, type, status, fiscal_year_end) values ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000c1', 'Dummy Dental PC FYE 2026-08-31', 'Year-end compilation + T2', 'EL sent', '2026-08-31');
@@ -14,7 +14,7 @@ set role authenticated;
 \set sg '''[{"first_name":"Pat","last_name":"Example","email":"Pat@Example.test"}]'''
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
-select test.check('only an owner issues a Final letter', test.try(format($f$select public.create_letter_quote('00000000-0000-0000-0000-0000000000c1', 'X', 'Dummy Dental PC', %L, %L)$f$, :det, :sg)) like 'Only an owner%');
+select test.check('only someone who may issue Final letters issues one', test.try(format($f$select public.create_letter_quote('00000000-0000-0000-0000-0000000000c1', 'X', 'Dummy Dental PC', %L, %L)$f$, :det, :sg)) like 'You need "Can issue Final%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the signer needs an email', test.try(format($f$select public.create_letter_quote(null, 'X', '', %L, '[{"first_name":"Pat","last_name":"Example","email":""}]')$f$, :det)) like 'Add the client''s email%');
 select public.create_letter_quote('00000000-0000-0000-0000-0000000000c1', 'Dummy Dental PC engagement letter', 'Dummy Dental PC', :det, :sg) as q \gset

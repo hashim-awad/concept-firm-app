@@ -14,8 +14,8 @@ const m = (n: number) => <span className={negativeTone(n)}>{bracketAmount(Math.r
 const chip = (ok: boolean, text: string) => <span className={`rounded px-2 py-0.5 text-xs font-semibold ${ok ? "bg-success-soft text-success" : "bg-danger/10 text-danger"}`}>{text}</span>;
 const fileName = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
 
-export function GstRevenueBox({ fileId, st, sources, editable, isOwner, names, back }: {
-  fileId: string; st: RevenueState; sources: RevenueSource[]; editable: boolean; isOwner: boolean; names: Map<string, string>; back: string;
+export function GstRevenueBox({ fileId, st, sources, editable, canReview, names, back }: {
+  fileId: string; st: RevenueState; sources: RevenueSource[]; editable: boolean; canReview: boolean; names: Map<string, string>; back: string;
 }) {
   const fromReturn = !!st.gst_from_return;
   const gst = sources.filter((x) => x.kind === "gst_returns");
@@ -49,7 +49,7 @@ export function GstRevenueBox({ fileId, st, sources, editable, isOwner, names, b
       </tbody></table>
       {st.gst_explanation && <p className="px-3 py-1.5 text-xs">Note: {st.gst_explanation}{st.gst_explained_diff !== null && st.gst_explained_diff !== st.gst_diff && <span className="text-danger"> (written for {bracketAmount(Math.round(st.gst_explained_diff * 100))}: explain again)</span>}</p>}
       {accepted && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(st.gst_accepted_by ?? "") ?? "the reviewer"}, {formatDate(st.gst_accepted_at)}.</p>}
-      {editable && (!fromReturn || (has && st.gst_diff !== 0) || (isOwner && st.gst_waiting && st.gst_explained)) && (
+      {editable && (!fromReturn || (has && st.gst_diff !== 0) || (canReview && st.gst_waiting && st.gst_explained)) && (
         <div className="grid gap-2 border-t border-sand-200 px-3 py-2">
           {!fromReturn && (
             <form action={addRevenueSource} className="flex flex-wrap items-end gap-2" aria-label="Enter the returns">
@@ -67,7 +67,7 @@ export function GstRevenueBox({ fileId, st, sources, editable, isOwner, names, b
               <button type="submit" className="btn-secondary btn-compact">Save the note</button>
             </form>
           )}
-          {isOwner && st.gst_waiting && st.gst_explained && (
+          {canReview && st.gst_waiting && st.gst_explained && (
             <form action={acceptRevenueDifference}>{hidden}<input type="hidden" name="check" value="gst" />
               <button type="submit" className="btn-secondary btn-compact">Accept the difference</button></form>
           )}

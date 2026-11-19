@@ -1,4 +1,4 @@
-// The signature image for the Final letter preview. Owners only (storage policy); never public.
+// The signature image for the Final letter preview. Admins and holders of the Final right (storage policy, decision 3A); never public.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { SIGNATURE_PATH } from "@/lib/studio/data";

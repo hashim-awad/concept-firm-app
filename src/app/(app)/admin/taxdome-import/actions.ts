@@ -26,7 +26,7 @@ const cleanLinks = (links: Record<string, string>) => Object.fromEntries(Object.
 
 export async function previewTaxdome(accounts: Account[], links: Record<string, string> = {}): Promise<Preview> {
   const access = await getAccess();
-  if (!access?.is_owner) return { ok: false, error: "Only an owner can import from TaxDome." };
+  if (!(!!access && (access.admin && access.permissions.clients === "edit"))) return { ok: false, error: "Only an Admin can import from TaxDome." };
   const { existing } = await loadExisting();
   const { planned, flags, candidates } = planImport(clean(accounts), existing, cleanLinks(links));
   return { ok: true, planned, flags, candidates };
@@ -36,7 +36,7 @@ export async function previewTaxdome(accounts: Account[], links: Record<string, 
 // yearEnds (round 18): the TaxDome ids whose year-end change the owner ticked. Unticked ones keep the old year-end.
 export async function applyTaxdome(accounts: Account[], expected: number, links: Record<string, string> = {}, yearEnds: string[] = []): Promise<{ ok: boolean; message: string }> {
   const access = await getAccess();
-  if (!access?.is_owner) return { ok: false, message: "Only an owner can import from TaxDome." };
+  if (!(!!access && (access.admin && access.permissions.clients === "edit"))) return { ok: false, message: "Only an Admin can import from TaxDome." };
   const { supabase, existing } = await loadExisting();
   const { planned } = planImport(clean(accounts), existing, cleanLinks(links));
   if (planned.length !== expected) return { ok: false, message: "The client list changed since the preview. Check the file again, then save." };
@@ -52,7 +52,7 @@ export async function saveTaxdomeLink(formData: FormData): Promise<void> {
   // Round 17: the link lives on Connections.
   const page = "/admin/connections";
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can change the TaxDome link."));
+  if (!(!!access && (access.admin && access.permissions.clients === "edit"))) redirect(withMessage(page, "error", "Only an Admin can change the TaxDome link."));
   const supabase = await createClient();
   const { error } = await supabase.rpc("update_setting", { p_key: "taxdome_account_url", p_value: String(formData.get("url") ?? "").trim() });
   revalidatePath(page);
@@ -60,12 +60,12 @@ export async function saveTaxdomeLink(formData: FormData): Promise<void> {
 }
 
 // Round 18: Connections › Type from TaxDome tags. Rows with a blank tag are left out. The database checks
-// that the person is an owner and that each type is allowed.
+// that the person is an Admin and that each type is allowed.
 const TYPES = ["PREC", "Holdco", "Operating co", "Professional corp"];
 export async function saveTaxdomeTypeTags(formData: FormData): Promise<void> {
   const page = "/admin/connections";
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can change the tag mapping."));
+  if (!(!!access && (access.admin && access.permissions.clients === "edit"))) redirect(withMessage(page, "error", "Only an Admin can change the tag mapping."));
   const tags = formData.getAll("tag").map((t) => String(t).trim()), types = formData.getAll("entity_type").map(String);
   const rows = tags.map((tag, i) => ({ tag, entity_type: types[i] ?? "" })).filter((r) => r.tag);
   if (rows.some((r) => !TYPES.includes(r.entity_type))) redirect(withMessage(page, "error", "Pick a type for each tag."));

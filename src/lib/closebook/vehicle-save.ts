@@ -29,7 +29,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   const entry = form.edit ? f.entries.find((e) => e.id === form.edit) : undefined;
   if (form.edit && entry?.origin !== "schedule") return { error: "Change this amount in its schedule: click the Schedule tag." };
   const access = await getAccess();
-  const canItc = !!access && (access.is_owner || access.staff_id === f.file.reviewer_id);
+  const canItc = !!access && (access.closebook.review || access.staff_id === f.file.reviewer_id);
   const province = f.client?.province ?? "ON";
   // Piece 4: the schedule's kind: what was put in, else the one saved with the entry.
   const storedKind = entry ? ((await supabase.from("cb_schedules").select("kind").eq("entry_id", entry.id).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
@@ -44,7 +44,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     // Piece 4b: Expenses paid personally. Each line on the account chosen in the schedule.
     const xd = await loadExpensesSchedule(supabase, f.file, province, f.accounts, entry?.id ?? null, canItc, data.opts);
     const inputs = readExpInputs(form.schedule.inputs);
-    if (!canItc) inputs.itc = xd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
+    if (!canItc) inputs.itc = xd.stored?.itc_claim ?? true;   // only the reviewer or the Review right changes it
     const r = calcExpenses(inputs, xd.ctx);
     const hard = r.problems.find((p) => p.hard);
     if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };
@@ -62,7 +62,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
   } else if (form.schedule && kind === "home_office") {
     const hd = await loadHome(supabase, f.file, province, f.accounts, entry?.id ?? null, canItc, data.opts);
     const inputs = readHomeInputs(form.schedule.inputs);
-    if (!canItc) inputs.itc = hd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
+    if (!canItc) inputs.itc = hd.stored?.itc_claim ?? true;   // only the reviewer or the Review right changes it
     const r = calcHome(inputs, hd.ctx, hd.names);
     const hard = r.problems.find((p) => p.hard);
     if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };
@@ -82,7 +82,7 @@ export async function scheduleSaveArgs(supabase: SupabaseClient, f: { file: CbFi
     const rdata = await loadReportData(supabase, f.file, f.accounts, f.entries, ref.lines, ref.sheets);
     const vd = await loadVehicle(supabase, f.file, province, f.entries, f.accounts, rdata, entry?.id ?? null, canItc, data.opts);
     const inputs = readInputs(form.schedule.inputs);
-    if (!canItc) inputs.itc = vd.stored?.itc_claim ?? true;   // only the reviewer or an owner changes it
+    if (!canItc) inputs.itc = vd.stored?.itc_claim ?? true;   // only the reviewer or the Review right changes it
     const r = calcVehicle(inputs, vd.ctx, vd.names);
     const hard = r.problems.find((p) => p.hard);
     if (hard || !r.ready) return { error: hard?.text ?? "Finish the schedule first." };

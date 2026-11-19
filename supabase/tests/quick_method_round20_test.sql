@@ -9,10 +9,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 -- 20261209050000 pre-fills CRA's figures as drafts; these tests use their own dummy rates, so start empty.
 alter table public.cb_quick_rates disable trigger cb_quick_rates_guard;
 delete from public.cb_quick_rates;
@@ -23,10 +23,12 @@ update public.cb_settings set quick_credit_draft = null;
 insert into public.cb_gst_quick_rates (province, rate) values ('ON', 0.05);
 \i supabase/migrations/20261209020000_round20_quick_method.sql
 \i supabase/migrations/20261209020000_round20_quick_method.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('the round 13 rate moved across once, approved, services only, for every period',
   (select count(*) = 1 and bool_and(legacy and status = 'approved' and services_rate = 0.05 and goods_rate is null and effective_from is null) from public.cb_quick_rates where province = 'ON'));
 -- The fix before merge (20261209050000) retires that unsourced rate and pre-fills CRA's figures as drafts.
 \i supabase/migrations/20261209050000_round20_quick_rates_page.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('the fix retires the rate typed before round 20 and pre-fills drafts for ON, AB and BC',
   (select status from public.cb_quick_rates where legacy) = 'retired'
   and (select string_agg(province, ',' order by province) from public.cb_quick_rates where status = 'pending') = 'AB,BC,ON');
@@ -41,8 +43,8 @@ update public.cb_settings set quick_credit_draft = null;
 \set src 'https://www.canada.ca/en/revenue-agency/services/forms-publications/publications/rc4058/quick-method-accounting-gst-hst.html'
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot add quick method rates', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06,"goods":0.03}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'Only an owner adds quick method rates.');
-select test.check('staff cannot approve', test.try($q$select public.cb_approve_quick_rates()$q$) = 'Only an owner can approve quick method rates.');
+select test.check('staff cannot add quick method rates', test.try(format($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06,"goods":0.03}]', '2026-01-01', %L, '2026-11-15')$q$, :'src')) = 'Only an Admin adds quick method rates.');
+select test.check('staff cannot approve', test.try($q$select public.cb_approve_quick_rates()$q$) = 'Only an Admin can approve quick method rates.');
 select test.check('staff read the approved rate (Closebook view)', public.cb_quick_rate('ON', 'services', '2026-01-01') = 0.05);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the source must be canada.ca', test.try($q$select public.cb_add_quick_rates('[{"province":"ON","services":0.06}]', '2026-01-01', 'https://example.test/rates', '2026-11-15')$q$) = 'The source must be a canada.ca page.');
@@ -71,13 +73,13 @@ select test.check('a period that starts before the new rates uses the older rate
 select test.check('no goods rate before the new rates: missing, not guessed', public.cb_quick_rate('ON', 'goods', '2025-10-01') is null);
 select test.check('an approved row cannot be approved again', test.try(format($q$select public.cb_set_quick_rate_status(%L, 'approved')$q$, (select id from public.cb_quick_rates where province = 'AB'))) = 'Only a pending rate can be approved.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot retire a rate', test.try(format($q$select public.cb_set_quick_rate_status(%L, 'retired')$q$, (select id from public.cb_quick_rates where province = 'AB'))) = 'Only an owner can approve or retire a quick method rate.');
+select test.check('staff cannot retire a rate', test.try(format($q$select public.cb_set_quick_rate_status(%L, 'retired')$q$, (select id from public.cb_quick_rates where province = 'AB'))) = 'Only an Admin can approve or retire a quick method rate.');
 select test.check('staff cannot write the table directly', test.try($q$update public.cb_quick_rates set services_rate = 0.5$q$) like 'permission denied%');
 reset role;
 reset request.jwt.claims;
 select test.check('an approved rate cannot be changed', test.try($q$update public.cb_quick_rates set goods_rate = 0.5 where province = 'AB'$q$) = 'An approved rate cannot be changed. Add a new rate and retire this one.');
 select test.check('rates are never deleted', test.try($q$delete from public.cb_quick_rates where province = 'AB'$q$) like 'Quick method rates are kept as a record%');
-select test.check('a new row cannot start approved', test.try($q$insert into public.cb_quick_rates (province, services_rate, status, legacy) values ('BC', 0.04, 'approved', true)$q$) = 'New rates start as pending. An owner approves them.');
+select test.check('a new row cannot start approved', test.try($q$insert into public.cb_quick_rates (province, services_rate, status, legacy) values ('BC', 0.04, 'approved', true)$q$) = 'New rates start as pending. An Admin approves them.');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_set_quick_rate_status((select id from public.cb_quick_rates where province = 'AB'), 'retired');

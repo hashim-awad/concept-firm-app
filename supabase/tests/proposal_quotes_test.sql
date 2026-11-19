@@ -4,8 +4,8 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing":"view","documents":"edit","leads":"none"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Staff B', 'staff.b@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing":"view","documents":"edit","leads":"none"}');
 \set data '''{"f":{"name":"Dummy Realty Team Inc.","L_company":"Dummy Realty Team Inc."},"opts":[{"name":"Option A"},{"name":"Option B"}],"rec":0}'''
 
 select public.save_proposal(null, null, null, 'Dummy Realty Team Inc.', :data) as p \gset
@@ -16,7 +16,7 @@ select test.check('saving again keeps one record', public.save_proposal(:'p', nu
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('staff can save a draft', test.try(format($f$select public.save_proposal(%L, null, null, 'Dummy Realty Team', %L)$f$, :'p', :data)) = 'OK');
 select test.check('staff can read their proposal without Leads', (select count(*) from public.quotes where id = :'p') = 1);
-select test.check('only an owner sends', test.try(format($f$select public.send_proposal(%L, 'Pat', 'Example', 'pat@example.test')$f$, :'p')) like 'Only an owner%');
+select test.check('only someone who may issue Final letters sends', test.try(format($f$select public.send_proposal(%L, 'Pat', 'Example', 'pat@example.test')$f$, :'p')) like 'You need "Can issue Final%');
 
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('a signing email is needed', test.try(format($f$select public.send_proposal(%L, 'Pat', 'Example', 'not an email')$f$, :'p')) like 'Enter the signing officer''s email%');

@@ -86,5 +86,5 @@ export async function approveTemplate(formData: FormData) {
   const { live } = await loadWordingState(supabase);
   const { error } = await supabase.from("template_approvals").insert({ template_key: t!.k, template_name: t!.name, el_version: live?.label ?? e.EL_VERSION, basis: t!.basis ?? "" });
   revalidatePath(LIST, "layout");
-  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an owner can do this." : error.message) : `${approvedWord(t!.k)}.`));
+  redirect(withMessage(back, error ? "error" : "msg", error ? (error.message.includes("row-level") ? "Only an Admin can do this." : error.message) : `${approvedWord(t!.k)}.`));
 }

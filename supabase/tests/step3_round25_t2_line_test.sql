@@ -8,9 +8,9 @@ insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Maple Dummy Realty Inc.', 'ON') returning id as client \gset
 \set A '''00000000-0000-0000-0000-00000000000a'''
@@ -58,6 +58,7 @@ set role authenticated;
 select test.check('a usual line with a T2 amount and no account shows (an account to add)', test.sp(:'f') like '%GIFI 2701: the accounts total 0.00, last year''s T2 has 300.00 (300.00 to add).%');
 reset role;
 \i supabase/migrations/20261212020000_round25_t2_line.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 -- The months of an account (3.2 and 3.3) and removing an account (3.1 and 3.3) ask first too.
 insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.2', :C::uuid, now()), (:'f', '3.1', :C::uuid, now());
 set role authenticated;

@@ -26,7 +26,7 @@ type Props = {
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
   // importOnly: step 3 of a trial balance file shows the import and nothing else (round 7 item 3).
   base?: string; pills?: string[]; showImport?: boolean; importOnly?: boolean;
-  noteStep?: string;   // round 8: the reviewer (an owner) adds review notes on accounts, on this step
+  noteStep?: string;   // round 8: the reviewer (the Review right) adds review notes on accounts, on this step
   // Bank-statement files: what makes up "Opening balances to enter" (round 2 item 8).
   causes?: { text: string; cents: number }[];
   // Staff names, for "Reviewer confirmed: reason (name, date)" (round 6).

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 // Shared by the Settings pages: who is looking, whether they can change settings, and the stored values.
 export async function loadSettings(ownerOnly = false) {
   const access = await requireAccess("settings", "view");
-  if (ownerOnly && !access.is_owner) {
+  if (ownerOnly && !access.admin) {
     const { redirect } = await import("next/navigation");
     redirect("/?error=owners-only");
   }

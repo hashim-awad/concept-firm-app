@@ -27,7 +27,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/admin/te
       .map((k) => ({ k, before: toFriendly(k, base[k] ?? PIECE.get(k)!.text), after: toFriendly(k, mine[k] ?? PIECE.get(k)!.text) }));
   };
   return (
-    <SettingsShell title="History" help={<p>Every published version of your wording. Each letter records the version it used. An owner can restore an earlier version with a reason.</p>}>
+    <SettingsShell title="History" help={<p>Every published version of your wording. Each letter records the version it used. An Admin can restore an earlier version with a reason.</p>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <ul className="grid gap-4">
         {versions.map((v) => {
@@ -48,7 +48,7 @@ export default async function HistoryPage({ searchParams }: PageProps<"/admin/te
                 </details>
               )}
               {v.is_current && v.current_reason && !["Approved", ""].includes(v.current_reason) && <p className="text-xs text-muted">Restored: {v.current_reason}</p>}
-              {access.is_owner && !v.is_current && (
+              {(access.admin && access.permissions.engagement_terms === "edit") && !v.is_current && (
                 <form action={restoreVersion} className="flex flex-wrap items-center gap-2">
                   <input type="hidden" name="id" value={v.id} />
                   <input name="reason" required minLength={5} placeholder="Why restore this version?" aria-label={`Reason to restore ${v.label}`} className="input h-9 max-w-sm text-sm" />

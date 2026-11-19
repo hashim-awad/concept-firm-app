@@ -53,12 +53,12 @@ export default async function TemplatePage({ params, searchParams }: PageProps<"
   // approval at the bottom, after the wording.
   return (
     <SettingsShell title={t.name} badge={<StatusChip s={status} />}
-      help={<><p>{whereUsed(key)}</p><p>Source: {t.basis}</p>{trial && <p>A draft needs an owner&rsquo;s approval before it is used. Read it, then approve it at the bottom of this page.</p>}</>}
+      help={<><p>{whereUsed(key)}</p><p>Source: {t.basis}</p>{trial && <p>A draft needs an Admin&rsquo;s approval before it is used. Read it, then approve it at the bottom of this page.</p>}</>}
       actions={pending > 0 ? <Link href="/admin/templates/publish" className={buttonClass("primary", "sm")}><Send className="h-4 w-4" aria-hidden />Review and publish ({pending})</Link> : undefined}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       {sample?.note && <p className="card mb-4 text-sm">{sample.note}</p>}
       {sample && sample.parts.length > 0 && <TemplateEditor parts={sample.parts} pieces={pieces} canEdit={editable} />}
-      {trial && access.is_owner && (
+      {trial && (access.admin && access.permissions.engagement_terms === "edit") && (
         <form action={approveTemplate} className="mt-6 flex flex-wrap items-center gap-3 rounded-[var(--radius-ds)] border border-[#EED9A8] bg-[#FFF8E1] px-4 py-3 text-sm">
           <input type="hidden" name="key" value={key} />
           <span className="font-semibold text-[#5C3D00]">Draft.</span>

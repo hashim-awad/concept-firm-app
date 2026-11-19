@@ -30,15 +30,15 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
   const supabase = await createClient();
   const [{ data: clients }, { data: staff }] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags").eq("kind", "corporation").eq("status", "active").order("legal_name"),
-    supabase.from("staff").select("id, full_name, role:roles!staff_role_id_fkey(is_owner, role_permissions(area_key, level))").eq("is_active", true).order("full_name"),
+    supabase.from("staff").select("id, full_name, role:roles!staff_role_id_fkey(cb_prepare, cb_review, role_permissions(area_key, level))").eq("is_active", true).order("full_name"),
   ]);
   const list = (clients ?? []) as Client[];
   const chosen = list.find((c) => c.id === sp.client);
-  // Round 8: the reviewer is an owner; the preparer has Closebook preparer access (Settings, Team and roles).
-  type Person = { id: string; full_name: string; role: { is_owner: boolean; role_permissions: { area_key: string; level: string }[] } | null };
+  // R3a-1: the reviewer has the Review right; the preparer has Closebook Edit and the Prepare right (Settings, Team and roles).
+  type Person = { id: string; full_name: string; role: { cb_prepare: boolean; cb_review: boolean; role_permissions: { area_key: string; level: string }[] } | null };
   const all = (staff ?? []) as unknown as Person[];
-  const reviewers = all.filter((p) => p.role?.is_owner);
-  const people = all.filter((p) => p.role?.is_owner || p.role?.role_permissions.some((x) => x.area_key === "closebook" && x.level === "edit"));
+  const reviewers = all.filter((p) => !!p.role?.cb_review);
+  const people = all.filter((p) => !!p.role?.cb_prepare && p.role.role_permissions.some((x) => x.area_key === "closebook" && x.level === "edit"));
   const yearEnd = chosen ? lastYearEnd(chosen.year_end_md, todayToronto()) : "";
   // The start is the day after the previous year end: the client's last file before this one, or a full year.
   const { data: prior } = chosen && yearEnd
@@ -84,7 +84,7 @@ export default async function NewFilePage({ searchParams }: PageProps<"/closeboo
           <div className="grid gap-4 sm:grid-cols-2">
             <div><label htmlFor="preparer" className="label">4. Preparer</label>
               <select id="preparer" name="preparer" defaultValue={access.staff_id} className="input">{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
-            <div><span className="flex items-start"><label htmlFor="reviewer" className="label">Reviewer</label><InfoTip>Reviewers are owners.</InfoTip></span>
+            <div><span className="flex items-start"><label htmlFor="reviewer" className="label">Reviewer</label><InfoTip>Reviewers need the Review right (Settings, Team and roles).</InfoTip></span>
               <select id="reviewer" name="reviewer" defaultValue={reviewers.some((p) => p.id === access.staff_id) ? access.staff_id : reviewers[0]?.id} className="input">{reviewers.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></div>
           </div>
           <button type="submit" className="btn w-fit">Start the file</button>

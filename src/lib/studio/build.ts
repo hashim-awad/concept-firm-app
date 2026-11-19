@@ -26,14 +26,14 @@ export function engineFor(kind: DocKind, data: Pick<StudioData, "floors" | "floo
 export type Built = { s: any; scr: ScreenResult; def: any; fileName: string; title: string; inputs: any; e: StudioEngine };
 
 // Rebuild the document from the saved inputs, exactly as the screen did.
-export function rebuild(kind: DocKind, e: StudioEngine, snap: any, client: any, isOwner: boolean, today: string): Built {
+export function rebuild(kind: DocKind, e: StudioEngine, snap: any, client: any, finalRight: boolean, today: string): Built {
   const mode = snap?.mode === "final" ? "final" : "draft";
   if (kind === "corporate_letter") {
     const c = new CorporateLetter(e, String(snap?.f?.letterDate || today));
     c.load(snap?.f ?? {}, (snap?.fees ?? []) as Fee[], mode);
     c.acks = { ab: !!snap?.acks?.ab, bc: !!snap?.acks?.bc };
     const s = c.state();
-    const scr = corporateScreen(e, s, { client, loaded: true, isOwner, acks: c.acks });
+    const scr = corporateScreen(e, s, { client, loaded: true, finalRight, acks: c.acks });
     return { s, scr, e, def: e.pdfDoc(s, e.build(s), LETTERHEAD), fileName: e.fileName(s), title: `${e.trim(s.company)} engagement letter FYE ${s.ye}`, inputs: { f: c.f, fees: c.fees, mode, acks: c.acks } };
   }
   if (kind === "t1_letter") {
@@ -42,7 +42,7 @@ export function rebuild(kind: DocKind, e: StudioEngine, snap: any, client: any, 
     c.acks = { ab: !!snap?.acks?.ab, bc: !!snap?.acks?.bc };
     const s = c.state();
     if (s.card === "standalone") throw new Error("Standalone T1 letters are sent from TaxDome.");
-    const scr = t1Screen(e, s, { client, loaded: true, isOwner, acks: c.acks });
+    const scr = t1Screen(e, s, { client, loaded: true, finalRight, acks: c.acks });
     return { s, scr, e, def: e.pdfDoc(s, e.buildT1(s), LETTERHEAD), fileName: e.t1FileName(s), title: `${e.t1Names(s)} T1 ${s.taxYear}`, inputs: { f: c.f, mode, acks: c.acks } };
   }
   const c = new Proposal(e, String(snap?.f?.date || today));
@@ -50,7 +50,7 @@ export function rebuild(kind: DocKind, e: StudioEngine, snap: any, client: any, 
   e.__set("POPTS", Array.isArray(snap?.opts) && snap.opts.length ? snap.opts : c.opts);
   e.__set("pRec", Number(snap?.rec) || 0);
   const s = c.state();
-  const scr = proposalScreen(e, s, { client: null, loaded: true, isOwner, acks: {} });
+  const scr = proposalScreen(e, s, { client: null, loaded: true, finalRight, acks: {} });
   const out = c.output();
   return { s, scr, e, def: e.pPdf(s), fileName: out.fileName, title: `${s.name} monthly quote ${s.date}`, inputs: { f: c.f, opts: s.opts, rec: s.rec, mode } };
 }

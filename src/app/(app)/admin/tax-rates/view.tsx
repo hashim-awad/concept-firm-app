@@ -14,7 +14,7 @@ type Rate = { id: string; province: string; tax: string; rate_percent: number; e
   checker: { full_name: string } | null; approver: { full_name: string } | null };
 
 // Sales tax rates, Rates we charge tab (was GST/HST rates). Loading the CRA table and approving rates are
-// for owners only; those controls are hidden from everyone else.
+// for Admins only; those controls are hidden from everyone else.
 export async function TaxRatesView(sp: SP): Promise<View> {
   const access = await requireAccess("tax_rates", "view");
   const editable = canEdit(access, "tax_rates");
@@ -29,9 +29,9 @@ export async function TaxRatesView(sp: SP): Promise<View> {
 
   return {
     help: <>
-      <p>Quotes charge GST or HST by the client&rsquo;s province. Concept does not collect PST or QST. A rate is used only after an owner approves it. If a province has no approved rate, no quote is made.</p>
-      {access.is_owner && <div><h4>Load the CRA table</h4><p>Loads all 13 GST/HST rates from the {craLink("CRA rates page")} as pending, in effect from {formatDate(CRA_TABLE.effectiveFrom)}, checked {formatDate(CRA_TABLE.checkedOn)}. Rates already loaded are skipped. Nothing is used until you approve.</p></div>}
-      {editable && <div><h4>Add a rate</h4><p>Open the {craLink("CRA GST/HST rates page")}, check the rate for the province, then enter it here. It starts as pending until an owner approves it.</p></div>}
+      <p>Quotes charge GST or HST by the client&rsquo;s province. Concept does not collect PST or QST. A rate is used only after an Admin approves it. If a province has no approved rate, no quote is made.</p>
+      {(access.admin && access.permissions.tax_rates === "edit") && <div><h4>Load the CRA table</h4><p>Loads all 13 GST/HST rates from the {craLink("CRA rates page")} as pending, in effect from {formatDate(CRA_TABLE.effectiveFrom)}, checked {formatDate(CRA_TABLE.checkedOn)}. Rates already loaded are skipped. Nothing is used until you approve.</p></div>}
+      {editable && <div><h4>Add a rate</h4><p>Open the {craLink("CRA GST/HST rates page")}, check the rate for the province, then enter it here. It starts as pending until an Admin approves it.</p></div>}
     </>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -58,7 +58,7 @@ export async function TaxRatesView(sp: SP): Promise<View> {
         <section className="card mb-6 overflow-x-auto p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4 pb-2">
             <h2 className="font-semibold">Waiting for approval ({rates.filter((r) => r.status === "pending").length})</h2>
-            {access.is_owner && (
+            {(access.admin && access.permissions.tax_rates === "edit") && (
               <form action={approveAllRates}><button className="btn" type="submit">Approve all</button></form>
             )}
           </div>
@@ -69,7 +69,7 @@ export async function TaxRatesView(sp: SP): Promise<View> {
                 <td>{r.province}</td><td>{Number(r.rate_percent)}% {r.tax}</td><td>{formatDate(r.effective_from)}</td>
                 <td>{formatDate(r.checked_on)} by {r.checker?.full_name} · <a href={r.source_url} target="_blank" rel="noopener noreferrer" className="text-navy-700 underline">source</a></td>
                 <td>{r.notes}</td>
-                <td className="text-right">{access.is_owner && (
+                <td className="text-right">{(access.admin && access.permissions.tax_rates === "edit") && (
                   <form action={setRateStatus}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="status" value="approved" /><button className="btn h-8 px-3 text-sm" type="submit">Approve</button></form>
                 )}</td>
               </tr>
@@ -78,7 +78,7 @@ export async function TaxRatesView(sp: SP): Promise<View> {
         </section>
       )}
 
-      {access.is_owner && (
+      {(access.admin && access.permissions.tax_rates === "edit") && (
         <form action={loadCraRates} className="card mb-6 space-y-3">
           <h2 className="font-semibold">Load the CRA table</h2>
           <p className="text-sm">{CRA_TABLE.rates.map((r) => `${r.name} ${r.rate}% ${r.tax}`).join(" · ")}</p>
@@ -114,7 +114,7 @@ export async function TaxRatesView(sp: SP): Promise<View> {
             <tbody>{rates.filter((r) => r.status !== "pending").map((r) => (
               <tr key={r.id}>
                 <td>{r.province}</td><td>{Number(r.rate_percent)}% {r.tax}</td><td>{formatDate(r.effective_from)}</td><td className="capitalize">{r.status}</td>
-                <td className="text-right">{access.is_owner && r.status === "approved" && (
+                <td className="text-right">{(access.admin && access.permissions.tax_rates === "edit") && r.status === "approved" && (
                   <form action={setRateStatus}><input type="hidden" name="id" value={r.id} /><input type="hidden" name="status" value="retired" /><button className="text-sm text-navy-700 underline" type="submit">Retire</button></form>
                 )}</td>
               </tr>

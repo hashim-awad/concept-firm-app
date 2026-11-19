@@ -23,6 +23,6 @@ export async function GET(request: NextRequest) {
     }
   }
   const url = new URL("/login", request.url);
-  url.searchParams.set("error", "That link has expired or was already used. Ask an owner for a new invite, or reset your password.");
+  url.searchParams.set("error", "That link has expired or was already used. Ask an Admin for a new invite, or reset your password.");
   return NextResponse.redirect(url);
 }

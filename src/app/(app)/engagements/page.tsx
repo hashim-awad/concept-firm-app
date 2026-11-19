@@ -62,7 +62,7 @@ export default async function EngagementsPage({ searchParams }: PageProps<"/enga
     <>
       <PageHeader
         title={<>Engagements<InfoTip label="About Engagements">
-          One engagement per client, year and service. Created automatically when a quote or letter is signed. Owners use Update for older engagements, status changes and ending an engagement.
+          One engagement per client, year and service. Created automatically when a quote or letter is signed. Admins use Update for older engagements, status changes and ending an engagement.
           {" "}Letters lists every letter, whatever the path. &ldquo;Outside Studio&rdquo; means the letter was sent or signed outside Studio and recorded on its engagement. Its dates come from the engagement.
           {" "}&ldquo;New letter&rdquo; is for clients who never go through a quote: renewals, a new service, a changed fee. A Final letter is sent for online signing; Download PDF stays in the Letter Builder.
         </InfoTip></>}
@@ -104,7 +104,7 @@ async function EngagementsTab({ sp, access }: { sp: Sp; access: Access }) {
                     {e.client2_id && <> and <Link href={`/clients/${e.client2_id}`} className="text-navy-700 hover:underline">{names.get(e.client2_id) ?? "Client"}</Link></>}</td>
                   <td>{e.type}</td><td className="whitespace-nowrap">{formatDate(e.fiscal_year_end)}</td><td>{cameFrom(e)}</td><td className="whitespace-nowrap">{formatDate(e.el_signed)}</td>
                   <td><span className={`${PILL} ${st.cls}`}>{st.label}</span></td>
-                  <td className="text-right text-sm"><Link href={`/documents/engagements/${e.id}`} className="text-navy-700 underline">{access.is_owner ? "Update" : "View"}</Link></td>
+                  <td className="text-right text-sm"><Link href={`/documents/engagements/${e.id}`} className="text-navy-700 underline">{(access.admin && access.permissions.documents === "edit") ? "Update" : "View"}</Link></td>
                 </tr>
               );
             })}</tbody>

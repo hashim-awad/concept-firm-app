@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock } from "lucide-react";
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -17,7 +17,7 @@ type Log = { id: number; action: string; changes: Record<string, unknown>; reaso
 // One GIFI line: change its name, statement line, default tax code, lead sheet or note (with a reason),
 // or add a sub-line under it. GIFI code, section and type stay as CRA defines them.
 export default async function GifiLinePage({ params, searchParams }: PageProps<"/admin/closebook/gifi-lines/[line]">) {
-  await requireOwner();
+  await requireAdmin("closebook");
   const { line } = await params;
   const sp = await searchParams;
   if (!/^\d{4}\.\d{2}$/.test(line)) notFound();
@@ -99,7 +99,7 @@ export default async function GifiLinePage({ params, searchParams }: PageProps<"
         {history.length === 0 ? <p className="text-sm text-muted">No changes since the approved list was loaded.</p> : (
           <ul className="grid gap-2 text-sm">{history.map((h) => (
             <li key={h.id} className="border-b border-sand-200 pb-2">
-              <b>{formatDateTime(h.changed_at)}</b>, {h.who?.full_name ?? "Owner"}: {h.action === "add" ? "line added" : Object.entries(h.changes).map(([k, v]) => k === "locked" ? ((v as boolean[])[1] ? "locked" : "unlocked") : `${k.replace(/_/g, " ")} "${(v as string[])[0] ?? ""}" to "${(v as string[])[1] ?? ""}"`).join("; ")}. Reason: {h.reason}
+              <b>{formatDateTime(h.changed_at)}</b>, {h.who?.full_name ?? "An Admin"}: {h.action === "add" ? "line added" : Object.entries(h.changes).map(([k, v]) => k === "locked" ? ((v as boolean[])[1] ? "locked" : "unlocked") : `${k.replace(/_/g, " ")} "${(v as string[])[0] ?? ""}" to "${(v as string[])[1] ?? ""}"`).join("; ")}. Reason: {h.reason}
             </li>
           ))}</ul>
         )}

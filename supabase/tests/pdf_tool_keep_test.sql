@@ -66,4 +66,5 @@ select test.check('its log row says expired', exists (select 1 from public.state
 
 -- ---------- Safe to run twice.
 \i supabase/migrations/20261209060000_pdf_tool_keep.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('a second run keeps the column and the functions', exists (select 1 from information_schema.columns where table_name = 'cb_statement_imports' and column_name = 'downloaded_at'));

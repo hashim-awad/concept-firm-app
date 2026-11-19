@@ -15,8 +15,8 @@ import { DocumentActions, type DocumentHandlers } from "./document-actions";
 
 const KINDS: [string, string][] = [["month", "Monthly"], ["quarter", "Quarterly"], ["year", "Each year end"], ["once", "One-time"]];
 
-export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial, startClientId, proposalPick, today }: {
-  env: ScreenEnv; clients: StudioClientRow[]; isOwner: boolean; handlers?: DocumentHandlers;
+export function CorporateLetterScreen({ env, clients, finalRight, handlers, initial, startClientId, proposalPick, today }: {
+  env: ScreenEnv; clients: StudioClientRow[]; finalRight: boolean; handlers?: DocumentHandlers;
   initial?: { f: Record<string, any>; fees: any[]; clientId?: string; documentId?: string }; today?: string; startClientId?: string; proposalPick?: { option: any; prospect: any };
 }) {
   const [box] = useState(() => makeEngine(env));
@@ -35,7 +35,7 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
 
   const s = ctl.state();
   const T = e.TYPES[s.type];
-  const scr = corporateScreen(e, s, { client, loaded: env.loaded, isOwner, acks: ctl.acks });
+  const scr = corporateScreen(e, s, { client, loaded: env.loaded, finalRight, acks: ctl.acks });
   e.render(s);
   const html = box.paper.innerHTML;
 
@@ -57,7 +57,7 @@ export function CorporateLetterScreen({ env, clients, isOwner, handlers, initial
 
   // Test builds only: lets the screen parity test read what the screen holds.
   useEffect(() => {
-    if (!handlers) (window as any).__studioScreen = () => { const st = ctl.state(); return JSON.parse(JSON.stringify({ s: st, checks: corporateScreen(e, st, { client: null, loaded: env.loaded, isOwner, acks: ctl.acks }).checks, blocks: e.build(st), pdf: e.pdfDoc(st, e.build(st), env.images.LH), fileName: e.fileName(st) })); };
+    if (!handlers) (window as any).__studioScreen = () => { const st = ctl.state(); return JSON.parse(JSON.stringify({ s: st, checks: corporateScreen(e, st, { client: null, loaded: env.loaded, finalRight, acks: ctl.acks }).checks, blocks: e.build(st), pdf: e.pdfDoc(st, e.build(st), env.images.LH), fileName: e.fileName(st) })); };
   });
 
   const str = (k: string) => String(f[k] ?? "");

@@ -12,7 +12,7 @@ const PAGE = "/admin/price-book/cleanup";
 // Applies the plan worked out again now; it must be the same plan the owner saw.
 export async function applyCleanup(formData: FormData) {
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage(PAGE, "error", "Only an owner can apply the clean-up."));
+  if (!(!!access && (access.admin && access.permissions.pricing === "edit"))) redirect(withMessage(PAGE, "error", "Only an Admin can apply the clean-up."));
   if (formData.get("read") !== "on") redirect(withMessage(PAGE, "error", "Tick the box to confirm you checked the changes."));
   const supabase = await createClient();
   const { items, lineKeys, t1Offers } = await loadItems(supabase);

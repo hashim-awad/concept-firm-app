@@ -41,6 +41,7 @@ select test.check('read again: the reason is cleared, back to the reader', (sele
 -- ---------- Safe to run twice
 reset role;
 \i supabase/migrations/20261212070000_round31_upload_copies.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice: one copy_of column, the patch placed once',
   (select count(*) = 1 from information_schema.columns where table_schema = 'public' and table_name = 'cb_statement_imports' and column_name = 'copy_of')
   and (select (length(d) - length(replace(d, 'copy_of = k.id', ''))) / length('copy_of = k.id') = 1

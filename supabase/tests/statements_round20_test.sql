@@ -16,7 +16,10 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.create_role('Viewer', 'Closebook view') as vr \gset
 select public.set_role_permissions(:'vr', '{"closebook":"view","clients":"view"}');
 select public.add_staff('00000000-0000-0000-0000-00000000000b', 'Test Viewer B', 'viewer.b@example.test', :'vr'::uuid);
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'none.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'none.c@example.test', (select id from public.roles where name = 'Accountant'));
+reset role;
+update public.role_permissions set level = 'none' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');   -- R3a-1 gives Accountant Closebook Edit; these checks need someone without it
+set role authenticated;
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Maple Dummy Realty Inc.', 'ON') returning id as client \gset
 \set A '''00000000-0000-0000-0000-00000000000a'''
 select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 'statements', :A::uuid, :A::uuid) as f \gset

@@ -46,9 +46,9 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
     <>
       <PageHeader title="Leads" description="Every request, from the online start page or by phone. What the client said is kept as given."
         actions={<>
-          {access.is_owner && (
+          {(access.permissions.leads === "edit" && access.permissions.settings === "edit") && (
             <form action={checkAlertsNow}>
-              <button type="submit" className={buttonClass("secondary")} title="Owners: run the lead alert check now (first alerts and 45-minute reminders) and see what it did">Check alerts now</button>
+              <button type="submit" className={buttonClass("secondary")} title="Edit on Leads and Settings: run the lead alert check now (first alerts and 45-minute reminders) and see what it did">Check alerts now</button>
             </form>
           )}
           {canEdit(access, "leads") && <Link href="/leads/phone" className={buttonClass("primary")}><PhoneCall className="h-4 w-4" aria-hidden />New lead by phone</Link>}

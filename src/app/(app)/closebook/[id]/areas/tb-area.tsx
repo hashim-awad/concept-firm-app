@@ -23,8 +23,8 @@ const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleS
 // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
 export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames, noteStep }: {
-  fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; isOwner: boolean; editable: boolean;
+export function TbArea({ fileId, data, file, accounts, notes, canReview, editable, view, drill, col, flag, lineTax, shNames, noteStep }: {
+  fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; canReview: boolean; editable: boolean;
   view: "groups" | "accounts"; drill?: string; col?: string; flag: { amount: number; percent: number };
   lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
   shNames?: Map<string, string>;          // piece 8: the shareholder's name on each shareholder account
@@ -73,7 +73,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     <>
       <PageTitle help={TB_HELP} right={<span className="text-[12.5px] text-ink-3">{formatDate(file.year_start)} to {formatDate(file.year_end)}</span>}>
         Trial balance · {view === "accounts" ? "Accounts" : "Groups"}</PageTitle>
-      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} isOwner={isOwner} editable={editable} openKey={drill && !col ? drill : undefined} noteStep={noteStep}
+      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} canReview={canReview} editable={editable} openKey={drill && !col ? drill : undefined} noteStep={noteStep}
         exportBase={`${base}/report-export?report=tb${view === "accounts" ? "&view=flat" : ""}`} />
       {drillPanel}
     </>

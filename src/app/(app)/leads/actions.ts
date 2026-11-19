@@ -16,7 +16,7 @@ export async function updateLead(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   const patch: Record<string, unknown> = { notes: String(formData.get("notes") ?? "").trim(), source: String(formData.get("source") ?? "Website") };
   if (LEAD_STATUS[status]) patch.status = status;
-  if (access!.is_owner && formData.has("assigned_to")) patch.assigned_to = String(formData.get("assigned_to")) || null;
+  if ((access!.permissions.leads === "edit" && access!.permissions.settings === "edit") && formData.has("assigned_to")) patch.assigned_to = String(formData.get("assigned_to")) || null;
   // Company leads: the legal name and the confirmed year-end staff enter, and the first-year checklist.
   if (formData.has("company_name")) patch.company_name = String(formData.get("company_name") ?? "").trim().slice(0, 200);
   if (formData.has("year_end")) { const ye = String(formData.get("year_end") ?? ""); patch.year_end = /^\d{4}-\d{2}-\d{2}$/.test(ye) ? ye : null; }
@@ -38,7 +38,7 @@ export async function sendAlertNow(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const page = `/leads/${id}`;
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage(page, "error", "Only an owner can send the alert again."));
+  if (!(access?.permissions.leads === "edit" && access?.permissions.settings === "edit")) redirect(withMessage(page, "error", "You need Edit on Leads and Settings to send the alert again."));
   const r = await sendLeadAlertNow(id);
   revalidatePath(page);
   redirect(withMessage(page, r.sent > 0 ? "msg" : "error", r.sent > 0 ? `Alert email sent to ${r.sent} ${r.sent === 1 ? "person" : "people"}.${r.problem ? ` Problem with some: ${r.problem}` : ""}` : `Alert email not sent. Reason: ${r.problem || "unknown"}`));
@@ -47,7 +47,7 @@ export async function sendAlertNow(formData: FormData) {
 // Owners: run the lead alert check now (the same one the scheduler runs) and see what it did.
 export async function checkAlertsNow() {
   const access = await getAccess();
-  if (!access?.is_owner) redirect(withMessage("/leads", "error", "Only an owner can run the alert check."));
+  if (!(access?.permissions.leads === "edit" && access?.permissions.settings === "edit")) redirect(withMessage("/leads", "error", "You need Edit on Leads and Settings to run the alert check."));
   let text: string, kind: "msg" | "error";
   try {
     const r = await runLeadAlerts();

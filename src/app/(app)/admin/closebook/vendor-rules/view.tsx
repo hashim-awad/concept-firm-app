@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
 import { messageFrom } from "@/lib/messages";
@@ -10,9 +10,9 @@ import type { SP, View } from "../../settings-shell";
 // common vendors. A line uses one only when the client has no vendor rule and no coding history for the
 // vendor. The vendor must match exactly; a name that only sounds similar is not a match. A firm rule never
 // sets a provincial tax code (round 2 item 3): clients are in Ontario, Alberta and British Columbia.
-// Owners only.
+// Admins only.
 export async function VendorRulesView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const supabase = await createClient();
   const [{ data: rules }, { data: chart }] = await Promise.all([
     supabase.from("cb_firm_vendor_rules").select("id, vendor_key, chart_account, tax_mode").order("vendor_key"),

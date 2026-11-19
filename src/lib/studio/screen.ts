@@ -12,7 +12,7 @@ export type Check = { lvl: "err" | "warn" | "ok"; msg: string; key?: string };
 export type ScreenContext = {
   client: StudioClientRow | null; // selected client record, if any
   loaded: boolean;                // client records are available (always true in the app)
-  isOwner: boolean;
+  finalRight: boolean;
   acks: Record<string, boolean>;
   live?: boolean;                 // the Quotes builder: staff wording says "monthly quote" (Hashim, round 19)
 };
@@ -38,13 +38,13 @@ export function clientDiff(e: StudioEngine, s: any, c: StudioClientRow | null): 
 function finish(C: Check[], s: any, ctx: ScreenContext, nameBlock: boolean, finalMsgName: string, okLabel: string): ScreenResult {
   const errs = C.filter((x) => x.lvl === "err");
   const needAck = C.filter((x) => x.key && !ctx.acks[x.key]).map((x) => x.key as string);
-  const canFinal = !errs.length && !needAck.length && !!s.reviewed && ctx.isOwner && !nameBlock;
+  const canFinal = !errs.length && !needAck.length && !!s.reviewed && ctx.finalRight && !nameBlock;
   const ok = s.mode === "final" ? canFinal : !errs.length;
   let message = "";
   if (!ok) {
     if (errs.length) message = "Fix the items listed first.";
     else if (s.mode === "final") {
-      if (!ctx.isOwner) message = "Only Hashim can issue a Final letter.";
+      if (!ctx.finalRight) message = 'You need "Can issue Final and send for signing" to issue a Final letter.';
       else if (nameBlock) message = finalMsgName;
       else message = "Final needs the review box and any registration confirmations.";
     }
@@ -75,12 +75,12 @@ export function t1Screen(e: StudioEngine, s: any, ctx: ScreenContext): ScreenRes
   return finish(C, s, ctx, nameBlock, "Final needs a client record with a verified name.", "No blanks or placeholders. Letter is complete.");
 }
 
-// Studio pRefresh(): no client-record checks; Final needs an owner.
+// Studio pRefresh(): no client-record checks; Final needs the Final right (R3a-1).
 export function proposalScreen(e: StudioEngine, s: any, ctx: ScreenContext): ScreenResult {
   const C: Check[] = e.pChecks(s).slice();
   const errs = C.filter((x) => x.lvl === "err").length;
-  const ok = !errs && (s.mode !== "final" || ctx.isOwner);
-  const message = errs ? "Fix the items listed first." : !ok ? "Only Hashim can issue a Final monthly quote." : "";
+  const ok = !errs && (s.mode !== "final" || ctx.finalRight);
+  const message = errs ? "Fix the items listed first." : !ok ? 'You need "Can issue Final and send for signing" to issue a Final monthly quote.' : "";
   // Studio's own words ("Proposal is complete.") stay on the test-only harness, which the screen
   // parity test compares with Studio. The Quotes builder says "monthly quote".
   const done = ctx.live ? "Monthly quote is complete." : "Proposal is complete.";

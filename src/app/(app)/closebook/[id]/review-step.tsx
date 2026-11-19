@@ -71,11 +71,11 @@ export function ReviewStep({ groups, notes, list, listCount = 0, extra }: { grou
 // can be Not applicable. The database applies the same rules.
 // auto (round 12): questions Closebook fills from the signing record (10 and 11): shown, read-only.
 // Round 16: the 13 questions (v2), or the first 12 for a file answered on them (v1). The rules come with
-// the set. The Draft banner shows to owners only; question 9 offers Not applicable only when we are
+// the set. The Draft banner shows to Admins only (R3a-1); question 9 offers Not applicable only when we are
 // independent (step 1, acceptance question 5).
-export function Checklist({ fileId, checklist, problems, editable, back, trial, version = "v2", isOwner = false, notIndependent = false }: {
+export function Checklist({ fileId, checklist, problems, editable, back, trial, version = "v2", admin = false, notIndependent = false }: {
   fileId: string; checklist: ChecklistRow[]; problems: string[]; editable: boolean; back: string; trial: boolean; auto?: number[];
-  version?: "v1" | "v2"; isOwner?: boolean; notIndependent?: boolean;
+  version?: "v1" | "v2"; admin?: boolean; notIndependent?: boolean;
 }) {
   const rules = CHECKLIST_RULES[version];
   const MUST_YES = new Set(rules.mustYes), MAY_NA = new Set(rules.mayNa), auto = rules.auto;
@@ -84,7 +84,7 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
       {problems.length > 0 && <p className="text-[12.5px] text-danger">Not yet: {problems.join(" ")}</p>}
       <section aria-label="Completion checklist" className="card">
         <h2 className="font-semibold">Completion checklist</h2>
-        {trial && isOwner && <p className="mb-2"><Link href="/admin/templates/cbchecklist" className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning underline">Draft questions: approve them in Templates</Link></p>}
+        {trial && admin && <p className="mb-2"><Link href="/admin/templates/cbchecklist" className="rounded bg-warning-soft px-1.5 py-0.5 text-xs font-semibold text-warning underline">Draft questions: approve them in Templates</Link></p>}
         <form action={saveChecklist} className="grid gap-0">
           <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />
           {checklist.map((c, i) => (
@@ -107,7 +107,7 @@ export function Checklist({ fileId, checklist, problems, editable, back, trial, 
 }
 
 // File history (round 8 item 8): every sign-off, cleared sign-off, note, reply and checklist save, with
-// who and when. Owners only; the database lets no one else read it.
+// who and when. The Review right only (R3a-1); the database lets no one else read it.
 export type { HistoryRow } from "@/lib/closebook/history";
 import { actionLabel, type HistoryRow } from "@/lib/closebook/history";
 // Round 24 (rule 20): when, who, what, the statement or line, the reason, old and new; filtered by step.

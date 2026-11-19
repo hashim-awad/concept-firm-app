@@ -7,9 +7,9 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 -- Document versions need Pricing (Phase 2 batch, section 2); this test's staff member has it.
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing": "edit"}');
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing": "edit"}');
 reset role;
 select test.check('RLS on for every public table',
   not exists (select 1 from pg_tables where schemaname = 'public' and not rowsecurity));
@@ -54,12 +54,12 @@ select test.check('owner reads import runs', test.try($$insert into public.impor
 -- Staff cannot approve
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 reset role;
-update public.role_permissions set level = 'edit' where area_key = 'tax_rates' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'tax_rates' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff with tax edit adds a rate', test.try($$insert into public.tax_rates (province, tax, rate_percent, effective_from, source_url, checked_on, checked_by)
   values ('AB', 'GST', 5, '2026-01-01', 'https://www.canada.ca/x', '2026-11-08', '00000000-0000-0000-0000-00000000000c')$$) = 'OK');
-select test.check('staff cannot approve a rate', test.try($$update public.tax_rates set status = 'approved' where province = 'AB'$$) like 'Only an owner can approve%');
+select test.check('staff cannot approve a rate', test.try($$update public.tax_rates set status = 'approved' where province = 'AB'$$) like 'Only an Admin can approve%');
 select test.check('staff cannot record another checker', test.try($$insert into public.tax_rates (province, tax, rate_percent, effective_from, source_url, checked_on, checked_by)
   values ('MB', 'GST', 5, '2026-01-01', 'https://www.canada.ca/x', '2026-11-08', '00000000-0000-0000-0000-00000000000a')$$) like '%row-level security%');
 reset role;

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { StepKey } from "@/lib/closebook/steps";
 
-const SIGN = <><h4>Sign-off</h4><p>Click the first circle to sign as preparer once nothing is open under Issues. Items with the reviewer do not hold you. The reviewer (an owner) signs the second circle after you. Hover a circle to see who signed and when; click your own to take it back.</p></>;
+const SIGN = <><h4>Sign-off</h4><p>Click the first circle to sign as preparer once nothing is open under Issues. Items with the reviewer do not hold you. The reviewer (someone with the Review right) signs the second circle after you. Hover a circle to see who signed and when; click your own to take it back.</p></>;
 
 export function stepHelp(step: StepKey, bank: boolean): ReactNode {
   const H: Record<StepKey, ReactNode> = {
@@ -33,7 +33,7 @@ export function stepHelp(step: StepKey, bank: boolean): ReactNode {
       <h4>Tie-out</h4><p>ProFile rounds each GIFI line to whole dollars, so net income and total assets may differ by up to the rounding allowed: that shows as rounding and does not block (gear menu, Closebook rules, Thresholds). CCA and income tax are typed from ProFile and booked to the cent: they must tie exactly, and any difference blocks the sign-off. Only the reviewer can accept a difference, with a reason.</p>
       <h4>GST/HST</h4><p>Quick method gain: the GST/HST collected less the tax remitted and the credit stays with the company. It is income, booked as an AJE with W/P ref &ldquo;GST/HST return&rdquo;. Possible instalments: entries that move an amount into GST/HST payable (21500) without a tax code. An instalment first recorded elsewhere goes on line 110 once confirmed. Leave out anything that is not an instalment.</p>{SIGN}</>,
     statements: <><h4>What this step does</h4><p>The statements, the management acknowledgement (MAL) and the compilation report. The MAL goes to the client for signature; the package stays a draft until the reviewer signs this step.</p>{SIGN}</>,
-    lock: <><h4>What this step does</h4><p>The completion checklist, the client email, the documents for TaxDome, the filing record, then the lock. A locked file is read-only; only an owner reopens it, with a reason.</p>{SIGN}</>,
+    lock: <><h4>What this step does</h4><p>The completion checklist, the client email, the documents for TaxDome, the filing record, then the lock. A locked file is read-only; only someone with the Lock and unlock right reopens it, with a reason.</p>{SIGN}</>,
   };
   return H[step];
 }

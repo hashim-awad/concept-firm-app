@@ -187,7 +187,7 @@ function ResultPanel({ result }: { result: Result }) {
     return (
       <div className="card border-danger/30">
         <h3 className="mb-2 font-semibold">Out of scope: no quote</h3>
-        <p className="mb-2 text-sm text-muted">The lead would be flagged for an owner. Reasons:</p>
+        <p className="mb-2 text-sm text-muted">The lead would be flagged for an Admin. Reasons:</p>
         <ul className="list-disc pl-5 text-sm">
           {result.outOfScope.map((o, i) => <li key={i}>{o.reason}{o.person !== null && result.personCount > 1 ? ` (${PERSON_LABEL[o.person]})` : ""}</li>)}
         </ul>

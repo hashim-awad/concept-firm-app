@@ -19,8 +19,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const q = new URL(req.url).searchParams;
   const doc = q.get("doc") as keyof typeof NAMES, format = q.get("format") ?? "pdf";
   if (!/^[0-9a-f-]{36}$/.test(id) || !(doc in NAMES) || (format !== "pdf" && format !== "docx")) return new Response("Not found", { status: 404 });
-  // The Word copy is for the reviewer (owners) only.
-  if (format === "docx" && !access.is_owner) return new Response("The Word copy is for the reviewer only.", { status: 403 });
+  // The Word copy is for the reviewer (the Review right, R3a-1) only.
+  if (format === "docx" && !access.closebook.review) return new Response("The Word copy is for the reviewer only.", { status: 403 });
   const supabase = await createClient();
   // Delivered (and locked) files: the PDFs as delivered to TaxDome, never rebuilt (round 12).
   if (format === "pdf" && (doc === "fs" || doc === "signed" || doc === "letter")) {

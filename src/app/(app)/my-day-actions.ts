@@ -38,7 +38,7 @@ export async function markDeadlinesDone(formData: FormData): Promise<void> {
 export async function markDoneBefore(formData: FormData): Promise<void> {
   const path = back(formData);
   const access = await getAccess();
-  if (!access?.is_owner) done(path, "error", "Only an owner can mark deadlines done in one step.");
+  if (!(!!access && access.admin)) done(path, "error", "Only an Admin can mark deadlines done in one step.");
   const before = String(formData.get("before") ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) done(path, "error", "Choose the date.");
   const reason = cleanReason(String(formData.get("reason") ?? ""));

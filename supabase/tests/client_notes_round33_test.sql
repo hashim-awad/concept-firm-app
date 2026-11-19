@@ -9,10 +9,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 \set A '''00000000-0000-0000-0000-00000000000a'''
@@ -84,6 +84,7 @@ update public.cb_line_questions set sent_at = null, sent_link_id = null where fi
 update public.cb_question_links set sent_at = null where file_id = :'f';
 insert into public.cb_line_questions (file_id, line_id, kind, body, asked_by, created_at) values (:'f', test.n('PAD DUMMY TAX'), 'q', 'A note typed after the send', :A::uuid, now() + interval '1 minute');
 \i supabase/migrations/20261212130000_round33_client_notes.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('backfill: the questions typed before the send are sent; the one typed after is not', (select count(*) = 2 from public.cb_line_questions where id in (:'qsent', :'qpad') and sent_link_id = :'k1')
   and (select sent_at is null from public.cb_line_questions where body = 'A note typed after the send'));
 set role authenticated;
@@ -95,5 +96,5 @@ reset role;
 select test.check('the owner saves the firm''s contact details', (select value ->> 'email' = 'office@example.test' and value ->> 'phone' = '555-555-0100' from public.settings where key = 'firm_contact'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff can''t change them', test.try('select public.update_firm_contact(''x street 1'', ''555-555-0199'', ''a@b.test'')') like 'Only an owner%');
+select test.check('staff can''t change them', test.try('select public.update_firm_contact(''x street 1'', ''555-555-0199'', ''a@b.test'')') like 'Only an Admin%');
 reset role;

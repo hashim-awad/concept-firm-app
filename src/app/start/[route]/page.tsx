@@ -24,7 +24,7 @@ export default async function StartRoutePage({ params }: PageProps<"/start/[rout
       <>
         {gate.preview && <PreviewNote />}
         {/* Steps when the published questions have the batch section 4 keys; otherwise the plain form
-            (an owner changed the questions), which shows whatever is published. */}
+            (an Admin changed the questions), which shows whatever is published. */}
         {qn && T1_STEP_KEYS.every((k) => qn.questions.some((x) => x.key === k))
           ? <T1Steps qn={forBrowser(qn)} sources={(src?.value ?? ["Website"]) as string[]} rules={await readT1Rules()} taxYear={taxYearFor(todayToronto())} />
           : qn ? <PersonalForm qn={forBrowser(qn)} sources={(src?.value ?? ["Website"]) as string[]} />

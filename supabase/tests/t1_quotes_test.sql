@@ -7,8 +7,8 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Staff'));
-select public.set_role_permissions((select id from public.roles where name = 'Staff'), '{"pricing":"none","leads":"edit"}');
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
+select public.set_role_permissions((select id from public.roles where name = 'Accountant'), '{"pricing":"none","leads":"edit"}');
 select public.update_setting('signer_engagement_letter', '{"name":"Hashim Abouelfetouh, CPA","title":"Director"}');
 reset role;
 reset request.jwt.claims;

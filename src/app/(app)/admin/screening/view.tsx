@@ -24,7 +24,7 @@ export async function ScreeningView(sp: SP): Promise<View> {
   return {
     help: <>
       <p>The questions clients answer, and the rules that turn answers into a quote. Change a draft, test it, then publish.</p>
-      <p>Only an owner can publish the personal questions from Phase 2 batch section 4.</p>
+      <p>Only an Admin can publish the personal questions from Phase 2 batch section 4.</p>
     </>,
     body: <>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -38,7 +38,7 @@ export async function ScreeningView(sp: SP): Promise<View> {
             {route === "personal" && published?.title !== T1_V2_TITLE && (
               <div className="mb-4 rounded-lg border border-warning/40 bg-warning-soft p-3 text-sm">
                 <p className="font-medium">The personal questions from Phase 2 batch section 4 are not live yet.</p>
-                {access.is_owner && (
+                {(access.admin && access.permissions.price_book === "edit") && (
                   <form action={publishSection4} className="mt-2 flex flex-wrap items-center gap-3">
                     <button type="submit" className="btn">Publish the section 4 questions</button>
                     <span className="text-xs text-muted">Checks that every price matches section 4 first. If anything differs, you see what, and nothing changes.</span>

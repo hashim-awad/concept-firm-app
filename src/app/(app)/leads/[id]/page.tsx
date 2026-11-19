@@ -36,10 +36,10 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
     <>
       <PageHeader eyebrow={l.route === "personal" ? "Lead · Personal tax" : "Lead · Company"} title={`${l.first_name} ${l.last_name}`} description={`Received ${formatDateTime(l.created_at)} · ${LEAD_STATUS[l.status] ?? l.status}`} />
       {WAITING_STATUSES.includes(l.status) && <p className="-mt-2 mb-4 text-sm"><LeadTimer since={l.created_at} hours={await readBusinessHours()} /> <span className="text-muted">for the quote to be sent. A reminder email goes to everyone with Pricing at 45 business minutes.</span></p>}
-      {access.is_owner && (
+      {(access.permissions.leads === "edit" && access.permissions.settings === "edit") && (
         <form action={sendAlertNow} className="-mt-2 mb-4">
           <input type="hidden" name="id" value={l.id} />
-          <button type="submit" className="btn-secondary h-8 px-3 text-sm" title="Owners: send the new-lead email to everyone with Pricing now and see the result">Send alert email now</button>
+          <button type="submit" className="btn-secondary h-8 px-3 text-sm" title="Edit on Leads and Settings: send the new-lead email to everyone with Pricing now and see the result">Send alert email now</button>
         </form>
       )}
       {(await leadAlertStatus(l.id)).filter((x) => x.error !== "before alerts existed").map((x) => (
@@ -80,10 +80,10 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/lea
             <div><label htmlFor="status" className="label">Status</label>
               <select id="status" name="status" defaultValue={l.status} className="input">{Object.entries(LEAD_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
             <div><label htmlFor="assigned_to" className="label">Assigned to</label>
-              <select id="assigned_to" name="assigned_to" defaultValue={l.assigned_to ?? ""} disabled={!access.is_owner} className="input">
+              <select id="assigned_to" name="assigned_to" defaultValue={l.assigned_to ?? ""} disabled={!(access.permissions.leads === "edit" && access.permissions.settings === "edit")} className="input">
                 <option value="">Unassigned</option>{(staff ?? []).map((s: { id: string; full_name: string }) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>
-              {!access.is_owner && <span className="text-xs text-muted">Only an owner can reassign.</span>}</div>
+              {!(access.permissions.leads === "edit" && access.permissions.settings === "edit") && <span className="text-xs text-muted">You need Edit on Leads and Settings to reassign.</span>}</div>
             <div><label htmlFor="source" className="label">Source</label>
               <select id="source" name="source" defaultValue={l.source} className="input">{sources.map((s) => <option key={s}>{s}</option>)}</select></div>
             {l.route === "company" && (

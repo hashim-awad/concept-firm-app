@@ -23,8 +23,8 @@ const neg = (n: number) => bracketAmount(Math.round(n * 100));
 const Num = ({ n }: { n: number }) => <span className={negativeTone(n)}>{neg(n)}</span>;
 const fileName = (p: string) => p.split("/").pop()!.replace(/^\d+-/, "");
 
-export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, hasFix, fixHref }: {
-  fileId: string; st: RevenueState; sources: RevenueSource[]; opts?: AcctOpt[]; revenueOpts?: AcctOpt[]; editable: boolean; isOwner: boolean;
+export function RevenueCheck({ fileId, st, sources, editable, canReview, names, hasFix, fixHref }: {
+  fileId: string; st: RevenueState; sources: RevenueSource[]; opts?: AcctOpt[]; revenueOpts?: AcctOpt[]; editable: boolean; canReview: boolean;
   names: Map<string, string>; hasFix: boolean; fixHref: string;
 }) {
   const primary = sources.filter((x) => ["commission_statement", "sales_report", "processor_report", "slips"].includes(x.kind) || (x.kind === "t4a" && x.payer === "other"));
@@ -42,7 +42,7 @@ export function RevenueCheck({ fileId, st, sources, editable, isOwner, names, ha
       : explained ? pill("bg-navy-100 text-navy-800", "Explained")
       : text && explainedFor !== null ? pill("bg-danger-soft text-danger", "Explain again", `Explained for ${neg(explainedFor)}; the difference is now ${neg(diff)}`)
       : pill("bg-danger-soft text-danger", "To explain");
-  const accept = (check: "revenue" | "t4a", waiting: boolean, explained: boolean) => waiting && explained && isOwner && editable && (
+  const accept = (check: "revenue" | "t4a", waiting: boolean, explained: boolean) => waiting && explained && canReview && editable && (
     <form action={acceptRevenueDifference} className="inline"><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="check" value={check} />
       <button type="submit" className="ml-1.5 text-[11px] font-semibold text-navy-700 underline">Accept</button></form>
   );

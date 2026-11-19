@@ -1,4 +1,4 @@
-// Download full export (decision 9). Owners only. Streams one ZIP: every table and every stored file.
+// Download full export (decision 9). Admins only. Streams one ZIP: every table and every stored file.
 import { getAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { ZipWriter } from "@/lib/export/zip";
@@ -8,7 +8,7 @@ export const maxDuration = 300;
 
 export async function GET() {
   const access = await getAccess();
-  if (!access?.is_owner) return new Response("Only an owner can download the full export.", { status: 403 });
+  if (!(!!access && (access.admin && access.permissions.exports === "edit"))) return new Response("Only an Admin can download the full export.", { status: 403 });
   const owner = await createClient();
   const when = new Date();
   const stamp = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "America/Toronto" }).format(when);

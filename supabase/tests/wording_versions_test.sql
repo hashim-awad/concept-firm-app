@@ -7,19 +7,19 @@ select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test',
-  (select id from public.roles where name = 'Staff'));
+  (select id from public.roles where name = 'Accountant'));
 select test.check('original EL v3.31 is current', (public.current_wording() ->> 'label') = 'EL v3.31');
 select test.check('owner starts a draft', test.try($$select public.start_wording_draft('EL v3.32')$$) = 'OK');
 select test.check('only one draft at a time', test.try($$select public.start_wording_draft('EL v3.33')$$) like 'A draft already exists%');
 select test.check('draft text saved', test.try($$insert into public.wording_texts (version_id, key, text) select id, 'w0123456789', 'Sincerely,' from public.wording_versions where label = 'EL v3.32'$$) = 'OK');
 select test.check('draft not used before approval', (public.current_wording() ->> 'label') = 'EL v3.31');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff (no wording edit) cannot approve', test.try($$select public.approve_wording((select id from public.wording_versions where label = 'EL v3.32'))$$) like 'Only an owner%');
+select test.check('staff (no wording edit) cannot approve', test.try($$select public.approve_wording((select id from public.wording_versions where label = 'EL v3.32'))$$) like 'Only an Admin%');
 select test.check('staff cannot change texts', test.try($$update public.wording_texts set text = 'x'$$) = 'OK' and (select text from public.wording_texts limit 1) = 'Sincerely,');
 select test.check('staff cannot fake approval by update', test.try($$update public.wording_versions set status = 'approved', is_current = true where label = 'EL v3.32'$$) = 'OK'
   and (select status from public.wording_versions where label = 'EL v3.32') = 'draft');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('owner cannot approve by a direct update either', test.try($$update public.wording_versions set status = 'approved' where label = 'EL v3.32'$$) like 'Only an owner approves%');
+select test.check('owner cannot approve by a direct update either', test.try($$update public.wording_versions set status = 'approved' where label = 'EL v3.32'$$) like 'Only an Admin approves%');
 select test.check('owner approves', test.try($$select public.approve_wording((select id from public.wording_versions where label = 'EL v3.32'))$$) = 'OK');
 select test.check('approved version is current, with its edit', (public.current_wording() ->> 'label') = 'EL v3.32' and (public.current_wording() -> 'texts' ->> 'w0123456789') = 'Sincerely,');
 select test.check('approved wording cannot change', test.try($$update public.wording_texts set text = 'Regards,'$$) like '%cannot be changed%');

@@ -92,13 +92,13 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
     };
   };
   const tableRows = (showDone ? [...deadlines, ...t2DeadlinesDone(t2, today, doneKeys, AHEAD_DAYS)].sort((a, b) => a.due.localeCompare(b.due) || a.client.localeCompare(b.client)) : deadlines).map(row);
-  // Owners: every open deadline for the latest and next year end, for "Mark done before a date" (no 90-day limit).
-  const candidates = access.is_owner && seeClients ? t2DeadlinesAll(t2, today).filter((x) => !doneKeys.has(deadlineKey(x)))
+  // Admins (R3a-1): every open deadline for the latest and next year end, for "Mark done before a date" (no 90-day limit).
+  const candidates = access.admin && seeClients ? t2DeadlinesAll(t2, today).filter((x) => !doneKeys.has(deadlineKey(x)))
     .map((x) => ({ key: deadlineKey(x), clientId: x.clientId, client: x.client, kind: x.kind, due: x.due, yearEndText: formatDate(x.yearEnd), dueText: formatDate(x.due) })) : [];
   // Owners: batches marked done today can be undone in one step. The date comes from the activity log.
   type Batch = { id: string; count: number; reason: string; before: string | null };
   const batches: Batch[] = [];
-  if (access.is_owner) {
+  if (access.admin) {
     for (const d of doneRows) {
       if (d.source !== "batch" || !d.batch_id || torontoDate(d.done_at) !== today) continue;
       const b = batches.find((x) => x.id === d.batch_id);
@@ -215,7 +215,7 @@ export default async function MyDayPage({ searchParams }: PageProps<"/">) {
                   </span>
                   Show done
                 </Link>
-                {access.is_owner && <MarkDoneBeforeDialog candidates={candidates} labels={labels} showDone={showDone} />}
+                {access.admin && <MarkDoneBeforeDialog candidates={candidates} labels={labels} showDone={showDone} />}
               </>}>
               {batches.map((b) => (
                 <form key={b.id} action={undoDeadlineBatch} className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">

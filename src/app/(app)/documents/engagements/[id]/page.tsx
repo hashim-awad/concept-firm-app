@@ -21,8 +21,8 @@ export default async function EngagementPage({ params, searchParams }: PageProps
   // Fees only with the Pricing permission (Phase 2 batch, section 2).
   const pricing = canView(access, "pricing");
   const fees = pricing ? ((await supabase.rpc("engagement_fees", { p_id: id })).data?.[0] as { fee: number | null; monthly_fee: number | null; letter_data: unknown } | undefined) : undefined;
-  // Front office batch, section 9: Update is for owners.
-  const editable = access.is_owner && canEdit(access, "documents");
+  // Front office batch, section 9: Update is for an Admin with Edit on Documents (R3a-1).
+  const editable = access.admin && canEdit(access, "documents");
   const client = e.clients as unknown as { id: string; legal_name: string; province: string } | null;
   const abbc = client && (client.province === "AB" || client.province === "BC");
   const { data: docs } = await supabase.from("documents").select("id, title, current_version, status").eq("engagement_id", id);

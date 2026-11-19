@@ -115,7 +115,7 @@ export default function DesignPage() {
 
       <Section id="feedback" title="Alerts, dialogs and toasts" note="Dialogs confirm anything that cannot be undone. Toasts confirm that something worked.">
         <div className="grid gap-3 md:grid-cols-2">
-          <Alert tone="info" title="Rates need approval">The GST/HST table must be approved by an owner before quotes use it.</Alert>
+          <Alert tone="info" title="Rates need approval">The GST/HST table must be approved by an Admin before quotes use it.</Alert>
           <Alert tone="success" title="Signed">Both spouses signed on Nov 7, 2026.</Alert>
           <Alert tone="warning" title="Expires in 3 days">The client has not signed yet.</Alert>
           <Alert tone="danger" title="Province missing">This quote cannot be made until the client&apos;s province is entered.</Alert>
@@ -154,7 +154,7 @@ export default function DesignPage() {
       <Section id="navigation" title="Navigation" note="Staff sidebar in Concept navy with grouped sections, like Concept Studio. Step tracker for multi-step work.">
         <div className="grid gap-4 lg:grid-cols-[16rem_1fr]">
           <div className="h-[860px] overflow-hidden rounded-2xl shadow-[var(--shadow-raised)]" data-design-menu>
-            <Sidebar user={{ name: "Test Owner", role: "Owner" }} groups={[
+            <Sidebar user={{ name: "Test Partner", role: "Partner" }} groups={[
               { label: "Workspace", items: [
                 { href: "#navigation", label: "Home", icon: <Home /> },
                 { href: "#navigation", label: "Leads", icon: <Inbox />, badge: "12" },

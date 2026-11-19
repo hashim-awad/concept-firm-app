@@ -8,10 +8,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 \set src 'https://www.canada.ca/en/revenue-agency/services/forms-publications/publications/rc4058/quick-method-accounting-gst-hst.html'
 
 -- ---------- What the migration leaves: three provinces, three drafts, a draft credit; nothing applies yet.
@@ -28,9 +28,9 @@ select test.check('the credit waits as a draft: 1% on the first $30,000; nothing
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('drafts do not apply: the return finds no rate', public.cb_quick_rate('ON', 'services', '2026-01-01') is null);
-select test.check('staff cannot approve', test.try($q$select public.cb_approve_quick_rates()$q$) = 'Only an owner can approve quick method rates.');
-select test.check('staff cannot add a province', test.try($q$select public.cb_add_quick_province('SK')$q$) = 'Only an owner adds a province.');
-select test.check('staff cannot change the credit', test.try(format($q$select public.cb_set_quick_credit(0.02, 1000, %L, '2026-11-15')$q$, :'src')) = 'Only an owner changes the quick method credit.');
+select test.check('staff cannot approve', test.try($q$select public.cb_approve_quick_rates()$q$) = 'Only an Admin can approve quick method rates.');
+select test.check('staff cannot add a province', test.try($q$select public.cb_add_quick_province('SK')$q$) = 'Only an Admin adds a province.');
+select test.check('staff cannot change the credit', test.try(format($q$select public.cb_set_quick_credit(0.02, 1000, %L, '2026-11-15')$q$, :'src')) = 'Only an Admin changes the quick method credit.');
 select test.check('staff cannot write the provinces directly', test.try($q$insert into public.cb_quick_provinces (province) values ('SK')$q$) like 'permission denied%');
 
 -- ---------- One click approves the three rates and the credit.
@@ -79,6 +79,7 @@ reset request.jwt.claims;
 
 -- ---------- Safe to run twice: no second set of drafts, and the approved rates stay.
 \i supabase/migrations/20261209050000_round20_quick_rates_page.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('a second run adds no drafts and changes no approved rate or credit',
   not exists (select 1 from public.cb_quick_rates where status = 'pending')
   and (select count(*) from public.cb_quick_rates where status = 'approved') = 3

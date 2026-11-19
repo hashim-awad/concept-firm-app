@@ -24,14 +24,14 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   // until the TaxDome import matches it), All. Inactive records show under All.
   const show = sp.show === "waiting" ? "waiting" : sp.show === "all" ? "all" : sp.show === "inactive" ? "inactive" : "active";
   const type = sp.type === "corporation" || sp.type === "individual" ? sp.type : "all";
-  const importOpen = access.is_owner && sp.import === "1";
+  const importOpen = (access.admin && access.permissions.clients === "edit") && sp.import === "1";
   const supabase = await createClient();
   let query = supabase.from("clients").select("id, kind, legal_name, entity_type, province, year_end_md, name_verified, status, taxdome_account_id").order("legal_name").limit(2000);
   if (q) query = query.ilike("legal_name", `%${q.replace(/[%_\\]/g, "\\$&")}%`);
   const [{ data: everyone }, { data: conflictRows }, summary] = await Promise.all([
     query,
     // Round 18: clients whose users of the statements differ from their latest Closebook file (owners decide).
-    access.is_owner ? supabase.from("client_user_conflicts").select("client_id, client:clients(legal_name)") : Promise.resolve({ data: [] }),
+    access.admin ? supabase.from("client_user_conflicts").select("client_id, client:clients(legal_name)") : Promise.resolve({ data: [] }),
     importOpen ? taxdomeImportSummary() : Promise.resolve(""),
   ]);
   const tally = { active: 0, waiting: 0 };
@@ -65,8 +65,8 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-sand-200 pb-5">
         <h1 className={`${typeScale.h1} flex items-center`}>Clients<InfoTip label="About clients">Client records used by letters and quotes. A Final letter needs the legal name checked against the registry (or ID for individuals).</InfoTip></h1>
         <div className="flex flex-wrap items-center gap-2">
-          {access.is_owner && <Link href="/admin/connections" className="mr-1 text-sm text-navy-700 hover:underline">TaxDome tags → types</Link>}
-          {access.is_owner && <Link href={href({ import: "1" })} scroll={false} className={buttonClass("secondary")}><Upload className="h-4 w-4" aria-hidden />Import from TaxDome</Link>}
+          {(access.admin && access.permissions.clients === "edit") && <Link href="/admin/connections" className="mr-1 text-sm text-navy-700 hover:underline">TaxDome tags → types</Link>}
+          {(access.admin && access.permissions.clients === "edit") && <Link href={href({ import: "1" })} scroll={false} className={buttonClass("secondary")}><Upload className="h-4 w-4" aria-hidden />Import from TaxDome</Link>}
           {canEdit(access, "clients") && <Link href="/clients/new" className={buttonClass("primary")}><Plus className="h-4 w-4" aria-hidden />Add client</Link>}
         </div>
       </header>

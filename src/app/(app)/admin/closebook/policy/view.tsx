@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireAdmin } from "@/lib/access";
 import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
 import { createClient } from "@/lib/supabase/server";
 import { Notice } from "@/components/ui";
@@ -8,9 +8,9 @@ import type { SP, View } from "../../settings-shell";
 import { updateCbSettings } from "../actions";
 
 // Closebook rules, Note 1 policy tab (Phase 3 batch 5.6 and section 7): the firm's default. A reviewer can
-// override it in a client's file for the rare client who needs book amortization. Owners only.
+// override it in a client's file for the rare client who needs book amortization. Admins only.
 export async function PolicyView(sp: SP): Promise<View> {
-  await requireOwner();
+  await requireAdmin("closebook");
   const c = await loadCbSettings(await createClient());
   if (!c) return { help: null, body: <p className="card text-sm text-warning">Closebook settings are not loaded yet.</p> };
   return {

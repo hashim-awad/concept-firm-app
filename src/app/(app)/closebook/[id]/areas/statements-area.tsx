@@ -25,8 +25,8 @@ const whole = (v: number) => (v === 0 ? "–" : v < 0 ? `(${Math.abs(v).toLocale
 // The due to and due from shareholder lines swap sides with the balance (round 14).
 const SH_PAIR: Record<string, string> = { "2780": "1300", "3260": "1300", "2781": "1301", "3261": "1301", "2782": "1302", "3262": "1302", "2783": "1303", "3263": "1303", "1300": "2780", "1301": "2781", "1302": "2782", "1303": "2783" };
 
-export async function statementsArea({ supabase, fileId, data, isOwner, sp }: {
-  supabase: SupabaseClient; fileId: string; data: ReportData; isOwner: boolean; sp: { doc?: string; line?: string };
+export async function statementsArea({ supabase, fileId, data, canReview, sp }: {
+  supabase: SupabaseClient; fileId: string; data: ReportData; canReview: boolean; sp: { doc?: string; line?: string };
 }) {
   const base = `/closebook/${fileId}`;
   const doc = DOCS.find(([k]) => k === sp.doc)?.[0] ?? "bs";
@@ -105,7 +105,7 @@ export async function statementsArea({ supabase, fileId, data, isOwner, sp }: {
       <ul className="grid gap-1">
         <li><PrintNow /></li>
         <li><a href={`${base}/package?doc=${pdfDoc}&format=pdf`} className="block rounded px-2 py-1 hover:bg-sand-100">PDF</a></li>
-        {isOwner && <li><a href={`${base}/package?doc=${pdfDoc}&format=docx`} className="block rounded px-2 py-1 hover:bg-sand-100">Word</a></li>}
+        {canReview && <li><a href={`${base}/package?doc=${pdfDoc}&format=docx`} className="block rounded px-2 py-1 hover:bg-sand-100">Word</a></li>}
       </ul>
     </Popover>
   );

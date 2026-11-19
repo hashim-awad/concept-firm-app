@@ -1,5 +1,5 @@
 // Wording samples for the template library: each template's text, built by Studio's own code
-// with made-up client details, so an owner reads the exact wording before approving it.
+// with made-up client details, so an Admin reads the exact wording before approving it.
 import "server-only";
  
 import { createStudioEngine, type StudioEnv } from "./engine.generated";

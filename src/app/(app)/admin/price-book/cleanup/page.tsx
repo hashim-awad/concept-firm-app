@@ -24,7 +24,7 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
   return (
     <SettingsShell title="Price book clean-up" help={<>
       <p>Your corrections after the Studio import. Check the before and after, then apply. Nothing changes until you press Apply.</p>
-      <p>Only an owner can apply the clean-up.</p>
+      <p>Only an Admin can apply the clean-up.</p>
     </>}
       actions={<Link href="/admin/price-book" className="btn-secondary btn">Back to price book</Link>}>
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
@@ -83,7 +83,7 @@ export default async function CleanupPage({ searchParams }: PageProps<"/admin/pr
         </table>
       </section>
 
-      {access.is_owner && plan.length > 0 && blockers.length === 0 && (
+      {(access.admin && access.permissions.pricing === "edit") && plan.length > 0 && blockers.length === 0 && (
         <form action={applyCleanup} className="card space-y-3">
           <input type="hidden" name="plan" value={JSON.stringify(plan)} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="read" required className="h-4 w-4 accent-navy-700" /> I checked the {changes.length} changes above.</label>

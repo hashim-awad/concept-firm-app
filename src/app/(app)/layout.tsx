@@ -23,11 +23,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const seeDocs = canView(access, "documents");
   const pricing = canView(access, "pricing");
   // The Engagements badge (its Letters tab): every letter waiting for a signature (quotes, monthly quotes, new letters).
-  // The gear's count: templates waiting for an owner's approval (owners only). The three counts load together.
+  // The gear's count: templates waiting for an owner's approval (Admins only). The three counts load together.
   const [{ count: leadsNew }, { data: lettersAwaiting }, drafts, { count: bellUnread }, pins] = await Promise.all([
     canView(access, "leads") ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : Promise.resolve({ count: 0 }),
     seeDocs || canView(access, "leads") ? supabase.rpc("letters_waiting_count") : Promise.resolve({ data: 0 }),
-    access.is_owner && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
+    access.admin && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
     // Round 32: the bell (a client answered questions). Each person sees only their own notices.
     supabase.from("staff_notices").select("id", { count: "exact", head: true }).is("read_at", null),
     // Round 36b: the person's menu pin (kept across pages and sign-ins).
@@ -57,7 +57,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           access={{
             fullName: access.full_name,
             roleName: access.role_name,
-            isOwner: access.is_owner,
+            admin: access.admin,
             leads: canView(access, "leads"),
             clients: canView(access, "clients"),
             documents: seeDocs,

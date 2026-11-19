@@ -1,7 +1,7 @@
 "use client";
 // Template editor, in the style of proposal and letter apps: the template as a document on the
 // left; click any text to change it on the right. Fill-ins show by name ([Company name]) and
-// are filled in for each client. Changes stay unpublished until an owner publishes them.
+// are filled in for each client. Changes stay unpublished until an Admin publishes them.
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MousePointerClick, PencilLine, Send } from "lucide-react";
@@ -71,7 +71,7 @@ export function TemplateEditor({ parts, pieces, canEdit }: {
             <ol className="grid gap-3">
               <li className="flex gap-3"><MousePointerClick className="mt-0.5 h-5 w-5 shrink-0 text-navy-700" aria-hidden /><span><b>Click any text</b> in the document. Text you can change lights up when you point at it.</span></li>
               {canEdit && <li className="flex gap-3"><PencilLine className="mt-0.5 h-5 w-5 shrink-0 text-navy-700" aria-hidden /><span><b>Change it here and save.</b> Words in [square brackets], like [Company name], are filled in for each client. Keep them.</span></li>}
-              {canEdit && <li className="flex gap-3"><Send className="mt-0.5 h-5 w-5 shrink-0 text-navy-700" aria-hidden /><span><b>Publish.</b> Saved changes show in <span className="rounded bg-[#FFF4CC] px-1">yellow</span> and are not used in letters until an owner publishes them.</span></li>}
+              {canEdit && <li className="flex gap-3"><Send className="mt-0.5 h-5 w-5 shrink-0 text-navy-700" aria-hidden /><span><b>Publish.</b> Saved changes show in <span className="rounded bg-[#FFF4CC] px-1">yellow</span> and are not used in letters until an Admin publishes them.</span></li>}
             </ol>
             <p className="text-xs text-muted">The document uses made-up client details (Example Holdings Inc.). Names, dates and fees change for each client; the wording does not.</p>
           </div>

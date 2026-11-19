@@ -18,7 +18,7 @@ const TOTAL: Line[] = ["105", "108", "109", "112", "113"];
 const chip = (ok: boolean, yes: string, no: string) => <span className={`rounded px-2 py-0.5 text-xs font-semibold ${ok ? "bg-success-soft text-success" : "bg-danger/10 text-danger"}`}>{ok ? yes : no}</span>;
 
 // Piece 7: revenueBox, the GST/HST revenue comparison (a registrant's full file), below the 21500 box.
-export function GstSection({ fileId, g, editable, isOwner, drill, names, revenueBox }: { fileId: string; g: GstData; editable: boolean; isOwner: boolean; drill: { period: number; line: Line } | null; names: Map<string, string>; revenueBox?: React.ReactNode }) {
+export function GstSection({ fileId, g, editable, canReview, drill, names, revenueBox }: { fileId: string; g: GstData; editable: boolean; canReview: boolean; drill: { period: number; line: Line } | null; names: Map<string, string>; revenueBox?: React.ReactNode }) {
   if (!g.applies) return (
     <section id="gst" aria-label="GST/HST return" className="card">
       <h2 className="font-semibold">GST/HST return</h2>
@@ -119,7 +119,7 @@ export function GstSection({ fileId, g, editable, isOwner, drill, names, revenue
           </form>
         </div>
       )}
-      {isOwner && editable && over && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
+      {canReview && editable && over && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
         <form action={acceptGstCheck} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="file_id" value={fileId} />
           <input name="why" required minLength={3} maxLength={300} placeholder="Why the difference is accepted" className="input input-compact" style={{ width: "24rem" }} aria-label="Reason" />

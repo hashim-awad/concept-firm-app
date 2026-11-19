@@ -10,7 +10,7 @@ import { setMenuPin } from "./menu-actions";
 export type SidebarAccess = {
   fullName: string;
   roleName: string;
-  isOwner: boolean;
+  admin: boolean;
   leads: boolean;
   clients: boolean;
   documents: boolean;

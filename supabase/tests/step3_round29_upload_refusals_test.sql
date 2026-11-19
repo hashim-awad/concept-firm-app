@@ -28,4 +28,5 @@ select test.check('an imported statement is not refused here', test.try($q$selec
   = 'This statement is imported. Exclude it in View statements instead.');
 reset role;
 \i supabase/migrations/20261212050000_round29_upload_refusals.sql
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
 select test.check('safe to run twice', to_regprocedure('public.statement_refuse(uuid, text, boolean)') is not null);

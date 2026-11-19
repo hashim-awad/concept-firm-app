@@ -78,7 +78,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     { key: "quotes", label: "Quotes", show: seeDocs && pricing },
     { key: "closebook", label: "Closebook files", show: seeCb },
     { key: "documents", label: "Documents", show: seeVault },
-    { key: "activity", label: "Activity", show: access.is_owner },
+    { key: "activity", label: "Activity", show: access.admin },
   ].filter((t) => t.show);
   const tab = TABS.some((t) => t.key === sp.tab) ? String(sp.tab) : "overview";
   const tabs = TABS.map((t) => ({ key: t.key, label: t.label, href: `/clients/${id}${t.key === "overview" ? "" : `?tab=${t.key}`}` }));
@@ -170,7 +170,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
           ? <a href={d.href} target="_blank" rel="noreferrer" className={LINK}>{d.title}</a>
           : <Link href={d.href} className={LINK}>{d.title}</Link>}</td><td>{d.from}</td><td className="whitespace-nowrap">{formatDate(d.date)}</td><td className="capitalize">{d.status}</td></tr>)}</tbody></table>)}</section>;
   } else if (tab === "activity") {
-    // Owners only (the activity log is owner-only in the database too).
+    // Admins only (the activity log is owner-only in the database too).
     const ids = [id, ...engs.map((e) => e.id), ...docs.map((d) => d.id), ...props.map((p) => p.id)];
     const { data: log } = await supabase.from("activity_log").select("id, occurred_at, actor_id, action, entity_type, details").in("entity_id", ids).order("occurred_at", { ascending: false }).limit(200);
     const WHAT: Record<string, string> = { clients: "Client record", engagements: "Engagement", documents: "Document", document_versions: "Document version", proposals: "Monthly quote" };
@@ -238,9 +238,9 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
       type Confirmed = { year: string; by: string; at: string };
       const found: Confirmed[] = [];
       const [logR, accR, conflictR] = await Promise.all([
-        access.is_owner ? supabase.from("activity_log").select("occurred_at, actor_id, details").eq("entity_type", "clients").eq("entity_id", id).eq("action", "statements_confirmed").order("occurred_at", { ascending: false }).limit(1) : null,
+        access.admin ? supabase.from("activity_log").select("occurred_at, actor_id, details").eq("entity_type", "clients").eq("entity_id", id).eq("action", "statements_confirmed").order("occurred_at", { ascending: false }).limit(1) : null,
         canView(access, "closebook") ? supabase.from("cb_files").select("year_end, acc:cb_acceptance(confirmed)").eq("client_id", id) : null,
-        access.is_owner ? supabase.from("client_user_conflicts").select("file_users, file:file_id(year_end)").eq("client_id", id).maybeSingle() : null,
+        (access.admin && access.permissions.clients === "edit") ? supabase.from("client_user_conflicts").select("file_users, file:file_id(year_end)").eq("client_id", id).maybeSingle() : null,
       ]);
       for (const r of (logR?.data ?? []) as { occurred_at: string; actor_id: string | null; details: { year?: number } | null }[])
         found.push({ year: String(r.details?.year ?? ""), by: r.actor_id ?? "", at: r.occurred_at });
@@ -249,7 +249,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
         if (acc?.confirmed?.at) found.push({ year: yearOf(f.year_end), by: acc.confirmed.by ?? "", at: acc.confirmed.at });
       }
       const last = found.sort((a, b) => b.at.localeCompare(a.at))[0];
-      const readable = access.is_owner || canView(access, "closebook");
+      const readable = canView(access, "closebook");
       const conflict = conflictR?.data as { file_users: unknown; file: { year_end: string } | { year_end: string }[] | null } | null | undefined;
       const conflictFile = conflict ? (Array.isArray(conflict.file) ? conflict.file[0] : conflict.file) : null;
       statements = (
@@ -347,7 +347,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
       {c.status === "waiting_taxdome" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
           <p><b>Waiting for TaxDome.</b> Added when they signed in Studio. {corp ? "The next TaxDome import matches it (Business Number, then legal name) and makes it Active." : "The TaxDome import reads companies only: once the person's TaxDome account exists, mark it matched."}</p>
-          {access.is_owner && <form action={markInTaxDome}><input type="hidden" name="id" value={id} /><button type="submit" className="btn-secondary h-8 px-3 text-sm">Mark as matched in TaxDome</button></form>}
+          {(access.admin && access.permissions.clients === "edit") && <form action={markInTaxDome}><input type="hidden" name="id" value={id} /><button type="submit" className="btn-secondary h-8 px-3 text-sm">Mark as matched in TaxDome</button></form>}
         </div>
       )}
       <PageTabs label="Client" current={tab} tabs={tabs} />

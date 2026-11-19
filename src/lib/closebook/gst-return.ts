@@ -9,7 +9,7 @@
 // remittance rate; 106 ITCs on capital purchases only; 107 the credit on the first part of the year's
 // eligible sales. The rates, the credit and its limit are settings (Settings, Sales tax rates, Quick method
 // rates), never this file. Round 20 (Hashim, Nov 15, 2026): two remittance rates, Services and Goods for
-// resale; the client's step 1 answer picks one (services when not answered), an owner approves each rate,
+// resale; the client's step 1 answer picks one (services when not answered), an Admin approves each rate,
 // and the return says which rate it used. A missing or unapproved rate is named, never guessed.
 import { addMonths } from "./fs-email.ts";
 import { entryLineTax, type TaxCode, type TaxContext } from "./sales-tax.ts";
@@ -102,7 +102,7 @@ export function buildReturn(all: GstItem[], period: Period, quick: boolean, q: Q
     const type = q.type ?? "services";
     const where = q.province ? `, ${provinceName(q.province)}` : "";
     const rate = q.rates ? quickRateFor(q.rates, q.province ?? "", type, period.start) : q.rate;
-    if (rate === null) problems.push(`No approved quick method rate for ${QUICK_TYPE_LABEL[type]}${q.province ? ` in ${provinceName(q.province)}` : ""} for the period from ${short(period.start)}. An owner loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates.`);
+    if (rate === null) problems.push(`No approved quick method rate for ${QUICK_TYPE_LABEL[type]}${q.province ? ` in ${provinceName(q.province)}` : ""} for the period from ${short(period.start)}. An Admin loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates.`);
     else {
       L["103"] = Math.round(L["101"] * rate);
       rateUsed = `Quick method rate, ${QUICK_TYPE_LABEL[type]}${where}: ${pctText(rate)}`;

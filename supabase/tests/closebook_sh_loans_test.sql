@@ -10,11 +10,11 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
-select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Preparer D', 'prep.d@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
+select public.add_staff('00000000-0000-0000-0000-00000000000d', 'Test Preparer D', 'prep.d@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Oak Test Realty Inc.', 'ON') returning id as client \gset
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Elm Test Realty Inc.', 'ON') returning id as client2 \gset
 set role authenticated;
@@ -179,7 +179,7 @@ select test.check('next year: nothing open', private.cb_sh_problems(:'own2') = '
 -- Settings: the window, owners only.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('staff cannot change the window', test.try('select public.cb_update_sh_window(45)') = 'Only an owner changes thresholds.');
+select test.check('staff cannot change the window', test.try('select public.cb_update_sh_window(45)') = 'Only an Admin changes thresholds.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the window is 1 to 365 days', test.try('select public.cb_update_sh_window(0)') like 'Shareholder loan repayment window%');
 select public.cb_update_sh_window(45);
@@ -198,4 +198,4 @@ select test.check('locked: no confirming', test.try(format($q$select public.cb_c
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 reset role;
 reset request.jwt.claims;
-select test.check('locked: the tables refuse writes', test.try(format($q$delete from public.cb_sh_groups where file_id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.');
+select test.check('locked: the tables refuse writes', test.try(format($q$delete from public.cb_sh_groups where file_id = %L$q$, :'f')) = 'This file is locked. Someone with the Lock and unlock right can reopen it.');

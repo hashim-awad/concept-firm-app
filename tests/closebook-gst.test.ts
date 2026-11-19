@@ -138,7 +138,7 @@ test("quick method, round 20: a missing rate is named and line 103 is not guesse
   const r = buildReturn([sale("2026-02-01", 1000000, 50000, "GST")], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "AB", type: "goods", rates }, 0);
   assert.equal(r.lines["103"], 0);
   assert.equal(r.rateUsed, null);
-  assert.deepEqual(r.problems, ["No approved quick method rate for goods for resale in Alberta for the period from Jan 1, 2026. An owner loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates."]);
+  assert.deepEqual(r.problems, ["No approved quick method rate for goods for resale in Alberta for the period from Jan 1, 2026. An Admin loads it from CRA and approves it in Settings, Sales tax rates, Quick method rates."]);
   // No approved rows at all (another province): missing too.
   const none = buildReturn([sale("2026-02-01", 1000000, 130000)], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "ON", type: "services", rates }, 0);
   assert.equal(none.lines["103"], 0);

@@ -53,7 +53,7 @@ export default async function ProposalPage({ searchParams }: PageProps<"/quotes/
             {prefill.suggestion && !prefill.offer && " No single price book offer matched it, so choose the offer yourself."} The &ldquo;What we heard&rdquo; lines are the client&rsquo;s answers: rewrite them after the call.</p>
         </div>
       )}
-      <ProposalScreen env={env} prefill={prefill ? { f: prefill.f, offer: prefill.offer } : undefined} clients={corporations(data.clients)} isOwner={access.is_owner} today={today} initial={initial} startClientId={startClientId} approvedTax={approvedTax} live={{ quoteId, leadId, save: saveProposalAction, send: sendProposalAction, remove: deleteProposalAction }}
+      <ProposalScreen env={env} prefill={prefill ? { f: prefill.f, offer: prefill.offer } : undefined} clients={corporations(data.clients)} finalRight={access.letters.final} today={today} initial={initial} startClientId={startClientId} approvedTax={approvedTax} live={{ quoteId, leadId, save: saveProposalAction, send: sendProposalAction, remove: deleteProposalAction }}
         handlers={{ saveDocument: saveDocumentAction, saveClient: saveClientAction }} />
     </>
   );

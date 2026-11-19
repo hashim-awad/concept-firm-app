@@ -34,9 +34,9 @@ const ENG_DATES = ["el_issued", "el_signed"] as const;
 export async function updateEngagement(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const back = `/documents/engagements/${id}`;
-  // Front office batch, section 9: Update is for owners.
+  // Front office batch, section 9: Update is for an Admin with Edit on Documents (R3a-1).
   const owner = await getAccess();
-  if (!owner?.is_owner) redirect(withMessage(back, "error", "Only an owner can update an engagement."));
+  if (!(!!owner && (owner.admin && owner.permissions.documents === "edit"))) redirect(withMessage(back, "error", "Only an Admin with Edit on Documents can update an engagement."));
   const d: Record<string, string> = {};
   for (const k of ENG_DATES) d[k] = String(formData.get(k) ?? "");
   const t = todayToronto();

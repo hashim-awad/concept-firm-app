@@ -9,10 +9,10 @@ insert into auth.users (id, email) values
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Staff'));
+select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
 reset role;
 reset request.jwt.claims;
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
+update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Maple Test Realty Inc.', 'ON') returning id as client \gset
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
@@ -76,7 +76,7 @@ select public.cb_sign_step(:'f', 'lock', 'reviewed');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_record_delivery(:'f', format('closebook/%s/delivered/x.zip', :'f'), repeat('b', 64), '{"subject":"S","text":"T","html":"H"}');
 select test.check('the email figures are kept as sent', test.try(format($q$select public.cb_save_close_fields(%L, '{"tax_balance":1}')$q$, :'f')) = 'The email was sent: its figures are kept as sent.');
-select test.check('only an owner locks', test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) = 'Only an owner locks a file.');
+select test.check('only an owner locks', test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) = 'You need the Lock and unlock right to lock a file.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the lock is refused, each missing item named',
   test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) like 'The file cannot be locked yet: Step 1, Set up: not signed by the reviewer.%Step 8, Tax returns: not signed by the reviewer.%The EFILE confirmation number is not recorded.');
@@ -104,15 +104,15 @@ select test.check('a locked file refuses its functions', test.try(format($q$sele
 reset role;
 reset request.jwt.claims;
 select test.check('a locked file refuses a change to its tables, even without the functions',
-  test.try(format($q$update public.cb_accounts set name = 'x' where file_id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.'
-  and test.try(format($q$delete from public.cb_checklist_answers where file_id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.'
-  and test.try(format($q$update public.cb_files set year_change_reason = 'x' where id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.'
-  and test.try(format($q$delete from public.cb_files where id = %L$q$, :'f')) = 'This file is locked. An owner can reopen it.');
+  test.try(format($q$update public.cb_accounts set name = 'x' where file_id = %L$q$, :'f')) = 'This file is locked. Someone with the Lock and unlock right can reopen it.'
+  and test.try(format($q$delete from public.cb_checklist_answers where file_id = %L$q$, :'f')) = 'This file is locked. Someone with the Lock and unlock right can reopen it.'
+  and test.try(format($q$update public.cb_files set year_change_reason = 'x' where id = %L$q$, :'f')) = 'This file is locked. Someone with the Lock and unlock right can reopen it.'
+  and test.try(format($q$delete from public.cb_files where id = %L$q$, :'f')) = 'This file is locked. Someone with the Lock and unlock right can reopen it.');
 
 -- Reopen: owners only, with a reason; logged; back to step 10.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('only an owner reopens', test.try(format($q$select public.cb_reopen_file(%L, 'Late NOA change')$q$, :'f')) = 'Only an owner reopens a locked file.');
+select test.check('only an owner reopens', test.try(format($q$select public.cb_reopen_file(%L, 'Late NOA change')$q$, :'f')) = 'You need the Lock and unlock right to reopen a locked file.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('a reason is needed', test.try(format($q$select public.cb_reopen_file(%L, '')$q$, :'f')) = 'Say why the file is reopened.');
 select public.cb_reopen_file(:'f', 'The CRA reassessed: update the email');

@@ -104,7 +104,7 @@ export async function verifyClientName(id: string): Promise<{ ok: boolean; error
   return error ? { ok: false, error: "Could not save. You need Edit on Clients." } : { ok: true };
 }
 
-// People are not in the TaxDome import (it reads T2 companies): an owner marks a waiting client matched.
+// People are not in the TaxDome import (it reads T2 companies): an Admin marks a waiting client matched.
 export async function markInTaxDome(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const { error } = await (await createClient()).rpc("mark_client_in_taxdome", { p_client: id });

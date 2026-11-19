@@ -16,8 +16,8 @@ export type PanelAccount = { key: string; id: string; number: string; name: stri
 
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
-export function AccountPanel({ fileId, a, view, year, isOwner, editable, onClose, noteStep = "compare" }: {
-  fileId: string; a: PanelAccount; view: string; year: number; isOwner: boolean; editable: boolean; onClose: () => void; noteStep?: string;
+export function AccountPanel({ fileId, a, view, year, canReview, editable, onClose, noteStep = "compare" }: {
+  fileId: string; a: PanelAccount; view: string; year: number; canReview: boolean; editable: boolean; onClose: () => void; noteStep?: string;
 }) {
   const base = `/closebook/${fileId}`;
   const here = `${base}?area=tb&tbv=${view}#a-${encodeURIComponent(a.key)}`;
@@ -68,7 +68,7 @@ export function AccountPanel({ fileId, a, view, year, isOwner, editable, onClose
           <Link href={`${base}?area=reporting&report=gl&account=${encodeURIComponent(a.key)}&back=${encodeURIComponent(here)}`} className={link}>Open the ledger</Link>
           {editable && a.id && <Link href={`${base}?area=tb&tbv=${view}&new=journal&acct=${a.id}&back=${encodeURIComponent(here)}`} scroll={false} onClick={onClose} className={link}>New entry on this account</Link>}
           {editable && <Link href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(a.key)}&back=${encodeURIComponent(here)}`} className={link}>Reclassify lines on this account</Link>}
-          {isOwner && editable && a.id && <div className="justify-self-start"><NoteOnItem fileId={fileId} step={noteStep} targetType="account" targetId={a.id} back={here} label="Add a review note" linkClass={`text-left ${link}`} /></div>}
+          {canReview && editable && a.id && <div className="justify-self-start"><NoteOnItem fileId={fileId} step={noteStep} targetType="account" targetId={a.id} back={here} label="Add a review note" linkClass={`text-left ${link}`} /></div>}
         </div>
         {a.sh && (
           <form className="mx-5 mt-4 grid gap-1.5 border-t border-sand-200 pt-3" data-sh-name-form

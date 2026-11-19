@@ -35,11 +35,11 @@ export async function deleteProposalAction(quoteId: string): Promise<{ ok: boole
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-// Send for signing: owners only. The proposal and every option's letter must be complete, and the
+// Send for signing: the Final right only (R3a-1). The proposal and every option's letter must be complete, and the
 // province needs an approved GST/HST rate (decision 22). Then the quote opens for the client for 21 days.
 export async function sendProposalAction(quoteId: string): Promise<{ ok: true; href: string } | { ok: false; error: string; problems?: string[] }> {
   const access = await getAccess();
-  if (!access?.is_owner) return { ok: false, error: "Only an owner can send a monthly quote." };
+  if (!(!!access && access.letters.final)) return { ok: false, error: "You need \"Can issue Final and send for signing\" to send a monthly quote." };
   const supabase = await createClient();
   const { data: q } = await supabase.from("quotes").select("id, kind, status, proposal").eq("id", quoteId).maybeSingle();
   if (!q || q.kind !== "proposal") return { ok: false, error: "Monthly quote not found." };
@@ -47,7 +47,7 @@ export async function sendProposalAction(quoteId: string): Promise<{ ok: true; h
   const data = q.proposal as ProposalInputs;
   const prov = String(data.f.province ?? "");
   const { data: rate } = ["ON", "AB", "BC"].includes(prov) ? await supabase.rpc("approved_tax_rate", { p_province: prov }) : { data: null };
-  if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An owner approves rates under GST/HST rates first." };
+  if (!(rate as unknown[] | null)?.length) return { ok: false, error: "No approved GST/HST rate for this province. An Admin approves rates under GST/HST rates first." };
 
   // The same checks the screen shows, with the wording in use today.
   const studio = await loadStudioData(supabase, access);
