@@ -21,8 +21,8 @@ test("year-end: free text read, anything unclear left blank", () => {
 });
 
 test("business number: first 9 digits", () => {
-  assert.equal(bn9("725603690 RC0001"), "725603690");
-  assert.equal(bn9("736174566 RC 0001"), "736174566");
+  assert.equal(bn9("111111111 RC0001"), "111111111");
+  assert.equal(bn9("222222222 RC 0001"), "222222222");
   assert.equal(bn9("12345"), "");
   assert.equal(province("Ontario"), "ON");
   assert.equal(province("AB"), "AB");
@@ -31,9 +31,9 @@ test("business number: first 9 digits", () => {
 
 test("reads only T2 companies; individuals with T2 are flagged; private columns never come out", () => {
   const csv = [HEAD,
-    row("101", "Alpha Realty Inc.", "Active", "Company", "T2, BK", "725603690 RC0001", "123-456-789", "secret note", "Dec 31", "", "Jun 30", "1 Main St", "Ontario", "Jane"),
+    row("101", "Alpha Realty Inc.", "Active", "Company", "T2, BK", "111111111 RC0001", "123-456-789", "secret note", "Dec 31", "", "Jun 30", "1 Main St", "Ontario", "Jane"),
     row("102", "Pat Person", "Active", "Individual", "T2", "", "987-654-321", "", "Dec 31", "", "", "", "Ontario", ""),
-    row("103", "Beta Holdings Ltd.", "Active", "Company", "T1", "736174566", "", "", "Mar 31", "", "", "", "Ontario", ""),
+    row("103", "Beta Holdings Ltd.", "Active", "Company", "T1", "222222222", "", "", "Mar 31", "", "", "", "Ontario", ""),
     row("104", "Gamma Corp", "Active", "Company", "T2", "", "", "", "sometime", "", "", "", "Alberta", ""),
   ].join("\n");
   const r = readAccounts(csv);
@@ -42,7 +42,7 @@ test("reads only T2 companies; individuals with T2 are flagged; private columns 
   assert.equal(r.flags.length, 1);
   assert.match(r.flags[0].reason, /Individual/);
   const a = r.accounts[0];
-  assert.equal(a.bn, "725603690"); assert.equal(a.fye, "12-31"); assert.equal(a.province, "ON");
+  assert.equal(a.bn, "111111111"); assert.equal(a.fye, "12-31"); assert.equal(a.province, "ON");
   assert.deepEqual(Object.keys(a).sort(), ["bn", "bnRaw", "fye", "fyeRaw", "legalName", "province", "row", "tags", "taxdomeId", "type"]);
   assert.ok(!JSON.stringify(r).includes("123-456-789") && !JSON.stringify(r).includes("secret note") && !JSON.stringify(r).includes("Main St"));
   assert.equal(r.accounts[1].fye, "");
@@ -61,8 +61,8 @@ const acct = (id: string, name: string, bn = "", fye = "12-31") => ({ row: 2, ta
 const client = (id: string, name: string, extra: Partial<Existing> = {}): Existing => ({ id, kind: "corporation", legal_name: name, business_number: "", taxdome_account_id: null, year_end_md: "", taxdome_tags: [], ...extra });
 
 test("match order: TaxDome id, then Business Number, then legal name; new ones inserted", () => {
-  const existing = [client("c1", "Alpha Realty Inc.", { taxdome_account_id: "101" }), client("c2", "Old Name Ltd.", { business_number: "736174566" }), client("c3", "Gamma Corp")];
-  const { planned, flags } = planImport([acct("101", "Alpha Realty Inc.", "725603690"), acct("102", "Beta Holdings Ltd.", "736174566"), acct("103", "GAMMA corp"), acct("104", "Delta Inc.", "111222333")], existing);
+  const existing = [client("c1", "Alpha Realty Inc.", { taxdome_account_id: "101" }), client("c2", "Old Name Ltd.", { business_number: "222222222" }), client("c3", "Gamma Corp")];
+  const { planned, flags } = planImport([acct("101", "Alpha Realty Inc.", "111111111"), acct("102", "Beta Holdings Ltd.", "222222222"), acct("103", "GAMMA corp"), acct("104", "Delta Inc.", "111222333")], existing);
   assert.deepEqual(flags, []);
   assert.deepEqual(planned.map((p) => [p.account.taxdomeId, p.action, p.clientId ?? "", p.matchedBy ?? ""]),
     [["101", "update", "c1", "taxdome id"], ["102", "update", "c2", "business number"], ["103", "update", "c3", "legal name"], ["104", "insert", "", ""]]);
@@ -80,8 +80,8 @@ test("never guesses: two name matches, duplicate BN in file, or a client already
 });
 
 test("re-import with nothing new makes no changes", () => {
-  const existing = [client("c1", "Alpha Realty Inc.", { taxdome_account_id: "101", business_number: "725603690", year_end_md: "12-31", taxdome_tags: ["T2"] })];
-  const { planned } = planImport([acct("101", "Alpha Realty Inc.", "725603690")], existing);
+  const existing = [client("c1", "Alpha Realty Inc.", { taxdome_account_id: "101", business_number: "111111111", year_end_md: "12-31", taxdome_tags: ["T2"] })];
+  const { planned } = planImport([acct("101", "Alpha Realty Inc.", "111111111")], existing);
   assert.deepEqual(planned[0].changes, []);
 });
 

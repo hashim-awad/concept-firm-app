@@ -44,9 +44,9 @@ select count(*) as old_flags from (
      and coalesce(a.tax_code, m.default_tax_code, '') not in ('INCTAX', 'AMORT')) x
  where abs(fin - last_year) > 5000 and (last_year = 0 or abs(fin - last_year) / abs(last_year) * 100 > 20) \gset
 select test.check('T2: the same flags as before the piece (Commission income, Vehicle, Office, Wages: 4)', :old_flags = 4
-  and (:p6) like '4 flagged changes to explain on the lead sheets.%');
+  and (:p6) like '4 flagged changes to explain in Flagged changes.%');
 select test.check('T2: an unexplained flag blocks step 6, not step 5', not exists (select 1 from unnest(private.cb_step_problems(:'f', 'entries')) p where p like '%flagged%'));
-select test.check('step 6 lists every open item', (:p6) = '4 flagged changes to explain on the lead sheets. | 1 new account to confirm. | Accounts not used this year: tick Seen. | What changed this year: 6 questions to answer.');
+select test.check('step 6 lists every open item', (:p6) = '4 flagged changes to explain in Flagged changes. | 1 new account to confirm. | Accounts not used this year: tick Seen. | What changed this year: 6 questions to answer.');
 select test.check('the two account lists (Vehicle lease new; Insurance not used)', (select string_agg(kind || ':' || account_key, ',' order by kind) from private.cb_compare_accounts(:'f')) = 'new:67300,unused:62000');
 
 -- T1: the keys. Step 6 is signed only with the new key; the old key is refused.

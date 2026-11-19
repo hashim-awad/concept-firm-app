@@ -1,5 +1,5 @@
-# Runs on every push: database tests on a throwaway Postgres, then lint and build.
-# Uses no secrets and touches no Supabase project.
+# Runs on every push: database tests on a throwaway Postgres, then lint and build, and the name check.
+# Touches no Supabase project. One secret, CLIENT_NAMES, is passed only to the name check step (never printed).
 name: Checks
 
 on:
@@ -19,6 +19,20 @@ jobs:
         with:
           fetch-depth: 0
       - run: bash scripts/checks/migration-order.sh
+
+  # Piece 10b: no business number that passes CRA's check digit, and no client name, in the files this branch changes or
+  # its commit messages (scripts/checks/name-check.sh). A hit names the file and line, never the value. Runs no npm code.
+  name-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Name check
+        env:
+          CLIENT_NAMES: ${{ secrets.CLIENT_NAMES }}
+        run: bash scripts/checks/name-check.sh
 
   database-tests:
     runs-on: ubuntu-latest

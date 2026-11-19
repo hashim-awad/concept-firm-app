@@ -39,7 +39,7 @@ select id as amo from public.cb_accounts where file_id = :'f' and number = '8670
 -- Steps 5 to 8 signed (dummy fixture).
 create temporary table sign_all as select 1;
 \set signed 'insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) select :''f'', s, ''00000000-0000-0000-0000-00000000000c'', now() from unnest(array[''entries'', ''compare'', ''review'', ''t2'']) s on conflict (file_id, step) do update set prepared_at = excluded.prepared_at, prepared_by = excluded.prepared_by'
-\set state 'select string_agg(step, \',\' order by step) from public.cb_step_signoffs where file_id = :''f'' and step in (''entries'', ''compare'', ''review'', ''t2'') and prepared_at is not null'
+\set state 'select coalesce(string_agg(step, \',\' order by step), \'none\') from public.cb_step_signoffs where file_id = :''f'' and step in (''entries'', ''compare'', ''review'', ''t2'') and prepared_at is not null'
 :signed;
 select test.check('fixture: steps 5 to 8 signed', (:state) = 'compare,entries,review,t2');
 
@@ -65,13 +65,13 @@ select public.cb_delete_entry(:'tje');
 reset role; reset request.jwt.claims;
 select test.check('T2: the TJE deleted: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'compare,entries,review');
 
--- T4: an AJE added: cleared exactly as before (step 5, and 7 and 8 through the chain; step 6 stays).
+-- T4: an AJE added: step 5, and 7 and 8 through the chain; piece 10b: step 6 too (a balance moved).
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing') as aje \gset
 reset role; reset request.jwt.claims;
-select test.check('T4: an AJE clears steps 5, 7 and 8 as before', (:state) = 'compare');
+select test.check('T4: an AJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
 
 -- T3: an AJE changed into a TJE, and back: each an AJE change.
 :signed;
@@ -79,24 +79,24 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'TJE', 'tax', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: AJE into TJE clears steps 5, 7 and 8', (:state) = 'compare');
+select test.check('T3: AJE into TJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: TJE into AJE clears steps 5, 7 and 8', (:state) = 'compare');
+select test.check('T3: TJE into AJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
 
 -- T5, T6, T6b: the flags (step 6's check since piece 10).
 \set flags 'select coalesce((select p from unnest(private.cb_step_problems(:''f'', ''compare'')) p where p like ''%flagged change%''), ''none'')'
-select test.check('T6: the AJE moves accounting fees from 8,000.00 to 14,000.00: flagged as before', (:flags) = '1 flagged change to explain on the lead sheets.');
-select test.check('T5: income tax expense (INCTAX, 9,000.00 last year, nothing this year) is not flagged', (:flags) = '1 flagged change to explain on the lead sheets.');
+select test.check('T6: the AJE moves accounting fees from 8,000.00 to 14,000.00: flagged as before', (:flags) = '1 flagged change to explain in Flagged changes.');
+select test.check('T5: income tax expense (INCTAX, 9,000.00 last year, nothing this year) is not flagged', (:flags) = '1 flagged change to explain in Flagged changes.');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12000), jsonb_build_object('account', :'itp', 'amount', -12000)), 'Income tax schedule');
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Amortization for the year.', false, jsonb_build_array(jsonb_build_object('account', :'amo', 'amount', 6400), jsonb_build_object('account', :'acc', 'amount', -6400)), 'Capital assets schedule');
 reset role; reset request.jwt.claims;
-select test.check('T5/T6b: after a TJE of 12,000.00 (expense and payable) and amortization of 6,400.00: no new flag', (:flags) = '1 flagged change to explain on the lead sheets.');
+select test.check('T5/T6b: after a TJE of 12,000.00 (expense and payable) and amortization of 6,400.00: no new flag', (:flags) = '1 flagged change to explain in Flagged changes.');
 select test.check('T5: the payable and the accumulated amortization move by the TJEs only: final balances include them',
   (select private.cb_account_final(:'itp')) = -12000 and (select private.cb_account_final(:'acc')) = -20800);
 set role authenticated;

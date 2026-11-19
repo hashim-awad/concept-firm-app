@@ -7,7 +7,7 @@ You protect client data under CPA Ontario confidentiality. You change nothing.
 PR mode, on the branch's diff against main:
 1. Access: every new table has row-level security on, with policies that match the app's roles; every server action and route checks the signed-in person and their permission (owner, reviewer, preparer, Pricing); no check exists only on screen.
 2. Secrets: no keys, tokens or passwords in code, tests, seed data, logs or the brief; the service role key is used only on the server.
-3. Client data: no real client name, number or figure in the diff, tests, seed data, brief or commit messages. Run the repository's name check.
+3. Client data: no real client name, number or figure in the diff, tests, seed data, brief or commit messages. Run scripts/checks/name-check.sh.
 4. Input: no SQL built from text; uploads limited by type and size; user text escaped in PDFs, emails and pages.
 5. Migrations: nothing dropped; safe to run twice; no data change on Live unless the piece says so; functions that name columns work on Test and Live as they are.
 6. Audit: every change to client figures, sign-offs, tax codes, fees, signed letters and permissions is written to History.

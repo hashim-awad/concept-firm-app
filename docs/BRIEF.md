@@ -542,6 +542,43 @@ In short:
 - Step 5 restructure plan (Hashim, Nov 18, 2026; benchmark CaseWare Cloud). The plan of the Round A message as updated by Hashim's brief, built as 11 small pieces, one branch, PR and at most one migration each, merged one at a time. When all are done: 1 Set up, 2 Opening balances, 3 Banking, 4 Code transactions (unchanged); 5 Adjustments (last year's line, the Schedules table, the existing entries list); 6 Compare to last year (new key; flagged changes, new accounts, accounts not used, what changed this year); 7 Review (the reviewer's step, also holding the reviewer's GIFI checks and the shareholder loan answers); 8 Tax returns (as built, plus the GST/HST revenue comparison); 9 Statements and 10 Deliver and lock (unchanged). GIFI matching becomes a view in the Trial balance tab; the Entries tab goes once step 5 holds the list.
   - Pieces: 1 CRA rates page; 2 edit an entry in place; 3 the schedule engine and Vehicle allowance; 4 Home office, and "Home office" and "Auto expenses" hidden from "From a standard entry" (their records and tax settings stay, so Expenses paid personally works as now); 5 step 5 becomes "Adjustments"; 6 TJEs keep steps 5, 6 and 7 signed (a TJE still clears step 8) and lead sheet flags ignore tax entries; 7 the revenue check becomes a schedule, its GST/HST figure moves to step 8; 8 shareholder loans move to Reporting and to the reviewer in step 7; 9 GIFI matching as a Trial balance view with a Tools shortcut; 10 step 6 becomes "Compare to last year" (the only piece that changes a step key; the new step 6 starts unsigned on every file, nothing is copied); 11 the Entries tab goes and the step texts are corrected.
   - Rules for every piece: steps 1 to 4 untouched; no schedule or step is switched on or off by a setup answer (reading a fact about the client is fine: "Claim the ITC" shows and is ticked when the file is registered on the regular method, as Expenses paid personally does); no step key or number changes unless the piece says so; no migration drops a table or column; no data change to any Live file; an existing test changes only where the piece approves it; the five sign-off gaps from Round A wait for their own round; the Lock message's TaxDome wording stays (staff screen). A person cannot create an account without a GIFI line; imports still save unmatched accounts (shown under "Unmatched"); Clearing 10900 and the two system rows stay exempt.
+- Piece 10b, step 6 reopens on late changes; business numbers replaced; automatic name check (Hashim, Nov 19, 2026,
+  version 1; benchmark CaseWare Cloud: a signed analytical review is marked changed when its balances move).
+  - Step 6 clears whenever a balance moves (Hashim's answer, Nov 19, 2026: the piece's "every change that clears step 5 today"
+    did not match the code, where step 4, trial balance and opening changes clear steps 7 and 8 but not step 5): an AJE or RJE
+    added or deleted, its lines changed, or its type or date changed; a step 4 coding change; a trial balance import; an
+    opening balance change; and on bank and card files, statement lines added or removed, a statement added or deleted, or an
+    account's opening balance or chart account changed, even when step 3 is not fully signed; a posted line split again
+    (a coding change, Hashim's decision: steps 4, 6, 7 and 8, as recoding a line). Steps 7 and 8 clear through the chain as
+    before.
+    Step 5's own rules do not change: step 4, trial balance and opening changes still do not clear step 5.
+  - These leave step 6 signed: a statement changed in place (its file replaced), a split's memo, a revenue check explanation
+    or source, an entry's note, reason, W/P ref or attachments (an entry edit reopens step 6 only when a line changes), an
+    entry approved, a TJE (step 8 only, piece 6), and the owner's decision on an account sent to the reviewer (clears nothing).
+    Explanations, ticks and answers clear steps 6 and 7 only; GIFI line, tax code and type changes clear steps 6, 7 and 8 (and
+    step 4 on trial balance files), as in piece 10. History names the change on each clearing.
+  - Step 6's refusal reads "N flagged change(s) to explain in Flagged changes."
+  - Deferred to a later piece (Hashim, Nov 19, 2026): an explanation tied to the amount it explains ("Changed since
+    explained"), and step 6 held while step 4 lines wait for the reviewer.
+  - Business numbers: the three 9-digit values in the code that passed CRA's check digit were replaced with made-up numbers
+    that fail it (the two TaxDome test numbers, and an all-one-digit dummy in the GIFI sample, its test, an email fixture and a
+    dummy CSV). No git history rewrite (Hashim's decision).
+  - Name check: scripts/checks/name-check.sh runs in CI (Checks, job "name-check") on every push. It scans the changed files,
+    the lines added against main and the commit messages for (a) 9-digit numbers, plain or written 3-3-3, that pass CRA's
+    check digit, and (b) client names from the GitHub Actions secret CLIENT_NAMES (one per line; skipped with a warning when
+    the secret is not set). A hit fails the check and names the file and line, never the value. No number allow list.
+  - Hashim's decisions on the agent reports (Nov 19, 2026): each "yes" in What changed this year needs the reviewer's Mark
+    reviewed before step 7 is signed (kept); "Clear step 6" removes explanations, ticks and answers (kept); engagement letters
+    stay signed "Hashim Abouelfetouh, CPA" (decision 25 stands); no new disclosure for data processed outside Canada (the
+    engagement letter covers third-party software); a client reminder on day 7 for unsigned quotes, with a staff email and a
+    bell notice on signing, is a separate front office piece; two-step sign-in is on for GitHub, Vercel and Supabase.
+  - For the next security piece (Hashim, Nov 19, 2026; security review of piece 10b, not built now): the name check only lists
+    binary files a branch adds or changes (as warnings) and should fail on an unreviewed one (a reviewed list by path and
+    hash); it does not scan branch names, PR titles and bodies, tags, commit authors, commit messages on main, removed lines
+    or history, or numbers split across lines; CLIENT_NAMES is offered to every pushed branch, so make "name-check" a required
+    check on main and keep write access limited (CODEOWNERS for scripts/checks and .github/workflows); the three old values
+    stay in git history and on old remote branches (delete merged branches; no history rewrite, Hashim's decision).
+  - Migration 20261212350000 (functions and triggers only; no drops; no data change; safe to run twice).
 - Piece 10, step 6 becomes "Compare to last year" (Hashim, Nov 19, 2026, version 2; mock L; benchmark CaseWare Cloud's analytical
   review: last year against this year, with the preparer's explanations and the reviewer's sign-off). The only piece that changes a
   step key: step 6's key is now "compare"; "mapping" is retired, never reused, and still accepted by the key rules so old rows fit
