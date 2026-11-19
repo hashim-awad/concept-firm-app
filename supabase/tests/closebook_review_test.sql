@@ -118,16 +118,23 @@ select test.check('cleared notes are closed with who and when', (select count(*)
 select test.check('the history has every note action',
   (select string_agg(action, ',' order by id) from public.cb_file_history where file_id = :'f' and action like 'note%') = 'note_added,note_added,note_replied,note_fixed,note_reopened,note_cleared,note_cleared');
 
--- Step 5: a flagged change must be explained on the lead sheets first.
+-- Step 5: piece 10 moved the explanations to step 6; step 5 no longer needs them.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 -- Round 9: the revenue check ties out (commission statement, GST/HST returns, the brokerage's T4A).
 select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Tax worksheet', 20000, 'files/statement.pdf');
 select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return', 20000, 'files/gst.pdf');
 select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A', 20000, 'files/t4a.pdf');
-select test.check('step 5: flagged changes to explain', test.try(format($q$select public.cb_sign_step(%L, 'entries', 'prepared')$q$, :'f')) = 'Not yet: 3 flagged changes to explain on the lead sheets.');
-select public.cb_explain_flag(id, 'revenue_grew', 'First full year of trading.') from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'entries', 'prepared');
+reset role;
+reset request.jwt.claims;
+select test.check('step 6: flagged changes to explain', private.cb_step_problems(:'f', 'compare') @> array['3 flagged changes to explain on the lead sheets.']);
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_explain_flag(id, 'revenue_grew', 'First full year of trading.') from public.cb_accounts where file_id = :'f';
+-- Piece 10: step 6's other items (the three accounts are new this year; nothing went unused; the six questions).
+select public.cb_confirm_new_account(:'f', account_key, true) from public.cb_accounts where file_id = :'f' and last_year = 0 and this_year <> 0;
+select public.cb_answer_year_change(:'f', q, false, '') from unnest(array['assets', 'loans', 'shareholders', 'related', 'revenue', 'equity']) q;
 reset role;
 reset request.jwt.claims;
 
@@ -142,8 +149,10 @@ select public.cb_sign_step(:'f', 'records', 'prepared');
 select public.cb_sign_step(:'f', 'records', 'reviewed');
 select public.cb_sign_step(:'f', 'code', 'reviewed');
 select public.cb_sign_step(:'f', 'entries', 'reviewed');
-select public.cb_sign_step(:'f', 'mapping', 'prepared');
-select public.cb_sign_step(:'f', 'mapping', 'reviewed');
+select public.cb_sign_step(:'f', 'compare', 'prepared');
+select public.cb_sign_step(:'f', 'compare', 'reviewed');
+-- Piece 10: the reviewer marks the new accounts reviewed in step 7.
+select public.cb_review_new_account(:'f', account_key, true) from public.cb_accounts where file_id = :'f' and last_year = 0 and this_year <> 0;
 reset role;
 reset request.jwt.claims;
 select test.check('the history says when one person prepared and reviewed', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reviewed' and step = 'setup' and detail = 'Prepared and reviewed by the same person'));
@@ -171,7 +180,7 @@ select public.cb_map_account(id, '8860.00') from public.cb_accounts where file_i
 reset role;
 reset request.jwt.claims;
 select test.check('a line change on a trial balance file clears steps 4 and 7, and step 6',
-  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'mapping', 'review'))
+  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare', 'review'))
   and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries'));
 select test.check('history is for owners only: the preparer sees none', true);
 set role authenticated;

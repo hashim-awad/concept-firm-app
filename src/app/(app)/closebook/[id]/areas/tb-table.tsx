@@ -103,7 +103,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           <Popover align="right" width="w-80" label={r.notes ? `${r.notes} review note${r.notes === 1 ? "" : "s"}` : "Add review note"}
             button={<span className={`relative ${r.notes ? "text-danger" : "hover:text-navy-700"}`}><MessageSquare className="h-3.5 w-3.5" fill={r.notes ? "currentColor" : "none"} />{r.notes > 0 && <span className="absolute -top-2 -right-1.5 text-[9px] font-bold">{r.notes}</span>}</span>}>
             <form action={addNote} className="grid gap-2 text-left">
-              <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="step" value="mapping" /><input type="hidden" name="target_type" value="account" />
+              <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="step" value="compare" /><input type="hidden" name="target_type" value="account" />
               <input type="hidden" name="target_id" value={r.id} /><input type="hidden" name="back" value={`/closebook/${fileId}?area=tb&tbv=${view}#a-${r.key}`} />
               <label className="text-xs font-bold" htmlFor={`tn-${r.key}`}>Review note · {r.number} {r.name}</label>
               <textarea id={`tn-${r.key}`} name="body" rows={3} maxLength={2000} className="input" />
@@ -115,7 +115,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           : <span title="No review note"><MessageSquare className="h-3.5 w-3.5" /></span>}
         <button type="button" disabled={pending || r.reviewer} onClick={() => sendToReviewer(r)} title={r.reviewer ? "With the reviewer" : "Send to the reviewer"} aria-label={`Send ${r.name} to the reviewer`}
           className={r.reviewer || r.flagged ? "text-warning" : "hover:text-navy-700"}><Flag className="h-3.5 w-3.5" fill={r.reviewer ? "currentColor" : "none"} /></button>
-        <Link href={`/closebook/${fileId}?step=mapping&edit=${r.id}`} title="Change the GIFI line" aria-label={`Change the GIFI line of ${r.name}`} className="hover:text-navy-700"><Pencil className="h-3.5 w-3.5" /></Link>
+        <Link href={`/closebook/${fileId}?area=tb&tbv=match&edit=${r.id}`} title="Change the GIFI line" aria-label={`Change the GIFI line of ${r.name}`} className="hover:text-navy-700"><Pencil className="h-3.5 w-3.5" /></Link>
       </span> : r.flagged ? <Flag className="inline h-3.5 w-3.5 text-warning" /> : null}
       {msg?.key === r.key && <span className={`ml-2 text-[11px] ${msg.text === "Sent to the reviewer." ? "text-success" : "text-danger"}`}>{msg.text}</span>}
     </td>

@@ -12,7 +12,7 @@ import { fileSteps, fromStatements, SIGNED_STEPS, stepFromLegacy, stepPapers, ST
 import { loadReview, stepSigns } from "@/lib/closebook/review-server";
 import { CB_CHECKLIST, CB_CHECKLIST_V1, cbText } from "@/lib/closebook/client-wording";
 import { loadWordingState } from "@/lib/studio/wording-state";
-import { entryNo } from "@/lib/closebook/reports";
+import { entryNo, pctChange } from "@/lib/closebook/reports";
 import { AREAS, FileShell, PageTitle, PanelHead, PanelLink, PaperMark, SignCircles, StepMark, StepTitle, type Area, type FileStatus } from "./shell/shell";
 import { paperProgress, stepProgress, stepsDone, type ProgressFacts } from "@/lib/closebook/step-progress";
 import { SaveForm, SaveFormButton, SaveFormDiscard } from "@/components/save-state";
@@ -33,6 +33,8 @@ import { ReviewLines, type ReviewAccountRow } from "./feed/review-lines";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
 import { TbTab } from "./tb-tab";
+import { CompareStep, NewAccountsReview, MarkReviewed } from "./compare-step";
+import { compareLists, flagRuleText, YEAR_QUESTIONS } from "@/lib/closebook/compare";
 import { entryDialog } from "./areas/entry-dialog";
 import { RevenueCheck } from "./revenue-check";
 import { ShReview, owedLine, type ShNotedRow } from "./sh-review";
@@ -113,6 +115,14 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       supabase.from("cb_file_fs").select("first_year, dividends, mal_sent_at").eq("file_id", id).maybeSingle(),
     ]),
   ]);
+  // Piece 10: step 6's ticks and answers (the step list's progress, step 6 and step 7 read them).
+  const [{ data: naRaw }, { data: seenRow }, { data: ycRaw }] = await Promise.all([
+    supabase.from("cb_new_accounts").select("account_key, confirmed_line, reviewed_line, reviewed_by, reviewed_at").eq("file_id", id),
+    supabase.from("cb_compare_seen").select("seen_key").eq("file_id", id).maybeSingle(),
+    supabase.from("cb_year_changes").select("question, answer, note, reviewed_by, reviewed_at").eq("file_id", id),
+  ]);
+  const newTicks = (naRaw ?? []) as { account_key: string; confirmed_line: string | null; reviewed_line: string | null; reviewed_by: string | null; reviewed_at: string | null }[];
+  const yearChanges = (ycRaw ?? []) as { question: string; answer: boolean; note: string; reviewed_by: string | null; reviewed_at: string | null }[];
   if (!data) notFound();
   // Round 34: on a bank file step 3 is signed as soon as 3.1, 3.2 and 3.3 are, and only then.
   if (subs) {
@@ -163,7 +173,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     openingTyped: !!file.opening_source || !!file.first_year || (fsRow?.first_year !== null && fsRow?.first_year !== undefined) || file.opening_re_stated !== null && file.opening_re_stated !== undefined, imported: imports.some((i) => i.target === "this_year"),
     statements, coded: coding.lines - coding.open, matched: accounts.filter((a) => a.mapping_source === "preparer").length,
     entries: entries.length, revenueCheck: !!revN.count, shNotes: shN.count ?? 0, expensesBooked: entries.some((e) => e.origin === "expenses_personal"),
-    mappingDecisions: accounts.filter((a) => a.mapping_source === "reviewer" || a.type_confirmed_by || a.side_confirmed_by).length,
+    compareWork: data.notes.size + newTicks.length + (seenRow ? 1 : 0) + yearChanges.length,
     reviewNotes: review.notes.length, reviewedSteps: Object.values(signMap).filter((x) => x?.reviewed).length,
     gifiExports: gifiN.count ?? 0, t2Tieout: !!tieN.count, gstReturn: !!gstN.count, fsTyped: (() => { const d = fsRow?.dividends as unknown; return Array.isArray(d) ? d.length > 0 : !!d && typeof d === "object" && Object.keys(d).length > 0; })(), malSent: !!fsRow?.mal_sent_at,
     checklistAnswers: chkN.count ?? 0, closeTyped: !!closeN.count,
@@ -179,7 +189,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       || sideFlag(a, ref.lines.find((l) => l.line_no === a.line_no), finalOf(a)) === "open").length,
     entries: entries.length, people,
   });
-  const asked = str(sp.step) as StepKey | undefined;
+  // Piece 10: an old link to the retired step 6 key opens the new step 6.
+  const asked = (str(sp.step) === "mapping" ? "compare" : str(sp.step)) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
   const showHistory = access.is_owner && str(sp.history) === "1";
@@ -195,7 +206,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={extra.at ?? href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
-      noteStep={access.is_owner && ["code", "mapping"].includes(base) ? base : undefined} />
+      noteStep={access.is_owner && ["code", "compare"].includes(base) ? base : undefined} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
 
@@ -206,7 +217,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const backHref = back && back.startsWith(`/closebook/${id}?`) ? back : null;
 
   // What makes up "Opening balances to enter", shown when its row is opened (round 2 item 8).
-  const openingCauses = bankFile && (step === "mapping" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
+  const openingCauses = bankFile && (step === "compare" || step === "review") && openingRow ? (await livePostings(supabase, id))?.causes ?? [] : [];
   let body: React.ReactNode;
   let pk: PackageData | null = null;
   if (step === "opening") {
@@ -382,10 +393,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       body = <>{top}{ea.content}</>;
     }
   } else if (step === "review") {
-    // Step 6 (round 8): the reviewer's list, the open notes and the completion checklist; the lead sheets
-    // are one click away, where the preparer explains the flagged changes for step 5.
-    if (view === "lead") body = accounts.length ? tb("review", ["lead"], "lead", false) : soon("The lead sheets open once there is a trial balance.");
-    else {
+    // Step 7 (round 8): the reviewer's list, the open notes and the completion checklist. Piece 10: the lead sheets moved to step 6.
+    {
       // Every amount as the working papers show it: a negative in brackets (round 9b item 2).
       const amt = (v: number) => { const t = Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return v < 0 ? `(${t})` : t; };
       const lineOf = (no: string | null) => ref.lines.find((l) => l.line_no === no);
@@ -419,12 +428,29 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             .map((f: { account_key: string; flag: ShFlag; closing: number }) => ({ href: `${href("review")}#sh-review`,
               label: `${f.account_key.startsWith("sh:") ? `Shareholder ${f.account_key.slice(3)}` : "Shareholder"}: ${flagText(f.flag, Math.round(Number(f.closing) * 100), file.year_end)}`, detail: "To decide.", amount: amt(Number(f.closing)) })),
         ] },
-        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 6", items: bankFile ? [] : accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
+        // Piece 10: the reviewer's GIFI checks are step 7's; each opens the account on the Trial balance tab's GIFI matching view.
+        { key: "mapping", title: "Accounts for the reviewer's decision", step: "step 7", items: bankFile ? [] : accounts.filter((a) => (a.needs_reviewer && !["opening", "uncoded"].includes(a.account_key)) || typeFlag(a, lineOf(a.line_no)) === "open"
           || sideFlag(a, lineOf(a.line_no), finalOf(a)) === "open").map((a) => (
-          { href: `${href("mapping")}&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
+          { href: `/closebook/${id}?area=tb&tbv=match&edit=${a.id}`, label: `${a.number ? `${a.number} ` : ""}${a.name}`,
             detail: a.needs_reviewer ? a.reviewer_reason : [typeFlag(a, lineOf(a.line_no)) === "open" ? typeFlagText(a, lineOf(a.line_no)) : "", sideFlagText(a, lineOf(a.line_no), finalOf(a))].filter(Boolean).join(" "),
             amount: amt(finalOf(a)) })) },
       ];
+      // Piece 10: each "yes" in step 6's "What changed this year" waits here until the reviewer marks it reviewed.
+      const ycOpen = file.phase !== "locked" && editable && access.is_owner;
+      groups.push({ key: "year_changes", title: "What changed this year", step: "step 6", items: YEAR_QUESTIONS.flatMap(([q, text]) => {
+        const y = yearChanges.find((x) => x.question === q && x.answer && !x.reviewed_at);
+        return y ? [{ href: `${href("compare")}#year-changes`, label: `${text}: Yes`, detail: y.note, action: ycOpen ? <MarkReviewed fileId={id} question={q} /> : undefined }] : [];
+      }) });
+      // Piece 10: the new accounts of step 6 and their GIFI lines, each marked reviewed by the reviewer.
+      const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const amt7 = (c: number) => amt(c / 100);
+      const lineName7 = (no: string | null) => { if (!no) return ""; const l = ref.lines.find((x) => x.line_no === no); return `${no.replace(/\.00$/, "")}${l ? ` ${l.name}` : ""}`; };
+      const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} isOwner={access.is_owner}
+        rows={cmp7.newAccounts.map((r) => { const t = newTicks.find((x) => x.account_key === r.key);
+          return { key: r.key, label: `${r.number ? `${r.number} ` : ""}${r.name}`, line: lineName7(r.line), amount: amt7(r.finalCents),
+            ledger: `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(r.key)}&back=${encodeURIComponent(href("review"))}`,
+            confirmed: !!t && t.confirmed_line === r.line,
+            reviewed: t?.reviewed_at && t.reviewed_line === r.line ? `${firstName(names.get(t.reviewed_by ?? "") ?? "")} ${formatDate(t.reviewed_at)}`.trim() : "" }; })} /> : null;
       const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `Step ${x.n}, ${x.name}` : k; };
       const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
         { href: `${href(n.step)}#note-${n.id}`, label: `${stepName(n.step)}${n.target_label ? `: ${n.target_label}` : ""}`,
@@ -448,11 +474,31 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           accounts={acctRows} stepFour={href("code")} />;
       }
       body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
-        extra={shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} names={names} /> : null} />;
+        extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} names={names} /> : null}</>} />;
     }
-  } else if (step === "mapping") {
-    // Piece 9: the "Unmatched" filter, as on the Trial balance tab's GIFI matching view (the same screen).
-    body = accounts.length ? tb("mapping", ["accounts", "lines", "unmatched"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
+  } else if (step === "compare") {
+    // Piece 10 (Hashim, Nov 19, 2026; mock L; CaseWare Cloud's analytical review): "Compare to last year", the preparer's page.
+    // The lead sheets view moved here from step 7. GIFI matching is on the Trial balance tab (piece 9).
+    if (view === "lead") body = accounts.length ? <><Link href={href("compare")} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline" data-compare-back>‹ Compare to last year</Link>
+      {tb("compare", ["lead"], "lead", false)}</> : soon("The lead sheets open once there is a trial balance.");
+    else {
+      const amt6 = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
+      const lineName = (no: string | null) => { if (!no) return ""; const l = ref.lines.find((x) => x.line_no === no); return `${no.replace(/\.00$/, "")}${l ? ` ${l.name}` : ""}`; };
+      const ledger = (key: string) => `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(key)}&back=${encodeURIComponent(href("compare"))}`;
+      const label = (r: { number: string; name: string }) => `${r.number ? `${r.number} ` : ""}${r.name}`;
+      const cmp = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const seenKeys = new Set((seenRow?.seen_key ?? "").split(",").filter(Boolean));
+      const seen = cmp.unused.length > 0 && cmp.unused.length === seenKeys.size && cmp.unused.every((r) => seenKeys.has(r.key));
+      const st6 = review.status.compare;
+      body = <CompareStep fileId={id} editable={editable && file.phase !== "locked"} flagRule={flagRuleText(ref.flag)} leadHref={`${href("compare")}&view=lead`}
+        flagged={cmp.flagged.map((r) => ({ id: r.id, label: label(r), last: amt6(r.lastCents), final: amt6(r.finalCents), change: amt6(r.changeCents),
+          pct: pctChange(r.finalCents, r.lastCents), ledger: ledger(r.key), note: data.notes.get(r.id) }))}
+        newAccounts={cmp.newAccounts.map((r) => ({ key: r.key, label: label(r), line: lineName(r.line), amount: amt6(r.finalCents), ledger: ledger(r.key),
+          confirmed: newTicks.some((t) => t.account_key === r.key && t.confirmed_line === r.line) }))}
+        unused={cmp.unused.map((r) => ({ key: r.key, label: label(r), line: lineName(r.line), amount: amt6(r.lastCents), ledger: ledger(r.key) }))}
+        seen={seen} answers={Object.fromEntries(yearChanges.map((y) => [y.question, { answer: y.answer, note: y.note }]))}
+        canSign={editable && file.phase !== "locked" && !st6?.prepared_at} back={href("compare")} />;
+    }
   } else if (step === "t2") {
     // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
     const g = accounts.length ? await gifiFor(supabase, id) : null;
@@ -544,12 +590,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           clear: step === "records" || step === "review" ? "nothing" : stStep?.prepared_at ? "signed" : "ok" } : null} />
     );
     body = <>{title}
-      {step === "review" && (
-        <div className="mb-3 inline-flex overflow-hidden rounded-md border border-sand-300 text-[12.5px]">
-          <Link href={href("review")} className={`px-3 py-1 ${view !== "lead" ? "bg-navy-700 font-semibold text-white" : "text-ink-2 hover:bg-sand-50"}`}>Review list</Link>
-          <Link href={`${href("review")}&view=lead`} className={`border-l border-sand-300 px-3 py-1 ${view === "lead" ? "bg-navy-700 font-semibold text-white" : "text-ink-2 hover:bg-sand-50"}`}>Lead sheets</Link>
-        </div>
-      )}
       {body}</>;
   }
 
@@ -605,7 +645,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       ? <ReclassifyPage data={await loadReclassify(supabase, file, rdata, entries)} initialAccount={str(sp.account)} />
       // Piece 9 (benchmark CaseWare Cloud): step 6's matching screen, whole, on the Trial balance tab (Tools > Match accounts to GIFI).
       : tbv === "match" && !report
-      ? (accounts.length ? <><PageTitle>Trial balance · GIFI matching</PageTitle>{tb("mapping", ["accounts", "lines", "unmatched"], "accounts", false, { at: `/closebook/${id}?area=tb&tbv=match` })}</>
+      ? (accounts.length ? <><PageTitle>Trial balance · GIFI matching</PageTitle>{tb("compare", ["accounts", "lines", "unmatched"], "accounts", false, { at: `/closebook/${id}?area=tb&tbv=match` })}</>
         : soon("GIFI matching opens once the trial balance is there."))
       : report && report !== "tb"
       ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
@@ -616,7 +656,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             { n: coding.reviewer, one: "with the reviewer", many: "with the reviewer", href: href("code") },
             { n: coding.ask, one: "with the client", many: "with the client", href: href("code") },
             { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
-            { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key) && (a.account_key !== "chart:10900" || Math.round(a.this_year * 100) !== 0)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: href("mapping") },
+            { n: accounts.filter((a) => !a.line_no && !["opening", "uncoded"].includes(a.account_key) && (a.account_key !== "chart:10900" || Math.round(a.this_year * 100) !== 0)).length, one: "account without a GIFI line", many: "accounts without a GIFI line", href: `/closebook/${id}?area=tb&tbv=match` },
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} isOwner={access.is_owner} editable={editable && file.phase !== "locked"}
           view={tbv === "accounts" || tbv === "gifi" ? tbv : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}

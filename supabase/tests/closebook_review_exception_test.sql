@@ -28,36 +28,38 @@ reset role;
 select test.check('an account for the reviewer, and an asset on an expense line, wait for the reviewer',
   (select private.cb_step_waiting(:'f', 'mapping')) = array['1 account waiting for the reviewer''s decision.', '1 account on a GIFI line of another type.']);
 set role authenticated;
--- The preparer signs steps 4 and 7 although those items wait.
+-- The preparer signs steps 4 and 6 although those items wait. Piece 10: step 6 is "Compare to last year" (key compare); its own
+-- rules are tested in compare_last_year_piece10_test, so its preparer's sign-off is recorded here as a fixture.
 select public.cb_sign_step(:'f', 'code', 'prepared');
-select public.cb_sign_step(:'f', 'mapping', 'prepared');
 reset role;
 reset request.jwt.claims;
+insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:'f', 'compare', '00000000-0000-0000-0000-00000000000c', now());
 select test.check('items waiting for the reviewer do not hold the preparer', (select count(*) from public.cb_step_signoffs where file_id = :'f' and prepared_at is not null) = 2);
 
--- The reviewer cannot sign while anything waits.
+-- The reviewer cannot sign while anything waits: piece 10, in step 7.
+select test.check('the reviewer cannot sign step 7 while items wait',
+  private.cb_review_problems(:'f') @> array['1 account waiting for the reviewer''s decision.', '1 account on a GIFI line of another type.']);
+-- The reviewer decides both: the preparer's sign-offs stay.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the reviewer cannot sign step 7 while items wait',
-  test.try(format($q$select public.cb_sign_step(%L, 'mapping', 'reviewed')$q$, :'f')) = 'Not yet: 1 account waiting for the reviewer''s decision. 1 account on a GIFI line of another type.');
--- The reviewer decides both: the preparer's sign-offs stay.
 select public.cb_map_account(id, '8230.00') from public.cb_accounts where file_id = :'f' and name = 'Mystery receipts';
 select public.cb_confirm_type(id, 'Small tools under the capitalization limit, expensed by policy.') from public.cb_accounts where file_id = :'f' and name = 'Computer gear';
 reset role;
 reset request.jwt.claims;
-select test.check('the reviewer''s decisions keep the preparer''s sign-offs on steps 4 and 7',
-  (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'mapping') and prepared_at is not null) = 2);
+select test.check('the reviewer''s decisions keep the preparer''s sign-offs on steps 4 and 6',
+  (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare') and prepared_at is not null) = 2);
+select test.check('nothing of them waits in step 7 any more',
+  not exists (select 1 from unnest(private.cb_review_problems(:'f')) p where p like '%reviewer''s decision%' or p like '%of another type%'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_sign_step(:'f', 'mapping', 'reviewed');
 select public.cb_sign_step(:'f', 'code', 'reviewed');
 -- Any other change still clears: the reviewer moving an account that waited for nothing.
 select public.cb_map_account(id, '8811.00') from public.cb_accounts where file_id = :'f' and name = 'Office costs';
 reset role;
 reset request.jwt.claims;
 select test.check('any other change, even by the reviewer, clears the sign-offs',
-  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'mapping')));
-select test.check('and the history names it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'mapping'
+  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare')));
+select test.check('and the history names it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'compare'
   and detail = 'Office costs: GIFI 8810 to 8811'));
 
 -- A bank-statement file: a line sent to the reviewer.

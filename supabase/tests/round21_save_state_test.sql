@@ -104,12 +104,13 @@ select public.cb_clear_typed_step(:'f', 'entries');
 reset role;
 select test.check('step 5: the revenue check explanation is gone', not exists (select 1 from public.cb_revenue_checks where file_id = :'f'));
 
--- ---------- 6. Step 6: the reviewer's decisions ----------
-update public.cb_accounts set type_confirm_reason = 'Kept: a dummy reason', type_confirmed_by = :A, type_confirmed_at = now() where file_id = :'tb' and account_key = 'tb:2';
+-- ---------- 6. Step 6 (piece 10: "Compare to last year"): the explanations, ticks and answers ----------
+insert into public.cb_flag_notes (account_id, file_id, reason, note, explained_by) select id, :'tb', 'other', 'A dummy note', :A from public.cb_accounts where file_id = :'tb' and account_key = 'tb:2';
+insert into public.cb_year_changes (file_id, question, answer, note, answered_by) values (:'tb', 'loans', true, 'A dummy loan', :A);
 set role authenticated;
-select public.cb_clear_typed_step(:'tb', 'mapping');
+select public.cb_clear_typed_step(:'tb', 'compare');
 reset role;
-select test.check('step 6: the type decision is cleared', (select type_confirm_reason is null and type_confirmed_by is null from public.cb_accounts where file_id = :'tb' and account_key = 'tb:2'));
+select test.check('step 6: the explanations and answers are cleared', not exists (select 1 from public.cb_flag_notes where file_id = :'tb') and not exists (select 1 from public.cb_year_changes where file_id = :'tb'));
 
 -- ---------- 7. Step 8: the T2 tie-out figures ----------
 insert into public.cb_t2_tieouts (file_id, net_income, total_assets, entered_by) values (:'f', 1000, 5000, :C);

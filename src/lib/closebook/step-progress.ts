@@ -24,7 +24,7 @@ export type ProgressFacts = {
   revenueCheck: boolean;         // the revenue check explained or saved (step 5)
   shNotes: number;               // shareholder loan flags answered (step 5)
   expensesBooked: boolean;       // "Expenses paid personally" booked (step 5)
-  mappingDecisions: number;      // GIFI decisions: lines set by the reviewer, types or sides kept with a reason (step 6)
+  compareWork: number;           // piece 10: explanations, ticks and answers typed in step 6
   reviewNotes: number;           // review notes written on the file (step 7)
   reviewedSteps: number;         // steps the reviewer has signed (step 7)
   gifiExports: number;           // GIFI files exported (step 8)
@@ -48,7 +48,7 @@ export function stepStarted(key: StepKey, f: ProgressFacts): boolean {
     case "records": return f.bank ? f.statements > 0 : f.imported;
     case "code": return f.bank ? f.coded > 0 : f.matched > 0;
     case "entries": return f.entries > 0 || f.revenueCheck || f.shNotes > 0 || f.expensesBooked;
-    case "mapping": return f.mappingDecisions > 0;
+    case "compare": return f.compareWork > 0;
     case "review": return f.reviewNotes > 0 || f.reviewedSteps > 0;
     case "t2": return f.gifiExports > 0 || f.t2Tieout || f.gstReturn;
     case "statements": return f.fsTyped || f.malSent;
@@ -102,6 +102,6 @@ export function stepsDone(keys: readonly StepKey[], f: ProgressFacts): number {
 
 export const NO_PROGRESS: ProgressFacts = {
   bank: false, setupAnswers: 0, acceptance: false, openingRows: 0, openingTyped: false, imported: false, statements: 0, coded: 0, matched: 0,
-  entries: 0, revenueCheck: false, shNotes: 0, expensesBooked: false, mappingDecisions: 0, reviewNotes: 0, reviewedSteps: 0,
+  entries: 0, revenueCheck: false, shNotes: 0, expensesBooked: false, compareWork: 0, reviewNotes: 0, reviewedSteps: 0,
   gifiExports: 0, t2Tieout: false, gstReturn: false, fsTyped: false, malSent: false, checklistAnswers: 0, closeTyped: false, signs: {},
 };

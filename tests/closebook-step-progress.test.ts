@@ -39,7 +39,7 @@ test("steps 5 to 10 start from their own data", () => {
   assert.equal(stepStarted("entries", f({ entries: 1 })), true);
   assert.equal(stepStarted("entries", f({ revenueCheck: true })), true);
   assert.equal(stepStarted("entries", f({ shNotes: 1 })), true);
-  assert.equal(stepStarted("mapping", f({ mappingDecisions: 1 })), true);
+  assert.equal(stepStarted("compare", f({ compareWork: 1 })), true);
   assert.equal(stepStarted("review", f({ reviewNotes: 1 })), true);
   assert.equal(stepStarted("review", f({ reviewedSteps: 1 })), true);
   assert.equal(stepStarted("t2", f({ gifiExports: 1 })), true);

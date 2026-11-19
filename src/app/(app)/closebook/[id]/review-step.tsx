@@ -12,7 +12,7 @@ import { isNegativeText } from "@/lib/closebook/amount";
 import { CHECKLIST_RULES } from "@/lib/closebook/client-wording";
 import { ReviewChip } from "./review-chip";
 
-export type ReviewItem = { href: string; label: string; detail: string; amount?: string };
+export type ReviewItem = { href: string; label: string; detail: string; amount?: string; action?: React.ReactNode };   // piece 10: action, "Mark reviewed"
 export type ReviewGroup = { key: string; title: string; step: string; items: ReviewItem[] };
 export type ChecklistRow = { key: string; text: string; answer: "" | "yes" | "no" | "na"; note: string };
 
@@ -40,6 +40,7 @@ export function ReviewStep({ groups, notes, list, listCount = 0, extra }: { grou
                   <span className="min-w-0"><Link href={it.href} className="font-medium text-navy-700 underline">{it.label}</Link>
                     {it.detail && <span className="block text-xs text-ink-2">{it.detail}</span>}</span>
                   {it.amount && <span className={`tabular-nums ${isNegativeText(it.amount) ? "text-danger" : ""}`}>{it.amount}</span>}
+                  {it.action}
                 </li>
               ))}
             </ul>

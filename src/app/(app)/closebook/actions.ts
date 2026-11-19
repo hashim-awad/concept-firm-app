@@ -401,7 +401,7 @@ export async function uploadOpeningPdfInline(formData: FormData): Promise<string
 // ---------- Round 8: sign-offs, review notes, the completion checklist (Hashim, Nov 24, 2026) ----------
 // Every form names the page to come back to; only a page of the same file is accepted.
 const backTo = (f: FormData, id: string) => { const b = s(f, "back"); return b.startsWith(`/closebook/${id}?`) ? b : `/closebook/${id}`; };
-const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", records: "Step 3", code: "Step 4", entries: "Step 5", mapping: "Step 6", review: "Step 7", t2: "Step 8", statements: "Step 9", lock: "Step 10" };
+const STEP_WORD: Record<string, string> = { setup: "Step 1", opening: "Step 2", records: "Step 3", code: "Step 4", entries: "Step 5", compare: "Step 6", review: "Step 7", t2: "Step 8", statements: "Step 9", lock: "Step 10" };
 
 export async function signStep(formData: FormData) {
   const id = s(formData, "file_id"), step = s(formData, "step"), role = s(formData, "role");

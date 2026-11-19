@@ -6,7 +6,9 @@ import type { CbDoc } from "./files.ts";
 
 // Round 15b (Hashim): GIFI mapping comes before Review, because Review's sign-off already needs mapping
 // signed. Only the order and the names changed; every rule is the same.
-export const STEP_KEYS = ["setup", "opening", "records", "code", "entries", "mapping", "review", "t2", "statements", "lock"] as const;
+// Piece 10 (Hashim, Nov 19, 2026; CaseWare Cloud's analytical review): step 6 is "Compare to last year", key "compare".
+// The key "mapping" is retired and never reused (old sign-off rows keep it; nothing reads them).
+export const STEP_KEYS = ["setup", "opening", "records", "code", "entries", "compare", "review", "t2", "statements", "lock"] as const;
 export type StepKey = (typeof STEP_KEYS)[number];
 export type StepState = "done" | "current" | "open";
 // word: the step's status in Studio's fixed words (round 8): Signed (reviewed), Prepared (signed by the
@@ -48,7 +50,7 @@ export function stepTitle(key: string, books: string): string {
   const bank = fromStatements(books);
   const names: Record<string, [number, string]> = { setup: [1, "Set up"], opening: [2, "Opening balances"],
     records: [3, bank ? "Banking" : "Get the records"], code: [4, bank ? "Code transactions" : "Match accounts to GIFI"],
-    entries: [5, "Adjustments"], mapping: [6, "GIFI mapping"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
+    entries: [5, "Adjustments"], compare: [6, "Compare to last year"], review: [7, "Review"], t2: [8, "Tax returns"], statements: [9, "Statements"], lock: [10, "Deliver and lock"] };
   const n = names[key];
   return n ? `${n[0]}. ${n[1]}` : key;
 }
@@ -76,15 +78,14 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     { key: "code", n: 4, name: bank ? "Code transactions" : "Match accounts to GIFI", who: f.people.preparer,
       note: bank ? (!cd.lines ? "" : cd.open ? `${cd.open} to code` : cd.reviewer ? `${cd.reviewer} for the reviewer` : cd.ask ? `${cd.ask} for the client` : "All coded") : !f.imported ? "" : f.unmatched + f.waiting ? `${f.unmatched + f.waiting} to match` : f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : "All matched" },
     { key: "entries", n: 5, name: "Adjustments", who: f.people.preparer, note: "" },
-    { key: "mapping", n: 6, name: "GIFI mapping", who: f.people.reviewer,
-      note: f.typeFlags ? `${s(f.typeFlags, "check")} for the reviewer` : bank ? "Reviewer" : "Reviewer checks the matches" },
+    { key: "compare", n: 6, name: "Compare to last year", who: f.people.preparer, note: "Last year against this year" },
     { key: "review", n: 7, name: "Review", who: f.people.reviewer, note: `Reviewer: ${f.people.reviewer}` },
     { key: "t2", n: 8, name: "Tax returns", who: f.people.preparer, note: "GIFI to ProFile" },
     { key: "statements", n: 9, name: "Statements", who: f.people.preparer, note: "" },
     { key: "lock", n: 10, name: "Deliver and lock", who: f.people.preparer, note: "" },
   ];
   // What the data can show today. Uploads and coding may start before step 1 is signed.
-  const done: Record<StepKey, boolean> = { setup: setupDone, opening: openingDone, records, code: matched, entries: false, review: false, mapping: false, t2: false, statements: false, lock: false };
+  const done: Record<StepKey, boolean> = { setup: setupDone, opening: openingDone, records, code: matched, entries: false, review: false, compare: false, t2: false, statements: false, lock: false };
   let current: StepKey = !records && !setupDone && f.statements === 0 && !f.imported ? "setup"
     : (STEP_KEYS.slice(1).find((k) => !done[k]) ?? "lock");
   const sg = f.signs;
@@ -92,7 +93,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     // Round 8 (CaseWare): a step is done when the reviewer has signed it. The current step is the first
     // the preparer has not signed; once steps 1 to 6 are prepared, it is step 7, the review.
     for (const k of SIGNED_STEPS) done[k] = !!sg[k]?.reviewed;
-    const work: StepKey[] = ["setup", "opening", "records", "code", "entries", "mapping"];
+    const work: StepKey[] = ["setup", "opening", "records", "code", "entries", "compare"];
     current = work.find((k) => !sg[k]?.prepared) ?? (!sg.review?.reviewed ? "review" : !sg.t2?.prepared ? "t2" : !sg.statements?.reviewed ? "statements" : "lock");
   }
   const word = (k: StepKey): StepWord => (sg?.[k]?.reviewed ? "signed" : sg?.[k]?.prepared ? "prepared" : k === current ? "next" : "open");
@@ -109,10 +110,9 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
     code: bank ? (cd.open ? `Post ${s(cd.open, "pending line")}: each needs an account and a sales tax code${cd.ask ? ` (${cd.ask} asked of the client)` : ""}.`
       : cd.reviewer ? `${s(cd.reviewer, "line")} waiting for the reviewer (${f.people.reviewer}).` : `${s(cd.ask, "line")} on the client's question list.`) : f.unmatched + f.waiting ? `Match ${s(f.unmatched + f.waiting, "account")} to GIFI lines.`
       : `${s(f.typeFlags ?? 0, "account")} on a GIFI line of another type, or with a balance on the wrong side of it: for the reviewer (${f.people.reviewer}).`,
-    entries: "Finish the checks and post the year-end entries, then explain the flagged changes on the lead sheets.",
+    entries: "Finish the checks and post the year-end entries.",
     review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 7.`,
-    mapping: f.typeFlags ? `Decide ${s(f.typeFlags, "account")} whose type or balance does not fit its GIFI line (keep it there with a reason, or move it), then sign off.`
-      : "Check the GIFI line of every account, then sign off.",
+    compare: "Explain the flagged changes, confirm the new accounts, tick Seen and answer the questions, then sign off.",
     t2: "Export the GIFI file, import it into ProFile, then tie out the T2.",
     statements: "Send the management acknowledgement (MAL) for signature.",
     lock: "Send the package to the client and lock the file.",
@@ -130,8 +130,8 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
   if (tab !== "tb") return null;
   if (view === "transactions") return "records";
   if (view === "gifi") return "t2";
-  if (view === "lead") return "review";
-  return fromStatements(books) ? "mapping" : "code";
+  if (view === "lead") return "compare";   // piece 10: the lead sheets view is in step 6
+  return fromStatements(books) ? "compare" : "code";
 }
 
 // Round 15b (Hashim; CaseWare Cloud's document map): a step holds one or more working papers, each its
