@@ -927,9 +927,11 @@ create or replace function private.cb_override_group() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if new.gifi_override is not null and new.line_no is distinct from old.line_no
-     and (new.line_no is null or (select line_type from public.cb_master_lines where line_no = new.line_no)
-                                  is distinct from (select line_type from public.cb_master_lines where line_no = new.gifi_override)) then
-    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format('%s: GIFI %s dropped, the group changed to another type',
+     and (new.line_no is null or left(new.line_no, 4) in ('3600', '3660')   -- retained earnings neither takes nor gives an override
+          or (select line_type from public.cb_master_lines where line_no = new.line_no)
+             is distinct from (select line_type from public.cb_master_lines where line_no = new.gifi_override)) then
+    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format(case when left(coalesce(new.line_no, ''), 4) in ('3600', '3660')
+        then '%s: GIFI %s dropped, the group is now retained earnings' else '%s: GIFI %s dropped, the group changed to another type' end,
       btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), replace(new.gifi_override, '.00', '')), null, null,
       btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Group changed', 'GIFI ' || replace(new.gifi_override, '.00', ''), 'GIFI ' || coalesce(replace(new.line_no, '.00', ''), 'none'));
     new.gifi_override := null;

@@ -163,3 +163,11 @@ set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-000
 select test.check('retained earnings cannot be moved to another equity line', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'re', '3500.00'))
   = 'Retained earnings stays on its line. Use a prior period adjustment (3720) through an entry.');
 reset role; reset request.jwt.claims;
+-- An equity account with an override whose group moves to retained earnings drops the override, with History.
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_set_gifi_override(:'shr', '3520.00');
+reset role; reset request.jwt.claims;
+select test.check('fixture: common shares carry an override', (select gifi_override from public.cb_accounts where id = :'shr') = '3520.00');
+update public.cb_accounts set line_no = '3600.00' where id = :'shr';
+select test.check('a group moved to retained earnings drops the override, with History', (select gifi_override from public.cb_accounts where id = :'shr') is null
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '30000 Common shares: GIFI 3520 dropped, the group is now retained earnings'));
