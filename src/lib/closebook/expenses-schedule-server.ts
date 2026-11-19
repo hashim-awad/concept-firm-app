@@ -52,7 +52,6 @@ export async function loadExpensesSchedule(supabase: SupabaseClient, file: CbFil
   const byKey = new Map(accounts.map((a) => [a.account_key, a]));
   const acct: Record<string, string> = {};
   for (const n of [ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {
-    const c = charts.find((x) => x.number === n);
     acct[n] = !own ? byKey.get(`chart:${n}`)?.id ?? `chart:${n}` : optForChart(opts, n)   /* piece R2 (D12b): by master account, never the first on the line */;
   }
   // A standard account picked before it was on the file ("chart:65000") is on the file once the entry is saved: the
