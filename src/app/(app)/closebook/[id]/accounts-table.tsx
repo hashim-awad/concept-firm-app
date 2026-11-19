@@ -25,7 +25,8 @@ export type Row = {
   confirm?: boolean;   // step 8: Save on the line it is on now decides it (a suggestion, or the reviewer on an account waiting for them)
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
-export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit"; type?: string };
+// noCode (piece R1, "Choose a group"): the line by name under its lead sheet, no GIFI code shown or searched.
+export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit"; type?: string; noCode?: boolean };
 
 
 export function MatchWorkspace({ matchNow = false, fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals, edit, noteBy, only }: {
@@ -199,11 +200,11 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
         <div className="grid gap-1 text-sm"><p className="font-semibold">{mode === "override" ? "GIFI line now" : "From"}</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : mode === "group" ? "No group yet" : "Not matched yet")}</p>
           {mode === "override" && r.overridden && canPick && <button type="button" disabled={pending} className="justify-self-start text-sm text-navy-700 underline"
             onClick={() => start(async () => { const e = await overrideInline(fileId, r.id, ""); if (e) setErr(e); else onClose(); })}>Use the group&rsquo;s line</button>}</div>
-        {mode === "override" && r.confirm && canPick && <p className="text-xs text-ink-3">Save with no new line keeps this line and settles the item.</p>}
+        {mode === "override" && r.confirm && canPick && <p className="text-xs text-ink-3">Save without a new line to keep this line and clear it from the box.</p>}
         {canPick ? (
           <div className="grid gap-1">
             <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} autoFocus={!confirmFirst}
-              label={mode === "group" ? "Group (line number or name)" : "To (line number or name)"} />
+              label={mode === "group" ? "Group (type a name)" : "To (line number or name)"} placeholder={mode === "group" ? "For example: office, rent" : undefined} />
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
@@ -248,7 +249,7 @@ export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClo
 
 // The line picker (borrowed from QuickBooks): each line with its section in grey italics and an info
 // mark that shows CRA's description of the GIFI code. Type a number or words; arrows and Enter work.
-function LinePicker({ options, value, onChange, balance, autoFocus = true, label = "To (line number or name)" }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number; autoFocus?: boolean; label?: string }) {
+function LinePicker({ options, value, onChange, balance, autoFocus = true, label = "To (line number or name)", placeholder = "For example: office, rent, 8810" }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number; autoFocus?: boolean; label?: string; placeholder?: string }) {
   // Ids unique on the page (several pickers can be open); the input has its label.
   const uid = useId(), inputId = `to-${uid}`, listId = `cb-line-list-${uid}`;
   // Only lines on the account's side (a credit balance sees liability, equity and revenue lines), unless "Show all lines".
@@ -263,12 +264,12 @@ function LinePicker({ options, value, onChange, balance, autoFocus = true, label
   const esc = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const res = words.map((w) => new RegExp(`(^|[^a-z0-9])${esc(w)}`, "i"));
   const sided = all || !side ? options : options.filter((o) => o.normal === side);
-  const list = (chosen || !q ? sided : sided.filter((o) => (/^\d/.test(q) ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
+  const list = (chosen || !q ? sided : sided.filter((o) => (/^\d/.test(q) && !o.noCode ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
   const pick = (o: Option) => { if (o.locked) return; onChange(o.label); setOpen(false); };
   return (
     <div className="relative grid gap-1">
       <label htmlFor={inputId} className="text-sm font-semibold">{label}</label>
-      <input id={inputId} value={value} autoFocus={autoFocus} autoComplete="off" role="combobox" aria-expanded={open} aria-controls={listId} placeholder="For example: office, rent, 8810" className="input"
+      <input id={inputId} value={value} autoFocus={autoFocus} autoComplete="off" role="combobox" aria-expanded={open} aria-controls={listId} placeholder={placeholder} className="input"
         onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onKeyDown={(e) => {
@@ -284,7 +285,7 @@ function LinePicker({ options, value, onChange, balance, autoFocus = true, label
             <li key={o.no} role="option" aria-selected={i === active} aria-disabled={o.locked} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
               title={o.locked ? "Locked: choose one of its sub-lines" : undefined}
               className={`flex items-baseline gap-2 px-3 py-2 text-sm ${o.locked ? "cursor-not-allowed text-ink-3" : "cursor-pointer"} ${i === active && !o.locked ? "bg-navy-50" : ""}`}>
-              <span className="flex-1"><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.replace(/^\S+\s/, "")}</span>
+              <span className="flex-1">{o.noCode ? o.label : <><b className="tabular-nums">{o.no.slice(0, 4)}</b>{!o.no.endsWith(".00") && <span className="text-ink-3 tabular-nums">{o.no.slice(4)}</span>} {o.label.replace(/^\S+\s/, "")}</>}</span>
               {o.locked && <Lock className="h-3.5 w-3.5 shrink-0 self-center text-ink-3" aria-label="Locked" />}
               <span className="text-xs text-ink-3 italic">{o.section}</span>
               {o.hint && <span title={o.hint} aria-label={`CRA: ${o.hint}`} className="ml-auto shrink-0 text-ink-3"><Info className="h-3.5 w-3.5" /></span>}

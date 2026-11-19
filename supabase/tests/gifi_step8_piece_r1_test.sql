@@ -40,7 +40,7 @@ select id as clr from public.cb_accounts where file_id = :'f' and number = '1090
 select test.check('T1: only the added account with no group is in the box', (:items) = '68500:no_group');
 select test.check('T1: step 8 waits for it', private.cb_step8_problems(:'f') @> array['1 account needs a decision in Match accounts to GIFI.']);
 select test.check('T1: and the net income tie shows the difference (no group counts on the chart side)',
-  private.cb_match_problems(:'f') @> array['Net income 18,760.00 does not equal GIFI 9999 20,000.00: a difference of (1,240.00).']);
+  private.cb_match_problems(:'f') @> array['Net income 18,760.00 · GIFI 9999 20,000.00 · Out of balance (1,240.00).']);
 select test.check('T1: total assets tie', (private.cb_match_ties(:'f') ->> 'assets_chart')::numeric = 18760 and (private.cb_match_ties(:'f') ->> 'assets_gifi')::numeric = 18760);
 select test.check('T1: step 6 says "no group"', private.cb_step_problems(:'f', 'compare') @> array['1 account with no group: choose a group.']);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -61,10 +61,10 @@ select test.check('T2: before the override the ties are met', private.cb_match_p
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_set_gifi_override(:'sav', '1060.00');
 reset role; reset request.jwt.claims;
-select test.check('T2: total assets tie fails by 500.00', exists (select 1 from unnest(private.cb_match_problems(:'f')) p where p = 'Total assets 19,260.00 do not equal GIFI 2599 18,760.00: a difference of 500.00.'));
+select test.check('T2: total assets tie fails by 500.00', exists (select 1 from unnest(private.cb_match_problems(:'f')) p where p = 'Total assets 19,260.00 · GIFI 2599 18,760.00 · Out of balance 500.00.'));
 select test.check('T2: the wrong-side flag tests the override line', (:items) = '10200:side');
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T2: step 8 cannot be signed', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) like '%Total assets 19,260.00 do not equal GIFI 2599%');
+select test.check('T2: step 8 cannot be signed', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) like '%Total assets 19,260.00 · GIFI 2599%');
 select test.check('T2: the export refuses', test.try(format('select public.cb_record_gifi_export(%L, %L, %L, %L, %L::jsonb, %L::jsonb)', :'f', 'final', 'x.gfi', '"GIFI01",x', '{}', :'checks')) like 'Export refused.%Total assets%');
 select public.cb_set_gifi_override(:'sav', null);
 reset role; reset request.jwt.claims;
@@ -155,3 +155,11 @@ select test.check('fix 2: saving the line confirms the suggestion', (select mapp
 update public.cb_accounts set line_no = '8000.00' where id = :'off';
 select test.check('fix 3: a group of another type drops the override, with History', (select gifi_override from public.cb_accounts where id = :'off') is null
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '65100 Office expenses: GIFI 8811 dropped, the group changed to another type'));
+
+-- ---------- Accounting recheck: retained earnings stays on its line (no override away from 3600 either).
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'f', 'chart:31000', '31000', 'Retained earnings', '3600.00', 0, 'chart');
+select id as re from public.cb_accounts where file_id = :'f' and number = '31000' \gset
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select test.check('retained earnings cannot be moved to another equity line', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'re', '3500.00'))
+  = 'Retained earnings stays on its line. Use a prior period adjustment (3720) through an entry.');
+reset role; reset request.jwt.claims;

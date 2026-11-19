@@ -63,7 +63,6 @@ export function TbTab(p: Props) {
   const pill = (k: string, label: string, off?: boolean) => (
     <Link href={`${base}&view=${k}`} className={`rounded-full px-3 py-1 ${view === k ? "bg-navy-700 font-medium text-white" : off ? "border border-sand-200 text-ink-3" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>{label}</Link>
   );
-  const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
   // Round 5: the type check works from the account's type (standard chart, client's books, the type chosen
   // in Closebook, else the number). Round 6: a mismatch needs the reviewer until they keep it there with a
@@ -172,7 +171,7 @@ export function TbTab(p: Props) {
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag, tjeTotals).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
-                  id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
+                  id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: byNo.get(r.line)?.name ?? "", last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
                   final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
                 }));
                 // Round 35 (Hashim, CaseWare): the lead sheet code shows here, and only here.

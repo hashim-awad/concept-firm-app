@@ -217,6 +217,21 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       noteStep={access.is_owner && ["code", "compare"].includes(base) ? base : undefined} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
+  // Piece R1 (Hashim, Nov 19, 2026): "Group" always means the lead sheet, by name, with no GIFI code. GIFI codes show only in
+  // step 8 and the GIFI export. "Choose a group" lists the lines under their lead sheet, by name only.
+  const lineByNo = new Map(ref.lines.map((l) => [l.line_no, l]));
+  const sheetName = (no: string | null | undefined) => (no ? ref.sheets.find((s) => s.code === lineByNo.get(no)?.lead_sheet)?.name ?? "" : "");
+  const groupChoices = (() => {
+    const locked = lockedLines(ref.lines), order = new Map(ref.sheets.map((s, i) => [s.code, i]));
+    const ls = ref.lines.filter((l) => l.mappable && l.lead_sheet).sort((a, b) => (order.get(a.lead_sheet!) ?? 99) - (order.get(b.lead_sheet!) ?? 99) || a.name.localeCompare(b.name));
+    const seen = new Map<string, number>();
+    return ls.map((l) => {
+      const sheet = sheetName(l.line_no), base = l.name, n = (seen.get(base) ?? 0) + 1; seen.set(base, n);
+      // The picked label must be unique: a name used twice gets its lead sheet, then a number.
+      const label = n === 1 ? base : `${base} (${sheet}${n > 2 ? ` ${n - 1}` : ""})`;
+      return { no: l.line_no, label, section: sheet, hint: "", locked: locked.has(l.line_no), normal: normalSide(l), type: l.line_type, noCode: true };
+    });
+  })();
 
   // Piece R1 (Hashim, Nov 19, 2026; mock M): step 8's "Match accounts to GIFI" on a bank-statement file. The box and the
   // ties come from the database (the same rules gate the sign-off and the export); the table is built here.
@@ -235,7 +250,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         lineNo: gl ?? "", lineLabel: eff ? label(eff) : "", movedFrom: eff && eff !== gl ? gl ?? "" : "", source: "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason,
         mismatch: gl && lockedSet.has(gl) ? "Locked line: choose one of its sub-lines" : [typeFlag(flagAcc, gline) === "open" ? typeFlagText(flagAcc, gline) : "", sideFlagText(flagAcc, gline, fin)].filter(Boolean).join(" "),
         typeFlag: typeFlag(flagAcc, gline), sideFlag: sideFlag(flagAcc, gline, fin), tax: a.tax_code ?? group?.default_tax_code ?? "", taxDefault: group?.default_tax_code ?? "",
-        taxOverride: !!a.tax_code, attention: false, groupLabel: label(a.line_no), lineType: a.line_no ? byNo.get(a.line_no)?.line_type : undefined, overridden: !!a.gifi_override,
+        taxOverride: !!a.tax_code, attention: false, groupLabel: sheetName(a.line_no), lineType: a.line_no ? byNo.get(a.line_no)?.line_type : undefined, overridden: !!a.gifi_override,
         confirm: a.mapping_source === "suggested" || (a.needs_reviewer && (isReviewer || access.is_owner)) };
     };
     const back = encodeURIComponent(paperHref("t2", "match"));
@@ -251,7 +266,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const panelRows = Object.fromEntries(rows.flatMap((r) => r.accounts.map((s) => [s.id, panelRow(accounts.find((x) => x.id === s.id)!)])));
     const options = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, section: l.section ?? "", hint: ref.craText.get(l.gifi_code) ?? "",
       locked: lockedSet.has(l.line_no), normal: normalSide(l), type: l.line_type }));
-    return <MatchStep fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} taxes={ref.taxes}
+    return <MatchStep fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} groupOptions={groupChoices} taxes={ref.taxes}
       isReviewer={isReviewer || access.is_owner} editable={editable && file.phase !== "locked"} />;
   };
 
@@ -489,7 +504,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       // Piece 10: the new accounts of step 6 and their GIFI lines, each marked reviewed by the reviewer.
       const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
       const amt7 = (c: number) => amt(c / 100);
-      const lineName7 = (no: string | null) => { if (!no) return ""; const l = ref.lines.find((x) => x.line_no === no); return `${no.replace(/\.00$/, "")}${l ? ` ${l.name}` : ""}`; };
+      const lineName7 = sheetName;   // piece R1: the group is the lead sheet, by name
       const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} isOwner={access.is_owner}
         rows={cmp7.newAccounts.map((r) => { const t = newTicks.find((x) => x.account_key === r.key);
           return { key: r.key, label: `${r.number ? `${r.number} ` : ""}${r.name}`, line: lineName7(r.line), amount: amt7(r.finalCents),
@@ -522,7 +537,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       {tb("compare", ["lead"], "lead", false)}</> : soon("The lead sheets open once there is a trial balance.");
     else {
       const amt6 = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
-      const lineName = (no: string | null) => { if (!no) return ""; const l = ref.lines.find((x) => x.line_no === no); return `${no.replace(/\.00$/, "")}${l ? ` ${l.name}` : ""}`; };
+      const lineName = sheetName;   // piece R1: the group is the lead sheet, by name
       const ledger = (key: string) => `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(key)}&back=${encodeURIComponent(href("compare"))}`;
       const label = (r: { number: string; name: string }) => `${r.number ? `${r.number} ` : ""}${r.name}`;
       const cmp = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
@@ -530,8 +545,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const seen = cmp.unused.length > 0 && cmp.unused.length === seenKeys.size && cmp.unused.every((r) => seenKeys.has(r.key));
       const st6 = review.status.compare;
       // Piece R1 (item 4): an account with no group opens the existing Change window ("Choose a group") over the page.
-      const lockedSet6 = lockedLines(ref.lines);
-      const groupOptions = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, section: l.section ?? "", hint: "", locked: lockedSet6.has(l.line_no), normal: normalSide(l), type: l.line_type }));
+      const groupOptions = groupChoices;
       const groupPick = (key: string): MatchPanelRow | undefined => {
         const a = accounts.find((x) => x.account_key === key);
         if (!a) return undefined;
@@ -750,7 +764,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   // Round 15b: the journal entry dialog, over whichever tab opened it.
   const keep = new URLSearchParams(Object.entries(sp).filter(([k, v]) => typeof v === "string" && !["new", "open", "edit", "acct", "sched", "msg", "error"].includes(k)) as [string, string][]);
-  const closeHref = `/closebook/${id}${keep.toString() ? `?${keep}` : ""}`;
+  const closeHref = str(sp.new) && backHref ? backHref : `/closebook/${id}${keep.toString() ? `?${keep}` : ""}`;
   const dialogQ = new URLSearchParams(keep);
   for (const k of ["new", "open", "acct"]) if (str(sp[k])) dialogQ.set(k, str(sp[k])!);
   const dialog = await entryDialog({ supabase, file, province: client?.province ?? "ON", clientName: client?.legal_name ?? "The client", entries, accounts, names,

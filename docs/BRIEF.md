@@ -590,6 +590,10 @@ In short:
       excludes steps 1 to 3. Rounding entry label "Opening balance rounding · <T2 line box> to retained earnings". The
       override rolls forward like line matches and is in the export fingerprint. A "moved from" marker and a Print (PDF) for
       the new paper are for a later piece. A line change never cleared step 4 on bank files.
+  - Hashim's decision on the build review (Nov 19, 2026): "Group" always means the lead sheet, in plain words, with no GIFI
+    code (for example "Due to shareholder and related parties"): the Trial balance Groups view, the account panel, the step 6
+    and 7 "Group" column and step 8's box. "Choose a group" lists the lines under their lead sheet heading, by name only, no
+    code. GIFI codes show only in step 8 and the GIFI export. Retained earnings (3600) neither takes nor gives an override.
   - Step 8 papers, in order: Match accounts to GIFI (bank-statement files), GIFI file, Tax workpaper, T2 tie-out, GST/HST
     return. Step 8 cannot be signed, and the GIFI export refuses, while the box shows anything or a tie fails.
   - Clearing: an override change clears step 8 (then 9 and 10 through the chain), never steps 4, 6 or 7, and History names

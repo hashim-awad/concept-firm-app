@@ -87,11 +87,11 @@ begin
   end if;
   t := private.cb_match_ties(p_file);
   if (t ->> 'ni_chart')::numeric <> (t ->> 'ni_gifi')::numeric then
-    v_out := v_out || format('Net income %s does not equal GIFI 9999 %s: a difference of %s.', private.cb_money((t ->> 'ni_chart')::numeric),
+    v_out := v_out || format('Net income %s · GIFI 9999 %s · Out of balance %s.', private.cb_money((t ->> 'ni_chart')::numeric),
       private.cb_money((t ->> 'ni_gifi')::numeric), private.cb_money((t ->> 'ni_chart')::numeric - (t ->> 'ni_gifi')::numeric));
   end if;
   if (t ->> 'assets_chart')::numeric <> (t ->> 'assets_gifi')::numeric then
-    v_out := v_out || format('Total assets %s do not equal GIFI 2599 %s: a difference of %s.', private.cb_money((t ->> 'assets_chart')::numeric),
+    v_out := v_out || format('Total assets %s · GIFI 2599 %s · Out of balance %s.', private.cb_money((t ->> 'assets_chart')::numeric),
       private.cb_money((t ->> 'assets_gifi')::numeric), private.cb_money((t ->> 'assets_chart')::numeric - (t ->> 'assets_gifi')::numeric));
   end if;
   return v_out;
@@ -352,7 +352,9 @@ begin
     end if;
     v_txt := format('%s: %s', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
       concat_ws(', ',
-        case when old.line_no is distinct from new.line_no then format(case when exists (select 1 from public.cb_files where id = v_file and books in ('statements', 'paper')) then 'group %s to %s' else 'GIFI %s to %s' end, coalesce(replace(old.line_no, '.00', ''), 'none'), coalesce(replace(new.line_no, '.00', ''), 'none')) end,
+        case when old.line_no is distinct from new.line_no then case when exists (select 1 from public.cb_files where id = v_file and books in ('statements', 'paper'))
+          then format('%s to %s', coalesce((select name from public.cb_master_lines where line_no = old.line_no), 'no group'), coalesce((select name from public.cb_master_lines where line_no = new.line_no), 'no group'))
+          else format('GIFI %s to %s', coalesce(replace(old.line_no, '.00', ''), 'none'), coalesce(replace(new.line_no, '.00', ''), 'none')) end end,
         case when old.tax_code is distinct from new.tax_code then format('tax code %s to %s', coalesce(old.tax_code, 'the line''s default'), coalesce(new.tax_code, 'the line''s default')) end,
         case when old.type_confirm_reason is distinct from new.type_confirm_reason then 'kept on a line of another type' end));
     select books in ('statements', 'paper') into v_bank from public.cb_files where id = v_file;
@@ -825,7 +827,7 @@ begin
   on conflict (file_id, account_key) do update set confirmed_line = excluded.confirmed_line, confirmed_by = excluded.confirmed_by, confirmed_at = now(),
     reviewed_line = null, reviewed_by = null, reviewed_at = null
    where public.cb_new_accounts.confirmed_line is distinct from excluded.confirmed_line;
-  if found then perform private.cb_log(p_file, 'new_account_confirmed', 'compare', format('%s in group %s', p_account, replace(c.line_no, '.00', ''))); end if;
+  if found then perform private.cb_log(p_file, 'new_account_confirmed', 'compare', format('%s in group %s', p_account, coalesce((select l.name from public.cb_master_lines m join public.cb_lead_sheets l on l.code = m.lead_sheet where m.line_no = c.line_no), 'none'))); end if;
 end;
 $function$;
 
@@ -871,6 +873,7 @@ begin
       format('This is a GIFI line for %s. The account''s group is for %s: choose a line of the same type.', lower(v_type), lower(v_group_type)));
     -- Retained earnings moves only through a prior period adjustment (3720): never an override onto 3600 or 3660.
     perform private.require(left(v_line, 4) not in ('3600', '3660'), 'Retained earnings is not a line to move an account to. Use a prior period adjustment (3720) through an entry.');
+    perform private.require(left(a.line_no, 4) not in ('3600', '3660'), 'Retained earnings stays on its line. Use a prior period adjustment (3720) through an entry.');
   end if;
   v_label := btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name);
   if a.mapping_source = 'suggested' then
@@ -904,7 +907,7 @@ begin
     left join public.cb_accounts a on a.file_id = pf.id and a.account_key = new.account_key
    where f.id = new.file_id and f.books in ('statements', 'paper')
    order by pf.year_end desc limit 1;
-  if v is not null and v <> new.line_no
+  if v is not null and v <> new.line_no and left(v, 4) not in ('3600', '3660') and left(new.line_no, 4) not in ('3600', '3660')
      and exists (select 1 from public.cb_master_lines o join public.cb_master_lines g on g.line_no = new.line_no
                   where o.line_no = v and o.mappable and not o.locked and o.line_type = g.line_type) then
     new.gifi_override := v;
