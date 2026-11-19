@@ -21,7 +21,9 @@ create or replace function private.is_admin() returns boolean language sql stabl
 $$;
 create or replace function private.role_switch(p_role uuid, p_switch text) returns boolean language sql stable security definer set search_path = '' as $$
   select coalesce((select case p_switch when 'prepare' then r.cb_prepare when 'review' then r.cb_review when 'partner' then r.cb_partner
-      when 'lock' then r.cb_lock when 'remove_signoffs' then r.cb_remove_signoffs else false end from public.roles r where r.id = p_role), false)
+      when 'lock' then r.cb_lock when 'remove_signoffs' then r.cb_remove_signoffs else false end from public.roles r where r.id = p_role
+      -- Security review: a Closebook switch works only on a role with Edit on Closebook.
+      and exists (select 1 from public.role_permissions rp where rp.role_id = r.id and rp.area_key = 'closebook' and rp.level = 'edit')), false)
 $$;
 create or replace function private.cb_can(p_switch text) returns boolean language sql stable security definer set search_path = '' as $$
   select coalesce((select private.role_switch(s.role_id, p_switch) from public.staff s where s.id = (select auth.uid()) and s.is_active), false)
@@ -1855,6 +1857,7 @@ declare
 begin
   perform private.admin_lock();
   perform private.require(private.is_admin(), 'Only an Admin can change permissions.');
+  perform private.require(private.role_within_caller(p_role_id), 'You cannot change a role with more access than you.');
   perform private.require(exists (select 1 from public.roles where id = p_role_id), 'Role not found.');
   for v_key, v_level in select key, value from jsonb_each_text(p_levels) loop
     perform private.require(exists (select 1 from public.permission_areas where key = v_key), 'Unknown area: ' || v_key);
@@ -2446,6 +2449,7 @@ begin
   perform private.require(private.is_admin(), 'Only an Admin can change roles.');
   select * into v_role from public.roles where id = p_role_id;
   perform private.require(v_role.id is not null, 'That role was not found.');
+  perform private.require(private.role_within_caller(p_role_id), 'You cannot change a role with more access than you.');
   perform private.require((not coalesce(p_t1, false) or private.can_letter('t1')) and (not coalesce(p_corporate, false) or private.can_letter('corporate')),
     'You can only give a letter type you have yourself.');
   if v_role.can_t1_letters is distinct from coalesce(p_t1, false) or v_role.can_corporate_letters is distinct from coalesce(p_corporate, false) then
@@ -2469,6 +2473,7 @@ begin
   perform private.require(private.is_admin(), 'Only an Admin can change roles.');
   select * into v_role from public.roles where id = p_role_id for update;
   perform private.require(v_role.id is not null, 'Role not found.');
+  perform private.require(private.role_within_caller(p_role_id), 'You cannot change a role with more access than you.');
   perform private.require(nullif(btrim(coalesce(p_name, '')), '') is not null, 'Give the role a name.');
   update public.roles set name = btrim(p_name), description = coalesce(btrim(p_description), '')
    where id = p_role_id and (name is distinct from btrim(p_name) or description is distinct from coalesce(btrim(p_description), ''));
@@ -2557,13 +2562,14 @@ alter policy "Owners read the statement tool log" on public.statement_tool_log u
 create or replace function private.guard_engagement_update() returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
   if current_user = 'authenticated' and not ((private.is_admin() and private.can_edit('documents')) or private.can_final_letter()) then
-    raise exception 'Only an Admin with Edit on Documents can update an engagement.' using errcode = '42501';
+    raise exception 'Only an Admin with Edit on Documents can % an engagement.', case tg_op when 'INSERT' then 'add' else 'update' end
+      using errcode = '42501';
   end if;
   return new;
 end;
 $$;
 drop trigger if exists engagements_guard_update on public.engagements;
-create trigger engagements_guard_update before update on public.engagements for each row execute function private.guard_engagement_update();
+create trigger engagements_guard_update before insert or update on public.engagements for each row execute function private.guard_engagement_update();
 
 -- 8. The Admin safety rule on every change that can remove an Admin (checked once, at commit).
 drop trigger if exists role_permissions_admin_guard on public.role_permissions;
@@ -2575,38 +2581,44 @@ create constraint trigger roles_admin_guard after delete on public.roles
 
 -- 9. Data: Owner becomes Partner and Staff becomes Accountant (same records, so nobody's role id changes); Manager and Senior
 -- accountant are added. Live (read-only check, Nov 19): one active person on Owner, no other roles.
-select private.admin_lock();
-update public.roles set name = 'Partner', description = 'Signs the compilation report. Every right.', is_owner = false,
-       can_t1_letters = true, can_corporate_letters = true, can_final_letters = true,
-       cb_prepare = true, cb_review = true, cb_partner = true, cb_lock = true, cb_remove_signoffs = true
- where is_owner;
-insert into public.role_permissions (role_id, area_key, level)
-select r.id, a.key, 'edit' from public.roles r cross join public.permission_areas a where r.name = 'Partner'
-on conflict (role_id, area_key) do update set level = 'edit';
-update public.roles set name = 'Accountant', description = 'Prepares files.', can_t1_letters = true, can_corporate_letters = true, cb_prepare = true
- where name = 'Staff';
-update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
-insert into public.roles (name, description, can_t1_letters, can_corporate_letters, cb_prepare, cb_review)
-values ('Manager', 'Reviews files and manages the team''s work.', true, true, true, true),
-       ('Senior accountant', 'Prepares files and reviews juniors'' files.', true, true, true, true)
-on conflict (name) do nothing;
-insert into public.role_permissions (role_id, area_key, level)
-select r.id, rp.area_key, rp.level from public.roles r
-  cross join public.role_permissions rp where r.name in ('Manager', 'Senior accountant')
-   and rp.role_id = (select id from public.roles where name = 'Accountant')
-on conflict (role_id, area_key) do nothing;
--- Decision 10A: the full export only with Admin; Exports is No access on every role except Partner.
-update public.role_permissions set level = 'none'
- where area_key = 'exports' and role_id <> (select id from public.roles where name = 'Partner') and level <> 'none';
--- Decision 13A.
-update public.permission_areas set description =
-  'View: see the files. Edit: work in the files. The Closebook switches decide who prepares, reviews, signs as partner, locks and removes sign-offs.'
- where key = 'closebook';
-insert into public.activity_log (action, entity_type, entity_id, details)
-select 'roles_converted', 'roles', null, jsonb_build_object('piece', 'R3a-1', 'roles', jsonb_agg(jsonb_build_object('name', r.name,
-  'final_letters', r.can_final_letters, 'prepare', r.cb_prepare, 'review', r.cb_review, 'partner', r.cb_partner, 'lock', r.cb_lock,
-  'remove_signoffs', r.cb_remove_signoffs) order by r.name))
-  from public.roles r;
+-- Runs only while the Owner role still exists, so a second run changes nothing (security review).
+do $$
+begin
+  if not exists (select 1 from public.roles where is_owner) then return; end if;
+  perform private.admin_lock();
+  update public.roles set name = 'Partner', description = 'Signs the compilation report. Every right.', is_owner = false,
+         can_t1_letters = true, can_corporate_letters = true, can_final_letters = true,
+         cb_prepare = true, cb_review = true, cb_partner = true, cb_lock = true, cb_remove_signoffs = true
+   where is_owner;
+  insert into public.role_permissions (role_id, area_key, level)
+  select r.id, a.key, 'edit' from public.roles r cross join public.permission_areas a where r.name = 'Partner'
+  on conflict (role_id, area_key) do update set level = 'edit';
+  update public.roles set name = 'Accountant', description = 'Prepares files.', can_t1_letters = true, can_corporate_letters = true, cb_prepare = true
+   where name = 'Staff';
+  update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
+  insert into public.roles (name, description, can_t1_letters, can_corporate_letters, cb_prepare, cb_review)
+  values ('Manager', 'Reviews files and manages the team''s work.', true, true, true, true),
+         ('Senior accountant', 'Prepares files and reviews juniors'' files.', true, true, true, true)
+  on conflict (name) do nothing;
+  insert into public.role_permissions (role_id, area_key, level)
+  select r.id, rp.area_key, rp.level from public.roles r
+    cross join public.role_permissions rp where r.name in ('Manager', 'Senior accountant')
+     and rp.role_id = (select id from public.roles where name = 'Accountant')
+  on conflict (role_id, area_key) do nothing;
+  -- Decision 10A: the full export only with Admin; Exports is No access on every role except Partner.
+  update public.role_permissions set level = 'none'
+   where area_key = 'exports' and role_id <> (select id from public.roles where name = 'Partner') and level <> 'none';
+  -- Decision 13A.
+  update public.permission_areas set description =
+    'View: see the files. Edit: work in the files. The Closebook switches decide who prepares, reviews, signs as partner, locks and removes sign-offs.'
+   where key = 'closebook';
+  insert into public.activity_log (action, entity_type, entity_id, details)
+  select 'roles_converted', 'roles', null, jsonb_build_object('piece', 'R3a-1', 'roles', jsonb_agg(jsonb_build_object('name', r.name,
+    'final_letters', r.can_final_letters, 'prepare', r.cb_prepare, 'review', r.cb_review, 'partner', r.cb_partner, 'lock', r.cb_lock,
+    'remove_signoffs', r.cb_remove_signoffs) order by r.name))
+    from public.roles r;
+end;
+$$;
 -- Nothing ends up without an Admin who holds every right (rolls the whole migration back otherwise).
 do $$
 begin
@@ -2623,8 +2635,8 @@ revoke all on function public.save_role(uuid, text, text, jsonb, jsonb, jsonb) f
 grant execute on function public.save_role(uuid, text, text, jsonb, jsonb, jsonb) to authenticated;
 revoke all on function private.role_switch(uuid, text), private.cb_staff_has(uuid, text), private.role_is_admin(uuid),
   private.admin_lock(), private.admin_check(), private.admin_guard() from public, anon, authenticated;
-revoke all on function private.guard_engagement_update() from public, anon;
-grant execute on function private.guard_engagement_update() to authenticated;
+-- A trigger needs no EXECUTE right to fire (security review): nobody may call it directly.
+revoke all on function private.guard_engagement_update() from public, anon, authenticated;
 revoke all on function private.is_admin(), private.cb_can(text), private.can_final_letter() from public, anon;
 grant execute on function private.is_admin(), private.cb_can(text), private.can_final_letter() to authenticated;
 

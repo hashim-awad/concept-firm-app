@@ -94,6 +94,7 @@ export default async function RolePage({ params, searchParams }: PageProps<"/adm
 
         <fieldset className="rounded-lg border border-sand-200 p-4">
           <legend className="flex items-center px-1 font-semibold">Closebook<InfoTip label="About the Closebook rights">Who signs on a file. Closebook Edit above lets a person work the steps; these switches decide which circles they sign and what else they may do. You can switch on only a right you have yourself.</InfoTip></legend>
+          {levelOf.get("closebook") !== "edit" && <p className="mb-2 text-sm text-ink-2">These switches work only when the role has Edit on Closebook above.</p>}
           <div className="grid gap-2">
             {CB_SWITCHES.map((c) => {
               const on = role[c.col], allowed = on || access.closebook[c.key];

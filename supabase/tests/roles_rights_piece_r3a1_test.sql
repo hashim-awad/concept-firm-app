@@ -66,6 +66,12 @@ select test.check('an Admin cannot raise their own role', test.try(format($q$sel
   = 'You can only give a level you have yourself.');
 select test.check('an Admin cannot touch a role with more access than theirs', test.try(format($q$select public.update_role(%L, 'Partner', 'x')$q$, (select id from public.roles where name = 'Partner')))
   = 'You cannot change a role with more access than you.');
+-- Security review, finding 1: the lesser Admin cannot strip the Partner role through any save path.
+select test.check('a lesser Admin cannot save the Partner role (save_role)', test.try(format($q$select public.save_role(%L, 'Partner', 'x', '{"settings": "none"}', '{}', '{"lock": false}')$q$, (select id from public.roles where name = 'Partner')))
+  = 'You cannot change a role with more access than you.');
+select test.check('nor through set_role_permissions or set_role_letters',
+  test.try(format($q$select public.set_role_permissions(%L, '{"settings": "none"}')$q$, (select id from public.roles where name = 'Partner'))) = 'You cannot change a role with more access than you.'
+  and test.try(format($q$select public.set_role_letters(%L, false, false)$q$, (select id from public.roles where name = 'Partner'))) = 'You cannot change a role with more access than you.');
 select test.check('the full export needs Admin and Exports Edit', test.try('select public.export_tables()') like 'Only an Admin%');
 :as_b;
 select test.check('someone without Admin cannot save a role', test.try(format($q$select public.save_role(%L, 'Front desk', '', '{}', '{}', '{}')$q$, :'fd')) = 'Only an Admin can change roles.');
@@ -130,3 +136,27 @@ select test.check('an Accountant cannot change an engagement directly', test.try
 :as_a;
 select test.check('the Partner can', test.try(format($q$update public.engagements set status = 'On hold' where id = %L$q$, :'eng')) = 'OK');
 :out;
+:as_c;
+select test.check('an Accountant cannot add an engagement directly (security review, finding 3)',
+  test.try(format($q$insert into public.engagements (client_id, type, title, status) values (%L, 'T2 only', 'Spruce FYE 2027', 'EL signed')$q$, :'client'))
+  = 'Only an Admin with Edit on Documents can add an engagement.');
+:out;
+
+-- 6. A Closebook switch works only on a role with Closebook Edit (security review, finding 2).
+:as_a;
+select public.create_role('Reader', 'Reads files.') as rd \gset
+select public.save_role(:'rd', 'Reader', 'Reads files.', '{"closebook": "view"}'::jsonb, '{}'::jsonb, '{"review": true, "lock": true}'::jsonb);
+:out;
+select test.check('Review and Lock switched on without Closebook Edit do nothing',
+  (select cb_review and cb_lock from public.roles where id = :'rd')
+  and not private.role_switch(:'rd', 'review') and not private.role_switch(:'rd', 'lock'));
+
+-- 7. Running the migration again changes nothing (security review, finding 5).
+select count(*) as conv from public.activity_log where action = 'roles_converted' \gset
+select string_agg(r.name || ':' || rp.area_key || '=' || rp.level, ',' order by r.name, rp.area_key) as lv
+  from public.role_permissions rp join public.roles r on r.id = rp.role_id \gset
+\i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql
+select test.check('a second run adds no History row and changes no level',
+  (select count(*) from public.activity_log where action = 'roles_converted') = :conv
+  and (select string_agg(r.name || ':' || rp.area_key || '=' || rp.level, ',' order by r.name, rp.area_key)
+         from public.role_permissions rp join public.roles r on r.id = rp.role_id) = :'lv');
