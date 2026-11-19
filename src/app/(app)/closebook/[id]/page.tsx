@@ -511,7 +511,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             ledger: `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(r.key)}&back=${encodeURIComponent(href("review"))}`,
             confirmed: !!t && t.confirmed_line === r.line,
             reviewed: t?.reviewed_at && t.reviewed_line === r.line ? `${firstName(names.get(t.reviewed_by ?? "") ?? "")} ${formatDate(t.reviewed_at)}`.trim() : "" }; })} /> : null;
-      const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `Step ${x.n}, ${x.name}` : k; };
+      const stepName = (k: string) => { const x = steps.find((y) => y.key === (k === "mapping" ? "compare" : k)); return x ? `Step ${x.n}, ${x.name}` : k; };   // piece 10: old notes on the retired key
       const openNotes: ReviewItem[] = review.notes.filter((n) => n.status !== "cleared").map((n) => (
         { href: `${href(n.step)}#note-${n.id}`, label: `${stepName(n.step)}${n.target_label ? `: ${n.target_label}` : ""}`,
           detail: `${n.status === "fixed" ? "Fixed, to clear. " : ""}${n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body}` }));

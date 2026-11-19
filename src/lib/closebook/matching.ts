@@ -123,7 +123,8 @@ export type LeadRow = { id: string; number: string; name: string; line: string; 
   reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
 // Round 25 (Hashim, Nov 17, 2026): last year's figure came from another T2 line than this year's: said once.
 export const reclassNote = (lastLine: string | null | undefined, line: string | null | undefined) =>
-  lastLine && line && line.slice(0, 4) !== lastLine ? `Reclassified from ${lastLine} to ${line.slice(0, 4)}` : undefined;
+  // Piece R1 (Hashim, Nov 19, 2026): no GIFI code outside step 8, so the note is in words.
+  lastLine && line && line.slice(0, 4) !== lastLine ? "Last year on another T2 line" : undefined;
 export type LeadSheet = { code: string; name: string; rows: LeadRow[]; last: number; before: number; entries: number; final: number };
 
 // Flag rule (5.5): changed by more than the amount AND more than the percentage. Both conditions.
