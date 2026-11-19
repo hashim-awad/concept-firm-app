@@ -62,8 +62,8 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   );
 }
 
-export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, forceFolded, pinned, toast, notes, people, done, tools, children }: {
-  fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
+export function FileShell({ fileId, client, yearEnd, source, netNote, status, netCents, t2Due, area, history, left, folded, forceFolded, pinned, toast, notes, people, done, tools, children }: {
+  fileId: string; client: string; yearEnd: string; source?: string; netNote?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
   history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number; people?: PeopleProps;
   done?: { n: number; of: number }; children: ReactNode; pinned?: boolean; forceFolded?: boolean;
   tools?: { on: boolean; journal: boolean };   // round 38b: the Tools menu (on: a tool's page is open; journal: New journal entry offered)
@@ -80,7 +80,7 @@ export function FileShell({ fileId, client, yearEnd, source, status, netCents, t
         {done && <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
         <span className="flex-1" />
         {people && <PeopleChip fileId={fileId} p={people} />}
-        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b></span>}
+        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b>{netNote && <span className="ml-1.5 text-[#ffd58a]" data-net-note>· {netNote}</span>}</span>}
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
       </header>

@@ -116,7 +116,7 @@ test("T7: no GIFI code on trial balance file screens before step 8 (step 4, the 
   assert.doesNotMatch(line("code").split('" : "')[1] ?? "", /GIFI/);
   assert.match(line("review"), /An account sent to the reviewer is decided in step 8/);
   const tb = readFileSync("src/app/(app)/closebook/[id]/tb-tab.tsx", "utf8");
-  assert.match(tb, /accounts imported\. Assign them to the master chart in/);
+  assert.match(tb, /Imported \{accounts\.length\} accounts \(.* with a balance\)\. Assign them in/);
   // The entry form names the master account for a new client account, not a GIFI line.
   assert.match(readFileSync("src/lib/closebook/entry-form.ts", "utf8"), /with its QuickBooks type and master account/);
 });
@@ -132,4 +132,10 @@ test("T3: the client entry list: new accounts first, then each entry with the cl
   assert.equal(clientListTitle({ books: "client_software" }), "Entries to record in your books");
   assert.equal(takesClientEntryList({ books: "concept_qbo" }), true);
   assert.equal(takesClientEntryList({ books: "statements" }), false);
+});
+
+test("accounting review: a fee account is never suggested as Clearing", () => {
+  assert.notEqual(suggest(A({ key: "7400.03", number: "7400.03", name: "PayPal fees", tbType: "Expenses" }), new Map(), M)?.chart, "10900");
+  assert.notEqual(suggest(A({ key: "square fees", name: "Square fees" }), new Map(), M)?.chart, "10900");
+  assert.equal(suggest(A({ key: "paypal", name: "PayPal", tbType: "Bank" }), new Map(), M)?.chart, "10900");
 });

@@ -7,7 +7,15 @@ import { formatAmount, parseAmount } from "./amount.ts";
 // An account the form offers. value: a file account id, "chart:66000" (a standard chart account, added to
 // the file on save), "line:8670.00" (a GIFI line with no chart account) or "new" (a new account in the
 // books of a client who keeps their own, named on the line).
-export type AcctOpt = { value: string; label: string; type: string; line_no: string; group: string };
+// chart, picked: piece R2, trial balance files: the client account's master account, and whether it is the one entries take
+// when several client accounts sit on that master account (D12b).
+export type AcctOpt = { value: string; label: string; type: string; line_no: string; group: string; chart?: string; picked?: boolean };
+// The client account a schedule's line takes on a trial balance file: the one on that master account, or the one picked when
+// several are; never the first on the GIFI line (D12b).
+export const optForChart = (opts: { value: string; chart?: string; picked?: boolean }[], number: string): string => {
+  const on = opts.filter((o) => o.chart === number);
+  return on.length === 1 ? on[0].value : on.find((o) => o.picked)?.value ?? "";
+};
 // Piece 3: a line filled by a schedule carries its part (sched) and, on a GST/HST line, isTax. Its amount is the
 // schedule's; only its account and description change in the form.
 export type FormLine = { acct: string; dr: string; cr: string; desc: string; tax: string; newName: string; newType: string; newLine: string; sched?: string; isTax?: boolean };

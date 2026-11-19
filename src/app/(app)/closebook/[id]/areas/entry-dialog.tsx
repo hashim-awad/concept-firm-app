@@ -94,7 +94,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           <h2 className="text-[15px] font-bold">Journal entry {no}</h2>
           <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${entry.reviewed_at ? "bg-success-soft text-success" : entry.needs_review ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>
             {entry.reviewed_at ? "Reviewed" : entry.needs_review ? "Needs review" : "No review needed"}</span>
-          {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} editable={editable && !locked} />}
+          {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} by={entry.booked_by ? names.get(entry.booked_by) ?? "" : ""} editable={editable && !locked} />}
           <span className="flex-1" />
           {canChange && !entry.booked_at && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}

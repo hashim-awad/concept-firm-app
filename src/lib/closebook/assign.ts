@@ -74,7 +74,9 @@ function parentName(a: ClientAcct): string {
 function special(a: ClientAcct): Suggestion | null {
   const n = norm(a.name), cls = qboClass(a.tbType);
   if (/opening balance equity/.test(n)) return { chart: "10900", source: "name", why: "Opening Balance Equity goes to Clearing" };
-  if (/undeposited funds|clearing|in transit|stripe|square|paypal|interac|e transfer/.test(n)) return { chart: "10900", source: "name", why: "A clearing account goes to Clearing" };
+  // Never an expense or revenue account ("PayPal fees"): Clearing only for a balance sheet account or one of unknown type.
+  if (cls !== "Expense" && cls !== "Revenue" && !/\b(fees?|charges?|commissions?|interest)\b/.test(n)
+      && /undeposited funds|clearing|in transit|stripe|square|paypal|interac|e transfer/.test(n)) return { chart: "10900", source: "name", why: "A clearing account goes to Clearing" };
   if ((cls === "Asset" || cls === null) && /\b(usd|us|u s)\b|us dollar/.test(n) && /bank|chequing|checking|savings|account/.test(n)) return { chart: "10200", source: "name", why: "A US dollar bank account" };
   return null;
 }

@@ -4,7 +4,7 @@
 // a click outside or Escape closes them. A toast for "Saved" and refusals that never covers a control.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, PinOff, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { notify } from "@/components/save-state";
 import Link from "next/link";
 import { PinButton, Tip, useTip } from "@/components/ds/sidebar";
@@ -159,9 +159,8 @@ export function LeftPanel({ children, folded: foldedNode, pinned: saved = true, 
     <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${pinned ? "w-[236px]" : "w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
       <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{pinned ? children : foldedNode ?? null}</div>
       <div className={`flex border-t border-sand-200 py-2 ${pinned ? "px-1.5" : "justify-center"}`}>
-        {forceFolded
-          ? <span className="grid h-8 w-8 place-items-center text-ink-3" title="The step list stays narrow on this page so both panes fit." aria-label="The step list stays narrow on this page so both panes fit."><PinOff className="h-4 w-4" aria-hidden /></span>
-          : <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
+        {/* On a page that needs the full width (step 4 on a trial balance file) the pin is left out: it would do nothing. */}
+        {forceFolded ? null : <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
       </div>
     </aside>
   );

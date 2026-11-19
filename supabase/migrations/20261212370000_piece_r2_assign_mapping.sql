@@ -185,8 +185,8 @@ begin
   for v in select * from jsonb_array_elements(p_items) loop
     select * into a from public.cb_accounts where id = (v ->> 'account')::uuid and file_id = p_file for update;
     perform private.require(a.id is not null, 'An account is not in this file.');
-    perform private.require(a.account_key not in ('opening', 'uncoded') and not a.client_new or nullif(v ->> 'chart', '') is not null,
-      'This row cannot be unassigned.');
+    perform private.require(a.account_key not in ('opening', 'uncoded'), 'This row takes no master account.');
+    perform private.require(not a.client_new or nullif(v ->> 'chart', '') is not null, 'This row cannot be unassigned.');
     if nullif(v ->> 'chart', '') is not null then
       select * into v_chart from public.cb_chart_accounts where number = v ->> 'chart';
       perform private.require(v_chart.number is not null, 'Choose a master account.');
@@ -266,6 +266,8 @@ declare v_file public.cb_files; a public.cb_accounts;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
   select * into v_file from public.cb_files where id = p_file;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked.');
+  perform private.require(v_file.books not in ('statements', 'paper'), 'Only trial balance files pick a client account.');
   select * into a from public.cb_accounts where id = p_account and file_id = p_file;
   perform private.require(a.id is not null and a.chart_account = p_chart, 'Choose a client account on that master account.');
   perform private.require(not exists (select 1 from public.cb_accounts c where c.file_id = p_file and c.parent_key = a.account_key),
@@ -287,6 +289,8 @@ begin
   select * into v_file from public.cb_files where id = e.file_id for update;
   perform private.require(v_file.phase <> 'locked', 'This file is locked.');
   perform private.require(v_file.books not in ('statements', 'paper'), 'Only trial balance files book entries in the client''s books.');
+  -- Nothing goes to the client before review: only a reviewed entry is marked booked.
+  perform private.require(not p_booked or e.reviewed_at is not null or not e.needs_review, 'Only a reviewed entry can be marked Booked in QuickBooks.');
   perform set_config('cb.booked_mark', 'on', true);
   update public.cb_entries set booked_at = case when p_booked then now() end, booked_by = case when p_booked then (select auth.uid()) end where id = p_entry;
   perform set_config('cb.booked_mark', 'off', true);
@@ -881,8 +885,14 @@ begin
              and not exists (select 1 from public.cb_accounts c where c.file_id = v_fid and c.parent_key = a.account_key);
         elsif v_cnt > 1 then
           select a.id into v_acc from public.cb_accounts a join public.cb_client_chart_picks p on p.client_id = p_file.client_id
-             and p.chart_account = v_chart.number and p.account_key = a.account_key where a.file_id = v_fid and a.chart_account = v_chart.number;
-          perform private.require(v_acc is not null, format('Several of the client''s accounts are on master account %s %s: choose the one entries take.', v_chart.number, v_chart.name));
+             and p.chart_account = v_chart.number and p.account_key = a.account_key where a.file_id = v_fid and a.chart_account = v_chart.number
+             and not exists (select 1 from public.cb_accounts c where c.file_id = v_fid and c.parent_key = a.account_key);
+          perform private.require(v_acc is not null, format('Several of the client''s accounts are on master account %s %s: choose the one entries take (step 4, open the master account).', v_chart.number, v_chart.name));
+        end if;
+        if v_acc is null and coalesce((v ->> 'is_tax')::boolean, false) and v_chart.number = '21500' and v_cnt = 0 then
+          -- The client's GST/HST account may sit on 12250 GST/HST receivable (a debit balance): the tax line takes it.
+          select min(a.id::text)::uuid into v_acc from public.cb_accounts a where a.file_id = v_fid and a.chart_account = '12250'
+             and (select count(*) from public.cb_accounts b where b.file_id = v_fid and b.chart_account = '12250') = 1;
         end if;
         if v_acc is null then
           perform private.require(coalesce((v ->> 'is_tax')::boolean, false), 'Choose one of the client''s accounts, or name a new account for their books.');
@@ -994,7 +1004,7 @@ begin
   perform private.require(p_target in ('this_year', 'last_year'), 'Unknown column.');
   -- Piece R2 (D12c): entries already booked in QuickBooks would count twice in a new trial balance.
   perform private.require(p_target <> 'this_year' or not exists (select 1 from public.cb_entries where file_id = p_file and booked_at is not null),
-    'Some entries are marked Booked in QuickBooks, so a new trial balance would count them twice. Unmark them first.');
+    'Some entries are marked Booked in QuickBooks: a new trial balance already holds them, so they would count twice. Unmark and delete those entries first, then import.');
   perform private.require(jsonb_typeof(p_rows) = 'array' and jsonb_array_length(p_rows) between 1 and 5000, 'The file has no accounts, or too many.');
   for v_row in select * from jsonb_array_elements(p_rows) loop
     v_amt := round((v_row ->> 'amount')::numeric, 2);
@@ -1192,6 +1202,44 @@ begin
   perform private.cb_log(p_file, 'gifi_exported', 't2', btrim(p_file_name));
   return v_id;
 end;
+$function$;
+
+-- D13: a director account (13100, 23150, 25450) by master account on trial balance files too.
+CREATE OR REPLACE FUNCTION public.cb_set_sh_name(p_file uuid, p_account text, p_name text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_file public.cb_files; a public.cb_accounts; v_name text := btrim(coalesce(p_name, '')); v_old text;
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
+  perform private.require(length(v_name) <= 120, 'Keep the name to 120 characters.');
+  select * into a from public.cb_accounts where file_id = p_file and account_key = p_account limit 1;
+  perform private.require(a.id is not null and left(coalesce(a.line_no, ''), 4) in ('1301', '1302', '1303', '2180', '2181', '2182', '2183', '2780', '2781', '2782', '2783', '3260', '3261', '3262', '3263')
+    and p_account not in ('chart:13100', 'chart:23150', 'chart:25450') and coalesce(a.chart_account, '') not in ('13100', '23150', '25450'), 'Only a shareholder account takes a shareholder name.');
+  select name into v_old from public.cb_sh_names where file_id = p_file and account_key = p_account;
+  if coalesce(v_old, '') = v_name and v_old is not null then return; end if;
+  insert into public.cb_sh_names (file_id, account_key, name, updated_by) values (p_file, p_account, v_name, (select auth.uid()))
+  on conflict (file_id, account_key) do update set name = excluded.name, updated_by = excluded.updated_by, updated_at = now();
+  perform private.cb_log(p_file, 'sh_name', null, format('%s %s: shareholder %s', coalesce(nullif(a.number, ''), p_account), a.name,
+    case when v_name = '' then 'name removed' else format('"%s"', v_name) end || case when coalesce(v_old, '') <> '' then format(' (was "%s")', v_old) else '' end));
+end;
+$function$;
+
+-- D13: directors by master account too.
+CREATE OR REPLACE FUNCTION private.cb_sh_applies(p_file uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists (select 1 from public.cb_accounts a where a.file_id = p_file
+     and left(coalesce(a.line_no, ''), 4) in ('1301', '1302', '1303', '2180', '2181', '2182', '2183', '2780', '2781', '2782', '2783', '3260', '3261', '3262', '3263')
+     and a.account_key not in ('chart:13100', 'chart:23150', 'chart:25450') and coalesce(a.chart_account, '') not in ('13100', '23150', '25450')
+     and (a.this_year <> 0 or a.last_year <> 0 or private.cb_account_final(a.id) <> 0))
 $function$;
 
 -- 6. Triggers.

@@ -107,7 +107,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
               <ChevronRight className="h-3.5 w-3.5 text-navy-600" aria-hidden />
               <Link href={open} scroll={false} className="tabular-nums font-medium text-navy-700 hover:underline">{entryNo(file.year_end, e).split(" ")[0]}</Link><span className="text-ink-3">{e.kind}</span>
               <span className="whitespace-nowrap">{formatDate(e.entry_date ?? file.year_end)}</span>
-              <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.note}</Link>{e.origin === "schedule"
+              <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.booked_at && <span className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700" data-booked-tag>Booked in QuickBooks</span>}{e.note}</Link>{e.origin === "schedule"
                 ? <span className="flex min-w-0 items-center gap-1.5"><Link href={e.reviewed_at || !editable || file.phase === "locked" ? open : `${open}&edit=1&sched=1`} scroll={false} className="truncate font-medium text-navy-700 underline" data-wp-link>{e.wp_ref}</Link>
                   <span className="rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span></span>
                 : <span className="truncate text-ink-3">{e.wp_ref || "–"}</span>}

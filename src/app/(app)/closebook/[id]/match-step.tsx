@@ -17,8 +17,8 @@ export type BoxItem = { row: Row; why: string; cents: number; kind: string; fix?
 
 const amt = (c: number) => { const t = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return c < 0 ? `(${t})` : t; };
 
-export function MatchStep({ fileId, rows, panelRows, box, ties, options, groupOptions, taxes, isReviewer, editable }: {
-  fileId: string; rows: MatchRow[]; panelRows: Record<string, Row>; box: BoxItem[]; ties: TieItem[]; options: Option[]; groupOptions: Option[]; taxes: { code: string; name: string }[];
+export function MatchStep({ tieNote, fileId, rows, panelRows, box, ties, options, groupOptions, taxes, isReviewer, editable }: {
+  tieNote?: string; fileId: string; rows: MatchRow[]; panelRows: Record<string, Row>; box: BoxItem[]; ties: TieItem[]; options: Option[]; groupOptions: Option[]; taxes: { code: string; name: string }[];
   isReviewer: boolean; editable: boolean;
 }) {
   const [shown, setShown] = useState<Set<string>>(new Set());
@@ -87,6 +87,7 @@ export function MatchStep({ fileId, rows, panelRows, box, ties, options, groupOp
         <span key={t.code}>{i > 0 && " · "}{t.ok ? <>{t.label} {amt(t.chart)} = GIFI {t.code} <span className="font-semibold text-success" aria-label="ties">✓</span></>
           : <span className="font-semibold text-danger">{t.label} {amt(t.chart)} · GIFI {t.code} {amt(t.gifi)} · Out of balance {amt(t.diff)}</span>}</span>
       ))}</p>
+      {tieNote && <p className="-mt-2 text-sm text-ink-2" data-tie-note>{tieNote}</p>}
 
       {open && <Panel key={open.r.id} fileId={fileId} r={open.r} options={open.mode === "group" ? groupOptions : options} taxes={taxes} isReviewer={isReviewer} onClose={() => setOpen(null)} mode={open.mode} />}
     </div>

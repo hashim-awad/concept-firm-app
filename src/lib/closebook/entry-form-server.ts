@@ -53,7 +53,8 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
   for (const a of own ? clientAccounts : accounts) {
     const ch = a.account_key.startsWith("chart:") ? chartOf.get(a.account_key.slice(6)) : undefined;
     opts.push({ value: a.id, label: `${a.number ? `${a.number} ` : ""}${a.name}${a.client_new ? " (new)" : ""}`, type: ch?.account_type ?? typeOfLine.get(a.line_no ?? "") ?? "", line_no: a.line_no ?? "",
-      group: own ? `${clientName}'s accounts` : "This file's accounts" });
+      group: own ? `${clientName}'s accounts` : "This file's accounts",
+      ...(own && a.chart_account ? { chart: a.chart_account, picked: picks.get(a.chart_account) === a.account_key } : {}) });
   }
   if (!own) {
     const inFile = new Set(accounts.map((a) => a.account_key));

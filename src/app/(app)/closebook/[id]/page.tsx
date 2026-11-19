@@ -190,6 +190,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     signs: Object.fromEntries(Object.entries(signMap).map(([k, v]) => [k, { prepared: !!v?.prepared, reviewed: !!v?.reviewed }])),
     banking: subs ? { accounts: !!subs["3.1"].prepared_at, feeds: !!subs["3.2"].prepared_at, reconcile: !!subs["3.3"].prepared_at } : undefined,
     bankAccounts: bank?.accounts.length ?? 0 };
+  // Piece R2: accounts with a balance not yet assigned (the header says the net income leaves them out).
+  const unassignedN = bankFile ? 0 : accounts.filter((a) => !a.chart_account && (!a.line_no || !a.client_new) && !['opening', 'uncoded'].includes(a.account_key)
+    && (Number(a.this_year) !== 0 || Number(a.last_year) !== 0 || entries.some((e) => e.lines.some((l) => l.account_id === a.id)))).length;
   const { steps, current, next } = fileSteps({ bankGaps, coding, opening, signs: stepSigns(review), setupOpen,
     books: file.books, docs, statements, imported: imports.some((i) => i.target === "this_year"), accounts: accounts.length,
     // Piece R2: on a trial balance file, the accounts with a balance (this year or last, or an entry) not yet assigned to a
@@ -242,10 +245,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Piece R2 (Hashim, Nov 19, 2026; mock O): step 4 "Assign mapping" on a trial balance file. The master chart by lead sheet,
   // last year's matches from the client's file just before (its master accounts, or its lines for files from before R2).
   const assignPage = async () => {
-    const [{ data: chartRows }, { data: priorFile }] = await Promise.all([
+    const [{ data: chartRows }, { data: priorFile }, { data: pickRows }] = await Promise.all([
       supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
       supabase.from("cb_files").select("id").eq("client_id", file.client_id).lt("year_end", file.year_start).order("year_end", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("cb_client_chart_picks").select("chart_account, account_key").eq("client_id", file.client_id),
     ]);
+    const picks = Object.fromEntries(((pickRows ?? []) as { chart_account: string; account_key: string }[]).map((x) => [x.chart_account, x.account_key]));
     const { data: priorAccts } = priorFile ? await supabase.from("cb_accounts").select("account_key, name, line_no, chart_account").eq("file_id", priorFile.id) : { data: [] };
     const master: MasterAcct[] = ((chartRows ?? []) as { number: string; name: string; account_type: string; line_no: string | null }[])
       .map((c) => ({ number: c.number, name: c.name, type: c.account_type, line: c.line_no, sheet: sheetName(c.line_no) }));
@@ -258,7 +263,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const signed = !!(signMap.code?.prepared || signMap.code?.reviewed);
     const locked = file.phase === "locked" ? "This file is locked." : signed ? "Step 4 is signed. Take back the sign-off to change the mapping."
       : !editable ? "You can view the mapping. You need Edit on Closebook to change it." : null;
-    return <AssignStep fileId={id} accounts={accts} master={master} groups={ref.sheets.map((x) => x.name)} prior={prior} locked={locked} />;
+    return <AssignStep fileId={id} accounts={accts} master={master} groups={ref.sheets.map((x) => x.name)} prior={prior} locked={locked} picks={picks} />;
   };
 
   // Piece R1 (Hashim, Nov 19, 2026; mock M): step 8's "Match accounts to GIFI" on a bank-statement file. The box and the
@@ -304,7 +309,12 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     const panelRows = Object.fromEntries(rows.flatMap((r) => r.accounts.map((s) => [s.id, panelRow(accounts.find((x) => x.id === s.id)!)])));
     const options = ref.lines.filter((l) => l.mappable).map((l) => ({ no: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, section: l.section ?? "", hint: ref.craText.get(l.gifi_code) ?? "",
       locked: lockedSet.has(l.line_no), normal: normalSide(l), type: l.line_type }));
-    return <MatchStep fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} groupOptions={groupChoices} taxes={ref.taxes}
+    // Piece R2 (D2): a Clearing account has no GIFI line; while it has a balance, total assets differ by that balance. Say so.
+    const clearingCents = accounts.filter((a) => a.chart_account === "10900" || a.account_key === "chart:10900").filter((a) => (a.tb_type ?? "").toLowerCase() !== "equity" && a.account_type !== "Equity")
+      .reduce((n, a) => n + Math.round(finalOf(a) * 100), 0);
+    const tieNote = clearingCents && Math.round((Number(st.ties.assets_chart) - Number(st.ties.assets_gifi)) * 100) === clearingCents
+      ? `Total assets differ by the Clearing accounts' balance (${amt(clearingCents / 100)}). The difference goes once they are cleared by an entry.` : undefined;
+    return <MatchStep tieNote={tieNote} fileId={id} rows={rows} panelRows={panelRows} box={box} ties={tieItems(st.ties)} options={options} groupOptions={groupChoices} taxes={ref.taxes}
       isReviewer={isReviewer || access.is_owner} editable={editable && file.phase !== "locked"} />;
   };
 
@@ -814,7 +824,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const signoffPill = subs ? await loadSignoffPill(supabase, id, access.staff_id ?? "") : null;
 
   return (
-    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} area={area}
+    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
       tools={{ on: !!tool, journal: editable && file.phase !== "locked" }}
       history={access.is_owner} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>

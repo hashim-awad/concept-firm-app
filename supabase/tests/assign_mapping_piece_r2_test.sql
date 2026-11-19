@@ -167,7 +167,7 @@ select test.check('T3: the new client account carries its master account', (sele
 select test.check('T3: a new account with no master account is refused', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue', false, '[{"line":"8860.00","new_name":"Fees","new_type":"Expenses","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m'))
   = 'Choose the master account for the new account.');
 select test.check('D12b: two client accounts on one master account: the preparer picks', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Sales tax', false, '[{"chart":"21500","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m'))
-  = 'Several of the client''s accounts are on master account 21500 GST/HST payable: choose the one entries take.');
+  = 'Several of the client''s accounts are on master account 21500 GST/HST payable: choose the one entries take (step 4, open the master account).');
 select public.cb_pick_chart_account(:'m', '21500', (select id from public.cb_accounts where file_id = :'m' and number = '2200'));
 select test.check('D12b: then entries take the picked account', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Sales tax', false, '[{"chart":"21500","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m')) = 'OK');
 select test.check('D12b: a parent with sub-accounts is refused', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue marketing', false, '[{"account":"%s","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$,
@@ -177,11 +177,18 @@ select test.check('D12b: the pick rolls forward with the client', (select accoun
 
 -- D12c: "Booked in QuickBooks": the entry is fixed and a new trial balance is refused until it is unmarked.
 select id as e1 from public.cb_entries where file_id = :'m' order by seq limit 1 \gset
+update public.cb_entries set needs_review = true, reviewed_at = null where id = :'e1';
+:prep;
+select test.check('D12c: an entry is marked booked only once reviewed', test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) = 'Only a reviewed entry can be marked Booked in QuickBooks.');
+:out;
+update public.cb_entries set reviewed_at = now(), reviewed_by = '00000000-0000-0000-0000-00000000000a' where id = :'e1';
 :prep;
 select public.cb_mark_booked(:'e1', true);
-select test.check('D12c: a booked entry cannot change', test.try(format('select public.cb_delete_entry(%L)', :'e1')) = 'This entry is marked Booked in QuickBooks. Unmark it first.');
+:out;
+select test.check('D12c: a booked entry''s lines cannot change', test.try(format('update public.cb_entry_lines set memo = memo || %L where entry_id = %L', 'x', :'e1')) = 'This entry is marked Booked in QuickBooks. Unmark it first.');
+:prep;
 select test.check('D12c: a new trial balance is refused while an entry is booked', test.try(format($q$select public.cb_import_tb(%L, 'this_year', 'quickbooks', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":1},{"number":"4000","name":"Commission income","amount":-1}]')$q$, :'m'))
-  = 'Some entries are marked Booked in QuickBooks, so a new trial balance would count them twice. Unmark them first.');
+  = 'Some entries are marked Booked in QuickBooks: a new trial balance already holds them, so they would count twice. Unmark and delete those entries first, then import.');
 select public.cb_mark_booked(:'e1', false);
 select test.check('D12c: unmarked, the trial balance imports again', test.try(format($q$select public.cb_import_tb(%L, 'this_year', 'quickbooks', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":1},{"number":"4000","name":"Commission income","amount":-1}]')$q$, :'m')) = 'OK');
 :out;
@@ -220,3 +227,17 @@ select test.check('T2: every line total is as before', not exists (
 select test.check('T2: net income and total assets tie as before', private.cb_match_ties(:'t2') = :'ties_before'::jsonb);
 select test.check('T2: the shareholder account stays on its line, as shareholder 1', (select line_no || '|' || chart_account from public.cb_accounts where file_id = :'t2' and number = '2300') = '2781.10|23000');
 select test.check('T2: no account is left without a master account', not exists (select 1 from public.cb_accounts where file_id = :'t2' and chart_account is null and this_year <> 0));
+
+-- Accounting review fixes: the tax line takes the client's GST/HST account on 12250 when none is on 21500; system rows take
+-- no master account.
+:prep;
+select public.cb_create_file(:'client', '2022-12-31', '2022-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as tx \gset
+select public.cb_import_tb(:'tx', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":500},{"number":"1250","name":"HST refund owing","amount":100},{"number":"4000","name":"Commissions","amount":-600}]');
+select public.cb_assign(:'tx', format('[{"account":"%s","chart":"10000"},{"account":"%s","chart":"12250"},{"account":"%s","chart":"40100"}]',
+  (select id from public.cb_accounts where file_id = :'tx' and number = '1000'), (select id from public.cb_accounts where file_id = :'tx' and number = '1250'),
+  (select id from public.cb_accounts where file_id = :'tx' and number = '4000'))::jsonb, 'Assigned 3 accounts');
+select public.cb_add_entry(:'tx', 'AJE', 'accrual', 'Accrue the fee with HST', false, ('[{"chart":"66000","new_name":"Year-end accounting fee","new_type":"Expenses","amount":100},{"chart":"21500","amount":13,"is_tax":true},{"account":"' || (select id from public.cb_accounts where file_id = :'tx' and number = '1000') || '","amount":-113}]')::jsonb, 'Fee letter');
+:out;
+select test.check('the tax line takes the client''s GST/HST account on 12250, no new account', (select a.number from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id
+  join public.cb_entries e on e.id = l.entry_id where e.file_id = :'tx' and l.is_tax) = '1250'
+  and not exists (select 1 from public.cb_accounts where file_id = :'tx' and client_new and name ilike 'GST/HST%'));

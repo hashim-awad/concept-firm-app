@@ -9,13 +9,13 @@ import { ChevronRight, Search, Undo2, X } from "lucide-react";
 import { notify, confirmAction } from "@/components/save-state";
 import { buildTree, counted, suggest, lastYearMatches, actionText, money, label, qboClass,
   type ClientAcct, type MasterAcct, type PriorMatch, type Suggestion } from "@/lib/closebook/assign";
-import { assignInline, undoAssignInline, unassignAllInline } from "../actions";
+import { assignInline, pickChartAccountInline, undoAssignInline, unassignAllInline } from "../actions";
 
-type Props = { fileId: string; accounts: ClientAcct[]; master: MasterAcct[]; groups: string[]; prior: [string, PriorMatch][]; locked: string | null };
+type Props = { fileId: string; accounts: ClientAcct[]; master: MasterAcct[]; groups: string[]; prior: [string, PriorMatch][]; locked: string | null; picks?: Record<string, string> };
 type Done = { id: string; label: string };
 const cents = (v: number) => Math.round(v * 100);
 
-export function AssignStep({ fileId, accounts, master, groups, prior: priorList, locked }: Props) {
+export function AssignStep({ fileId, accounts, master, groups, prior: priorList, locked, picks = {} }: Props) {
   const router = useRouter();
   const [, startRefresh] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -88,11 +88,10 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
     const m = to ? byNo.get(to) ?? null : null;
     // D10, D16: a QuickBooks type that differs from the master account's type asks first; the account then waits for the
     // reviewer in step 8.
-    if (m && !items) {
-      const off = ids.filter((id) => { const c = qboClass(byId.get(id)!.tbType); return c && c !== m.type; });
-      if (off.length && !(await confirmAction({ title: `Assign ${off.length === 1 ? "an account" : `${off.length} accounts`} of another type?`, confirm: "Assign anyway",
-        body: <p>{off.slice(0, 5).map((id) => label(byId.get(id)!)).join(", ")}{off.length > 5 ? ` and ${off.length - 5} more` : ""}: the QuickBooks type is not {m.type.toLowerCase()}. They will wait for the reviewer in step 8.</p> }))) return;
-    }
+    // On "Accept last year's matches" each account is checked against its own master account.
+    const off = list.filter((i) => { const mm = i.chart && i.chart !== "10900" ? byNo.get(i.chart) : null; const c = qboClass(byId.get(i.account)!.tbType); return mm && c && c !== mm.type; }).map((i) => i.account);   // Clearing takes any type (D2)
+    if (off.length && !(await confirmAction({ title: `Assign ${off.length === 1 ? "an account" : `${off.length} accounts`} of another type?`, confirm: "Assign anyway",
+      body: <p>{off.map((id) => label(byId.get(id)!)).join(", ")}: the QuickBooks type is not the master account&apos;s type. {off.length === 1 ? "It waits" : "They wait"} for the reviewer in step 8.</p> }))) return;
     const nA = `${list.length} account${list.length === 1 ? "" : "s"}`;
     // The Undo label says what will be undone (mock O): "8 accounts to 60000 Advertising".
     const text = items ? `${nA} to last year's master accounts` : to ? actionText(list.length, m) : `Unassigned ${nA}`;
@@ -189,11 +188,11 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
               return (
                 <div key={n.key} role="group">
                   <div data-parent={n.key} tabIndex={0} role="treeitem" aria-expanded={open} aria-selected={nSel === ids.length}
-                    className="flex items-center gap-2 px-3 py-1 font-medium hover:bg-sand-50 focus:bg-sand-100 focus:outline-none">
+                    className="flex items-center gap-2 px-3 py-1 font-medium hover:bg-sand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-navy-600">
                     <button type="button" aria-label={open ? "Close" : "Open"} tabIndex={-1} onClick={() => setShut((s) => { const x = new Set(s); if (open) x.add(n.key); else x.delete(n.key); return x; })}>
                       <ChevronRight className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden /></button>
                     <input type="checkbox" tabIndex={-1} aria-label={`Tick ${n.name}`} checked={nSel === ids.length && ids.length > 0} ref={(el) => { if (el) el.indeterminate = nSel > 0 && nSel < ids.length; }} onChange={() => pickParent(ids)} />
-                    <span className="flex-1 truncate">{n.number && <span className="mr-1.5 tabular-nums text-ink-3">{n.number}</span>}{n.name} <span className="font-normal text-ink-3">({ids.length})</span></span>
+                    <span className="min-w-0 flex-1 break-words">{n.number && <span className="mr-1.5 tabular-nums text-ink-3">{n.number}</span>}{n.name} <span className="font-normal text-ink-3">({ids.length})</span></span>
                     <span className="tabular-nums">{money(total)}</span>
                   </div>
                   {open && <div className="pl-6">
@@ -212,9 +211,9 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
             <h2 className="font-semibold">Master chart</h2>
             <p className="text-sm" data-selected><b>{selected.length}</b> selected · {money(selTotal)}</p>
             {selected.length > 0 && (
-              <div className="mt-2 grid gap-1.5 rounded-md border border-navy-200 bg-navy-50/60 px-3 py-2" data-suggestion>
+              <div className="mt-2 grid max-h-56 gap-1.5 overflow-y-auto rounded-md border border-navy-200 bg-navy-50/60 px-3 py-2" data-suggestion>
                 {sugg.length === 0 && <p className="text-sm text-ink-2">No suggestion: choose a master account below.</p>}
-                {sugg.slice(0, 4).map(({ s, ids }) => (
+                {sugg.map(({ s, ids }) => (
                   <div key={s.chart} className="flex items-center gap-3">
                     <p className="flex-1 text-sm"><b>Suggested: {s.chart} {byNo.get(s.chart)?.name}</b><br /><span className="text-xs text-ink-2">{s.why}{ids.length < selected.length ? ` · ${ids.length} of ${selected.length}` : ""}</span></p>
                     <button type="button" disabled={!can} className="btn btn-compact" onClick={() => void assign(ids, s.chart, s.source)}>Assign {ids.length}</button>
@@ -244,7 +243,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
                     return (
                       <div key={m.number} data-master={m.number} onDragOver={(e) => e.preventDefault()} onDrop={dropOn(m.number)}
                         className="flex items-center gap-2 py-1 pr-3 pl-9 hover:bg-sand-50">
-                        <button type="button" onClick={() => setWin(m.number)} className="flex-1 truncate text-left hover:underline"><span className="mr-1.5 tabular-nums text-ink-3">{m.number}</span>{m.name}
+                        <button type="button" onClick={() => setWin(m.number)} className="min-w-0 flex-1 break-words text-left hover:underline"><span className="mr-1.5 tabular-nums text-ink-3">{m.number}</span>{m.name}
                           <span className="ml-1 text-ink-3">({cl.length})</span></button>
                         <span className="w-28 text-right tabular-nums">{money(cl.reduce((s, a) => s + cents(a.thisYear), 0))}</span>
                         <button type="button" disabled={!can || !selected.length} onClick={() => void assign(selected, m.number)} className="btn-secondary btn-compact w-16 justify-center">Assign</button>
@@ -258,7 +257,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
         </section>
       </div>
 
-      {win && <MasterWindow m={byNo.get(win)!} accts={on.get(win) ?? []} can={can} onClose={() => setWin(null)} onUnassign={(id) => void assign([id], null)} onDrag={onDrag} />}
+      {win && <MasterWindow fileId={fileId} m={byNo.get(win)!} accts={on.get(win) ?? []} can={can} pick={picks[win] ?? null} onClose={() => setWin(null)} onUnassign={(id) => void assign([id], null)} onDrag={onDrag} onDropBack={dropOn(null)} />}
     </div>
   );
 }
@@ -267,33 +266,66 @@ function Row({ a, sel, onPick, onDrag }: { a: ClientAcct; sel: boolean; onPick: 
   return (
     <div data-rid={a.id} tabIndex={0} role="treeitem" aria-selected={sel} draggable onDragStart={() => onDrag(a.id)}
       onClick={(e) => { if ((e.target as HTMLElement).tagName !== "INPUT") onPick(a.id, e); }}
-      className={`flex cursor-pointer items-center gap-2 px-3 py-1 hover:bg-sand-50 focus:bg-sand-100 focus:outline-none ${sel ? "bg-navy-50" : ""}`}>
+      className={`flex cursor-pointer items-center gap-2 px-3 py-1 hover:bg-sand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-navy-600 ${sel ? "bg-navy-50" : ""}`}>
       <input type="checkbox" tabIndex={-1} aria-label={`Tick ${label(a)}`} checked={sel} onChange={(e) => onPick(a.id, { shiftKey: (e.nativeEvent as MouseEvent).shiftKey })} />
-      <span className="flex-1 truncate">{a.number && <span className="mr-1.5 tabular-nums text-ink-3">{a.number}</span>}{a.name}</span>
+      <span className="min-w-0 flex-1 break-words">{a.number && <span className="mr-1.5 tabular-nums text-ink-3">{a.number}</span>}{a.name}</span>
       <span className="tabular-nums">{money(cents(a.thisYear))}</span>
     </div>
   );
 }
 
 // A master account opened: its client accounts, each with Unassign (or dragged back to the left pane). Escape closes it.
-function MasterWindow({ m, accts, can, onClose, onUnassign, onDrag }: { m: MasterAcct; accts: ClientAcct[]; can: boolean; onClose: () => void; onUnassign: (id: string) => void; onDrag: (id: string) => void }) {
+function MasterWindow({ fileId, m, accts, can, pick, onClose, onUnassign, onDrag, onDropBack }: { fileId: string; m: MasterAcct; accts: ClientAcct[]; can: boolean; pick: string | null;
+  onClose: () => void; onUnassign: (id: string) => void; onDrag: (id: string) => void; onDropBack: (e: React.DragEvent) => void }) {
   const close = useRef(onClose);
+  const box = useRef<HTMLElement>(null);
+  const router = useRouter();
+  const [taking, setTaking] = useState(pick);
   useEffect(() => { close.current = onClose; });
-  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, []);
+  // Focus goes into the window and back to the master account's name on close; Tab stays inside (as the account panel).
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") close.current(); };
+    document.addEventListener("keydown", k);
+    box.current?.querySelector<HTMLElement>("button")?.focus();
+    return () => { document.removeEventListener("keydown", k); opener?.focus(); };
+  }, []);
+  const trap = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !box.current) return;
+    const els = [...box.current.querySelectorAll<HTMLElement>("button:not([disabled]), select:not([disabled])")];
+    if (!els.length) return;
+    const first = els[0], last = els[els.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+  // D12b: with several client accounts on one master account, the one entries and schedules post to (rolls forward).
+  const choose = async (key: string) => {
+    const a = accts.find((x) => x.key === key); if (!a) return;
+    const err = await pickChartAccountInline(fileId, m.number, a.id);
+    if (err) notify(err, "error"); else { setTaking(key); notify(`Entries to ${m.number} ${m.name} go to ${label(a)}.`); router.refresh(); }
+  };
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={`${m.number} ${m.name}`} data-master-window={m.number}>
-      <div className="absolute inset-0 bg-navy-950/20" onClick={onClose} />
-      <aside className="absolute inset-y-0 right-0 flex w-[460px] max-w-full flex-col overflow-y-auto bg-white shadow-2xl">
+      {/* Dragging a client account out of the window onto the page (the left pane) unassigns it, as Unassign does. */}
+      <div className="absolute inset-0 bg-navy-950/20" onClick={onClose} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { onDropBack(e); onClose(); }} />
+      <aside ref={box} onKeyDown={trap} className="absolute inset-y-0 right-0 flex w-[460px] max-w-full flex-col overflow-y-auto bg-white shadow-2xl">
         <div className="flex items-start gap-2 border-b border-sand-200 px-5 py-4">
           <div className="flex-1"><h2 className="text-base font-semibold"><span className="mr-2 tabular-nums">{m.number}</span>{m.name}</h2>
             <p className="text-[12.5px] text-ink-2">{m.sheet ? `Group: ${m.sheet}` : "Clearing: must be nil at year end"} · {accts.length} client account{accts.length === 1 ? "" : "s"}</p></div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 text-ink-2 hover:bg-sand-100"><X className="h-5 w-5" /></button>
         </div>
+        {accts.length > 1 && (
+          <label className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take><span className="font-semibold">Entries and schedules post to</span>
+            <select value={taking ?? ""} disabled={!can} onChange={(e) => void choose(e.target.value)} className="input input-compact">
+              <option value="">Choose one of the {accts.length} accounts</option>
+              {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
+            </select></label>
+        )}
         <ul className="divide-y divide-sand-100 text-sm">
           {accts.length === 0 && <li className="px-5 py-4 text-ink-3">No client account on this master account yet.</li>}
           {accts.map((a) => (
             <li key={a.id} draggable onDragStart={() => onDrag(a.id)} className="flex items-center gap-2 px-5 py-2">
-              <span className="flex-1 truncate">{label(a)}</span><span className="tabular-nums">{money(Math.round(a.thisYear * 100))}</span>
+              <span className="min-w-0 flex-1 break-words">{label(a)}</span><span className="tabular-nums">{money(Math.round(a.thisYear * 100))}</span>
               {can && !a.key.startsWith("new:") && <button type="button" onClick={() => onUnassign(a.id)} className="text-sm text-navy-700 underline">Unassign</button>}
             </li>
           ))}
