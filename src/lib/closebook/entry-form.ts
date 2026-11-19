@@ -14,6 +14,8 @@ export type AcctOpt = { value: string; label: string; type: string; line_no: str
 // several are; never the first on the GIFI line (D12b).
 export const optForChart = (opts: { value: string; chart?: string; picked?: boolean }[], number: string): string => {
   const on = opts.filter((o) => o.chart === number);
+  // The ITC line: with no account on 21500, the client's single GST/HST account on 12250 (as the entry writer does).
+  if (!on.length && number === "21500") { const r = opts.filter((o) => o.chart === "12250"); return r.length === 1 ? r[0].value : ""; }
   return on.length === 1 ? on[0].value : on.find((o) => o.picked)?.value ?? "";
 };
 // Piece 3: a line filled by a schedule carries its part (sched) and, on a GST/HST line, isTax. Its amount is the

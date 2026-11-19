@@ -608,7 +608,9 @@ In short:
   - Clearing accounts (D2, Hashim): payment app clearing (CAD and USD), Undeposited Funds and commission cheque clearing are
     assigned to 10900 Clearing. The Clearing rules apply to chart_account 10900: step 6 holds while it has a balance; an entry to
     cash (deposit in transit) or receivables clears it. New master accounts (Hashim approved, Nov 19): 12250 GST/HST receivable
-    (1066.00 Taxes receivable) and 12900 Other current assets (1480.00 Other current assets).
+    (1066.00 Taxes receivable) and 12900 Other current assets (1480.00 Other current assets). 12250 is for trial balance files (the
+    client's GST/HST account with a debit balance; the tax line takes it when none is on 21500); on bank-statement files a
+    refund owing stays on 21500, as the 21500 tie to the returns reads it.
   - QuickBooks Opening Balance Equity (Hashim, Nov 19; option A): assigned to 10900 Clearing (identified by QuickBooks type
     Equity, else the name "Opening Balance Equity"); must be nil, step 6 holds while it has a balance. It is cleared by one RJE
     to retained earnings at the start of the year: the only exception to "retained earnings only through prior period

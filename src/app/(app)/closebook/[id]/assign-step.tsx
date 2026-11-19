@@ -257,7 +257,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
         </section>
       </div>
 
-      {win && <MasterWindow fileId={fileId} m={byNo.get(win)!} accts={on.get(win) ?? []} can={can} pick={picks[win] ?? null} onClose={() => setWin(null)} onUnassign={(id) => void assign([id], null)} onDrag={onDrag} onDropBack={dropOn(null)} />}
+      {win && <MasterWindow fileId={fileId} m={byNo.get(win)!} accts={on.get(win) ?? []} can={can} pick={picks[win] ?? null} canPick={!!locked ? !locked.startsWith("This file is locked") && !locked.startsWith("You can view") : true} onClose={() => setWin(null)} onUnassign={(id) => void assign([id], null)} onDrag={onDrag} onDropBack={dropOn(null)} />}
     </div>
   );
 }
@@ -275,7 +275,7 @@ function Row({ a, sel, onPick, onDrag }: { a: ClientAcct; sel: boolean; onPick: 
 }
 
 // A master account opened: its client accounts, each with Unassign (or dragged back to the left pane). Escape closes it.
-function MasterWindow({ fileId, m, accts, can, pick, onClose, onUnassign, onDrag, onDropBack }: { fileId: string; m: MasterAcct; accts: ClientAcct[]; can: boolean; pick: string | null;
+function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassign, onDrag, onDropBack }: { fileId: string; m: MasterAcct; accts: ClientAcct[]; can: boolean; canPick: boolean; pick: string | null;
   onClose: () => void; onUnassign: (id: string) => void; onDrag: (id: string) => void; onDropBack: (e: React.DragEvent) => void }) {
   const close = useRef(onClose);
   const box = useRef<HTMLElement>(null);
@@ -316,7 +316,7 @@ function MasterWindow({ fileId, m, accts, can, pick, onClose, onUnassign, onDrag
         </div>
         {accts.length > 1 && (
           <label className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take><span className="font-semibold">Entries and schedules post to</span>
-            <select value={taking ?? ""} disabled={!can} onChange={(e) => void choose(e.target.value)} className="input input-compact">
+            <select value={taking ?? ""} disabled={!canPick} onChange={(e) => void choose(e.target.value)} className="input input-compact">
               <option value="">Choose one of the {accts.length} accounts</option>
               {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
             </select></label>

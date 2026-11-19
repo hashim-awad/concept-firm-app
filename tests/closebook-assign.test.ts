@@ -139,3 +139,10 @@ test("accounting review: a fee account is never suggested as Clearing", () => {
   assert.notEqual(suggest(A({ key: "square fees", name: "Square fees" }), new Map(), M)?.chart, "10900");
   assert.equal(suggest(A({ key: "paypal", name: "PayPal", tbType: "Bank" }), new Map(), M)?.chart, "10900");
 });
+
+test("D12b: a schedule's ITC line takes the client's single 12250 account when none is on 21500", async () => {
+  const { optForChart } = await import("../src/lib/closebook/entry-form.ts");
+  assert.equal(optForChart([{ value: "a", chart: "12250" }], "21500"), "a");
+  assert.equal(optForChart([{ value: "a", chart: "21500" }, { value: "b", chart: "21500", picked: true }], "21500"), "b");
+  assert.equal(optForChart([{ value: "a", chart: "21500" }, { value: "b", chart: "21500" }], "21500"), "");
+});
