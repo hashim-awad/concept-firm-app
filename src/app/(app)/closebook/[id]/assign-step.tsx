@@ -282,7 +282,10 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
   const router = useRouter();
   const [taking, setTaking] = useState(pick);
   const [choice, setChoice] = useState(pick ?? "");
-  useEffect(() => { close.current = onClose; });
+  // A pick not yet saved (the select still has focus) is saved when the window closes: Escape, X or a click outside
+  // remove the select before its blur fires.
+  const pending = useRef({ choice, taking });
+  useEffect(() => { pending.current = { choice, taking }; });
   // Focus goes into the window and back to the master account's name on close; Tab stays inside (as the account panel).
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
@@ -305,10 +308,12 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
     const err = await pickChartAccountInline(fileId, m.number, a.id);
     if (err) notify(err, "error"); else { setTaking(key); notify(`Entries to ${m.number} ${m.name} go to ${label(a)}.`); router.refresh(); }
   };
+  const shut = () => { const p = pending.current; if (p.choice && p.choice !== p.taking) void choose(p.choice); onClose(); };
+  useEffect(() => { close.current = shut; });
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={`${m.number} ${m.name}`} data-master-window={m.number}>
       {/* Dragging a client account out of the window onto the page (the left pane) unassigns it, as Unassign does. */}
-      <div className="absolute inset-0 bg-navy-950/20" onClick={onClose} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+      <div className="absolute inset-0 bg-navy-950/20" onClick={shut} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
         // Only a drop over the left pane unassigns; a drop anywhere else under the window does nothing.
         const r = document.querySelector("[data-left-pane]")?.getBoundingClientRect();
         if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { onDropBack(e); onClose(); } else e.preventDefault();
@@ -317,14 +322,14 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
         <div className="flex items-start gap-2 border-b border-sand-200 px-5 py-4">
           <div className="flex-1"><h2 className="text-base font-semibold"><span className="mr-2 tabular-nums">{m.number}</span>{m.name}</h2>
             <p className="text-[12.5px] text-ink-2">{m.sheet ? `Group: ${m.sheet}` : "Clearing: must be nil at year end"} · {accts.length} client account{accts.length === 1 ? "" : "s"}</p></div>
-          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 text-ink-2 hover:bg-sand-100"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={shut} aria-label="Close" className="rounded p-1.5 text-ink-2 hover:bg-sand-100"><X className="h-5 w-5" /></button>
         </div>
         {accts.length > 1 && (
           <div className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take>
             <label htmlFor="entries-take" className="font-semibold">Entries and schedules post to</label>
             <span className="flex items-center gap-2">
               <select id="entries-take" value={choice} disabled={!canPick} onChange={(e) => setChoice(e.target.value)} onBlur={() => { if (choice && choice !== taking) void choose(choice); }} className="input input-compact flex-1">
-                <option value="">Not chosen</option>
+                {!taking && <option value="">Not chosen</option>}
                 {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
               </select>
             </span>

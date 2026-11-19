@@ -130,7 +130,7 @@ export type StmtAccount = { key: string; number: string; name: string; line_no: 
 export type StmtGroup = { code: string; name: string; accounts: StmtAccount[]; now: number; last: number };
 export type StmtSection = { title: string; groups: StmtGroup[]; now: number; last: number };
 export type Statements = {
-  bs: { assets: StmtSection; liabilities: StmtSection; equity: StmtSection; unsorted: StmtSection | null; totalLE: { now: number; last: number }; balanced: boolean };
+  bs: { assets: StmtSection; liabilities: StmtSection; equity: StmtSection; clearing: StmtSection | null; unsorted: StmtSection | null; totalLE: { now: number; last: number }; balanced: boolean };
   // lastFromT2: last year's income statement was not entered (no Schedule 125), so last year's net income
   // is the figure that ties last year's closing balance sheet (the T2's 9999).
   pl: { revenue: StmtSection; expenses: StmtSection; net: { now: number; last: number }; lastFromT2: boolean };
@@ -163,18 +163,21 @@ export function statements(tbAll: TbLine[], info: (line_no: string | null) => Li
   const liabilities = section("Liabilities", typed("Liability"), -1, info);
   const equity = section("Equity", typed("Equity"), -1, info, ["SC", "RE", "PPA", "DIV"]);
   // Accounts without a GIFI line yet (not yet coded, opening balances to enter, not mapped).
+  // Decision 2A: accounts on 10900 Clearing are their own section, apart from "Not yet sorted".
   const noLine = tb.filter((r) => !info(r.line_no));
-  const open = section(noLine.length && noLine.every((r) => r.chart === "10900") ? CLEARING_NAME : "Not yet sorted", noLine, -1, info);
+  const clr = section(CLEARING_NAME, noLine.filter((r) => r.chart === "10900"), -1, info);
+  const open = section("Not yet sorted", noLine.filter((r) => r.chart !== "10900"), -1, info);
+  const clearing = clr.groups.length && (clr.now || clr.last) ? clr : null;
   const unsorted = open.groups.length && (open.now || open.last) ? open : null;
   // Last year's net income on the balance sheet: whatever ties last year's closing balances. It equals
   // the income statement's when Schedule 125 was entered, and the T2's 9999 when it was typed instead.
-  const tiedLast = assets.last - liabilities.last - equity.last - (unsorted?.last ?? 0);
+  const tiedLast = assets.last - liabilities.last - equity.last - (clearing?.last ?? 0) - (unsorted?.last ?? 0);
   const lastFromT2 = tiedLast !== net.last;
   if (lastFromT2) net.last = tiedLast;
   equity.groups.splice(equity.groups.findIndex((g) => g.code === "DIV"), 0, { code: NET_INCOME, name: "Net income", accounts: [], now: net.now, last: net.last });
   equity.now += net.now; equity.last += net.last;
-  const totalLE = { now: liabilities.now + equity.now + (unsorted?.now ?? 0), last: liabilities.last + equity.last + (unsorted?.last ?? 0) };
-  return { bs: { assets, liabilities, equity, unsorted, totalLE, balanced: assets.now === totalLE.now }, pl: { revenue, expenses, net, lastFromT2 } };
+  const totalLE = { now: liabilities.now + equity.now + (clearing?.now ?? 0) + (unsorted?.now ?? 0), last: liabilities.last + equity.last + (clearing?.last ?? 0) + (unsorted?.last ?? 0) };
+  return { bs: { assets, liabilities, equity, clearing, unsorted, totalLE, balanced: assets.now === totalLE.now }, pl: { revenue, expenses, net, lastFromT2 } };
 }
 
 // General ledger: each account's postings in date order with a running balance. from/to: YYYY-MM-DD.

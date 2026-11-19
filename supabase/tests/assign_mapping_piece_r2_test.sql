@@ -124,7 +124,7 @@ select test.check('decision 1A: retained earnings tie, so step 6 says nothing of
 select public.cb_save_tb_opening_re(:'f', 250);
 :out;
 select test.check('decision 1A: a different step 2 figure holds step 6, with both figures', private.cb_step_problems(:'f', 'compare')
-  @> array['Retained earnings at the start do not equal last year''s closing retained earnings in step 2: 0.00 and 250.00.']);
+  @> array['Retained earnings at the start do not tie to step 2. At the start: 0.00. Step 2 (T2 line 3849): 250.00. Difference: (250.00).']);
 :prep;
 select public.cb_save_tb_opening_re(:'f', 0);
 :out;
@@ -275,6 +275,7 @@ select test.check('security: unassigning drops the override with a History line'
 select public.cb_undo_assign(:'ua');
 :out;
 select test.check('security: Undo puts the override back', (select gifi_override from public.cb_accounts where file_id = :'sr' and number = '6000') = '8524.00');
+select test.check('security: History records the override put back', exists (select 1 from public.cb_file_history where file_id = :'sr' and detail = '6000 Ads: GIFI override 8524 restored (Undo)'));
 update public.cb_accounts set needs_reviewer = true, reviewer_reason = 'Which line?' where file_id = :'sr' and number = '6000';
 :prep;
 select test.check('security: the preparer cannot assign an account sent to the reviewer', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
@@ -289,14 +290,47 @@ select test.check('security: without Edit, every new action is refused',
   and test.try(format('select public.cb_undo_assign(%L)', :'ua')) like 'You need Edit on Closebook%'
   and test.try(format('select public.cb_pick_chart_account(%L, %L, %L)', :'sr', '60000', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%'
   and test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) like 'You need Edit on Closebook%'
-  and test.try(format('select public.cb_keep_line_move(%L)', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%');
+  and test.try(format('select public.cb_keep_line_move(%L)', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'))) like 'You need Edit on Closebook%'
+  and test.try(format('select public.cb_save_tb_opening_re(%L, 1)', :'sr')) like 'You need Edit on Closebook%');
 :out;
 update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Staff');
 update public.cb_files set phase = 'locked' where id = :'sr';
 :prep;
 select test.check('security: Unassign all on a locked file is refused', test.try(format('select public.cb_unassign_all(%L)', :'sr')) = 'This file is locked.');
+select test.check('security: step 2''s figure on a locked file is refused', test.try(format('select public.cb_save_tb_opening_re(%L, 1)', :'sr')) = 'This file is locked.');
 :out;
 
 :prep;
 select test.check('decision 1A: bank-statement files enter step 2 as before', test.try(format('select public.cb_save_tb_opening_re(%L, 1)', :'b')) like 'On a bank-statement file%');
+:out;
+
+-- Final reviews: a deficit typed as negative ties; a figure that does not tie holds step 6 with the difference; step 6
+-- reopens when step 2's figure changes and when the trial balance is imported again; a figure that is not a number is refused.
+:prep;
+select public.cb_create_file(:'client', '2020-12-31', '2020-01-01', '', 'full', 'client_software', :C::uuid, :A::uuid) as dt \gset
+select public.cb_import_tb(:'dt', 'this_year', 'client_software', 'tb.csv', '[{"number":"1000","name":"Chequing","amount":-1000},{"number":"3000","name":"Retained earnings","amount":1000}]');
+select public.cb_assign(:'dt', format('[{"account":"%s","chart":"10000"},{"account":"%s","chart":"31000"}]',
+  (select id from public.cb_accounts where file_id = :'dt' and number = '1000'), (select id from public.cb_accounts where file_id = :'dt' and number = '3000'))::jsonb, 'Assigned 2 accounts');
+select public.cb_save_tb_opening_re(:'dt', -1000);
+:out;
+select test.check('1A: a deficit typed as negative ties', not exists (select 1 from unnest(private.cb_step_problems(:'dt', 'compare')) p where p like 'Retained earnings at the start%'));
+:prep;
+select public.cb_save_tb_opening_re(:'dt', 1000);
+:out;
+select test.check('1A: the same figure typed positive holds step 6, with the difference', private.cb_step_problems(:'dt', 'compare')
+  @> array['Retained earnings at the start do not tie to step 2. At the start: (1,000.00). Step 2 (T2 line 3849): 1,000.00. Difference: (2,000.00).']);
+\set signdt 'insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:''dt'', ''compare'', ''00000000-0000-0000-0000-00000000000c'', now()) on conflict (file_id, step) do update set prepared_at = now(), prepared_by = excluded.prepared_by'
+:signdt;
+:prep;
+select public.cb_save_tb_opening_re(:'dt', -1000);
+:out;
+select test.check('1A: a new step 2 figure reopens step 6', not exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null));
+:signdt;
+:prep;
+select public.cb_import_tb(:'dt', 'this_year', 'client_software', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":-900},{"number":"3000","name":"Retained earnings","amount":900}]');
+:out;
+select test.check('1A: a new trial balance reopens step 6', not exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null));
+:prep;
+select test.check('security: a figure that is not a number is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', 'NaN')) = 'Type the amount as printed on the T2.');
+select test.check('security: a figure too large is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', '1e13')) = 'Type the amount as printed on the T2.');
 :out;

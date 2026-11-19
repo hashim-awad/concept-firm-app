@@ -45,6 +45,7 @@ export function reportTable(d: TableInput, p: TableParams): ReportTable {
     };
     if (p.report === "bs") {
       sec(s.bs.assets, "Total assets"); sec(s.bs.liabilities, "Total liabilities"); sec(s.bs.equity, "Total equity");
+      if (s.bs.clearing) sec(s.bs.clearing, "Total clearing accounts");
       if (s.bs.unsorted) sec(s.bs.unsorted, "Total not yet sorted");
       rows.push({ bold: true, cells: ["Total liabilities and equity", s.bs.totalLE.now, s.bs.totalLE.last] });
     } else {

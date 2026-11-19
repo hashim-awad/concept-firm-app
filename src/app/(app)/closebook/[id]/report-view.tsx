@@ -165,7 +165,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
     body = (
       <div className="card overflow-x-auto p-0">
         {/* What is left to do, by cause, each linked to where it is done (round 2 item 15). */}
-        {p.report === "bs" && s.bs.unsorted && todo.length > 0 && (
+        {p.report === "bs" && (s.bs.unsorted || s.bs.clearing) && todo.length > 0 && (
           <p className="m-4 flex flex-wrap gap-x-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-2 text-sm">
             {todo.map((t, i) => <span key={t.one}>{i > 0 && <span className="mx-2 text-ink-3">·</span>}<a href={t.href} className="font-semibold text-navy-700 underline">{t.n} {t.n === 1 ? t.one : t.many}</a></span>)}
           </p>)}
@@ -178,6 +178,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
                 {sec(s.bs.assets, "Total assets")}
                 {sec(s.bs.liabilities, "Total liabilities")}
                 {sec(s.bs.equity, "Total equity")}
+                {s.bs.clearing && sec(s.bs.clearing, "Total clearing accounts", true)}
                 {s.bs.unsorted && sec(s.bs.unsorted, "Total not yet sorted", true)}
                 {grand("Total liabilities and equity", s.bs.totalLE)}
               </>

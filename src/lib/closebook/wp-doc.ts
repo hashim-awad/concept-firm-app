@@ -117,6 +117,7 @@ export function statementSection(ctx: WpCtx, s: Statements, which: "bs" | "pl", 
     { text: money(v.last), alignment: "right", bold: true, border: TOP, decoration: "underline", decorationStyle: "double" }]);
   if (which === "bs") {
     sec(s.bs.assets, "Total assets"); sec(s.bs.liabilities, "Total liabilities"); sec(s.bs.equity, "Total equity");
+    if (s.bs.clearing) sec(s.bs.clearing, "Total clearing accounts");
     if (s.bs.unsorted) sec(s.bs.unsorted, "Total not yet sorted");
     dbl("Total liabilities and equity", s.bs.totalLE);
   } else {

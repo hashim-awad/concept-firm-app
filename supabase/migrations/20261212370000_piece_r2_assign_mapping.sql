@@ -216,6 +216,7 @@ begin
       on conflict (client_id, account_key) do update set line_no = excluded.line_no, chart_account = excluded.chart_account, name = excluded.name,
         decided_by = excluded.decided_by, decided_at = now();
     end if;
+    -- Unassigning leaves the client's record of matches as it is (T1c): last year's match returns as a suggestion.
     v_chart := null;
     v_n := v_n + 1;
   end loop;
@@ -243,7 +244,7 @@ $$;
 
 -- Undo reverses one action in one call; refused, naming the accounts, when any changed since (D17).
 create or replace function public.cb_undo_assign(p_action uuid) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare r public.cb_assign_actions; v_file public.cb_files; v jsonb; v_names text; v_chart text;
+declare r public.cb_assign_actions; v_file public.cb_files; v jsonb; v_names text; v_chart text; v_acct public.cb_accounts;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook to assign accounts.');
   select * into r from public.cb_assign_actions where id = p_action;
@@ -266,9 +267,17 @@ begin
            needs_reviewer = coalesce((v ->> 'before_reviewer')::boolean, needs_reviewer),
            mapped_by = (select auth.uid()), mapped_at = now()
      where id = (v ->> 'account')::uuid;
+    select * into v_acct from public.cb_accounts where id = (v ->> 'account')::uuid;
     if v_chart is not null then
-      update public.cb_client_mappings m set chart_account = v_chart, line_no = (select line_no from public.cb_chart_accounts where number = v_chart), decided_at = now()
-        from public.cb_accounts a where a.id = (v ->> 'account')::uuid and m.client_id = v_file.client_id and m.account_key = a.account_key;
+      insert into public.cb_client_mappings (client_id, account_key, line_no, chart_account, name, tax_code, decided_by)
+      values (v_file.client_id, v_acct.account_key, v_acct.line_no, v_chart, v_acct.name, v_acct.tax_code, (select auth.uid()))
+      on conflict (client_id, account_key) do update set line_no = excluded.line_no, chart_account = excluded.chart_account, name = excluded.name,
+        decided_by = excluded.decided_by, decided_at = now();
+    end if;
+    -- The override that Unassign dropped (logged then) is logged again when Undo puts it back.
+    if nullif(v ->> 'before_override', '') is not null then
+      perform private.cb_log_event(r.file_id, 'gifi_override', 't2', format('%s: GIFI override %s restored (Undo)', btrim(coalesce(nullif(v_acct.number, '') || ' ', '') || v_acct.name),
+        replace(v ->> 'before_override', '.00', '')), null, null, null, null, null, null, null);
     end if;
   end loop;
   update public.cb_assign_actions set undone_at = now() where id = r.id;
@@ -362,6 +371,7 @@ language plpgsql security definer set search_path = '' as $$
 declare v_file public.cb_files; v_new numeric := round(p_amount, 2);
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  perform private.require(p_amount is null or (p_amount <> 'NaN'::numeric and abs(p_amount) < 1e12), 'Type the amount as printed on the T2.');
   select * into v_file from public.cb_files where id = p_file for update;
   perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked.');
   perform private.require(v_file.books not in ('statements', 'paper'), 'On a bank-statement file, enter last year''s balance sheet in step 2.');
@@ -370,6 +380,8 @@ begin
   perform private.cb_log_event(p_file, 'opening_re', 'opening', format('Last year''s closing retained earnings (T2 line 3849): %s to %s',
     coalesce(private.cb_money(v_file.opening_re_stated), 'none'), coalesce(private.cb_money(v_new), 'none')), null, null, null, null, null, null, null);
   perform private.cb_clear_step(p_file, 'opening', 'Last year''s closing retained earnings changed');
+  -- Accounting re-review: the step 6 tie reads this figure, so step 6 reopens too.
+  perform private.cb_clear_step(p_file, 'compare', 'Last year''s closing retained earnings changed');
 end;
 $$;
 
@@ -464,8 +476,8 @@ begin
     if not v_bank and v_file.opening_re_stated is not null then
       select -coalesce(sum(private.cb_account_final(a.id)), 0) into v_flag_amount from public.cb_accounts a where a.file_id = p_file and a.line_no like '3600.%';
       if v_flag_amount <> v_file.opening_re_stated then
-        v_out := v_out || format('Retained earnings at the start do not equal last year''s closing retained earnings in step 2: %s and %s.',
-          private.cb_money(v_flag_amount), private.cb_money(v_file.opening_re_stated));
+        v_out := v_out || format('Retained earnings at the start do not tie to step 2. At the start: %s. Step 2 (T2 line 3849): %s. Difference: %s.',
+          private.cb_money(v_flag_amount), private.cb_money(v_file.opening_re_stated), private.cb_money(v_flag_amount - v_file.opening_re_stated));
       end if;
     end if;
     v_out := v_out || coalesce((select array_agg(format('%s (Clearing) has a balance: %s.', btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
@@ -779,6 +791,11 @@ begin
     end if;
   else
     perform private.cb_clear_step(v_file, v_step, coalesce(nullif(v_txt, ''), v_why));
+    -- Piece R2, decision 1A: a trial balance import (this year or last year) moves the balances the step 6 tie reads, so
+    -- step 6 reopens, as statement changes do on bank files.
+    if tg_table_name = 'cb_imports' then
+      if v_row.target <> 'account_list' then perform private.cb_clear_step(v_file, 'compare', coalesce(nullif(v_txt, ''), v_why)); end if;
+    end if;
   end if;
   -- Piece 10b (Hashim, Nov 19, 2026): an AJE or RJE that moves a balance reopens step 6: added or deleted, its lines changed,
   -- or its type or date changed. Its note, reason, W/P ref or attachments, and the revenue check, leave step 6 signed.

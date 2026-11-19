@@ -71,16 +71,16 @@ export function FileShell({ fileId, client, yearEnd, source, netNote, status, ne
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <header className="sticky top-14 z-30 flex h-[50px] print:hidden flex-none items-center gap-3.5 bg-navy-950 px-4 text-white">
-        <Link href="/closebook" className="text-xs text-[#9fb0d4] hover:text-white">My files ›</Link>
-        <h1 className="truncate text-[15px] font-bold">{client}</h1>
+        <Link href="/closebook" className="flex-none text-xs whitespace-nowrap text-[#9fb0d4] hover:text-white">My files ›</Link>
+        <h1 className="flex-none text-[15px] font-bold whitespace-nowrap">{client}</h1>
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
-        {source && <span className="hidden truncate text-[12.5px] text-[#9fb0d4] lg:inline">{source}</span>}
+        {source && <span className="hidden flex-none text-[12.5px] whitespace-nowrap text-[#9fb0d4] lg:inline">{source}</span>}
         <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${STATUS_CLS[status]}`}>{status}</span>
         {/* Round 21 (ProFile, TurboTax): how far the file has got, counted from the preparer's sign-offs. */}
         {done && <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
         <span className="flex-1" />
         {people && <PeopleChip fileId={fileId} p={people} />}
-        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b>{netNote && <span className="ml-1.5 text-[#ffd58a]" data-net-note>· {netNote}</span>}</span>}
+        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b>{netNote && <span title={netNote} data-net-note={netNote}><span aria-hidden className="ml-1.5 inline-block h-2 w-2 rounded-full bg-[#ffd58a] align-middle 2xl:hidden" /><span className="sr-only 2xl:not-sr-only 2xl:ml-1.5 2xl:text-[#ffd58a]">· {netNote}</span></span>}</span>}
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
       </header>

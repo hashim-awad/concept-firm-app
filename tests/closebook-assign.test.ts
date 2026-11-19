@@ -156,3 +156,17 @@ test("decision 2A: Clearing accounts on a trial balance file have their own head
   assert.ok(names.includes("Clearing accounts (must be nil at year end)"), names.join(", "));
   assert.ok(names.includes("Not yet sorted"), names.join(", "));
 });
+
+test("decision 2A: the balance sheet shows Clearing apart from Not yet sorted, also while accounts are mixed", async () => {
+  const { trialBalance, statements } = await import("../src/lib/closebook/reports.ts");
+  const tb = trialBalance([{ key: "undeposited funds", number: "", name: "Undeposited Funds", line_no: null, lastCents: 0, chart: "10900" },
+    { key: "9999", number: "9999", name: "Mystery", line_no: null, lastCents: 0 }],
+    [{ key: "undeposited funds", cents: 125000, date: "2026-09-30", kind: "import", ref: "", label: "x" }, { key: "9999", cents: -100000, date: "2026-09-30", kind: "import", ref: "", label: "x" }] as never);
+  const s = statements(tb, () => null);
+  assert.equal(s.bs.clearing?.title, "Clearing accounts (must be nil at year end)");
+  assert.equal(s.bs.clearing?.now, -125000);
+  assert.equal(s.bs.unsorted?.title, "Not yet sorted");
+  assert.equal(s.bs.unsorted?.now, 100000);
+  // Both count in total liabilities and equity.
+  assert.equal(s.bs.totalLE.now, -25000);
+});
