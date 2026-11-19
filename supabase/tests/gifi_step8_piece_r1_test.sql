@@ -124,3 +124,8 @@ select test.check('an account with no override stays without', (select gifi_over
 
 -- ---------- Wording (items 4 and 7).
 select test.check('step 10: Banking, Code transactions, Adjustments', private.cb_lock_problems(:'f2') @> array['Step 3, Banking: not signed by the reviewer.', 'Step 4, Code transactions: not signed by the reviewer.', 'Step 5, Adjustments: not signed by the reviewer.', 'Step 8, Tax returns: not signed by the reviewer.']);
+
+-- ---------- T4 guard: with no override the export fingerprint is exactly the old one, so no saved GIFI export or shareholder
+-- schedule turns stale when the migration runs.
+select test.check('no override: the fingerprint is the old one', private.cb_tb_fingerprint(:'tbf') = (select md5(coalesce(string_agg(a.id::text || ':' || coalesce(a.line_no, '') || ':'
+  || coalesce(a.tax_code, '') || ':' || private.cb_account_final(a.id)::text, ',' order by a.id), '')) from public.cb_accounts a where a.file_id = :'tbf'));

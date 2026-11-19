@@ -58,7 +58,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning">{STAMP}</span>
         {/* Round 38: the account shown, opened in Reclassify transactions. */}
-        {p.report === "gl" && p.account && <a href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(p.account)}`} className="btn-secondary" data-gl-reclassify>Reclassify</a>}
+        {p.report === "gl" && p.account && <a href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(p.account)}&back=${encodeURIComponent(`${base}?report=gl&account=${encodeURIComponent(p.account)}`)}`} className="btn-secondary" data-gl-reclassify>Reclassify</a>}
         <a href={exportHref("xlsx")} className="btn-secondary">Excel</a>
         <a href={exportHref("pdf")} className="btn-secondary">PDF</a>
       </div>

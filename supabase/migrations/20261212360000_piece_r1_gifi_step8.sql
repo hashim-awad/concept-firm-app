@@ -176,14 +176,15 @@ begin
 end;
 $function$;
 
--- D10: an override changed after the final export makes the export stale.
+-- D10: an override changed after the final export makes the export stale. With no override the text hashed is exactly as
+-- before, so no saved export or shareholder schedule turns stale when this runs.
 CREATE OR REPLACE FUNCTION private.cb_tb_fingerprint(p_file uuid)
  RETURNS text
  LANGUAGE sql
  STABLE SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-  select md5(coalesce(string_agg(a.id::text || ':' || coalesce(a.line_no, '') || ':' || coalesce(a.gifi_override, '') || ':' || coalesce(a.tax_code, '') || ':' || private.cb_account_final(a.id)::text, ',' order by a.id), ''))
+  select md5(coalesce(string_agg(a.id::text || ':' || coalesce(a.line_no, '') || coalesce('>' || a.gifi_override, '') || ':' || coalesce(a.tax_code, '') || ':' || private.cb_account_final(a.id)::text, ',' order by a.id), ''))
     from public.cb_accounts a where a.file_id = p_file;
 $function$;
 
