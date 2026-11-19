@@ -950,7 +950,7 @@ begin
   if new.gifi_override is not null or new.line_no is null then return new; end if;
   select a.gifi_override into v
     from public.cb_files f
-    join public.cb_files pf on pf.client_id = f.client_id and pf.year_end < f.year_end
+    join public.cb_files pf on pf.client_id = f.client_id and pf.year_end = f.year_start - 1   -- the year just before only
     left join public.cb_accounts a on a.file_id = pf.id and a.account_key = new.account_key
    where f.id = new.file_id and f.books in ('statements', 'paper')
    order by pf.year_end desc limit 1;
@@ -974,7 +974,12 @@ create or replace function private.cb_override_group() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   -- An override equal to the new group does nothing: it goes (cb_set_gifi_override keeps none either).
-  if new.gifi_override is not null and new.gifi_override = new.line_no then new.gifi_override := null; return new; end if;
+  if new.gifi_override is not null and new.gifi_override = new.line_no then
+    perform private.cb_log_event(new.file_id, 'gifi_override', 't2', format('%s: GIFI %s dropped, it is now the group',
+      btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), replace(new.gifi_override, '.00', '')), null, null,
+      btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name), 'Group changed', 'GIFI ' || replace(new.gifi_override, '.00', ''), 'GIFI ' || replace(new.line_no, '.00', ''));
+    new.gifi_override := null; return new;
+  end if;
   if new.gifi_override is not null and new.line_no is distinct from old.line_no
      and (new.line_no is null or private.cb_re_line(new.line_no)   -- 3600 to 3849 neither take nor give an override
           or (select line_type from public.cb_master_lines where line_no = new.line_no)

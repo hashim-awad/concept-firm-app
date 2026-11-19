@@ -4,6 +4,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFile, loadReference } from "./server";
 import { gifiCodes } from "./gifi";
+import { priorUsable, regroupPrior } from "./match-gifi";
 import { buildFs, caption, longDate, type FsLine } from "./fs-model";
 import { DATE_PLACEHOLDER, type Dividend, type Lawyer } from "./fs-text";
 import type { FsCtx } from "./fs-pdf";
@@ -58,16 +59,15 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   if (!firstYear) {
     if (bank) prior = new Map([...(ob ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number]), ...(s125 ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number])]);
     else prior = new Map(gifiCodes(grouped.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).codes);
-    // Piece R1 (accounting review): last year's step 2 codes carry last year's GIFI overrides (they came from its T2). When last
-    // year's Closebook file had any, last year's column is built from that file by group, as this year's is, so an account sits
-    // under the same caption in both years. With no override nothing changes.
-    if (bank) {
-      const { data: pf } = await supabase.from("cb_files").select("id").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle();
-      const last = pf ? await loadFile(supabase, pf.id as string) : null;
+    // Piece R1 (accounting review): step 2 stays the source of last year's column. When last year's Closebook file is the year
+    // just before and locked, accounts it had on a GIFI override move back to their group's code (regroupPrior).
+    if (bank && prior) {
+      const { data: pf } = await supabase.from("cb_files").select("id, year_end, phase").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle();
+      const last = pf && priorUsable(pf as { year_end: string; phase: string }, file.year_start) ? await loadFile(supabase, pf.id as string) : null;
       if (last && last.accounts.some((a) => a.gifi_override)) {
         const ent = new Map<string, number>();
         for (const e of last.entries) for (const l of e.lines) ent.set(l.account_id, (ent.get(l.account_id) ?? 0) + l.amount);
-        prior = new Map(gifiCodes(last.accounts.map((a) => ({ ...a, gifi_override: null })), ent, byNo).codes);
+        prior = regroupPrior(prior, last.accounts, ent, byNo);
       }
     }
   }

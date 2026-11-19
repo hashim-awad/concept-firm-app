@@ -77,6 +77,7 @@ update public.cb_accounts set this_year = 18760 where id = :'chq';
 select private.cb_gifi_fingerprint(:'f') as fp0 \gset
 select private.cb_tb_fingerprint(:'f') as tb0 \gset
 select array_to_string(private.cb_gst_problems(:'f') || private.cb_sh_review_problems(:'f'), '|') as gs0 \gset
+select private.cb_sh_fingerprint(:'f') as sh0 \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_set_gifi_override(:'off', '8811.00');
 reset role; reset request.jwt.claims;
@@ -86,6 +87,7 @@ select test.check('T3: History names the account, old and new line', exists (sel
 select test.check('T3: the step 8 clearing gives the same reason', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail = '65100 Office expenses: GIFI 8810 to 8811'));
 select test.check('T3: the GIFI export fingerprint changes', private.cb_gifi_fingerprint(:'f') <> :'fp0');
 select test.check('T3: the trial balance fingerprint (GST/HST returns, 21500, shareholder loans) does not', private.cb_tb_fingerprint(:'f') = :'tb0');
+select test.check('T3: the shareholder loan fingerprint does not change', private.cb_sh_fingerprint(:'f') = :'sh0');
 select test.check('T3: GST/HST and shareholder loan checks unchanged', array_to_string(private.cb_gst_problems(:'f') || private.cb_sh_review_problems(:'f'), '|') = :'gs0');
 select test.check('T3: the group is unchanged', (select line_no from public.cb_accounts where id = :'off') = '8810.00');
 :signed;
@@ -184,5 +186,20 @@ select test.check('share capital cannot move to dividends (3700)', test.try(form
 select public.cb_set_gifi_override(:'shr', '3520.00');
 reset role; reset request.jwt.claims;
 update public.cb_accounts set line_no = '3520.00' where id = :'shr';
-select test.check('an override equal to the new group goes', (select gifi_override from public.cb_accounts where id = :'shr') is null);
+select test.check('an override equal to the new group goes, with History', (select gifi_override from public.cb_accounts where id = :'shr') is null
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '30000 Common shares: GIFI 3520 dropped, it is now the group'));
 select test.check('no override: the GIFI fingerprint is the trial balance one', private.cb_gifi_fingerprint(:'tbf') = private.cb_tb_fingerprint(:'tbf'));
+
+-- ---------- Roll forward: from the year just before only, never onto or from 3600 to 3849.
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source, gifi_override)
+  values (:'f2', 'chart:31000', '31000', 'Retained earnings', '3500.00', 0, 'chart', '3520.00');   -- direct fixture: an equity override on last year's file
+set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_create_file(:'client', '2028-08-31', '2027-09-01', '', 'full', 'statements', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000a') as f4 \gset
+select public.cb_create_file(:'client', '2030-08-31', '2029-09-01', '', 'full', 'statements', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000a') as f5 \gset
+reset role; reset request.jwt.claims;
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values
+  (:'f4', 'chart:65100', '65100', 'Office expenses', '8810.00', 0, 'chart'), (:'f4', 'chart:31000', '31000', 'Retained earnings', '3600.00', 0, 'chart');
+select test.check('roll forward: the year just before carries the override', (select gifi_override from public.cb_accounts where file_id = :'f4' and number = '65100') = '8811.00');
+select test.check('roll forward: nothing lands on retained earnings (3600 to 3849)', (select gifi_override from public.cb_accounts where file_id = :'f4' and number = '31000') is null);
+insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'f5', 'chart:65100', '65100', 'Office expenses', '8810.00', 0, 'chart');
+select test.check('roll forward: a gap year carries nothing', (select gifi_override from public.cb_accounts where file_id = :'f5' and number = '65100') is null);

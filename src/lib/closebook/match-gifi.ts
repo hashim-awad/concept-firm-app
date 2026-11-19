@@ -57,3 +57,28 @@ export const BOX_REASON: Record<string, string> = {
   opening: "Opening balances to enter",
   uncoded: "Transactions not yet coded",
 };
+
+// Piece R1 (accounting review): last year's statement column. Step 2 stays the source (last year's T2 by GIFI code). When last
+// year's Closebook file is the year just before (it ends the day before this year starts) and is locked, each account it had on
+// a GIFI override is moved back, at its final amount, from the override's code to its group's code, so an account sits under
+// the same caption in both years. Anything else: step 2 as entered. Pure: tests check it.
+export const dayBefore = (isoDate: string) => { const d = new Date(`${isoDate}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
+export const priorUsable = (prior: { year_end: string; phase: string } | null, yearStart: string) => !!prior && prior.phase === "locked" && prior.year_end === dayBefore(yearStart);
+
+export function regroupPrior(prior: Map<string, number>, accounts: MatchAccount[], entryTotals: Map<string, number>, lines: Map<string, Line>): Map<string, number> {
+  const out = new Map(prior);
+  const code = (l: Line) => (l.gifi_code === "3600" ? "3660" : l.gifi_code);
+  for (const a of accounts) {
+    if (!a.gifi_override || a.gifi_override === a.line_no) continue;
+    const fin = Math.round((Number(a.this_year) + (entryTotals.get(a.id) ?? 0)) * 100) / 100;
+    if (!fin) continue;
+    const from = lines.get(effectiveLine(a.gifi_override, fin, lines) ?? ""), to = lines.get(effectiveLine(a.line_no, fin, lines) ?? "");
+    if (!from || !to || code(from) === code(to)) continue;
+    const amt = (l: Line) => (l.line_type === "Asset" || l.line_type === "Expense" ? fin : -fin);
+    const c = (n: number) => Math.round(n * 100) / 100;
+    out.set(code(from), c((out.get(code(from)) ?? 0) - amt(from)));
+    out.set(code(to), c((out.get(code(to)) ?? 0) + amt(to)));
+    if (out.get(code(from)) === 0) out.delete(code(from));
+  }
+  return out;
+}

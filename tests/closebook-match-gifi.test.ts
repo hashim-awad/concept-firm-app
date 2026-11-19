@@ -59,3 +59,16 @@ test("T6: the old matching address opens step 8 on a bank file, step 4 on a tria
   assert.equal(stepFromLegacy("tb", "accounts", "statements"), "t2");
   assert.equal(stepFromLegacy("tb", "accounts", "client_software"), "code");
 });
+
+import { priorUsable, regroupPrior } from "../src/lib/closebook/match-gifi.ts";
+test("last year's column: only the year just before, locked; an override moves back to its group's code", () => {
+  assert.equal(priorUsable({ year_end: "2025-12-31", phase: "locked" }, "2026-01-01"), true);
+  assert.equal(priorUsable({ year_end: "2024-12-31", phase: "locked" }, "2026-01-01"), false, "a gap year is never used");
+  assert.equal(priorUsable({ year_end: "2025-12-31", phase: "fieldwork" }, "2026-01-01"), false, "an open file is never used");
+  assert.equal(priorUsable(null, "2026-01-01"), false);
+  // Step 2 (last year's T2) had office expenses of 3,000.00 on 8811 because of last year's override; the group is 8810.
+  const prior = new Map<string, number>([["8811", 3000], ["8000", 50000]]);
+  const out = regroupPrior(prior, [A("p1", "65100", "Office expenses", "8810.00", 3000, "8811.00"), A("p2", "40100", "Commission income", "8000.00", -50000)], new Map(), lines);
+  assert.deepEqual([...out.entries()].sort(), [["8000", 50000], ["8810", 3000]]);
+  assert.deepEqual([...regroupPrior(prior, [A("p2", "40100", "Commission income", "8000.00", -50000)], new Map(), lines)].sort(), [...prior].sort(), "no override: step 2 as entered");
+});

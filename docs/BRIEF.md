@@ -597,7 +597,9 @@ In short:
     (3600 to 3849, the retained earnings continuity) neither take nor give an override (Hashim, Nov 19, 2026, pre-merge
     review); they move only through entries. The override is in the GIFI export's fingerprint only: the GST/HST returns, the
     21500 check and the shareholder loan schedule keep the trial balance fingerprint and are not touched by an override.
-    Last year's statement column follows the group too (built from last year's Closebook file when it had overrides).
+    Last year's statement column stays step 2 (last year's T2); when last year's Closebook file is the year just before and
+    locked, each account it had on an override moves back to its group's code, so it sits under the same caption both years.
+    An override rolls forward only from the year just before.
     The one exception (Hashim, Nov 19, 2026): the Trial balance Groups view and the account panel keep equity split into the
     statement headings (Share capital, Retained earnings, Dividends); steps 6 and 7 keep the lead sheet names. Last year's T2
     line note reads "Last year on another T2 line", with no code.
