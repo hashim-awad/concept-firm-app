@@ -38,9 +38,12 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   const refused = [...checks.filter((x) => !x.ok).map((x) => x.title)];
   if (!data.accounts.length) refused.unshift("Import the trial balance first.");
   if (!bn) refused.push("The client has no Business Number. Add it on the client record (Clients), then export.");
+  // Piece R1: on bank-statement files, Match accounts to GIFI first (the box empty, the two ties met). The database refuses too.
+  const { data: match } = await supabase.rpc("cb_match_state", { p_file: fileId });
+  refused.push(...(((match as { problems?: string[] } | null)?.problems) ?? []));
 
-  // The tax workpaper: each account's final balance as GIFI shows it, with its tax code (the account's,
-  // else its GIFI line's default).
+  // The tax workpaper: each account's final balance as GIFI shows it (the override when set, piece R1), with its tax code
+  // (the account's, else its group line's default: D3, an override changes the GIFI code only).
   const [{ data: codes }, { data: treat }, { data: book }, { data: exps }, { data: tie }, { data: set }] = await Promise.all([
     supabase.from("cb_tax_codes").select("code, name, schedule1_effect"),
     supabase.from("cb_review_treatments").select("line_no, treatment").eq("client_id", data.file.client_id),
@@ -55,10 +58,11 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   for (const a of data.accounts) {
     const fin = Math.round((Number(a.this_year) + (entryTotals.get(a.id) ?? 0)) * 100) / 100;
     if (!fin || !a.line_no) continue;
-    const eff = effectiveLine(a.line_no, fin, byNo);
+    const eff = effectiveLine(a.gifi_override ?? a.line_no, fin, byNo);
     const l = eff ? byNo.get(eff) : undefined;
     if (!l) continue;
-    const code = a.tax_code ?? l.default_tax_code ?? "FULL";
+    const group = byNo.get(effectiveLine(a.line_no, fin, byNo) ?? "");
+    const code = a.tax_code ?? group?.default_tax_code ?? l.default_tax_code ?? "FULL";
     // Expenses as debits, revenue as credits: both positive, as GIFI shows them.
     const amount = l.line_type === "Revenue" ? -fin : fin;
     if (code === "AMORT") amort += fin;

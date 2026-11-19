@@ -1,6 +1,6 @@
 // Round 15: the Trial balance tab, as CaseWare Cloud's Data page. Groups (the lead sheets, blue rows with
-// their totals) open by default; Accounts is the flat list in account number order; GIFI lines groups the
-// accounts under their line. The drill-down goes level by level with a path back, in the right panel:
+// their totals) open by default; Accounts is the flat list in account number order. Piece R1 (Hashim, Nov 19, 2026):
+// no GIFI here (it is step 8's); a row opens the account panel (mock N). The drill-down goes level by level with a path back, in the right panel:
 // a Prelim or Final amount opens the account's postings (a posting opens its source); an Adjust or
 // Reclass amount opens the entries on the account (an entry opens on the Entries tab, marked).
 import Link from "next/link";
@@ -16,18 +16,19 @@ import { PageTitle } from "../shell/shell";
 import { TB_HELP } from "../shell/help";
 import { TbTable, type TbRow, type TbGroupRow } from "./tb-table";
 import { isShAccount } from "@/lib/closebook/sh-loans";
-import { setShName } from "../../sh-actions";
+import { EscClose } from "./esc-close";
 
 const SECTION: Record<number, string> = { 0: "Assets", 1: "Liabilities", 2: "Equity", 3: "Revenue", 4: "Expenses" };
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
 export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames }: {
+export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable, view, drill, col, flag, lineTax, shNames, noteStep }: {
   fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; isOwner: boolean; editable: boolean;
-  view: "groups" | "accounts" | "gifi"; drill?: string; col?: string; flag: { amount: number; percent: number };
+  view: "groups" | "accounts"; drill?: string; col?: string; flag: { amount: number; percent: number };
   lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
   shNames?: Map<string, string>;          // piece 8: the shareholder's name on each shareholder account
+  noteStep?: string;                      // piece R1 (workpaper 15): the step a note from the account panel is filed under (the current open step)
 }) {
   const base = `/closebook/${fileId}`;
   const tb = trialBalance(data.accounts, data.postings);
@@ -40,17 +41,20 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
   // Adjustments split by kind (Options: split adjustments into AJE, RJE and TJE columns).
   const byKind = new Map<string, { aje: number; tje: number }>();
   for (const p of data.postings) if (p.kind === "entry" && p.entryKind !== "RJE") { const k = byKind.get(p.key) ?? { aje: 0, tje: 0 }; if (p.entryKind === "TJE") k.tje += p.cents; else k.aje += p.cents; byKind.set(p.key, k); }
-  const gifiName = new Map<string, string>();
+  const { groups } = tbByGroup(tb, data.info);
+  const groupOf = new Map<string, string>();
+  for (const g of groups) for (const r of g.rows) groupOf.set(r.key, g.name);
   const row = (t: TbLine): TbRow => {
     const a = idOf.get(t.key);
     const k = byKind.get(t.key) ?? { aje: 0, tje: 0 };
     // Piece 6: the flag leaves out this year's tax entries and never applies to INCTAX or AMORT accounts.
     const taxFree = !!lineTax && NO_FLAG_TAX.includes(a?.tax_code ?? lineTax.get(t.line_no ?? "") ?? "");
     const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && !taxFree && flagged(t.last / 100, (t.final - (lineTax ? k.tje : 0)) / 100, flag.amount, flag.percent);
-    return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, gifi: (t.line_no ?? "").replace(/\.00$/, ""), prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
+    // Piece 8 and R1: the shareholder name on a shareholder account, by its group line (never the GIFI override).
+    const sh = isShAccount({ key: t.key, line_no: t.line_no });
+    return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, group: groupOf.get(t.key) ?? "", sh, shName: sh ? shNames?.get(t.key) ?? "" : "", prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
       final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
   };
-  const { groups } = tbByGroup(tb, data.info);
   const sectionOf = (g: { rows: TbLine[]; code: string }) => {
     if (g.code === NI_LAST) return "Last year";
     const t = data.info(g.rows[0]?.line_no ?? null)?.type;
@@ -60,24 +64,16 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
   let tableGroups: TbGroupRow[];
   if (view === "accounts") {
     tableGroups = [{ code: "all", name: "", section: "", rows: [...tb].sort((a, b) => Number(!a.number) - Number(!b.number) || a.number.localeCompare(b.number, "en", { numeric: true })).map(row) }];
-  } else if (view === "gifi") {
-    const by = new Map<string, TbLine[]>();
-    for (const t of tb) { const g = (t.line_no ?? "").slice(0, 4) || "—"; by.set(g, [...(by.get(g) ?? []), t]); }
-    for (const l of accounts) if (l.line_no && !gifiName.has(l.line_no.slice(0, 4))) gifiName.set(l.line_no.slice(0, 4), "");
-    tableGroups = [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([g, rows]) => {
-      const t = data.info(rows[0].line_no);
-      const order: Record<string, number> = { Asset: 0, Liability: 1, Equity: 2, Revenue: 3, Expense: 4 };
-      return { code: g, name: g === "—" ? "No GIFI line" : `GIFI ${g}`, section: t ? SECTION[order[t.type]] ?? "Other" : "Not yet sorted", rows: rows.map(row) };
-    });
   } else {
     tableGroups = groups.map((g) => ({ code: g.code, name: g.name, section: sectionOf(g), rows: g.rows.map(row) }));
   }
-  const drillPanel = drill ? <Drill fileId={fileId} data={data} tb={tb} drill={drill} col={col ?? "final"} view={view} shName={shNames?.get(drill) ?? ""} editable={editable} /> : null;
+  // An amount's postings (drill= with its column). A link with drill= alone (an older address) opens the account panel once.
+  const drillPanel = drill && col ? <Drill fileId={fileId} data={data} tb={tb} drill={drill} col={col} view={view} /> : null;
   return (
     <>
       <PageTitle help={TB_HELP} right={<span className="text-[12.5px] text-ink-3">{formatDate(file.year_start)} to {formatDate(file.year_end)}</span>}>
-        Trial balance · {view === "accounts" ? "Accounts" : view === "gifi" ? "GIFI lines" : "Groups"}</PageTitle>
-      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} isOwner={isOwner} editable={editable}
+        Trial balance · {view === "accounts" ? "Accounts" : "Groups"}</PageTitle>
+      <TbTable fileId={fileId} groups={tableGroups} view={view} year={y} isOwner={isOwner} editable={editable} openKey={drill && !col ? drill : undefined} noteStep={noteStep}
         exportBase={`${base}/report-export?report=tb${view === "accounts" ? "&view=flat" : ""}`} />
       {drillPanel}
     </>
@@ -85,24 +81,14 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
 }
 
 // The drill panel: one level, with the path back to the trial balance.
-function Drill({ fileId, data, tb, drill, col, view, shName = "", editable = false }: { fileId: string; data: ReportData; tb: TbLine[]; drill: string; col: string; view: string; shName?: string; editable?: boolean }) {
+function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: ReportData; tb: TbLine[]; drill: string; col: string; view: string }) {
   const base = `/closebook/${fileId}`;
   const t = tb.find((x) => x.key === drill);
   if (!t) return null;
   const here = `${base}?area=tb&tbv=${view}&drill=${encodeURIComponent(drill)}&col=${col}`;
   const close = `${base}?area=tb&tbv=${view}#a-${encodeURIComponent(drill)}`;
-  const label = `${t.number ? `${t.number} ` : ""}${t.name}${shName ? ` · ${shName}` : ""}`;
-  // Piece 8 ("Who is who", benchmark CaseWare: each client's account names are its own): the shareholder's name on a
-  // shareholder account. It shows in Reporting > Shareholder loans, step 7 and the exports; nothing on the statements.
-  const acctLine = data.accounts.find((a) => a.key === drill)?.line_no ?? null;
-  const shField = isShAccount({ key: drill, line_no: acctLine }) ? (
-    <form action={setShName} className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-4 py-2 text-[12.5px]" data-sh-name-form>
-      <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={drill} /><input type="hidden" name="back" value={here} />
-      <label className="flex items-center gap-2 font-semibold">Shareholder
-        <input name="name" defaultValue={shName} maxLength={120} disabled={!editable} placeholder="Optional, for example Pat Dummy" aria-label="Shareholder" className="input input-compact w-56 font-normal" /></label>
-      {editable && <button type="submit" className="btn-secondary btn-compact">Save</button>}
-    </form>
-  ) : null;
+  // Piece R1: the Shareholder name moved to the account panel (mock N); here only the postings.
+  const label = `${t.number ? `${t.number} ` : ""}${t.name}`;
   const COL: Record<string, string> = { prelim: "Prelim", final: "Final", adjust: "Adjust", reclass: "Reclass" };
   const withBack = (href: string) => `${href}${href.includes("?") ? "&" : "?"}back=${encodeURIComponent(here)}`;
   const entryHref = (ref: string) => withBack(`${base}?area=entries&entry=${ref}`) + `#entry-${ref}`;
@@ -133,15 +119,15 @@ function Drill({ fileId, data, tb, drill, col, view, shName = "", editable = fal
     );
   }
   return (
-    <aside aria-label="Drill-down" className="fixed top-[146px] right-0 bottom-0 z-20 flex w-[480px] max-w-full flex-col border-l border-sand-300 bg-white shadow-[-8px_0_24px_rgba(15,35,80,.10)]">
+    <aside aria-label="Drill-down" className="fixed top-[146px] right-0 bottom-0 z-20 flex w-[600px] max-w-full flex-col border-l border-sand-300 bg-white shadow-[-8px_0_24px_rgba(15,35,80,.10)]">
       <div className="flex items-start gap-2 border-b border-sand-200 px-4 py-2.5">
         <p className="min-w-0 flex-1 text-[12.5px] font-semibold"><Link href={close} className="text-navy-700 hover:underline">Trial balance</Link> <span className="text-ink-3">›</span> <span className="text-ink">{label} · {COL[col] ?? "Final"} {col === "prelim" || col === "final" ? "" : ""}</span></p>
         <Link href={`${base}?report=gl&account=${encodeURIComponent(drill)}&back=${encodeURIComponent(here)}`} className="inline-flex items-center gap-1 text-xs text-navy-700 hover:underline"><ExternalLink className="h-3.5 w-3.5" />Open full page</Link>
-        <Link href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(drill)}`} className="text-xs text-navy-700 hover:underline" data-drill-reclassify>Reclassify</Link>
+        <Link href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(drill)}&back=${encodeURIComponent(here)}`} className="text-xs text-navy-700 hover:underline" data-drill-reclassify>Reclassify</Link>
         <Link href={close} aria-label="Close" className="rounded p-0.5 text-ink-2 hover:bg-sand-100"><X className="h-4 w-4" /></Link>
       </div>
-      {shField}
       <div className="flex-1 overflow-y-auto">{body}</div>
+      <EscClose href={close} />
     </aside>
   );
 }

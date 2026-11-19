@@ -8,18 +8,21 @@ import { REASONS } from "./lead-sheets";
 import { answerYearChange, confirmNewAccount, reviewNewAccount, reviewYearChange, seenUnused } from "../compare-actions";
 import { explainFlagInline, signStep } from "../actions";
 import { YEAR_QUESTIONS } from "@/lib/closebook/compare";
+import { Panel, type Option, type Row } from "./accounts-table";
 
 export type FlagRowView = { id: string; label: string; last: string; final: string; change: string; pct: string; ledger: string; note?: { reason: string; note: string } };
-export type AcctRowView = { key: string; label: string; line: string; amount: string; ledger: string; confirmed?: boolean };
+// Piece R1: pick, the account for "Choose a group" (the existing Change window over the page) when it has no group.
+export type AcctRowView = { key: string; label: string; line: string; amount: string; ledger: string; confirmed?: boolean; pick?: Row };
 
 const th = "px-3 py-2 text-left text-[11.5px] font-semibold text-ink-2";
 const td = "px-3 py-2.5 align-middle text-[13.5px]";
 
-export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, newAccounts, unused, seen, answers, canSign, back }: {
+export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, newAccounts, unused, seen, answers, canSign, back, options = [] }: {
   fileId: string; editable: boolean; flagRule: string; leadHref: string; flagged: FlagRowView[]; newAccounts: AcctRowView[]; unused: AcctRowView[];
-  seen: boolean; answers: Record<string, { answer: boolean; note: string }>; canSign: boolean; back: string;
+  seen: boolean; answers: Record<string, { answer: boolean; note: string }>; canSign: boolean; back: string; options?: Option[];
 }) {
   const [err, setErr] = useState("");
+  const [pick, setPick] = useState<Row | null>(null);
   const amt = (v: string, href: string) => <Link href={href} className="text-navy-700 hover:underline" data-compare-amount>{v}</Link>;
   return (
     <div className="grid gap-5" data-compare-step>
@@ -46,11 +49,12 @@ export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, new
         <h2 className="mb-2 text-[14px] font-semibold text-navy-900">New accounts this year <span className="ml-1 text-[12.5px] font-normal text-ink-3">A balance this year and none last year.</span></h2>
         <div className="card overflow-x-auto p-0">
           <table className="w-full min-w-[640px]">
-            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>GIFI line</th><th className={`${th} text-right`}>This year</th><th className={`${th} w-24`}>Confirmed</th></tr></thead>
+            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Group</th><th className={`${th} text-right`}>This year</th><th className={`${th} w-24`}>Confirmed</th></tr></thead>
             <tbody className="divide-y divide-sand-100">
               {newAccounts.map((r) => (
                 <tr key={r.key} data-new-account={r.label}>
-                  <td className={td}>{r.label}</td><td className={td}>{r.line || <span className="text-danger">No GIFI line</span>}</td>
+                  <td className={td}>{r.label}</td><td className={td}>{r.line || <span className="font-medium text-warning">No group: {r.pick && editable
+                    ? <button type="button" onClick={() => setPick(r.pick!)} className="text-navy-700 underline" data-choose-group>choose a group</button> : "choose a group"}</span>}</td>
                   <td className={`${td} text-right tabular-nums`}>{amt(r.amount, r.ledger)}</td>
                   <td className={td}><Tick key={`${r.key}-${!!r.confirmed}`} on={!!r.confirmed} disabled={!editable || !r.line} label={`Confirmed: ${r.label}`} save={(v) => confirmNewAccount(fileId, r.key, v)} onError={setErr} /></td>
                 </tr>
@@ -65,7 +69,7 @@ export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, new
         <h2 className="mb-2 text-[14px] font-semibold text-navy-900">Accounts not used this year <span className="ml-1 text-[12.5px] font-normal text-ink-3">A balance last year and none this year.</span></h2>
         <div className="card overflow-x-auto p-0">
           <table className="w-full min-w-[640px]">
-            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>GIFI line</th><th className={`${th} text-right`}>Last year</th></tr></thead>
+            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Group</th><th className={`${th} text-right`}>Last year</th></tr></thead>
             <tbody className="divide-y divide-sand-100">
               {unused.map((r) => <tr key={r.key}><td className={td}>{r.label}</td><td className={td}>{r.line}</td><td className={`${td} text-right tabular-nums`}>{amt(r.amount, r.ledger)}</td></tr>)}
               {unused.length === 0 && <tr><td colSpan={3} className={`${td} text-ink-2`}>Every account used last year is used this year.</td></tr>}
@@ -95,6 +99,7 @@ export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, new
           <button className="btn-secondary h-9 px-4 text-[13px]" data-sign-step6>Sign off step 6</button>
         </form>
       )}
+      {pick && <Panel key={pick.id} fileId={fileId} r={pick} options={options} taxes={[]} isReviewer={false} onClose={() => setPick(null)} mode="group" />}
     </div>
   );
 }
@@ -159,19 +164,19 @@ function QuestionRow({ fileId, q, text, saved, editable, onError }: { fileId: st
   );
 }
 
-// Step 7 (piece 10): "New accounts this year and their GIFI lines", each marked reviewed by the reviewer.
+// Step 7 (piece 10): "New accounts this year and their groups" (piece R1 wording), each marked reviewed by the reviewer.
 export type NewReviewRow = { key: string; label: string; line: string; amount: string; ledger: string; confirmed: boolean; reviewed: string };
 export function NewAccountsReview({ fileId, rows, editable, isOwner }: { fileId: string; rows: NewReviewRow[]; editable: boolean; isOwner: boolean }) {
   const [err, setErr] = useState("");
   const [pending, start] = useTransition();
   const left = rows.filter((r) => !r.reviewed).length;
   return (
-    <section aria-label="New accounts this year and their GIFI lines" id="new-accounts-review" className="card grid gap-2">
-      <h2 className="font-semibold">New accounts this year and their GIFI lines <span className="font-normal text-ink-3">(step 6, {left ? `${left} to mark reviewed` : "all reviewed"})</span></h2>
+    <section aria-label="New accounts this year and their groups" id="new-accounts-review" className="card grid gap-2">
+      <h2 className="font-semibold">New accounts this year and their groups <span className="font-normal text-ink-3">(step 6, {left ? `${left} to mark reviewed` : "all reviewed"})</span></h2>
       {err && <p role="alert" className="text-sm text-danger">{err}</p>}
       <div className="overflow-x-auto rounded-lg border border-sand-200">
         <table className="w-full min-w-[680px]">
-          <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>GIFI line</th><th className={`${th} text-right`}>This year</th><th className={th}>Preparer</th><th className={th}>Reviewer</th></tr></thead>
+          <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Group</th><th className={`${th} text-right`}>This year</th><th className={th}>Preparer</th><th className={th}>Reviewer</th></tr></thead>
           <tbody className="divide-y divide-sand-100">
             {rows.map((r) => (
               <tr key={r.key} data-new-review={r.label}>

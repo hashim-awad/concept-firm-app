@@ -4,6 +4,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFile, loadReference } from "./server";
 import { gifiCodes } from "./gifi";
+import { priorUsable, regroupPrior } from "./match-gifi";
 import { buildFs, caption, longDate, type FsLine } from "./fs-model";
 import { DATE_PLACEHOLDER, type Dividend, type Lawyer } from "./fs-text";
 import type { FsCtx } from "./fs-pdf";
@@ -26,8 +27,10 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
   const finalOf = (a: { id: string; this_year: number }) => Math.round((Number(a.this_year) + (entryTotals.get(a.id) ?? 0)) * 100) / 100;
-  // This year: the same codes as the final GIFI export.
-  const g = gifiCodes(accounts, entryTotals, byNo);
+  // This year: the GIFI codes of each account's group. Piece R1 (D2): the statements follow the group, never the step 8
+  // override (the T2 reads that), so they agree with the lead sheets that support them.
+  const grouped = accounts.map((a) => ({ ...a, gifi_override: null }));
+  const g = gifiCodes(grouped, entryTotals, byNo);
   const cur = new Map(g.codes);
 
   const [{ data: cf }, { data: ff }, { data: ob }, { data: s125 }, { data: settings }, { data: st }] = await Promise.all([
@@ -55,7 +58,18 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   const missingS125 = !firstYear && bank && !(s125 ?? []).length;
   if (!firstYear) {
     if (bank) prior = new Map([...(ob ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number]), ...(s125 ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number])]);
-    else prior = new Map(gifiCodes(accounts.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).codes);
+    else prior = new Map(gifiCodes(grouped.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).codes);
+    // Piece R1 (accounting review): step 2 stays the source of last year's column. When last year's Closebook file is the year
+    // just before and locked, accounts it had on a GIFI override move back to their group's code (regroupPrior).
+    if (bank && prior) {
+      const { data: pf } = await supabase.from("cb_files").select("id, year_end, phase").eq("client_id", file.client_id).lt("year_end", file.year_end).order("year_end", { ascending: false }).limit(1).maybeSingle();
+      const last = pf && priorUsable(pf as { year_end: string; phase: string }, file.year_start) ? await loadFile(supabase, pf.id as string) : null;
+      if (last && last.accounts.some((a) => a.gifi_override)) {
+        const ent = new Map<string, number>();
+        for (const e of last.entries) for (const l of e.lines) ent.set(l.account_id, (ent.get(l.account_id) ?? 0) + l.amount);
+        prior = regroupPrior(prior, last.accounts, ent, byNo);
+      }
+    }
   }
 
   // Captions: the statement line of each GIFI code's main line.

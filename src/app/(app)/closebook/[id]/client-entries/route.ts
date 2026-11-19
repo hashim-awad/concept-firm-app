@@ -17,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // books: it must be changed before the list can go to the client.
   const { data: bad } = await supabase.from("cb_entry_lines").select("entry:entry_id!inner(seq, file_id), account:account_id!inner(account_key)")
     .eq("entry.file_id", id).like("account.account_key", "line:%");
-  if (bad?.length) return new Response("Some entries post to a GIFI line instead of an account in the client's books. Change those entries first: choose one of the client's accounts or name a new one.", { status: 400 });
+  if (bad?.length) return new Response("Some entries post to a line instead of an account in the client's books. Change those entries first: choose one of the client's accounts or name a new one.", { status: 400 });
   const pdf = await buildReportPdf(supabase, id, { report: "tb" }, "client");
   if (!pdf) return new Response("Not found", { status: 404 });
   return new Response(new Uint8Array(pdf.bytes), { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${pdf.filename}"`, "cache-control": "private, no-store" } });

@@ -170,7 +170,7 @@ update public.cb_accounts set account_type = null where id = :'off';
 delete from public.cb_step_signoffs where file_id = :'f' and step in ('compare', 'review');
 insert into public.cb_accounts (file_id, account_key, number, name, this_year, last_year) values (:'f', '61000', '61000', 'Unmatched dummy', 100, 100);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T5: an unmatched account blocks step 6', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'compare', 'prepared')) like 'Not yet:%1 account with no GIFI line.%');
+select test.check('T5: an unmatched account blocks step 6', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'compare', 'prepared')) like 'Not yet:%1 account with no group: choose a group.%');   -- piece R1: wording
 reset role; reset request.jwt.claims;
 delete from public.cb_accounts where file_id = :'f' and account_key = '61000';
 insert into public.cb_accounts (file_id, account_key, number, name, this_year, last_year) values (:'f', 'chart:10900', '10900', 'Clearing', 250, 0);

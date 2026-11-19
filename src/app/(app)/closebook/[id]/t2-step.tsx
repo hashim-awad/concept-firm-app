@@ -24,6 +24,8 @@ const whole = (v: number) => v.toLocaleString("en-US");
 
 // Round 15b: the step's papers (CaseWare's document map): GIFI file, Tax workpaper, T2 tie-out. Without a
 // paper, all of them (the export routes and tests use it that way).
+// Piece R1 (workpaper finding 16): "Match accounts to GIFI" as the first paper is the page's default only (page.tsx pickPaper);
+// called with no paper, this still shows every paper it has.
 export function T2Step({ fileId, g, staff, editable, isOwner, rounding, paper }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; isOwner: boolean; rounding?: RoundingLine; paper?: string }) {
   const show = (k: string) => !paper || paper === k;
   const hidden = <input type="hidden" name="file_id" value={fileId} />;

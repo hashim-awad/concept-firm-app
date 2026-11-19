@@ -1,4 +1,5 @@
 import { pctChange } from "@/lib/closebook/reports";
+import { fromStatements } from "@/lib/closebook/steps";
 import Link from "next/link";
 import { FilePick } from "./file-pick";
 import { formatDateTime } from "@/lib/dates";
@@ -62,7 +63,6 @@ export function TbTab(p: Props) {
   const pill = (k: string, label: string, off?: boolean) => (
     <Link href={`${base}&view=${k}`} className={`rounded-full px-3 py-1 ${view === k ? "bg-navy-700 font-medium text-white" : off ? "border border-sand-200 text-ink-3" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>{label}</Link>
   );
-  const lineLabel = (no: string | null) => (no ? `${no} ${byNo.get(no)?.name ?? ""}` : "");
   const taxOf = (a: CbAccount) => a.tax_code ?? (a.line_no ? byNo.get(effectiveLine(a.line_no, finalOf(a), byNo) ?? a.line_no)?.default_tax_code ?? "" : "");
   // Round 5: the type check works from the account's type (standard chart, client's books, the type chosen
   // in Closebook, else the number). Round 6: a mismatch needs the reviewer until they keep it there with a
@@ -162,16 +162,16 @@ export function TbTab(p: Props) {
       )}
 
       {p.importOnly ? (accounts.length > 0 && (
-        <p className="card text-sm">{accounts.length} accounts imported. Match them to GIFI lines in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=review`} className="text-navy-700 underline">step 7</a>.</p>
-      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{file.file_type === "monthly" ? "Import the trial balance." : "Upload the statements in step 2."}</p>
+        <p className="card text-sm">{accounts.length} accounts imported. Match them in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=review`} className="text-navy-700 underline">step 7</a>.</p>
+      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Upload the statements in step 3." : "Import the trial balance in step 3."}</p>
         : view === "lead" ? (
           // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
-          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Match every account to a GIFI line: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
+          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Choose a group for every account" : "Match every account in step 4"}: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag, tjeTotals).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
-                  id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: lineLabel(r.line), last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
+                  id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: byNo.get(r.line)?.name ?? "", last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
                   final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
                 }));
                 // Round 35 (Hashim, CaseWare): the lead sheet code shows here, and only here.

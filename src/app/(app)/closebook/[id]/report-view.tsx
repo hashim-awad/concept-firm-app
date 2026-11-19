@@ -23,7 +23,6 @@ const moneyTotal = (c: number) => (c === 0 ? "0.00" : money(c));
 // ledger and journal keep black brackets: there they mean a credit.
 const red = (c: number) => <span className={negativeTone(c)}>{money(c)}</span>;
 const dateText = (d: string) => (d ? formatDate(d) : "");
-const gifi = (line_no: string | null) => (line_no ? line_no.replace(/\.00$/, "") : "");
 
 // back: where this view itself returns to, kept in every link out of it so Back works at every level.
 type Params = { report: ReportKey; account?: string; from?: string; to?: string; source?: string; expand?: string; back?: string; view?: string };
@@ -59,7 +58,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-warning-soft px-3 py-1 text-xs font-semibold text-warning">{STAMP}</span>
         {/* Round 38: the account shown, opened in Reclassify transactions. */}
-        {p.report === "gl" && p.account && <a href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(p.account)}`} className="btn-secondary" data-gl-reclassify>Reclassify</a>}
+        {p.report === "gl" && p.account && <a href={`${base}?area=tb&tool=reclassify&account=${encodeURIComponent(p.account)}&back=${encodeURIComponent(`${base}?report=gl&account=${encodeURIComponent(p.account)}`)}`} className="btn-secondary" data-gl-reclassify>Reclassify</a>}
         <a href={exportHref("xlsx")} className="btn-secondary">Excel</a>
         <a href={exportHref("pdf")} className="btn-secondary">PDF</a>
       </div>
@@ -87,7 +86,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
     const accountRow = (t: TbLine) => (
       <tr key={t.key} id={`a-${t.key}`} className="target:bg-navy-50">
         <td className="py-1 pr-1 pl-2 tabular-nums text-[#5B6475]">{t.number}</td>
-        <td className="px-2 py-1">{t.name}{flat && t.line_no && <span className="ml-2 text-xs text-[#5B6475]">GIFI {gifi(t.line_no)}</span>}</td>
+        <td className="px-2 py-1">{t.name}</td>
         {amounts(t, true)}
       </tr>
     );
@@ -143,7 +142,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
             <table className="w-full text-sm"><tbody>
               {g.accounts.map((a) => (
                 <tr key={a.key} id={`a-${a.key}`} className="target:bg-navy-50">
-                  <td className="px-4 py-1 pl-14 text-ink-2">{a.number && <span className="mr-2 tabular-nums text-ink-3">{a.number}</span>}{a.name}{a.line_no && <span className="ml-2 text-xs text-ink-3">GIFI {gifi(a.line_no)}</span>}</td>
+                  <td className="px-4 py-1 pl-14 text-ink-2">{a.number && <span className="mr-2 tabular-nums text-ink-3">{a.number}</span>}{a.name}</td>
                   <td className="w-36 px-3 py-1 text-right tabular-nums"><Link href={toLedger(a.key, here({ expand: backOpen }) + `#a-${a.key}`)} className="hover:text-navy-700 hover:underline">{red(a.now)}</Link></td>
                   <td className="w-36 px-3 py-1 text-right tabular-nums text-ink-3">{red(a.last)}</td>
                 </tr>
@@ -214,7 +213,6 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
           <section key={a.key} className="card overflow-x-auto p-0">
             <h3 className="flex flex-wrap items-baseline justify-between gap-2 border-b border-sand-200 px-4 py-3 font-semibold">
               <span>{a.number && <span className="mr-2 tabular-nums text-ink-3">{a.number}</span>}{a.name}</span>
-              {a.line_no && <span className="text-sm font-normal text-ink-3">GIFI {gifi(a.line_no)}</span>}
             </h3>
             <table className="w-full min-w-[760px] text-sm">
               <thead><tr className="text-left text-xs text-ink-3"><th className="px-4 py-2 font-semibold">Date</th><th className="px-2 py-2 font-semibold">Source</th><th className="px-2 py-2 font-semibold">Description</th><th className="px-3 py-2 text-right font-semibold">Amount</th><th className="px-4 py-2 text-right font-semibold">Balance</th></tr></thead>

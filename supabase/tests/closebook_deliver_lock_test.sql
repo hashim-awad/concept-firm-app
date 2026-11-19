@@ -79,7 +79,7 @@ select test.check('the email figures are kept as sent', test.try(format($q$selec
 select test.check('only an owner locks', test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) = 'Only an owner locks a file.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the lock is refused, each missing item named',
-  test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) like 'The file cannot be locked yet: Step 1, Set up the file: not signed by the reviewer.%Step 8, T2 tie-out: not signed by the reviewer.%The EFILE confirmation number is not recorded.');
+  test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) like 'The file cannot be locked yet: Step 1, Set up: not signed by the reviewer.%Step 8, Tax returns: not signed by the reviewer.%The EFILE confirmation number is not recorded.');
 reset role;
 reset request.jwt.claims;
 -- Steps 1 to 8 reviewed (their own rules are tested in their rounds).

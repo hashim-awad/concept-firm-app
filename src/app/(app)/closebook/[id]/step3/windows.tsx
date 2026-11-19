@@ -153,7 +153,7 @@ export function AddAccountWindow({ c }: { c: AddCtx; lock?: Lock }) {
                 <option value="">{usual} {nameOf(usual)} (usual for this type)</option>
                 {others.map((x) => <option key={x.code} value={x.code}>{x.code} {x.name} · {fmt(x.cents)}</option>)}
               </select>
-              <span className="text-[12px] text-ink-3">The line this account was on in last year&rsquo;s T2. This year&rsquo;s GIFI line does not change: map it in step 6.</span></label>
+              <span className="text-[12px] text-ink-3">The line this account was on in last year&rsquo;s T2. This year&rsquo;s line does not change here: match it in step 8.</span></label>
           );
         })()}
         <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13.5px] text-[#14532d]">

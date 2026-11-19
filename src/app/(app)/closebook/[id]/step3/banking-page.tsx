@@ -229,7 +229,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
             ))}
             <div className="grid grid-cols-[minmax(0,1fr)_12rem_8.5rem] items-center border-t-2 border-ink px-6 py-3 text-[15px] font-semibold"><span>Total</span><span className="text-right tabular-nums">{money(b.total)}</span><span /></div>
             {(d.t2Entered || d.firstYear) && <>
-              <div className="grid grid-cols-[minmax(0,1fr)_12rem_8.5rem] items-center px-6 py-2 text-[15px] text-ink-2"><span>Last year&rsquo;s T2 · GIFI {b.gifi}</span><span className="text-right tabular-nums">{money(b.t2)}</span><span /></div>
+              <div className="grid grid-cols-[minmax(0,1fr)_12rem_8.5rem] items-center px-6 py-2 text-[15px] text-ink-2"><span>Last year&rsquo;s T2 line {b.gifi}</span><span className="text-right tabular-nums">{money(b.t2)}</span><span /></div>
               <div className={`grid grid-cols-[minmax(0,1fr)_12rem_8.5rem] items-center px-6 pt-2 pb-4 text-[15px] font-semibold ${b.state === "rounding" ? "text-success" : b.state === "add" ? "text-warning" : "text-danger"}`}>
                 <span>Difference</span><span className="text-right tabular-nums">{money(b.difference)}</span>
                 <span className="pl-6 text-[13.5px] font-normal">{b.state === "rounding" ? (b.difference ? "✓ rounding" : "✓") : b.state === "add" ? "to add" : "too much"}</span>

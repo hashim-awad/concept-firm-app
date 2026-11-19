@@ -6,12 +6,14 @@
 // the top while scrolling. "Out of balance" shows only when it is.
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Pencil, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Plus, Search } from "lucide-react";
+import { AccountPanel } from "./account-panel";
 import { addNote, askReviewerInline } from "../../actions";
 import { Popover } from "../shell/ui";
 import { parseAmount } from "@/lib/closebook/amount";
 
-export type TbRow = { key: string; id: string; number: string; name: string; gifi: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
+// Piece R1: no GIFI on the Trial balance tab; group, sh and shName feed the account panel (mock N).
+export type TbRow = { key: string; id: string; number: string; name: string; group: string; sh: boolean; shName: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
   final: number; last: number; diff: number; pct: string; flagged: boolean; notes: number; reviewer: boolean; drillable: boolean;
   lastFrom?: string };   // round 25: "Reclassified from 2707 to 2701"
 export type TbGroupRow = { code: string; name: string; section: string; rows: TbRow[] };
@@ -21,9 +23,20 @@ const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleS
 const pctOf = (final: number, prior: number) => (!prior ? (final ? "n/a" : "–") : final && (final > 0) !== (prior > 0) ? "n/m" : `${(((Math.abs(final) - Math.abs(prior)) / Math.abs(prior)) * 100).toFixed(1)}%`);
 const DRILL: Partial<Record<ColKey, string>> = { prelim: "prelim", adjust: "adjust", aje: "adjust", tje: "adjust", reclass: "reclass", final: "final" };
 
-export function TbTable({ fileId, groups, view, year, isOwner, editable, exportBase }: {
-  fileId: string; groups: TbGroupRow[]; view: "groups" | "accounts" | "gifi"; year: number; isOwner: boolean; editable: boolean; exportBase: string;
+export function TbTable({ fileId, groups, view, year, isOwner, editable, exportBase, openKey, noteStep = "compare" }: {
+  fileId: string; groups: TbGroupRow[]; view: "groups" | "accounts"; year: number; isOwner: boolean; editable: boolean; exportBase: string;
+  openKey?: string;   // piece R1: an old drill= link (no column) opens the account panel once
+  noteStep?: string;  // piece R1: the step the panel's review note is filed under
 }) {
+  const [panel, setPanel] = useState<TbRow | null>(() => (openKey ? groups.flatMap((g) => g.rows).find((r) => r.key === openKey) ?? null : null));
+  // The panel is not in the address: an old link's drill= is dropped once the panel is open, so a reload does not reopen it.
+  useEffect(() => {
+    if (!openKey) return;
+    const u = new URL(window.location.href);
+    u.searchParams.delete("drill"); u.searchParams.delete("col");
+    window.history.replaceState(window.history.state, "", u.toString());
+  }, [openKey]);
+  const closePanel = () => { const k = panel?.key; setPanel(null); if (k) setTimeout(() => document.getElementById(`ab-${k}`)?.focus(), 0); };
   const [hidden, setHidden] = useState<Set<ColKey>>(new Set());
   const [pin, setPin] = useState(true);
   const [zero, setZero] = useState(false);
@@ -96,7 +109,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
     setMsg({ key: r.key, text: e ?? "Sent to the reviewer." });
   });
   const icons = (r: TbRow) => (
-    <td className="w-[1%] px-2 text-right whitespace-nowrap text-[#9aa0ae]">
+    <td className="w-[1%] px-2 text-right whitespace-nowrap text-ink-3" onClick={(e) => e.stopPropagation()}>
       {r.id && editable ? <span className="inline-flex items-center gap-2">
         <Link href={`/closebook/${fileId}?area=tb&tbv=${view}&new=journal&acct=${r.id}`} scroll={false} title="New entry on this account" aria-label={`New entry on ${r.name}`} className="hover:text-navy-700"><Plus className="h-3.5 w-3.5" /></Link>
         {isOwner ? (
@@ -115,15 +128,16 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           : <span title="No review note"><MessageSquare className="h-3.5 w-3.5" /></span>}
         <button type="button" disabled={pending || r.reviewer} onClick={() => sendToReviewer(r)} title={r.reviewer ? "With the reviewer" : "Send to the reviewer"} aria-label={`Send ${r.name} to the reviewer`}
           className={r.reviewer || r.flagged ? "text-warning" : "hover:text-navy-700"}><Flag className="h-3.5 w-3.5" fill={r.reviewer ? "currentColor" : "none"} /></button>
-        <Link href={`/closebook/${fileId}?area=tb&tbv=match&edit=${r.id}`} title="Change the GIFI line" aria-label={`Change the GIFI line of ${r.name}`} className="hover:text-navy-700"><Pencil className="h-3.5 w-3.5" /></Link>
       </span> : r.flagged ? <Flag className="inline h-3.5 w-3.5 text-warning" /> : null}
       {msg?.key === r.key && <span className={`ml-2 text-[11px] ${msg.text === "Sent to the reviewer." ? "text-success" : "text-danger"}`}>{msg.text}</span>}
     </td>
   );
   const accountRow = (r: TbRow, path: string) => (
-    <tr key={r.key} id={`a-${r.key}`} data-path={path} className={`bg-white target:bg-navy-50 ${r.flagged ? "shadow-[inset_3px_0_0_#e0b04a]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
+    <tr key={r.key} id={`a-${r.key}`} data-path={path} onClick={(e) => { if (r.drillable && !(e.target as HTMLElement).closest("a,button,input,form")) setPanel(r); }}
+      className={`bg-white target:bg-navy-50 ${r.drillable ? "cursor-pointer hover:bg-sand-50" : ""} ${panel?.key === r.key ? "bg-navy-50" : ""} ${r.flagged ? "shadow-[inset_3px_0_0_#e0b04a]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
       <td className={`py-[5px] pr-1 pl-${grouped ? "8" : "3"} whitespace-nowrap text-ink-2 tabular-nums ${sticky}`} style={{ paddingLeft: grouped ? 30 : 12 }}>{hl(r.number)}</td>
-      <td className={`px-2 py-[5px] ${sticky}`} style={pin ? { left: 70 } : undefined}>{hl(r.name)}{view === "accounts" && r.gifi && <span className="ml-2 text-[11px] text-ink-3">GIFI {r.gifi}</span>}
+      <td className={`px-2 py-[5px] ${sticky}`} style={pin ? { left: 70 } : undefined}>{r.drillable
+        ? <button type="button" id={`ab-${r.key}`} onClick={() => setPanel(r)} className="text-left hover:underline" aria-haspopup="dialog">{hl(r.name)}</button> : hl(r.name)}
         {r.lastFrom && <span className="ml-2 text-[11px] text-ink-2">{r.lastFrom}</span>}</td>
       {shown.map(([k]) => cell(r, k, k === "pct" ? r.pct : (r[k] as number)))}
       {icons(r)}
@@ -177,7 +191,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
                 <Fragment key={g.code}>
                   {section && <tr><td colSpan={shown.length + 3} className="bg-white px-3 pt-3 pb-1 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{section}</td></tr>}
                   {grouped && <tr data-group-head="" data-path={path} className="cursor-pointer border-b border-navy-100 bg-navy-50 font-bold text-navy-700 hover:bg-navy-100" onClick={() => toggleGroup(g.code)}>
-                    <td colSpan={2} className={`px-2 py-[5px] whitespace-nowrap ${sticky}`}>{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" />}{hl(g.name)}</td>
+                    <td colSpan={2} className={`px-2 py-[5px] whitespace-nowrap ${sticky}`}><button type="button" aria-expanded={open} onClick={(e) => { e.stopPropagation(); toggleGroup(g.code); }} className="text-left font-bold">{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{hl(g.name)}</button></td>
                     {shown.map(([k]) => cell(null, k, k === "pct" ? pctOf(tot.final, tot.last) : (tot[k as keyof typeof tot] as number), true))}<td />
                   </tr>}
                   {(!grouped || (open && accts)) && g.rows.map((r) => accountRow(r, path))}
@@ -188,6 +202,7 @@ export function TbTable({ fileId, groups, view, year, isOwner, editable, exportB
           </tbody>
         </table>
       </div>
+      {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} isOwner={isOwner} editable={editable} onClose={closePanel} noteStep={noteStep} />}
     </section>
   );
 }

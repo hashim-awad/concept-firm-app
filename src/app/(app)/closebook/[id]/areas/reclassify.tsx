@@ -15,7 +15,8 @@ const money = (c: number) => (c < 0 ? `(${(Math.abs(c) / 100).toLocaleString("en
 const FLD = "h-9 rounded-[6px] border border-sand-300 bg-white px-2 text-[13.5px] outline-none focus:border-navy-600";
 const PAGE = 200;
 
-export function ReclassifyPage({ data, initialAccount }: { data: ReclassifyData; initialAccount?: string }) {
+// Piece R1 (item 6): opened from another view with back=, it has "Cancel", which returns there.
+export function ReclassifyPage({ data, initialAccount, back }: { data: ReclassifyData; initialAccount?: string; back?: string }) {
   const router = useRouter();
   const startAcct = data.accounts.find((a) => a.key === initialAccount);
   const [types, setTypes] = useState<"pl" | "bs">(startAcct ? (startAcct.pl ? "pl" : "bs") : "pl");
@@ -71,6 +72,7 @@ export function ReclassifyPage({ data, initialAccount }: { data: ReclassifyData;
       <section className="min-w-0 rounded-[10px] border border-sand-200 bg-white">
         <div className="flex items-start justify-between gap-4 border-b border-sand-200 px-4 py-3">
           <h2 className="text-[17px] font-semibold">Reclassify transactions</h2>
+          {back && <a href={back} className="ml-auto self-center text-[13px] font-semibold text-navy-700 hover:underline" data-rc-cancel>Cancel</a>}
           <details className="max-w-md text-[13px] text-ink-2" data-rc-help>
             <summary className="cursor-pointer text-right font-semibold text-navy-700">How to do this</summary>
             <div className="mt-2 grid gap-2 rounded-[8px] border border-sand-200 bg-sand-50 p-3">
@@ -180,7 +182,7 @@ function ReclassifyWindow({ data, rows, total, onClose, onDone }: { data: Reclas
   const n = rows.length;
   const bank = rows.some((r) => r.kind === "bank"), entry = rows.some((r) => r.kind === "entry");
   // Which sign-offs this removes, before Apply (the same rules as changing each line in its own step).
-  const falls = [bank && data.signed.code ? "Step 4, Code transactions" : "", entry && data.signed.entries ? "Step 5, Entries" : ""].filter(Boolean);
+  const falls = [bank && data.signed.code ? "Step 4, Code transactions" : "", entry && data.signed.entries ? "Step 5, Adjustments" : ""].filter(Boolean);
   const apply = () => start(async () => {
     setErr("");
     const r = await reclassifyLines(data.fileId, rows.map((x) => ({ kind: x.kind as "bank" | "entry", id: x.item! })), account, tax, total / 100);

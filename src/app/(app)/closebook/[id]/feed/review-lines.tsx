@@ -186,6 +186,8 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
       </section>
       {barOn && <div aria-hidden className="h-16" />}
 
+      {/* Piece R1 (D5): on a bank-statement file accounts are decided in step 8, so the card shows only if rows are passed. */}
+      {acctRows.length > 0 && (
       <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Accounts for the reviewer's decision" data-review-accounts>
         <h2 className="border-b border-sand-200 px-3 py-2.5 text-[15px] font-semibold">Accounts for the reviewer&rsquo;s decision</h2>
         {acctRows.length === 0 ? <p className="px-3 py-3 text-[13.5px] text-ink-3">Nothing waits for the reviewer.</p> : (
@@ -202,6 +204,7 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
               </tr>))}</tbody>
           </table>)}
       </section>
+      )}
 
       {barOn && (
         <div role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}

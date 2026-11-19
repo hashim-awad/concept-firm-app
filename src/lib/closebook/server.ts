@@ -8,6 +8,7 @@ export type CbAccount = { id: string; account_key: string; number: string; name:
   client_new?: boolean; qbo_type?: string | null; account_type?: string | null; type_source?: string | null;
   type_confirm_reason?: string | null; type_confirmed_line?: string | null; type_confirmed_by?: string | null; type_confirmed_at?: string | null;
   mapping_source: string | null; needs_reviewer: boolean; reviewer_reason: string;
+  gifi_override?: string | null;   // piece R1: the GIFI line for the tax return when it differs from the group (step 8, bank files)
   last_year_line?: string | null };   // round 25: the T2 line last year's figure came from, when it differs
 export type CbEntry = { id: string; kind: string; number: number; seq: number; wp_ref: string; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
   reviewed_by: string | null; created_by: string | null; created_at: string; entry_date?: string | null; attachments?: string[]; origin?: string | null; standard_id?: string | null;
@@ -40,7 +41,7 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
     supabase.from("clients").select("id, legal_name, business_number, year_end_md, taxdome_tags, province, signing_officer, street_address, city, postal_code").eq("id", f.client_id).maybeSingle(),
     supabase.from("cb_documents").select(DOC_COLS).eq("file_id", id).order("sort_order"),
-    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at, side_confirm_reason, side_confirmed_line, side_confirmed_by, side_confirmed_at, last_year_line").eq("file_id", id).order("number").order("name"),
+    supabase.from("cb_accounts").select("id, account_key, number, name, last_year, this_year, line_no, tax_code, mapping_source, needs_reviewer, reviewer_reason, client_new, qbo_type, account_type, type_source, type_confirm_reason, type_confirmed_line, type_confirmed_by, type_confirmed_at, side_confirm_reason, side_confirmed_line, side_confirmed_by, side_confirmed_at, last_year_line, gifi_override").eq("file_id", id).order("number").order("name"),
     supabase.from("cb_imports").select("target, source, file_name, rows, debit_total, credit_total, imported_at, who:imported_by(full_name)").eq("file_id", id).order("imported_at", { ascending: false }),
     staffNames(supabase),
   ]);
