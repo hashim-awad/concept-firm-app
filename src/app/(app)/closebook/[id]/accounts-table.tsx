@@ -25,9 +25,10 @@ export type Group = { lineNo: string; label: string; count: number; total: strin
 export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
 
 
-export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, options, taxes, isReviewer, editable, totals, edit, noteBy }: {
+export function MatchWorkspace({ matchNow = false, fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals, edit, noteBy, only }: {
   fileId: string; view: string; base: string; rows: Row[]; groups: Group[]; options: Option[]; taxes: { code: string; name: string }[];
   isReviewer: boolean; editable: boolean; totals: { last: string; current: string; niLast?: string }; edit?: string; matchNow?: boolean;
+  only?: string[];   // piece 9: the "Unmatched" filter (the accounts with no GIFI line)
   noteBy?: { step: string; back: string };   // round 8: the reviewer adds a review note on an account
 }) {
   const [showUnused, setShowUnused] = useState(false);
@@ -62,7 +63,7 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3 pb-1.5">
             <p className="flex items-center gap-2 font-medium"><AlertCircle className="h-5 w-5 text-warning" aria-hidden />
               {attention.length} account{attention.length === 1 ? " needs" : "s need"} a decision</p>
-            {matchNow && <form action={runMatching}><input type="hidden" name="file_id" value={fileId} /><button type="submit" className="btn-secondary btn-compact">Match them now</button></form>}
+            {matchNow && <form action={runMatching}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={base} /><button type="submit" className="btn-secondary btn-compact">Match them now</button></form>}
           </div>
           <table className="table table-compact">
             <thead><tr><th>Account</th><th>Why</th><th className="w-36 text-right">This year</th><th className="w-10"></th></tr></thead>
@@ -91,7 +92,7 @@ export function MatchWorkspace({ matchNow = false, fileId, view, rows, groups, o
           <table className="table table-compact min-w-[1000px]">
             <thead><tr><th>Account</th><th className="w-[36%]">GIFI line<InfoTip>An account whose balance flips sign moves to its paired line automatically.</InfoTip></th><th className="w-24">Source</th><th>Tax code<InfoTip>Only the reviewer changes a tax code.</InfoTip></th><th className="text-right">Last year</th><th className="text-right">This year<InfoTip align="right">Debits show as positive, credits in brackets.</InfoTip></th><th className="text-right">Change</th><th className="w-10"></th></tr></thead>
             <tbody>
-              {rows.filter((r) => !r.unused).map((r) => (
+              {rows.filter((r) => !r.unused && (!only || only.includes(r.id))).map((r) => (
                 <tr key={r.id} className={r.needsReviewer ? "bg-danger/5" : !r.lineLabel ? "bg-warning-soft/50" : ""}>
                   <td>{accountCell(r)}</td>
                   <td>{lineCell(r)}</td>
