@@ -649,6 +649,11 @@ In short:
   - Later pieces (Hashim, Nov 19): mapping working paper (W/P TB.3); firm chart matching for monthly clients; the reviewer's
     "Changes from last year" list; lifting the GIFI export, T2 tie-out, revenue check and New file blocks on monthly files;
     equity carry-forward on QuickBooks files; sales tax code on client list lines; "reverse on day 1".
+  - Deferred to piece R5 (Hashim, Nov 19, 2026): an account the bookkeeper already closed in QuickBooks with a day-1 journal
+    entry still counts as "still to move" in the projected tie, so the other opening RJEs are refused. R5 adds option A: a
+    reviewer-visible mark on the account, "Already closed in QuickBooks", logged in History; a marked account leaves "still to
+    move" and the step 6 hint, and step 6's final tie proves the mark. With a test: one dividends account closed in QuickBooks
+    and one not.
 - Piece R1, GIFI in one place: step 8 "Match accounts to GIFI" (Hashim, Nov 19, 2026, version 2; mocks M and N; benchmark
   CaseWare Cloud: an account has one grouping for the statements and one GIFI property for the tax return, mapped and checked
   at the tax stage; QuickBooks Online Workpapers > Tax mapping for the layout of the paper).
