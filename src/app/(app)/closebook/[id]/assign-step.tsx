@@ -166,7 +166,7 @@ export function AssignStep({ fileId, accounts, master, groups, prior: priorList,
 
       <div className="grid gap-3 lg:grid-cols-2">
         {/* LEFT: the client's accounts, as in their books. */}
-        <section aria-label="Unassigned accounts" className="card flex min-h-[420px] flex-col p-0" onDragOver={(e) => e.preventDefault()} onDrop={dropOn(null)}>
+        <section aria-label="Unassigned accounts" data-left-pane className="card flex min-h-[420px] flex-col p-0" onDragOver={(e) => e.preventDefault()} onDrop={dropOn(null)}>
           <div className="border-b border-sand-200 px-4 py-3">
             <h2 className="font-semibold">Unassigned ({countedAll.filter((a) => !a.chart).length})</h2>
             <p className="text-xs text-ink-3">The client&apos;s accounts, as in their books</p>
@@ -281,6 +281,7 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
   const box = useRef<HTMLElement>(null);
   const router = useRouter();
   const [taking, setTaking] = useState(pick);
+  const [choice, setChoice] = useState(pick ?? "");
   useEffect(() => { close.current = onClose; });
   // Focus goes into the window and back to the master account's name on close; Tab stays inside (as the account panel).
   useEffect(() => {
@@ -307,7 +308,11 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label={`${m.number} ${m.name}`} data-master-window={m.number}>
       {/* Dragging a client account out of the window onto the page (the left pane) unassigns it, as Unassign does. */}
-      <div className="absolute inset-0 bg-navy-950/20" onClick={onClose} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { onDropBack(e); onClose(); }} />
+      <div className="absolute inset-0 bg-navy-950/20" onClick={onClose} onDragOver={(e) => e.preventDefault()} onDrop={(e) => {
+        // Only a drop over the left pane unassigns; a drop anywhere else under the window does nothing.
+        const r = document.querySelector("[data-left-pane]")?.getBoundingClientRect();
+        if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { onDropBack(e); onClose(); } else e.preventDefault();
+      }} />
       <aside ref={box} onKeyDown={trap} className="absolute inset-y-0 right-0 flex w-[460px] max-w-full flex-col overflow-y-auto bg-white shadow-2xl">
         <div className="flex items-start gap-2 border-b border-sand-200 px-5 py-4">
           <div className="flex-1"><h2 className="text-base font-semibold"><span className="mr-2 tabular-nums">{m.number}</span>{m.name}</h2>
@@ -315,11 +320,17 @@ function MasterWindow({ fileId, m, accts, can, canPick, pick, onClose, onUnassig
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 text-ink-2 hover:bg-sand-100"><X className="h-5 w-5" /></button>
         </div>
         {accts.length > 1 && (
-          <label className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take><span className="font-semibold">Entries and schedules post to</span>
-            <select value={taking ?? ""} disabled={!canPick} onChange={(e) => void choose(e.target.value)} className="input input-compact">
-              <option value="">Choose one of the {accts.length} accounts</option>
-              {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
-            </select></label>
+          <div className="mx-5 mt-3 grid gap-1 text-[13px]" data-entries-take>
+            <label htmlFor="entries-take" className="font-semibold">Entries and schedules post to</label>
+            <span className="flex items-center gap-2">
+              <select id="entries-take" value={choice} disabled={!canPick} onChange={(e) => setChoice(e.target.value)} className="input input-compact flex-1">
+                <option value="">Not chosen</option>
+                {accts.map((a) => <option key={a.id} value={a.key}>{label(a)}</option>)}
+              </select>
+              {canPick && <button type="button" disabled={!choice || choice === taking} onClick={() => void choose(choice)} className="btn-secondary btn-compact">Save</button>}
+            </span>
+            <span className="text-xs text-ink-3">Optional. If it is not chosen, the entry window asks when an entry needs this master account.</span>
+          </div>
         )}
         <ul className="divide-y divide-sand-100 text-sm">
           {accts.length === 0 && <li className="px-5 py-4 text-ink-3">No client account on this master account yet.</li>}
