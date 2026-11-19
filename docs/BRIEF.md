@@ -1027,3 +1027,6 @@ Governed by `docs/FRONT-OFFICE-BATCH.md` (Nov 11, 2026). In short:
 - Staff never use a command line. Everything they use is screens and buttons.
 - Show a working preview with dummy data before calling anything done.
 - Ask before doing anything outside this repo.
+- Every request to Hashim includes the full link to open (Hashim, Nov 10, 2026; moved here from docs/STATUS.md).
+- This brief is the one record of status and decisions. docs/STATUS.md was retired on Nov 19, 2026 (Hashim) and is kept
+  only as a pointer here.
