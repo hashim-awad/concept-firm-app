@@ -131,13 +131,14 @@ export function stepFromLegacy(tab: string | undefined, view: string | undefined
   if (view === "transactions") return "records";
   if (view === "gifi") return "t2";
   if (view === "lead") return "compare";   // piece 10: the lead sheets view is in step 6
+  if (view === "accounts" && fromStatements(books)) return "t2";   // piece R1: GIFI matching is step 8's first paper
   return fromStatements(books) ? "compare" : "code";
 }
 
 // Round 15b (Hashim; CaseWare Cloud's document map): a step holds one or more working papers, each its
 // own screen, listed under the step when it is open. A paper shows only when it applies. Sign-offs stay
 // on the step.
-export type PaperKey = "accounts" | "feeds" | "reconcile" | "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
+export type PaperKey = "match" | "accounts" | "feeds" | "reconcile" | "questions" | "acceptance" | "revenue" | "sh" | "expenses" | "gifi" | "taxwp" | "tie" | "gst" | "package" | "mal" | "checklist" | "email" | "documents" | "filing";
 export type Paper = { key: PaperKey; name: string };
 // Piece 7: revenue false = no revenue check added on this file (step 5 offers "+ Add revenue check" instead).
 export type PaperFacts = { full: boolean; shareholders: boolean; ownerPaid: boolean; gst: boolean; bank?: boolean; revenue?: boolean };
@@ -150,7 +151,8 @@ export function stepPapers(step: StepKey, f: PaperFacts): Paper[] {
     case "records": return [...p("accounts", "3.1 Bank accounts & T2 tie-out", !!f.bank), ...p("feeds", "3.2 Bank feeds", !!f.bank), ...p("reconcile", "3.3 Reconcile", !!f.bank)];
     // Piece 4b (Hashim, Nov 18, 2026): the "Expenses paid personally" paper is retired; the schedule is in the entry window.
     case "entries": return [...p("revenue", "Revenue check", f.full && f.revenue !== false), ...p("sh", "Shareholder loans", f.shareholders)];
-    case "t2": return [...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
+    // Piece R1 (Hashim, Nov 19, 2026): "Match accounts to GIFI" first, on bank-statement files (trial balance files match in step 4 until R2).
+    case "t2": return [...p("match", "Match accounts to GIFI", !!f.bank), ...p("gifi", "GIFI file"), ...p("taxwp", "Tax workpaper"), ...p("tie", "T2 tie-out"), ...p("gst", "GST/HST return", f.gst)];
     case "statements": return [...p("package", "Package"), ...p("mal", "MAL signing")];
     case "lock": return [...p("checklist", "Checklist"), ...p("email", "Client email"), ...p("documents", "Documents"), ...p("filing", "Filing and lock")];
     default: return [];

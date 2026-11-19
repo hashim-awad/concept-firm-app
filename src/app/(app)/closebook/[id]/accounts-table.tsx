@@ -6,9 +6,9 @@
 //    show its accounts.
 // 3. An amber flag on a GIFI line whose total sits on the wrong side.
 // 4. Changing a line happens in a side panel opened by the pencil: no change by a stray click.
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { AlertCircle, ChevronRight, Info, Lock, Pencil, X } from "lucide-react";
-import { askReviewerInline, confirmSideInline, confirmTypeInline, matchInline, runMatching, taxCodeInline } from "../actions";
+import { askReviewerInline, confirmSideInline, confirmTypeInline, matchInline, overrideInline, runMatching, taxCodeInline } from "../actions";
 import { NoteOnItem } from "./note-on-item";
 import { InfoTip } from "@/components/ds/info-tip";
 
@@ -20,9 +20,11 @@ export type Row = {
   typeFlag?: "" | "open" | "confirmed"; sideFlag?: "" | "open" | "confirmed"; notChecked?: boolean;
   // "Opening balances to enter": one line per cause, adding up to the row (round 2 item 8).
   buildUp?: { text: string; amount: string }[];
+  // Piece R1: step 8's GIFI override. groupLabel: the account's group line; lineType: its type (an override keeps it).
+  groupLabel?: string; lineType?: string; overridden?: boolean;
 };
 export type Group = { lineNo: string; label: string; count: number; total: string; warn: string; ids: string[] };
-export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit" };
+export type Option = { no: string; label: string; section: string; hint: string; locked: boolean; normal: "debit" | "credit"; type?: string };
 
 
 export function MatchWorkspace({ matchNow = false, fileId, view, base, rows, groups, options, taxes, isReviewer, editable, totals, edit, noteBy, only }: {
@@ -124,8 +126,8 @@ function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<strin
   return (
     <>
       <tr className="cursor-pointer hover:bg-sand-50" onClick={() => setShown(!shown)}>
-        <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${shown ? "rotate-90" : ""}`} aria-hidden /><b className="tabular-nums">{g.lineNo.replace(/\.00$/, "")}</b> {g.label}</td>
-        <td className="text-ink-2">{g.count === 1 && !shown ? accountCell(byId.get(g.ids[0])!) : `(${g.count})`}</td>
+        <td><button type="button" aria-expanded={shown} onClick={(e) => { e.stopPropagation(); setShown(!shown); }} className="text-left"><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${shown ? "rotate-90" : ""}`} aria-hidden /><b className="tabular-nums">{g.lineNo.replace(/\.00$/, "")}</b> {g.label}</button></td>
+        <td className="text-ink-2">{`(${g.count})`}</td>
         <td>{g.warn && <span title={g.warn} aria-label={g.warn}><AlertCircle className="h-5 w-5 text-warning" /></span>}</td>
         <td className={`text-right tabular-nums ${g.warn ? "font-semibold text-danger" : ""}`}>{g.total}</td>
       </tr>
@@ -143,7 +145,20 @@ function GroupRows({ g, byId, accountCell, pencil }: { g: Group; byId: Map<strin
 
 // The side panel (borrowed from QuickBooks' "Change tax line"): the account's facts, From, To, and
 // for the reviewer the tax code. Nothing changes until Save.
-function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fileId: string; r: Row; options: Option[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void; noteBy?: { step: string; back: string } }) {
+// Piece R1 (Hashim, Nov 19, 2026): mode "override" is step 8's GIFI line for the tax return (lines of the group's type
+// only; the group stays); mode "group" is "Choose a group" (step 6 and step 8's box), which writes the group. Escape closes
+// it and focus goes back to the control that opened it.
+export function Panel({ fileId, r, options: allOptions, taxes, isReviewer, onClose, noteBy, mode = "gifi" }: { fileId: string; r: Row; options: Option[]; taxes: { code: string; name: string }[]; isReviewer: boolean; onClose: () => void; noteBy?: { step: string; back: string }; mode?: "gifi" | "override" | "group" }) {
+  const options = mode === "override" && r.lineType ? allOptions.filter((o) => o.type === r.lineType) : allOptions;
+  const opener = useRef<Element | null>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+  useEffect(() => {
+    opener.current = document.activeElement;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("keydown", esc); (opener.current as HTMLElement | null)?.focus?.(); };
+  }, []);
   const [to, setTo] = useState("");
   const [tax, setTax] = useState(r.taxOverride ? r.tax : "");
   const [err, setErr] = useState("");
@@ -155,18 +170,19 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
   // stays closed until clicked, so it does not cover the reason box (rounds 6 and 7).
   const confirmFirst = isReviewer && (r.typeFlag === "open" || r.sideFlag === "open");
   const hit = [options.find((o) => o.label === to) ?? options.find((o) => o.no === to.trim() || o.no === `${to.trim()}.00`)].find((o) => o && !o.locked);
-  const taxChanged = isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
+  const taxChanged = mode !== "group" && isReviewer && (r.lineLabel || hit) && tax !== (r.taxOverride ? r.tax : "");
+  const title = mode === "group" ? "Choose a group" : mode === "override" ? "GIFI line for the tax return" : "Change GIFI line";
   const save = () => start(async () => {
     setErr("");
-    if (hit && hit.no !== r.lineNo) { const e = await matchInline(fileId, r.id, hit.no); if (e) { setErr(e); return; } }
+    if (hit && hit.no !== r.lineNo) { const e = mode === "override" ? await overrideInline(fileId, r.id, hit.no) : await matchInline(fileId, r.id, hit.no); if (e) { setErr(e); return; } }
     if (taxChanged) { const e = await taxCodeInline(fileId, r.id, tax); if (e) { setErr(e); return; } }
     onClose();
   });
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Change GIFI line">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-navy-950/30" onClick={onClose} />
       <aside className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col gap-5 overflow-y-auto bg-white p-6 shadow-2xl">
-        <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Change GIFI line</h2>
+        <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1.5 hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="font-semibold">Account</dt><dd>{r.number} {r.name}</dd>
@@ -176,15 +192,19 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
         </dl>
         {noteBy && <NoteOnItem fileId={fileId} step={noteBy.step} targetType="account" targetId={r.id} back={noteBy.back} label="Add a review note on this account" />}
         <hr className="border-sand-200" />
-        <div className="grid gap-1 text-sm"><p className="font-semibold">From</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : "Not matched yet")}</p></div>
+        {mode === "override" && r.groupLabel && <div className="grid gap-1 text-sm"><p className="font-semibold">Group</p><p>{r.groupLabel}</p>
+          <p className="text-xs text-ink-3">The statements and lead sheets keep the group. Only the GIFI file, the T2 tie-out and the tax workpaper use the line below.</p></div>}
+        <div className="grid gap-1 text-sm"><p className="font-semibold">{mode === "override" ? "GIFI line now" : "From"}</p><p>{r.lineLabel || (r.needsReviewer ? `Waiting for the reviewer: ${r.reason}` : mode === "group" ? "No group yet" : "Not matched yet")}</p>
+          {mode === "override" && r.overridden && canPick && <button type="button" disabled={pending} className="justify-self-start text-sm text-navy-700 underline"
+            onClick={() => start(async () => { const e = await overrideInline(fileId, r.id, ""); if (e) setErr(e); else onClose(); })}>Use the group&rsquo;s line</button>}</div>
         {canPick ? (
           <div className="grid gap-1">
-            <label htmlFor="to" className="text-sm font-semibold">To (line number or name)</label>
-            <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} autoFocus={!confirmFirst} />
+            <LinePicker options={options} value={to} onChange={setTo} balance={r.finalNum} autoFocus={!confirmFirst}
+              label={mode === "group" ? "Group (line number or name)" : "To (line number or name)"} />
             {to && !hit && <span className="text-xs text-muted">Pick a line from the list.</span>}
           </div>
         ) : <p className="rounded-lg border border-sand-200 bg-sand-50 p-3 text-sm">This account is on the reviewer&rsquo;s list. The reviewer decides it once, for this client&rsquo;s future years too.</p>}
-        {confirmFirst && !(hit && hit.no !== r.lineNo) && (
+        {mode !== "group" && confirmFirst && !(hit && hit.no !== r.lineNo) && (
           // Round 6 item 1: keep the account on a line of another type only with a reason, shown on the line.
           // Round 7 item 1: below "To", since moving the account is the usual fix.
           <div className="grid gap-1 rounded-lg border border-warning/40 bg-warning-soft/40 p-3">
@@ -200,7 +220,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
             {reasonErr && <p role="alert" className="text-sm text-danger">{reasonErr}</p>}
           </div>
         )}
-        {isReviewer && (r.lineLabel || hit) && (
+        {mode !== "group" && isReviewer && (r.lineLabel || hit) && (
           <div className="grid gap-1">
             <label htmlFor="tax" className="text-sm font-semibold">Tax code (reviewer only)</label>
             <select id="tax" value={tax} onChange={(e) => setTax(e.target.value)} className="input">
@@ -213,7 +233,7 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
         <div className="mt-auto flex flex-wrap items-center gap-3">
           <button type="button" onClick={save} disabled={pending || (!(hit && hit.no !== r.lineNo) && !taxChanged)} className="btn">{pending ? "Saving..." : "Save"}</button>
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-          {!isReviewer && !r.needsReviewer && (
+          {mode !== "group" && !isReviewer && !r.needsReviewer && (
             <button type="button" disabled={pending} className="ml-auto text-sm text-navy-700 underline"
               onClick={() => start(async () => { const e = await askReviewerInline(fileId, r.id); if (e) setErr(e); else onClose(); })}>Not sure? Ask the reviewer</button>
           )}
@@ -225,7 +245,9 @@ function Panel({ fileId, r, options, taxes, isReviewer, onClose, noteBy }: { fil
 
 // The line picker (borrowed from QuickBooks): each line with its section in grey italics and an info
 // mark that shows CRA's description of the GIFI code. Type a number or words; arrows and Enter work.
-function LinePicker({ options, value, onChange, balance, autoFocus = true }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number; autoFocus?: boolean }) {
+function LinePicker({ options, value, onChange, balance, autoFocus = true, label = "To (line number or name)" }: { options: Option[]; value: string; onChange: (v: string) => void; balance: number; autoFocus?: boolean; label?: string }) {
+  // Ids unique on the page (several pickers can be open); the input has its label.
+  const uid = useId(), inputId = `to-${uid}`, listId = `cb-line-list-${uid}`;
   // Only lines on the account's side (a credit balance sees liability, equity and revenue lines), unless "Show all lines".
   const [all, setAll] = useState(false);
   const side = balance > 0 ? "debit" : balance < 0 ? "credit" : null;
@@ -241,19 +263,20 @@ function LinePicker({ options, value, onChange, balance, autoFocus = true }: { o
   const list = (chosen || !q ? sided : sided.filter((o) => (/^\d/.test(q) ? o.no.startsWith(q) : res.every((re) => re.test(`${o.label} ${o.section}`))))).slice(0, 60);
   const pick = (o: Option) => { if (o.locked) return; onChange(o.label); setOpen(false); };
   return (
-    <div className="relative">
-      <input id="to" value={value} autoFocus={autoFocus} autoComplete="off" role="combobox" aria-expanded={open} aria-controls="cb-line-list" placeholder="For example: office, rent, 8810" className="input"
+    <div className="relative grid gap-1">
+      <label htmlFor={inputId} className="text-sm font-semibold">{label}</label>
+      <input id={inputId} value={value} autoFocus={autoFocus} autoComplete="off" role="combobox" aria-expanded={open} aria-controls={listId} placeholder="For example: office, rent, 8810" className="input"
         onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(0); }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((i) => Math.min(i + 1, list.length - 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
           else if (e.key === "Enter" && open && list[active]) { e.preventDefault(); pick(list[active]); }
-          else if (e.key === "Escape") setOpen(false);
+          else if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); }   // the first Escape closes the list, the next the window
         }} />
       {side && <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { setAll(!all); setOpen(true); }} className="mt-1 text-xs text-navy-700 underline">{all ? `Show only ${side} lines` : "Show all lines"}</button>}
       {open && list.length > 0 && (
-        <ul id="cb-line-list" role="listbox" className="absolute z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-sand-200 bg-white py-1 shadow-xl">
+        <ul id={listId} role="listbox" className="absolute top-full z-10 mt-1 max-h-80 w-full overflow-y-auto rounded-lg border border-sand-200 bg-white py-1 shadow-xl">
           {list.map((o, i) => (
             <li key={o.no} role="option" aria-selected={i === active} aria-disabled={o.locked} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
               title={o.locked ? "Locked: choose one of its sub-lines" : undefined}

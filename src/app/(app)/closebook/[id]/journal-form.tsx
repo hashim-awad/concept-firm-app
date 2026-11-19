@@ -188,7 +188,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
                     <span className="mt-1 grid gap-1">
                       <input aria-label={`Line ${i + 1} new account name`} value={l.newName} onChange={(e) => setLine(i, { newName: e.target.value })} maxLength={80} placeholder="Name, in plain words" className={box} />
                       <select aria-label={`Line ${i + 1} QuickBooks type`} value={l.newType} onChange={(e) => setLine(i, { newType: e.target.value })} className={box}><option value="">QuickBooks type</option>{qboTypes.map((t) => <option key={t}>{t}</option>)}</select>
-                      <select aria-label={`Line ${i + 1} GIFI line`} value={l.newLine} onChange={(e) => setLine(i, { newLine: e.target.value })} className={box}><option value="">GIFI line</option>{gifiLines.map(([no, name]) => <option key={no} value={no}>{no} {name}</option>)}</select>
+                      <select aria-label={`Line ${i + 1} group`} value={l.newLine} onChange={(e) => setLine(i, { newLine: e.target.value })} className={box}><option value="">Group</option>{gifiLines.map(([no, name]) => <option key={no} value={no}>{no} {name}</option>)}</select>
                     </span>
                   )}
                 </td>

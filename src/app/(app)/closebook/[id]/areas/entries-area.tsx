@@ -126,7 +126,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         {!sp.type && !sp.status && !sp.source && rounding.map((r) => (
           <div key={`rounding-${r.gifi}`} className={`grid ${COLS} items-center gap-x-2 border-b border-sand-100 px-3 py-[6px] text-[12.5px] text-ink-2 last:border-0`}>
             <span /><span>–</span><span className="text-ink-3">Opening</span><span className="whitespace-nowrap">{formatDate(new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) - 1)).toISOString().slice(0, 10))}</span>
-            <span className="truncate">Opening balance rounding · GIFI {r.gifi} {r.title}, to retained earnings</span><span className="truncate text-ink-3">3.1</span>
+            <span className="truncate">Opening balance rounding · {r.title} to retained earnings</span><span className="truncate text-ink-3">3.1</span>
             <span className="text-right tabular-nums">{money(Math.abs(r.cents) / 100)}</span><span className="text-[11.5px] text-ink-3">Automatic</span>
           </div>
         ))}

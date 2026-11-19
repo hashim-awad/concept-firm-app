@@ -80,3 +80,13 @@ export async function setShName(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_set_sh_name", { p_file: id, p_account: s(formData, "account"), p_name: s(formData, "name") });
   done(id, error, "Shareholder name saved.", s(formData, "back"));
 }
+
+// Piece R1 (mock N): the same name, saved from the account panel over the Trial balance, with no page reload (the panel
+// is not in the address). History records it as before (cb_set_sh_name).
+export async function setShNameInline(fileId: string, account: string, name: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_set_sh_name", { p_file: fileId, p_account: account, p_name: name.trim() });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}

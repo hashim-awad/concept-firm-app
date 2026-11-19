@@ -74,7 +74,7 @@ export async function importTrialBalance(formData: FormData) {
   revalidatePath(`/closebook/${id}`);
   const matched = m.history + m.suggested;
   redirect(withMessage(`${back}${m.reviewer ? "&view=attention" : ""}`, "msg",
-    `Imported ${data} accounts, balanced at ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Matched ${matched} to GIFI lines${m.history ? ` (${m.history} from last year)` : ""}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
+    `Imported ${data} accounts, balanced at ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Matched ${matched} for step 4${m.history ? ` (${m.history} from last year)` : ""}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
 }
 
 // ---------- Matching (batch 4.5) ----------
@@ -153,6 +153,15 @@ export async function matchInline(fileId: string, account: string, line: string)
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
   const { error } = await (await createClient()).rpc("cb_map_account", { p_account: account, p_line: line });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// Piece R1: step 8's GIFI line for the tax return (bank-statement files). An empty line goes back to the group's line.
+export async function overrideInline(fileId: string, account: string, line: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_set_gifi_override", { p_account: account, p_line: line || null });
   revalidatePath(`/closebook/${fileId}`);
   return error?.message ?? null;
 }

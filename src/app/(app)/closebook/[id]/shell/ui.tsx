@@ -180,11 +180,11 @@ export function ToolsMenu({ fileId, on, journal }: { fileId: string; on: boolean
   // The page as it is now, without a dialog or message already in its address, plus the journal window.
   const keep = new URLSearchParams([...params.entries()].filter(([k]) => !["new", "open", "edit", "acct", "msg", "error"].includes(k)));
   keep.set("new", "journal");
+  // Piece R1: "Match accounts to GIFI" is no longer here (step 8's first paper). Reclassify carries back= to this page.
+  const here = new URLSearchParams([...params.entries()].filter(([k]) => !["new", "open", "edit", "acct", "msg", "error", "back"].includes(k)));
   const items: { label: string; href: string }[] = [
     ...(journal ? [{ label: "New journal entry", href: `${pathname}?${keep}` }] : []),
-    { label: "Reclassify transactions", href: `/closebook/${fileId}?area=tb&tool=reclassify` },
-    // Piece 9: the Trial balance tab's GIFI matching view (step 6's screen).
-    { label: "Match accounts to GIFI", href: `/closebook/${fileId}?area=tb&tbv=match` },
+    { label: "Reclassify transactions", href: `/closebook/${fileId}?area=tb&tool=reclassify${params.get("tool") ? "" : `&back=${encodeURIComponent(`${pathname}?${here}`)}`}` },
   ];
   const move = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;

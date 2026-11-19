@@ -26,8 +26,10 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
   const finalOf = (a: { id: string; this_year: number }) => Math.round((Number(a.this_year) + (entryTotals.get(a.id) ?? 0)) * 100) / 100;
-  // This year: the same codes as the final GIFI export.
-  const g = gifiCodes(accounts, entryTotals, byNo);
+  // This year: the GIFI codes of each account's group. Piece R1 (D2): the statements follow the group, never the step 8
+  // override (the T2 reads that), so they agree with the lead sheets that support them.
+  const grouped = accounts.map((a) => ({ ...a, gifi_override: null }));
+  const g = gifiCodes(grouped, entryTotals, byNo);
   const cur = new Map(g.codes);
 
   const [{ data: cf }, { data: ff }, { data: ob }, { data: s125 }, { data: settings }, { data: st }] = await Promise.all([
@@ -55,7 +57,7 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   const missingS125 = !firstYear && bank && !(s125 ?? []).length;
   if (!firstYear) {
     if (bank) prior = new Map([...(ob ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number]), ...(s125 ?? []).map((x) => [x.code as string, Number(x.amount)] as [string, number])]);
-    else prior = new Map(gifiCodes(accounts.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).codes);
+    else prior = new Map(gifiCodes(grouped.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).codes);
   }
 
   // Captions: the statement line of each GIFI code's main line.

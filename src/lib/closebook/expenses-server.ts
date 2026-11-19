@@ -109,7 +109,7 @@ export async function loadExpenses(supabase: SupabaseClient, file: CbFileRow): P
     } else {
       const kind = typeOf.get(c.line_no);
       const same = theirs.filter((a) => a.line_no === c.line_no), other = theirs.filter((a) => a.line_no !== c.line_no && typeOf.get(a.line_no ?? "") === kind);
-      options[d.key] = [...same.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}`, group: `On GIFI ${c.line_no.replace(/\.00$/, "")}` })),
+      options[d.key] = [...same.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}`, group: `In group ${c.line_no.replace(/\.00$/, "")}` })),
         ...other.map((a) => ({ value: `acct:${a.id}`, label: `${a.number} ${a.name}`, group: "Other accounts" }))];
       defaults[d.key] = same[0] ? `acct:${same[0].id}` : `new:${c.name}`;
     }

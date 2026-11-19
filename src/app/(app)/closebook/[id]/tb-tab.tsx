@@ -1,4 +1,5 @@
 import { pctChange } from "@/lib/closebook/reports";
+import { fromStatements } from "@/lib/closebook/steps";
 import Link from "next/link";
 import { FilePick } from "./file-pick";
 import { formatDateTime } from "@/lib/dates";
@@ -162,12 +163,12 @@ export function TbTab(p: Props) {
       )}
 
       {p.importOnly ? (accounts.length > 0 && (
-        <p className="card text-sm">{accounts.length} accounts imported. Match them to GIFI lines in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=review`} className="text-navy-700 underline">step 7</a>.</p>
-      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{file.file_type === "monthly" ? "Import the trial balance." : "Upload the statements in step 2."}</p>
+        <p className="card text-sm">{accounts.length} accounts imported. Match them in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=review`} className="text-navy-700 underline">step 7</a>.</p>
+      )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Upload the statements in step 3." : "Import the trial balance in step 3."}</p>
         : view === "lead" ? (
           // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
-          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">Match every account to a GIFI line: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
+          unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Choose a group for every account" : "Match every account in step 4"}: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
               groups={leadSheets(accounts, entryTotals, byNo, sheets, flag, tjeTotals).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({

@@ -24,7 +24,6 @@ export function ShReportView({ fileId, r, yearStart, yearEnd }: { fileId: string
       <section key={c.key} className="mb-4 rounded-[12px] border border-sand-200 bg-white px-5 py-4" aria-label={cardTitle(c)} data-sh-card={c.number}>
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[15px] font-semibold" data-sh-title>{cardTitle(c)}</h2>
-          <span className="text-[12px] text-ink-3">GIFI {c.line_no.slice(0, 4)}</span>
         </div>
         <table className="w-full border-collapse text-[13px]">
           <thead><tr className="text-left text-[11.5px] text-ink-3"><th className={`${cell} font-normal`}>Line</th><th className={`${cell} text-right font-normal`}>Amount</th></tr></thead>

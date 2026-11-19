@@ -9,7 +9,8 @@ import { bracketAmount } from "./amount.ts";
 // itself (gifiFile) keeps a minus: ProFile reads it.
 const shown = (d: number) => bracketAmount(Math.round(d * 100));
 
-export type GifiAccount = { id: string; number: string; name: string; line_no: string | null; this_year: number; needs_reviewer: boolean };
+// Piece R1 (Hashim, Nov 19, 2026): gifi_override, when set, is the GIFI line for the tax return; line_no is the group.
+export type GifiAccount = { id: string; number: string; name: string; line_no: string | null; this_year: number; needs_reviewer: boolean; gifi_override?: string | null };
 export type GifiTotals = { "2599": number; "3499": number; "3620": number; "3640": number; "8299": number; "9368": number; "9999": number; "3660": number; "3849": number };
 // Round 10: tbOutBy (the trial balance difference), issues (accounts not ready: unmatched, waiting for the
 // reviewer, on a total or locked line) and the retained earnings movements, for the checks on step 8.
@@ -38,11 +39,12 @@ export function gifiCodes(accounts: GifiAccount[], entryTotals: Map<string, numb
     tb += fin;
     if (fin === 0) continue;
     const label = `${a.number ? `${a.number} ` : ""}${a.name}`;
-    if (!a.line_no) { issues.push(`${label} is not matched to a GIFI line.`); continue; }
+    const gl = a.gifi_override ?? a.line_no;
+    if (!gl) { issues.push(`${label} is not matched to a GIFI line.`); continue; }
     if (a.needs_reviewer) issues.push(`${label} is waiting for the reviewer's decision.`);
-    const eff = effectiveLine(a.line_no, fin, lines);
+    const eff = effectiveLine(gl, fin, lines);
     const l = eff ? lines.get(eff) : undefined;
-    if (!l) { issues.push(`${label}: its GIFI line ${a.line_no} no longer exists.`); continue; }
+    if (!l) { issues.push(`${label}: its GIFI line ${gl} no longer exists.`); continue; }
     if (!l.mappable) { issues.push(`${label} is on ${l.line_no}, a total line. Match it to a line that is not a total.`); continue; }
     if (l.locked) issues.push(`${label} is on ${l.line_no}, a locked line. Choose one of its sub-lines.`);
     // The trial balance's retained earnings is the balance at the start of the year: GIFI 3660.

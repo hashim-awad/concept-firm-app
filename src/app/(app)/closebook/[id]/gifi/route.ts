@@ -19,7 +19,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!/^[0-9a-f-]{36}$/.test(id)) return new NextResponse("Not found", { status: 404 });
   const q = new URL(req.url).searchParams;
   const supabase = await createClient();
-  const back = (kind: "msg" | "error", text: string) => NextResponse.redirect(new URL(withMessage(`/closebook/${id}?step=t2`, kind, text), req.url), 303);
+  const back = (kind: "msg" | "error", text: string) => NextResponse.redirect(new URL(withMessage(`/closebook/${id}?step=t2&paper=gifi`, kind, text), req.url), 303);
 
   const keptId = q.get("export");
   if (keptId) {
