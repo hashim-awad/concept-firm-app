@@ -55,12 +55,12 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- The two ties, to the cent (D6). Chart side: each account's group line after the paired line flip; an account with no group
--- counts by its account type, so it shows as a difference. GIFI side: the override when set, else the group, after the same
+-- counts by its account type (else its number's type, round 5), so it shows as a difference. GIFI side: the override when set, else the group, after the same
 -- flip, as the GIFI file builds them (accounts with no line or on a total line are left out there).
 create or replace function private.cb_match_ties(p_file uuid) returns jsonb
 language sql stable security definer set search_path = '' as $$
   with b as (
-    select a.id, a.account_type, private.cb_account_final(a.id) fin, a.line_no, coalesce(a.gifi_override, a.line_no) gl
+    select a.id, coalesce(a.account_type, private.cb_type_from_number(a.number)) account_type, private.cb_account_final(a.id) fin, a.line_no, coalesce(a.gifi_override, a.line_no) gl
       from public.cb_accounts a where a.file_id = p_file),
   t as (
     select b.fin,

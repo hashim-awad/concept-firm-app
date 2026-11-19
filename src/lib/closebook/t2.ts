@@ -19,7 +19,7 @@ export function gifiChecks(r: GifiResult, lastYearRe: number | null): GifiCheck[
   const res = (d: number) => (d === 0 ? "Ties" : `Off by ${fmt(d)}`);
 
   const tbOk = r.tbOutBy === 0 && r.issues.length === 0;
-  out.push({ key: "tb", title: "The trial balance balances and every account is matched (step 6)", ok: tbOk,
+  out.push({ key: "tb", title: "The trial balance balances and every account is matched to a GIFI line", ok: tbOk,
     rows: [{ label: "Trial balance difference (debits less credits)", amount: r.tbOutBy }, { label: "Accounts not ready", text: String(r.issues.length) },
       ...r.issues.slice(0, 8).map((i) => ({ label: i, text: "" }))],
     result: tbOk ? "Balances; every account is matched" : r.tbOutBy !== 0 ? `Out by ${fmt(r.tbOutBy)}` : `${r.issues.length} account${r.issues.length === 1 ? "" : "s"} not ready` });
