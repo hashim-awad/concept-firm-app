@@ -190,10 +190,11 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const pp: { list: Paper[]; key?: PaperKey } = { list: [] };
   const pickPaper = (list: Paper[]) => { pp.list = list; pp.key = (list.find((x) => x.key === str(sp.paper))?.key ?? list[0]?.key) as PaperKey | undefined; return pp.key; };
   const paperHref = (k: StepKey, p: PaperKey) => `${href(k)}&paper=${p}`;
-  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean } = {}) => (
+  // Piece 9: extra.at, the page the screen sits on when it is not the step's own (Trial balance tab > GIFI matching).
+  const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean; at?: string } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
       taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
-      edit={str(sp.edit)} base={href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
+      edit={str(sp.edit)} base={extra.at ?? href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
       noteStep={access.is_owner && ["code", "mapping"].includes(base) ? base : undefined} />
   );
   const soon = (text: string) => <p className="card text-sm text-ink-2">{text}</p>;
@@ -450,7 +451,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         extra={shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} isOwner={access.is_owner} names={names} /> : null} />;
     }
   } else if (step === "mapping") {
-    body = accounts.length ? tb("mapping", ["accounts", "lines"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
+    // Piece 9: the "Unmatched" filter, as on the Trial balance tab's GIFI matching view (the same screen).
+    body = accounts.length ? tb("mapping", ["accounts", "lines", "unmatched"], "accounts", false) : soon("GIFI mapping opens once the transactions are coded.");
   } else if (step === "t2") {
     // Step 8 (round 10): checks, the two GIFI exports, the tax workpaper and the tie-out to ProFile.
     const g = accounts.length ? await gifiFor(supabase, id) : null;
@@ -591,7 +593,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const tbLeft = (
     <>
       <PanelHead>Views</PanelHead>
-      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
+      {([["groups", "Groups"], ["accounts", "Accounts"], ["gifi", "GIFI lines"], ["match", "GIFI matching"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
       <PanelHead>Reports</PanelHead>
       {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
     </>
@@ -601,6 +603,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     left = tbLeft; folded = null;
     content = tool === "reclassify"
       ? <ReclassifyPage data={await loadReclassify(supabase, file, rdata, entries)} initialAccount={str(sp.account)} />
+      // Piece 9 (benchmark CaseWare Cloud): step 6's matching screen, whole, on the Trial balance tab (Tools > Match accounts to GIFI).
+      : tbv === "match" && !report
+      ? (accounts.length ? <><PageTitle>Trial balance · GIFI matching</PageTitle>{tb("mapping", ["accounts", "lines", "unmatched"], "accounts", false, { at: `/closebook/${id}?area=tb&tbv=match` })}</>
+        : soon("GIFI matching opens once the trial balance is there."))
       : report && report !== "tb"
       ? <ReportView fileId={id} p={{ report, account: str(sp.account), from: str(sp.from), to: str(sp.to), source: str(sp.source), expand: str(sp.expand), back: backHref ?? undefined, view: str(sp.view) }}
           data={rdata} yearEnd={file.year_end} yearStart={file.year_start}
@@ -667,7 +673,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={dataSourceLabel(file)} area={area}
-      tools={{ on: !!tool, journal: editable && file.file_type === "full" && file.phase !== "locked" }}
+      tools={{ on: !!tool || (area === "tb" && tbv === "match" && !report), journal: editable && file.file_type === "full" && file.phase !== "locked" }}
       history={access.is_owner} left={left} folded={folded} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">← Back</Link>}

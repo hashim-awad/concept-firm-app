@@ -280,7 +280,10 @@ export async function runMatching(formData: FormData) {
   await editor(tbBack(id));
   const m = await matchFile(await createClient(), id);
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(tbBack(id, m.reviewer ? "&view=attention" : ""), "msg", `Matched ${m.history + m.suggested}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
+  // Piece 9: back to the page it was run from (step 6, step 4, or the Trial balance tab's GIFI matching), else the tab.
+  const from = s(formData, "back");
+  const to = (extra: string) => (from.startsWith(`/closebook/${id}?`) ? `${from.replace(/&view=[^&]*/, "")}${extra}` : tbBack(id, extra));
+  redirect(withMessage(to(m.reviewer ? "&view=attention" : ""), "msg", `Matched ${m.history + m.suggested}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
 }
 
 // Explain a flagged lead sheet line (batch 5.5).

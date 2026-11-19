@@ -56,6 +56,8 @@ export function TbTab(p: Props) {
   // A nil Clearing (10900) is not "unmatched": it has no GIFI line by design.
   const unmatched = accounts.filter((a) => !a.line_no && !a.needs_reviewer && a.account_key !== "chart:10900");
   const waiting = accounts.filter((a) => a.needs_reviewer);
+  // Piece 9: "Unmatched", every account with no GIFI line (waiting for the reviewer too), except Clearing (10900) and unused ones.
+  const noLine = () => accounts.filter((a) => !a.line_no && a.account_key !== "chart:10900" && !unusedOf(a));
   const locked = file.phase === "locked";
   const pill = (k: string, label: string, off?: boolean) => (
     <Link href={`${base}&view=${k}`} className={`rounded-full px-3 py-1 ${view === k ? "bg-navy-700 font-medium text-white" : off ? "border border-sand-200 text-ink-3" : "border border-sand-200 text-ink-2 hover:border-navy-300"}`}>{label}</Link>
@@ -111,6 +113,8 @@ export function TbTab(p: Props) {
       {(!p.pills || p.pills.length > 1) && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
         {shown("accounts") && pill("accounts", "By account")}
         {shown("lines") && pill("lines", `By GIFI line${warnCount ? ` (${warnCount} to check)` : ""}`)}
+        {/* Piece 9: only the accounts with no GIFI line. */}
+        {shown("unmatched") && pill("unmatched", `Unmatched (${noLine().length})`)}
         {shown("lead") && pill("lead", "Lead sheets")}
       </div>}
 
@@ -176,7 +180,8 @@ export function TbTab(p: Props) {
               })} />
           )
         ) : (
-          <MatchWorkspace matchNow={editable && !locked && unmatched.some((a) => !unusedOf(a))} fileId={file.id} view={view} base={base} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
+          <MatchWorkspace matchNow={editable && !locked && unmatched.some((a) => !unusedOf(a))} fileId={file.id} view={view} base={base}
+            only={view === "unmatched" ? noLine().map((a) => a.id) : undefined} rows={rows} groups={groups} options={options} taxes={taxes} isReviewer={isReviewer}
             noteBy={p.noteStep && editable && !locked ? { step: p.noteStep, back: base } : undefined}
             editable={editable && !locked} totals={(() => {
               // Last year's net income is not an account: when last year's income statement was not entered,
