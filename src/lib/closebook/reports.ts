@@ -11,15 +11,22 @@
 // - Journal: every posting in date order, grouped by its source, then the net income box.
 import type { Posting, PostingKind } from "./tb-build.ts";
 
-export type RepAccount = { key: string; number: string; name: string; line_no: string | null; lastCents: number };
+export type RepAccount = { key: string; number: string; name: string; line_no: string | null; lastCents: number; chart?: string | null };   // chart: piece R2, trial balance files
 // sheet: the lead sheet code; sheetName: its name ("Cash and bank").
 export type LineInfo = { type: string; sheet: string | null; sheetName: string };
 
-export type TbLine = { key: string; number: string; name: string; line_no: string | null;
+// chart: piece R2, the client account's master account on a trial balance file (10900 Clearing has its own heading).
+export type TbLine = { key: string; number: string; name: string; line_no: string | null; chart?: string | null;
   last: number; opening: number; activity: number; prelim: number; adjust: number; reclass: number; final: number; diff: number };
 
 export const NET_INCOME = "net-income";
 export const UNSORTED = "unsorted";
+// Piece R2 (Hashim, Nov 19, 2026, decision 2A): on a trial balance file, client accounts on 10900 Clearing have their own
+// heading, on screen and in documents, apart from accounts not yet sorted. Bank-statement files are unchanged.
+export const CLEARING = "clearing";
+export const CLEARING_NAME = "Clearing accounts (must be nil at year end)";
+// One label for the Clearing total everywhere (screen, working papers, client entry list).
+export const CLEARING_TOTAL = "Total clearing accounts";
 // Last year's net income, when last year's income statement (Schedule 125) was not entered: a trial
 // balance line so last year's column balances.
 export const NI_LAST = "ni-last";
@@ -39,7 +46,7 @@ function directory(accounts: RepAccount[], postings: Posting[]): Map<string, Rep
 
 export function trialBalance(accounts: RepAccount[], postings: Posting[]): TbLine[] {
   const dir = directory(accounts, postings);
-  const tb = new Map<string, TbLine>([...dir.values()].map((a) => [a.key, { key: a.key, number: a.number, name: a.name, line_no: a.line_no,
+  const tb = new Map<string, TbLine>([...dir.values()].map((a) => [a.key, { key: a.key, number: a.number, name: a.name, line_no: a.line_no, ...(a.chart ? { chart: a.chart } : {}),
     last: a.lastCents, opening: 0, activity: 0, prelim: 0, adjust: 0, reclass: 0, final: 0, diff: 0 }]));
   for (const p of postings) {
     const t = tb.get(p.key)!;
@@ -85,7 +92,7 @@ const SECTION_ORDER: Record<string, number> = { Asset: 0, Liability: 1, Equity: 
 function groupOf(r: TbLine, info: (l: string | null) => LineInfo | null, withCode: boolean): Group {
   if (r.key === NI_LAST) return { order: 4.5, code: NI_LAST, name: "Last year's income statement" };
   const i = info(r.line_no);
-  if (!i) return { order: 5, code: UNSORTED, name: "Not yet sorted" };
+  if (!i) return r.chart === "10900" ? { order: 4.9, code: CLEARING, name: CLEARING_NAME } : { order: 5, code: UNSORTED, name: "Not yet sorted" };
   if (i.type === "Equity") {
     const e = equityGroup(r.line_no);
     if (!withCode) return e === "RE" || e === "PPA" ? { order: 2, code: "RE", name: "Retained earnings" } : { order: 2, code: e, name: EQUITY[e] };
@@ -116,7 +123,7 @@ export function tbByGroup(tb: TbLine[], info: (l: string | null) => LineInfo | n
     map.get(k)!.rows.push(r);
   }
   const groups = [...map.values()].sort((a, b) => groupSort(a.g, b.g))
-    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, `Total ${g.name.charAt(0).toLowerCase()}${g.name.slice(1)}`, rows) }));
+    .map(({ g, rows }) => ({ code: g.code, name: g.name, rows, total: sumRows(`total:${g.code}`, g.code === CLEARING ? CLEARING_TOTAL : `Total ${g.name.charAt(0).toLowerCase()}${g.name.slice(1)}`, rows) }));
   return { groups, total: sumRows("total", "Total (debits less credits)", tb) };
 }
 
@@ -125,7 +132,7 @@ export type StmtAccount = { key: string; number: string; name: string; line_no: 
 export type StmtGroup = { code: string; name: string; accounts: StmtAccount[]; now: number; last: number };
 export type StmtSection = { title: string; groups: StmtGroup[]; now: number; last: number };
 export type Statements = {
-  bs: { assets: StmtSection; liabilities: StmtSection; equity: StmtSection; unsorted: StmtSection | null; totalLE: { now: number; last: number }; balanced: boolean };
+  bs: { assets: StmtSection; liabilities: StmtSection; equity: StmtSection; clearing: StmtSection | null; unsorted: StmtSection | null; totalLE: { now: number; last: number }; balanced: boolean };
   // lastFromT2: last year's income statement was not entered (no Schedule 125), so last year's net income
   // is the figure that ties last year's closing balance sheet (the T2's 9999).
   pl: { revenue: StmtSection; expenses: StmtSection; net: { now: number; last: number }; lastFromT2: boolean };
@@ -158,17 +165,21 @@ export function statements(tbAll: TbLine[], info: (line_no: string | null) => Li
   const liabilities = section("Liabilities", typed("Liability"), -1, info);
   const equity = section("Equity", typed("Equity"), -1, info, ["SC", "RE", "PPA", "DIV"]);
   // Accounts without a GIFI line yet (not yet coded, opening balances to enter, not mapped).
-  const open = section("Not yet sorted", tb.filter((r) => !info(r.line_no)), -1, info);
+  // Decision 2A: accounts on 10900 Clearing are their own section, apart from "Not yet sorted".
+  const noLine = tb.filter((r) => !info(r.line_no));
+  const clr = section(CLEARING_NAME, noLine.filter((r) => r.chart === "10900"), -1, info);
+  const open = section("Not yet sorted", noLine.filter((r) => r.chart !== "10900"), -1, info);
+  const clearing = clr.groups.length && (clr.now || clr.last) ? clr : null;
   const unsorted = open.groups.length && (open.now || open.last) ? open : null;
   // Last year's net income on the balance sheet: whatever ties last year's closing balances. It equals
   // the income statement's when Schedule 125 was entered, and the T2's 9999 when it was typed instead.
-  const tiedLast = assets.last - liabilities.last - equity.last - (unsorted?.last ?? 0);
+  const tiedLast = assets.last - liabilities.last - equity.last - (clearing?.last ?? 0) - (unsorted?.last ?? 0);
   const lastFromT2 = tiedLast !== net.last;
   if (lastFromT2) net.last = tiedLast;
   equity.groups.splice(equity.groups.findIndex((g) => g.code === "DIV"), 0, { code: NET_INCOME, name: "Net income", accounts: [], now: net.now, last: net.last });
   equity.now += net.now; equity.last += net.last;
-  const totalLE = { now: liabilities.now + equity.now + (unsorted?.now ?? 0), last: liabilities.last + equity.last + (unsorted?.last ?? 0) };
-  return { bs: { assets, liabilities, equity, unsorted, totalLE, balanced: assets.now === totalLE.now }, pl: { revenue, expenses, net, lastFromT2 } };
+  const totalLE = { now: liabilities.now + equity.now + (clearing?.now ?? 0) + (unsorted?.now ?? 0), last: liabilities.last + equity.last + (clearing?.last ?? 0) + (unsorted?.last ?? 0) };
+  return { bs: { assets, liabilities, equity, clearing, unsorted, totalLE, balanced: assets.now === totalLE.now }, pl: { revenue, expenses, net, lastFromT2 } };
 }
 
 // General ledger: each account's postings in date order with a running balance. from/to: YYYY-MM-DD.

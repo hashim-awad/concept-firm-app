@@ -56,6 +56,7 @@ export const BOX_REASON: Record<string, string> = {
   clearing: "Clearing has a balance",
   opening: "Opening balances to enter",
   uncoded: "Transactions not yet coded",
+  moved: "Line changed from last year",   // piece R2 (D6): trial balance files
 };
 
 // Piece R1 (accounting review): last year's statement column. Step 2 stays the source (last year's T2 by GIFI code). When last

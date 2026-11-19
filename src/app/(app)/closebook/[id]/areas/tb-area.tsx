@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import { flagged, NO_FLAG_TAX, reclassNote } from "@/lib/closebook/matching";
-import { KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
+import { CLEARING, CLEARING_NAME, KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import type { CbFileRow } from "@/lib/closebook/files";
@@ -51,7 +51,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     const taxFree = !!lineTax && NO_FLAG_TAX.includes(a?.tax_code ?? lineTax.get(t.line_no ?? "") ?? "");
     const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && !taxFree && flagged(t.last / 100, (t.final - (lineTax ? k.tje : 0)) / 100, flag.amount, flag.percent);
     // Piece 8 and R1: the shareholder name on a shareholder account, by its group line (never the GIFI override).
-    const sh = isShAccount({ key: t.key, line_no: t.line_no });
+    const sh = isShAccount({ key: t.key, line_no: t.line_no, chart: a?.chart_account ?? null });   // piece R2 (D13): directors by master account too
     return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, group: groupOf.get(t.key) ?? "", sh, shName: sh ? shNames?.get(t.key) ?? "" : "", prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
       final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
   };
@@ -59,7 +59,7 @@ export function TbArea({ fileId, data, file, accounts, notes, isOwner, editable,
     if (g.code === NI_LAST) return "Last year";
     const t = data.info(g.rows[0]?.line_no ?? null)?.type;
     const order: Record<string, number> = { Asset: 0, Liability: 1, Equity: 2, Revenue: 3, Expense: 4 };
-    return t ? SECTION[order[t]] ?? "Other" : "Not yet sorted";
+    return t ? SECTION[order[t]] ?? "Other" : g.code === CLEARING ? CLEARING_NAME : "Not yet sorted";   // piece R2, decision 2A
   };
   let tableGroups: TbGroupRow[];
   if (view === "accounts") {

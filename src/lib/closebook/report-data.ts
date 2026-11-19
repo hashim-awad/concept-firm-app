@@ -57,7 +57,7 @@ export async function loadReportData(supabase: SupabaseClient, file: CbFileRow, 
     }
   }
   // Accounts only an entry or the import uses.
-  for (const a of stored) if (!keyOf.has(a.account_key) && !accounts.has(a.account_key)) accounts.set(a.account_key, { key: a.account_key, number: a.number, name: a.name, line_no: a.line_no, lastCents: bankFile ? 0 : Math.round(a.last_year * 100) });
+  for (const a of stored) if (!keyOf.has(a.account_key) && !accounts.has(a.account_key)) accounts.set(a.account_key, { key: a.account_key, number: a.number, name: a.name, line_no: a.line_no, lastCents: bankFile ? 0 : Math.round(a.last_year * 100), chart: a.chart_account ?? null });
   const entryLabel = new Map<string, string>();
   for (const e of entries) {
     const no = entryNo(file.year_end, e);

@@ -146,8 +146,11 @@ export function TipLink({ href, label, className, children }: { href: string; la
 // person's, kept across files, pages and sign-ins; it is shared by every page of a file through this store.
 const pinSubs = new Set<() => void>();
 let pinMem: boolean | null = null;
-export function LeftPanel({ children, folded: foldedNode, pinned: saved = true }: { children: ReactNode; folded?: ReactNode; pinned?: boolean }) {
-  const pinned = useSyncExternalStore((cb) => { pinSubs.add(cb); return () => { pinSubs.delete(cb); }; }, () => pinMem ?? saved, () => saved);
+// Piece R2 (item 1): forceFolded keeps the narrow column on a page that needs the full width (step 4 "Assign mapping" on a trial
+// balance file). The person's saved pin is not changed; the pin button says why it does nothing there (round 36b item 6).
+export function LeftPanel({ children, folded: foldedNode, pinned: saved = true, forceFolded = false }: { children: ReactNode; folded?: ReactNode; pinned?: boolean; forceFolded?: boolean }) {
+  const stored = useSyncExternalStore((cb) => { pinSubs.add(cb); return () => { pinSubs.delete(cb); }; }, () => pinMem ?? saved, () => saved);
+  const pinned = stored && !forceFolded;
   const toggle = () => {
     pinMem = !pinned; pinSubs.forEach((f) => f());
     void setMenuPin("steps", pinMem).then((r) => { if (!r.ok) notify(r.error, "error"); });
@@ -156,7 +159,8 @@ export function LeftPanel({ children, folded: foldedNode, pinned: saved = true }
     <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${pinned ? "w-[236px]" : "w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
       <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{pinned ? children : foldedNode ?? null}</div>
       <div className={`flex border-t border-sand-200 py-2 ${pinned ? "px-1.5" : "justify-center"}`}>
-        <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />
+        {/* On a page that needs the full width (step 4 on a trial balance file) the pin is left out: it would do nothing. */}
+        {forceFolded ? null : <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
       </div>
     </aside>
   );

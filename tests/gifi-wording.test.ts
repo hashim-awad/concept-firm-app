@@ -11,8 +11,10 @@ const ROOT = "src/app/(app)/closebook";
 const ALLOWED: Record<string, string> = {
   "[id]/t2-step.tsx": "step 8", "[id]/match-step.tsx": "step 8", "[id]/gst-section.tsx": "step 8", "[id]/export-button.tsx": "the GIFI export",
   "[id]/gifi/route.ts": "the GIFI export", "[id]/tax-workpaper/route.ts": "step 8", "[id]/opening-schedule.tsx": "step 2",
-  "statements-actions.ts": "step 9", "[id]/accounts-table.tsx": "step 4 on trial balance files and step 8's window",
-  "[id]/tb-tab.tsx": "step 4 on trial balance files (By GIFI line)", "[id]/shell/help.tsx": "the help of steps 2, 4 (trial balance files), 7 (trial balance files) and 8",
+  "statements-actions.ts": "step 9", "[id]/accounts-table.tsx": "step 8's window",
+  // Piece R2 (item 6): trial balance files no longer show GIFI in step 4 or step 7; tb-tab.tsx keeps its By GIFI line view,
+  // which no step opens on a trial balance file now (step 4 is Assign mapping).
+  "[id]/tb-tab.tsx": "the By GIFI line view (not opened on trial balance files)", "[id]/shell/help.tsx": "the help of steps 2 and 8",
   "[id]/page.tsx": "step 8's empty-file lines",
 };
 const files = (dir: string): string[] => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? files(p) : /\.(tsx?|ts)$/.test(f) ? [p] : []; });

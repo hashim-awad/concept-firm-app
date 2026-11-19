@@ -1,7 +1,7 @@
 // A report as a plain table, for the Excel and PDF exports (Hashim, Nov 15, 2026). The same builders as
 // the screens (src/lib/closebook/reports.ts), so an export always matches what the page shows. Pure.
 import type { Posting, PostingKind } from "./tb-build.ts";
-import { journal, KIND_LABEL, ledger, NET_INCOME, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type LineInfo, type RepAccount, type StmtSection, type TbLine } from "./reports.ts";
+import { CLEARING_TOTAL, journal, KIND_LABEL, ledger, NET_INCOME, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type LineInfo, type RepAccount, type StmtSection, type TbLine } from "./reports.ts";
 
 export type Cell = string | number | null;      // numbers are cents
 // grand: the grand total, where a zero shows as 0.00 (the reference), not "–".
@@ -45,6 +45,7 @@ export function reportTable(d: TableInput, p: TableParams): ReportTable {
     };
     if (p.report === "bs") {
       sec(s.bs.assets, "Total assets"); sec(s.bs.liabilities, "Total liabilities"); sec(s.bs.equity, "Total equity");
+      if (s.bs.clearing) sec(s.bs.clearing, CLEARING_TOTAL);
       if (s.bs.unsorted) sec(s.bs.unsorted, "Total not yet sorted");
       rows.push({ bold: true, cells: ["Total liabilities and equity", s.bs.totalLE.now, s.bs.totalLE.last] });
     } else {

@@ -1,3 +1,4 @@
+import { optForChart } from "./entry-form";
 import "server-only";
 // Piece 3 (Hashim, Nov 18, 2026): what the Vehicle schedule reads. The CRA rates and the province's ITC factor
 // (Closebook rules › CRA rates), the client's GST/HST answers (step 1), the car costs the company paid (the year's
@@ -111,13 +112,13 @@ export async function loadVehicle(supabase: SupabaseClient, file: CbFileRow, pro
 
   // ---------- The entry form's account for each standard account the schedule posts to.
   const chartRows = (chart ?? []) as { number: string; name: string; line_no: string | null }[];
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const acct: Record<string, string> = {}, names: Record<string, string> = {};
   for (const n of [EXPENSE_ACCOUNT, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {
     const c = chartRows.find((x) => x.number === n);
     names[n] = c?.name ?? n;
     if (!own) acct[n] = byKey.get(`chart:${n}`)?.id ?? `chart:${n}`;
-    else acct[n] = opts.find((o) => o.line_no === c?.line_no)?.value ?? "";
+    else acct[n] = optForChart(opts, n)   /* piece R2 (D12b): by master account, never the first on the line */;
   }
   if (own) for (const n of [EXPENSE_ACCOUNT, SHAREHOLDER_ACCOUNT]) { const o = opts.find((x) => x.value === acct[n]); const a = accounts.find((x) => x.id === o?.value); if (a) names[n] = a.name; }
 

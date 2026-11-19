@@ -70,11 +70,9 @@ export async function importTrialBalance(formData: FormData) {
     p_file: id, p_target: s(formData, "target") === "last_year" ? "last_year" : "this_year", p_source: s(formData, "source"), p_file_name: f.name, p_rows: tb.rows,
   });
   if (error) redirect(withMessage(back, "error", error.message));
-  const m = await matchFile(await createClient(), id);
+  // Piece R2 (D5): no automatic matching after the import; step 4 suggests a master account for each account.
   revalidatePath(`/closebook/${id}`);
-  const matched = m.history + m.suggested;
-  redirect(withMessage(`${back}${m.reviewer ? "&view=attention" : ""}`, "msg",
-    `Imported ${data} accounts, balanced at ${tb.debit.toLocaleString("en-CA", { style: "currency", currency: "CAD" })}. Matched ${matched} for step 4${m.history ? ` (${m.history} from last year)` : ""}.${m.reviewer ? ` ${m.reviewer} need${m.reviewer === 1 ? "s" : ""} a decision below.` : ""}`));
+  redirect(withMessage(back, "msg", `Imported ${data} accounts. Assign them in step 4.`));
 }
 
 // ---------- Matching (batch 4.5) ----------
@@ -145,7 +143,7 @@ export async function importAccountList(formData: FormData) {
   if (error) redirect(withMessage(back, "error", error.message));
   const r = data as { rows: number; matched: number; accounts_without: number };
   revalidatePath(`/closebook/${id}`);
-  redirect(withMessage(back, "msg", `Read ${r.rows} accounts from the Account List. ${r.matched} account${r.matched === 1 ? "" : "s"} in the trial balance took their type from it.${r.accounts_without ? ` ${r.accounts_without === 1 ? "1 account still has no type: it shows" : `${r.accounts_without} accounts still have no type: they show`} "Type not checked" in step 7.` : ""}`));
+  redirect(withMessage(back, "msg", `Read ${r.rows} accounts from the Account List. ${r.matched} account${r.matched === 1 ? "" : "s"} in the trial balance took their type from it.${r.accounts_without ? ` ${r.accounts_without === 1 ? "1 account still has no type: it shows" : `${r.accounts_without} accounts still have no type: they show`} "Type not checked" in step 8.` : ""}`));
 }
 
 // Row actions on the Trial balance tab: they save on the spot and return any problem as text.
@@ -475,4 +473,70 @@ export async function saveChecklist(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_save_checklist", { p_file: id, p_answers: answers });
   revalidatePath(`/closebook/${id}`);
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : `Checklist saved: ${answers.length} of ${keys.length} answered.`));
+}
+
+// ---------- Piece R2: step 4 "Assign mapping" on trial balance files (one database call per action) ----------
+
+export async function assignInline(fileId: string, items: { account: string; chart: string | null }[], label: string, source = "manual"): Promise<{ action?: string; n?: number; error?: string }> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook to assign accounts." };
+  const { data, error } = await (await createClient()).rpc("cb_assign", { p_file: fileId, p_items: items, p_label: label, p_source: source });
+  if (error) return { error: error.message };
+  revalidatePath(`/closebook/${fileId}`);
+  const r = data as { action: string | null; n: number };
+  return { action: r.action ?? undefined, n: r.n };
+}
+
+export async function undoAssignInline(fileId: string, action: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook to assign accounts.";
+  const { error } = await (await createClient()).rpc("cb_undo_assign", { p_action: action });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+export async function unassignAllInline(fileId: string): Promise<{ action?: string; n?: number; error?: string }> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook to assign accounts." };
+  const { data, error } = await (await createClient()).rpc("cb_unassign_all", { p_file: fileId });
+  if (error) return { error: error.message };
+  revalidatePath(`/closebook/${fileId}`);
+  const r = data as { action: string | null; n: number };
+  return { action: r.action ?? undefined, n: r.n };
+}
+
+// D12b: the client account entries take when several sit on one master account.
+export async function pickChartAccountInline(fileId: string, chart: string, account: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_pick_chart_account", { p_file: fileId, p_chart: chart, p_account: account });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// D12c: "Booked in QuickBooks".
+export async function markBookedInline(fileId: string, entry: string, booked: boolean): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_mark_booked", { p_entry: entry, p_booked: booked });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// Step 8 (D6): the reviewer keeps a line that changed from last year.
+export async function keepLineMoveInline(fileId: string, account: string): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_keep_line_move", { p_account: account });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
+}
+
+// Decision 1A (Hashim, Nov 19, 2026): step 2 on a trial balance file, last year's closing retained earnings (T2 line 3849).
+export async function saveTbOpeningReInline(fileId: string, amount: number | null): Promise<string | null> {
+  const a = await getAccess();
+  if (!a || !canEdit(a, "closebook")) return "You need Edit on Closebook.";
+  const { error } = await (await createClient()).rpc("cb_save_tb_opening_re", { p_file: fileId, p_amount: amount });
+  revalidatePath(`/closebook/${fileId}`);
+  return error?.message ?? null;
 }

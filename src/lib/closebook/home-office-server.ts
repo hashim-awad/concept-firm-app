@@ -1,3 +1,4 @@
+import { optForChart } from "./entry-form";
 import "server-only";
 // Piece 4 (Hashim, Nov 18, 2026, version 2): what the Home office schedule reads. The province's ITC factor (Closebook
 // rules › CRA rates), the client's GST/HST answers (step 1), the people linked to the client as shareholders and its
@@ -38,13 +39,13 @@ export async function loadHome(supabase: SupabaseClient, file: CbFileRow, provin
 
   // The entry form's account for each standard account the schedule posts to (a client's own books: their account on the line).
   const chartRows = (chart ?? []) as { number: string; name: string; line_no: string | null }[];
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const byKey = new Map(accounts.map((a) => [a.account_key, a]));
   const acct: Record<string, string> = {}, names: Record<string, string> = {};
   for (const n of [HOME_EXPENSE, ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {
     const c = chartRows.find((x) => x.number === n);
     names[n] = c?.name ?? n;
-    acct[n] = !own ? byKey.get(`chart:${n}`)?.id ?? `chart:${n}` : opts.find((o) => o.line_no === c?.line_no)?.value ?? "";
+    acct[n] = !own ? byKey.get(`chart:${n}`)?.id ?? `chart:${n}` : optForChart(opts, n)   /* piece R2 (D12b): by master account, never the first on the line */;
   }
 
   // Last year's inputs: the same position (first with first).

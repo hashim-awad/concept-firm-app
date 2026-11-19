@@ -162,7 +162,7 @@ export function TbTab(p: Props) {
       )}
 
       {p.importOnly ? (accounts.length > 0 && (
-        <p className="card text-sm">{accounts.length} accounts imported. Match them in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>; the reviewer checks the matches in <a href={`/closebook/${file.id}?step=review`} className="text-navy-700 underline">step 7</a>.</p>
+        <p className="card text-sm">Imported {accounts.length} accounts ({accounts.filter((a) => Number(a.this_year) !== 0 || Number(a.last_year) !== 0).length} with a balance). Assign them in <a href={`/closebook/${file.id}?step=code`} className="text-navy-700 underline">step 4</a>.</p>
       )) : accounts.length === 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Upload the statements in step 3." : "Import the trial balance in step 3."}</p>
         : view === "lead" ? (
           // An account not used (no balance either year, no entries) needs no line (round 4b), so it does not

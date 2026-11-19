@@ -1,3 +1,4 @@
+import { optForChart } from "./entry-form";
 import "server-only";
 // Piece 4b (Hashim, Nov 18, 2026, version 2): what the Expenses paid personally schedule reads. The province's ITC factor
 // (Closebook rules › CRA rates), the client's GST/HST answers (step 1), the client record's Signing officer and business
@@ -47,12 +48,11 @@ export async function loadExpensesSchedule(supabase: SupabaseClient, file: CbFil
     accts[o.value] = { label: o.label, tax: c ? TAX[c.tax_default] ?? "check" : "check", meals: mealsLine.has(o.line_no) };
   }
   // The entry form's account for 21500 and 23000 (a client's own books: their account on the same GIFI line).
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  const own = !["statements", "paper"].includes(file.books);   // piece R2 (D12a): every trial balance file
   const byKey = new Map(accounts.map((a) => [a.account_key, a]));
   const acct: Record<string, string> = {};
   for (const n of [ITC_ACCOUNT, SHAREHOLDER_ACCOUNT]) {
-    const c = charts.find((x) => x.number === n);
-    acct[n] = !own ? byKey.get(`chart:${n}`)?.id ?? `chart:${n}` : opts.find((o) => o.line_no === c?.line_no)?.value ?? "";
+    acct[n] = !own ? byKey.get(`chart:${n}`)?.id ?? `chart:${n}` : optForChart(opts, n)   /* piece R2 (D12b): by master account, never the first on the line */;
   }
   // A standard account picked before it was on the file ("chart:65000") is on the file once the entry is saved: the
   // reopened schedule shows it as the file's account.

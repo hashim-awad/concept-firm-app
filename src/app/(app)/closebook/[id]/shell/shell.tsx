@@ -62,31 +62,31 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   );
 }
 
-export function FileShell({ fileId, client, yearEnd, source, status, netCents, t2Due, area, history, left, folded, pinned, toast, notes, people, done, tools, children }: {
-  fileId: string; client: string; yearEnd: string; source?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
+export function FileShell({ fileId, client, yearEnd, source, netNote, status, netCents, t2Due, area, history, left, folded, forceFolded, pinned, toast, notes, people, done, tools, children }: {
+  fileId: string; client: string; yearEnd: string; source?: string; netNote?: string; status: FileStatus; netCents: number | null; t2Due: string; area: Area;
   history: boolean; left: ReactNode; folded?: ReactNode; toast: { msg?: string | null; error?: string | null; info?: { id: string; text: string } | null }; notes: number; people?: PeopleProps;
-  done?: { n: number; of: number }; children: ReactNode; pinned?: boolean;
+  done?: { n: number; of: number }; children: ReactNode; pinned?: boolean; forceFolded?: boolean;
   tools?: { on: boolean; journal: boolean };   // round 38b: the Tools menu (on: a tool's page is open; journal: New journal entry offered)
 }) {
   return (
     <div className="flex min-h-screen flex-col bg-paper">
       <header className="sticky top-14 z-30 flex h-[50px] print:hidden flex-none items-center gap-3.5 bg-navy-950 px-4 text-white">
-        <Link href="/closebook" className="text-xs text-[#9fb0d4] hover:text-white">My files ›</Link>
-        <h1 className="truncate text-[15px] font-bold">{client}</h1>
+        <Link href="/closebook" className="flex-none text-xs whitespace-nowrap text-[#9fb0d4] hover:text-white">My files ›</Link>
+        <h1 className="flex-none text-[15px] font-bold whitespace-nowrap">{client}</h1>
         <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]">{formatDate(yearEnd)}</span>
-        {source && <span className="hidden truncate text-[12.5px] text-[#9fb0d4] lg:inline">{source}</span>}
+        {source && <span className="hidden flex-none text-[12.5px] whitespace-nowrap text-[#9fb0d4] lg:inline">{source}</span>}
         <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap ${STATUS_CLS[status]}`}>{status}</span>
         {/* Round 21 (ProFile, TurboTax): how far the file has got, counted from the preparer's sign-offs. */}
         {done && <span className="text-[12.5px] whitespace-nowrap text-[#c8d2e8]" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
         <span className="flex-1" />
         {people && <PeopleChip fileId={fileId} p={people} />}
-        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b></span>}
+        {netCents !== null && <span className="text-xs whitespace-nowrap text-[#c8d2e8]">{netCents < 0 ? "Net loss" : "Net income"}<b className={`ml-1 font-bold tabular-nums ${netCents < 0 ? "text-[#ffb4ab]" : "text-white"}`}>{money(netCents)}</b>{netNote && <Link href={`/closebook/${fileId}?step=code`} title={netNote} data-net-note={netNote} className="ml-0.5 inline-grid min-h-6 min-w-6 place-items-center rounded align-middle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffd58a] 2xl:inline 2xl:min-h-0 2xl:min-w-0"><span aria-hidden className="inline-block h-2 w-2 rounded-full bg-[#ffd58a] 2xl:hidden" /><span className="sr-only 2xl:not-sr-only 2xl:ml-1.5 2xl:text-[#ffd58a] 2xl:hover:underline">· {netNote}</span></Link>}</span>}
         <span className="text-xs whitespace-nowrap text-[#c8d2e8]">T2 due<b className="ml-1 font-bold text-white">{formatDate(t2Due)}</b></span>
         {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" aria-label="File history" className="rounded p-1.5 text-[#d7deee] hover:bg-navy-800"><Clock className="h-[17px] w-[17px]" /></Link>}
       </header>
       <ShellTabs fileId={fileId} area={area} toast={toast} notes={notes} tools={tools ?? { on: false, journal: false }} />
       <div className="flex flex-1">
-        {left !== null && <LeftPanel folded={folded} pinned={pinned}>{left}</LeftPanel>}
+        {left !== null && <LeftPanel folded={folded} pinned={pinned} forceFolded={forceFolded}>{left}</LeftPanel>}
         {/* Card headings in small capitals on every file screen (round 15). */}
         <div className="cb-push min-w-0 flex-1 px-5 pt-3.5 pb-12 [&_.card]:rounded-[10px] [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
       </div>

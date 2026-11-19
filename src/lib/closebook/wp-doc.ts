@@ -4,7 +4,7 @@
 // a navy column band, group headings, bold totals with a rule above, shaded $ change and % change
 // columns, entry boxes with their working paper reference, and the adjusted net income box. Footer: the
 // client, the report name, the date and time generated, and the page. Pure: builds pdfmake definitions.
-import { pctChange, type LedgerAccount, type JournalTxn, type NetIncomeBox, type Statements, type StmtSection, type TbGroup, type TbLine } from "./reports.ts";
+import { CLEARING_NAME, CLEARING_TOTAL, pctChange, type LedgerAccount, type JournalTxn, type NetIncomeBox, type Statements, type StmtSection, type TbGroup, type TbLine } from "./reports.ts";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const C = { navy: "#1A3C7C", grey: "#5B6475", red: "#B91C1C", border: "#C9CED8", shade: "#F3F5F9", band: "#EEF1F6", ink: "#000000" };
@@ -108,7 +108,7 @@ export function statementSection(ctx: WpCtx, s: Statements, which: "bs" | "pl", 
       if (!g.accounts.length) { body.push([{ text: "", border: NO }, { text: g.name, border: NO }, num(g.now), num(g.last)]); continue; }
       body.push([{ text: "", border: NO }, { text: g.name, bold: true, border: NO }, { text: "", border: NO }, { text: "", border: NO }]);
       for (const a of g.accounts) body.push([{ text: a.number, color: C.grey, border: NO, margin: [8, 0, 0, 0] }, { text: a.name, border: NO, margin: [8, 0, 0, 0] }, num(a.now), num(a.last)]);
-      body.push([{ text: "", border: NO }, { text: `Total ${g.name.replace(/^[A-Z]{1,2} /, "").toLowerCase()}`, border: NO, margin: [8, 0, 0, 0] }, num(g.now, false, { border: TOP }), num(g.last, false, { border: TOP })]);
+      body.push([{ text: "", border: NO }, { text: g.name === CLEARING_NAME ? CLEARING_TOTAL : `Total ${g.name.replace(/^[A-Z]{1,2} /, "").toLowerCase()}`, border: NO, margin: [8, 0, 0, 0] }, num(g.now, false, { border: TOP }), num(g.last, false, { border: TOP })]);
     }
     body.push([{ text: "", border: NO }, { text: total, bold: true, border: TOP }, num(x.now, true, { border: TOP }), num(x.last, true, { border: TOP })]);
   };
@@ -117,6 +117,7 @@ export function statementSection(ctx: WpCtx, s: Statements, which: "bs" | "pl", 
     { text: money(v.last), alignment: "right", bold: true, border: TOP, decoration: "underline", decorationStyle: "double" }]);
   if (which === "bs") {
     sec(s.bs.assets, "Total assets"); sec(s.bs.liabilities, "Total liabilities"); sec(s.bs.equity, "Total equity");
+    if (s.bs.clearing) sec(s.bs.clearing, CLEARING_TOTAL);
     if (s.bs.unsorted) sec(s.bs.unsorted, "Total not yet sorted");
     dbl("Total liabilities and equity", s.bs.totalLE);
   } else {
@@ -167,9 +168,10 @@ export function journalSection(ctx: WpCtx, txns: JournalTxn[], source: (t: Journ
 }
 
 // Adjusting and reclass journal entries (reference page 3).
-export type EntryDoc = { no: string; kind: string; wpRef: string; memo: string; lines: { number: string; name: string; cents: number }[] };
+// date: the entry's own date when it has one (an opening RJE is dated the first day of the year); else the year end.
+export type EntryDoc = { no: string; kind: string; wpRef: string; memo: string; date?: string | null; lines: { number: string; name: string; cents: number }[] };
 // client: the client's copy names the page "Entries to record" and leaves out the W/P references.
-export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string, client?: { title: string; noRefs: boolean }): any[] {
+export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBox, wpRef: string, client?: { title: string; noRefs: boolean; notFinal?: string | null }): any[] {
   const out: any[] = [headerBlock(ctx, client?.title ?? "Adjusting and reclass journal entries", wpRef),
     { text: `Period: ${monthDayYear(ctx.yearStart)} to ${monthDayYear(ctx.yearEnd)}`, color: C.grey, fontSize: 9.5, margin: [6, 0, 0, 10] }];
   if (!entries.length) out.push({ text: "No entries.", fontSize: 9, margin: [22, 0, 0, 10] });
@@ -181,7 +183,7 @@ export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBo
       [{ text: [{ text: e.no.split(" ")[0], bold: true, color: C.navy }, { text: `   ${e.kind}`, bold: true, color: C.navy }], colSpan: 2, fillColor: C.band, border: NO, fontSize: 9.5 }, {},
         { text: client?.noRefs ? "" : `W/P ref: ${e.wpRef}`, colSpan: 3, alignment: "right", color: C.grey, fillColor: C.band, border: NO, fontSize: 9 }, {}, {}],
       [colHead("Date"), colHead("Account"), colHead("Account name"), colHead("Debit", true), colHead("Credit", true)],
-      ...e.lines.map((l) => [cell(ctx.yearEnd), cell(l.number), cell(l.name), cell(l.cents > 0 ? money(l.cents) : "", { alignment: "right" }), cell(l.cents < 0 ? money(-l.cents) : "", { alignment: "right" })]),
+      ...e.lines.map((l) => [cell(e.date ?? ctx.yearEnd), cell(l.number), cell(l.name), cell(l.cents > 0 ? money(l.cents) : "", { alignment: "right" }), cell(l.cents < 0 ? money(-l.cents) : "", { alignment: "right" })]),
       [cell(""), cell(""), cell("Total", { bold: true }), { text: money(dr), alignment: "right", bold: true, border: TOP }, { text: money(dr), alignment: "right", bold: true, border: TOP }],
       [{ text: [{ text: "Memo: ", italics: true }, { text: e.memo }], colSpan: 5, border: NO, fontSize: 8.5 }, {}, {}, {}, {}],
     ];
@@ -193,6 +195,7 @@ export function entriesSection(ctx: WpCtx, entries: EntryDoc[], box: NetIncomeBo
       layout: { hLineWidth: () => 0.6, vLineWidth: () => 0.6, hLineColor: () => C.border, vLineColor: () => C.border, paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 0, paddingBottom: () => 0 } });
   }
   out.push(netIncomeBoxBlock(box));
+  if (client?.notFinal) out.push({ text: client.notFinal, bold: true, color: C.navy, fontSize: 9.5, margin: [22, 6, 0, 0] });
   return out;
 }
 

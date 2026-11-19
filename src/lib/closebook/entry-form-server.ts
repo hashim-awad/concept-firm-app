@@ -9,7 +9,7 @@ import { defaultTaxCode, type TaxCode, type TaxContext, type TaxPart } from "./s
 import type { CbFileRow } from "./files";
 
 export const RETIRED_STANDARD = ["Home office", "Auto expenses"];
-export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; nextNo: string };
+export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string, string?][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; nextNo: string };
 
 export async function loadTaxCodes(supabase: SupabaseClient, province: string, yearEnd: string): Promise<TaxCode[]> {
   const [{ data: codes }, { data: parts }] = await Promise.all([
@@ -24,9 +24,10 @@ export async function loadTaxCodes(supabase: SupabaseClient, province: string, y
 }
 
 export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, province: string, clientName: string): Promise<EntryFormData> {
-  const own = ["client_software", "bookkeeper"].includes(file.books);
+  // Piece R2 (D12a): every trial balance file posts to the client's own accounts (monthly QuickBooks files included).
+  const own = !["statements", "paper"].includes(file.books);
   const [{ data: accts }, { data: chart }, { data: master }, { data: std }, { data: thr }, { data: last }, codes] = await Promise.all([
-    supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new").eq("file_id", file.id).order("number").order("name"),
+    supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new, chart_account, parent_key").eq("file_id", file.id).order("number").order("name"),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_master_lines").select("line_no, name, line_type, mappable, locked").order("sort_order"),
     // Round 9: "Expenses paid personally" has its own lines and its own form; the picker offers the simple ones.
@@ -35,20 +36,25 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
     supabase.from("cb_entries").select("seq").eq("file_id", file.id).order("seq", { ascending: false }).limit(1).maybeSingle(),
     loadTaxCodes(supabase, province, file.year_end),
   ]);
-  type Acc = { id: string; account_key: string; number: string; name: string; line_no: string | null; client_new: boolean };
+  const { data: pickRows } = own ? await supabase.from("cb_client_chart_picks").select("chart_account, account_key").eq("client_id", file.client_id) : { data: [] };
+  const picks = new Map(((pickRows ?? []) as { chart_account: string; account_key: string }[]).map((p) => [p.chart_account, p.account_key]));
+  type Acc = { id: string; account_key: string; number: string; name: string; line_no: string | null; client_new: boolean; chart_account?: string | null; parent_key?: string | null };
   type Ch = { number: string; name: string; account_type: string; line_no: string | null };
   type Ml = { line_no: string; name: string; line_type: string; mappable: boolean; locked: boolean };
-  const charts = (chart ?? []) as Ch[], lines = (master ?? []) as Ml[], accounts = ((accts ?? []) as Acc[]).filter((a) => (a.line_no || a.account_key === "chart:10900") && !["opening", "uncoded"].includes(a.account_key));
+  const charts = (chart ?? []) as Ch[], lines = (master ?? []) as Ml[], all = (accts ?? []) as Acc[], parents = new Set(all.map((a) => a.parent_key).filter(Boolean)),
+    // Piece R2: Clearing by master account too (D2); never a QuickBooks parent that has sub-accounts (D12b).
+    accounts = all.filter((a) => (a.line_no || a.account_key === "chart:10900" || a.chart_account === "10900") && !["opening", "uncoded"].includes(a.account_key) && !parents.has(a.account_key));
   const typeOfLine = new Map(lines.map((l) => [l.line_no, l.line_type]));
   const chartOf = new Map(charts.map((c) => [c.number, c]));
   const opts: AcctOpt[] = [];
   // The client's own accounts (or this file's), then on bank-statement files the rest of the standard
   // chart, then GIFI lines that have no chart account.
-  const clientAccounts = accounts.filter((a) => !a.account_key.startsWith("line:") && !a.account_key.startsWith("gifi:") && (a.number || a.client_new));
+  const clientAccounts = accounts.filter((a) => !a.account_key.startsWith("line:") && !a.account_key.startsWith("gifi:") && !a.account_key.startsWith("chart:"));
   for (const a of own ? clientAccounts : accounts) {
     const ch = a.account_key.startsWith("chart:") ? chartOf.get(a.account_key.slice(6)) : undefined;
     opts.push({ value: a.id, label: `${a.number ? `${a.number} ` : ""}${a.name}${a.client_new ? " (new)" : ""}`, type: ch?.account_type ?? typeOfLine.get(a.line_no ?? "") ?? "", line_no: a.line_no ?? "",
-      group: own ? `${clientName}'s accounts` : "This file's accounts" });
+      group: own ? `${clientName}'s accounts` : "This file's accounts",
+      ...(own && a.chart_account ? { chart: a.chart_account, picked: picks.get(a.chart_account) === a.account_key } : {}) });
   }
   if (!own) {
     const inFile = new Set(accounts.map((a) => a.account_key));
@@ -66,9 +72,13 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
       const a = accounts.find((x) => x.account_key === `chart:${number}`);
       return { value: a?.id ?? `chart:${number}`, chart: number, label: `${number} ${c.name}`, line_no: c.line_no ?? "", missing: "" };
     }
-    const a = clientAccounts.find((x) => x.line_no === c.line_no && !x.client_new) ?? clientAccounts.find((x) => x.line_no === c.line_no);
+    // Piece R2 (D12b): the client's account on that master account; with several, the one picked for the client.
+    const on = clientAccounts.filter((x) => x.chart_account === number);
+    const a = on.length === 1 ? on[0] : on.find((x) => x.account_key === picks.get(number)) ?? (on.length ? undefined : clientAccounts.find((x) => !x.chart_account && x.line_no === c.line_no));
+    void g;
     return { value: a?.id ?? "", chart: number, label: `${number} ${c.name}`, line_no: c.line_no ?? "",
-      missing: a ? "" : `${clientName} has no account on GIFI ${g} (${c.name}): choose one of their accounts, or a new account.` };
+      missing: a ? "" : on.length > 1 ? `${clientName} has ${on.length} accounts on ${number} ${c.name}: choose the one this entry takes.`
+        : `${clientName} has no account on ${number} ${c.name}: choose one of their accounts, or a new account.` };
   };
   // The debit's sales tax, for this client's province (round 3 item 1): never a code set at firm level.
   const taxFor = (mode: string, account: string) => (mode === "taxable" ? defaultTaxCode("GST/HST", province, account) ?? "" : mode === "none" ? "none" : "");
@@ -84,7 +94,9 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
   const seq = ((last as { seq: number } | null)?.seq ?? 0) + 1;
   return {
     opts, codes, standard, threshold: Number((thr as { entry_review_amount: number } | null)?.entry_review_amount ?? 0),
-    gifiLines: lines.filter((l) => l.mappable && !l.locked).map((l) => [l.line_no, l.name, l.line_type]),
+    // Piece R2 (item 5): a new client account is created with a master account (trial balance files).
+    gifiLines: own ? charts.filter((c) => c.line_no).map((c) => [`chart:${c.number}`, `${c.number} ${c.name}`, c.account_type, c.line_no!] as [string, string, string, string])
+      : lines.filter((l) => l.mappable && !l.locked).map((l) => [l.line_no, l.name, l.line_type] as [string, string, string]),
     ctx: { registered: setup.gst_registered !== false, quick: setup.quick_method === true },
     nextNo: `${file.year_end.slice(0, 4)}-${String(seq).padStart(3, "0")}`,
   };

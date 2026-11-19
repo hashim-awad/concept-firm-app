@@ -83,10 +83,11 @@ test("Account List: title rows skipped, number column or number in the name, typ
   const t = parseCsv("Spruce Dummy Inc.\nAccount List\n\nAccount #,Account,Type,Detail type,Description,Total balance\n15000,Computer equipment,Fixed Assets,Machinery & Equipment,,6000\n,Office supplies:Printing,Expenses,Office/General Administrative Expenses,,\n,61500 Amortization expense,Expenses,Depreciation,,\n,Bad row,,,,\n");
   const r = readAccountList(t);
   assert.equal(r.error, undefined);
+  // Piece R2 (D10, D11): the detail type is kept, and "Parent:Sub" is a sub-account under its parent.
   assert.deepEqual(r.rows, [
-    { number: "15000", name: "Computer equipment", type: "Fixed Assets" },
-    { number: "", name: "Office supplies:Printing", type: "Expenses" },
-    { number: "61500", name: "Amortization expense", type: "Expenses" },
+    { number: "15000", name: "Computer equipment", type: "Fixed Assets", detail: "Machinery & Equipment" },
+    { number: "", name: "Printing", type: "Expenses", detail: "Office/General Administrative Expenses", parent: "office supplies", path: "Office supplies:Printing", full_name: "Office supplies:Printing" },
+    { number: "61500", name: "Amortization expense", type: "Expenses", detail: "Depreciation" },
   ]);
 });
 

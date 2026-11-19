@@ -53,7 +53,7 @@ select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', '[
   {"number":"10100","name":"Chequing","amount":12000},{"number":"41000","name":"Commission income","amount":-20000},
   {"number":"64250","name":"Accounting fees","amount":8000}]');
 select public.cb_sign_step(:'f', 'records', 'prepared');
-select test.check('step 4: three accounts to match', test.try(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'Not yet: 3 accounts to match to a GIFI line.');
+select test.check('step 4: three accounts to match', test.try(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'Not yet: 3 accounts with a balance to assign to a master account.');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '41000' then '8000.00' else '8862.00' end) from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'code', 'prepared');
 select test.check('step 10 has its sign-off (round 12), and it waits for the MAL', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) = 'Not yet: The MAL is not signed yet (step 9).');
@@ -176,7 +176,7 @@ select test.check('step 6 is signed by the reviewer', exists (select 1 from publ
 -- A later change to any step clears that step and step 6.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select public.cb_map_account(id, '8860.00') from public.cb_accounts where file_id = :'f' and number = '64250';
+select public.cb_map_account(id, '8810.00') from public.cb_accounts where file_id = :'f' and number = '64250';
 reset role;
 reset request.jwt.claims;
 select test.check('a line change on a trial balance file clears steps 4 and 7, and step 6',

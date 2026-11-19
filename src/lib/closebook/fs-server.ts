@@ -79,7 +79,9 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   for (const x of (gn ?? []) as { gifi_code: string; gifi_name: string; statement_line: string }[]) lines.set(x.gifi_code, { code: x.gifi_code, name: x.gifi_name, caption: x.statement_line });
 
   // GST/HST payable split out of 2680: the GST/HST payable account (21500, or a client account on 2680 named for it).
-  const isHst = (a: { account_key: string | null; line_no: string | null; name: string }) => a.account_key === "chart:21500" || (!!a.line_no?.startsWith("2680") && /gst|hst/i.test(a.name));
+  // Piece R2 (D13): on a trial balance file, the client account assigned to 21500 GST/HST payable.
+  const isHst = (a: { account_key: string | null; line_no: string | null; name: string; chart_account?: string | null }) => a.account_key === "chart:21500" || a.chart_account === "21500"
+    || (!a.chart_account && !!a.line_no?.startsWith("2680") && /gst|hst/i.test(a.name));
   const hst = accounts.filter(isHst).reduce((n, a) => n + finalOf(a), 0);
   // Last year: the trial balance's last-year column, or step 2's 2680 line when it sits on the GST/HST account.
   const hstPrior = !prior ? 0 : bank ? -Number(((ob ?? []) as { code: string; amount: number; chart_account?: string | null }[]).find((x) => x.code === "2680" && x.chart_account === "21500")?.amount ?? 0)

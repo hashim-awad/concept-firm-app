@@ -77,9 +77,12 @@ select test.check('history is reused, with the reviewer''s tax code', (:'r2'::js
 -- Re-import keeps accounts used by entries.
 select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":500},{"number":"4000","name":"Commission income","amount":-500}]');
 select test.check('accounts an entry uses survive a re-import', exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'line:8860.00'));
--- Monthly files take no entries.
+-- Piece R2 (item 5): monthly files take Closebook entries, on the client's own accounts; a new client account is created
+-- with a master account.
 select public.cb_create_file(:'client', '2025-12-31', '2025-01-01', '', 'monthly', 'concept_qbo', :C::uuid, :A::uuid) as m \gset
-select test.check('monthly files: entries are made in QuickBooks', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'X fee', false, '[{"line":"8860.00","amount":1},{"line":"2620.00","amount":-1}]', 'Test schedule')$f$, :'m')) like '%QuickBooks%');
+select test.check('piece R2: monthly files take entries', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue the year-end fee', false, '[{"chart":"66000","new_name":"Year-end accounting fee","new_type":"Expenses","amount":1},{"chart":"21100","new_name":"Accrued liabilities","new_type":"Other Current Liabilities","amount":-1}]', 'Test schedule')$f$, :'m')) = 'OK');
+select test.check('piece R2: the new client accounts carry their master accounts',
+  (select string_agg(chart_account, ',' order by chart_account) from public.cb_accounts where file_id = :'m' and client_new) = '21100,66000');
 reset role;
 reset request.jwt.claims;
 

@@ -20,7 +20,7 @@ select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', '[
   {"number":"70600","name":"Vehicle expenses","amount":7345.13},{"number":"65100","name":"Office expenses","amount":6700},
   {"number":"67300","name":"Vehicle lease","amount":2400},{"number":"60000","name":"Wages","amount":138554.87}]');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '40100' then '8000.00' when '70600' then '9281.00' when '65100' then '8810.00'
-  when '67300' then '8915.00' else '9060.00' end) from public.cb_accounts where file_id = :'f';
+  when '67300' then '8915.00' else '9066.00' end) from public.cb_accounts where file_id = :'f';
 reset role; reset request.jwt.claims;
 -- An account with no balance this year is not imported: the client's books still hold it (dummy fixture), as Clearing.
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, last_year, mapping_source)
@@ -134,7 +134,8 @@ reset role; reset request.jwt.claims;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_set_tax_code(:'off', 'NONDED');
 reset role; reset request.jwt.claims;
-select test.check('T7: a tax code change clears steps 4, 6, 7 and 8 (trial balance file)', (:state) = 'entries');
+-- Piece R2 (D7): on a trial balance file a tax code change clears what it clears on a bank file; step 4 stays signed.
+select test.check('T7: a tax code change clears steps 6, 7 and 8, not step 4 (trial balance file)', (:state) = 'code,entries');
 
 -- T8: a TJE added after steps 5 to 8 are signed clears step 8 only.
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, last_year, mapping_source)
@@ -153,24 +154,25 @@ select test.check('T8: a TJE clears step 8 only', (:state) = 'code,compare,entri
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_send_to_reviewer(:'wag', 'Wages or subcontracts?');
 reset role; reset request.jwt.claims;
-select test.check('T6: an account waiting for the reviewer blocks step 7', private.cb_review_problems(:'f') @> array['1 account waiting for the reviewer''s decision.']);
+-- Piece R2 (item 3): on a trial balance file these wait in step 8's Match box, as on a bank file.
+select test.check('T6: an account waiting for the reviewer blocks step 8', exists (select 1 from private.cb_match_items(:'f') where reason = 'reviewer'));
 select test.check('T6: it no longer waits on step 6', not exists (select 1 from unnest(private.cb_step_waiting(:'f', 'compare')) w where w like '%reviewer''s decision%'));
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_map_account(:'wag', '9060.00');
+select public.cb_map_account(:'wag', '9066.00');
 reset role; reset request.jwt.claims;
 select test.check('addition 2: the owner''s decision on the account clears nothing', (:state) = 'code,compare,entries,review,t2');
-select test.check('the decision removed the item from step 7', not (private.cb_review_problems(:'f') @> array['1 account waiting for the reviewer''s decision.']));
+select test.check('the decision removed the item from step 8', not exists (select 1 from private.cb_match_items(:'f') where reason = 'reviewer'));
 -- An asset account on an expense line: an open type flag.
 update public.cb_accounts set account_type = 'Asset' where id = :'off';
-select test.check('T6: an open type flag blocks step 7', private.cb_review_problems(:'f') @> array['1 account on a GIFI line of another type.']);
+select test.check('T6: an open type flag blocks step 8', exists (select 1 from private.cb_match_items(:'f') where reason = 'type'));
 update public.cb_accounts set account_type = null where id = :'off';
 
 -- T5: an unmatched account, or a balance in Clearing 10900, blocks the preparer's sign-off of step 6.
 delete from public.cb_step_signoffs where file_id = :'f' and step in ('compare', 'review');
 insert into public.cb_accounts (file_id, account_key, number, name, this_year, last_year) values (:'f', '61000', '61000', 'Unmatched dummy', 100, 100);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T5: an unmatched account blocks step 6', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'compare', 'prepared')) like 'Not yet:%1 account with no group: choose a group.%');   -- piece R1: wording
+select test.check('T5: an unmatched account blocks step 6', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'compare', 'prepared')) like 'Not yet:%1 account with no group: assign a master account in step 4.%');   -- piece R1: wording; piece R2: on a trial balance file, step 4
 reset role; reset request.jwt.claims;
 delete from public.cb_accounts where file_id = :'f' and account_key = '61000';
 insert into public.cb_accounts (file_id, account_key, number, name, this_year, last_year) values (:'f', 'chart:10900', '10900', 'Clearing', 250, 0);

@@ -14,7 +14,7 @@ export type CbFileRow = { id: string; client_id: string; year_start: string; yea
 // nearest choice (paper as statements; a bookkeeper's file as the client's books).
 export type DataSource = "ours" | "client" | "statements";
 export const DATA_SOURCE: Record<DataSource, { label: string; line: string; file_type: "monthly" | "full"; books: string }> = {
-  ours: { label: "Our QuickBooks file (monthly client)", line: "We book the entries in QuickBooks and import the final trial balance.", file_type: "monthly", books: "concept_qbo" },
+  ours: { label: "Our QuickBooks file (monthly client)", line: "We import the QuickBooks trial balance. Year-end entries go back through the client entry list.", file_type: "monthly", books: "concept_qbo" },
   client: { label: "The client's books", line: "Kept by the client or their bookkeeper. We import their trial balance, and Closebook lists our entries for them to book.", file_type: "full", books: "client_software" },
   statements: { label: "Bank and card statements", line: "The client has no books. We upload the statements and code each line.", file_type: "full", books: "statements" },
 };
