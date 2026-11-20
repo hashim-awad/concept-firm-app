@@ -181,7 +181,14 @@ test("GST-SPLIT: money out, card lines, a row on 21500, quick method, unknown ac
   assert.equal(q.lines["101"], 56500);
   // A row on an account not in the chart: the whole line is left out, as the trial balance leaves it out.
   assert.equal(run(split(66500, [["40000", "HST_ON", 56500], ["99999", "OUT_OF_SCOPE", 10000]])).items.length, 0);
-  // A line with no split is unchanged; a line not done is left out.
+  // A split line sent to the reviewer counts, as the books post it (Hashim, Nov 20, 2026).
+  assert.deepEqual(run(split(66500, [["40000", "HST_ON", 56500], ["64000", "OUT_OF_SCOPE", 10000]], "reviewer")).items.map((i) => [i.netCents, i.taxCents]), [[50000, 6500], [-10000, 0]]);
+  // A split card refund (money back on the card is negative): the ITC comes off.
+  assert.deepEqual(run(split(-14300, [["64310", "HST_ON", 11300], ["64000", "OUT_OF_SCOPE", 3000]]), false).items.map((i) => [i.netCents, i.taxCents]), [[-10000, -1300], [-3000, 0]]);
+  // A split cheque with a row on 21500 (a payment to the CRA): the payment, and the other row's ITC.
+  const paid = run(split(-61300, [["21500", null, 50000], ["64310", "HST_ON", 11300]]));
+  assert.deepEqual([paid.payments.map((p) => p.cents), paid.items.map((i) => [i.netCents, i.taxCents])], [[50000], [[10000, 1300]]]);
+  // A line with no split is unchanged; a line not coded is left out.
   assert.deepEqual(run({ status: "done", cents: 11300, chart_account: "40000", tax_code: "HST_ON" }).items.map((i) => [i.netCents, i.taxCents]), [[10000, 1300]]);
   assert.equal(run(split(66500, [["40000", "HST_ON", 56500], ["64000", "OUT_OF_SCOPE", 10000]], "new")).items.length, 0);
 });

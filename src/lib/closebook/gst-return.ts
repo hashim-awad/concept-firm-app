@@ -209,12 +209,13 @@ export function itemsFromEntry(e: { date: string; ref: string; label: string }, 
 
 // Piece GST-SPLIT (Hashim, Nov 20, 2026): the return's items from one coded bank or card line. A split line has no
 // account or tax code of its own: each row of the split is its own item, with its own account and tax code, exactly
-// as tb-build posts it (money in or out). A row on 21500 is a payment to or refund from the CRA.
+// as tb-build posts it (money in or out), coded lines and lines sent to the reviewer alike. A row on 21500 is a
+// payment to or refund from the CRA.
 export type BankTaxLine = { status: string; date?: string | null; id?: string | null; description?: string | null; cents: number;
   chart_account: string | null; tax_code: string | null; splits?: { chart_account: string; tax_code: string | null; cents: number }[] };
 export function bankLineItems(l: BankTaxLine, isBank: boolean, chart: Map<string, { name: string; account_type: string }>,
   codes: Map<string, TaxCode>, ctx: TaxContext, items: GstItem[], payments: GstPayment[]) {
-  if (l.status !== "done") return;
+  if (l.status !== "done" && l.status !== "reviewer") return;   // as the books post it (tb-build linePosts)
   const debit = isBank ? l.cents : -l.cents;
   const parts = l.splits?.length ? l.splits.map((x) => ({ account: x.chart_account, tax: x.tax_code, debit: Math.sign(debit) * x.cents }))
     : l.chart_account ? [{ account: l.chart_account, tax: l.tax_code, debit }] : [];

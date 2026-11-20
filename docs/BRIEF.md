@@ -1204,6 +1204,9 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   kept, the safe direction; Hashim, Nov 20, 2026). Done in S2: client_software files never count a rounding
   (fromStatements); check 5 reads Difference, Less rounding, Unexplained (Hashim).
 
+- GST-SPLIT Low (accounting-reviewer, Nov 20, 2026): Reclassify shows a blank tax code on a split line's rows posted to
+  21500 (reclassify-server.ts:71). Display only, no figure moves.
+
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)
 
