@@ -1000,6 +1000,17 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece S2: step 8 check 5 and the opening rounding (Hashim, Nov 20, 2026; urgent, it held up a Live GIFI export)
+Status: built, in review. On a bank-statement file the automatic "Opening balance rounding" (statement cents against last
+year's whole-dollar T2, round 23) posts to opening retained earnings, so 3660 differs from last year's 3849 in step 2 by
+those cents and check 5 refused the export.
+- Rule: check 5 passes when the whole difference equals what that rounding put into 3660 and is under 1.00. The check
+  shows "Rounding: last year's T2 is in whole dollars" with the amount and reads "Ties after rounding of n". Any other
+  difference still fails (a rounding that does not cover all of it, 1.00 or more, or no rounding).
+- On 3660 (retained earnings as a credit) an asset line's rounding (bank, GIFI under 2600) adds its cents; a liability
+  line's (cards, overdraft) takes them off.
+- No migration. Files: src/lib/closebook/t2.ts, src/lib/closebook/gifi-server.ts; test tests/closebook-gifi.test.ts.
+
 ## Piece E1: retire entry approval (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud)
 Status: built, PR open. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
 flags changes after review instead of locking. Closebook copies that. One migration.
