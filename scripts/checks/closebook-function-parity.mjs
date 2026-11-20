@@ -13,8 +13,10 @@
 // Local only: it needs the app on http://localhost:3300 and the dummy accounts and files (no client data).
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
+import { checkBuildKey } from "./parity-key.mjs";
 
-const BASE = process.env.APP_URL ?? "http://localhost:3300";
+// UI1: the default port is the one scripts/dev/up.sh serves on.
+const BASE = process.env.APP_URL ?? "http://localhost:3301";
 const USERS = { staff: "staff.dummy@example.test", owner: "owner.dummy@example.test" };
 const PASS = process.env.DUMMY_PASS ?? "dummy-pass-123";
 // Piece 10 renamed step 6 "mapping" to "compare" (UI1 spec-checker item 15).
@@ -65,6 +67,7 @@ async function inventory(p, url) {
 }
 
 async function capture(out) {
+  checkBuildKey();
   const browser = await chromium.launch();
   const result = {};
   for (const who of Object.keys(USERS)) {
@@ -74,7 +77,12 @@ async function capture(out) {
     // UI1: the local database holds hundreds of dummy files (about 40 screens each). PARITY_FILES (ids, comma-separated)
     // limits the crawl to a sample that covers each kind of file; the same sample must be used before and after.
     const only = (process.env.PARITY_FILES ?? "").split(",").filter(Boolean);
-    const files = only.length ? listed.filter((f) => only.includes(f)) : listed;
+    // With no PARITY_FILES and a large dummy set, the first PARITY_SAMPLE files listed (default 6) are crawled: the list is in
+    // a fixed order, so a before and an after on the same data crawl the same files. Name files with PARITY_FILES to cover
+    // each kind (bank-statement, trial balance, locked).
+    const sample = Number(process.env.PARITY_SAMPLE ?? 6);
+    const files = only.length ? listed.filter((f) => only.includes(f)) : listed.length > 20 ? listed.slice(0, sample) : listed;
+    if (!only.length && listed.length > 20) console.warn(`${who}: ${listed.length} files listed; crawling the first ${files.length} (set PARITY_FILES or PARITY_SAMPLE).`);
     const urls = ["/closebook", "/closebook/files", "/closebook/notes", ...SETTINGS, ...files.flatMap(fileScreens)];
     for (let u of urls) {
       if (u === "OPEN_FIRST_ENTRY") continue;

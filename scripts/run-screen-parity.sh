@@ -4,9 +4,11 @@
 set -euo pipefail
 PORT="${PORT:-3100}"
 if curl -s -o /dev/null "http://localhost:$PORT/"; then echo "Port $PORT is already in use. Stop the other app first." >&2; exit 1; fi
-STUDIO_HARNESS=1 npx next start -p "$PORT" > /tmp/screen-parity-app.log 2>&1 &
+# The app runs in its own process group, and the whole group is stopped at the end: stopping only npx left its
+# next-server child holding the port (test-runner, UI1).
+setsid env STUDIO_HARNESS=1 npx next start -p "$PORT" > /tmp/screen-parity-app.log 2>&1 &
 APP_PID=$!
-trap 'kill $APP_PID 2>/dev/null || true' EXIT
+trap 'kill -- -$APP_PID 2>/dev/null || kill $APP_PID 2>/dev/null || true' EXIT
 for i in $(seq 1 60); do
   if curl -sf "http://localhost:$PORT/studio-harness/corporate" > /dev/null; then break; fi
   sleep 1

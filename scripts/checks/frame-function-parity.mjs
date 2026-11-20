@@ -11,8 +11,10 @@
 // Local only: the app on http://localhost:3300 and the dummy accounts (no client data).
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
+import { checkBuildKey } from "./parity-key.mjs";
 
-const BASE = process.env.APP_URL ?? "http://localhost:3300";
+// UI1: the default port is the one scripts/dev/up.sh serves on.
+const BASE = process.env.APP_URL ?? "http://localhost:3301";
 const USERS = { staff: "staff.dummy@example.test", owner: "owner.dummy@example.test" };
 const PASS = process.env.DUMMY_PASS ?? "dummy-pass-123";
 const EXPORT = /\/(export|download|csv|xlsx|pdf)(\/|\?|$)|format=/;
@@ -67,6 +69,7 @@ async function inventory(p, url) {
 }
 
 async function capture(out) {
+  checkBuildKey();
   const browser = await chromium.launch();
   const result = {};
   for (const who of Object.keys(USERS)) {

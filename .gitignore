@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# local dev (scripts/dev/up.sh): the fixed local Server Actions key, never committed
+/scripts/dev/.actions-key
+/scripts/dev/logs/
