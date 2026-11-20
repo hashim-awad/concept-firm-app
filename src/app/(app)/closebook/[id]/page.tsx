@@ -510,7 +510,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         adjustmentsTop({ supabase, file, entries, base: base5, editable, addRevenue: open && rev5 && !rev5.state.added ? (
           <form action={addRevenueCheck}><input type="hidden" name="file_id" value={id} />
             <button className="text-[13px] font-medium text-navy-700 underline" data-add-revenue>+ Add revenue check</button></form>) : undefined, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
-        entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, listBase: base5, title: "Entries this year",
+        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year",
           rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
           sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
       ]);
@@ -533,8 +533,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         // Round 35: on a bank file the lines for the reviewer are a working list (below), not links to step 4.
         { key: "code", title: "Lines for the reviewer", step: "step 4", items: bankFile ? [] : ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
-        { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
-          { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
         { key: "revenue", title: "Revenue check", step: "step 5", items: rev7 ? revenueWaiting(rev7).map((w) => ({ href: paperHref("entries", "revenue"), label: w.label,
           detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [] },
         // Piece 7: the GST/HST revenue comparison moved to step 8; a difference over the threshold still waits here.
@@ -585,7 +583,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || rv} focusLine={str(sp.line) ?? null}
           accounts={acctRows} stepFour={href("code")} />;
       }
-      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
+      // Piece E1: entries are not approved one by one; step 7 lists the ones to look at, and they hold nothing up.
+      const look = entries.filter((e) => e.needs_review).map((e) => (
+        { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) }));
+      body = <ReviewStep groups={groups} look={look} notes={openNotes} list={list} listCount={listCount}
         extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} canReview={rv} names={names} /> : null}</>} />;
     }
   } else if (step === "compare") {
@@ -833,7 +834,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         : <ReportingList fileId={id} />;
   } else if (area === "entries") {
     const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
-    const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
+    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {

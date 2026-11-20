@@ -1000,6 +1000,55 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece E1: retire entry approval (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud)
+Status: built, PR open. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
+flags changes after review instead of locking. Closebook copies that. One migration.
+
+What it does:
+1. No approval of single entries. Entries change or delete until the file is locked; a locked file refuses everything as
+   today; a booked entry still needs "Unmark booked" first. cb_review_entry stays (nothing dropped) and refuses every
+   call: "Entry approval was retired. Sign step 5 instead." (E1-Q3 A). The reviewed_at/reviewed_by columns on cb_entries
+   stay, unused.
+2. Step 5 Prepared and Reviewed cover all entries. Any change to an entry takes back the step 5 sign-offs, as today.
+3. Step 7 lists "Entries to look at (step 5)": free entries and standard entries over the review threshold in Settings.
+   No Approve button; the list holds nothing up. The needs_review flag stays only for this list and the entries filter,
+   worded "For the reviewer" (E1-Q2 A).
+4. The entries list loses its sign-off column (circles, Approve). The entry window loses its Reviewed badge and sign-off
+   box. History and "Last changed by" stay.
+5. "Booked in QuickBooks" can be marked once step 5 is reviewed (E1-Q1 A); a tax entry (TJE) once step 8 is reviewed (D2 A).
+6. Also (Hashim, Nov 20): the entry form does not open for a booked entry (typed link included); the entry and schedule
+   windows take the keyboard (focus in, Tab stays inside, Escape closes and returns focus); separate refusal wording for
+   change and delete; Edit hidden for schedule entries, one "Change schedule" with an icon; the schedule buttons always
+   read "Put {amount} in the entry"; title "Expenses paid personally schedule"; the Vehicle schedule shows "Saved amount
+   n" in amber when a reopened schedule works out to a different figure than the saved entry.
+7. Live: a read-only report per file (file id only): entries approved, waiting, booked, total (begin transaction read
+   only ... rollback; given to Hashim with the PR). No Live data change (D4 A): the old approval values stay, unused.
+
+Decisions round 2 (Hashim, Nov 20, 2026, after spec-checker and accounting-reviewer):
+- D1 A: assign_mapping_piece_r2 D12c changes (Booked refused until step 5 is reviewed, then works).
+- D2 A: a TJE is booked only once step 8 is reviewed; AJE and RJE need step 5.
+- D3 A: GST/HST answers that change take back the step 5 sign-offs when an entry carries sales tax; the entry stays on
+  the list to look at.
+- D4 A: Live gets the read-only report only; no data change.
+- D5 B with the Partner exception now: while entries wait to be looked at, the person who prepared step 5 does not also
+  sign it Reviewed, unless they have Partner sign-off; then the amber same-person line shows and History gives the reason.
+- D6 A: refusal wording: "This entry is booked in QuickBooks. Unmark it first to change it." / "...to delete it.";
+  "This file is locked. Reopen it to change entries." / "...to delete entries."
+- D7 A: Vehicle "Put {amount}" and "Saved amount" use the amount owed to the owner.
+- D8 A: "Entries to look at" lists what the database flags: free entries, entries over the threshold, entries changed
+  after they were made, taxed entries after a GST/HST answer change, expenses ticked for the reviewer.
+Post-build fixes (round 1 reports): deleting an entry writes one History row for the entry (description, W/P ref, total)
+and one per line, sales tax lines included; delete holds the file as edit does; the step 5 coverage row counts AJE and
+RJE only and names TJEs under step 8; the save message says when sign-offs were taken back; focus returns to the
+control that opened a schedule window.
+
+Removes: S1's approved branch (head lock, notice, "Approval taken back" message, History row), the approved checks in
+cb_edit_entry and cb_delete_entry, "n entries to approve" in private.cb_step_waiting, the approval resets in
+cb_clear_typed_step and cb_save_setup; app: reviewEntry, entryStatus, the sign-off column, the entry window sign-off box.
+Tests that change (approved): the five database test files that call cb_review_entry (S1, entry_dialog, mapping,
+edit_entry_piece2, step6_reopens_piece10b) and assign_mapping_piece_r2 D12c (D1 A) flip "approved entry can't change or delete" to "can until locked" and "only the
+reviewer approves" to "approval is retired".
+
 ## Piece S1: change a saved schedule (Hashim, Nov 20, 2026; bug found on a Live file)
 Status: built, PR open. A schedule entry could not be reopened once the reviewer had approved it: the Schedules table
 row had no link to the schedule, Open showed the entry, and the W/P ref and Print schedule only printed. The database
@@ -1123,6 +1172,18 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   title lacks "schedule"; Vehicle block messages are red, not amber, and its greyed button gives no reason; a reopened
   Vehicle schedule can show a figure other than the saved one with no note; the W/P ref is cut short in the Entries
   list. Several go away with piece E1 (no entry approval).
+- E1 Lows (reports in docs/reviews/E1-reports.md): step 7 heading "Entries to look at (step 5, n)" to follow the step 7
+  wording item ("n from step 5"); one name for "To look at" and the "For the reviewer" filter; "Saved amount" needs a
+  title and hidden label ("Saved on the entry: n. Put replaces it."); Entries list W/P ref and Description cut short at
+  1280; Expenses schedule shows "Owed to the owner" twice; Settings threshold boxes show 5,000 not 5,000.00; tests for a
+  TJE booked after step 8, another reviewer signing step 5 while entries wait, and the take-back-and-re-prepare path;
+  Decided (Hashim, Nov 20, 2026): booking stays after step 5 Reviewed (E1-Q1 A, kept); step 5 Reviewed stays open to
+  anyone with Review who did not prepare step 5, and R3a-2 narrows it to the file's team.
+- E1 round 2 Lows (Hashim, Nov 20, 2026): test E1-4b counts line rows for the whole file (count the deleted entry's rows,
+  expect 3); after Escape on a schedule window opened by "Change schedule", sched=1 stays in the address, so a reload
+  reopens the schedule (drop it on close). Done in the
+  build after round 2 (builder check with test-runner's script): focus back to the form's schedule button or "From a
+  schedule"; Escape closes an open menu first; the save message names step 5 when a type changes to or from TJE.
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)

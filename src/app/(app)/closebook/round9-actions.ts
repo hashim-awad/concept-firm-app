@@ -97,7 +97,7 @@ export async function addRevenueEntry(formData: FormData) {
     p_file: id, p_note: memo, p_reverse: false,
     p_lines: [{ ...target(dr), amount: amount! / 100, memo }, { ...target(cr), amount: -amount! / 100, memo }],
   });
-  done(id, error, "Entry made from the revenue check. It goes to the reviewer.");
+  done(id, error, "Entry made from the revenue check. It is on the reviewer's list in step 7.");
 }
 
 // Piece 4b (Hashim, Nov 18, 2026): the round 9 "Expenses paid personally" form, its line-account choice and its

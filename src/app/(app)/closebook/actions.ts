@@ -222,6 +222,12 @@ export async function addEntry(formData: FormData) {
   const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
     p_date: date, p_standard: form!.standard, p_seq: seq };
   let res: { data: unknown; error: { message: string } | null };
+  // Piece E1: a change takes back the step's sign-offs (TJE: step 8; others: step 5). Say so only when there were some.
+  // A change of type to or from TJE is a step 5 change (cb_changed); only a TJE that stays a TJE is step 8's.
+  const oldKind = form!.edit ? ((await supabase.from("cb_entries").select("kind").eq("id", form!.edit).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
+  const signStep = form!.head.kind === "TJE" && (!form!.edit || oldKind === "TJE") ? "t2" : "entries";
+  const before = form!.edit ? (await supabase.from("cb_step_signoffs").select("prepared_at, reviewed_at").eq("file_id", id).eq("step", signStep).maybeSingle()).data as { prepared_at: string | null; reviewed_at: string | null } | null : null;
+  const hadSign = !!(before?.prepared_at || before?.reviewed_at);
   if (form!.edit) {
     // Edit (CaseWare): piece 2, the entry changes in place (same id, number, creator, standard entry link); its
     // attachments are kept and new ones added. History records each change (cb_edit_entry).
@@ -236,7 +242,8 @@ export async function addEntry(formData: FormData) {
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
-  const msg = form!.edit ? "Entry changed. It goes to the reviewer again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer.";
+  // Piece E1: no entry approval; step 5's sign-offs cover the entries, and step 7 lists the ones to look at.
+  const msg = form!.edit ? (hadSign ? `Entry changed. Step ${signStep === "t2" ? 8 : 5}'s sign-offs were taken back: sign it again.` : "Entry changed.") : e?.needs_review === false ? "Standard entry added. It is under the review threshold." : "Entry added. It is on the reviewer's list in step 7.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }
@@ -255,26 +262,15 @@ async function saveScheduleEntry(formData: FormData, supabase: Awaited<ReturnTyp
   }
   const built = await scheduleSaveArgs(supabase, f, form, data, paths);
   if ("error" in built) redirect(withMessage(dialog, "error", `Nothing was saved. ${built.error}`));
-  // Piece S1: say so when the save takes an approval back.
-  const pEntry = (built as { args: Record<string, unknown> }).args.p_entry as string | null;
-  const wasApproved = pEntry ? !!((await supabase.from("cb_entries").select("reviewed_at").eq("id", pEntry).maybeSingle()).data as { reviewed_at: string | null } | null)?.reviewed_at : false;
   const res = await supabase.rpc("cb_save_schedule_entry", (built as { args: Record<string, unknown> }).args);
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("kind, number, seq").eq("id", res.data as string).maybeSingle();
   // The green pill (round 27): "Saved AJE 2026-003".
   const no = e ? entryNo(f.file.year_end, e as { kind: string; number: number; seq: number }) : "";
-  const msg = (e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.") + (wasApproved ? ". Approval taken back: it goes to the reviewer again." : "");
+  const msg = e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
-}
-
-export async function reviewEntry(formData: FormData) {
-  const id = s(formData, "file_id");
-  const { error } = await (await createClient()).rpc("cb_review_entry", { p_entry: s(formData, "entry") });
-  revalidatePath(`/closebook/${id}`);
-  // Piece 5: back to the page the list was on (step 5 or the Entries tab).
-  redirect(withMessage(sameFile(id, s(formData, "back")) || enBack(id), error ? "error" : "msg", error ? error.message : "Entry approved."));
 }
 
 export async function deleteEntry(formData: FormData) {

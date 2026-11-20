@@ -55,7 +55,7 @@ export async function adjustmentsTop({ supabase, file, entries, papers, base, ed
               </tr>
             ))}
             {made.map(({ s, e }) => {
-              // Piece S1: the schedule's name opens its window with the saved inputs (approved or not, while the file is open);
+              // Piece S1 and E1: the schedule's name opens its window with the saved inputs while the file is open and not booked;
               // Open shows the entry.
               const href = `${base}&open=${e!.id}`;
               const schedHref = `${base}&open=${e!.id}&edit=1&sched=1`;

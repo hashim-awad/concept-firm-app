@@ -10,7 +10,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BookedMark } from "./booked-mark";
-import { Pencil, X } from "lucide-react";
+import { Calculator, Pencil, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
@@ -19,11 +19,10 @@ import { blankLine, type FormLine } from "@/lib/closebook/entry-form";
 import { loadRevenue } from "@/lib/closebook/expenses-server";
 import { entryNo } from "@/lib/closebook/reports";
 import { formatAmount } from "@/lib/closebook/amount";
-import { deleteEntry, reviewEntry } from "../../actions";
+import { deleteEntry } from "../../actions";
 import { JournalForm, type JournalInit } from "../journal-form";
 import { NoteOnItem } from "../note-on-item";
 import { QBO_TYPES } from "../entries-tab";
-import { initials } from "../shell/shell";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { loadVehicle } from "@/lib/closebook/vehicle-server";
 import { loadHome } from "@/lib/closebook/home-office-server";
@@ -77,9 +76,9 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   if (sp.open && entry && !sp.edit) {
     const no = entryNo(file.year_end, entry).split(" ")[0];
     const locked = file.phase === "locked";
-    const canChange = editable && !locked && !entry.reviewed_at;
-    // Piece S1: a saved schedule changes through its window, approved or not; saving takes the approval back.
-    const canSched = entry.origin === "schedule" && editable && !locked && !entry.booked_at;
+    // Piece E1: no approval of single entries; an entry changes until the file is locked (a booked entry: unmark it first).
+    const canChange = editable && !locked && !entry.booked_at;
+    const canSched = entry.origin === "schedule" && canChange;
     const lines = entry.lines;
     const dr = lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
     const accName = (id: string) => { const a = byId.get(id); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : ""; };
@@ -88,19 +87,21 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     // Piece 2b: who changed the entry last and when, from its latest "Entry changed" row in History. The function
     // gives only the name and date, to anyone who can view Closebook; History itself needs the Review right (R3a-1).
     const { data: lastRows } = await supabase.rpc("cb_entry_last_change", { p_entry: entry.id });
+    // Piece E1: booked once its step is reviewed (AJE and RJE: step 5; TJE: step 8).
+    const bookStep = entry.kind === "TJE" ? "t2" : "entries";
+    const { data: bookSign } = await supabase.from("cb_step_signoffs").select("reviewed_at").eq("file_id", file.id).eq("step", bookStep).maybeSingle();
+    const waitStep = (bookSign as { reviewed_at: string | null } | null)?.reviewed_at ? 0 : bookStep === "t2" ? 8 : 5;
     const last = ((lastRows ?? []) as { changed_by: string; changed_at: string }[])[0];
-    const rev = entry.reviewed_by ? names.get(entry.reviewed_by) ?? "" : "";
     const fieldsRow = (label: string, value: ReactNode) => <div className="grid gap-0.5"><span className="text-[11.5px] font-semibold text-ink-3">{label}</span><span className="text-[13px]">{value}</span></div>;
     return (
       <Frame closeHref={closeHref}>
         <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-5 py-3">
           <h2 className="text-[15px] font-bold">Journal entry {no}</h2>
-          <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${entry.reviewed_at ? "bg-success-soft text-success" : entry.needs_review ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>
-            {entry.reviewed_at ? "Reviewed" : entry.needs_review ? "Needs review" : "No review needed"}</span>
-          {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} by={entry.booked_by ? names.get(entry.booked_by) ?? "" : ""} editable={editable && !locked} />}
+          {entry.needs_review && <span className="rounded bg-sand-100 px-1.5 py-0.5 text-[11px] font-semibold text-ink-2" title="Step 7 lists it for the reviewer to look at">To look at</span>}
+          {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} by={entry.booked_by ? names.get(entry.booked_by) ?? "" : ""} editable={editable && !locked} waitStep={waitStep} />}
           <span className="flex-1" />
-          {canChange && !entry.booked_at && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
-          {canSched && <Link href={`${here}&edit=1&sched=1`} className={act} data-change-schedule>Change schedule</Link>}
+          {canChange && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
+          {canSched && <Link href={`${here}&edit=1&sched=1`} className={act} data-change-schedule><Calculator className="h-3.5 w-3.5" />Change schedule</Link>}
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
           {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}
@@ -129,14 +130,11 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           </table>
           <div className="grid gap-4 md:grid-cols-2">
             <section className="rounded-[var(--radius-ds)] border border-sand-200">
-              <h3 className="border-b border-sand-200 px-3.5 py-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Sign-off</h3>
+              <h3 className="border-b border-sand-200 px-3.5 py-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Made by</h3>
               <div className="grid gap-2 px-3.5 py-2.5 text-[12.5px]">
-                <p className="flex items-center gap-2"><Circle kind="p" text={initials(prep)} />Prepared by {prep} · {formatDate(entry.created_at)}</p>
-                {last && <p className="pl-8 text-[12.5px] text-ink-2" data-entry-last-change>Last changed by {last.changed_by} · {formatDate(last.changed_at)}</p>}
-                {entry.needs_review ? (
-                  <div className="flex items-center gap-2">{entry.reviewed_at ? <><Circle kind="r" text={initials(rev)} />Reviewed by {rev} · {formatDate(entry.reviewed_at)}</>
-                    : <><Circle kind="no" />Not reviewed<span className="flex-1" />{isReviewer && editable && !locked && <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={entry.id} />{closeHref.includes("step=entries") && <input type="hidden" name="back" value={closeHref} />}<button type="submit" className="btn btn-compact">Approve</button></form>}</>}</div>
-                ) : <p className="flex items-center gap-2 text-ink-3"><Circle kind="none" />No review needed: a standard entry at or under the threshold.</p>}
+                <p>{prep} · {formatDate(entry.created_at)}</p>
+                {last && <p className="text-ink-2" data-entry-last-change>Last changed by {last.changed_by} · {formatDate(last.changed_at)}</p>}
+                <p className="text-ink-3">{entry.needs_review ? "Step 7 lists it for the reviewer to look at. Step 5's sign-offs cover it." : "Step 5's sign-offs cover it."}</p>
               </div>
             </section>
             <section className="rounded-[var(--radius-ds)] border border-sand-200">
@@ -160,13 +158,12 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   let title = "New journal entry", origin: string | undefined, edit: string | undefined, lock = {};
   let kept: string[] = [];
   if (sp.open && entry && sp.edit) {
-    if (entry.reviewed_at && !(entry.origin === "schedule" && sp.sched === "1")) return null;
     // Piece S1: a booked entry opens nowhere for changes (the database refuses them too); unmark it first.
     if (entry.booked_at) return null;
     title = `Edit journal entry ${entryNo(file.year_end, entry).split(" ")[0]}`;
     edit = entry.id; kept = entry.attachments ?? [];
     origin = entry.origin === "revenue_check" ? "revenue_check" : undefined;
-    if (entry.origin === "schedule") lock = entry.reviewed_at ? { kind: true, wp: true, head: true } : { kind: true };
+    if (entry.origin === "schedule") lock = { kind: true };
     if (origin) lock = { kind: true, wp: true };
     init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
   } else if (sp.new?.startsWith("std:")) {
@@ -212,20 +209,8 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   const expenses = offer && (!schedKind || schedKind === "expenses") ? await loadExpensesSchedule(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
-      <JournalForm {...formProps} approved={!!(schedEntry && schedEntry.reviewed_at)} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
+      <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
         vehicle={vehicle} home={home} expenses={expenses} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
-  );
-}
-
-// The sign-off circles (CaseWare): grey with a pencil, the preparer's initials with a blue pencil, the
-// reviewer's initials with a green tick; dashed when no review is needed.
-export function Circle({ kind, text = "", title }: { kind: "no" | "p" | "r" | "none"; text?: string; title?: string }) {
-  if (kind === "none") return <span title={title ?? "No review needed"} className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-[1.5px] border-dashed border-[#d0d3da] text-[10px] text-[#b9bcc6]">–</span>;
-  if (kind === "no") return <span title={title} className="grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-[1.5px] border-[#c3c6cf] bg-white text-[#9aa0ae]"><Pencil className="h-2.5 w-2.5" /></span>;
-  return (
-    <span title={title} className={`relative grid h-[22px] w-[22px] flex-none place-items-center rounded-full border-[1.5px] bg-white text-[9px] font-bold ${kind === "p" ? "border-[#2f6fd6] text-navy-800" : "border-success text-success"}`}>{text}
-      <span className={`absolute -right-1 -bottom-[3px] grid h-3 w-3 place-items-center rounded-full border-[1.5px] border-white text-[7px] text-white ${kind === "p" ? "bg-[#2f6fd6]" : "bg-success"}`}>{kind === "p" ? "✎" : "✓"}</span>
-    </span>
   );
 }

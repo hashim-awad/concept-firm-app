@@ -18,13 +18,35 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
     const start = () => { const top = topmost(); if (top.contains(document.activeElement)) return;
       const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.style.outline = "none"; h.focus({ preventScroll: true }); } };
     // A schedule window that opens over the form mounts a moment later, or when its button is pressed: focus follows it.
+    // Piece E1 (ui-reviewer): when a schedule window closes, focus goes back to the control that opened it.
     let count = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length;
-    const watch = new MutationObserver(() => { const n = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length; if (n > count) start(); count = n; });
+    const openers: (HTMLElement | null)[] = [];
+    const watch = new MutationObserver(() => {
+      const n = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length;
+      if (n > count) { openers.push(document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); start(); }
+      else if (n < count) {
+        const back = openers.pop();
+        const top = topmost();
+        // When the opener is gone (a menu item, or a page that reloaded), the form's schedule button, then the
+        // "From a schedule" menu button, then the window's heading.
+        const near = back?.isConnected && top.contains(back) ? back
+          : top.querySelector<HTMLElement>("[data-wp-link]") ?? top.querySelector<HTMLElement>('button[aria-haspopup="menu"]');
+        if (near) near.focus({ preventScroll: true });
+        else { const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
+      }
+      count = n;
+    });
     watch.observe(document.body, { childList: true, subtree: true });
     start(); const t = window.setTimeout(start, 50);
     const onKey = (e: KeyboardEvent) => {
       const top = topmost();
       if (e.key === "Escape") {
+        // An open menu inside the window closes first (its own handler); the window stays and keeps what was typed.
+        if (top.querySelector('[role="menu"]') || (document.activeElement as HTMLElement | null)?.closest('[role="menu"],[role="listbox"]')) {
+          const trigger = top.querySelector<HTMLElement>('button[aria-haspopup="menu"][aria-expanded="true"]');
+          if (trigger && !(document.activeElement === trigger)) { trigger.click(); trigger.focus({ preventScroll: true }); }
+          return;
+        }
         e.preventDefault();
         if (top !== own) top.querySelector<HTMLButtonElement>('button[aria-label="Close"], button[aria-label="Close the schedule"]')?.click();
         else router.push(closeHref, { scroll: false });
@@ -37,8 +59,8 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
         else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => { watch.disconnect(); window.clearTimeout(t); document.removeEventListener("keydown", onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+    document.addEventListener("keydown", onKey, true);   // capture: runs before an open menu closes itself
+    return () => { watch.disconnect(); window.clearTimeout(t); document.removeEventListener("keydown", onKey, true); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [closeHref, router]);
   return <span ref={marker} hidden />;
 }
