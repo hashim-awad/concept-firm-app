@@ -146,7 +146,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
             : <span className="flex items-center gap-2"><button type="button" disabled className="btn-secondary btn-compact">Print schedule (PDF)</button><span className="text-[12px] text-ink-3">Save the entry to print</span></span>}
           <span className="flex-1" />
           {!r.ready && r.problems.some((p) => p.field === "km") && <span className="text-[12px] text-ink-3">Enter the business km.</span>}
-          {savedOwed !== null && r.ready && r.record.amount !== savedOwed && <span className="rounded-[var(--radius-ds)] bg-warning-soft px-2 py-1 text-[12px] font-semibold text-warning" data-saved-amount>Saved amount {formatAmount(savedOwed)}</span>}
+          {savedOwed !== null && r.record.amount > 0 && r.record.amount !== savedOwed && <span className="rounded-[var(--radius-ds)] bg-warning-soft px-2 py-1 text-[12px] font-semibold text-warning" data-saved-amount>Saved amount {formatAmount(savedOwed)}</span>}
           <button type="button" onClick={onClose} className="btn-secondary btn-compact">Cancel</button>
           <button type="button" disabled={!r.ready} onClick={() => onPut(inputs, r)} className="btn btn-compact">Put {formatAmount(r.record.amount)} in the entry</button>
         </div>
