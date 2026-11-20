@@ -1000,6 +1000,38 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece E1: retire entry approval (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud)
+Status: approved to build. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
+flags changes after review instead of locking. Closebook copies that. One migration.
+
+What it does:
+1. No approval of single entries. Entries change or delete until the file is locked; a locked file refuses everything as
+   today; a booked entry still needs "Unmark booked" first. cb_review_entry stays (nothing dropped) and refuses every
+   call: "Entry approval was retired. Sign step 5 instead." (E1-Q3 A). The reviewed_at/reviewed_by columns on cb_entries
+   stay, unused.
+2. Step 5 Prepared and Reviewed cover all entries. Any change to an entry takes back the step 5 sign-offs, as today.
+3. Step 7 lists "Entries to look at (step 5)": free entries and standard entries over the review threshold in Settings.
+   No Approve button; the list holds nothing up. The needs_review flag stays only for this list and the entries filter,
+   worded "For the reviewer" (E1-Q2 A).
+4. The entries list loses its sign-off column (circles, Approve). The entry window loses its Reviewed badge and sign-off
+   box. History and "Last changed by" stay.
+5. "Booked in QuickBooks" can be marked once step 5 is reviewed (E1-Q1 A).
+6. Also (Hashim, Nov 20): the entry form does not open for a booked entry (typed link included); the entry and schedule
+   windows take the keyboard (focus in, Tab stays inside, Escape closes and returns focus); separate refusal wording for
+   change and delete; Edit hidden for schedule entries, one "Change schedule" with an icon; the schedule buttons always
+   read "Put {amount} in the entry"; title "Expenses paid personally schedule"; the Vehicle schedule shows "Saved amount
+   n" in amber when a reopened schedule works out to a different figure than the saved entry.
+7. Live: a read-only report per file (file id only): entries approved, waiting, booked, total. Proposed move: clear the
+   approval on every entry and write one History row per file ("Entry approval retired: n entries had an approval
+   (piece E1)"). No amounts change.
+
+Removes: S1's approved branch (head lock, notice, "Approval taken back" message, History row), the approved checks in
+cb_edit_entry and cb_delete_entry, "n entries to approve" in private.cb_step_waiting, the approval resets in
+cb_clear_typed_step and cb_save_setup; app: reviewEntry, entryStatus, the sign-off column, the entry window sign-off box.
+Tests that change (approved): the five database test files that call cb_review_entry (S1, entry_dialog, mapping,
+edit_entry_piece2, step6_reopens_piece10b) flip "approved entry can't change or delete" to "can until locked" and "only the
+reviewer approves" to "approval is retired".
+
 ## Piece S1: change a saved schedule (Hashim, Nov 20, 2026; bug found on a Live file)
 Status: built, PR open. A schedule entry could not be reopened once the reviewer had approved it: the Schedules table
 row had no link to the schedule, Open showed the entry, and the W/P ref and Print schedule only printed. The database
