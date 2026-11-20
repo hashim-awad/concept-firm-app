@@ -178,7 +178,7 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
             </select></label>}
           {lock && (
-            <div className="grid gap-2 rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14px]" role="alert">
+            <div className="grid gap-2 rounded-[var(--radius-ds)] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14px]" role="alert">
               <span>{lock.label} {lock.label.includes(" and ") ? "are" : "is"} signed. {lockMessage(lock)}</span>
               {lock.canRemove && <span><button type="button" className="btn h-9" disabled={busy} onClick={async () => {
                 setBusy(true); const r = await unlockFeed(fileId); setBusy(false);
@@ -189,14 +189,14 @@ export function BankingUpload({ fileId, accounts, account, opening, closeHref, s
           {/* Round 24 (Hashim, Nov 16, 2026): refused by a sign-off lock, the window shows only the refusal. */}
           {!lock && account && !csv && (
             <label onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); send([...e.dataTransfer.files]); }}
-              className="block cursor-pointer rounded-[10px] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
+              className="block cursor-pointer rounded-[var(--radius-ds)] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
               Drop all the year&rsquo;s statements (PDF), or one CSV file. <span className="text-navy-700 underline">Choose files</span>
               <input ref={input} type="file" multiple aria-label="Statement files" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,.csv,application/pdf,image/jpeg,image/png,image/heic,image/heif,text/csv"
                 className="sr-only" onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; send(f); }} />
             </label>
           )}
           {!lock && csv && (
-            <div className="grid gap-3 rounded-[10px] border border-sand-200 bg-sand-50/60 px-4 py-3.5">
+            <div className="grid gap-3 rounded-[var(--radius-ds)] border border-sand-200 bg-sand-50/60 px-4 py-3.5">
               <p className="text-[14px]"><b>{csv.name}</b></p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1 text-[13px] font-semibold text-ink-2">Opening balance on the statement

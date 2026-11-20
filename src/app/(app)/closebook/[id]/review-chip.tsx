@@ -10,5 +10,5 @@ export function ReviewChip({ other, initial }: { other: number; initial: number 
     return () => window.removeEventListener("cb-review-count", on);
   }, []);
   const total = n + other;
-  return <span data-review-chip className={`rounded-full px-2.5 py-0.5 ${total ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>{total} with the reviewer</span>;
+  return <span data-review-chip className={`px-2.5 py-0.5 ${total ? "bg-warning-soft text-warning" : "bg-sand-100 text-ink-2"}`}>{total} with the reviewer</span>;
 }

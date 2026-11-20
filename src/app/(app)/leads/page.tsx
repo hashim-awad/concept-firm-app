@@ -40,7 +40,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/leads">) {
   };
   const chip = (href: string, on: boolean, text: string) => (
     <Link key={text} href={href} aria-current={on ? "true" : undefined}
-      className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
+      className={`border px-3 py-1.5 text-[13px] ${on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
   );
   return (
     <>

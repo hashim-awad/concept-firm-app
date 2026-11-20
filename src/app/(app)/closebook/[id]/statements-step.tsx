@@ -10,7 +10,7 @@ import { CopyButton } from "@/app/(app)/leads/[id]/quote/copy-button";
 const TO_FILL = <span className="ml-2 inline-block whitespace-nowrap rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-warning">To fill</span>;
 const label = (text: string, empty: boolean) => <span className="label flex items-center">{text}{empty && TO_FILL}</span>;
 // Round 15: one card per section, small capitals headings (CaseWare Cloud).
-const CARD = "overflow-hidden rounded-[10px] border border-sand-200 bg-white";
+const CARD = "overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white";
 const HEAD = "flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5";
 const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;

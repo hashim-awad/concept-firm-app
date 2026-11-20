@@ -5,7 +5,7 @@ import { CorporateLetterScreen } from "@/components/studio/corporate-letter-scre
 import { T1LetterScreen } from "@/components/studio/t1-letter-screen";
 import { ProposalScreen } from "@/components/studio/proposal-screen";
 import { WorkspaceHeader } from "@/components/studio/kit";
-import { AppSidebar } from "../../(app)/app-sidebar";
+import { TopBar } from "../../(app)/top-bar";
 import { MainArea } from "../../(app)/main-area";
 
 type Init = { env: ScreenEnv; finalRight: boolean; key: number };
@@ -19,10 +19,11 @@ export function Harness({ screen, signOut }: { screen: "corporate" | "t1" | "pro
   if (!init) return <p id="harness-waiting">Waiting for test data.</p>;
   const props = { key: init.key, env: init.env, clients: [], finalRight: init.finalRight };
   const title = { corporate: "Corporate Letter", t1: "Personal Tax Letter (T1)", proposal: "Proposal" }[screen];
-  // Same frame as the app: sidebar (dummy test user) and the full-width document area.
+  // Same frame as the app: top bar (dummy test user) and the full-width document area.
   return (
-    <div id="harness-ready" className="min-h-screen bg-paper md:flex">
-      <AppSidebar signOut={signOut} access={{ fullName: "Test User", roleName: "Partner", admin: true, leads: true, vault: true, pricing: true, screening: true, templates: true, documents: true, documentsEdit: true, clients: true, taxRates: true, staff: true, settings: true, closebook: true }} counts={{ quotesAwaiting: 2, lettersAwaiting: 0, leadsNew: 0 }} />
+    <div id="harness-ready" data-ui1 className="flex min-h-screen flex-col bg-paper">
+      <TopBar name="Test User" role="Partner" initials="TU" clients={false} newItems={[]} gear={[]} drafts={0} signOut={signOut}
+        nav={{ leads: true, clients: true, closebook: true, engagements: true, documents: true }} counts={{ leadsNew: 0, lettersWaiting: 0, quotesWaiting: 2 }} />
       <MainArea workspace>
         <WorkspaceHeader title={title} description="Test page with made-up data." />
         {screen === "corporate" && <CorporateLetterScreen {...props} />}

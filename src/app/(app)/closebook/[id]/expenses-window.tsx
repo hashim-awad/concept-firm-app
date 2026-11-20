@@ -44,7 +44,7 @@ export function ExpensesWindow({ data, initial, canPrint, printHref, onPut, onCl
   return (
     <div className="fixed inset-0 z-[60] print:hidden" data-expenses-window>
       <button type="button" aria-label="Close the schedule" onClick={onClose} className="absolute inset-0 block bg-navy-950/35" />
-      <div role="dialog" aria-modal="true" aria-label="Expenses paid personally" className="relative mx-auto mt-[40px] flex max-h-[calc(100vh-60px)] w-[1000px] max-w-[96vw] flex-col rounded-[10px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
+      <div role="dialog" aria-modal="true" aria-label="Expenses paid personally" className="relative mx-auto mt-[40px] flex max-h-[calc(100vh-60px)] w-[1000px] max-w-[96vw] flex-col rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
         <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3">
           <h2 className="text-[15px] font-bold">Expenses paid personally</h2>
           <span className="flex-1" />

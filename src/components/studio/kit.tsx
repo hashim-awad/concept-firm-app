@@ -107,8 +107,8 @@ export function Stepper({ steps, lastNote }: { steps: Step[]; lastNote: string }
         {steps.map((st, i) => (
           <button key={st.label} type="button" role="tab" aria-selected={i === cur} onClick={() => go(i)}
             className={cx("inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-medium",
-              i === cur ? "border-navy-700 bg-navy-700 text-white" : st.done ? "border-lime-500 bg-surface text-navy-900" : "border-sand-300 bg-surface text-ink-2 hover:border-ink-3")}>
-            <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", i === cur ? "bg-white/20" : st.done ? "bg-lime-500 text-navy-900" : "bg-sand-100")}>
+              i === cur ? "border-navy-700 bg-navy-700 text-white" : st.done ? "border-success bg-surface text-navy-900" : "border-sand-300 bg-surface text-ink-2 hover:border-ink-3")}>
+            <span className={cx("grid h-5 w-5 place-items-center rounded-full text-[11px]", i === cur ? "bg-white/20" : st.done ? "bg-success text-white" : "bg-sand-100")}>
               {st.done && i !== cur ? <CheckIcon className="h-3 w-3" aria-hidden /> : i + 1}
             </span>
             {st.label}

@@ -1,37 +1,47 @@
+import "@fontsource/alexandria/latin-400.css";
+import "@fontsource/alexandria/latin-500.css";
+import "@fontsource/alexandria/latin-600.css";
+import "@fontsource/alexandria/latin-700.css";
 import { STUDIO_ICONS } from "@/components/ds/brand";
 import { requireAccess, canView, canEdit, letterTypes } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ds/overlays";
 import { NoteHost } from "@/components/save-state";
 import { signOut } from "../login/actions";
-import { AppSidebar } from "./app-sidebar";
 import { MainArea } from "./main-area";
+import { SkipLinks } from "./skip-links";
 import { TopBar, type NewItem } from "./top-bar";
 import { gearMenu } from "./admin/settings-menu";
 import { draftsByTab } from "@/lib/studio/template-status";
 import { Suspense } from "react";
 import { NavProgress } from "@/components/nav-progress";
-import { readMenuPins } from "@/lib/menu-pins";
 
 // Round 37: staff screens show the C Studio tab icon (client pages keep the Concept icon).
 export const metadata = { icons: STUDIO_ICONS };
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const access = await requireAccess();
-  // Menu badges: quotes and engagement letters sent and waiting for the client's signature.
+  // Top bar counts (UI1, Q8). Sales: website leads still New (phone leads are entered by staff, so they are not counted).
+  // Engagements: engagement letters waiting for the client's signature (studio letters and outside letters).
+  // Quotes: quotes sent and waiting, still valid; shown beside Quotes in the Sales menu. letter_list() checks rights itself.
   const supabase = await createClient();
   const seeDocs = canView(access, "documents");
+  const seeLeads = canView(access, "leads");
   const pricing = canView(access, "pricing");
-  // The Engagements badge (its Letters tab): every letter waiting for a signature (quotes, monthly quotes, new letters).
-  // The gear's count: templates waiting for an owner's approval (Admins only). The three counts load together.
-  const [{ count: leadsNew }, { data: lettersAwaiting }, drafts, { count: bellUnread }, pins] = await Promise.all([
-    canView(access, "leads") ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new") : Promise.resolve({ count: 0 }),
-    seeDocs || canView(access, "leads") ? supabase.rpc("letters_waiting_count") : Promise.resolve({ data: 0 }),
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const letters = () =>
+    supabase.rpc("letter_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]).in("kind", ["letter", "engagement"])
+      .or(`source.eq.outside,valid_until.gte.${today}`);
+  const zero = Promise.resolve({ count: 0 });
+  // The gear's count: templates waiting for an owner's approval (Admins only). The counts load together.
+  const [{ count: leadsNew }, { count: lettersWaiting }, { count: quotesWaiting }, drafts, { count: bellUnread }] = await Promise.all([
+    seeLeads ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new").not("source", "ilike", "phone%") : zero,
+    seeDocs || seeLeads ? letters() : zero,
+    // The same list My day counts (quote_list, all three kinds including monthly quotes), so the two always agree.
+    seeLeads ? supabase.rpc("quote_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]).or(`valid_until.gte.${today},valid_until.is.null`) : zero,
     access.admin && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
     // Round 32: the bell (a client answered questions). Each person sees only their own notices.
     supabase.from("staff_notices").select("id", { count: "exact", head: true }).is("read_at", null),
-    // Round 36b: the person's menu pin (kept across pages and sign-ins).
-    readMenuPins(supabase, access.staff_id),
   ]);
   // The badge is the sum of the counts the gear menu shows, so the two always agree.
   const gear = gearMenu(access, drafts);
@@ -52,33 +62,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const initials = access.full_name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-paper md:flex">
-        <AppSidebar
-          access={{
-            fullName: access.full_name,
-            roleName: access.role_name,
-            admin: access.admin,
-            leads: canView(access, "leads"),
-            clients: canView(access, "clients"),
-            documents: seeDocs,
-            documentsEdit: canEdit(access, "documents"),
-            vault: canView(access, "vault"),
-            pricing,
-            screening: canView(access, "price_book"),
-            templates: canView(access, "engagement_terms"),
-            taxRates: canView(access, "tax_rates"),
-            staff: canView(access, "staff_accounts"),
-            settings: canView(access, "settings"),
-            closebook: canView(access, "closebook"),
-          }}
-          counts={{ quotesAwaiting: 0, lettersAwaiting: (lettersAwaiting as number | null) ?? 0, leadsNew: leadsNew ?? 0 }}
-          menuPinned={pins.menu}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar name={access.full_name} role={access.role_name} initials={initials} clients={canView(access, "clients")} newItems={newItems}
-            gear={gear} drafts={draftTotal} bell={bellUnread ?? 0} signOut={signOut} />
-          <MainArea>{children}</MainArea>
-        </div>
+      {/* UI1: data-ui1 turns on the C3 theme for staff screens only (client pages keep theirs). */}
+      <div data-ui1 className="flex min-h-screen flex-col bg-paper">
+        <SkipLinks />
+        <TopBar name={access.full_name} role={access.role_name} initials={initials} clients={canView(access, "clients")} newItems={newItems}
+          gear={gear} drafts={draftTotal} bell={bellUnread ?? 0} signOut={signOut}
+          nav={{ leads: seeLeads, clients: canView(access, "clients"), closebook: canView(access, "closebook"), engagements: seeDocs || seeLeads, documents: seeDocs || canView(access, "vault") }}
+          counts={{ leadsNew: leadsNew ?? 0, lettersWaiting: lettersWaiting ?? 0, quotesWaiting: quotesWaiting ?? 0 }} />
+        <MainArea>{children}</MainArea>
       </div>
       {/* Round 21: the "Saved" note (bottom-left, Dext) and the "Save your changes?" question, for every page. */}
       <NoteHost />

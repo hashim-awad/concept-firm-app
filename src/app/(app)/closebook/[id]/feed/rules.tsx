@@ -73,7 +73,7 @@ export function RulePane({ initial, id, accounts, chart, codes, defaultTax, test
             <div className="flex items-center gap-3"><button type="button" className="btn-secondary btn-compact" onClick={() => setTested(test(r))}>Test rule</button>
               {tested !== null && <span role="status">{tested} Pending line{tested === 1 ? "" : "s"} match{tested === 1 ? "es" : ""}</span>}</div>
           </div>
-          <div className="grid gap-3 rounded-[10px] border border-sand-200 p-4"><span className="font-semibold">Then assign</span>
+          <div className="grid gap-3 rounded-[var(--radius-ds)] border border-sand-200 p-4"><span className="font-semibold">Then assign</span>
             <label className="grid gap-1">Transaction type
               <select aria-label="Transaction type" value={r.txn_type} onChange={(e) => set({ txn_type: e.target.value, ...(e.target.value === "transfer" ? { chart_account: null, tax_code: null } : { bank_number: null }) })} className={`${FI} w-full`}>
                 {(out ? [["expense", "Expense"], ["transfer", "Transfer"]] : [["deposit", "Deposit"], ["transfer", "Transfer"]]).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
@@ -81,7 +81,7 @@ export function RulePane({ initial, id, accounts, chart, codes, defaultTax, test
             {!transfer && <label className="grid gap-1">Sales tax<TaxSelect codes={codes} value={r.tax_code ?? ""} onChange={(v) => set({ tax_code: v || null })} /></label>}
             <label className="grid gap-1">Memo<input aria-label="Memo" value={r.memo} onChange={(e) => set({ memo: e.target.value })} maxLength={300} className="input" /></label>
           </div>
-          <label className="flex items-center justify-between gap-4 rounded-[10px] border border-sand-200 p-4">
+          <label className="flex items-center justify-between gap-4 rounded-[var(--radius-ds)] border border-sand-200 p-4">
             <span><span className="block font-semibold">Automatically post transactions this rule applies to</span><span className="text-[13px] text-ink-3">Auto-post. Off by default.</span></span>
             <button type="button" role="switch" aria-checked={r.auto_post} aria-label="Auto-post" onClick={() => set({ auto_post: !r.auto_post })}
               className={`relative h-6 w-11 flex-none rounded-full transition-colors ${r.auto_post ? "bg-success" : "bg-sand-300"}`}>
@@ -112,7 +112,7 @@ export function RulesPage({ rules, accounts, chart, codes, editable, onBack, onN
       <div className="flex items-center gap-3"><button type="button" onClick={onBack} className="text-[14px] text-navy-700 underline">‹ Bank transactions</button>
         <h2 className="text-[20px] font-semibold">Rules</h2><span className="flex-1" />{editable && <button type="button" className="btn" onClick={onNew}>New rule</button>}</div>
       <p className="text-[13.5px] text-ink-2">The client&rsquo;s rules, in priority order: the first rule that fits a Pending line fills it. Drag a row to change the order. Rules roll forward to next year&rsquo;s file.</p>
-      <div className="overflow-x-auto rounded-[10px] border border-sand-200 bg-white">
+      <div className="overflow-x-auto rounded-[var(--radius-ds)] border border-sand-200 bg-white">
         <table className="w-full min-w-[980px] text-[13.5px]">
           <thead><tr className="border-b border-sand-200 text-left text-[12px] text-ink-3 uppercase"><th className="px-3 py-2 font-semibold">Priority</th><th className="px-3 py-2 font-semibold">Rule name</th>
             <th className="px-3 py-2 font-semibold">Applied to</th><th className="px-3 py-2 font-semibold">Conditions</th><th className="px-3 py-2 font-semibold">Settings</th>

@@ -39,7 +39,7 @@ export function notesArea({ fileId, notes, steps, names, canReview, canFix, edit
   const content = (
     <>
       <PageTitle>Review notes <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
-      {!shown.length && <p className="rounded-[10px] border border-sand-200 bg-white px-4 py-3 text-[12.5px] text-ink-3">No review notes.</p>}
+      {!shown.length && <p className="rounded-[var(--radius-ds)] border border-sand-200 bg-white px-4 py-3 text-[12.5px] text-ink-3">No review notes.</p>}
       <ul className="grid max-w-4xl gap-2.5">{shown.map((n) => <NoteCard key={n.id} fileId={fileId} n={n} names={names} canReview={canReview} canFix={canFix} editable={editable} back={back} itemLink={link(n)} />)}</ul>
     </>
   );

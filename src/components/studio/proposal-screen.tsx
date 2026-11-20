@@ -147,7 +147,7 @@ export function ProposalScreen({ env, clients, finalRight, handlers, initial, st
   const optionsBody = (
     <div id="p_opts" className="grid gap-4">
       {opts.map((o, i) => (
-        <section key={i} className={"rounded-[var(--radius-ds)] border bg-surface p-4 shadow-[var(--shadow-card)] " + (i === rec && opts.length > 1 ? "border-lime-500 ring-1 ring-lime-500" : "border-sand-200")}>
+        <section key={i} className={"rounded-[var(--radius-ds)] border bg-surface p-4 shadow-[var(--shadow-card)] " + (i === rec && opts.length > 1 ? "border-navy-700 ring-1 ring-navy-700" : "border-sand-200")}>
           <div className="grid items-end gap-3 sm:grid-cols-2">
             <Labelled id={"po_name" + i} label="Option name">
               <TextIn id={"po_name" + i} data-o={i} data-f="name" value={o.name} onValue={(x) => act((c) => c.setOption(i, "name", x))} />

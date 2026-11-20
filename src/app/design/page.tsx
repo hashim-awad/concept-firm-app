@@ -8,7 +8,7 @@ import { ClientShell } from "@/components/ds/client-shell";
 import { ChoiceDemo, FormDemo, OverlayDemo, StepsDemo, TableDemo } from "./demos";
 
 const SECTIONS = [
-  ["brand", "Brand"], ["colour", "Colour"], ["type", "Type"], ["buttons", "Buttons"], ["status", "Status"],
+  ["brand", "Brand"], ["colour", "Colour"], ["staff-theme", "Staff theme"], ["type", "Type"], ["buttons", "Buttons"], ["status", "Status"],
   ["forms", "Forms"], ["feedback", "Feedback"], ["layout", "Layout"], ["tables", "Tables"],
   ["staff-preview", "Draft preview"], ["navigation", "Navigation"], ["client", "Client pages"],
 ] as const;
@@ -17,7 +17,7 @@ const SWATCHES: { name: string; token: string; hex: string; use: string; contras
   { name: "Concept navy", token: "navy-700", hex: "#1A3C7C", use: "Brand, primary buttons, headings", contrast: "White text 10.6:1", dark: true },
   { name: "Navy deep", token: "navy-900", hex: "#0F2350", use: "Sidebar, banners", dark: true },
   { name: "Navy tint", token: "navy-50", hex: "#F2F5FB", use: "Selected rows, info backgrounds" },
-  { name: "Concept green", token: "lime-500", hex: "#86BC28", use: "Accent: active item, highlights, one key action", contrast: "Navy text 4.7:1. Never white text." },
+  { name: "Concept green", token: "lime-500", hex: "#86BC25", use: "Accent: active item, highlights, one key action", contrast: "Navy text 4.7:1. Never white text." },
   { name: "Green tint", token: "lime-50", hex: "#F6FAEC", use: "Soft highlight" },
   { name: "Paper", token: "paper", hex: "#FAF9F6", use: "Page background (warm white)" },
   { name: "Surface", token: "surface", hex: "#FFFFFF", use: "Cards, documents" },
@@ -28,6 +28,21 @@ const SWATCHES: { name: string; token: string; hex: string; use: string; contras
   { name: "Success", token: "success", hex: "#1F7A4A", use: "Signed, saved", dark: true },
   { name: "Warning", token: "warning", hex: "#8A5A00", use: "Expiring, check this", dark: true },
   { name: "Danger", token: "danger", hex: "#B42318", use: "Errors, lost, destructive", dark: true },
+];
+
+// Piece UI1 (Hashim, Nov 20, 2026): the staff screens use the C3 theme (Concept brand guide). Client pages keep the
+// colours above. Contrast is against white unless stated (WCAG AA is 4.5:1 for text, 3:1 for borders and icons).
+const C3: { name: string; hex: string; use: string; contrast: string; dark?: boolean }[] = [
+  { name: "Navy (Blue 6)", hex: "#012169", use: "Top bar, primary buttons, links, focus ring", contrast: "White text 14.8:1", dark: true },
+  { name: "Concept Green", hex: "#86BC25", use: "Active item line on navy, + New. Never text or a line on white", contrast: "Navy text 6.5:1. On white 2.3:1, so not used there" },
+  { name: "Ink", hex: "#1D2125", use: "Main text", contrast: "15.1:1 on page grey", dark: true },
+  { name: "Ink 2", hex: "#53565A", use: "Secondary text", contrast: "7.4:1", dark: true },
+  { name: "Ink 3", hex: "#63666A", use: "Small print, hints", contrast: "5.8:1", dark: true },
+  { name: "Success (Reviewed)", hex: "#046A38", use: "Reviewed, signed, done", contrast: "6.7:1", dark: true },
+  { name: "Info (Prepared)", hex: "#005587", use: "Prepared, in progress", contrast: "7.9:1", dark: true },
+  { name: "Warning (Flagged)", hex: "#8A4B00", use: "Flagged, check this", contrast: "6.8:1; 6.1:1 on its tint", dark: true },
+  { name: "Page grey", hex: "#F6F7F8", use: "Page background", contrast: "" },
+  { name: "Border", hex: "#DCDDDE", use: "Borders, dividers", contrast: "" },
 ];
 
 export default function DesignPage() {
@@ -71,7 +86,18 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section id="type" title="Type" note="One font for the whole app: Plus Jakarta Sans, served from the app itself (no outside font service). Close to Concept Studio's Poppins, with numbers that line up in columns.">
+      <Section id="staff-theme" title="Staff theme (C3)" note="Staff screens only. Font Alexandria (400 to 700) with figures of equal width, square corners, a navy top bar. Red, orange and yellow appear only where they mean something.">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {C3.map((s) => (
+            <div key={s.hex} className="overflow-hidden border border-sand-200 bg-surface">
+              <div className="flex h-16 items-end p-2 font-mono text-[12px]" style={{ background: s.hex, color: s.dark || s.hex === "#012169" ? "#fff" : "#012169" }}>{s.hex}</div>
+              <div className="p-3"><p className="text-sm font-semibold">{s.name}</p><p className="text-[13px] text-ink-2">{s.use}</p>{s.contrast && <p className="mt-1 text-xs text-ink-3">{s.contrast}</p>}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="type" title="Type" note="Client pages: Plus Jakarta Sans. Staff screens (UI1): Alexandria, 400 to 700. Both are served from the app itself (no outside font service), with numbers that line up in columns.">
         <Card>
           <div className="space-y-5">
             {([["Display · 32", type.display, "Personal tax, done properly"], ["Heading 1 · 26", type.h1, "Quotes"], ["Heading 2 · 20", type.h2, "Engagement terms"], ["Heading 3 · 16", type.h3, "Services included"], ["Body · 15", type.body, "We prepare and file your return from the documents you upload. A CPA reviews every return before it is filed."], ["Small · 13", type.small, "Prices are before tax. GST/HST is added based on your province."], ["Caption · 12", type.caption, "Total before tax"]] as const).map(([label, cls, sample]) => (

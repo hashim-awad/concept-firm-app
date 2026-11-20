@@ -26,7 +26,7 @@ function Card({ title, count, children, soon, info, actions }: { title: string; 
         <h2 className="flex flex-1 items-center font-semibold">{title}{info && <InfoTip label={`More about ${title}`}>{info}</InfoTip>}</h2>
         {actions}
         {soon ? <span className="rounded border border-sand-300 px-1.5 py-0.5 text-[11px] font-semibold text-ink-3">Soon</span>
-          : count != null && <span className={`rounded px-2 py-0.5 text-xs font-semibold ${count ? "bg-lime-500 text-navy-900" : "bg-sand-100 text-ink-3"}`}>{count}</span>}
+          : count != null && <span className={`rounded px-2 py-0.5 text-xs font-semibold ${count ? "bg-navy-700 text-white" : "bg-sand-100 text-ink-2"}`}>{count}</span>}
       </div>
       {soon ? <p className="text-sm text-muted">{soon}</p> : children}
     </section>

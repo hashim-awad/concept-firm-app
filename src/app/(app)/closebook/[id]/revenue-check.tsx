@@ -61,7 +61,7 @@ export function RevenueCheck({ fileId, st, sources, editable, canReview, names, 
   const th = "px-2.5 py-1.5 font-semibold";
 
   return (
-    <section id="revenue-check" aria-label="Revenue check" className="mb-3.5 rounded-[10px] border border-sand-200 bg-white">
+    <section id="revenue-check" aria-label="Revenue check" className="mb-3.5 rounded-[var(--radius-ds)] border border-sand-200 bg-white">
       <form id="rev-explain" action={saveRevenueCheck}><input type="hidden" name="file_id" value={fileId} /></form>
       <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5">
         {/* Piece 7: printed like the other schedules. */}

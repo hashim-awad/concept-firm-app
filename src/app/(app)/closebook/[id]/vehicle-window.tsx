@@ -56,7 +56,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
     const used = r.used === kind;
     const avail = kind === "allowance" ? amount !== null : r.actual !== null;
     return (
-      <div className={`grid gap-1 rounded-[10px] border px-4 py-3 ${used ? "border-success bg-success-soft/40" : "border-sand-200"}`} data-box={kind}>
+      <div className={`grid gap-1 rounded-[var(--radius-ds)] border px-4 py-3 ${used ? "border-success bg-success-soft/40" : "border-sand-200"}`} data-box={kind}>
         <span className="text-[12px] font-semibold text-ink-2">{title}</span>
         <span className="text-[20px] font-bold tabular-nums">{amount === null ? <span className="text-[15px] font-semibold text-ink-3">Not entered</span> : formatAmount(amount)}</span>
         <span className="min-h-[20px] text-[12px]">
@@ -71,7 +71,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
   return (
     <div className="fixed inset-0 z-[60] print:hidden" data-vehicle-window>
       <button type="button" aria-label="Close the schedule" onClick={onClose} className="absolute inset-0 block bg-navy-950/35" />
-      <div role="dialog" aria-modal="true" aria-label="Vehicle schedule" className="relative mx-auto mt-[48px] flex max-h-[calc(100vh-72px)] w-[900px] max-w-[96vw] flex-col rounded-[10px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
+      <div role="dialog" aria-modal="true" aria-label="Vehicle schedule" className="relative mx-auto mt-[48px] flex max-h-[calc(100vh-72px)] w-[900px] max-w-[96vw] flex-col rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
         <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3">
           <h2 className="text-[15px] font-bold">Vehicle schedule</h2>
           <span className="text-[12.5px] text-ink-3">Owner&apos;s car · {range}</span>

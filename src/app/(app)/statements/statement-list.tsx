@@ -40,7 +40,7 @@ export function StatementList({ rows, pending, canEdit, busy, onRetry, onRemove,
 }) {
   const total = rows.length + pending.filter((p) => !p.error).length;
   return (
-    <section aria-label="Statements uploaded" className="overflow-hidden rounded-[10px] border border-sand-200 bg-white">
+    <section aria-label="Statements uploaded" className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-4 py-2.5">
         <h3 className="text-[14px] font-semibold text-ink">{plural(total, "statement")} uploaded</h3>
         <span className="flex-1" />

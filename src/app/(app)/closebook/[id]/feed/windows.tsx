@@ -21,7 +21,7 @@ export function Modal({ title, onClose, children, foot, width = 560, label }: { 
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-navy-950/45 px-4 py-8" role="dialog" aria-modal="true" aria-label={label ?? title}>
-      <div className="w-full overflow-hidden rounded-[14px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]" style={{ maxWidth: width }}>
+      <div className="w-full overflow-hidden rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]" style={{ maxWidth: width }}>
         <div className="flex items-center gap-3 border-b border-sand-200 px-6 py-4"><h2 className="text-[18px] font-semibold">{title}</h2><span className="flex-1" />
           <button type="button" aria-label="Close" onClick={onClose} className="grid h-8 w-8 place-items-center rounded hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
         <div className="grid gap-4 px-6 py-5 text-[14px]">{children}</div>
@@ -180,5 +180,5 @@ export function Pop({ anchor, onClose, children, width = 300, align = "left" }: 
   }, [anchor, onClose, width, align]);
   if (!pos) return null;
   return <div ref={ref} style={{ position: "fixed", left: pos.left, top: Math.min(pos.top, window.innerHeight - 40), width }}
-    className="z-[75] grid gap-3 rounded-[10px] border border-sand-200 bg-white p-3.5 text-[13.5px] shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;
+    className="z-[75] grid gap-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white p-3.5 text-[13.5px] shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;
 }

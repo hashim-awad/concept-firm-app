@@ -5,6 +5,7 @@
 // the row it came from.
 import Link from "next/link";
 import type { PostingKind } from "@/lib/closebook/tb-build";
+import { pctShow } from "@/lib/closebook/pct-show";
 import { CLEARING_TOTAL, journal, KIND_LABEL, ledger, NET_INCOME, NI_LAST, netIncomeBox, pctChange, statements, tbByGroup, trialBalance, type StmtGroup, type StmtSection, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import { formatDate } from "@/lib/dates";
@@ -80,7 +81,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
             {link && (t[k] as number) && t.key !== NI_LAST ? <Link href={toLedger(t.key, here() + `#a-${t.key}`)} className="hover:text-navy-700 hover:underline">{money(t[k] as number)}</Link> : money(t[k] as number)}
           </td>
         ))}
-        <td className={`px-2 py-1 text-right whitespace-nowrap tabular-nums ${SHADE} ${bold ? "font-bold" : ""}`}>{pctChange(t.final, t.last)}</td>
+        <td className={`px-2 py-1 text-right whitespace-nowrap tabular-nums ${SHADE} ${bold ? "font-bold" : ""}`}>{pctShow(pctChange(t.final, t.last))}</td>
       </>
     );
     const accountRow = (t: TbLine) => (
@@ -105,7 +106,7 @@ export function ReportView({ fileId, data, p, yearEnd, yearStart, todo = [] }: {
               ...g.rows.map(accountRow),
               <tr key={`t-${g.code}`}><td /><td className="border-t border-ink px-2 py-1 font-bold">{g.total.name}</td>
                 {cols.map(([k]) => <td key={k} className={`border-t border-ink px-2 py-1 text-right whitespace-nowrap tabular-nums font-bold ${k === "diff" ? SHADE : ""}`}>{money(g.total[k] as number)}</td>)}
-                <td className={`border-t border-ink px-2 py-1 text-right font-bold tabular-nums ${SHADE}`}>{pctChange(g.total.final, g.total.last)}</td></tr>,
+                <td className={`border-t border-ink px-2 py-1 text-right font-bold tabular-nums ${SHADE}`}>{pctShow(pctChange(g.total.final, g.total.last))}</td></tr>,
             ])}
             <tr><td /><td className="border-t border-ink px-2 pt-2 pb-1 font-bold">{total.name}</td>
               {cols.map(([k]) => <td key={k} className={`border-t border-ink px-2 pt-2 pb-1 text-right font-bold tabular-nums ${k === "diff" ? SHADE : ""}`}><span className="border-b-[3px] border-double border-ink">{moneyTotal(total[k] as number)}</span></td>)}

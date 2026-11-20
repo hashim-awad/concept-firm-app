@@ -256,7 +256,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
 
         <div className="grid min-w-0 gap-3">
           {/* Accounts found */}
-          <section aria-label="Accounts found" className="overflow-hidden rounded-[10px] border border-sand-200 bg-white">
+          <section aria-label="Accounts found" className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
             <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-4 py-2.5">
               <h2 className="text-[14px] font-semibold">Accounts found in this statement ({data.accounts.length})</h2>
               <span className="flex-1" />
@@ -298,17 +298,17 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
 
           {/* Ready or not */}
           {!imported && (ready
-            ? <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13px] text-success"><b>{closebook ? "Ready to import." : "Ready to download."}</b> Opening plus the lines equals the closing balance{many ? " on every account" : ""}.
+            ? <p className="rounded-[var(--radius-ds)] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13px] text-success"><b>{closebook ? "Ready to import." : "Ready to download."}</b> Opening plus the lines equals the closing balance{many ? " on every account" : ""}.
                 {(() => { const s = [...checks.values()]; const sum = s.every((c) => c.summaryOk.in !== false && c.summaryOk.out !== false) && s.some((c) => c.summaryOk.in !== null || c.summaryOk.out !== null);
                   return <>{sum && " The totals of money in and money out match the statement's totals."}{s.every((c) => !c.runningBreak) && data.accounts.some((a) => a.lines.some((l) => l.balanceCents !== null)) && " The running balance matches on every line."}</>; })()}</p>
-            : <p role="alert" className="rounded-[10px] border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-[13px] text-danger"><b>{closebook ? "Not ready to import." : "Not ready to download."}</b> {problems.join(" ")}</p>)}
+            : <p role="alert" className="rounded-[var(--radius-ds)] border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-[13px] text-danger"><b>{closebook ? "Not ready to import." : "Not ready to download."}</b> {problems.join(" ")}</p>)}
           {warnings.length > 0 && !imported && (
-            <ul className="grid gap-1 rounded-[10px] border border-warning/40 bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+            <ul className="grid gap-1 rounded-[var(--radius-ds)] border border-warning/40 bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
           )}
 
           {acc && <>
           {/* Statement details */}
-          <section aria-label="Statement details" className="rounded-[10px] border border-sand-200 bg-white px-4 py-3">
+          <section aria-label="Statement details" className="rounded-[var(--radius-ds)] border border-sand-200 bg-white px-4 py-3">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <h2 className="text-[14px] font-semibold">{nameOf(acc)}</h2>
               <span className="flex-1" />
@@ -328,7 +328,7 @@ export function Verify({ id, row, initial, fileUrl, file, nav, backHref, canEdit
           </section>
 
           {/* Lines */}
-          <section aria-label="Lines" className="overflow-hidden rounded-[10px] border border-sand-200 bg-white">
+          <section aria-label="Lines" className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
             <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-4 pt-1.5">
               <nav className="flex gap-1" aria-label="Lines">
                 {([["all", `All (${all.length})`], ["review", `For review (${reviewCount})`]] as const).map(([k, l]) => (

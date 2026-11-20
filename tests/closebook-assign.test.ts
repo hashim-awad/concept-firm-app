@@ -90,9 +90,9 @@ test("T1c: the Undo label", () => {
 
 test("T8: module headings on both file types; step names on trial balance files; bank-statement names unchanged", () => {
   assert.deepEqual(stepModules("client_software").map((m) => [m.name, m.steps.join(",")]),
-    [["PLANNING", "setup"], ["TRIAL BALANCE", "opening,records,code"], ["FIELDWORK", "entries,compare,review,t2"], ["COMPLETION", "statements,lock"]]);
+    [["PLANNING", "setup"], ["BOOKS", "opening,records,code"], ["FIELDWORK", "entries,compare,review,t2"], ["COMPLETION", "statements,lock"]]);
   assert.equal(stepModules("statements")[1].name, "BOOKKEEPING");
-  assert.equal(stepModules("concept_qbo")[1].name, "TRIAL BALANCE");
+  assert.equal(stepModules("concept_qbo")[1].name, "BOOKS");
   assert.equal(stepTitle("records", "client_software"), "3. Import trial balance");
   assert.equal(stepTitle("code", "concept_qbo"), "4. Assign mapping");
   assert.equal(stepTitle("records", "statements"), "3. Banking");

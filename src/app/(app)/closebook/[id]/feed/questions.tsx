@@ -49,7 +49,7 @@ function Floating({ rect, width, children, onClose }: { rect: DOMRect; width: nu
     return () => { clearTimeout(id); document.removeEventListener("mousedown", close); window.removeEventListener("keydown", k); };
   }, [onClose]);
   return <div ref={ref} style={{ position: "fixed", left: pos.left, top: pos.top, width }} role={onClose ? "dialog" : "tooltip"}
-    className="z-[75] grid gap-3 rounded-[10px] border border-sand-200 bg-white p-3.5 text-left text-[13.5px] font-normal shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;   // round 36: never the cell's centring
+    className="z-[75] grid gap-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white p-3.5 text-left text-[13.5px] font-normal shadow-[0_12px_32px_rgba(15,35,80,.22)]">{children}</div>;   // round 36: never the cell's centring
 }
 
 // The thread: Q and A in order, the latest open question in bold. Each question says whether it went to the client.

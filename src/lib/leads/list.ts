@@ -21,8 +21,9 @@ export const isPhone = (source: string) => /^phone/i.test(source);
 export function leadStatus(status: string): string {
   return ({ new: "New", quoted: "New", sent: "Quote sent", call_needed: "With Hashim", out_of_scope: "With Hashim", signed: "Signed", lost: "Lost" } as Record<string, string>)[status] ?? status;
 }
+// UI1 colour rule (Q9): green = done, blue = in progress, amber = needs someone's attention, grey = closed.
 export const STATUS_CLASS: Record<string, string> = {
-  New: "bg-navy-50 text-navy-700", "Quote sent": "bg-warning-soft text-warning", "With Hashim": "bg-sand-100 text-ink-2", Signed: "bg-success-soft text-success", Lost: "bg-sand-100 text-ink-3",
+  New: "bg-warning-soft text-warning", "Quote sent": "bg-info-soft text-info", "With Hashim": "bg-warning-soft text-warning", Signed: "bg-success-soft text-success", Lost: "bg-sand-100 text-[#3F4246]",
 };
 
 // The next action and who does it.

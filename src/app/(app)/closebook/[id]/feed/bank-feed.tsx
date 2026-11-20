@@ -404,7 +404,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         <div ref={strip} className="flex flex-1 gap-2.5 overflow-hidden" role="tablist" aria-label="Accounts">
           {cards.map(({ a: x, bank, posted, pending }) => (
             <button key={x.id} type="button" role="tab" aria-selected={x.id === acc} onClick={() => { setAcc(x.id); setTab("pending"); }}
-              className={`w-[23rem] flex-none rounded-[10px] bg-white px-3.5 py-2 text-left ${x.id === acc ? "border-2 border-navy-600 px-[13px] py-[7px]" : "border border-sand-300 hover:border-navy-300"}`}>
+              className={`w-[23rem] flex-none rounded-[var(--radius-ds)] bg-white px-3.5 py-2 text-left ${x.id === acc ? "border-2 border-navy-600 px-[13px] py-[7px]" : "border border-sand-300 hover:border-navy-300"}`}>
               <span className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold" title={x.label}>{x.label}</span>
                 {pending ? <span className="grid h-6 min-w-6 place-items-center rounded-full bg-sand-200 px-1.5 text-[12px] font-bold text-ink-2" aria-label={`${pending} pending`}>{pending}</span>
                   : <span className="grid h-6 w-6 place-items-center rounded-full bg-success text-white" aria-label="None pending"><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>}</span>
@@ -414,7 +414,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
         {arrows && <button type="button" aria-label="More accounts" onClick={() => strip.current?.scrollBy({ left: 320, behavior: "smooth" })} className="grid w-7 place-items-center rounded hover:bg-sand-100"><ChevronRight className="h-5 w-5" /></button>}
       </div>
 
-      <section ref={listRef} className="rounded-[10px] border border-sand-200 bg-white" aria-label="Bank transactions">
+      <section ref={listRef} className="rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Bank transactions">
         {/* 2. Tabs */}
         <div className="flex items-end gap-1 border-b border-sand-200 px-3 print:hidden" role="tablist" aria-label="Pending, Posted, Excluded">
           {([["pending", `Pending (${pendingCount})`], ["posted", "Posted"], ["excluded", "Excluded"]] as const).map(([k, l]) => (
@@ -516,7 +516,7 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
       {/* 5. The black bar */}
       {barOn && (
         <div ref={barRef} role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}
-          className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[10px] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)] print:hidden">
+          className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[var(--radius-ds)] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)] print:hidden">
           <span className="mr-auto font-semibold tabular-nums">{barText(tickedLines.map((l) => ({ cents: l.cents, out: outOf(l) })))}</span>
           {([["Post", () => post([...ticked]), notReady > 0, notReady ? `${notReady} ticked line${notReady === 1 ? " has" : "s have"} no account.` : undefined],
             ["Edit", () => setWin({ k: "edit" }), !(allOut || allIn), allOut || allIn ? undefined : "Tick money in or money out lines, not both."],

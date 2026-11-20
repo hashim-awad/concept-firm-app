@@ -14,7 +14,7 @@ const short = (s: string) => s.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
 export function FileList({ files, names, showPeople, me }: { files: ListedFile[]; names: Map<string, string>; showPeople?: boolean; me?: string }) {
   const rows = [...files].sort((a, b) => fileBy(a.year_end).localeCompare(fileBy(b.year_end)));
   return (
-    <section className="card overflow-x-auto p-0">
+    <section className="card relative overflow-x-auto p-0">
       <table className="table table-compact min-w-[900px]">
         <thead><tr><th>Client</th><th>Year-end</th><th>File by</th>{me && <th>My role</th>}<th>Step</th><th>Next job</th>{showPeople && <th>Preparer / reviewer</th>}</tr></thead>
         <tbody>{rows.map((f) => {

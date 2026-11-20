@@ -6,7 +6,7 @@ export function Menu({ label, children }: { label: string; children: React.React
   return (
     <details className="group relative z-10 open:z-40">
       <summary aria-label={label} className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-md text-ink-2 hover:bg-sand-100 [&::-webkit-details-marker]:hidden"><MoreHorizontal className="h-4 w-4" /></summary>
-      <div className="absolute top-9 right-0 grid min-w-[13rem] rounded-[10px] border border-sand-300 bg-white p-1 text-[13.5px] shadow-lg">{children}</div>
+      <div className="absolute top-9 right-0 grid min-w-[13rem] rounded-[var(--radius-ds)] border border-sand-300 bg-white p-1 text-[13.5px] shadow-lg">{children}</div>
     </details>
   );
 }

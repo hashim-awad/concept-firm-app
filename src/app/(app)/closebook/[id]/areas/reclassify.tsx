@@ -48,7 +48,7 @@ export function ReclassifyPage({ data, initialAccount, back }: { data: Reclassif
   return (
     <div className="grid gap-4 lg:grid-cols-[232px_minmax(0,1fr)]" data-reclassify>
       {/* The accounts, with this year's balance (QuickBooks Online's left panel). */}
-      <aside className="rounded-[10px] border border-sand-200 bg-white p-3" aria-label="Accounts">
+      <aside className="rounded-[var(--radius-ds)] border border-sand-200 bg-white p-3" aria-label="Accounts">
         <label className="grid gap-1 text-[12.5px] text-ink-2">Account types
           <select aria-label="Account types" value={types} onChange={(e) => setTypes(e.target.value as "pl" | "bs")} className={FLD}>
             <option value="pl">Profit and loss</option><option value="bs">Balance sheet</option></select></label>
@@ -69,7 +69,7 @@ export function ReclassifyPage({ data, initialAccount, back }: { data: Reclassif
         </ul>
       </aside>
 
-      <section className="min-w-0 rounded-[10px] border border-sand-200 bg-white">
+      <section className="min-w-0 rounded-[var(--radius-ds)] border border-sand-200 bg-white">
         <div className="flex items-start justify-between gap-4 border-b border-sand-200 px-4 py-3">
           <h2 className="text-[17px] font-semibold">Reclassify transactions</h2>
           {back && <a href={back} className="ml-auto self-center text-[13px] font-semibold text-navy-700 hover:underline" data-rc-cancel>Cancel</a>}

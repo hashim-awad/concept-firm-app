@@ -74,7 +74,7 @@ export function Popover({ button, label, children, align = "left", width = "w-72
 }
 
 // A panel on the right, under the file's header and tabs, opened from an icon or chip in the title row.
-export function Drawer({ button, label, title, children, open: startOpen, top = "top-[146px]" }: { button: ReactNode; label: string; title: ReactNode; children: ReactNode; open?: boolean; top?: string }) {
+export function Drawer({ button, label, title, children, open: startOpen, top = "top-[var(--top,56px)]" }: { button: ReactNode; label: string; title: ReactNode; children: ReactNode; open?: boolean; top?: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -148,22 +148,55 @@ const pinSubs = new Set<() => void>();
 let pinMem: boolean | null = null;
 // Piece R2 (item 1): forceFolded keeps the narrow column on a page that needs the full width (step 4 "Assign mapping" on a trial
 // balance file). The person's saved pin is not changed; the pin button says why it does nothing there (round 36b item 6).
-export function LeftPanel({ children, folded: foldedNode, pinned: saved = true, forceFolded = false }: { children: ReactNode; folded?: ReactNode; pinned?: boolean; forceFolded?: boolean }) {
+// UI1 (D-build, Q-build "auto-fold"): narrowFold folds the panel on a window narrower than 1440 px whatever the pin
+// (steps 4 and 7 need the width for their tables); the person's pin applies again on wider windows. Below 1024 px the
+// panel sits above the page, folded behind one button that names the open step.
+export function LeftPanel({ children, folded: foldedNode, pinned: saved = true, forceFolded = false, narrowFold = false, summary, wide = true }: { children: ReactNode; folded?: ReactNode; pinned?: boolean; forceFolded?: boolean; narrowFold?: boolean; summary?: string; wide?: boolean }) {
   const stored = useSyncExternalStore((cb) => { pinSubs.add(cb); return () => { pinSubs.delete(cb); }; }, () => pinMem ?? saved, () => saved);
-  const pinned = stored && !forceFolded;
+  const narrow = useSyncExternalStore((cb) => { const m = window.matchMedia("(max-width: 1439px)"); m.addEventListener("change", cb); return () => m.removeEventListener("change", cb); },
+    () => window.matchMedia("(max-width: 1439px)").matches, () => true);
+  const held = forceFolded || (narrowFold && narrow);
+  const pinned = stored && !held;
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const toggle = () => {
     pinMem = !pinned; pinSubs.forEach((f) => f());
     void setMenuPin("steps", pinMem).then((r) => { if (!r.ok) notify(r.error, "error"); });
   };
   return (
-    <aside className={`sticky top-[146px] flex h-[calc(100vh-146px)] flex-none print:hidden flex-col border-r border-sand-200 bg-white ${pinned ? "w-[236px]" : "w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
-      <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{pinned ? children : foldedNode ?? null}</div>
-      <div className={`flex border-t border-sand-200 py-2 ${pinned ? "px-1.5" : "justify-center"}`}>
-        {/* On a page that needs the full width (step 4 on a trial balance file) the pin is left out: it would do nothing. */}
-        {forceFolded ? null : <PinButton pin={{ pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
-      </div>
-    </aside>
+    <>
+      {summary && (
+        <button type="button" onClick={() => setPhoneOpen(!phoneOpen)} aria-expanded={phoneOpen} className="flex w-full items-center gap-2 border-b border-sand-200 bg-white px-4 py-2.5 text-left text-[14px] font-semibold lg:hidden" data-step-summary>
+          <span className="min-w-0 flex-1 truncate">{summary}</span><span className="flex items-center gap-1 font-medium text-navy-700">All steps<ChevronDown className={`h-4 w-4 transition-transform ${phoneOpen ? "rotate-180" : ""}`} aria-hidden /></span>
+        </button>
+      )}
+      <aside className={`flex-none flex-col border-sand-200 bg-white print:hidden max-lg:border-b ${summary && !phoneOpen ? "max-lg:hidden" : "max-lg:flex"} lg:sticky lg:top-[var(--top,56px)] lg:flex lg:h-[calc(100vh-var(--top,56px))] lg:border-r ${pinned ? (wide ? "lg:w-[290px]" : "lg:w-[200px]") : "lg:w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
+        {/* One tree for both states (only classes change), so the server's forms stay in place when the width is known. */}
+        <div className="flex-1 overflow-x-hidden overflow-y-auto py-2"><div className={pinned ? "" : "lg:hidden"}>{children}</div><div className={pinned ? "hidden" : "max-lg:hidden"}>{foldedNode ?? null}</div></div>
+        <div className={`flex border-t border-sand-200 py-2 max-lg:hidden ${pinned ? "px-1.5" : "justify-center"}`}>
+          {/* On a page that needs the full width the pin says why it does nothing (round 36b item 6). */}
+          {forceFolded ? null : <PinButton pin={held ? { pinned: false, onToggle: () => {}, locked: "Folded on this step when the window is narrower than 1440 px" } : { pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
+        </div>
+      </aside>
+    </>
   );
+}
+
+// UI1 (closebook specialist item 9): the file header is taller than before and can wrap, so the sticky offsets come from
+// its real height. --top is the bottom of the header (the top bar alone where the header does not stick).
+export function TopSync() {
+  useEffect(() => {
+    const h = document.querySelector<HTMLElement>("[data-fhead]");
+    if (!h) return;
+    const set = () => {
+      const v = getComputedStyle(h).position === "sticky" ? Math.round(h.getBoundingClientRect().height + 56) : 56;
+      for (const el of [document.documentElement, document.body]) el.style.setProperty("--top", `${v}px`);
+    };
+    set();
+    const ro = new ResizeObserver(set); ro.observe(h);
+    window.addEventListener("resize", set);
+    return () => { ro.disconnect(); window.removeEventListener("resize", set); for (const el of [document.documentElement, document.body]) el.style.removeProperty("--top"); };
+  }, []);
+  return null;
 }
 
 // Round 38b (Hashim, Nov 18, 2026; benchmark QuickBooks Online Accountant's "Accountant tools" menu): "Tools ▾" in the
@@ -202,7 +235,7 @@ export function ToolsMenu({ fileId, on, journal }: { fileId: string; on: boolean
       <button ref={btn} type="button" aria-haspopup="menu" aria-expanded={open} aria-current={on ? "page" : undefined}
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); setOpen(true); setTimeout(() => box.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus(), 0); } }}
-        className={`flex items-center gap-1 border-b-2 px-3 text-[13px] font-semibold ${on ? "border-navy-700 text-navy-900" : "border-transparent text-ink-2 hover:text-ink"}`}>
+        className={`flex items-center gap-1 border-b-[3px] px-3.5 py-2 text-[14px] ${on ? "border-navy-700 font-semibold text-navy-700" : "border-transparent font-medium text-ink-2 hover:text-ink"}`}>
         Tools<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
       {open && (
