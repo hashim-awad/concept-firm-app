@@ -11,8 +11,10 @@ export type CheckRow = { label: string; amount?: number; text?: string; total?: 
 export type GifiCheck = { key: string; title: string; ok: boolean; rows: CheckRow[]; result: string };
 
 // The five checks before every export. lastYearRe: last year's closing retained earnings from step 2
-// (null when step 2 has none).
-export function gifiChecks(r: GifiResult, lastYearRe: number | null): GifiCheck[] {
+// (null when step 2 has none). openingRounding (piece S2, Hashim, Nov 20, 2026): what the automatic "Opening balance
+// rounding" entry put into 3660 (retained earnings as the GIFI shows it: statement cents against last year's
+// whole-dollar T2). Check 5 passes when the whole difference is that rounding and it is under 1.00.
+export function gifiChecks(r: GifiResult, lastYearRe: number | null, openingRounding = 0): GifiCheck[] {
   const t = r.totals;
   const out: GifiCheck[] = [];
   const diff = (a: number, b: number) => cents(a - b);
@@ -45,11 +47,20 @@ export function gifiChecks(r: GifiResult, lastYearRe: number | null): GifiCheck[
       { label: "3849 Retained earnings – end", amount: t["3849"] }, { label: "3600 Retained earnings on the balance sheet", amount: onBs }, { label: "Difference", amount: cents(d3 + d4), total: true }],
     result: res(cents(d3 + d4)) });
 
+  // Piece S2 (Hashim, Nov 20, 2026): Difference, less the automatic opening rounding (under 1.00 only), gives Unexplained.
+  // The check passes only when Unexplained is 0.00.
   const d5 = lastYearRe === null ? null : diff(t["3660"], lastYearRe);
-  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: d5 === 0,
+  const rnd = cents(openingRounding);
+  const less = d5 !== null && rnd !== 0 && Math.abs(rnd) < 1;
+  const left = d5 === null ? null : less ? cents(d5 - rnd) : d5;
+  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: left === 0,
     rows: [{ label: "3660 Retained earnings – start", amount: t["3660"] }, lastYearRe === null ? { label: "Last year's closing retained earnings (step 2)", text: "Not in step 2" }
-      : { label: "Last year's closing retained earnings (step 2)", amount: lastYearRe }, ...(d5 === null ? [] : [{ label: "Difference", amount: d5, total: true }])],
-    result: d5 === null ? "Last year's closing retained earnings are not in step 2" : res(d5) });
+      : { label: "Last year's closing retained earnings (step 2)", amount: lastYearRe },
+      ...(d5 === null ? [] : less ? [{ label: "Difference", amount: d5 }, { label: "Less rounding: last year's T2 is in whole dollars", amount: -rnd },
+        { label: "Unexplained", amount: left!, total: true }] : [{ label: "Difference", amount: d5, total: true }])],
+    result: d5 === null ? "Last year's closing retained earnings are not in step 2"
+      : left === 0 ? (less ? `Ties after rounding of ${fmt(rnd)}` : "Ties")
+      : less ? `${fmt(left!)} unexplained` : res(d5) });
   return out;
 }
 

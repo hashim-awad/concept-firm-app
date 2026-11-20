@@ -169,3 +169,32 @@ test("round 10: tie-out: Closebook less ProFile; within $5 is rounding; over it 
   assert.deepEqual(tax3.filter((x) => x.open).map((x) => [x.key, x.diff, x.rounding]), [["tax", -3, false]], "income tax ties to the cent: 3.00 blocks");
   assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1959.99, tax: 800 }, {}, false).find((x) => x.key === "cca")!.open, "CCA ties to the cent");
 });
+
+test("S2: check 5 passes when the whole difference is the automatic opening rounding and under 1.00", () => {
+  const tb = trialBalance();
+  tb.push({ id: "fix", number: "3001", name: "Balancing", line_no: "3500.00", this_year: -1654.27, needs_reviewer: false });
+  const r = gifiCodes(tb, new Map(), byNo);   // 3660 is (80,534.59)
+  const opening = (lastYear: number, rounding: number) => gifiChecks(r, lastYear, rounding).find((x) => x.key === "opening")!;
+  // Last year's T2 (whole dollars) says (80,535.00); the rounding entry put 0.41 into opening retained earnings.
+  const ok = opening(-80535.00, 0.41);
+  assert.equal(ok.ok, true);
+  assert.equal(ok.result, "Ties after rounding of 0.41");
+  assert.deepEqual(ok.rows.map((x) => [x.label, x.amount]), [["3660 Retained earnings – start", -80534.59], ["Last year's closing retained earnings (step 2)", -80535.00],
+    ["Difference", 0.41], ["Less rounding: last year's T2 is in whole dollars", -0.41], ["Unexplained", 0]]);
+  assert.deepEqual(ok.rows.map((x) => x.total ?? false), [false, false, false, false, true]);
+  // Any other difference still fails: a rounding that does not cover the whole difference, one of 1.00 or more, or none.
+  const part = opening(-80535.00, 0.30);
+  assert.equal(part.ok, false);
+  assert.equal(part.rows.at(-1)!.label, "Unexplained");
+  assert.equal(part.rows.at(-1)!.amount, 0.11);
+  assert.equal(part.result, "0.11 unexplained");
+  assert.equal(opening(-80535.00, 1.00).ok, false);
+  assert.equal(opening(-80535.00, 1.00).rows.at(-1)!.label, "Difference");
+  assert.equal(opening(-80535.59, 1.00).ok, false);
+  assert.equal(opening(-80535.00, 0).ok, false);
+  assert.equal(opening(-80535.00, -0.41).ok, false);
+  // No difference and no rounding: passes as before. No difference but a rounding: Unexplained is not 0.00, so it fails.
+  assert.equal(opening(-80534.59, 0).ok, true);
+  assert.equal(opening(-80534.59, 0).result, "Ties");
+  assert.equal(opening(-80534.59, 0.41).ok, false);
+});

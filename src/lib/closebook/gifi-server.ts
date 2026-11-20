@@ -3,10 +3,12 @@ import "server-only";
 // writes, from the final trial balance (after entries) through the step 7 matches.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFile, loadReference } from "./server";
+import { loadRounding } from "./banking-server";
 import { businessNumber, gifiCodes, gifiFile } from "./gifi";
 import { gifiChecks, gifiFileName, taxWorkpaper, tieOut, type ExportKind, type Treatment, type WpAccount } from "./t2";
 import { effectiveLine } from "./matching";
 import { todayToronto } from "@/lib/dates";
+import { fromStatements } from "./steps";
 
 export type GifiExportRow = { id: string; kind: ExportKind; file_name: string; created_by: string | null; created_at: string; fingerprint: string; totals: Record<string, number> };
 
@@ -31,7 +33,15 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   if (lastYearRe === null && data.accounts.some((a) => Number(a.last_year) !== 0)) {
     lastYearRe = gifiCodes(data.accounts.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).totals["3849"];
   }
-  const checks = gifiChecks(result, lastYearRe);
+  // Piece S2 (Hashim, Nov 20, 2026): the automatic "Opening balance rounding" (statement cents against last year's
+  // whole-dollar T2, round 23) posts to opening retained earnings. On the GIFI's 3660 (retained earnings as a credit) an
+  // asset line's rounding (bank, under 2600) adds its cents and a liability line's (cards, overdraft) takes them off.
+  // Check 5 accepts exactly that amount, under 1.00.
+  const fr = data.file as typeof data.file & { opening_source?: string | null; first_year?: boolean | null };
+  // Only bank-statement and paper files post the rounding (tb-build-server), so only they count it here.
+  const rounding = !fromStatements(data.file.books) ? [] : await loadRounding(supabase, { id: fileId, opening_source: fr.opening_source ?? null, first_year: fr.first_year ?? null });
+  const openingRounding = rounding.reduce((n, r) => n + (Number(r.gifi.slice(0, 4)) < 2600 ? r.cents : -r.cents), 0) / 100;
+  const checks = gifiChecks(result, lastYearRe, openingRounding);
   const c = data.client;
   const bn = businessNumber(c?.business_number);
   // Every reason the export is refused, by name: a failed check, or no Business Number.

@@ -1000,6 +1000,18 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece S2: step 8 check 5 and the opening rounding (Hashim, Nov 20, 2026; urgent, it held up a Live GIFI export)
+Status: built, in review. On a bank-statement file the automatic "Opening balance rounding" (statement cents against last
+year's whole-dollar T2, round 23) posts to opening retained earnings, so 3660 differs from last year's 3849 in step 2 by
+those cents and check 5 refused the export.
+- Rule (Hashim, Nov 20, 2026, before merge): the check shows "Difference", then "Less rounding: last year's T2 is in
+  whole dollars" (the rounding, in brackets), then "Unexplained". It passes only when Unexplained is 0.00 and reads
+  "Ties after rounding of n". The rounding is taken off only when it is under 1.00 (kept, item 3). Only bank-statement
+  and paper files count a rounding (fromStatements, as the rest of the app). Any other difference still fails.
+- On 3660 (retained earnings as a credit) an asset line's rounding (bank, GIFI under 2600) adds its cents; a liability
+  line's (cards, overdraft) takes them off.
+- No migration. Files: src/lib/closebook/t2.ts, src/lib/closebook/gifi-server.ts; test tests/closebook-gifi.test.ts.
+
 ## Piece E1: retire entry approval (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud)
 Status: built, PR open. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
 flags changes after review instead of locking. Closebook copies that. One migration.
@@ -1184,6 +1196,13 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   reopens the schedule (drop it on close). Done in the
   build after round 2 (builder check with test-runner's script): focus back to the form's schedule button or "From a
   schedule"; Escape closes an open menu first; the save message names step 5 when a type changes to or from TJE.
+- S2 Lows (accounting-reviewer, Nov 20, 2026): check 5 works the rounding out again from the statements (tieBoxes) instead
+  of reading what tb-build posted. They differ when last year's T2 used summary line 1000 (check fails wrongly), when a
+  bank account sits on a liability line other than 2600 (fails wrongly), and when a statement under 1.00 has no T2 line
+  (tb-build sends it to "Opening balances to enter", so check 5 expects a rounding that was not posted). Better fix: take
+  the amount from the posted rounding rows. A net rounding of 1.00 or more over several T2 lines fails check 5 (rule
+  kept, the safe direction; Hashim, Nov 20, 2026). Done in S2: client_software files never count a rounding
+  (fromStatements); check 5 reads Difference, Less rounding, Unexplained (Hashim).
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)
