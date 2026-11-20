@@ -1195,6 +1195,13 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   reopens the schedule (drop it on close). Done in the
   build after round 2 (builder check with test-runner's script): focus back to the form's schedule button or "From a
   schedule"; Escape closes an open menu first; the save message names step 5 when a type changes to or from TJE.
+- S2 Lows (accounting-reviewer, Nov 20, 2026): check 5 works the rounding out again from the statements (tieBoxes) instead
+  of reading what tb-build posted. They differ when last year's T2 used summary line 1000 (check fails wrongly), when a
+  bank account sits on a liability line other than 2600 (fails wrongly), and when a statement under 1.00 has no T2 line
+  (tb-build sends it to "Opening balances to enter", so check 5 expects a rounding that was not posted). Better fix: take
+  the amount from the posted rounding rows. A net rounding of 1.00 or more over several T2 lines fails check 5 (rule
+  kept, the safe direction). ui-reviewer to decide whether check 5 reads "Difference, less rounding, Unexplained 0.00".
+  Done in S2: client_software files never count a rounding (fromStatements, as page.tsx).
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)

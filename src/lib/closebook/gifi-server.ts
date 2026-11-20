@@ -8,6 +8,7 @@ import { businessNumber, gifiCodes, gifiFile } from "./gifi";
 import { gifiChecks, gifiFileName, taxWorkpaper, tieOut, type ExportKind, type Treatment, type WpAccount } from "./t2";
 import { effectiveLine } from "./matching";
 import { todayToronto } from "@/lib/dates";
+import { fromStatements } from "./steps";
 
 export type GifiExportRow = { id: string; kind: ExportKind; file_name: string; created_by: string | null; created_at: string; fingerprint: string; totals: Record<string, number> };
 
@@ -37,7 +38,8 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   // asset line's rounding (bank, under 2600) adds its cents and a liability line's (cards, overdraft) takes them off.
   // Check 5 accepts exactly that amount, under 1.00.
   const fr = data.file as typeof data.file & { opening_source?: string | null; first_year?: boolean | null };
-  const rounding = await loadRounding(supabase, { id: fileId, opening_source: fr.opening_source ?? null, first_year: fr.first_year ?? null });
+  // Only bank-statement and paper files post the rounding (tb-build-server), so only they count it here.
+  const rounding = !fromStatements(data.file.books) ? [] : await loadRounding(supabase, { id: fileId, opening_source: fr.opening_source ?? null, first_year: fr.first_year ?? null });
   const openingRounding = rounding.reduce((n, r) => n + (Number(r.gifi.slice(0, 4)) < 2600 ? r.cents : -r.cents), 0) / 100;
   const checks = gifiChecks(result, lastYearRe, openingRounding);
   const c = data.client;
