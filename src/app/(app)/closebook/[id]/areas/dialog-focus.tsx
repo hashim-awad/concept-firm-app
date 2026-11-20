@@ -59,8 +59,8 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
         else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => { watch.disconnect(); window.clearTimeout(t); document.removeEventListener("keydown", onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+    document.addEventListener("keydown", onKey, true);   // capture: runs before an open menu closes itself
+    return () => { watch.disconnect(); window.clearTimeout(t); document.removeEventListener("keydown", onKey, true); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [closeHref, router]);
   return <span ref={marker} hidden />;
 }
