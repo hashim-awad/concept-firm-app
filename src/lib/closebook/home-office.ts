@@ -114,8 +114,11 @@ export function calcHome(inp0: HomeInputs, ctx: HomeCtx, names: Record<string, s
 
   // Maths on the totals: the office share on the shared rows, 100% on the office-only row.
   const claim = ctx.regular && inp.itc && !!ctx.factor;
-  const shareExp = claim ? mulDiv(shareNum, sharePaid - shareGst, shareDen) : mulDiv(shareNum, sharePaid, shareDen);
+  // Piece S1 (Hashim, Nov 20, 2026): the business share of the amount paid, rounded, is what is owed; the ITC is the share
+  // of the GST/HST, rounded; the expense is the rest. Rounding the expense and the ITC apart could be a cent off.
+  const shareOwed = mulDiv(shareNum, sharePaid, shareDen);
   const shareItc = claim ? mulDiv(shareNum, shareGst, shareDen) : 0;
+  const shareExp = shareOwed - shareItc;
   const offExp = claim ? off.paid - off.gst : off.paid, offItc = claim ? off.gst : 0;
   const expense = shareExp + offExp, itc = shareItc + offItc;
   const owed = expense + itc;
@@ -147,7 +150,7 @@ export function calcHome(inp0: HomeInputs, ctx: HomeCtx, names: Record<string, s
 
   const f = formatAmount, plus = (a: number, total: number) => (off.paid ? `, plus office only ${f(a)} = ${f(total)}` : "");
   const working = !shareNum ? "" : claim
-    ? `Expense ${sharePct} of ${f(sharePaid - shareGst)} before tax = ${f(shareExp)}${plus(offExp, expense)} · ITC ${sharePct} of ${f(shareGst)} = ${f(shareItc)}${plus(offItc, itc)} · Owed to the owner ${f(owed)}`
+    ? `Owed ${sharePct} of ${f(sharePaid)} = ${f(shareOwed)} · ITC ${sharePct} of ${f(shareGst)} = ${f(shareItc)}${plus(offItc, itc)} · Expense ${f(shareOwed)} less ITC ${f(shareItc)} = ${f(shareExp)}${plus(offExp, expense)} · Owed to the owner ${f(owed)}`
     : `Expense ${sharePct} of ${f(sharePaid)} = ${f(shareExp)}${plus(offExp, expense)} · Owed to the owner ${f(owed)}`;
   const hard = problems.some((p) => p.hard);
   return {

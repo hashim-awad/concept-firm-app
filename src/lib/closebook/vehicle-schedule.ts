@@ -187,8 +187,9 @@ export function calcVehicle(inp: VehicleInputs, ctx: VehicleCtx, names: Record<s
   }
   if (used === "actual" && actual !== null) {
     // The business share of the costs the owner paid.
-    const net = claim ? ownerPaid - ownerGst : ownerPaid;
-    const exp = mulDiv(business, net, total!), itc = claim ? mulDiv(business, ownerGst, total!) : 0;
+    // Piece S1: the business share of what the owner paid, rounded, is owed; the ITC is the share of the GST/HST, rounded;
+    // the expense is the rest (rounding the two apart could be a cent off).
+    const itc = claim ? mulDiv(business, ownerGst, total!) : 0, exp = mulDiv(business, ownerPaid, total!) - itc;
     add({ part: "owner", ...std(EXPENSE_ACCOUNT), amount: exp, memo: `Car costs the owner paid, business share ${sharePct}`, ...(itc && code ? { tax_code: code } : {}) });
     add({ part: "owner_itc", ...std(ITC_ACCOUNT), amount: itc, memo: "ITC on the business share", is_tax: true });
     add({ part: "owner_due", ...std(SHAREHOLDER_ACCOUNT), amount: -(exp + itc), memo: "Car costs the owner paid, business share" });

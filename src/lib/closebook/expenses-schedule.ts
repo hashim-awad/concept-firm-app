@@ -71,7 +71,8 @@ export function calcExpenses(inp: ExpInputs, ctx: ExpCtx): ExpResult {
     if ((paid || l.pctBp !== null) && (pctBp < 100 || pctBp > 10000)) problems.push({ field: `pct:${i}`, text: "Business % must be from 1 to 100.", hard: true });
     // Per line, to cents. Meals: half the GST/HST is the ITC; the rest of the business share is the expense.
     let itc = 0, expense = 0;
-    if (claim && !meals) { itc = mulDiv(pctBp, gst, 10000); expense = mulDiv(pctBp, paid - gst, 10000); }
+    // Piece S1: the share of the amount paid is owed, the ITC is the share of the GST/HST, the expense is the rest.
+    if (claim && !meals) { itc = mulDiv(pctBp, gst, 10000); expense = mulDiv(pctBp, paid, 10000) - itc; }
     else if (claim && meals) { itc = mulDiv(pctBp, gst, 20000); expense = mulDiv(pctBp, paid, 10000) - itc; }
     else expense = mulDiv(pctBp, paid, 10000);
     const part = paid ? `exp_${++n}` : null;

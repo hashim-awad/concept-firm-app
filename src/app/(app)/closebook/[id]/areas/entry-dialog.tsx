@@ -29,6 +29,7 @@ import { loadVehicle } from "@/lib/closebook/vehicle-server";
 import { loadHome } from "@/lib/closebook/home-office-server";
 import { loadExpensesSchedule } from "@/lib/closebook/expenses-schedule-server";
 import { ConfirmDelete } from "../vehicle-window";
+import { DialogFocus } from "./dialog-focus";
 
 const KIND_WORD: Record<string, string> = { AJE: "Adjusting (AJE)", RJE: "Reclassifying (RJE)", TJE: "Tax, from ProFile (TJE)" };
 const money = (n: number) => (Math.abs(n) / 1).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,7 +39,7 @@ function Frame({ closeHref, children, wide = true }: { closeHref: string; childr
   return (
     <div className="fixed inset-0 z-50 print:hidden">
       <Link href={closeHref} aria-label="Close" className="absolute inset-0 block bg-navy-950/35" scroll={false} />
-      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}>{children}</div>
+      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}><DialogFocus closeHref={closeHref} />{children}</div>
     </div>
   );
 }
@@ -77,6 +78,8 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     const no = entryNo(file.year_end, entry).split(" ")[0];
     const locked = file.phase === "locked";
     const canChange = editable && !locked && !entry.reviewed_at;
+    // Piece S1: a saved schedule changes through its window, approved or not; saving takes the approval back.
+    const canSched = entry.origin === "schedule" && editable && !locked && !entry.booked_at;
     const lines = entry.lines;
     const dr = lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
     const accName = (id: string) => { const a = byId.get(id); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : ""; };
@@ -97,6 +100,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} by={entry.booked_by ? names.get(entry.booked_by) ?? "" : ""} editable={editable && !locked} />}
           <span className="flex-1" />
           {canChange && !entry.booked_at && entry.origin !== "expenses_personal" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
+          {canSched && <Link href={`${here}&edit=1&sched=1`} className={act} data-change-schedule>Change schedule</Link>}
           {entry.origin === "schedule" && <a href={pdfHref(entry)} target="_blank" rel="noreferrer" className={act}>Print schedule (PDF)</a>}
           {editable && !locked && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=dup:${entry.id}`} className={act}>Duplicate</Link>}
           {editable && !locked && <Link href={`${closeHref}${closeHref.includes("?") ? "&" : "?"}new=rev:${entry.id}`} className={act}>Reverse</Link>}
@@ -108,7 +112,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
           <div className="grid gap-4 md:grid-cols-[8rem_9rem_12rem_minmax(0,1fr)_12rem]">
             {fieldsRow("No.", <span className="tabular-nums">{no}</span>)}{fieldsRow("Date", formatDate(entry.entry_date ?? file.year_end))}{fieldsRow("Type", KIND_WORD[entry.kind] ?? entry.kind)}
             {fieldsRow("Description", entry.note)}{fieldsRow("W/P ref", entry.origin === "schedule"
-              ? <Link href={canChange ? `${here}&edit=1&sched=1` : pdfHref(entry)} className="font-semibold text-navy-700 underline" data-wp-link>{entry.wp_ref}</Link> : entry.wp_ref || "–")}
+              ? <Link href={canSched ? `${here}&edit=1&sched=1` : pdfHref(entry)} className="font-semibold text-navy-700 underline" data-wp-link>{entry.wp_ref}</Link> : entry.wp_ref || "–")}
           </div>
           <table className="w-full border-collapse text-[13px]">
             <thead><tr className="border-b border-sand-200 text-left text-[11px] font-semibold text-ink-3"><th className="w-8 py-1.5">#</th><th className="py-1.5">Account</th><th className="py-1.5">Description</th>
@@ -116,7 +120,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
             <tbody>{lines.map((l, i) => (
               <tr key={i} className={`border-b border-sand-100 ${l.is_tax ? "text-ink-2" : ""}`}><td className="py-1.5 text-ink-3">{l.is_tax ? "" : i + 1}</td><td className="py-1.5">{accName(l.account_id)}</td>
                 <td className="py-1.5 text-ink-2">{l.memo}</td>
-                {[l.amount > 0, l.amount < 0].map((side, k) => <td key={k} className="py-1.5 text-right tabular-nums">{side && l.schedule_part && (canChange
+                {[l.amount > 0, l.amount < 0].map((side, k) => <td key={k} className="py-1.5 text-right tabular-nums">{side && l.schedule_part && (canSched
                   ? <Link href={`${here}&edit=1&sched=1`} title={`From the ${entry.wp_ref}: change it there`} className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</Link>
                   : <span className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span>)}{side ? money(Math.abs(l.amount)) : ""}</td>)}
                 {form.ctx.registered && <td className="py-1.5 pl-4 text-ink-2">{l.is_tax ? "" : l.tax_code ? form.codes.find((c) => c.code === l.tax_code)?.name ?? l.tax_code : "No tax"}</td>}</tr>
@@ -156,11 +160,13 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   let title = "New journal entry", origin: string | undefined, edit: string | undefined, lock = {};
   let kept: string[] = [];
   if (sp.open && entry && sp.edit) {
-    if (entry.reviewed_at) return null;
+    if (entry.reviewed_at && !(entry.origin === "schedule" && sp.sched === "1")) return null;
+    // Piece S1: a booked entry opens nowhere for changes (the database refuses them too); unmark it first.
+    if (entry.booked_at) return null;
     title = `Edit journal entry ${entryNo(file.year_end, entry).split(" ")[0]}`;
     edit = entry.id; kept = entry.attachments ?? [];
     origin = entry.origin === "revenue_check" ? "revenue_check" : undefined;
-    if (entry.origin === "schedule") lock = { kind: true };
+    if (entry.origin === "schedule") lock = entry.reviewed_at ? { kind: true, wp: true, head: true } : { kind: true };
     if (origin) lock = { kind: true, wp: true };
     init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
   } else if (sp.new?.startsWith("std:")) {
@@ -206,7 +212,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   const expenses = offer && (!schedKind || schedKind === "expenses") ? await loadExpensesSchedule(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
-      <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
+      <JournalForm {...formProps} approved={!!(schedEntry && schedEntry.reviewed_at)} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
         vehicle={vehicle} home={home} expenses={expenses} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
   );

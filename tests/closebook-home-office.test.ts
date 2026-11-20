@@ -22,7 +22,7 @@ test("T1: 10.00%, GST/HST fills itself on electricity and heat", () => {
   assert.deepEqual(entry(r), ["Dr 65100 1310.00", "Dr 21500 28.60", "Cr 23000 1338.60"]);
   assert.equal(r.lines[0].tax_code, "HST_ON");
   assert.equal(r.lines[1].is_tax, true);
-  assert.equal(r.working, "Expense 10.00% of 13,100.00 before tax = 1,310.00 · ITC 10.00% of 286.00 = 28.60 · Owed to the owner 1,338.60");
+  assert.equal(r.working, "Owed 10.00% of 13,386.00 = 1,338.60 · ITC 10.00% of 286.00 = 28.60 · Expense 1,338.60 less ITC 28.60 = 1,310.00 · Owed to the owner 1,338.60");
   assert.ok(r.ready);
   // Rows with nothing typed read "none" (no GST/HST) or are empty (filled rows with no amount, and Other).
   assert.deepEqual(r.rows.filter((x) => !x.paid).map((x) => [x.key, x.gstText]), [["rent", "none"], ["repairs", ""], ["office_repairs", ""], ["condo_fees", "none"],
@@ -92,17 +92,18 @@ test("P4c-T1: mock H, the twelve rows in the form's order", () => {
   assert.equal(r.totalBusiness, 212800);
   assert.deepEqual([r.expense, r.itc, r.owed], [205000, 7800, 212800]);
   assert.deepEqual(entry(r), ["Dr 65100 2050.00", "Dr 21500 78.00", "Cr 23000 2128.00"]);
-  assert.equal(r.working, "Expense 10.00% of 18,500.00 before tax = 1,850.00, plus office only 200.00 = 2,050.00 · ITC 10.00% of 520.00 = 52.00, plus office only 26.00 = 78.00 · Owed to the owner 2,128.00");
+  assert.equal(r.working, "Owed 10.00% of 19,020.00 = 1,902.00 · ITC 10.00% of 520.00 = 52.00, plus office only 26.00 = 78.00 · Expense 1,902.00 less ITC 52.00 = 1,850.00, plus office only 200.00 = 2,050.00 · Owed to the owner 2,128.00");
 });
 
 test("P4c-T2: rounding on the largest row, and four decimals", () => {
   const r = calcHome(inp({ homeSqft: 1300, officeSqft: 200, costs: { utilities: { paid: 180000, gst: null }, property_tax: { paid: 350000, gst: null }, mortgage_interest: { paid: 999999, gst: null } } }), ON);
   assert.equal(r.sharePct, "15.3846%");
   assert.equal(r.rows.find((x) => x.key === "utilities")!.gst, 20708);
-  assert.deepEqual([r.expense, r.itc, r.owed], [232199, 3186, 235385]);
-  assert.deepEqual(r.rows.filter((x) => x.paid).map((x) => [x.key, x.business]), [["mortgage_interest", 153847], ["property_tax", 53846], ["utilities", 27692]]);
-  assert.equal(r.totalBusiness, 235385);
-  assert.match(r.working, /^Expense 15\.3846% of 15,092\.91 before tax = 2,321\.99 · ITC 15\.3846% of 207\.08 = 31\.86 · Owed to the owner 2,353\.85$/);
+  // Piece S1 (approved rule): owed = share of 15,299.99 = 2,353.84 (it was 2,353.85, a cent over); ITC 31.86; expense the rest.
+  assert.deepEqual([r.expense, r.itc, r.owed], [232198, 3186, 235384]);
+  assert.deepEqual(r.rows.filter((x) => x.paid).map((x) => [x.key, x.business]), [["mortgage_interest", 153846], ["property_tax", 53846], ["utilities", 27692]]);
+  assert.equal(r.totalBusiness, 235384);
+  assert.match(r.working, /^Owed 15\.3846% of 15,299\.99 = 2,353\.84 · ITC 15\.3846% of 207\.08 = 31\.86 · Expense 2,353\.84 less ITC 31\.86 = 2,321\.98 · Owed to the owner 2,353\.84$/);
 });
 
 test("P4c-T3: Alberta, home internet and phone fills 50.00, GST code", () => {
@@ -152,4 +153,15 @@ test("History wording, and the window's values read safely", () => {
     { what: "Office area (sq ft)", old: "200", new: "250" }, { what: "Electricity and heat, GST/HST", old: "as filled", new: "150.00" }]);
   assert.deepEqual(readHomeInputs({ mode: "pct", pctBp: 1250, costs: { heat: { paid: 100, gst: -1 }, bogus: { paid: 5 } }, itc: false }),
     { mode: "pct", homeSqft: null, officeSqft: null, pctBp: 1250, costs: { heat: { paid: 100, gst: null } }, itc: false, paidTo: null });
+});
+
+test("S1: 12.50% of 1,300.00 is 162.50, not 162.51 (Hashim, Nov 20, 2026)", () => {
+  // Office 250 of 2,000 sq ft; electricity and heat 1,300.00 with HST in it (13/113 = 149.56).
+  const r = calcHome(inp({ homeSqft: 2000, officeSqft: 250, costs: { utilities: { paid: 130000, gst: null } } }), ON);
+  assert.equal(r.sharePct, "12.50%");
+  assert.equal(r.rows.find((x) => x.key === "utilities")!.gst, 14956);
+  // Owed: 12.50% of 1,300.00 = 162.50. ITC: 12.50% of 149.56 = 18.695, 18.70. Expense: 162.50 - 18.70 = 143.80.
+  assert.deepEqual([r.expense, r.itc, r.owed], [14380, 1870, 16250]);
+  assert.deepEqual(entry(r), ["Dr 65100 143.80", "Dr 21500 18.70", "Cr 23000 162.50"]);
+  assert.equal(r.rows.find((x) => x.key === "utilities")!.business, 16250);
 });
