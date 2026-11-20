@@ -1000,6 +1000,18 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece S1: change a saved schedule (Hashim, Nov 20, 2026; bug found on a Live file)
+Status: built, in review. A schedule entry could not be reopened once the reviewer had approved it: the Schedules table
+row had no link to the schedule, Open showed the entry, and the W/P ref and Print schedule only printed. The database
+refused every change to an approved entry.
+- The schedule name in the Schedules table and a new "Change schedule" button in the entry window open the schedule
+  window with its saved inputs, approved or not, while the file is open (not locked, not booked).
+- Saving updates the same entry and number. If the entry was approved, the approval is taken back (needs review again)
+  and History says "Entry n: approval taken back because its schedule changed". The step 5 sign-offs are taken back by
+  the existing entry rules. Every other change, and deleting, an approved entry is still refused.
+- Vehicle, Home office and Expenses paid personally (all three schedule kinds). One migration (cb_edit_entry).
+- Tests: supabase/tests/change_schedule_piece_s1_test.sql (12 checks).
+
 ## Piece UI1: the C3 theme (Hashim, Nov 19, 2026)
 Hashim proposed theme C3 (top navy bar, Closebook module bar, sign-offs beside the step title, file areas in the client header, square corners, Concept brand colours and Alexandria). ui-reviewer judged it against CaseWare Cloud, Xero, QuickBooks Online, WCAG 2.2 AA and the screen standard. Hashim chose every Recommended option (D1 to D10 A) and all the fixes. Brand values confirmed by Hashim: brand green #86BC25 (Pantone 368; #C4D600 is Green 2, a supporting shade), navy #012169 (Pantone 280), font Alexandria, red #DA291C, orange #ED8B00 and yellow #FFCD00 only where they mean something. Status: built and merged Nov 20, 2026 (PR #109, e5b3ead on main). Mocks approved by Hashim Nov 19, 2026 (M1 A, with P1 A, P2 A and F1 A). Mocks: 25 screenshots at 1280, 1920, 1024 and phone, plus the D9 font sample, checked by ui-reviewer over four rounds.
 

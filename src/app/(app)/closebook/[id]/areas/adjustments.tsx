@@ -55,10 +55,14 @@ export async function adjustmentsTop({ supabase, file, entries, papers, base, ed
               </tr>
             ))}
             {made.map(({ s, e }) => {
-              const href = `${base}&open=${e!.id}${open && !e!.reviewed_at ? "&edit=1&sched=1" : ""}`;
+              // Piece S1: the schedule's name opens its window with the saved inputs (approved or not, while the file is open);
+              // Open shows the entry.
+              const href = `${base}&open=${e!.id}`;
+              const schedHref = `${base}&open=${e!.id}&edit=1&sched=1`;
+              const label = SCHED_LABEL[s.kind] ?? s.kind;
               return (
                 <tr key={e!.id} className="border-b border-sand-100 last:border-0" data-schedule-row>
-                  <td className={cell}>{SCHED_LABEL[s.kind] ?? s.kind}</td><td className={cell}>Done</td>
+                  <td className={cell}>{open && !e!.booked_at ? <Link href={schedHref} scroll={false} className="font-medium text-navy-700 underline" aria-label={`Change the ${label} schedule`} data-schedule-name>{label}</Link> : label}</td><td className={cell}>Done</td>
                   <td className={`${cell} text-right tabular-nums`}>{formatAmount(amountOf(e!.lines))}</td>
                   <td className={`${cell} tabular-nums`}>{e!.kind} {entryNo(file.year_end, e!).split(" ")[0]}</td>
                   <td className={cell}><Link href={href} scroll={false} className="font-medium text-navy-700 underline">Open</Link></td>
