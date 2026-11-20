@@ -3,6 +3,7 @@ import "server-only";
 // writes, from the final trial balance (after entries) through the step 7 matches.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadFile, loadReference } from "./server";
+import { loadRounding } from "./banking-server";
 import { businessNumber, gifiCodes, gifiFile } from "./gifi";
 import { gifiChecks, gifiFileName, taxWorkpaper, tieOut, type ExportKind, type Treatment, type WpAccount } from "./t2";
 import { effectiveLine } from "./matching";
@@ -31,7 +32,12 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   if (lastYearRe === null && data.accounts.some((a) => Number(a.last_year) !== 0)) {
     lastYearRe = gifiCodes(data.accounts.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).totals["3849"];
   }
-  const checks = gifiChecks(result, lastYearRe);
+  // Piece S2 (Hashim, Nov 20, 2026): the automatic "Opening balance rounding" (bank cents against last year's whole-dollar
+  // T2, round 23) posts -(books - T2) to opening retained earnings; check 5 accepts exactly that, under 1.00.
+  const fr = data.file as typeof data.file & { opening_source?: string | null; first_year?: boolean | null };
+  const rounding = await loadRounding(supabase, { id: fileId, opening_source: fr.opening_source ?? null, first_year: fr.first_year ?? null });
+  const openingRounding = -rounding.reduce((n, r) => n + r.cents, 0) / 100;
+  const checks = gifiChecks(result, lastYearRe, openingRounding);
   const c = data.client;
   const bn = businessNumber(c?.business_number);
   // Every reason the export is refused, by name: a failed check, or no Business Number.

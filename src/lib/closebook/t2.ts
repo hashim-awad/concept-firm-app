@@ -11,8 +11,10 @@ export type CheckRow = { label: string; amount?: number; text?: string; total?: 
 export type GifiCheck = { key: string; title: string; ok: boolean; rows: CheckRow[]; result: string };
 
 // The five checks before every export. lastYearRe: last year's closing retained earnings from step 2
-// (null when step 2 has none).
-export function gifiChecks(r: GifiResult, lastYearRe: number | null): GifiCheck[] {
+// (null when step 2 has none). openingRounding (piece S2, Hashim, Nov 20, 2026): what the automatic "Opening balance
+// rounding" entry put into opening retained earnings, debit positive like the GIFI totals (bank cents against last
+// year's whole-dollar T2). Check 5 passes when the whole difference is that rounding and it is under 1.00.
+export function gifiChecks(r: GifiResult, lastYearRe: number | null, openingRounding = 0): GifiCheck[] {
   const t = r.totals;
   const out: GifiCheck[] = [];
   const diff = (a: number, b: number) => cents(a - b);
@@ -46,10 +48,14 @@ export function gifiChecks(r: GifiResult, lastYearRe: number | null): GifiCheck[
     result: res(cents(d3 + d4)) });
 
   const d5 = lastYearRe === null ? null : diff(t["3660"], lastYearRe);
-  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: d5 === 0,
+  const rnd = cents(openingRounding);
+  const byRounding = d5 !== null && d5 !== 0 && rnd !== 0 && d5 === rnd && Math.abs(d5) < 1;
+  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: d5 === 0 || byRounding,
     rows: [{ label: "3660 Retained earnings – start", amount: t["3660"] }, lastYearRe === null ? { label: "Last year's closing retained earnings (step 2)", text: "Not in step 2" }
-      : { label: "Last year's closing retained earnings (step 2)", amount: lastYearRe }, ...(d5 === null ? [] : [{ label: "Difference", amount: d5, total: true }])],
-    result: d5 === null ? "Last year's closing retained earnings are not in step 2" : res(d5) });
+      : { label: "Last year's closing retained earnings (step 2)", amount: lastYearRe },
+      ...(d5 !== null && rnd !== 0 ? [{ label: "Rounding: last year's T2 is in whole dollars", amount: rnd }] : []),
+      ...(d5 === null ? [] : [{ label: "Difference", amount: d5, total: true }])],
+    result: d5 === null ? "Last year's closing retained earnings are not in step 2" : byRounding ? `Ties after rounding of ${fmt(rnd)}` : res(d5) });
   return out;
 }
 
