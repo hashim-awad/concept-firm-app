@@ -1001,7 +1001,7 @@ In short:
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
 ## Piece E1: retire entry approval (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud)
-Status: built, in review. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
+Status: built, PR open. CaseWare signs off the Adjustments page as a whole (Preparer, Reviewer), not each entry, and
 flags changes after review instead of locking. Closebook copies that. One migration.
 
 What it does:
@@ -1179,6 +1179,9 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   TJE booked after step 8, another reviewer signing step 5 while entries wait, and the take-back-and-re-prepare path;
   Hashim to confirm: booking may come before step 7 is reviewed (E1-Q1 A); step 5 Reviewed may be signed by anyone with
   Review who did not prepare step 5 (R3a-2's team model narrows it).
+- E1 round 2 Lows: test E1-4b counts line rows for the whole file (count the deleted entry's rows, expect 3). Done in the
+  build after round 2 (builder check with test-runner's script): focus back to the form's schedule button or "From a
+  schedule"; Escape closes an open menu first; the save message names step 5 when a type changes to or from TJE.
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)

@@ -498,3 +498,167 @@ CHECKED:
 - Browser flow, staff and owner, T1 to T15: 13 PASS each. T6 staff is a harness expectation, not a defect. T12 FAIL on both, reproduced twice (finding 1). The first pass's harness selector failures were rerun clean.
 - Entry window Escape from the list: focus returns to the list link, PASS ×2.
 - Booked-entry UI and "Saved amount" amber: not run in the browser (no booked or changed dummy data; data left as is). Covered at DB level by E1-2 and E1-5.
+
+---
+
+## 7. accounting-reviewer
+
+Round 2 accounting review of piece E1 (claude/e1 at 738b8ca, fix diff 9972928..738b8ca). I changed no code. I ran the E1 test against a throwaway database on 127.0.0.1:54322, using the same steps as run_local.sh: shim, all migrations, helpers, then the test. All 18 checks passed and the script exited 0. I then dropped the database and removed the temporary worktree.
+
+**Round 1 findings against the fix**
+1. **Delete trail: fixed.** cb_delete_entry now locks the file row (`for update`) before the lock and booked checks. It then writes one 'entry_deleted' row and one 'entry_deleted_line' row per line. I read the History rows the test produced for E1-4b:
+   - Entry row: "Entry 2026-002 AJE deleted (AJE, Aug 31, 2026): Taxed", with "W/P ref Invoice; total 113.00"
+   - 65100 Office expenses Dr 100.00 HST_ON
+   - 21500 GST/HST payable Dr 13.00
+   - 23000 Due to shareholder 1 Cr 113.00
+   - Recompute: debits 100.00 + 13.00 = 113.00 = credits 113.00. Tax 113.00 x 13/113 = 13.00, which ties to the 21500 line. The total is the sum of the debits, 113.00, which is correct.
+   - The E1-1 delete also traces correctly: 65100 Dr 20.00 / 23000 Cr 20.00, total 20.00.
+2. **Save message: fixed for the normal case.** The message only appears when the step had a sign-off before the change. Step 8 is named for a TJE, step 5 otherwise. One edge case is wrong (Found 1).
+3. **BRIEF: fixed.** D1 to D8 are recorded. Item 5 adds "TJE once step 8 is reviewed". Item 7 now says no Live data change (D4 A).
+4. **Wording: fixed.** Settings and the step 7 note both say "entries changed after they were made".
+5. **Step 5 coverage: fixed.** v_look and the step5_covered row filter `kind <> 'TJE'`. The row adds "; n TJE under step 8" when there are TJEs. The test output was "Step 5 Reviewed covers 1 AJE and RJE entry, debits 550.00; 1 to look at".
+6. **New test: present and passing.** E1-2 unmarks the entry, edits it, and then booking is refused with "Sign step 5 Reviewed first...".
+
+**Found**
+1. **Low: wrong step in the save message when an AJE or RJE is changed into a TJE.**
+   - Where: src/app/(app)/closebook/actions.ts, lines 225 to 228 and the message at line 244.
+   - What is wrong: `signStep` comes from the new type (`form.head.kind`). But the database (private cb_changed, "A change of type to or from TJE is an AJE change") takes back the step 5 sign-offs on that change, not step 8. The message would say "Step 8's sign-offs were taken back" while step 5 lost its sign-offs.
+   - Why it matters: no figures are affected. The preparer is told to re-sign the wrong step, and booking stays blocked until step 5 is re-signed.
+   - Fix: pick the step from the old type, or say step 5 whenever either the old or new type is not a TJE.
+   - Benchmark: the item 2 requirement that the message names the step whose sign-offs were taken back.
+2. **Low: E1-4b check is weak.**
+   - Where: supabase/tests/retire_entry_approval_piece_e1_test.sql, E1-4b.
+   - What is wrong: `count(*) >= 3` counts line rows for the whole file. The 2 line rows from the earlier E1-1 delete are counted too, so the check would pass even if the taxed delete wrote fewer than 3 line rows. The 21500 Dr 13.00 check does hold, and I confirmed directly that all 3 rows exist.
+   - Why it matters: a later change that drops the non-tax lines from the trail would not be caught.
+   - Fix: filter on the deleted entry's description, or count exactly 3 rows tied to that entry. This can go on the clean-up list.
+   - Benchmark: CPA Ontario working paper retention (a complete audit trail).
+
+No finding blocks the PR.
+
+AGENT: accounting-reviewer
+PIECE: E1 round 2 (claude/e1 738b8ca; supabase/tests/retire_entry_approval_piece_e1_test.sql on a fresh DB)
+RESULT: PASS
+FOUND:
+1. src/app/(app)/closebook/actions.ts lines 225-228 and 244: the save message picks the step from the new entry type. When an AJE or RJE is changed into a TJE, the database takes back the step 5 sign-offs, but the message says step 8. This misleads the preparer about which step to re-sign; no figures are affected. Fix: choose the step from the old type, or say step 5 whenever either type is not a TJE. Benchmark: round 1 item 2 (the message names the step taken back), and the private cb_changed rule "type change to or from TJE is an AJE change".
+2. supabase/tests/retire_entry_approval_piece_e1_test.sql, E1-4b: `count(*) >= 3` counts the whole file and includes the 2 line rows from E1-1, so it would not catch missing non-tax lines. Fix: limit the count to the deleted entry (its description) and expect exactly 3. Clean-up list. Benchmark: a complete audit trail of what was deleted (CPA Ontario working paper standards).
+CHECKED:
+- Test run, fresh DB (shim, all migrations, helpers, E1 test): 18 of 18 PASS, exit 0
+- E1-4b deleted entry balances: Dr 100.00 + Dr 13.00 = Cr 113.00: PASS
+- Tax factor: 113.00 x 13/113 = 13.00 = 21500 line (Ontario test data): PASS
+- Delete History has one row per line, sales tax line included, with account, Dr/Cr, amount and tax code: PASS
+- Delete entry row has description, W/P ref and total (113.00 and 20.00, each the sum of its debits): PASS
+- Delete locks the file row before the lock and booked checks: PASS
+- Save message only when sign-offs existed; step 8 for a TJE: PASS, with Found 1 for a type change
+- BRIEF Piece E1: D1-D8, item 5 TJE step 8, item 7 no Live data change: PASS
+- Settings and step 7 wording "changed after they were made": PASS
+- step5_covered and v_look count AJE/RJE only and name TJEs under step 8: PASS
+- E1-2 booking waits for step 5 again after a change: PASS
+- Trial balance, GST/HST line 106, GIFI, 3720, ASPE/CSRS 4200: not touched by this fix round, not applicable
+
+---
+
+## 8. test-runner
+
+Fix-round run for piece E1 on branch claude/e1. Everything passes except T12: after Escape on a schedule window, focus lands on the entry window's heading instead of the control that opened the schedule. Result is FAIL.
+
+The branch tip is now 021de2f, not 738b8ca. The only change between the two is docs/reviews/E1-reports.md, so the app code and tests I ran are exactly 738b8ca. Local Postgres at 127.0.0.1:54322 was already up. As Hashim's rule says, I ran only the named test files, not the full suite, parity or screens.
+
+**Database files** (each on a fresh throwaway database, one at a time, runner at /tmp/claude-0/-home-user-concept-firm-app/712d69b6-9ad0-564e-bb71-26cec3677cdc/scratchpad/run_one.sh):
+
+| File | Round 1 (848de26) | Now (738b8ca) |
+|---|---|---|
+| retire_entry_approval_piece_e1_test.sql | 16 PASS | 18 PASS |
+| change_schedule_piece_s1_test.sql | 9 | 9 |
+| closebook_mapping_test.sql | 32 | 32 |
+| edit_entry_piece2_test.sql | stopped at check 20 with "FAIL: 2b: a new entry that took a deleted entry's number shows no "Last changed" line" (19 passed before it) | 27 PASS, file finishes |
+| assign_mapping_piece_r2_test.sql | 95 | 95 |
+| closebook_entry_dialog_test.sql | 14 | 14 |
+
+- **retire_entry_approval:** the 2 new checks are "E1-2: after a change, booking waits for step 5 again" and "E1-4b: the deleted entry's lines are all in History, tax line included". Two existing checks were made stricter: E1-1 now requires the reason ": Small fix" and "total 20.00" in History, and E1-3 now requires the wording "1 AJE and RJE entry". No check was removed.
+- **edit_entry:** the test file did not change. The cb_delete_entry fix in the migration is what clears the round-1 failure. No other changed test files.
+
+**App flow T12** (app at http://localhost:3301, build khl-HLF5aw2xOIz_Nla_K confirmed from .next/BUILD_ID and the served page; dummy file 4e66d72a-…, dummy Vehicle entry c01744dd-…):
+
+| Check | Expected | Actual | Result |
+|---|---|---|---|
+| T12-A: focus "Change schedule" link in the entry view, Enter, then Escape on the Vehicle schedule | Schedule closes, focus goes to the control that opened it | Schedule closes. Focus is on the H2 "Edit journal entry 2026-003" | FAIL |
+| T12-A second Escape | Entry window closes | Window closes, URL back to area=entries | PASS |
+| T12-B: New journal entry, "From a schedule" button, Enter, menu item "Vehicle (owner's car)", Enter, then Escape | Focus goes back to "From a schedule" | Focus is on the H2 "New journal entry"; "From a schedule" is still on the page | FAIL |
+| T12 focus stays inside the top window (Tab trap) | Yes | Yes | PASS |
+
+Both paths gave the same result in two runs each, and focus did not move when checked at 300 ms, 1.5 s and 4 s after Escape. It was real keyboard input (focus, then Enter, then Escape), so this is not a selector or timing problem in the test harness. Scripts: esc.mjs (unchanged) and esc3.mjs (new, adds the delayed checks), both in /tmp/claude-0/-home-user-concept-firm-app/712d69b6-9ad0-564e-bb71-26cec3677cdc/scratchpad/. Output is in /tmp/claude-0/-home-user-concept-firm-app/712d69b6-9ad0-564e-bb71-26cec3677cdc/scratchpad/fr2/.
+
+Not tested: in path A, the URL still had sched=1 at least 800 ms after the first Escape (esc.mjs output; esc3.mjs did not print the URL after Escape). If it stays, a reload may reopen the schedule.
+
+AGENT: test-runner
+PIECE: E1 fix round, claude/e1 at 738b8ca (tip 021de2f, docs-only change after it): 6 named database test files, npm test, npx tsc --noEmit, npm run lint, T12 via esc.mjs and esc3.mjs on http://localhost:3301 build khl-HLF5aw2xOIz_Nla_K
+RESULT: FAIL
+FOUND:
+1. Where: /home/user/concept-firm-app/src/app/(app)/closebook/[id]/areas/dialog-focus.tsx lines 24-34 (MutationObserver opener stack); screen: entry window, after Escape on the Vehicle schedule. What is wrong: when the schedule window closes, focus falls back to the entry window's H2 heading, not the control that opened it, in both paths. Path A: the "Change schedule" link navigates to &edit=1&sched=1, so the edit form replaces the view and the link no longer exists. Path B: the opener saved is the menu item "Vehicle (owner's car)", or nothing, and the menu is gone by the time the schedule closes; the "From a schedule" button is still on the page but does not get focus. Why it matters: T12 asks for focus to return to the control that opened the window. The round-1 ui-reviewer finding is not closed, and keyboard users lose their place in the form. Fix (for the builder): in path B, save the "From a schedule" menu button (the menu's trigger) as the opener, not whatever has focus when the schedule window appears. In path A, mark the schedule control in the edit form (the "Vehicle schedule" button) and focus it before falling back to the H2. Benchmark: WCAG 2.2 SC 2.4.3 Focus Order and the WAI-ARIA Authoring Practices modal dialog pattern (on close, focus returns to the element that opened the dialog); the file's own header comment and the E1 ui-reviewer finding.
+CHECKED:
+- DB up (127.0.0.1:54322, PostgreSQL 17.11): yes, no restart needed
+- retire_entry_approval_piece_e1_test.sql: PASS 18/18 (was 16; 2 new checks, 2 made stricter, none removed)
+- change_schedule_piece_s1_test.sql: PASS 9/9 (no change)
+- closebook_mapping_test.sql: PASS 32/32 (no change)
+- edit_entry_piece2_test.sql: PASS 27/27 (round 1 stopped at check "2b" after 19 passes; now fixed)
+- assign_mapping_piece_r2_test.sql: PASS 95/95 (no change)
+- closebook_entry_dialog_test.sql: PASS 14/14 (no change)
+- npm test: PASS 596/596, 0 failures
+- npx tsc --noEmit: PASS, exit 0
+- npm run lint: exit 1 from the 2 known errors in tests/import.test.ts lines 47 and 74; 5 warnings, none in any changed file; the 2 round-1 warnings in entries-area.tsx are gone
+- T12-A Escape on schedule opened by "Change schedule": FAIL (focus goes to the H2 "Edit journal entry 2026-003"), 2 runs the same
+- T12-B Escape on schedule opened by "From a schedule": FAIL (focus goes to the H2 "New journal entry"), 2 runs the same
+- T12 focus trap and second Escape closes the entry window: PASS
+- Timing ruled out: focus the same at 300 ms, 1.5 s and 4 s after Escape
+- Full suite, parity, screens, comparison with main: not run (fix round, changed files only, per Hashim's rule)
+
+---
+
+## 9. ui-reviewer
+
+Round 2 UI review of piece E1 (branch claude/e1 at 738b8ca). Read-only. I saved nothing in the app.
+
+Both round 1 FAIL items are fixed. Nothing regressed in the Tab trap, the Escape order between the two windows, or focus moving into windows. I found one pre-existing Escape problem. It was there before this round, so I am not counting it as an E1 regression or failing the piece for it. It goes on the clean-up list as Medium.
+
+**Item 1, save message: fixed (checked by reading the code, no save).** In src/app/(app)/closebook/actions.ts, lines 225-244 read the step's sign-off row before the save. A TJE checks step 8 ("t2"), anything else checks step 5 ("entries"). The message is "Entry changed. Step N's sign-offs were taken back: sign it again." only when that step had a sign-off. Otherwise it is "Entry changed.". The wording is plain and has no em dashes. One rare gap is item 3 under FOUND.
+
+**Item 2, focus after a schedule window closes: fixed (checked live).** I ran it on all three dummy files (home office, vehicle, expenses), at 1280x800:
+- Opened with the W/P ref link, then closed with the X button: focus goes back to the W/P ref link (for example "Vehicle schedule").
+- Opened with the W/P ref link, then Cancel: same, back to the link.
+- Opened with the Schedule tag on a line, then Escape: back to the "Schedule" tag.
+- Opened with the W/P ref link, then a click on the backdrop: back to the link.
+- Opened with "Change schedule" (the window opens as the page loads), then Escape: focus goes to the h2 "Edit journal entry 2025-001". That is the intended fallback.
+- Opened from the "From a schedule" menu, then Escape: focus goes to the h2 "New journal entry". The fallback applies because the menu item is gone by then (item 2 under FOUND).
+
+**Regression checks: no regressions found.**
+- Tab trap, entry window: 0 of 30 Tab and 0 of 30 Shift+Tab presses left the window, on all 3 files.
+- Tab trap, schedule window: 0 of 40 and 0 of 15 left it, on all 3 files.
+- Focus into windows: opening the entry window puts focus on its h2. Opening a schedule window puts focus on the schedule's h2, on all 3 files.
+- Escape order: the first Escape closes only the schedule window and the entry window stays open. The next Escape closes the entry window and focus goes back to the list link that opened it ("2025-001" or "2026-001"). The URL returns to ?step=entries.
+- The new wording in review-step.tsx and the Settings thresholds text reads plainly and says the same thing in both places. There are no em dashes.
+
+Scripts and output are in /tmp/claude-0/-home-user-concept-firm-app/712d69b6-9ad0-564e-bb71-26cec3677cdc/scratchpad/kb/ (kb3.mjs is the main run, kb8.mjs shows the Escape problem). kb4.mjs to kb7.mjs were attempts to open the entry window from a "New entry" button so I could check where focus returns afterwards. That check was not completed (see CHECKED).
+
+AGENT: ui-reviewer
+PIECE: E1 round 2 (last), branch claude/e1 at 738b8ca, local build khl-HLF5aw2xOIz_Nla_K on :3301
+RESULT: PASS
+FOUND:
+1. Where: src/app/(app)/closebook/[id]/areas/dialog-focus.tsx lines 38-42, with the "From a schedule" menu in src/app/(app)/closebook/[id]/journal-form.tsx lines 218-229. Screen: New journal entry window on the vehicle dummy file. What is wrong: with the "From a schedule" menu open, Escape closes the whole entry window (dialogs went from 1 to 0 and the page returned to ?step=entries) instead of closing only the menu. Lines already typed in a new entry are lost. This was already there before E1: the Escape handler did not change this round and the menu dates from piece 3 / S1. So it is not a regression. Why it matters: staff who use the keyboard expect Escape to close the innermost thing first, and losing a half-typed entry is costly. Fix: in DialogFocus onKey, do nothing on Escape when focus is inside an open [role="menu"] or listbox in the top window. Or have the menu items' Escape handler call e.nativeEvent.stopImmediatePropagation() and the handler skip e.defaultPrevented events. Then return focus to the "From a schedule" button. Severity: Medium, for the clean-up list (docs/BRIEF.md), not blocking E1. Benchmark: QuickBooks Online and TaxDome close the open menu on Escape and keep the window; WAI-ARIA menu button pattern.
+2. Where: dialog-focus.tsx lines 24-29. Screen: New or Edit journal entry, after a schedule window opened from the "From a schedule" menu is closed. What is wrong: focus goes to the entry window's h2, not the "From a schedule" button. The menu item that opened the window is removed before the window mounts, so no opener is recorded. Why it matters: a keyboard user has to Tab back down to the lines. Small. Fix: when the recorded opener is gone, fall back to the menu's trigger button (button[aria-haspopup="menu"] in the top window) before the h2. Severity: Low, for the clean-up list. Benchmark: WAI-ARIA dialog pattern (return focus to the invoking control, or a logical place near it).
+3. Where: src/app/(app)/closebook/actions.ts lines 226-228 and 244. What is wrong: the message picks the step from the entry's new type. Changing an AJE or RJE into a TJE clears step 5's sign-offs, because the trigger only treats an entry as a TJE when both the old and new type are TJE (piece_r3a1 migration, lines 158 and 202). The message names step 8, or says just "Entry changed." if step 8 was not signed. The opposite change, TJE to AJE, is reported correctly. Why it matters: in this rare case the message tells the reviewer to sign the wrong step. Fix: when the type changes, read the step 5 sign-off row and name step 5. Severity: Low, for the clean-up list. Source: CLAUDE.md honest-message rule; the round 1 item 1 intent.
+CHECKED:
+- Item 1 save message wording and sign-off logic (code read, actions.ts lines 225-244): PASS, rare type-change gap noted as item 3.
+- Item 2 focus return after closing a schedule window with the X button, 3 files: PASS (back to the W/P ref link).
+- Item 2 focus return after Cancel, 3 files: PASS (back to the W/P ref link).
+- Item 2 focus return after Escape when opened from the Schedule tag, 3 files: PASS (back to the "Schedule" tag).
+- Item 2 focus return after a backdrop click, 3 files: PASS (back to the W/P ref link).
+- Item 2 window opened by "Change schedule" then Escape, 3 files: PASS (entry window h2 fallback).
+- Item 2 window opened from the "From a schedule" menu then Escape, 3 files: PASS on fallback (entry window h2), Low item 2.
+- Tab trap in the entry window (30 Tab and 30 Shift+Tab), 3 files: PASS, 0 escapes.
+- Tab trap in the schedule window (40 Tab and 15 Shift+Tab), 3 files: PASS, 0 escapes.
+- Focus moves into the entry window and the schedule window on open, 3 files: PASS.
+- Escape order, schedule window then entry window, with focus back to the list link: PASS.
+- Escape with the "From a schedule" menu open: closes the whole window. Pre-existing, Medium item 1.
+- Focus return after opening the entry window from a "New entry" button: not checked (my scripts could not focus the link inside the closed popover).
+- review-step.tsx wording and Settings thresholds wording: PASS (plain, consistent, no em dashes).
+- No saves made; dummy files only: PASS.
