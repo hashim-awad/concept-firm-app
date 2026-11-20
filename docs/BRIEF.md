@@ -1225,6 +1225,11 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
 - Phone sizes: the Business hours grid on Firm details and the step 3 bank card header run off the screen. Two signature fields on Team and roles are cut off at 1280 px.
 - Locked file: step forms other than Setup questions may still show inputs that look editable (the database refuses the change). Check each step.
 - Test-runner leftover: scripts/run-screen-parity.sh leaves the app server running. Fixed in the tooling PR (not yet merged).
+- R3a-2 pre-build Lows (ui-reviewer round 2, Nov 20, 2026; full text in docs/reviews/R3a2-prebuild-reports.md): the step 9 title
+  row wraps its icons to a second line at 1280 (accept, keep them right-aligned); keep "My files" in the file header; the Team chip
+  for someone off the team needs a caret and "Open the team", or plain text; New file lead boxes use a lock icon instead of the
+  faint disabled box. The security-risk and workpaper-reviewer Lows are in the same file and are taken into the build plan.
+- Exports and PDFs print the lead preparer and reviewer, not who signed (R3a-2 Q15).
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)
