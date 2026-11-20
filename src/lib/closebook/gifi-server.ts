@@ -32,11 +32,13 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   if (lastYearRe === null && data.accounts.some((a) => Number(a.last_year) !== 0)) {
     lastYearRe = gifiCodes(data.accounts.map((a) => ({ ...a, this_year: Number(a.last_year), needs_reviewer: false })), new Map(), byNo).totals["3849"];
   }
-  // Piece S2 (Hashim, Nov 20, 2026): the automatic "Opening balance rounding" (bank cents against last year's whole-dollar
-  // T2, round 23) posts -(books - T2) to opening retained earnings; check 5 accepts exactly that, under 1.00.
+  // Piece S2 (Hashim, Nov 20, 2026): the automatic "Opening balance rounding" (statement cents against last year's
+  // whole-dollar T2, round 23) posts to opening retained earnings. On the GIFI's 3660 (retained earnings as a credit) an
+  // asset line's rounding (bank, under 2600) adds its cents and a liability line's (cards, overdraft) takes them off.
+  // Check 5 accepts exactly that amount, under 1.00.
   const fr = data.file as typeof data.file & { opening_source?: string | null; first_year?: boolean | null };
   const rounding = await loadRounding(supabase, { id: fileId, opening_source: fr.opening_source ?? null, first_year: fr.first_year ?? null });
-  const openingRounding = -rounding.reduce((n, r) => n + r.cents, 0) / 100;
+  const openingRounding = rounding.reduce((n, r) => n + (Number(r.gifi.slice(0, 4)) < 2600 ? r.cents : -r.cents), 0) / 100;
   const checks = gifiChecks(result, lastYearRe, openingRounding);
   const c = data.client;
   const bn = businessNumber(c?.business_number);

@@ -12,8 +12,8 @@ export type GifiCheck = { key: string; title: string; ok: boolean; rows: CheckRo
 
 // The five checks before every export. lastYearRe: last year's closing retained earnings from step 2
 // (null when step 2 has none). openingRounding (piece S2, Hashim, Nov 20, 2026): what the automatic "Opening balance
-// rounding" entry put into opening retained earnings, debit positive like the GIFI totals (bank cents against last
-// year's whole-dollar T2). Check 5 passes when the whole difference is that rounding and it is under 1.00.
+// rounding" entry put into 3660 (retained earnings as the GIFI shows it: statement cents against last year's
+// whole-dollar T2). Check 5 passes when the whole difference is that rounding and it is under 1.00.
 export function gifiChecks(r: GifiResult, lastYearRe: number | null, openingRounding = 0): GifiCheck[] {
   const t = r.totals;
   const out: GifiCheck[] = [];
