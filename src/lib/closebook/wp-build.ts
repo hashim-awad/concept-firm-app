@@ -34,7 +34,7 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   const texts = mode === "client" ? (await loadWordingState(supabase)).live?.texts ?? {} : {};
   const ctx: WpCtx = {
     client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: "",
-    // Nothing goes to a client before review: until every entry is approved the list says so.
+    // Nothing goes to a client before review: until step 7 is reviewed the list says so.
     // Piece R2 (D12e): on Concept's monthly QuickBooks files the list is "Entries to record in QuickBooks".
     stamp: mode === "client" ? clientListTitle(f.file) : WP_STAMP, client_copy: mode === "client" ? { draft: !reviewSigned } : undefined,
     preparedBy: f.names.get(f.file.preparer_id) ?? "", reviewedBy: "", wpBox: mode === "wp",

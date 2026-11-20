@@ -36,7 +36,7 @@ export const ACTION: Record<string, string> = {
   line_excluded: "Line excluded", line_restored: "Line back to Pending", line_answer: "Client's answer", line_file: "Receipt attached", pair_unpaired: "Unpaired",
   rule_saved: "Bank rule", excluded_reviewed: "Excluded lines reviewed",
   // Round 32: questions to the client.
-  line_question: "Question to the client", questions_sent: "Client notified", questions_send_failed: "Email not sent", reclassified: "Reclassified", reclass_undone: "Reclassify undone", entry_line_reclassified: "Entry line reclassified", entry_edited: "Entry changed", schedule_created: "Schedule created", schedule_input_changed: "Schedule input changed", schedule_method_switched: "Schedule method switched",
+  line_question: "Question to the client", questions_sent: "Client notified", questions_send_failed: "Email not sent", reclassified: "Reclassified", reclass_undone: "Reclassify undone", entry_line_reclassified: "Entry line reclassified", entry_edited: "Entry changed", entry_deleted: "Entry deleted", step5_covered: "Step 5 reviewed: what it covered", entry_booked: "Booked in QuickBooks", schedule_created: "Schedule created", schedule_input_changed: "Schedule input changed", schedule_method_switched: "Schedule method switched",
   schedule_itc: "Schedule ITC changed", schedule_put_in: "Schedule put into the entry", schedule_printed: "Schedule printed", schedule_deleted: "Entry deleted with its schedule", questions_marked_sent: "Questions marked as sent", client_answer: "Client answered",
   client_link_refused: "Client link refused", client_link_error: "Client link error",
   // Round 33: questions not sent yet.

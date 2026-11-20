@@ -31,6 +31,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const supabase = await createClient();
   const [f, { data: s }] = await Promise.all([loadFile(supabase, id),
     supabase.from("cb_schedules").select("id, entry_id, kind, inputs, snapshot, itc_claim").eq("file_id", id).eq("entry_id", entryId).maybeSingle()]);
+  // Piece E1: the reviewer is step 5's (the Adjustments page), as CaseWare signs the page, not the entry.
+  const { data: step5 } = await supabase.from("cb_step_signoffs").select("reviewed_by").eq("file_id", id).eq("step", "entries").maybeSingle();
+  const step5By = (step5 as { reviewed_by: string | null } | null)?.reviewed_by ?? null;
   const e = f?.entries.find((x) => x.id === entryId);
   if (!f || !s || !e) return new Response("Not found", { status: 404 });
   const home = s.kind === "home_office", exp = s.kind === "expenses";
@@ -38,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const client = f.client?.legal_name ?? "";
   const no = entryNo(f.file.year_end, e).split(" ")[0];
   const ctx: WpCtx = { client, yearEnd: f.file.year_end, yearStart: f.file.year_start, generated: generatedAt(), packageName: schedName, stamp: STAMP,
-    preparedBy: f.names.get(e.created_by ?? "") ?? "", reviewedBy: e.reviewed_by ? f.names.get(e.reviewed_by) ?? "" : "", wpBox: true };
+    preparedBy: f.names.get(e.created_by ?? "") ?? "", reviewedBy: step5By ? f.names.get(step5By) ?? "" : "", wpBox: true };
 
   const NO = [false, false, false, false];
   const cell = (text: string, extra: Record<string, unknown> = {}) => ({ text, border: NO, ...extra });

@@ -16,7 +16,7 @@ export async function ThresholdsView(sp: SP): Promise<View> {
     ["recon", "Bank reconciliation: outstanding items", c.recon_outstanding_max, "When an account's outstanding items total more than this, the next month's statement must show they cleared."],
     ["flag_amount", "Year-over-year flag: amount", c.flag_amount, "A line is flagged when it changed by more than this amount and by more than the percentage below. Both conditions."],
     ["flag_percent", "Year-over-year flag: percentage", c.flag_percent, "The percentage part of the same rule.", "%"],
-    ["entry_review", "Entries the reviewer must approve", c.entry_review_amount, "Any entry over this amount goes to the reviewer. Free entries always do."],
+    ["entry_review", "Entries to look at (step 7)", c.entry_review_amount, "Any entry over this amount; free entries always. Step 7 lists them for the reviewer; step 5's sign-offs cover them."],
     ["capital_invoice", "Capital additions: invoice needed", c.capital_invoice_amount, "Asset additions over this amount need the invoice attached."],
     ["t2_rounding", "Rounding allowed in the T2 tie-out", c.t2_rounding, "ProFile rounds each GIFI line to whole dollars. In step 8, a difference with ProFile on net income or total assets of this amount or less shows as rounding and does not block the sign-off. CCA and income tax must tie to the cent."],
     ["instalment_threshold", "Instalments: tax threshold in the client email", c.instalment_threshold, "Step 10's client email (Appendix C): when the year's federal or provincial tax is more than this, the email explains that the CRA asks for instalments the next year."],

@@ -10,13 +10,12 @@ import { formatDate } from "@/lib/dates";
 import type { CbFileRow } from "@/lib/closebook/files";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
 import { entryNo } from "@/lib/closebook/reports";
-import { PageTitle, PanelHead, PanelLink, initials } from "../shell/shell";
+import { PageTitle, PanelHead, PanelLink } from "../shell/shell";
 import { Popover } from "../shell/ui";
-import { reviewEntry } from "../../actions";
-import { Circle } from "./entry-dialog";
 
-export type EntryStatus = "Needs review" | "Reviewed" | "No review needed";
-export const entryStatus = (e: CbEntry): EntryStatus => (!e.needs_review ? "No review needed" : e.reviewed_at ? "Reviewed" : "Needs review");
+// Piece E1: no approval of single entries. "For the reviewer" marks the entries step 7 lists to look at.
+export type EntryStatus = "Yes" | "No";
+export const entryStatus = (e: CbEntry): EntryStatus => (e.needs_review ? "Yes" : "No");
 type Source = "Typed" | "Standard entry" | "Revenue check" | "Expenses paid personally" | "Schedule";
 const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.origin === "revenue_check" ? "Revenue check" : e.origin === "expenses_personal" ? "Expenses paid personally" : e.origin === "schedule" ? "Schedule"
   : /^Standard entry/.test(e.wp_ref ?? "") || e.standard_id ? "Standard entry" : "Typed");
@@ -43,7 +42,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
   const groups: { head: string; links: { key: string; href: string; on: boolean; count: number; label: string }[] }[] = [
     { head: "Type", links: [{ key: "all", href: q({ type: undefined }), on: !sp.type, count: rows.length, label: "All" },
       ...([["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax (TJE)"]] as const).map(([t, l]) => ({ key: t, href: q({ type: t }), on: sp.type === t, count: count((r) => r.type === t), label: l }))] },
-    { head: "Review", links: (["Needs review", "Reviewed", "No review needed"] as EntryStatus[]).map((s) => ({ key: s, href: q({ status: sp.status === s ? undefined : s }), on: sp.status === s, count: count((r) => r.status === s), label: s })) },
+    { head: "For the reviewer", links: (["Yes", "No"] as EntryStatus[]).map((s) => ({ key: s, href: q({ status: sp.status === s ? undefined : s }), on: sp.status === s, count: count((r) => r.status === s), label: s })) },
     { head: "Source", links: (["Typed", "Standard entry", "Revenue check", "Expenses paid personally", "Schedule"] as Source[]).map((s) => ({ key: s, href: q({ source: sp.source === s ? undefined : s }), on: sp.source === s, count: count((r) => r.source === s), label: s })) },
   ];
   const left = (
@@ -55,7 +54,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
     <div className="mb-2 grid gap-1.5 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-3 py-2 text-[12px]" data-entry-filters>
       {groups.map((g) => (
         <div key={g.head} className="flex flex-wrap items-center gap-1.5">
-          <span className="w-16 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{g.head}</span>
+          <span className="min-w-16 whitespace-nowrap pr-1 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{g.head}</span>
           {g.links.map((x) => <Link key={x.key} href={x.href} scroll={false} aria-current={x.on ? "true" : undefined}
             className={`border px-2 py-0.5 ${x.on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{x.label} <span className={x.on ? "text-white/80" : "text-ink-3"}>{x.count}</span></Link>)}
         </div>
@@ -94,34 +93,23 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
       {listBase && strip}
       <section className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Entries">
         <div className={`grid ${COLS} gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3`}>
-          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span>Sign-off</span>
+          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span><span className="sr-only">For the reviewer</span></span>
         </div>
         {shown.map(({ e }) => {
           const total = e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
           const on = e.id === marked;
           const open = `${lb}${["type", "status", "source"].map((k) => (sp as Record<string, string | undefined>)[k] ? `&${k}=${encodeURIComponent((sp as Record<string, string>)[k])}` : "").join("")}&open=${e.id}`;
-          const prep = names.get(e.created_by ?? "") ?? "";
-          const rev = e.reviewed_by ? names.get(e.reviewed_by) ?? "" : "";
           return (
             <div key={e.id} id={`entry-${e.id}`} className={`grid ${COLS} items-center gap-x-2 border-b border-sand-100 px-3 py-[6px] text-[12.5px] last:border-0 hover:bg-sand-50 ${on ? "bg-[#eef4ff] shadow-[inset_4px_0_0_#2f6fd6]" : ""}`}>
               <ChevronRight className="h-3.5 w-3.5 text-navy-600" aria-hidden />
               <Link href={open} scroll={false} className="tabular-nums font-medium text-navy-700 hover:underline">{entryNo(file.year_end, e).split(" ")[0]}</Link><span className="text-ink-3">{e.kind}</span>
               <span className="whitespace-nowrap">{formatDate(e.entry_date ?? file.year_end)}</span>
               <Link href={open} scroll={false} className="truncate hover:underline" title={e.note}>{e.booked_at && <span className="mr-1.5 rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700" data-booked-tag>Booked in QuickBooks</span>}{e.note}</Link>{e.origin === "schedule"
-                ? <span className="flex min-w-0 items-center gap-1.5"><Link href={e.reviewed_at || !editable || file.phase === "locked" ? open : `${open}&edit=1&sched=1`} scroll={false} className="truncate font-medium text-navy-700 underline" data-wp-link>{e.wp_ref}</Link>
+                ? <span className="flex min-w-0 items-center gap-1.5"><Link href={e.booked_at || !editable || file.phase === "locked" ? open : `${open}&edit=1&sched=1`} scroll={false} className="truncate font-medium text-navy-700 underline" data-wp-link>{e.wp_ref}</Link>
                   <span className="rounded bg-navy-50 px-1.5 text-[10.5px] font-semibold text-navy-700">Schedule</span></span>
                 : <span className="truncate text-ink-3">{e.wp_ref || "–"}</span>}
               <span className="text-right tabular-nums">{money(total)}</span>
-              <span className="flex items-center gap-1">
-                <Circle kind="p" text={initials(prep)} title={`Prepared by ${prep} · ${formatDate(e.created_at)}`} />
-                {!e.needs_review ? <Circle kind="none" title="No review needed: a standard entry at or under the threshold" />
-                  : e.reviewed_at ? <Circle kind="r" text={initials(rev)} title={`Reviewed by ${rev} · ${formatDate(e.reviewed_at)}`} />
-                  : isReviewer && editable && file.phase !== "locked" ? (
-                    <Popover align="right" width="w-60" label="Review" button={<Circle kind="no" title="Not reviewed" />}>
-                      <p className="font-semibold">Reviewer</p><p className="mb-2 text-ink-3">Not reviewed.</p>
-                      <form action={reviewEntry}><input type="hidden" name="file_id" value={file.id} /><input type="hidden" name="entry" value={e.id} />{listBase && <input type="hidden" name="back" value={listBase} />}<button type="submit" className="btn btn-compact">Approve</button></form>
-                    </Popover>) : <Circle kind="no" title="Not reviewed" />}
-              </span>
+              <span>{e.needs_review && <span className="rounded bg-sand-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-ink-2" title="Step 7 lists it for the reviewer to look at" data-look-tag>To look at</span>}</span>
             </div>
           );
         })}

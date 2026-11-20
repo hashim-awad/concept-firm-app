@@ -236,7 +236,8 @@ export async function addEntry(formData: FormData) {
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
-  const msg = form!.edit ? "Entry changed. It goes to the reviewer again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold, so no review is needed." : "Entry added. It goes to the reviewer.";
+  // Piece E1: no entry approval; step 5's sign-offs cover the entries, and step 7 lists the ones to look at.
+  const msg = form!.edit ? "Entry changed. Step 5 is signed again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold." : "Entry added. It is on the reviewer's list in step 7.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }
@@ -255,26 +256,15 @@ async function saveScheduleEntry(formData: FormData, supabase: Awaited<ReturnTyp
   }
   const built = await scheduleSaveArgs(supabase, f, form, data, paths);
   if ("error" in built) redirect(withMessage(dialog, "error", `Nothing was saved. ${built.error}`));
-  // Piece S1: say so when the save takes an approval back.
-  const pEntry = (built as { args: Record<string, unknown> }).args.p_entry as string | null;
-  const wasApproved = pEntry ? !!((await supabase.from("cb_entries").select("reviewed_at").eq("id", pEntry).maybeSingle()).data as { reviewed_at: string | null } | null)?.reviewed_at : false;
   const res = await supabase.rpc("cb_save_schedule_entry", (built as { args: Record<string, unknown> }).args);
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("kind, number, seq").eq("id", res.data as string).maybeSingle();
   // The green pill (round 27): "Saved AJE 2026-003".
   const no = e ? entryNo(f.file.year_end, e as { kind: string; number: number; seq: number }) : "";
-  const msg = (e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.") + (wasApproved ? ". Approval taken back: it goes to the reviewer again." : "");
+  const msg = e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
-}
-
-export async function reviewEntry(formData: FormData) {
-  const id = s(formData, "file_id");
-  const { error } = await (await createClient()).rpc("cb_review_entry", { p_entry: s(formData, "entry") });
-  revalidatePath(`/closebook/${id}`);
-  // Piece 5: back to the page the list was on (step 5 or the Entries tab).
-  redirect(withMessage(sameFile(id, s(formData, "back")) || enBack(id), error ? "error" : "msg", error ? error.message : "Entry approved."));
 }
 
 export async function deleteEntry(formData: FormData) {

@@ -17,8 +17,7 @@ const money = (c: number | null | undefined) => (c === null || c === undefined ?
 const toRow = (l: ExpLine): Row => ({ acct: l.acct, what: l.what, paid: money(l.paid), gst: l.gst == null ? null : money(l.gst), pct: l.pctBp == null ? "100" : pctText(l.pctBp) });
 const readPct = (t: string): number | null => { const v = t.replace(/[\s%]/g, ""); if (v === "") return null; return /^\d{1,3}(\.\d{1,2})?$/.test(v) ? Math.round(Number(v) * 100) : 0; };
 
-export function ExpensesWindow({ data, initial, canPrint, printHref, onPut, onClose, notice }: {
-  notice?: string;
+export function ExpensesWindow({ data, initial, canPrint, printHref, onPut, onClose }: {
   data: ExpData; initial: ExpInputs; canPrint: boolean; printHref: string;
   onPut: (inputs: ExpInputs, r: ExpResult) => void; onClose: () => void;
 }) {
@@ -45,13 +44,12 @@ export function ExpensesWindow({ data, initial, canPrint, printHref, onPut, onCl
   return (
     <div className="fixed inset-0 z-[60] print:hidden" data-expenses-window>
       <button type="button" aria-label="Close the schedule" onClick={onClose} className="absolute inset-0 block bg-navy-950/35" />
-      <div role="dialog" aria-modal="true" aria-label="Expenses paid personally" className="relative mx-auto mt-[40px] flex max-h-[calc(100vh-60px)] w-[1000px] max-w-[96vw] flex-col rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
+      <div role="dialog" aria-modal="true" aria-label="Expenses paid personally schedule" className="relative mx-auto mt-[40px] flex max-h-[calc(100vh-60px)] w-[1000px] max-w-[96vw] flex-col rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]">
         <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3">
-          <h2 className="text-[15px] font-bold">Expenses paid personally</h2>
+          <h2 className="text-[15px] font-bold">Expenses paid personally schedule</h2>
           <span className="flex-1" />
           <button type="button" aria-label="Close" onClick={onClose} className="rounded p-1 text-ink-3 hover:bg-sand-100"><X className="h-[18px] w-[18px]" /></button>
         </div>
-        {notice && <p className="mx-5 mt-3 rounded-[var(--radius-ds)] bg-warning-soft px-3 py-2 text-[12.5px] text-warning" role="note" data-approved-note>{notice}</p>}
         <div className="grid gap-3 overflow-y-auto px-5 py-4">
           <datalist id="exp-acct-list">{data.options.map((o) => <option key={o.value} value={o.label} />)}</datalist>
           <table className="w-full table-fixed border-collapse text-[13px]" data-exp-lines>

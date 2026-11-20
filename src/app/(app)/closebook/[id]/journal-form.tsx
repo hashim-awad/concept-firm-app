@@ -39,10 +39,10 @@ const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Ca
 export type JournalInit = { head?: Partial<FormHead>; lines?: FormLine[]; std?: string; seq?: string; date?: string; balanceLast?: boolean };
 
 export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes,
-  init = {}, lock = {}, approved = false, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, expenses, schedKind, openSchedule = false, printHref = "" }: {
+  init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, expenses, schedKind, openSchedule = false, printHref = "" }: {
   fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string, string?][];
   codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
-  init?: JournalInit; lock?: { kind?: boolean; wp?: boolean; head?: boolean }; approved?: boolean; origin?: string; edit?: string;
+  init?: JournalInit; lock?: { kind?: boolean; wp?: boolean }; origin?: string; edit?: string;
   closeHref: string; backHref: string; problem?: string | null; keptAttachments?: string[];
   // Piece 3: the Vehicle schedule (every full file); printHref once the entry is saved.
   vehicle?: VehicleData; openSchedule?: boolean; printHref?: string;
@@ -79,6 +79,11 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const [sIn, setSIn] = useState<{ kind: SchedKind; inputs: SchedInputs } | null>(null);
   const [kind, setKind] = useState<SchedKind | null>(schedKind ?? null);
   const [open, setOpen] = useState<SchedKind | null>(openSchedule ? schedKind ?? (vehicle ? "vehicle" : null) : null);
+  // Piece E1: the amount owed to the owner on the saved Vehicle entry, from the lines it opened with (not the live ones).
+  const [savedOwed] = useState<number | null>(() => {
+    const due = (init.lines ?? []).filter((l) => l.sched === "allowance_due" || l.sched === "owner_due");
+    return due.length ? due.reduce((n, l) => n + Math.round(Number(String(l.cr || l.dr).replace(/[^0-9.]/g, "")) * 100), 0) : null;
+  });
   const setVOpen = (v: boolean) => setOpen(v ? kind ?? "vehicle" : null);
   const [menu, setMenu] = useState(false);
   const schedLines = lines.filter((l) => l.sched);
@@ -150,14 +155,13 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
       </div>
 
       <div className="grid gap-3 overflow-y-auto px-5 py-4">
-        {approved && <p className="rounded-[var(--radius-ds)] bg-warning-soft px-3 py-2 text-[12.5px] text-warning" role="note" data-approved-note>{APPROVED_NOTICE}</p>}
         <div className="grid gap-3 md:grid-cols-[7rem_10rem_13rem_minmax(0,1fr)_13rem]">
           <label className={fld}>No.<span className="flex items-center gap-1"><span className="text-[13px] font-normal text-ink-3 tabular-nums">{yearEnd.slice(0, 4)}-</span>
-            <input aria-label="Entry number" value={seq} readOnly={lock.head} onChange={(e) => setSeq(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" className={`${box} w-full tabular-nums`} /></span></label>
-          <label className={fld}>Date<input type="date" name="date" value={date} readOnly={lock.head} min={yearStart} max={yearEnd} onChange={(e) => setDate(e.target.value)} className={box} /></label>
+            <input aria-label="Entry number" value={seq} onChange={(e) => setSeq(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" className={`${box} w-full tabular-nums`} /></span></label>
+          <label className={fld}>Date<input type="date" name="date" value={date} min={yearStart} max={yearEnd} onChange={(e) => setDate(e.target.value)} className={box} /></label>
           <label className={fld}>Type<select value={head.kind} disabled={lock.kind} onChange={(e) => setHead({ ...head, kind: e.target.value })} className={box}>
             {KIND.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-          <label className={fld}>Description<input value={head.memo} readOnly={lock.head} onChange={(e) => setHead({ ...head, memo: e.target.value })} maxLength={500} placeholder="Prints on the client entry list" className={box} /></label>
+          <label className={fld}>Description<input value={head.memo} onChange={(e) => setHead({ ...head, memo: e.target.value })} maxLength={500} placeholder="Prints on the client entry list" className={box} /></label>
           {hasSched ? <div className={fld}>W/P ref<button type="button" onClick={() => setVOpen(true)} className="h-[30px] text-left text-[13px] font-semibold text-navy-700 underline" data-wp-link>{head.wpRef || SCHED_NAME[kind ?? "vehicle"]}</button></div>
             : <label className={fld}>W/P ref<input value={head.wpRef} readOnly={lock.wp} onChange={(e) => setHead({ ...head, wpRef: e.target.value })} list="wp-refs" maxLength={120} className={`${box} ${lock.wp ? "bg-sand-50" : ""}`} />
             <datalist id="wp-refs">{WP_REFS.map((r) => <option key={r} value={r} />)}</datalist></label>}
@@ -166,7 +170,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         {(s0 || ctx.registered) && (
           <div className="flex flex-wrap items-end gap-4">
             {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums ${amountTone(stdAmount)}`} /></label>}
-            {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: needs review` : "No review needed"}</span>}
+            {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: on the reviewer's list in step 7` : "Under the review threshold"}</span>}
             <span className="flex-1" />
             {ctx.registered && !s0 && !hasSched && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
               <option value="exc">Before tax</option><option value="inc">Including tax</option></select></label>}
@@ -238,8 +242,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         </table>
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-          {lock.head ? <Attachments kept={keptAttachments} readOnly /> : <Attachments kept={keptAttachments} />}
-          <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} disabled={lock.head} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
+          <Attachments kept={keptAttachments} />
+          <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
         </div>
       </div>
 
@@ -250,11 +254,11 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         {!edit && <button type="submit" name="then" value="new" className="btn-secondary btn-compact" disabled={!ok}>Save and new</button>}
         <button ref={saveRef} type="submit" name="then" value="close" className="btn btn-compact" disabled={!ok}>Save</button>
       </div>
-      {vehicle && open === "vehicle" && <VehicleWindow notice={approved ? APPROVED_NOTICE : undefined} data={vehicle} initial={(sIn?.kind === "vehicle" ? sIn.inputs as VehicleInputs : null) ?? (vehicle.stored ? { ...vehicle.stored.inputs, itc: vehicle.stored.itc_claim } : emptyInputs())}
+      {vehicle && open === "vehicle" && <VehicleWindow savedOwed={savedOwed} data={vehicle} initial={(sIn?.kind === "vehicle" ? sIn.inputs as VehicleInputs : null) ?? (vehicle.stored ? { ...vehicle.stored.inputs, itc: vehicle.stored.itc_claim } : emptyInputs())}
         canPrint={!!printHref && !!vehicle.stored && !sIn} printHref={printHref} onPut={putSchedule} onClose={() => setOpen(null)} />}
-      {home && open === "home_office" && <HomeWindow notice={approved ? APPROVED_NOTICE : undefined} data={home} initial={(sIn?.kind === "home_office" ? sIn.inputs as HomeInputs : null) ?? (home.stored ? { ...home.stored.inputs, itc: home.stored.itc_claim } : emptyHomeInputs())}
+      {home && open === "home_office" && <HomeWindow data={home} initial={(sIn?.kind === "home_office" ? sIn.inputs as HomeInputs : null) ?? (home.stored ? { ...home.stored.inputs, itc: home.stored.itc_claim } : emptyHomeInputs())}
         canPrint={!!printHref && !!home.stored && !sIn} printHref={printHref} onPut={putHome} onClose={() => setOpen(null)} />}
-      {expenses && open === "expenses" && <ExpensesWindow notice={approved ? APPROVED_NOTICE : undefined} data={expenses} initial={(sIn?.kind === "expenses" ? sIn.inputs as ExpInputs : null) ?? (expenses.stored ? { ...expenses.stored.inputs, itc: expenses.stored.itc_claim } : emptyExpInputs())}
+      {expenses && open === "expenses" && <ExpensesWindow data={expenses} initial={(sIn?.kind === "expenses" ? sIn.inputs as ExpInputs : null) ?? (expenses.stored ? { ...expenses.stored.inputs, itc: expenses.stored.itc_claim } : emptyExpInputs())}
         canPrint={!!printHref && !!expenses.stored && !sIn} printHref={printHref} onPut={putExpenses} onClose={() => setOpen(null)} />}
     </form>
   );
@@ -262,10 +266,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
 
 // Attachments like QuickBooks Online (round 3 item 11): an "Add attachment" control and the files chosen,
 // each with a remove button. The files ride on the form's own file input.
-// Piece S1: shown in the schedule window, and over the form, when the entry is approved.
-export const APPROVED_NOTICE = "This entry is approved. Saving takes the approval back and it goes to the reviewer again. Only the schedule can change.";
-
-function Attachments({ kept, readOnly = false }: { kept: string[]; readOnly?: boolean }) {
+function Attachments({ kept }: { kept: string[] }) {
   const input = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const sync = (list: File[]) => {
@@ -283,8 +284,8 @@ function Attachments({ kept, readOnly = false }: { kept: string[]; readOnly?: bo
         <span key={`${f.name}-${i}`} className="flex items-center gap-1 rounded bg-sand-50 px-2 py-0.5">{f.name}
           <button type="button" aria-label={`Remove ${f.name}`} onClick={() => sync(files.filter((_, j) => j !== i))} className="text-ink-3 hover:text-danger">×</button></span>
       ))}
-      {!readOnly && <button type="button" onClick={() => input.current?.click()} className="font-semibold text-navy-700 hover:underline">Add attachment</button>}
-      {!readOnly && <InfoTip label="Files allowed">PDF, image, Excel or CSV. Up to 10, 20 MB each.</InfoTip>}
+      <button type="button" onClick={() => input.current?.click()} className="font-semibold text-navy-700 hover:underline">Add attachment</button>
+      <InfoTip label="Files allowed">PDF, image, Excel or CSV. Up to 10, 20 MB each.</InfoTip>
     </div>
   );
 }

@@ -533,8 +533,6 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         // Round 35: on a bank file the lines for the reviewer are a working list (below), not links to step 4.
         { key: "code", title: "Lines for the reviewer", step: "step 4", items: bankFile ? [] : ((rl ?? []) as { id: string; account_id: string; txn_date: string; description: string; amount: number; reviewer_reason: string }[]).map((l) => (
           { href: `${href("code")}&account=${l.account_id}&line=${l.id}`, label: `${formatDate(l.txn_date)} ${l.description}`, detail: l.reviewer_reason ?? "", amount: amt(Number(l.amount)) })) },
-        { key: "entries", title: "Entries to approve", step: "step 5", items: entries.filter((e) => e.needs_review && !e.reviewed_at).map((e) => (
-          { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) })) },
         { key: "revenue", title: "Revenue check", step: "step 5", items: rev7 ? revenueWaiting(rev7).map((w) => ({ href: paperHref("entries", "revenue"), label: w.label,
           detail: w.explained ? w.text : w.text ? `Explained for another amount: ${w.text}` : "Not explained yet.", amount: amt(w.diff) })) : [] },
         // Piece 7: the GST/HST revenue comparison moved to step 8; a difference over the threshold still waits here.
@@ -585,7 +583,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         list = <ReviewLines data={feed} editable={editable && file.phase !== "locked"} isReviewer={isReviewer || rv} focusLine={str(sp.line) ?? null}
           accounts={acctRows} stepFour={href("code")} />;
       }
-      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
+      // Piece E1: entries are not approved one by one; step 7 lists the ones to look at, and they hold nothing up.
+      const look = entries.filter((e) => e.needs_review).map((e) => (
+        { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) }));
+      body = <ReviewStep groups={groups} look={look} notes={openNotes} list={list} listCount={listCount}
         extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} canReview={rv} names={names} /> : null}</>} />;
     }
   } else if (step === "compare") {
