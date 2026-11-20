@@ -17,7 +17,11 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
     const topmost = () => { const all = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')); return all[all.length - 1] ?? own; };
     const start = () => { const top = topmost(); if (top.contains(document.activeElement)) return;
       const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.style.outline = "none"; h.focus({ preventScroll: true }); } };
-    start(); const t = window.setTimeout(start, 50);   // a schedule window that opens with the form mounts a moment later
+    // A schedule window that opens over the form mounts a moment later, or when its button is pressed: focus follows it.
+    let count = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length;
+    const watch = new MutationObserver(() => { const n = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length; if (n > count) start(); count = n; });
+    watch.observe(document.body, { childList: true, subtree: true });
+    start(); const t = window.setTimeout(start, 50);
     const onKey = (e: KeyboardEvent) => {
       const top = topmost();
       if (e.key === "Escape") {
@@ -34,7 +38,7 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
       }
     };
     document.addEventListener("keydown", onKey);
-    return () => { window.clearTimeout(t); document.removeEventListener("keydown", onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
+    return () => { watch.disconnect(); window.clearTimeout(t); document.removeEventListener("keydown", onKey); if (opener?.isConnected) opener.focus({ preventScroll: true }); };
   }, [closeHref, router]);
   return <span ref={marker} hidden />;
 }
