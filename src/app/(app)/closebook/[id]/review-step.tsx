@@ -24,7 +24,7 @@ export function ReviewStep({ groups, notes, list, listCount = 0, extra }: { grou
     <div className="grid gap-4">
       <section aria-label="Counts" className="flex flex-wrap gap-2 text-[12px] font-semibold">
         <ReviewChip other={list ? 0 : waiting} initial={listCount} />
-        <span className={`rounded-full px-2.5 py-0.5 ${notes.length ? "bg-danger-soft text-danger" : "bg-sand-100 text-ink-2"}`}>{notes.length} note{notes.length === 1 ? "" : "s"} open</span>
+        <span className={`px-2.5 py-0.5 ${notes.length ? "bg-danger-soft text-danger" : "bg-sand-100 text-ink-2"}`}>{notes.length} note{notes.length === 1 ? "" : "s"} open</span>
       </section>
 
       {list}

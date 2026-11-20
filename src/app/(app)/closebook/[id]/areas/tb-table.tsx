@@ -62,19 +62,20 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   // the page itself never scrolls and the headings never slide under the bars. The hint shows only when the table
   // really scrolls sideways.
   const [boxH, setBoxH] = useState<number | null>(null);
+  const extra = useRef(0);   // what the page still overflowed by last time; kept, so the height settles instead of flipping
   const [wide, setWide] = useState(false);
   useEffect(() => {
     const w = wrapRef.current; if (!w) return;
     const fit = () => {
       const top = w.getBoundingClientRect().top + window.scrollY;
       const foot = footRef.current?.offsetHeight ?? 40;
-      const first = Math.max(240, Math.floor(window.innerHeight - top - foot - 50));
+      const first = Math.max(240, Math.floor(window.innerHeight - top - foot - 50 - extra.current));
       setBoxH(first);
       setWide(w.scrollWidth > w.clientWidth + 1);
       // Then take off whatever the page still overflows by (padding and borders below the table).
       requestAnimationFrame(() => {
         const over = document.documentElement.scrollHeight - window.innerHeight;
-        if (over > 0 && window.scrollY === 0) setBoxH(Math.max(240, first - over));
+        if (over > 0 && window.scrollY === 0) { extra.current += over; setBoxH(Math.max(240, first - over)); }
       });
     };
     fit();
