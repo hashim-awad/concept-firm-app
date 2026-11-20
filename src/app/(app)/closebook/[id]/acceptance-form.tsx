@@ -98,7 +98,7 @@ export function AcceptanceForm({ fileId, clientId, back, row, last, lastYear, ed
   const confirmedAll = !!last && ["q1", "q2", "q3", "q4", "q5", "q6", "q8", "q9"].every((k) => saved.answered[k]?.same);
 
   return (
-    <section className="rounded-[10px] border border-sand-200 bg-white text-[13px]" aria-label="Acceptance and continuance">
+    <section className="rounded-[var(--radius-ds)] border border-sand-200 bg-white text-[13px]" aria-label="Acceptance and continuance">
       {last && lastYear && editable && !confirmedAll && (
         <form action={acceptanceSameAsLast} className="m-3 flex flex-wrap items-center gap-3 rounded-lg border border-navy-100 bg-navy-50/60 px-3 py-2 text-[12.5px]">
           <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} />

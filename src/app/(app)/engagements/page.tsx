@@ -22,7 +22,8 @@ type Sp = Record<string, string | string[] | undefined>;
 const WAIT = ["sent", "viewed"];
 const STATUS: Record<string, [string, string]> = {
   // UI1 colour rule (Q9): blue in progress, green done, amber needs a follow-up, grey closed.
-  sent: ["Waiting for signature", "bg-info-soft text-info"], viewed: ["Waiting for signature", "bg-info-soft text-info"],
+  // Q9: the same words as Quotes (the tab's filter keeps its name, "Waiting for signature").
+  sent: ["Sent", "bg-info-soft text-info"], viewed: ["Viewed", "bg-info-soft text-info"], withdrawn: ["Withdrawn", "bg-sand-100 text-[#3F4246]"],
   signed: ["Signed", "bg-success-soft text-success"], declined: ["Declined", "bg-sand-100 text-[#3F4246]"], expired: ["Expired", "bg-warning-soft text-warning"],
 };
 const TYPE_LABEL: Record<string, string> = { corporate: "Corporate", t1: "T1" };

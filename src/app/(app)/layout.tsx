@@ -9,6 +9,7 @@ import { ToastProvider } from "@/components/ds/overlays";
 import { NoteHost } from "@/components/save-state";
 import { signOut } from "../login/actions";
 import { MainArea } from "./main-area";
+import { SkipLinks } from "./skip-links";
 import { TopBar, type NewItem } from "./top-bar";
 import { gearMenu } from "./admin/settings-menu";
 import { draftsByTab } from "@/lib/studio/template-status";
@@ -28,15 +29,16 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const seeLeads = canView(access, "leads");
   const pricing = canView(access, "pricing");
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-  const waiting = (kinds: string[], outsideOk: boolean) =>
-    supabase.rpc("letter_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]).in("kind", kinds)
-      .or(outsideOk ? `source.eq.outside,valid_until.gte.${today}` : `valid_until.gte.${today}`);
+  const letters = () =>
+    supabase.rpc("letter_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]).in("kind", ["letter", "engagement"])
+      .or(`source.eq.outside,valid_until.gte.${today}`);
   const zero = Promise.resolve({ count: 0 });
   // The gear's count: templates waiting for an owner's approval (Admins only). The counts load together.
   const [{ count: leadsNew }, { count: lettersWaiting }, { count: quotesWaiting }, drafts, { count: bellUnread }] = await Promise.all([
     seeLeads ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new").not("source", "ilike", "phone%") : zero,
-    seeDocs || seeLeads ? waiting(["letter", "engagement"], true) : zero,
-    seeLeads ? waiting(["t1", "corporate", "proposal"], false) : zero,
+    seeDocs || seeLeads ? letters() : zero,
+    // The same list My day counts (quote_list, all three kinds including monthly quotes), so the two always agree.
+    seeLeads ? supabase.rpc("quote_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]) : zero,
     access.admin && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
     // Round 32: the bell (a client answered questions). Each person sees only their own notices.
     supabase.from("staff_notices").select("id", { count: "exact", head: true }).is("read_at", null),
@@ -62,7 +64,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     <ToastProvider>
       {/* UI1: data-ui1 turns on the C3 theme for staff screens only (client pages keep theirs). */}
       <div data-ui1 className="flex min-h-screen flex-col bg-paper">
-        <div className="skips"><a href="#main">Skip to main content</a></div>
+        <SkipLinks />
         <TopBar name={access.full_name} role={access.role_name} initials={initials} clients={canView(access, "clients")} newItems={newItems}
           gear={gear} drafts={draftTotal} bell={bellUnread ?? 0} signOut={signOut}
           nav={{ leads: seeLeads, clients: canView(access, "clients"), closebook: canView(access, "closebook"), engagements: seeDocs || seeLeads, documents: seeDocs || canView(access, "vault") }}

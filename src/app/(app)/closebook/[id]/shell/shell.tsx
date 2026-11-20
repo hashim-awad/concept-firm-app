@@ -40,18 +40,20 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   const chip = (
     <span className="inline-flex items-center gap-1 border border-sand-300 px-2 py-1 text-[12.5px] whitespace-nowrap text-ink-2 hover:border-ink-3" data-people
       aria-label={`People on this file: preparer ${p.preparer.name}, reviewer ${p.reviewer.name}`}>
-      Preparer <b className="font-semibold text-ink" title={p.preparer.name}>{initials(p.preparer.name)}</b><span aria-hidden>·</span>Reviewer <b className="font-semibold text-ink" title={p.reviewer.name}>{initials(p.reviewer.name)}</b>
+      <span className="max-[1439px]:hidden">Preparer</span> <b className="font-semibold text-ink" title={p.preparer.name}>{initials(p.preparer.name)}</b><span aria-hidden>·</span><span className="max-[1439px]:hidden">Reviewer</span> <b className="font-semibold text-ink" title={p.reviewer.name}>{initials(p.reviewer.name)}</b>
       {p.canChange && <ChevronDown className="h-3 w-3" aria-hidden />}
     </span>
   );
+  // WCAG 2.5.3: the name starts with the words on the chip.
+  const peopleLabel = `Preparer ${initials(p.preparer.name)}, Reviewer ${initials(p.reviewer.name)}. People on this file: preparer ${p.preparer.name}, reviewer ${p.reviewer.name}`;
   const sameLine = same && <p className="mt-2 rounded bg-sand-100 px-2 py-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>;
   if (!p.canChange) return (
-    <Popover align="right" width="w-64" label="People" button={chip}>
+    <Popover align="right" width="w-64" label={peopleLabel} button={chip}>
       <p className="text-[12.5px]"><span className="text-ink-3">Preparer</span> {p.preparer.name}</p><p className="text-[12.5px]"><span className="text-ink-3">Reviewer</span> {p.reviewer.name}</p>{sameLine}
     </Popover>
   );
   return (
-    <Popover align="right" width="w-72" label="People" button={chip} open={!!p.error}>
+    <Popover align="right" width="w-72" label={peopleLabel} button={chip} open={!!p.error}>
       <form action={setPeople} className="grid gap-2.5">
         <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={p.back} />
         <p className="font-semibold">People</p>
@@ -94,7 +96,7 @@ export function FileShell({ fileId, client, clientHref, yearEnd, source, netNote
           {done && <span className="sr-only" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
           <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-[1099px]:ml-0 max-[1099px]:w-full">
             {netCents !== null && <span className="text-[13px] whitespace-nowrap text-ink-2">{netCents < 0 ? "Net loss" : "Net income"}<b className="ml-1.5 text-[15px] font-semibold text-ink tabular-nums">{money(netCents)}</b>
-              {netNote && <Link href={`/closebook/${fileId}?step=code`} title={netNote} data-net-note={netNote} className="ml-1.5 inline-flex min-h-6 min-w-6 items-center justify-center text-[12.5px] text-warning underline underline-offset-2 hover:decoration-2"><span aria-hidden className="h-2 w-2 rounded-full bg-warning min-[1440px]:hidden" /><span className="max-[1439px]:sr-only">{netNote}</span></Link>}</span>}
+              {netNote && <Link href={`/closebook/${fileId}?step=code`} title={netNote} data-net-note={netNote} className="ml-1.5 inline-flex min-h-6 min-w-6 items-center justify-center text-[12.5px] text-warning underline underline-offset-2 hover:decoration-2"><span aria-hidden className="mr-1 h-2 w-2 rounded-full bg-warning min-[1440px]:hidden" /><span aria-hidden className="min-[1440px]:hidden">Not final</span><span className="max-[1439px]:sr-only">{netNote}</span></Link>}</span>}
             <span className="text-[13px] whitespace-nowrap text-ink-2">T2 due<b className="ml-1.5 text-[15px] font-semibold text-ink">{formatDate(t2Due)}</b></span>
             {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" className="inline-flex h-8 items-center gap-1.5 border border-navy-700 px-2.5 text-[13px] font-medium text-navy-700 hover:bg-navy-50"><Clock className="h-[15px] w-[15px]" aria-hidden />History</Link>}
             <Link href="/closebook" className="text-[13px] whitespace-nowrap text-navy-700 hover:underline">My files</Link>
@@ -115,7 +117,7 @@ export function FileShell({ fileId, client, clientHref, yearEnd, source, netNote
       <div className="flex flex-1 max-lg:flex-col">
         {left !== null && <LeftPanel wide={area === "steps"} folded={folded} pinned={pinned} forceFolded={forceFolded} narrowFold={narrowFold} summary={stepSum}>{left}</LeftPanel>}
         {/* Card headings in small capitals on every file screen (round 15). */}
-        <div className="cb-push min-w-0 flex-1 px-5 pt-3.5 pb-12 [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
+        <div id="paper" tabIndex={-1} className="cb-push min-w-0 flex-1 px-5 pt-3.5 pb-12 outline-none [&_.card]:shadow-none [&_.card>h2]:text-[11.5px] [&_.card>h2]:font-bold [&_.card>h2]:tracking-[.08em] [&_.card>h2]:text-navy-900 [&_.card>h2]:uppercase [&_.card>div>h2]:text-[11.5px] [&_.card>div>h2]:font-bold [&_.card>div>h2]:tracking-[.08em] [&_.card>div>h2]:text-navy-900 [&_.card>div>h2]:uppercase">{children}</div>
       </div>
     </div>
   );
@@ -207,7 +209,7 @@ export function SignCircles(p: SignProps) {
   const prepContent = (
     <>
       <p className="font-bold">{prepared ? `Prepared by ${name(st!.prepared_by)}` : "Preparer"}</p>
-      <p className="text-ink-3">{prepared ? formatDate(st!.prepared_at) : "Not signed"}</p>
+      <p className="text-ink-3">{prepared ? formatDateTime(st!.prepared_at) : "Not signed"}</p>
       {!prepared && problems.length > 0 && <ul className="mt-2 list-disc pl-4 text-xs text-ink-2">{problems.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
       {!prepared && p.subsOf ? subsNote("prepared") : !prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : canPrepare ? signForm("prepared", "Sign as preparer") : <p className="mt-2 text-xs text-ink-3">You need the Prepare right to sign as preparer.</p>)}
       {prepared && !reviewed && editable && canUndo("prepared") && !p.subsOf && undo("prepared")}
@@ -216,15 +218,19 @@ export function SignCircles(p: SignProps) {
   const revContent = (
     <>
       <p className="font-bold">{reviewed ? `Reviewed by ${name(st!.reviewed_by)}` : "Reviewer"}</p>
-      <p className="text-ink-3">{reviewed ? formatDate(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
+      <p className="text-ink-3">{reviewed ? formatDateTime(st!.reviewed_at) : review || prepared ? "Not signed" : "After the preparer"}</p>
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
       {!reviewed && p.subsOf ? subsNote("reviewed") : !reviewed && editable && (canReview ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
         : <p className="mt-2 text-xs text-ink-3">You need the Review right to sign as reviewer.</p>)}
       {reviewed && editable && canUndo("reviewed") && !p.subsOf && undo("reviewed")}
     </>
   );
-  const pLabel = prepared ? `Prepared by ${name(st!.prepared_by)}, ${formatDate(st!.prepared_at)}, open sign-off` : "Preparer: not signed, open sign-off";
-  const rLabel = reviewed ? `Reviewed by ${name(st!.reviewed_by)}, ${formatDate(st!.reviewed_at)}, open sign-off` : "Reviewer: not signed, open sign-off";
+  // WCAG 2.5.3: each name starts with the words on the tag, then the full name with date and time.
+  const partWords = (role: "prepared" | "reviewed") => `In progress, ${role} ${p.subsOf!.filter((x) => x[role]).length} of ${p.subsOf!.length}`;
+  const pWords = partly("prepared") ? (size === "lg" ? partWords("prepared") : "In progress") : prepared ? (size === "lg" ? `Prepared ${whoP}, ${formatDate(st!.prepared_at)}` : "Prepared") : size === "lg" ? "Not prepared" : "Open";
+  const rWords = partly("reviewed") ? (size === "lg" ? partWords("reviewed") : "In progress") : reviewed ? (size === "lg" ? `Reviewed ${whoR}, ${formatDate(st!.reviewed_at)}` : "Reviewed") : size === "lg" ? "Not reviewed" : "Open";
+  const pLabel = prepared ? `${pWords}. Prepared by ${name(st!.prepared_by)}, ${formatDateTime(st!.prepared_at)}, open sign-off` : `${pWords}. Preparer not signed, open sign-off`;
+  const rLabel = reviewed ? `${rWords}. Reviewed by ${name(st!.reviewed_by)}, ${formatDateTime(st!.reviewed_at)}, open sign-off` : `${rWords}. Reviewer not signed, open sign-off`;
   if (size === "sm") {
     // The step list: one tag, the furthest sign-off; the box holds both.
     const kind = reviewed ? "reviewed" : partly("reviewed") || (!prepared && partly("prepared")) ? "progress" : prepared ? "prepared" : null;
@@ -237,18 +243,25 @@ export function SignCircles(p: SignProps) {
       );
     }
     return (
-      <Popover align={align} side={side} label={reviewed ? rLabel : pLabel} button={<Tag kind={kind} size="sm" />}>
+      <Popover align={align} side={side} label={kind === "progress" ? `In progress. ${partly("reviewed") ? partWords("reviewed") : partWords("prepared")}, open sign-off` : reviewed ? rLabel : pLabel} button={<Tag kind={kind} size="sm" />}>
         {!review && <div className="mb-3">{prepContent}</div>}{revContent}
       </Popover>
     );
   }
   const prep = !review && (
-    <Popover align={align} side={side} label={pLabel} button={partly("prepared") ? <Tag kind="progress" size="lg" words={`In progress, prepared ${p.subsOf!.filter((x) => x.prepared).length} of ${p.subsOf!.length}`} /> : <Tag kind={prepared ? "prepared" : "none-p"} who={whoP} at={st?.prepared_at} size="lg" />}>{prepContent}</Popover>
+    <Popover align={align} side={side} label={pLabel} button={partly("prepared") ? <Tag kind="progress" size="lg" words={partWords("prepared")} /> : <Tag kind={prepared ? "prepared" : "none-p"} who={whoP} at={st?.prepared_at} size="lg" />}>{prepContent}</Popover>
   );
   const rev = (
-    <Popover align={align} side={side} label={rLabel} button={partly("reviewed") ? <Tag kind="progress" size="lg" words={`In progress, reviewed ${p.subsOf!.filter((x) => x.reviewed).length} of ${p.subsOf!.length}`} /> : <Tag kind={reviewed ? "reviewed" : "none-r"} who={whoR} at={st?.reviewed_at} size="lg" />}>{revContent}</Popover>
+    <Popover align={align} side={side} label={rLabel} button={partly("reviewed") ? <Tag kind="progress" size="lg" words={partWords("reviewed")} /> : <Tag kind={reviewed ? "reviewed" : "none-r"} who={whoR} at={st?.reviewed_at} size="lg" />}>{revContent}</Popover>
   );
-  return <span className="inline-flex flex-wrap items-center gap-1.5">{prep}{rev}</span>;
+  // D4 (mock 1280-banking-states): the Sign button sits beside an unsigned tag for someone who may sign; the box keeps the details.
+  const signNow = (role: "prepared" | "reviewed", label: string) => (
+    <form action={p.sub ? signSubstep : signStep} className="inline-flex">{hidden("file_id", fileId)}{hidden("step", step)}{p.sub && hidden("sub", p.sub)}{hidden("role", role)}{hidden("back", back)}
+      <button type="submit" className="btn btn-compact">{label}</button></form>
+  );
+  const canSignP = !review && !prepared && editable && canPrepare && !p.subsOf && !p.preparerElsewhere;
+  const canSignR = !reviewed && editable && canReview && (review || prepared) && !p.subsOf;
+  return <span className="inline-flex flex-wrap items-center gap-1.5">{prep}{canSignP && signNow("prepared", "Sign as preparer")}{rev}{canSignR && signNow("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")}</span>;
 }
 
 // ---------------------------------------------------------------------------------------------------

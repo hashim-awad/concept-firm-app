@@ -128,12 +128,12 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
   };
 
   const dropZone = (
-    <div className="grid gap-3 rounded-[10px] border border-sand-200 bg-white p-4">
+    <div className="grid gap-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white p-4">
       <label
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
         onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); if (canEdit) send([...e.dataTransfer.files]); }}
-        className={`grid cursor-pointer justify-items-center gap-1 rounded-[10px] border-2 border-dashed px-5 py-6 text-center text-sm text-ink-2 transition-colors ${over ? "border-navy-600 bg-navy-50" : "border-sand-300 hover:border-navy-300"}`}>
+        className={`grid cursor-pointer justify-items-center gap-1 rounded-[var(--radius-ds)] border-2 border-dashed px-5 py-6 text-center text-sm text-ink-2 transition-colors ${over ? "border-navy-600 bg-navy-50" : "border-sand-300 hover:border-navy-300"}`}>
         <Upload className="mb-1 h-6 w-6 text-ink-2" aria-hidden />
         <span>Drop statements here, or <span className="font-semibold text-navy-700">choose files</span></span>
         <span className="text-[12.5px] text-ink-3">PDF, or photos (JPG, PNG, HEIC). Many at once: a year is 12 or more per account. Locked PDFs with no password are unlocked first.</span>
@@ -163,7 +163,7 @@ export function StatementImport({ fileId, initial, canEdit, csvHref, startOpen =
       )}
       {err && <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">{err}</p>}
       {standalone && (
-        <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-sand-200 bg-white px-4 py-2.5 text-sm">
+        <div className="flex flex-wrap items-center gap-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-4 py-2.5 text-sm">
           <span className="font-medium">Download as</span>
           <span className="inline-flex overflow-hidden rounded-md border border-sand-300">
             {(["csv", "xlsx"] as const).map((v) => (

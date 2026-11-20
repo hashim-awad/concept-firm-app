@@ -41,9 +41,9 @@ export async function adjustmentsTop({ supabase, file, entries, papers, base, ed
   const cell = "px-3 py-2";
   return (
     <>
-      {last && <p className="mb-4 rounded-[10px] border border-sand-200 bg-white px-4 py-2.5 text-[13px] text-ink-3" data-last-year>{last}</p>}
+      {last && <p className="mb-4 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-4 py-2.5 text-[13px] text-ink-3" data-last-year>{last}</p>}
       <div className="mb-2 flex items-center justify-between gap-3"><h2 className="text-[14px] font-semibold">Schedules</h2>{addRevenue}</div>
-      <section className="mb-5 overflow-hidden rounded-[10px] border border-sand-200 bg-white" aria-label="Schedules">
+      <section className="mb-5 overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Schedules">
         <table className="w-full border-collapse text-[12.5px]" data-schedules>
           <thead><tr className="border-b border-sand-200 bg-sand-50 text-left text-[11px] font-semibold tracking-[.06em] text-ink-3 uppercase">
             <th className={cell}>Schedule</th><th className={`${cell} w-32`}>Status</th><th className={`${cell} w-32 text-right`}>Amount</th><th className={`${cell} w-36`}>Entry</th><th className={`${cell} w-20`} /></tr></thead>

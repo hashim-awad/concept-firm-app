@@ -33,7 +33,7 @@ export function ReportingList({ fileId }: { fileId: string }) {
   const group = (title: string, icon: React.ReactNode, rows: [string, string, string][]) => (
     <section className="mb-6">
       <h2 className="mb-2 flex items-center gap-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">{icon}{title}</h2>
-      <ul className="divide-y divide-sand-100 overflow-hidden rounded-[10px] border border-sand-200 bg-surface">
+      <ul className="divide-y divide-sand-100 overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-surface">
         {rows.map(([k, name, about]) => (
           <li key={k}>
             <Link href={`/closebook/${fileId}?area=reporting&report=${k}`} className="flex flex-col gap-0.5 px-4 py-3 hover:bg-sand-50 sm:flex-row sm:items-baseline sm:gap-4" data-report-link={k}>

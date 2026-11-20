@@ -63,11 +63,11 @@ export function QuestionsReport({ data, editable, initialAccount, initialStatus 
       </div>
       {ticked.size > 0 && <p className="mb-2 text-[12.5px] text-ink-2 print:hidden">{ticked.size} ticked. The buttons use the ticked rows. <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => setTicked(new Set())}>Clear</button></p>}
       {data.rows.length === 0 || rows.length === 0 ? (
-        <p className="rounded-[10px] border border-sand-200 bg-surface px-6 py-10 text-center text-ink-2" data-questions-empty>
+        <p className="rounded-[var(--radius-ds)] border border-sand-200 bg-surface px-6 py-10 text-center text-ink-2" data-questions-empty>
           {data.rows.length === 0 ? "No questions for the client. Ask from step 4, in the 💬 column." : "No questions match these filters."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-[10px] border border-sand-200 bg-surface">
+        <div className="overflow-x-auto rounded-[var(--radius-ds)] border border-sand-200 bg-surface">
           <table className="w-full min-w-[1100px] text-[13px]">
             <thead className="bg-sand-50 text-left text-[11.5px] font-semibold tracking-[.04em] text-ink-2 uppercase">
               <tr className="border-b border-sand-200">

@@ -50,7 +50,7 @@ export function ExcludeWindow({ fileId, statement, title, sub, closeHref, lineHr
       <span className="flex-1" /><Link href={closeHref} scroll={false} className="btn-secondary">Cancel</Link>
       <button type="button" onClick={go} disabled={busy || !reason || (reason === "other" && !note.trim())} className="btn h-9">Exclude</button></>}>
       {blockers ? (
-        <div className="grid gap-2 rounded-[10px] border border-danger/30 bg-danger-soft/50 px-4 py-3" role="alert">
+        <div className="grid gap-2 rounded-[var(--radius-ds)] border border-danger/30 bg-danger-soft/50 px-4 py-3" role="alert">
           <b className="text-[14px]">Not excluded. Undo these {blockers.length} line{blockers.length === 1 ? "" : "s"} first:</b>
           <ul className="grid gap-1 text-[13.5px]">{blockers.map((b) => (
             <li key={b.id} className="flex flex-wrap gap-x-2"><span className="tabular-nums">{date(b.date)}</span><span>{b.description}</span>
@@ -148,7 +148,7 @@ export function ReplaceWindow({ fileId, statement, sub, closeHref }: { fileId: s
     <Win title="Replace file" sub={sub} closeHref={closeHref} width={560}>
       <p className="text-[14px] text-ink-2">Upload a clearer copy of the same statement. It must read to the same account, period, opening and closing, and the same lines. The lines in the file do not change.</p>
       {(state === "pick" || state === "error") && (
-        <label className="block cursor-pointer rounded-[10px] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
+        <label className="block cursor-pointer rounded-[var(--radius-ds)] border-2 border-dashed border-sand-300 px-5 py-5 text-center text-[14.5px] text-ink-2 hover:border-navy-300">
           Drop the file here, or <span className="text-navy-700 underline">choose it</span>
           <input type="file" aria-label="Clearer copy" accept=".pdf,.jpg,.jpeg,.png,.heic,.heif,application/pdf,image/jpeg,image/png,image/heic,image/heif" className="sr-only"
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; send(f); }} />
@@ -211,7 +211,7 @@ export function LineWindow({ fileId, line, closeHref, yearStart, yearEnd }: {
 function LockedWindow({ title, sub, closeHref, text }: { title: string; sub: string; closeHref: string; text: string }) {
   return (
     <Win title={title} sub={sub} closeHref={closeHref} width={520} footer={<><span className="flex-1" /><Link href={closeHref} scroll={false} className="btn h-9">Close</Link></>}>
-      <p className="rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{text}</p>
+      <p className="rounded-[var(--radius-ds)] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{text}</p>
     </Win>
   );
 }
@@ -222,7 +222,7 @@ export function CoverageForm({ fileId, account, opened, closed, note }: { fileId
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState<string | null>(null);
-  if (locked) return <p className="mt-3 rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{locked}</p>;
+  if (locked) return <p className="mt-3 rounded-[var(--radius-ds)] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{locked}</p>;
   return (
     <form className="mt-3 grid gap-3 sm:grid-cols-2" onSubmit={async (ev) => {
       ev.preventDefault();

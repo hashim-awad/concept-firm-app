@@ -39,7 +39,7 @@ export function NoteCard({ fileId, n, names, canReview, canFix, editable, back, 
 }) {
   const name = (id: string | null) => (id ? names.get(id) ?? "" : "");
   return (
-    <li id={`note-${n.id}`} className="grid gap-1.5 rounded-[10px] border border-sand-200 bg-white px-3.5 py-3">
+    <li id={`note-${n.id}`} className="grid gap-1.5 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-3.5 py-3">
       <p className="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${WORD[n.status][1]}`}>{WORD[n.status][0]}</span>
         <span className="font-semibold text-ink">{name(n.created_by)}</span><span>{formatDateTime(n.created_at)}</span>

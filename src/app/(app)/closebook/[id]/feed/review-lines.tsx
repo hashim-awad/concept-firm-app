@@ -155,7 +155,7 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
 
   return (
     <div className="grid gap-4">
-      <section ref={listRef} className="rounded-[10px] border border-sand-200 bg-white" aria-label="Lines for the reviewer" data-review-lines>
+      <section ref={listRef} className="rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Lines for the reviewer" data-review-lines>
         <h2 className="border-b border-sand-200 px-3 py-2.5 text-[15px] font-semibold">Lines for the reviewer</h2>
         <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-3 py-2">
           <label className="flex h-8 w-60 items-center gap-1.5 rounded-[6px] border border-sand-300 px-2">
@@ -188,7 +188,7 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
 
       {/* Piece R1 (D5): on a bank-statement file accounts are decided in step 8, so the card shows only if rows are passed. */}
       {acctRows.length > 0 && (
-      <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Accounts for the reviewer's decision" data-review-accounts>
+      <section className="rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Accounts for the reviewer's decision" data-review-accounts>
         <h2 className="border-b border-sand-200 px-3 py-2.5 text-[15px] font-semibold">Accounts for the reviewer&rsquo;s decision</h2>
         {acctRows.length === 0 ? <p className="px-3 py-3 text-[13.5px] text-ink-3">Nothing waits for the reviewer.</p> : (
           <table className="w-full table-fixed text-[13.5px]">
@@ -208,7 +208,7 @@ export function ReviewLines({ data, editable, isReviewer, focusLine, accounts: a
 
       {barOn && (
         <div role="toolbar" aria-label="Ticked lines" style={barBox ? { left: barBox.left, width: barBox.width } : { left: 0, right: 0 }}
-          className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[10px] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)]">
+          className="fixed bottom-0 z-[60] flex min-h-14 flex-wrap items-center gap-2 rounded-t-[var(--radius-ds)] bg-[#1d2330] px-5 py-2.5 text-[14px] text-white shadow-[0_-8px_24px_rgba(0,0,0,.25)]">
           <span className="mr-auto font-semibold tabular-nums" data-bar-text>{`${tickedLines.length} line${tickedLines.length === 1 ? "" : "s"}`}{spent ? ` · Spent ${money(spent)}` : ""}{got ? ` · Received ${money(got)}` : ""}</span>
           {([["Mark reviewed", () => markReviewed(tickedLines.filter((l) => l.status === "reviewer").map((l) => l.id)), !isReviewer, reviewerOnly],
             ["Edit", () => setWin({ k: "edit" }), tickedLines.some((l) => transferish(l) || l.is_split), tickedLines.some((l) => transferish(l) || l.is_split) ? "A transfer or a split line is ticked." : undefined],

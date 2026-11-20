@@ -72,14 +72,16 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
   };
   const search = useClientSearch(clients);
   const ref = useRef<HTMLElement>(null);
+  const opener = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!open) return;
     const out = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(null); };
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    // Escape closes the menu and puts focus back on the button that opened it (ui-reviewer finding 12).
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(null); opener.current?.focus(); } };
     document.addEventListener("mousedown", out); document.addEventListener("keydown", key);
     return () => { document.removeEventListener("mousedown", out); document.removeEventListener("keydown", key); };
   }, [open]);
-  const toggle = (m: Menu) => setOpen(open === m ? null : m);
+  const toggle = (m: Menu) => { if (open !== m) opener.current = document.activeElement as HTMLElement | null; setOpen(open === m ? null : m); };
   // Help: the page's own "?" panel when it has one.
   const help = () => {
     const own = document.querySelector<HTMLElement>("[data-page-help] summary, [data-page-help] button, summary[data-page-help], button[data-page-help]");
@@ -104,7 +106,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
     { label: "Quotes", href: "/quotes", note: counts.quotesWaiting ? `${counts.quotesWaiting} waiting` : "" },
   ];
   return (
-    <header ref={ref} data-bar className="sticky top-0 z-40 flex h-14 flex-none items-center gap-1 bg-navy-700 px-3 text-white print:hidden md:px-4">
+    <header ref={ref} data-bar onBlur={(e) => { if (open && !ref.current?.contains(e.relatedTarget as Node | null) && e.relatedTarget) setOpen(null); }} className="sticky top-0 z-40 flex h-14 flex-none items-center gap-1 bg-navy-700 px-3 text-white print:hidden md:px-4">
       {/* Below 1120 px: the Menu panel holds the six items and Help. */}
       <div className="relative min-[1120px]:hidden">
         <button type="button" onClick={() => toggle("panel")} aria-expanded={open === "panel"} aria-label="Menu" className={icon}><Menu className="h-5 w-5" /></button>
@@ -137,12 +139,12 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
         ))}
         {nav.leads && (
           <div className="relative flex">
-            <button type="button" onClick={() => toggle("sales")} aria-expanded={open === "sales"} aria-haspopup="menu" className={item("sales")} aria-current={owner === "sales" ? "page" : undefined}>
+            <button type="button" onClick={() => toggle("sales")} aria-expanded={open === "sales"} aria-controls="sales-menu" className={item("sales")} aria-current={owner === "sales" ? "page" : undefined}>
               Sales{counts.leadsNew ? <><span className={count} aria-hidden>{counts.leadsNew}</span><span className="sr-only">, {counts.leadsNew} new leads</span></> : null}<ChevronDown className="h-3.5 w-3.5" aria-hidden />
             </button>
-            <div role="menu" hidden={open !== "sales"} className={`${panel} left-0 w-60 py-1.5`}>
+            <div id="sales-menu" hidden={open !== "sales"} className={`${panel} left-0 w-60 py-1.5`}>
               {salesItems.map((i) => (
-                <Link key={i.href} role="menuitem" href={i.href} onClick={() => setOpen(null)} className="flex items-center justify-between px-4 py-2.5 text-[14px] hover:bg-navy-50">{i.label}<span className="text-[12px] text-ink-2">{i.note}</span></Link>
+                <Link key={i.href} href={i.href} onClick={() => setOpen(null)} className="flex items-center justify-between px-4 py-2.5 text-[14px] hover:bg-navy-50">{i.label}<span className="text-[12px] text-ink-2">{i.note}</span></Link>
               ))}
             </div>
           </div>
@@ -191,7 +193,8 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
       </div>
       {gear.length > 0 && (
         <div className="relative">
-          <button type="button" onClick={() => toggle("gear")} aria-expanded={open === "gear"} aria-label="Settings" title="Settings" className={`${icon} ${open === "gear" ? "bg-white/15" : ""}`}>
+          <button type="button" onClick={() => toggle("gear")} aria-expanded={open === "gear"} aria-label="Settings" title="Settings" aria-current={owner === "gear" ? "page" : undefined}
+            className={`${icon} ${open === "gear" ? "bg-white/15" : ""} ${owner === "gear" ? "!h-14 border-b-[3px] border-lime-500 bg-navy-600" : ""}`}>
             <Settings className="h-[19px] w-[19px]" />
             {drafts > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-white px-1.5 text-[10px] leading-4 font-bold text-navy-700" title={`${drafts} template${drafts === 1 ? "" : "s"} to approve`}>{drafts}</span>}
           </button>

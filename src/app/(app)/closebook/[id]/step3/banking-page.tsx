@@ -123,7 +123,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
           </table>
         )}
         {editable && !vx && (viewing.gaps.length > 0 || !viewing.statements.length || reason) && (
-          <details className="rounded-[10px] border border-sand-200 px-4 py-3" open={!!reason}>
+          <details className="rounded-[var(--radius-ds)] border border-sand-200 px-4 py-3" open={!!reason}>
             <summary className="cursor-pointer text-[13.5px] font-semibold text-navy-700">Record why a period has no statement</summary>
             <CoverageForm fileId={fileId} account={viewing.id} opened={viewing.opened ?? ""} closed={viewing.closed ?? ""} note={viewing.note ?? ""} />
           </details>
@@ -215,9 +215,9 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
   if (sub === "3.1") {
     body = (
       <div className="grid gap-5">
-        {!d.boxes.length && <p className="rounded-[14px] border border-sand-200 bg-white px-6 py-6 text-[14.5px] text-ink-3">No accounts yet.</p>}
+        {!d.boxes.length && <p className="rounded-[var(--radius-ds)] border border-sand-200 bg-white px-6 py-6 text-[14.5px] text-ink-3">No accounts yet.</p>}
         {d.boxes.map((b) => (
-          <section key={b.gifi} aria-label={b.title} className="overflow-hidden rounded-[14px] border border-sand-200 bg-white">
+          <section key={b.gifi} aria-label={b.title} className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
             <div className="grid grid-cols-[minmax(0,1fr)_12rem_8.5rem] items-center border-b border-sand-200 px-6 py-4">
               <h3 className="text-[16px] font-semibold">{b.title}</h3><span className="text-right text-[11.5px] font-semibold tracking-[.08em] text-ink-3 uppercase">{opening}</span><span />
             </div>
@@ -242,7 +242,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
   } else if (sub === "3.2") {
     const ys = d.yearStart, ye = d.yearEnd;
     body = (
-      <section aria-label="Bank feeds" className="overflow-hidden rounded-[14px] border border-sand-200 bg-white">
+      <section aria-label="Bank feeds" className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
         <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_11rem] items-center border-b border-sand-200 px-6 py-3 text-[11.5px] font-semibold tracking-[.08em] text-ink-3 uppercase">
           <span>Account</span><span>{MON[+ys.slice(5, 7) - 1]} {ys.slice(0, 4)} to {MON[+ye.slice(5, 7) - 1]} {ye.slice(0, 4)}</span><span>Status</span></div>
         {d.accounts.map((a) => (
@@ -320,12 +320,12 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
       <div className="flex flex-wrap gap-2.5" role="tablist">
         {d.accounts.map((x) => (
           <Link key={x.id} href={`${base}&account=${x.id}`} scroll={false} role="tab" aria-selected={x.id === a.id}
-            className={`rounded-[10px] border bg-white px-4 py-2.5 text-[15px] ${x.id === a.id ? "border-2 border-navy-700 px-[15px] py-[9px] font-semibold" : "border-sand-300 hover:border-navy-300"}`}>
+            className={`rounded-[var(--radius-ds)] border bg-white px-4 py-2.5 text-[15px] ${x.id === a.id ? "border-2 border-navy-700 px-[15px] py-[9px] font-semibold" : "border-sand-300 hover:border-navy-300"}`}>
             {x.label}{ok(x) ? <span className="ml-1.5 text-success">✓</span> : word(x) ? <span className="text-danger"> · {word(x)}</span> : null}
           </Link>
         ))}
       </div>
-      <section aria-label="Reconcile" className="flex flex-wrap items-start gap-x-5 gap-y-3 rounded-[14px] border border-sand-200 bg-white px-7 py-5">
+      <section aria-label="Reconcile" className="flex flex-wrap items-start gap-x-5 gap-y-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-7 py-5">
         <span><span className={num}>{b.opening === null ? "—" : money(b.opening)}</span><span className={cap}>{opening}</span></span>{op}
         <span><span className={num}>{money(b.inCents)}</span><span className={cap}>{b.inCount} {inWord}</span></span><span className="self-center px-1 text-[22px] text-ink-3">−</span>
         <span><span className={num}>{money(b.outCents)}</span><span className={cap}>{b.outCount} {outWord}</span></span><span className="self-center px-1 text-[22px] text-ink-3">=</span>
@@ -341,7 +341,7 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
           : missing ? <Link href={base.replace(/paper=\w+/, "paper=feeds")} scroll={false} className="btn-secondary h-10 self-center">Go to 3.2</Link> : null}
       </section>
       {b.start?.show && (
-        <section aria-label="Start of the year" className="flex flex-wrap items-start gap-x-8 gap-y-3 rounded-[14px] border border-sand-200 bg-white px-7 py-4">
+        <section aria-label="Start of the year" className="flex flex-wrap items-start gap-x-8 gap-y-3 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-7 py-4">
           <span><span className="block text-[20px] font-semibold tabular-nums">{money(b.start.bank)}</span><span className={cap}>BANK · {opening.replace("OPENING · ", "")}</span></span>
           <span><span className="block text-[20px] font-semibold tabular-nums">{money(b.start.opening)}</span><span className={cap}>{opening}</span></span>
           <span><span className={`block text-[20px] font-semibold tabular-nums ${b.start.explained ? "text-success" : "text-danger"}`}>{money(b.start.opening - b.start.bank)}{b.start.explained ? " ✓" : ""}</span><span className={cap}>DIFFERENCE</span></span>
@@ -349,7 +349,7 @@ function reconcile(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAccount
           <Link href={`${here}&explain=${a.id}&edge=start`} scroll={false} className={`${b.start.explained ? "btn-secondary" : "btn"} h-10 self-center`}>Explain</Link>
         </section>
       )}
-      <section aria-label="Transactions" className="overflow-hidden rounded-[14px] border border-sand-200 bg-white">
+      <section aria-label="Transactions" className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white">
         <table className="w-full text-[14.5px]">
           <thead><tr className="border-b border-sand-200 text-[12px] font-semibold tracking-[.06em] text-ink-3 uppercase">
             <th className="px-6 py-3 text-left">Date</th><th className="px-3 py-3 text-left">Description</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "in")}</th><th className="px-3 py-3 text-right">{typeLabel(a.kind, "out")}</th><th className="px-6 py-3 text-right">Balance</th></tr></thead>
@@ -414,7 +414,7 @@ function explainWindow(d: Awaited<ReturnType<typeof loadBanking>>, a: BankingAcc
         ) : <p className="text-[13px] text-ink-3">None added yet.</p>}
       </div>
       {editable && (
-        <details className="rounded-[10px] border border-sand-200 bg-sand-50/60 px-4 py-3" open={Math.abs(left) >= 100}>
+        <details className="rounded-[var(--radius-ds)] border border-sand-200 bg-sand-50/60 px-4 py-3" open={Math.abs(left) >= 100}>
           <summary className="cursor-pointer text-[13.5px] font-semibold text-navy-700">+ Add item</summary>
           <form action={addOutstanding} className="mt-3 grid gap-3 sm:grid-cols-[10rem_1fr]">
             <input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="account" value={a.id} /><input type="hidden" name="edge" value="start" /><input type="hidden" name="back" value={back} />

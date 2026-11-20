@@ -450,7 +450,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
             </div>
               <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
-            {editable && <div className="flex items-center gap-2 pt-3"><SaveFormButton className="btn" /><SaveFormDiscard className="btn-secondary" /></div>}
+            {/* UI1: a locked file is read-only, as its locked line says (the database refuses changes too). */}
+            {editable && file.phase !== "locked" && <div className="flex items-center gap-2 pt-3"><SaveFormButton className="btn" /><SaveFormDiscard className="btn-secondary" /></div>}
           </SaveForm>
         </section>
       </div>
@@ -795,8 +796,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       <PanelHead>Views</PanelHead>
       {/* Piece R1: no GIFI views here; GIFI matching is step 8's first paper. */}
       {([["groups", "Groups"], ["accounts", "Accounts"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
-      <PanelHead>Reports</PanelHead>
-      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=reporting&report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
+      {/* UI1 D5: reports have one home, the Reports tab. */}
     </>
   );
   let left: React.ReactNode = stepRail, folded: React.ReactNode = stepRailFolded, content: React.ReactNode = body;

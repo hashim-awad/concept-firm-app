@@ -18,7 +18,7 @@ const kind = (v: number | null) => (v === null ? "" : v > 0 ? "owing" : v < 0 ? 
 const INST_ROWS = 12;
 
 // Round 15: one card per section, small capitals headings (CaseWare Cloud).
-const CARD = "overflow-hidden rounded-[10px] border border-sand-200 bg-white";
+const CARD = "overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white";
 const HEAD = "flex flex-wrap items-center gap-2 border-b border-sand-200 px-3.5 py-2.5";
 const H = "text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase";
 

@@ -52,7 +52,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
     </>
   );
   const strip = (
-    <div className="mb-2 grid gap-1.5 rounded-[10px] border border-sand-200 bg-white px-3 py-2 text-[12px]" data-entry-filters>
+    <div className="mb-2 grid gap-1.5 rounded-[var(--radius-ds)] border border-sand-200 bg-white px-3 py-2 text-[12px]" data-entry-filters>
       {groups.map((g) => (
         <div key={g.head} className="flex flex-wrap items-center gap-1.5">
           <span className="w-16 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{g.head}</span>
@@ -92,7 +92,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         )}
       </>}>{title} <span className="ml-1 font-normal tracking-normal text-ink-3">{shown.length}</span></PageTitle>
       {listBase && strip}
-      <section className="overflow-hidden rounded-[10px] border border-sand-200 bg-white" aria-label="Entries">
+      <section className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Entries">
         <div className={`grid ${COLS} gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3`}>
           <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span>Sign-off</span>
         </div>

@@ -38,7 +38,7 @@ function Frame({ closeHref, children, wide = true }: { closeHref: string; childr
   return (
     <div className="fixed inset-0 z-50 print:hidden">
       <Link href={closeHref} aria-label="Close" className="absolute inset-0 block bg-navy-950/35" scroll={false} />
-      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[10px] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}>{children}</div>
+      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}>{children}</div>
     </div>
   );
 }
@@ -124,7 +124,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
               <tr className="font-bold"><td /><td className="py-1.5 text-right" colSpan={2}>Total</td><td className="border-t border-ink py-1.5 text-right tabular-nums">{money(dr)}</td><td className="border-t border-ink py-1.5 text-right tabular-nums">{money(dr)}</td>{form.ctx.registered && <td />}</tr></tbody>
           </table>
           <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-[10px] border border-sand-200">
+            <section className="rounded-[var(--radius-ds)] border border-sand-200">
               <h3 className="border-b border-sand-200 px-3.5 py-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Sign-off</h3>
               <div className="grid gap-2 px-3.5 py-2.5 text-[12.5px]">
                 <p className="flex items-center gap-2"><Circle kind="p" text={initials(prep)} />Prepared by {prep} · {formatDate(entry.created_at)}</p>
@@ -135,7 +135,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
                 ) : <p className="flex items-center gap-2 text-ink-3"><Circle kind="none" />No review needed: a standard entry at or under the threshold.</p>}
               </div>
             </section>
-            <section className="rounded-[10px] border border-sand-200">
+            <section className="rounded-[var(--radius-ds)] border border-sand-200">
               <h3 className="border-b border-sand-200 px-3.5 py-2 text-[11.5px] font-bold tracking-[.08em] text-navy-900 uppercase">Review note</h3>
               <div className="px-3.5 py-2.5 text-[12.5px]">{editable && !locked && me ? <NoteOnItem fileId={file.id} step="entries" targetType="entry" targetId={entry.id} back={here} label="Add a review note" />
                 : <span className="text-ink-3">None.</span>}</div>

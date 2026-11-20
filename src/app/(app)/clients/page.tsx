@@ -94,7 +94,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
           </AutoSubmitSelect>
         </div>
       </form>
-      <section className="card overflow-x-auto p-0">
+      <section className="card relative overflow-x-auto p-0">
         {rows.length === 0 ? <p className="p-5 text-sm text-muted">No clients found.</p> : (
           <table className="table">
             <thead><tr><th>Legal name</th><th>Type</th><th>Province</th><th>Year-end</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>

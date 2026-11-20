@@ -49,7 +49,7 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
   };
   const chip = (href: string, on: boolean, text: string) => (
     <Link key={text} href={href} aria-current={on ? "true" : undefined}
-      className={`rounded-full border px-3 py-1 text-[13px] ${on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
+      className={`border px-3 py-1.5 text-[13px] ${on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
   );
   const open = (r: Row) => r.kind === "proposal" ? (r.status === "draft" ? `/quotes/proposal?quote=${r.id}` : r.document_id && !r.sent_at ? `/quotes/proposal?doc=${r.document_id}` : `/quotes/${r.id}`) : r.lead_id ? `/leads/${r.lead_id}/quote` : "/quotes";
   const typeLabel = (r: Row) => QUOTE_KIND[r.kind];
@@ -64,17 +64,16 @@ export default async function QuotesPage({ searchParams }: PageProps<"/quotes">)
       <div className="mb-2 flex flex-wrap items-center gap-2" aria-label="Type">{TYPES.map(([k, l]) => chip(link("type", k), type === k, l))}</div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <LinkSelect label="Status" value={status} options={[{ value: "", label: "Any status", href: link("status", "") }, ...STATUSES.map((s) => ({ value: s, label: QUOTE_STATUS[s], href: link("status", s) }))]} />
-        {sources.length > 1 && <LinkSelect label="Source" value={source} options={[{ value: "", label: "Any source", href: link("source", "") }, ...sources.map((s) => ({ value: s, label: s, href: link("source", s) }))]} />}
+        {sources.length > 0 && <LinkSelect label="Source" value={source} options={[{ value: "", label: "Any source", href: link("source", "") }, ...sources.map((s) => ({ value: s, label: s, href: link("source", s) }))]} />}
       </div>
       <section className="card overflow-x-auto p-0">
         {rows.length === 0 ? <p className="p-5 text-sm text-muted">No quotes match.</p> : (
           <table className="table">
-            <thead><tr><th>Client</th><th>Type</th><th>Source</th>{pricing && <th className="text-right">Amount</th>}<th>Sent</th><th>Expires</th><th>Status</th></tr></thead>
+            <thead><tr><th>Client</th><th>Type</th>{pricing && <th className="text-right">Amount</th>}<th>Sent</th><th>Expires</th><th>Status</th></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.id}>
                 <td><Link href={open(r)} className="font-medium text-navy-700 hover:underline">{r.client}</Link></td>
                 <td>{typeLabel(r)}</td>
-                <td>{r.source}</td>
                 {pricing && <td className="text-right tabular-nums">{amount(r)}</td>}
                 <td className="whitespace-nowrap">{r.sent_at ? formatDate(r.sent_at) : <EmptyCell label="Not sent" />}</td>
                 <td className="whitespace-nowrap">{r.valid_until && r.status !== "signed" && r.status !== "declined" ? formatDate(r.valid_until) : <EmptyCell />}</td>

@@ -9,12 +9,14 @@
 // % in brackets; a folded group keeps its totals; "Flagged" in words (dark amber); the footer names the column that is out.
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Plus, Search } from "lucide-react";
 import { AccountPanel } from "./account-panel";
 import { addNote, askReviewerInline } from "../../actions";
 import { Popover } from "../shell/ui";
 import { parseAmount } from "@/lib/closebook/amount";
 import { pctShow } from "@/lib/closebook/pct-show";
+import { outLines } from "@/lib/closebook/tb-footer";
+import { pctChange } from "@/lib/closebook/reports";
 
 // Piece R1: no GIFI on the Trial balance tab; group, sh and shName feed the account panel (mock N).
 export type TbRow = { key: string; id: string; number: string; name: string; group: string; sh: boolean; shName: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
@@ -24,7 +26,8 @@ export type TbGroupRow = { code: string; name: string; section: string; rows: Tb
 type ColKey = "prelim" | "adjust" | "aje" | "tje" | "reclass" | "final" | "last" | "diff" | "pct";
 
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-const pctOf = (final: number, prior: number) => (!prior ? (final ? "n/a" : "–") : final && (final > 0) !== (prior > 0) ? "n/m" : `${(((Math.abs(final) - Math.abs(prior)) / Math.abs(prior)) * 100).toFixed(1)}%`);
+// Accounting review: the one % calculation (reports.ts), not a second copy.
+const pctOf = pctChange;
 
 const DRILL: Partial<Record<ColKey, string>> = { prelim: "prelim", adjust: "adjust", aje: "adjust", tje: "adjust", reclass: "reclass", final: "final" };
 
@@ -73,7 +76,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   const all = groups.flatMap((g) => g.rows);
   // UI1 item 10: each money column of the whole trial balance should net to nil; the footer names any that does not.
   const OUT_COLS: [ColKey, string][] = [["prelim", `Prelim ${year}`], ["adjust", "Adjust"], ["reclass", "Reclass"], ["final", `Final ${year}`], ["last", `Prior ${year - 1}`]];
-  const outs = OUT_COLS.map(([k, l]) => ({ k, l, by: sum(all, k) })).filter((x) => x.by !== 0);
+  const outs = outLines(OUT_COLS.map(([k, l]) => ({ key: k, label: l, by: sum(all, k) })));
 
   // The group path of the first visible row, under the toolbar.
   useEffect(() => {
@@ -105,7 +108,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
     // Screen only: a hidden ")" after a figure without brackets, so the decimals line up down the column (D9).
     const pad = !text.endsWith(")") ? "amt-pad" : "";
     const linkable = r && r.drillable && DRILL[k] && v;
-    return <td key={k} className={`px-2.5 text-right whitespace-nowrap tabular-nums ${bold ? "font-semibold" : ""} ${k === "diff" ? "border-l border-sand-200" : ""}`}>
+    return <td key={k} className={`px-[7px] text-right whitespace-nowrap tabular-nums ${bold ? "font-semibold" : ""} ${k === "diff" ? "border-l border-sand-200" : ""}`}>
       {linkable ? <Link href={drillHref(r!, k)} scroll={false} className={`text-navy-700 hover:underline ${pad}`}>{text}</Link> : <span className={pad}>{text}</span>}</td>;
   };
   const sticky = pin ? "sticky left-0 z-[1] bg-inherit" : "";
@@ -122,8 +125,8 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
     setMsg({ key: r.key, text: e ?? "Sent to the reviewer." });
   });
   const icons = (r: TbRow) => (
-    <td className="w-[1%] px-2 text-right whitespace-nowrap text-ink-3" onClick={(e) => e.stopPropagation()}>
-      {r.id && editable ? <span className="inline-flex items-center gap-2">
+    <td className="w-[1%] pr-1.5 pl-0.5 text-right whitespace-nowrap text-ink-3" onClick={(e) => e.stopPropagation()}>
+      {r.id && editable ? <span className="inline-flex items-center gap-1">
         <Link href={`/closebook/${fileId}?area=tb&tbv=${view}&new=journal&acct=${r.id}`} scroll={false} title="New entry on this account" aria-label={`New entry on ${r.name}`} className="hover:text-navy-700"><Plus className="h-3.5 w-3.5" /></Link>
         {canReview ? (
           <Popover align="right" width="w-80" label={r.notes ? `${r.notes} review note${r.notes === 1 ? "" : "s"}` : "Add review note"}
@@ -205,7 +208,9 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
               const open = !closed.has(g.code);
               const section = grouped && (gi === 0 || filtered[gi - 1].section !== g.section) ? g.section : "";
               const path = `${g.section} › ${g.name}`;
-              const tot = { prelim: sum(g.rows, "prelim"), aje: sum(g.rows, "aje"), tje: sum(g.rows, "tje"), adjust: sum(g.rows, "adjust"), reclass: sum(g.rows, "reclass"), final: sum(g.rows, "final"), last: sum(g.rows, "last"), diff: sum(g.rows, "diff") };
+              // Accounting review: a group total is the whole group's, whatever the filters show (CaseWare's Data page).
+              const allRows = groups.find((x) => x.code === g.code)?.rows ?? g.rows;
+              const tot = { prelim: sum(allRows, "prelim"), aje: sum(allRows, "aje"), tje: sum(allRows, "tje"), adjust: sum(allRows, "adjust"), reclass: sum(allRows, "reclass"), final: sum(allRows, "final"), last: sum(allRows, "last"), diff: sum(allRows, "diff") };
               return (
                 <Fragment key={g.code}>
                   {section && <tr><td colSpan={shown.length + 3} className="bg-white px-3 pt-3 pb-1 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{section}</td></tr>}
@@ -226,10 +231,12 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
           </tbody>
         </table>
       </div>
-      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-sand-200 px-3 py-2 text-[13px] ${outs.length ? "bg-warning-soft text-warning" : ""}`} data-tb-foot role={outs.length ? "status" : undefined}>
+      <p className="border-t border-sand-200 px-3 py-1.5 text-[12px] text-ink-2 min-[1440px]:hidden">Scroll sideways for more columns. No. and Account stay in place.</p>
+      {/* D6: the balance check stays in view at the bottom of the screen while the table is on it. */}
+      <div className={`sticky bottom-0 z-[3] flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-sand-200 px-3 py-2 text-[13px] ${outs.length ? "bg-warning-soft text-warning" : "bg-white"}`} data-tb-foot role={outs.length ? "status" : undefined}>
         <b className="font-semibold">Out of balance</b>
-        {outs.length ? <span>{outs.map((x) => `${x.l} is out by ${money(x.by)}`).join("; ")}. Debits and credits differ. Find the entry before signing.</span>
-          : <span className="text-success">0.00 · Debits equal credits</span>}
+        {outs.length ? <span>{outs.join(". ")}.</span>
+          : <span className="inline-flex items-center gap-1 text-success">0.00<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> Debits equal credits</span>}
         <span className="ml-auto text-ink-2">% change is worked out on the size of the balance.</span>
       </div>
       {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} canReview={canReview} editable={editable} onClose={closePanel} noteStep={noteStep} />}

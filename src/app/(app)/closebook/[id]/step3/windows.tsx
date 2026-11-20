@@ -37,7 +37,7 @@ export function Win({ title, sub, closeHref, width = 620, children, footer, expa
   const canExpand = expandable ?? width >= 700;
   return (
     <div className={`fixed inset-0 z-[60] grid overflow-y-auto bg-navy-950/40 ${big ? "" : "place-items-start justify-center px-4 py-10"}`} role="dialog" aria-modal="true" aria-label={title}>
-      <div className={`flex w-full flex-col overflow-hidden bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)] ${big ? "min-h-full" : "rounded-[14px]"}`} style={big ? undefined : { maxWidth: width }}>
+      <div className={`flex w-full flex-col overflow-hidden bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)] ${big ? "min-h-full" : "rounded-[var(--radius-ds)]"}`} style={big ? undefined : { maxWidth: width }}>
         <div className="flex items-center gap-3 border-b border-sand-200 px-5 py-3.5">
           <h2 className="text-[17px] font-semibold">{title}</h2>{sub && <span className="text-[13px] text-ink-3">{sub}</span>}
           <span className="flex-1" />
@@ -96,7 +96,7 @@ export function AddAccountWindow({ c }: { c: AddCtx; lock?: Lock }) {
   // Refused by a sign-off lock: the window shows only the refusal (Hashim, Nov 16, 2026).
   if (refused) return (
     <Win title="Edit account" closeHref={c.closeHref} width={520} footer={<><span className="flex-1" /><Link href={c.closeHref} scroll={false} className="btn h-9">Close</Link></>}>
-      <p className="rounded-[10px] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{refused}</p>
+      <p className="rounded-[var(--radius-ds)] border border-[#efd9a6] bg-warning-soft/60 px-4 py-3 text-[14.5px]" role="alert">{refused}</p>
     </Win>
   );
   return (
@@ -156,7 +156,7 @@ export function AddAccountWindow({ c }: { c: AddCtx; lock?: Lock }) {
               <span className="text-[12px] text-ink-3">The line this account was on in last year&rsquo;s T2. This year&rsquo;s line does not change here: match it in step 8.</span></label>
           );
         })()}
-        <p className="rounded-[10px] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13.5px] text-[#14532d]">
+        <p className="rounded-[var(--radius-ds)] border border-success/30 bg-success-soft px-3.5 py-2.5 text-[13.5px] text-[#14532d]">
           {e ? "Saves as" : "Creates"} <b>{number} {accountName(type, long, bank || "Bank", digits || "0000")}</b></p>
         {fixed && <p className="text-[12.5px] text-ink-3">This account has statements: it can change between chequing and savings, or among card, line of credit and loan, but not between a bank account and the others.</p>}
       </form>

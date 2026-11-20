@@ -214,6 +214,8 @@ body:has([data-ui1]) {
 }
 body:has([data-ui1]) :focus-visible { outline: 2px solid #012169; outline-offset: 2px; border-radius: 0; }
 body:has([data-ui1]) [data-bar] :focus-visible { outline-color: #fff; }
+/* The white menus that open from the bar keep the navy ring (ui-reviewer finding 1). */
+body:has([data-ui1]) [data-bar] .bg-white :focus-visible { outline-color: #012169; }
 /* Skip links: first in Tab order, shown only when focused. */
 .skips { position: fixed; left: 8px; top: -80px; z-index: 70; display: flex; gap: 8px; }
 .skips:focus-within { top: 8px; }
