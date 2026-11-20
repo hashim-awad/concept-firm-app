@@ -180,13 +180,21 @@ test("S2: check 5 passes when the whole difference is the automatic opening roun
   assert.equal(ok.ok, true);
   assert.equal(ok.result, "Ties after rounding of 0.41");
   assert.deepEqual(ok.rows.map((x) => [x.label, x.amount]), [["3660 Retained earnings – start", -80534.59], ["Last year's closing retained earnings (step 2)", -80535.00],
-    ["Rounding: last year's T2 is in whole dollars", 0.41], ["Difference", 0.41]]);
+    ["Difference", 0.41], ["Less rounding: last year's T2 is in whole dollars", -0.41], ["Unexplained", 0]]);
+  assert.deepEqual(ok.rows.map((x) => x.total ?? false), [false, false, false, false, true]);
   // Any other difference still fails: a rounding that does not cover the whole difference, one of 1.00 or more, or none.
-  assert.equal(opening(-80535.00, 0.30).ok, false);
-  assert.equal(opening(-80535.00, 0.30).result, "Off by 0.41");
+  const part = opening(-80535.00, 0.30);
+  assert.equal(part.ok, false);
+  assert.equal(part.rows.at(-1)!.label, "Unexplained");
+  assert.equal(part.rows.at(-1)!.amount, 0.11);
+  assert.equal(part.result, "0.11 unexplained");
+  assert.equal(opening(-80535.00, 1.00).ok, false);
+  assert.equal(opening(-80535.00, 1.00).rows.at(-1)!.label, "Difference");
   assert.equal(opening(-80535.59, 1.00).ok, false);
   assert.equal(opening(-80535.00, 0).ok, false);
   assert.equal(opening(-80535.00, -0.41).ok, false);
-  // No difference: passes as before, and the rounding line still shows when there is one.
+  // No difference and no rounding: passes as before. No difference but a rounding: Unexplained is not 0.00, so it fails.
   assert.equal(opening(-80534.59, 0).ok, true);
+  assert.equal(opening(-80534.59, 0).result, "Ties");
+  assert.equal(opening(-80534.59, 0.41).ok, false);
 });

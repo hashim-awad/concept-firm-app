@@ -15,3 +15,8 @@ display wording (ui-reviewer); 5 read the posted rounding rows instead (clean-up
 RESULT: PASS. Export route unchanged; refusal list unchanged except check 5; loadRounding uses the user's session under
 row-level security; no secrets, no client data, no migration. Note: cb_record_gifi_export trusts the app's ok flags
 (already so before S2).
+
+## Hashim's decisions before merge (Nov 20, 2026)
+1. Check 5 reads Difference, Less rounding (in brackets), Unexplained; passes only at Unexplained 0.00. Built.
+2. Item 1 (fromStatements): built. 3. Item 3: keep "under 1.00". 4. Items 2 and 5: clean-up list.
+No new reviewer round (Hashim). tests/closebook-gifi.test.ts: 16 of 16 pass.

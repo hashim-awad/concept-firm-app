@@ -47,15 +47,20 @@ export function gifiChecks(r: GifiResult, lastYearRe: number | null, openingRoun
       { label: "3849 Retained earnings – end", amount: t["3849"] }, { label: "3600 Retained earnings on the balance sheet", amount: onBs }, { label: "Difference", amount: cents(d3 + d4), total: true }],
     result: res(cents(d3 + d4)) });
 
+  // Piece S2 (Hashim, Nov 20, 2026): Difference, less the automatic opening rounding (under 1.00 only), gives Unexplained.
+  // The check passes only when Unexplained is 0.00.
   const d5 = lastYearRe === null ? null : diff(t["3660"], lastYearRe);
   const rnd = cents(openingRounding);
-  const byRounding = d5 !== null && d5 !== 0 && rnd !== 0 && d5 === rnd && Math.abs(d5) < 1;
-  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: d5 === 0 || byRounding,
+  const less = d5 !== null && rnd !== 0 && Math.abs(rnd) < 1;
+  const left = d5 === null ? null : less ? cents(d5 - rnd) : d5;
+  out.push({ key: "opening", title: "Retained earnings start (3660) = last year's closing retained earnings (step 2)", ok: left === 0,
     rows: [{ label: "3660 Retained earnings – start", amount: t["3660"] }, lastYearRe === null ? { label: "Last year's closing retained earnings (step 2)", text: "Not in step 2" }
       : { label: "Last year's closing retained earnings (step 2)", amount: lastYearRe },
-      ...(d5 !== null && rnd !== 0 ? [{ label: "Rounding: last year's T2 is in whole dollars", amount: rnd }] : []),
-      ...(d5 === null ? [] : [{ label: "Difference", amount: d5, total: true }])],
-    result: d5 === null ? "Last year's closing retained earnings are not in step 2" : byRounding ? `Ties after rounding of ${fmt(rnd)}` : res(d5) });
+      ...(d5 === null ? [] : less ? [{ label: "Difference", amount: d5 }, { label: "Less rounding: last year's T2 is in whole dollars", amount: -rnd },
+        { label: "Unexplained", amount: left!, total: true }] : [{ label: "Difference", amount: d5, total: true }])],
+    result: d5 === null ? "Last year's closing retained earnings are not in step 2"
+      : left === 0 ? (less ? `Ties after rounding of ${fmt(rnd)}` : "Ties")
+      : less ? `${fmt(left!)} unexplained` : res(d5) });
   return out;
 }
 

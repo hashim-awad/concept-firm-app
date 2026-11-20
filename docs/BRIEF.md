@@ -1004,9 +1004,10 @@ In short:
 Status: built, in review. On a bank-statement file the automatic "Opening balance rounding" (statement cents against last
 year's whole-dollar T2, round 23) posts to opening retained earnings, so 3660 differs from last year's 3849 in step 2 by
 those cents and check 5 refused the export.
-- Rule: check 5 passes when the whole difference equals what that rounding put into 3660 and is under 1.00. The check
-  shows "Rounding: last year's T2 is in whole dollars" with the amount and reads "Ties after rounding of n". Any other
-  difference still fails (a rounding that does not cover all of it, 1.00 or more, or no rounding).
+- Rule (Hashim, Nov 20, 2026, before merge): the check shows "Difference", then "Less rounding: last year's T2 is in
+  whole dollars" (the rounding, in brackets), then "Unexplained". It passes only when Unexplained is 0.00 and reads
+  "Ties after rounding of n". The rounding is taken off only when it is under 1.00 (kept, item 3). Only bank-statement
+  and paper files count a rounding (fromStatements, as the rest of the app). Any other difference still fails.
 - On 3660 (retained earnings as a credit) an asset line's rounding (bank, GIFI under 2600) adds its cents; a liability
   line's (cards, overdraft) takes them off.
 - No migration. Files: src/lib/closebook/t2.ts, src/lib/closebook/gifi-server.ts; test tests/closebook-gifi.test.ts.
@@ -1200,8 +1201,8 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   bank account sits on a liability line other than 2600 (fails wrongly), and when a statement under 1.00 has no T2 line
   (tb-build sends it to "Opening balances to enter", so check 5 expects a rounding that was not posted). Better fix: take
   the amount from the posted rounding rows. A net rounding of 1.00 or more over several T2 lines fails check 5 (rule
-  kept, the safe direction). ui-reviewer to decide whether check 5 reads "Difference, less rounding, Unexplained 0.00".
-  Done in S2: client_software files never count a rounding (fromStatements, as page.tsx).
+  kept, the safe direction; Hashim, Nov 20, 2026). Done in S2: client_software files never count a rounding
+  (fromStatements); check 5 reads Difference, Less rounding, Unexplained (Hashim).
 
 ## Still open
 - Quality log: does it come in with Phase 3 (with Studio's template approvals) or is it dropped? (Hashim)
