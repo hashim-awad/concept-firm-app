@@ -3,7 +3,8 @@
 // CRA RC4058, the periods and due dates, the instalments pre-filled, and the check against 21500.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildReturn, buildYear, buildYearPrefilled, checkAgainstBooks, gstPeriods, prefillInstalments, type GstItem } from "../src/lib/closebook/gst-return.ts";
+import { bankLineItems, buildReturn, buildYear, buildYearPrefilled, checkAgainstBooks, gstPeriods, prefillInstalments, type BankTaxLine, type GstItem, type GstPayment } from "../src/lib/closebook/gst-return.ts";
+import type { TaxCode } from "../src/lib/closebook/sales-tax.ts";
 
 const DUE = { annual: 3, period: 1 };
 const sale = (date: string, net: number, tax: number, code = "HST_ON"): GstItem => ({ date, source: "bank", ref: date, label: "Commission", account: "40000", accountName: "Commission income", code, sale: true, netCents: net, taxCents: tax });
@@ -143,4 +144,35 @@ test("quick method, round 20: a missing rate is named and line 103 is not guesse
   const none = buildReturn([sale("2026-02-01", 1000000, 130000)], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "ON", type: "services", rates }, 0);
   assert.equal(none.lines["103"], 0);
   assert.match(none.problems[0], /^No approved quick method rate for services in Ontario/);
+});
+
+// Piece GST-SPLIT (Hashim, Nov 20, 2026): a split bank line counts row by row, each row with its own account and code.
+test("GST-SPLIT: a split deposit counts its HST ON row only; the return matches the books", () => {
+  const g = (rate: number) => ({ name: "GST", rate, recoverable: true, liability: "gst_hst" as const });
+  const codes = new Map<string, TaxCode>([["HST_ON", { code: "HST_ON", name: "HST ON", parts: [g(0.13)] }], ["OUT_OF_SCOPE", { code: "OUT_OF_SCOPE", name: "Out of Scope", parts: [] }]]);
+  const chart = new Map([["40000", { name: "Sales", account_type: "Revenue" }], ["68300", { name: "Licences and permits", account_type: "Expense" }],
+    ["64310", { name: "Office supplies", account_type: "Expense" }], ["21500", { name: "GST/HST payable", account_type: "Liability" }]]);
+  const ctx = { registered: true, quick: false };
+  const items: GstItem[] = [], payments: GstPayment[] = [];
+  // The real shape: a deposit of 1,007.41 split 847.50 Sales HST ON and 159.91 Licences and permits Out of Scope.
+  const deposit: BankTaxLine = { status: "done", date: "2025-11-27", id: "dep", description: "Deposit", cents: 100741, chart_account: null, tax_code: null,
+    splits: [{ chart_account: "40000", tax_code: "HST_ON", cents: 84750 }, { chart_account: "68300", tax_code: "OUT_OF_SCOPE", cents: 15991 }] };
+  bankLineItems(deposit, true, chart, codes, ctx, items, payments);
+  assert.deepEqual(items.map((i) => [i.account, i.code, i.sale, i.netCents, i.taxCents]), [["40000", "HST_ON", true, 75000, 9750], ["68300", "OUT_OF_SCOPE", false, -15991, 0]]);
+  // A split cheque (money out): the HST ON row's ITC only; the Out of Scope row adds nothing to 106.
+  const cheque: BankTaxLine = { status: "done", date: "2025-11-28", id: "chq", description: "Cheque", cents: -14300, chart_account: null, tax_code: null,
+    splits: [{ chart_account: "64310", tax_code: "HST_ON", cents: 11300 }, { chart_account: "68300", tax_code: "OUT_OF_SCOPE", cents: 3000 }] };
+  const its: GstItem[] = [];
+  bankLineItems(cheque, true, chart, codes, ctx, its, payments);
+  assert.deepEqual(its.map((i) => [i.account, i.sale, i.netCents, i.taxCents]), [["64310", false, 10000, 1300], ["68300", false, 3000, 0]]);
+  // A line with no split is unchanged; a line not done is left out.
+  const one: GstItem[] = [];
+  bankLineItems({ status: "done", date: "2025-11-29", id: "s", cents: 11300, chart_account: "40000", tax_code: "HST_ON" }, true, chart, codes, ctx, one, payments);
+  bankLineItems({ status: "pending", date: "2025-11-29", id: "p", cents: 11300, chart_account: "40000", tax_code: "HST_ON" }, true, chart, codes, ctx, one, payments);
+  assert.deepEqual(one.map((i) => [i.netCents, i.taxCents]), [[10000, 1300]]);
+  // The real file's year: before the split, 101 = 54,335.00 and 103 = 7,063.55. With it: 101 = 55,085.00, 103 = 7,161.05,
+  // 106 = 4,993.95, 109 = 2,167.10, 110 = 404.94, 113 = 1,762.16.
+  const rest = [sale("2025-06-01", 5433500, 706355), buy("2025-06-02", 3841500, 499395)];
+  const r = buildReturn([...rest, ...items], gstPeriods("2025-01-01", "2025-12-31", "annual", DUE)[0], false, { rate: null, creditRate: null, creditLimitCents: null }, 40494);
+  assert.deepEqual(["101", "103", "106", "109", "110", "113"].map((k) => r.lines[k as keyof typeof r.lines]), [5508500, 716105, 499395, 216710, 40494, 176216]);
 });

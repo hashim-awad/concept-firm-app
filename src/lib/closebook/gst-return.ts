@@ -12,7 +12,7 @@
 // resale; the client's step 1 answer picks one (services when not answered), an Admin approves each rate,
 // and the return says which rate it used. A missing or unapproved rate is named, never guessed.
 import { addMonths } from "./fs-email.ts";
-import { entryLineTax, type TaxCode, type TaxContext } from "./sales-tax.ts";
+import { entryLineTax, splitLine, type TaxCode, type TaxContext } from "./sales-tax.ts";
 
 export type GstItem = {
   date: string; source: "bank" | "entry"; ref: string; label: string; account: string; accountName: string; code: string;
@@ -205,4 +205,27 @@ export function itemsFromEntry(e: { date: string; ref: string; label: string }, 
     const base = { ...e, source: "entry" as const, account: x.l.account, accountName: x.l.accountName, code: x.l.codeName };
     return x.sale ? { ...base, sale: true, netCents: -x.net, taxCents: -tax } : { ...base, sale: false, netCents: x.net, taxCents: tax };
   });
+}
+
+// Piece GST-SPLIT (Hashim, Nov 20, 2026): the return's items from one coded bank or card line. A split line has no
+// account or tax code of its own: each row of the split is its own item, with its own account and tax code, exactly
+// as tb-build posts it (money in or out). A row on 21500 is a payment to or refund from the CRA.
+export type BankTaxLine = { status: string; date?: string | null; id?: string | null; description?: string | null; cents: number;
+  chart_account: string | null; tax_code: string | null; splits?: { chart_account: string; tax_code: string | null; cents: number }[] };
+export function bankLineItems(l: BankTaxLine, isBank: boolean, chart: Map<string, { name: string; account_type: string }>,
+  codes: Map<string, TaxCode>, ctx: TaxContext, items: GstItem[], payments: GstPayment[]) {
+  if (l.status !== "done") return;
+  const debit = isBank ? l.cents : -l.cents;
+  const parts = l.splits?.length ? l.splits.map((x) => ({ account: x.chart_account, tax: x.tax_code, debit: Math.sign(debit) * x.cents }))
+    : l.chart_account ? [{ account: l.chart_account, tax: l.tax_code, debit }] : [];
+  for (const x of parts) {
+    const c = chart.get(x.account);
+    if (!c) continue;
+    const ref = { date: l.date ?? "", source: "bank" as const, ref: l.id ?? "", label: l.description ?? "", account: x.account, accountName: c.name };
+    if (x.account === "21500") { payments.push({ date: ref.date, ref: ref.ref, label: ref.label, cents: -x.debit }); continue; }
+    if (!x.tax) continue;
+    const code = codes.get(x.tax) ?? null;
+    if (c.account_type === "Revenue") { const s = splitLine(x.debit, code, "sale", ctx); items.push({ ...ref, code: x.tax, sale: true, netCents: s.netCents, taxCents: s.gstCollectedCents }); }
+    else { const s = splitLine(-x.debit, code, "purchase", ctx, c.account_type === "Asset"); items.push({ ...ref, code: x.tax, sale: false, netCents: s.netCents, taxCents: s.itcCents }); }
+  }
 }
