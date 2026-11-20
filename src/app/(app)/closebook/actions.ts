@@ -223,7 +223,9 @@ export async function addEntry(formData: FormData) {
     p_date: date, p_standard: form!.standard, p_seq: seq };
   let res: { data: unknown; error: { message: string } | null };
   // Piece E1: a change takes back the step's sign-offs (TJE: step 8; others: step 5). Say so only when there were some.
-  const signStep = form!.head.kind === "TJE" ? "t2" : "entries";
+  // A change of type to or from TJE is a step 5 change (cb_changed); only a TJE that stays a TJE is step 8's.
+  const oldKind = form!.edit ? ((await supabase.from("cb_entries").select("kind").eq("id", form!.edit).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
+  const signStep = form!.head.kind === "TJE" && (!form!.edit || oldKind === "TJE") ? "t2" : "entries";
   const before = form!.edit ? (await supabase.from("cb_step_signoffs").select("prepared_at, reviewed_at").eq("file_id", id).eq("step", signStep).maybeSingle()).data as { prepared_at: string | null; reviewed_at: string | null } | null : null;
   const hadSign = !!(before?.prepared_at || before?.reviewed_at);
   if (form!.edit) {

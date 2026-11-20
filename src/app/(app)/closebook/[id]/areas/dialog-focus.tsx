@@ -27,7 +27,11 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
       else if (n < count) {
         const back = openers.pop();
         const top = topmost();
-        if (back?.isConnected && top.contains(back)) back.focus({ preventScroll: true });
+        // When the opener is gone (a menu item, or a page that reloaded), the form's schedule button, then the
+        // "From a schedule" menu button, then the window's heading.
+        const near = back?.isConnected && top.contains(back) ? back
+          : top.querySelector<HTMLElement>("[data-wp-link]") ?? top.querySelector<HTMLElement>('button[aria-haspopup="menu"]');
+        if (near) near.focus({ preventScroll: true });
         else { const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
       }
       count = n;
@@ -37,6 +41,12 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
     const onKey = (e: KeyboardEvent) => {
       const top = topmost();
       if (e.key === "Escape") {
+        // An open menu inside the window closes first (its own handler); the window stays and keeps what was typed.
+        if (top.querySelector('[role="menu"]') || (document.activeElement as HTMLElement | null)?.closest('[role="menu"],[role="listbox"]')) {
+          const trigger = top.querySelector<HTMLElement>('button[aria-haspopup="menu"][aria-expanded="true"]');
+          if (trigger && !(document.activeElement === trigger)) { trigger.click(); trigger.focus({ preventScroll: true }); }
+          return;
+        }
         e.preventDefault();
         if (top !== own) top.querySelector<HTMLButtonElement>('button[aria-label="Close"], button[aria-label="Close the schedule"]')?.click();
         else router.push(closeHref, { scroll: false });
