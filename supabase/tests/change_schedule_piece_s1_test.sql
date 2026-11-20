@@ -64,6 +64,26 @@ select test.check('S1-3: a schedule save with no schedule does not get round it'
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule', null, '{}', null, null)$q$, :'f', :'v', replace(:vlines, '8300', '9100')))
   = 'An approved entry cannot be deleted. Add a correcting entry instead.');
 
+-- S1-5 on an approved entry only the schedule changes (security-risk and ui-reviewer, Nov 20).
+select test.check('S1-5: a new description is refused on an approved entry',
+  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Totally new words', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
+    :'f', :'v', replace(:vlines, '8300', '9200'), replace(:vsched, '8300', '9200'))) = 'Only the schedule can change on an approved entry.');
+select test.check('S1-5: a new type or number is refused on an approved entry',
+  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'TJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', 77, %L)$q$,
+    :'f', :'v', replace(:vlines, '8300', '9200'), replace(:vsched, '8300', '9200'))) = 'Only the schedule can change on an approved entry.');
+select test.check('S1-5: the approved entry is untouched', (select reviewed_at is not null and seq = :vseq and kind = 'AJE' from public.cb_entries where id = :'v'));
+
+-- S1-6 the step 5 sign-offs are taken back when the schedule changes.
+reset role;
+insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
+values (:'f', 'entries', '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now())
+on conflict (file_id, step) do update set prepared_at = now(), reviewed_at = now();
+set role authenticated;
+select public.cb_save_schedule_entry(:'f', :'v', 'AJE', 'correction', 'Vehicle, owner''s car', false, replace(:vlines, '8300', '9300')::jsonb, 'Vehicle schedule', null, '{}', null, replace(:vsched, '8300', '9300')::jsonb);
+reset role;
+select test.check('S1-6: the step 5 sign-offs are taken back', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries' and (prepared_at is not null or reviewed_at is not null)));
+set role authenticated;
+
 -- S1-4 a locked file refuses it.
 reset role;
 update public.cb_files set phase = 'locked' where id = :'f';

@@ -29,6 +29,7 @@ import { loadVehicle } from "@/lib/closebook/vehicle-server";
 import { loadHome } from "@/lib/closebook/home-office-server";
 import { loadExpensesSchedule } from "@/lib/closebook/expenses-schedule-server";
 import { ConfirmDelete } from "../vehicle-window";
+import { DialogFocus } from "./dialog-focus";
 
 const KIND_WORD: Record<string, string> = { AJE: "Adjusting (AJE)", RJE: "Reclassifying (RJE)", TJE: "Tax, from ProFile (TJE)" };
 const money = (n: number) => (Math.abs(n) / 1).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -38,7 +39,7 @@ function Frame({ closeHref, children, wide = true }: { closeHref: string; childr
   return (
     <div className="fixed inset-0 z-50 print:hidden">
       <Link href={closeHref} aria-label="Close" className="absolute inset-0 block bg-navy-950/35" scroll={false} />
-      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}>{children}</div>
+      <div role="dialog" aria-modal="true" className={`relative mx-auto mt-[70px] ${wide ? "w-[1060px]" : "w-[820px]"} max-w-[96vw] rounded-[var(--radius-ds)] bg-white shadow-[0_24px_60px_rgba(11,26,58,.35)]`}><DialogFocus closeHref={closeHref} />{children}</div>
     </div>
   );
 }
@@ -160,10 +161,12 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   let kept: string[] = [];
   if (sp.open && entry && sp.edit) {
     if (entry.reviewed_at && !(entry.origin === "schedule" && sp.sched === "1")) return null;
+    // Piece S1: a booked entry opens nowhere for changes (the database refuses them too); unmark it first.
+    if (entry.booked_at) return null;
     title = `Edit journal entry ${entryNo(file.year_end, entry).split(" ")[0]}`;
     edit = entry.id; kept = entry.attachments ?? [];
     origin = entry.origin === "revenue_check" ? "revenue_check" : undefined;
-    if (entry.origin === "schedule") lock = { kind: true };
+    if (entry.origin === "schedule") lock = entry.reviewed_at ? { kind: true, wp: true, head: true } : { kind: true };
     if (origin) lock = { kind: true, wp: true };
     init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
   } else if (sp.new?.startsWith("std:")) {
@@ -209,7 +212,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   const expenses = offer && (!schedKind || schedKind === "expenses") ? await loadExpensesSchedule(supabase, file, province, accounts, schedEntry?.id ?? null, isReviewer, form.opts) : undefined;
   return (
     <Frame closeHref={closeHref}>
-      <JournalForm {...formProps} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
+      <JournalForm {...formProps} approved={!!(schedEntry && schedEntry.reviewed_at)} title={title} nextSeq={nextSeq} init={init} lock={lock} origin={origin} edit={edit} keptAttachments={kept}
         vehicle={vehicle} home={home} expenses={expenses} schedKind={schedKind} openSchedule={sp.sched === "1"} printHref={schedEntry ? pdfHref(schedEntry) : ""} />
     </Frame>
   );

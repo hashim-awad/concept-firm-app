@@ -255,13 +255,16 @@ async function saveScheduleEntry(formData: FormData, supabase: Awaited<ReturnTyp
   }
   const built = await scheduleSaveArgs(supabase, f, form, data, paths);
   if ("error" in built) redirect(withMessage(dialog, "error", `Nothing was saved. ${built.error}`));
+  // Piece S1: say so when the save takes an approval back.
+  const pEntry = (built as { args: Record<string, unknown> }).args.p_entry as string | null;
+  const wasApproved = pEntry ? !!((await supabase.from("cb_entries").select("reviewed_at").eq("id", pEntry).maybeSingle()).data as { reviewed_at: string | null } | null)?.reviewed_at : false;
   const res = await supabase.rpc("cb_save_schedule_entry", (built as { args: Record<string, unknown> }).args);
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("kind, number, seq").eq("id", res.data as string).maybeSingle();
   // The green pill (round 27): "Saved AJE 2026-003".
   const no = e ? entryNo(f.file.year_end, e as { kind: string; number: number; seq: number }) : "";
-  const msg = e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.";
+  const msg = (e ? `Saved ${e.kind} ${no.split(" ")[0]}` : "Saved.") + (wasApproved ? ". Approval taken back: it goes to the reviewer again." : "");
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }

@@ -14,7 +14,8 @@ const km = (n: number | null | undefined) => (n === null || n === undefined ? ""
 const readKm = (t: string) => { const v = t.replace(/[\s,]/g, ""); return /^\d{1,7}$/.test(v) ? Number(v) : null; };
 const money = (c: number | null | undefined) => (c === null || c === undefined ? "" : formatAmount(c));
 
-export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClose }: {
+export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClose, notice }: {
+  notice?: string;
   data: VehicleData; initial: VehicleInputs; canPrint: boolean; printHref: string;
   onPut: (inputs: VehicleInputs, r: VehicleResult) => void; onClose: () => void;
 }) {
@@ -82,6 +83,7 @@ export function VehicleWindow({ data, initial, canPrint, printHref, onPut, onClo
                 className={`rounded px-3 py-1 ${method === m ? "bg-navy-800 text-white" : "text-ink-2 hover:bg-sand-100"}`}>{m === "prorated" ? "Prorated" : "Detailed"}</button>
             ))}
           </div>
+        {notice && <p className="mx-5 mt-3 rounded-[var(--radius-ds)] bg-warning-soft px-3 py-2 text-[12.5px] text-warning" role="note" data-approved-note>{notice}</p>}
           <button type="button" aria-label="Close" onClick={onClose} className="rounded p-1 text-ink-3 hover:bg-sand-100"><X className="h-[18px] w-[18px]" /></button>
         </div>
 

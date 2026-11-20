@@ -3,7 +3,8 @@
 -- the schedule window opens any time the file is open, and saving it updates the same entry and number. If the entry was
 -- approved, the approval is taken back (the entry needs review again) and History says so. The step 5 sign-offs are taken
 -- back by the existing entry triggers, as for any change. Every other change to an approved entry is still refused.
--- Nothing is dropped; one function is replaced from its latest definition (piece R3a-1 state).
+-- Nothing is dropped; one function is replaced from its latest definition (piece 10b, 20261212350000). On an approved
+-- entry only the schedule changes: the other fields must stay as approved.
 set check_function_bodies = off;
 
 create or replace function public.cb_edit_entry(p_entry uuid, p_kind text, p_reason text, p_note text, p_reverse boolean, p_lines jsonb, p_wp_ref text, p_date date DEFAULT NULL::date, p_standard uuid DEFAULT NULL::uuid, p_attachments text[] DEFAULT '{}'::text[], p_seq integer DEFAULT NULL::integer)
@@ -42,6 +43,14 @@ begin
   v_seq := coalesce(p_seq, v_e.seq);
   perform private.require(v_seq between 1 and 999 and not exists (select 1 from public.cb_entries where file_id = v_e.file_id and seq = v_seq and id <> p_entry),
     format('Entry number %s-%s is taken. Choose another.', to_char(v_file.year_end, 'YYYY'), lpad(v_seq::text, 3, '0')));
+  -- Piece S1: on an approved entry only the schedule changes; type, date, number, description, W/P ref, reversal and
+  -- attachments stay as approved.
+  if v_e.reviewed_at is not null then
+    perform private.require(p_kind = v_e.kind and coalesce(p_date, v_file.year_end) = coalesce(v_e.entry_date, v_file.year_end) and v_seq = v_e.seq
+      and btrim(coalesce(p_note, '')) = coalesce(v_e.note, '') and btrim(coalesce(p_wp_ref, '')) = coalesce(v_e.wp_ref, '')
+      and coalesce(p_reverse, false) = coalesce(v_e.reverse_next_year, false) and coalesce(p_attachments, '{}') = coalesce(v_e.attachments, '{}'),
+      'Only the schedule can change on an approved entry.');
+  end if;
   v_label := private.cb_entry_label(p_entry);
   v_old_lines := private.cb_entry_lines_text(p_entry);
 
