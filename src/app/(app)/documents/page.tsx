@@ -24,7 +24,7 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
   const rows = ((await q).data ?? []) as unknown as { id: string; kind: string; title: string; status: string; current_version: number; updated_at: string; client_id: string | null; clients: { legal_name: string } | null }[];
   const chip = (k: string, text: string) => (
     <Link key={k || "all"} href={k ? `/documents?kind=${k}` : "/documents"} aria-current={kind === k ? "true" : undefined}
-      className={`rounded-full border px-3 py-1 text-[13px] ${kind === k ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
+      className={`border px-3 py-1.5 text-[13px] ${kind === k ? "border-navy-700 bg-navy-700 text-white" : "border-sand-200 bg-surface text-ink-2 hover:border-navy-300"}`}>{text}</Link>
   );
   return (
     <>

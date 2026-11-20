@@ -57,6 +57,31 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   const [compact, setCompact] = useState(false);
   const [path, setPath] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  // ui-reviewer (D6): the box fills the screen below its own top, less the footer and the page's bottom padding, so
+  // the page itself never scrolls and the headings never slide under the bars. The hint shows only when the table
+  // really scrolls sideways.
+  const [boxH, setBoxH] = useState<number | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const w = wrapRef.current; if (!w) return;
+    const fit = () => {
+      const top = w.getBoundingClientRect().top + window.scrollY;
+      const foot = footRef.current?.offsetHeight ?? 40;
+      const first = Math.max(240, Math.floor(window.innerHeight - top - foot - 50));
+      setBoxH(first);
+      setWide(w.scrollWidth > w.clientWidth + 1);
+      // Then take off whatever the page still overflows by (padding and borders below the table).
+      requestAnimationFrame(() => {
+        const over = document.documentElement.scrollHeight - window.innerHeight;
+        if (over > 0 && window.scrollY === 0) setBoxH(Math.max(240, first - over));
+      });
+    };
+    fit();
+    const ro = new ResizeObserver(fit); ro.observe(w); if (w.firstElementChild) ro.observe(w.firstElementChild); if (footRef.current) ro.observe(footRef.current);
+    window.addEventListener("resize", fit);
+    return () => { ro.disconnect(); window.removeEventListener("resize", fit); };
+  }, []);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ key: string; text: string } | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -180,6 +205,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
         {grouped && <button type="button" className={toolbtn} onClick={() => setClosed(anyClosed ? new Set() : new Set(filtered.map((g) => g.code)))}>
           {anyClosed ? <><ChevronsUpDown className="h-3 w-3" />Expand all</> : <><ChevronsDownUp className="h-3 w-3" />Collapse all</>}</button>}
         <button type="button" aria-pressed={compact} onClick={() => setCompact(!compact)} className={`${toolbtn} ${compact ? "!bg-navy-700 !text-white" : ""}`}>Compact</button>
+        {grouped && path && <span className="inline-flex min-w-0 items-center gap-1 truncate text-xs font-semibold text-navy-800 max-[1279px]:hidden" data-group-path><ChevronRight className="h-3 w-3 flex-none" aria-hidden />{path}</span>}
         <span className="flex-1" />
         <label className="inline-flex w-56 items-center gap-1.5 rounded-md border border-sand-300 bg-white px-2 py-1 text-xs focus-within:border-navy-600">
           <Search className="h-3.5 w-3.5 text-ink-3" aria-hidden /><span className="sr-only">Search</span>
@@ -189,8 +215,8 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
           <ul className="grid gap-1"><li><a href={`${exportBase}&format=xlsx`} className="block rounded px-2 py-1 hover:bg-sand-100">Excel</a></li><li><a href={`${exportBase}&format=pdf`} className="block rounded px-2 py-1 hover:bg-sand-100">PDF</a></li></ul>
         </Popover>
       </div>
-      {grouped && path && <div className="flex items-center gap-1.5 border-b border-navy-200 bg-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-800"><ChevronRight className="h-3 w-3" />{path}</div>}
-      <div ref={wrapRef} className="max-h-[calc(100vh-var(--top,56px)-118px)] overflow-auto" tabIndex={0} aria-label="Trial balance table, scrolls both ways">
+      {/* The group path now sits in the toolbar row, so it never changes the page height. */}
+      <div ref={wrapRef} style={boxH ? { maxHeight: boxH } : undefined} className="relative max-h-[calc(100vh-var(--top,56px)-170px)] overflow-auto" tabIndex={0} aria-label="Trial balance table, scrolls both ways">
         <table ref={tableRef} className={`w-full border-separate border-spacing-0 ${compact ? "text-[12.5px]" : "text-[13px]"}`}>
           {/* Headings stay on top while the table scrolls; "Change from prior" spans $ and %. */}
           <thead className="sticky top-0 z-[2] bg-sand-50 text-[11px] tracking-[.04em] text-ink-2 uppercase [&_th]:bg-sand-50">
@@ -231,13 +257,12 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
           </tbody>
         </table>
       </div>
-      <p className="border-t border-sand-200 px-3 py-1.5 text-[12px] text-ink-2 min-[1440px]:hidden">Scroll sideways for more columns. No. and Account stay in place.</p>
       {/* D6: the balance check stays in view at the bottom of the screen while the table is on it. */}
-      <div className={`sticky bottom-0 z-[3] flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-sand-200 px-3 py-2 text-[13px] ${outs.length ? "bg-warning-soft text-warning" : "bg-white"}`} data-tb-foot role={outs.length ? "status" : undefined}>
+      <div ref={footRef} className={`sticky bottom-0 z-[3] flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-sand-200 px-3 py-2 text-[13px] ${outs.length ? "bg-warning-soft text-warning" : "bg-white"}`} data-tb-foot role={outs.length ? "status" : undefined}>
         <b className="font-semibold">Out of balance</b>
         {outs.length ? <span>{outs.join(". ")}.</span>
           : <span className="inline-flex items-center gap-1 text-success">0.00<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> Debits equal credits</span>}
-        <span className="ml-auto text-ink-2">% change is worked out on the size of the balance.</span>
+        <span className="ml-auto text-ink-2">{wide && "Scroll sideways for more columns. No. and Account stay in place. "}% change is worked out on the size of the balance.</span>
       </div>
       {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} canReview={canReview} editable={editable} onClose={closePanel} noteStep={noteStep} />}
     </section>

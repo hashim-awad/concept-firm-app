@@ -420,6 +420,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           <SaveForm action={saveSetup} className="group grid gap-1" aria-label="Setup questions"
             signed={review.status.setup?.prepared_at ? "Step 1 is signed." : null}>
             <input type="hidden" name="file_id" value={id} />
+            {/* A locked file is read-only: the answers show but cannot be changed (test-runner, UI1 fix round). */}
+            <fieldset disabled={file.phase === "locked"} className="contents">
               <SetupQ name="realtor" q="Is the client a realtor, a team or a PREC?" adds="Yes adds: T4A check" value={setup.realtor as boolean | undefined} />
               <SetupQ name="owner_paid" q="Did the owner pay company expenses personally?" adds="Yes adds: expenses paid personally" value={setup.owner_paid as boolean | undefined} />
               <SetupQ name="dividends" q="Were dividends paid this year?" adds="Yes adds: T5 slips and summary" value={setup.dividends as boolean | undefined} />
@@ -450,6 +452,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
               <input id="gst_rt" name="gst_rt" defaultValue={(setup.gst_rt as string) ?? "RT0001"} className="input input-compact max-w-[9rem]" />
             </div>
               <SetupQ name="gst_year_same" q="GST/HST year same as the fiscal year?" adds="No: no return is built; ask the client to change the reporting period with CRA" value={(setup.gst_year_same as boolean | undefined) ?? true} />
+            </fieldset>
             {/* UI1: a locked file is read-only, as its locked line says (the database refuses changes too). */}
             {editable && file.phase !== "locked" && <div className="flex items-center gap-2 pt-3"><SaveFormButton className="btn" /><SaveFormDiscard className="btn-secondary" /></div>}
           </SaveForm>
@@ -766,7 +769,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     ];
   };
   const stepRail = (
-    <nav aria-label="Steps" id="steps">
+    <nav aria-label="Steps" id="steps" tabIndex={-1} className="outline-none">
       {modules.map((m) => {
         const ms = steps.filter((x) => m.steps.includes(x.key));
         const notesN = ms.reduce((n, x) => n + x.notes, 0);

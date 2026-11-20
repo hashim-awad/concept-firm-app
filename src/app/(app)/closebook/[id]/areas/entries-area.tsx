@@ -57,7 +57,7 @@ export async function entriesArea({ supabase, file, entries, accounts, names, sp
         <div key={g.head} className="flex flex-wrap items-center gap-1.5">
           <span className="w-16 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{g.head}</span>
           {g.links.map((x) => <Link key={x.key} href={x.href} scroll={false} aria-current={x.on ? "true" : undefined}
-            className={`rounded-full border px-2 py-0.5 ${x.on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{x.label} <span className={x.on ? "text-white/80" : "text-ink-3"}>{x.count}</span></Link>)}
+            className={`border px-2 py-0.5 ${x.on ? "border-navy-700 bg-navy-700 text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{x.label} <span className={x.on ? "text-white/80" : "text-ink-3"}>{x.count}</span></Link>)}
         </div>
       ))}
     </div>

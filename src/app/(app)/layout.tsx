@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     seeLeads ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("status", "new").not("source", "ilike", "phone%") : zero,
     seeDocs || seeLeads ? letters() : zero,
     // The same list My day counts (quote_list, all three kinds including monthly quotes), so the two always agree.
-    seeLeads ? supabase.rpc("quote_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]) : zero,
+    seeLeads ? supabase.rpc("quote_list", {}, { count: "exact", head: true }).in("status", ["sent", "viewed"]).or(`valid_until.gte.${today},valid_until.is.null`) : zero,
     access.admin && canView(access, "engagement_terms") ? draftsByTab(supabase) : Promise.resolve({ letters: 0, schedules: 0, emails: 0, closebook: 0 }),
     // Round 32: the bell (a client answered questions). Each person sees only their own notices.
     supabase.from("staff_notices").select("id", { count: "exact", head: true }).is("read_at", null),

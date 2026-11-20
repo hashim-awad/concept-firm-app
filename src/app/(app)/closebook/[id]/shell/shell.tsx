@@ -40,7 +40,7 @@ function PeopleChip({ fileId, p }: { fileId: string; p: PeopleProps }) {
   const chip = (
     <span className="inline-flex items-center gap-1 border border-sand-300 px-2 py-1 text-[12.5px] whitespace-nowrap text-ink-2 hover:border-ink-3" data-people
       aria-label={`People on this file: preparer ${p.preparer.name}, reviewer ${p.reviewer.name}`}>
-      <span className="max-[1439px]:hidden">Preparer</span> <b className="font-semibold text-ink" title={p.preparer.name}>{initials(p.preparer.name)}</b><span aria-hidden>·</span><span className="max-[1439px]:hidden">Reviewer</span> <b className="font-semibold text-ink" title={p.reviewer.name}>{initials(p.reviewer.name)}</b>
+      <span className="max-[1440px]:hidden">Preparer</span> <b className="font-semibold text-ink" title={p.preparer.name}>{initials(p.preparer.name)}</b><span aria-hidden>·</span><span className="max-[1440px]:hidden">Reviewer</span> <b className="font-semibold text-ink" title={p.reviewer.name}>{initials(p.reviewer.name)}</b>
       {p.canChange && <ChevronDown className="h-3 w-3" aria-hidden />}
     </span>
   );
@@ -82,21 +82,22 @@ export function FileShell({ fileId, client, clientHref, yearEnd, source, netNote
   const locked = status === "Locked";
   const stripWords = strip ? `Progress: ${strip.map((m) => `${m.name} ${m.reviewed} of ${m.of} reviewed`).join(", ")}` : "";
   return (
-    <div className="flex min-h-screen flex-col bg-paper">
+    // Below the 56 px top bar: the file fills the rest of the screen, never more (so the trial balance page never scrolls).
+    <div className="flex min-h-[calc(100vh-56px)] flex-col bg-paper">
       <TopSync />
       <section aria-label="File" data-fhead className="z-30 flex-none border-b border-sand-200 bg-white px-4 pt-3 print:hidden lg:sticky lg:top-14 lg:px-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h1 className="min-w-[11rem] shrink text-[18px] leading-tight font-semibold">
             {clientHref ? <Link href={clientHref} className="text-navy-700 underline decoration-1 underline-offset-[3px] hover:decoration-2 min-[1100px]:line-clamp-1" title={client}>{client}</Link> : client}
           </h1>
-          <span className="text-[13px] whitespace-nowrap text-ink-2">Year end {formatDate(yearEnd)}{source && <span className="max-[1439px]:hidden"> · {source}</span>}</span>
+          <span className="text-[13px] whitespace-nowrap text-ink-2">Year end {formatDate(yearEnd)}{source && <span className="max-[1440px]:hidden"> · {source}</span>}</span>
           <span className={`${TAG} ${STATUS_CLS[status]}`} data-file-status>{locked && <Lock className="h-3 w-3" aria-hidden />}{status}</span>
           {people && <PeopleChip fileId={fileId} p={people} />}
           {/* Round 21 (ProFile, TurboTax): how far the file has got, counted from the preparer's sign-offs (read by tests and screen readers). */}
           {done && <span className="sr-only" data-steps-done={done.n}>{done.n} of {done.of} steps done</span>}
           <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 max-[1099px]:ml-0 max-[1099px]:w-full">
             {netCents !== null && <span className="text-[13px] whitespace-nowrap text-ink-2">{netCents < 0 ? "Net loss" : "Net income"}<b className="ml-1.5 text-[15px] font-semibold text-ink tabular-nums">{money(netCents)}</b>
-              {netNote && <Link href={`/closebook/${fileId}?step=code`} title={netNote} data-net-note={netNote} className="ml-1.5 inline-flex min-h-6 min-w-6 items-center justify-center text-[12.5px] text-warning underline underline-offset-2 hover:decoration-2"><span aria-hidden className="mr-1 h-2 w-2 rounded-full bg-warning min-[1440px]:hidden" /><span aria-hidden className="min-[1440px]:hidden">Not final</span><span className="max-[1439px]:sr-only">{netNote}</span></Link>}</span>}
+              {netNote && <Link href={`/closebook/${fileId}?step=code`} title={netNote} data-net-note={netNote} className="ml-1.5 inline-flex min-h-6 min-w-6 items-center justify-center text-[12.5px] text-warning underline underline-offset-2 hover:decoration-2"><span aria-hidden className="mr-1 h-2 w-2 rounded-full bg-warning min-[1440px]:hidden" /><span className="min-[1440px]:hidden">Not final<span className="sr-only">, {netNote}</span></span><span className="max-[1440px]:hidden">{netNote}</span></Link>}</span>}
             <span className="text-[13px] whitespace-nowrap text-ink-2">T2 due<b className="ml-1.5 text-[15px] font-semibold text-ink">{formatDate(t2Due)}</b></span>
             {history && <Link href={`/closebook/${fileId}?history=1`} title="File history" className="inline-flex h-8 items-center gap-1.5 border border-navy-700 px-2.5 text-[13px] font-medium text-navy-700 hover:bg-navy-50"><Clock className="h-[15px] w-[15px]" aria-hidden />History</Link>}
             <Link href="/closebook" className="text-[13px] whitespace-nowrap text-navy-700 hover:underline">My files</Link>

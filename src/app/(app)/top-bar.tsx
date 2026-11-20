@@ -106,9 +106,9 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
     { label: "Quotes", href: "/quotes", note: counts.quotesWaiting ? `${counts.quotesWaiting} waiting` : "" },
   ];
   return (
-    <header ref={ref} data-bar onBlur={(e) => { if (open && !ref.current?.contains(e.relatedTarget as Node | null) && e.relatedTarget) setOpen(null); }} className="sticky top-0 z-40 flex h-14 flex-none items-center gap-1 bg-navy-700 px-3 text-white print:hidden md:px-4">
+    <header ref={ref} data-bar onBlur={(e) => { const to = e.relatedTarget as HTMLElement | null; if (open && to && !to.closest(`[data-menu="${open}"]`)) setOpen(null); }} className="sticky top-0 z-40 flex h-14 flex-none items-center gap-1 bg-navy-700 px-3 text-white print:hidden md:px-4">
       {/* Below 1120 px: the Menu panel holds the six items and Help. */}
-      <div className="relative min-[1120px]:hidden">
+      <div data-menu="panel" className="relative min-[1120px]:hidden">
         <button type="button" onClick={() => toggle("panel")} aria-expanded={open === "panel"} aria-label="Menu" className={icon}><Menu className="h-5 w-5" /></button>
         <nav aria-label="Main" hidden={open !== "panel"} className={`${panel} left-0 w-72 py-1.5`}>
           {links.map((l) => (
@@ -138,7 +138,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           </Link>
         ))}
         {nav.leads && (
-          <div className="relative flex">
+          <div data-menu="sales" className="relative flex">
             <button type="button" onClick={() => toggle("sales")} aria-expanded={open === "sales"} aria-controls="sales-menu" className={item("sales")} aria-current={owner === "sales" ? "page" : undefined}>
               Sales{counts.leadsNew ? <><span className={count} aria-hidden>{counts.leadsNew}</span><span className="sr-only">, {counts.leadsNew} new leads</span></> : null}<ChevronDown className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -162,7 +162,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           <Search className="h-4 w-4" aria-hidden /><span className="hidden min-[1120px]:inline">Find</span>
         </button>
       </>)}
-      <div className="relative">
+      <div data-menu="bell" className="relative">
         <button type="button" onClick={openBell} aria-expanded={open === "bell"} aria-label={unread ? `Notifications, ${unread} new` : "Notifications"} title="Notifications" className={`${icon} ${open === "bell" ? "bg-white/15" : ""}`} data-bell>
           <Bell className="h-[19px] w-[19px]" />
           {unread > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-white px-1.5 text-[10px] leading-4 font-bold text-navy-700" data-bell-count>{unread}</span>}
@@ -182,7 +182,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           </div>
         )}
       </div>
-      <div className="relative">
+      <div data-menu="help" className="relative">
         <button type="button" onClick={help} aria-label="Help" title="Help" className={`${icon} hidden min-[1120px]:grid`}><HelpCircle className="h-[19px] w-[19px]" /></button>
         {open === "help" && (
           <div className={`${panel} right-0 w-80 p-3`}>
@@ -192,7 +192,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
         )}
       </div>
       {gear.length > 0 && (
-        <div className="relative">
+        <div data-menu="gear" className="relative">
           <button type="button" onClick={() => toggle("gear")} aria-expanded={open === "gear"} aria-label="Settings" title="Settings" aria-current={owner === "gear" ? "page" : undefined}
             className={`${icon} ${open === "gear" ? "bg-white/15" : ""} ${owner === "gear" ? "!h-14 border-b-[3px] border-lime-500 bg-navy-600" : ""}`}>
             <Settings className="h-[19px] w-[19px]" />
@@ -215,7 +215,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
         </div>
       )}
       {newItems.length > 0 && (
-        <div className="relative">
+        <div data-menu="new" className="relative">
           <button type="button" onClick={() => toggle("new")} aria-expanded={open === "new"} aria-haspopup="menu"
             className="ml-1 flex h-9 items-center gap-1.5 bg-lime-500 px-3 text-[13.5px] font-bold text-navy-800 hover:bg-[#9BCB45]"><Plus className="h-4 w-4" aria-hidden />New</button>
           {(
@@ -230,7 +230,7 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
           )}
         </div>
       )}
-      <div className="relative">
+      <div data-menu="me" className="relative">
         <button type="button" onClick={() => toggle("me")} aria-expanded={open === "me"} aria-label={`${name}, account menu`} className="ml-1 flex h-9 items-center gap-2 pr-1.5 pl-1 text-[13.5px] font-semibold text-white hover:bg-white/10">
           <span className="grid h-7 w-7 place-items-center rounded-full bg-white text-[11px] font-extrabold text-navy-700">{initials}</span>
           <span className="hidden max-w-40 truncate min-[1440px]:inline">{name}</span><ChevronDown className="h-3.5 w-3.5" aria-hidden />

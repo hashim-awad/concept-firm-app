@@ -113,7 +113,7 @@ import { actionLabel, type HistoryRow } from "@/lib/closebook/history";
 // Round 24 (rule 20): when, who, what, the statement or line, the reason, old and new; filtered by step.
 export function HistoryView({ rows, stepName, steps, current, base, exportBase }: { rows: HistoryRow[]; stepName: (k: string) => string; steps: { key: string; label: string }[];
   current: string | null; base: string; exportBase: string }) {
-  const chip = (on: boolean, href: string, label: string) => <Link key={href} href={href} className={`rounded-full border px-3 py-1 text-[12.5px] ${on ? "border-navy-700 bg-navy-700 font-semibold text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{label}</Link>;
+  const chip = (on: boolean, href: string, label: string) => <Link key={href} href={href} className={`border px-3 py-1 text-[12.5px] ${on ? "border-navy-700 bg-navy-700 font-semibold text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{label}</Link>;
   return (
     <section className="card overflow-x-auto p-0">
       <div className="flex flex-wrap items-center gap-2 px-5 pt-4 pb-2">
