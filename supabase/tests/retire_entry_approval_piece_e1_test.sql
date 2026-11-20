@@ -23,7 +23,7 @@ select test.check('E1-1: an entry changes', test.try(format($q$select public.cb_
 select public.cb_delete_entry(:'e2');
 reset role;
 select test.check('E1-1: a deleted entry keeps its lines in History',
-  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_deleted' and detail like 'Entry % deleted (AJE, Aug 31, 2026)' and old_value like '%20.00%'));
+  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_deleted' and detail like 'Entry % deleted (AJE, Aug 31, 2026): Small fix' and old_value like '%total 20.00%'));
 set role authenticated;
 
 -- E1-2 Booked (a QuickBooks file): step 5 Reviewed first (AJE), step 8 Reviewed first (TJE); the History row names the sign-off.
@@ -46,6 +46,10 @@ set role authenticated;
 select test.check('E1-2: a booked entry is not changed (change wording)',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Fix', false, '[{"chart":"40100","amount":6},{"chart":"10000","amount":-6}]', 'Bank')$q$, :'b1')) = 'This entry is booked in QuickBooks. Unmark it first to change it.');
 select test.check('E1-2: a booked entry is not deleted (delete wording)', test.try(format('select public.cb_delete_entry(%L)', :'b1')) = 'This entry is booked in QuickBooks. Unmark it first to delete it.');
+select public.cb_mark_booked(:'b1', false);
+-- A change after step 5 Reviewed takes the sign-off back, so the entry is not booked until step 5 is signed again.
+select public.cb_edit_entry(:'b1', 'AJE', 'correction', 'Fix', false, '[{"chart":"40100","amount":6},{"chart":"10000","amount":-6}]', 'Bank');
+select test.check('E1-2: after a change, booking waits for step 5 again', test.try(format('select public.cb_mark_booked(%L, true)', :'b1')) = 'Sign step 5 Reviewed first: entries are booked after step 5 is reviewed.');
 
 -- E1-3 D5 B: the step 5 preparer does not also sign Reviewed while entries wait to be looked at.
 reset role;
@@ -61,7 +65,17 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('E1-3: a partner who prepared it may sign Reviewed', test.try(format($q$select public.cb_sign_step(%L, 'entries', 'reviewed')$q$, :'f')) = 'OK');
 reset role;
 select test.check('E1-3: History gives the reason', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Prepared and reviewed by the same person (Partner sign-off)'));
-select test.check('E1-3: step 5 Reviewed records what it covered', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'step5_covered' and detail like 'Step 5 Reviewed covers 1 entry, debits 550.00; % to look at'));
+select test.check('E1-3: step 5 Reviewed records what it covered', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'step5_covered' and detail like 'Step 5 Reviewed covers 1 AJE and RJE entry, debits 550.00; % to look at'));
+
+-- E1-4b deleting a taxed entry keeps every line in History, the sales tax line included.
+set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Taxed', false, '[{"chart":"65100","amount":100,"tax_code":"HST_ON"},{"chart":"21500","amount":13,"is_tax":true},{"chart":"23000","amount":-113}]', 'Invoice', null, null, '{}', null) as e9 \gset
+select public.cb_delete_entry(:'e9');
+reset role;
+select test.check('E1-4b: the deleted entry''s lines are all in History, tax line included',
+  (select count(*) from public.cb_file_history where file_id = :'f' and action = 'entry_deleted_line' and detail like '% deleted, line: %') >= 3
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_deleted_line' and detail like '%21500 % Dr 13.00%'));
 
 -- E1-4 GST/HST answers that change take back step 5 when an entry carries sales tax.
 set role authenticated;

@@ -108,17 +108,29 @@ create or replace function public.cb_delete_entry(p_entry uuid)
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v_e public.cb_entries;
+declare v_e public.cb_entries; v_label text; r record;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
   select * into v_e from public.cb_entries where id = p_entry;
   perform private.require(v_e.id is not null, 'Entry not found.');
+  -- Piece E1: hold the file as an edit does, so a delete cannot slip past a lock made at the same moment.
+  perform 1 from public.cb_files where id = v_e.file_id for update;
   perform private.require((select phase from public.cb_files where id = v_e.file_id) <> 'locked', 'This file is locked. Reopen it to delete entries.');
   perform private.require(v_e.booked_at is null, 'This entry is booked in QuickBooks. Unmark it first to delete it.');
-  -- Piece E1: the trail keeps what was deleted: type, date and every line (account and amount).
+  -- Piece E1: the trail keeps what was deleted: one row for the entry (type, date, description, W/P ref, total), then one
+  -- row per line, sales tax lines included (account, debit or credit, amount, tax code), so nothing is cut short.
+  v_label := private.cb_entry_label(p_entry);
   perform private.cb_log_event(v_e.file_id, 'entry_deleted', 'entries',
-    format('Entry %s deleted (%s, %s)', private.cb_entry_label(p_entry), v_e.kind, to_char(v_e.entry_date, 'Mon FMDD, YYYY')),
-    null, null, private.cb_entry_label(p_entry), 'Lines', private.cb_entry_lines_text(p_entry), '');
+    format('Entry %s deleted (%s, %s): %s', v_label, v_e.kind, to_char(v_e.entry_date, 'Mon FMDD, YYYY'), v_e.note),
+    null, null, v_label, 'Entry', format('W/P ref %s; total %s', coalesce(nullif(v_e.wp_ref, ''), 'none'),
+      to_char(coalesce((select sum(amount) from public.cb_entry_lines where entry_id = p_entry and amount > 0), 0), 'FM999,999,999,990.00')), '');
+  for r in select l.amount, l.tax_code, a.number, a.name from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id
+            where l.entry_id = p_entry order by l.amount desc, a.number loop
+    perform private.cb_log_event(v_e.file_id, 'entry_deleted_line', 'entries',
+      format('Entry %s deleted, line: %s %s %s %s%s', v_label, r.number, r.name, case when r.amount > 0 then 'Dr' else 'Cr' end,
+        to_char(abs(r.amount), 'FM999,999,999,990.00'), case when r.tax_code is not null then ' ' || r.tax_code else '' end),
+      null, null, v_label, 'Line', format('%s %s %s', r.number, case when r.amount > 0 then 'Dr' else 'Cr' end, to_char(abs(r.amount), 'FM999,999,999,990.00')), '');
+  end loop;
   delete from public.cb_entries where id = p_entry;
 end;
 $function$
@@ -371,7 +383,7 @@ begin
     -- Piece E1 (D5 B): while entries wait to be looked at, the person who prepared step 5 does not also sign it Reviewed,
     -- unless they have Partner sign-off; then the same-person line and History give the reason.
     if p_step = 'entries' then
-      select count(*) into v_look from public.cb_entries where file_id = p_file and needs_review;
+      select count(*) into v_look from public.cb_entries where file_id = p_file and needs_review and kind <> 'TJE';
       if v_look > 0 and r.prepared_by = (select auth.uid()) then
         perform private.require(private.cb_can('partner'),
           'You prepared step 5 and entries wait to be looked at. Someone else signs Reviewed, or someone with Partner sign-off.');
@@ -397,10 +409,13 @@ begin
     -- Piece E1: what step 5 Reviewed covered at that moment.
     if p_step = 'entries' then
       perform private.cb_log_event(p_file, 'step5_covered', 'entries',
-        format('Step 5 Reviewed covers %s entr%s, debits %s; %s to look at',
-          (select count(*) from public.cb_entries where file_id = p_file), case when (select count(*) from public.cb_entries where file_id = p_file) = 1 then 'y' else 'ies' end,
-          to_char(coalesce((select sum(l.amount) from public.cb_entry_lines l join public.cb_entries e on e.id = l.entry_id where e.file_id = p_file and l.amount > 0), 0), 'FM999,999,999,990.00'),
-          v_look),
+        format('Step 5 Reviewed covers %s AJE and RJE entr%s, debits %s; %s to look at%s',
+          (select count(*) from public.cb_entries where file_id = p_file and kind <> 'TJE'),
+          case when (select count(*) from public.cb_entries where file_id = p_file and kind <> 'TJE') = 1 then 'y' else 'ies' end,
+          to_char(coalesce((select sum(l.amount) from public.cb_entry_lines l join public.cb_entries e on e.id = l.entry_id where e.file_id = p_file and e.kind <> 'TJE' and l.amount > 0), 0), 'FM999,999,999,990.00'),
+          v_look,
+          case when exists (select 1 from public.cb_entries where file_id = p_file and kind = 'TJE')
+            then format('; %s TJE under step 8', (select count(*) from public.cb_entries where file_id = p_file and kind = 'TJE')) else '' end),
         null, null, null, null, null, null, null);
     end if;
   end if;

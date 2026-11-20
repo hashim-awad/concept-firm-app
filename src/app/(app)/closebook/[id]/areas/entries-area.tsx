@@ -24,10 +24,10 @@ const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { m
 
 // Piece 5 (Hashim, Nov 18, 2026): the same list on step 5, "Entries this year". There the step list keeps the left
 // panel, so the filters sit in a strip above the list, and every link stays on step 5 (listBase).
-export async function entriesArea({ supabase, file, entries, accounts, names, sp, editable, isReviewer, standard, rounding = [], listBase, title = "Entries" }: {
-  supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[]; names: Map<string, string>;
+export async function entriesArea({ supabase, file, entries, accounts, sp, editable, standard, rounding = [], listBase, title = "Entries" }: {
+  supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[];
   sp: { type?: string; status?: string; source?: string; entry?: string; back?: string };
-  editable: boolean; isReviewer: boolean; standard: { id: string; name: string }[];
+  editable: boolean; standard: { id: string; name: string }[];
   rounding?: { gifi: string; title: string; cents: number }[];   // round 23: posted by itself from 3.1, one per T2 line under 1.00
   listBase?: string; title?: string;
 }) {

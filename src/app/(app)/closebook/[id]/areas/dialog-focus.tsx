@@ -18,8 +18,20 @@ export function DialogFocus({ closeHref }: { closeHref: string }) {
     const start = () => { const top = topmost(); if (top.contains(document.activeElement)) return;
       const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.style.outline = "none"; h.focus({ preventScroll: true }); } };
     // A schedule window that opens over the form mounts a moment later, or when its button is pressed: focus follows it.
+    // Piece E1 (ui-reviewer): when a schedule window closes, focus goes back to the control that opened it.
     let count = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length;
-    const watch = new MutationObserver(() => { const n = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length; if (n > count) start(); count = n; });
+    const openers: (HTMLElement | null)[] = [];
+    const watch = new MutationObserver(() => {
+      const n = document.querySelectorAll('[role="dialog"][aria-modal="true"]').length;
+      if (n > count) { openers.push(document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); start(); }
+      else if (n < count) {
+        const back = openers.pop();
+        const top = topmost();
+        if (back?.isConnected && top.contains(back)) back.focus({ preventScroll: true });
+        else { const h = top.querySelector<HTMLElement>("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); } }
+      }
+      count = n;
+    });
     watch.observe(document.body, { childList: true, subtree: true });
     start(); const t = window.setTimeout(start, 50);
     const onKey = (e: KeyboardEvent) => {

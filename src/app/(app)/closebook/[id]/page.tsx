@@ -510,7 +510,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         adjustmentsTop({ supabase, file, entries, base: base5, editable, addRevenue: open && rev5 && !rev5.state.added ? (
           <form action={addRevenueCheck}><input type="hidden" name="file_id" value={id} />
             <button className="text-[13px] font-medium text-navy-700 underline" data-add-revenue>+ Add revenue check</button></form>) : undefined, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
-        entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, listBase: base5, title: "Entries this year",
+        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year",
           rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
           sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
       ]);
@@ -834,7 +834,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         : <ReportingList fileId={id} />;
   } else if (area === "entries") {
     const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
-    const ea = await entriesArea({ supabase, file, entries, accounts, names, editable, isReviewer, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
+    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {

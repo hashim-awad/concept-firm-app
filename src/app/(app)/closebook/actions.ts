@@ -222,6 +222,10 @@ export async function addEntry(formData: FormData) {
   const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
     p_date: date, p_standard: form!.standard, p_seq: seq };
   let res: { data: unknown; error: { message: string } | null };
+  // Piece E1: a change takes back the step's sign-offs (TJE: step 8; others: step 5). Say so only when there were some.
+  const signStep = form!.head.kind === "TJE" ? "t2" : "entries";
+  const before = form!.edit ? (await supabase.from("cb_step_signoffs").select("prepared_at, reviewed_at").eq("file_id", id).eq("step", signStep).maybeSingle()).data as { prepared_at: string | null; reviewed_at: string | null } | null : null;
+  const hadSign = !!(before?.prepared_at || before?.reviewed_at);
   if (form!.edit) {
     // Edit (CaseWare): piece 2, the entry changes in place (same id, number, creator, standard entry link); its
     // attachments are kept and new ones added. History records each change (cb_edit_entry).
@@ -237,7 +241,7 @@ export async function addEntry(formData: FormData) {
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
   const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
   // Piece E1: no entry approval; step 5's sign-offs cover the entries, and step 7 lists the ones to look at.
-  const msg = form!.edit ? "Entry changed. Step 5 is signed again." : e?.needs_review === false ? "Standard entry added. It is under the review threshold." : "Entry added. It is on the reviewer's list in step 7.";
+  const msg = form!.edit ? (hadSign ? `Entry changed. Step ${signStep === "t2" ? 8 : 5}'s sign-offs were taken back: sign it again.` : "Entry changed.") : e?.needs_review === false ? "Standard entry added. It is under the review threshold." : "Entry added. It is on the reviewer's list in step 7.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }

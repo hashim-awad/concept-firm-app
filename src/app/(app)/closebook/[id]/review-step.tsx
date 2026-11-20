@@ -51,7 +51,7 @@ export function ReviewStep({ groups, look = [], notes, list, listCount = 0, extr
 
       {look.length > 0 && <section aria-label="Entries to look at" className="card grid gap-2" data-look-list>
         <h2 className="font-semibold">Entries to look at <span className="font-normal text-ink-3">(step 5, {look.length})</span></h2>
-        <p className="text-[12.5px] text-ink-3">Free entries, entries over the review threshold and entries changed since. Step 5&apos;s sign-offs cover them; nothing here holds up step 7.</p>
+        <p className="text-[12.5px] text-ink-3">Free entries, entries over the review threshold and entries changed after they were made. Step 5&apos;s sign-offs cover them; nothing here holds up step 7.</p>
         <ul className="divide-y divide-sand-100 rounded-lg border border-sand-200">
           {look.map((it) => (
             <li key={it.href} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 text-sm">
