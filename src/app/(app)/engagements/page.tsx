@@ -21,8 +21,9 @@ type Sp = Record<string, string | string[] | undefined>;
 
 const WAIT = ["sent", "viewed"];
 const STATUS: Record<string, [string, string]> = {
-  sent: ["Waiting for signature", "bg-navy-50 text-navy-700"], viewed: ["Waiting for signature", "bg-navy-50 text-navy-700"],
-  signed: ["Signed", "bg-success-soft text-success"], declined: ["Declined", "bg-danger/10 text-danger"], expired: ["Expired", "bg-sand-100 text-ink-3"],
+  // UI1 colour rule (Q9): blue in progress, green done, amber needs a follow-up, grey closed.
+  sent: ["Waiting for signature", "bg-info-soft text-info"], viewed: ["Waiting for signature", "bg-info-soft text-info"],
+  signed: ["Signed", "bg-success-soft text-success"], declined: ["Declined", "bg-sand-100 text-[#3F4246]"], expired: ["Expired", "bg-warning-soft text-warning"],
 };
 const TYPE_LABEL: Record<string, string> = { corporate: "Corporate", t1: "T1" };
 const PILL = "rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap";

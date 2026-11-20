@@ -4,6 +4,9 @@
 // TJE), Filters (amount range, flagged, with notes), Collapse all, Search (highlights as you type) and
 // one export icon. Groups are blue rows with their totals; the group of the first visible row stays at
 // the top while scrolling. "Out of balance" shows only when it is.
+// Piece UI1 (Hashim, Nov 20, 2026; closebook specialist items 7 to 11): rows 28 px, 24 px with Compact; the table scrolls in
+// its own box so the headings stay on top and No. and Account stay at the left; "Change from prior" over $ and %; negative
+// % in brackets; a folded group keeps its totals; "Flagged" in words (dark amber); the footer names the column that is out.
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Plus, Search } from "lucide-react";
@@ -11,6 +14,7 @@ import { AccountPanel } from "./account-panel";
 import { addNote, askReviewerInline } from "../../actions";
 import { Popover } from "../shell/ui";
 import { parseAmount } from "@/lib/closebook/amount";
+import { pctShow } from "@/lib/closebook/pct-show";
 
 // Piece R1: no GIFI on the Trial balance tab; group, sh and shName feed the account panel (mock N).
 export type TbRow = { key: string; id: string; number: string; name: string; group: string; sh: boolean; shName: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
@@ -21,6 +25,7 @@ type ColKey = "prelim" | "adjust" | "aje" | "tje" | "reclass" | "final" | "last"
 
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pctOf = (final: number, prior: number) => (!prior ? (final ? "n/a" : "–") : final && (final > 0) !== (prior > 0) ? "n/m" : `${(((Math.abs(final) - Math.abs(prior)) / Math.abs(prior)) * 100).toFixed(1)}%`);
+
 const DRILL: Partial<Record<ColKey, string>> = { prelim: "prelim", adjust: "adjust", aje: "adjust", tje: "adjust", reclass: "reclass", final: "final" };
 
 export function TbTable({ fileId, groups, view, year, canReview, editable, exportBase, openKey, noteStep = "compare" }: {
@@ -46,7 +51,9 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   const [onlyFlags, setOnlyFlags] = useState(false), [onlyNotes, setOnlyNotes] = useState(false);
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
+  const [compact, setCompact] = useState(false);
   const [path, setPath] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ key: string; text: string } | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -64,7 +71,9 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   const filtered = groups.map((g) => ({ ...g, rows: g.rows.filter(keep) })).filter((g) => g.rows.length);
   const sum = (rows: TbRow[], k: ColKey) => rows.reduce((n, r) => n + (r[k as keyof TbRow] as number), 0);
   const all = groups.flatMap((g) => g.rows);
-  const out = sum(all, "final"), outPrelim = sum(all, "prelim");
+  // UI1 item 10: each money column of the whole trial balance should net to nil; the footer names any that does not.
+  const OUT_COLS: [ColKey, string][] = [["prelim", `Prelim ${year}`], ["adjust", "Adjust"], ["reclass", "Reclass"], ["final", `Final ${year}`], ["last", `Prior ${year - 1}`]];
+  const outs = OUT_COLS.map(([k, l]) => ({ k, l, by: sum(all, k) })).filter((x) => x.by !== 0);
 
   // The group path of the first visible row, under the toolbar.
   useEffect(() => {
@@ -78,9 +87,10 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
       const firstHead = t.querySelector<HTMLTableRowElement>("tbody tr[data-group-head]");
       setPath(firstHead && firstHead.getBoundingClientRect().top < head ? p : "");
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const w = wrapRef.current;
+    w?.addEventListener("scroll", onScroll, { passive: true }); window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => { w?.removeEventListener("scroll", onScroll); window.removeEventListener("scroll", onScroll); };
   }, [grouped, filtered]);
 
   const hl = (s: string) => {
@@ -91,13 +101,16 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   const drillHref = (r: TbRow, k: ColKey) => `/closebook/${fileId}?area=tb&tbv=${view}&drill=${encodeURIComponent(r.key)}&col=${DRILL[k]}`;
   const cell = (r: TbRow | null, k: ColKey, v: number | string, bold = false) => {
     const isNum = k !== "pct";
-    const text = isNum ? money(v as number) : (v as string);
+    const text = isNum ? money(v as number) : pctShow(v as string);
+    // Screen only: a hidden ")" after a figure without brackets, so the decimals line up down the column (D9).
+    const pad = !text.endsWith(")") ? "amt-pad" : "";
     const linkable = r && r.drillable && DRILL[k] && v;
-    return <td key={k} className={`px-2.5 py-[5px] text-right whitespace-nowrap tabular-nums ${bold ? "font-bold" : ""} ${k === "diff" || k === "pct" ? "bg-[#f7f8fb]" : ""}`}>
-      {linkable ? <Link href={drillHref(r!, k)} scroll={false} className="text-navy-700 hover:underline">{text}</Link> : text}</td>;
+    return <td key={k} className={`px-2.5 text-right whitespace-nowrap tabular-nums ${bold ? "font-semibold" : ""} ${k === "diff" ? "border-l border-sand-200" : ""}`}>
+      {linkable ? <Link href={drillHref(r!, k)} scroll={false} className={`text-navy-700 hover:underline ${pad}`}>{text}</Link> : <span className={pad}>{text}</span>}</td>;
   };
   const sticky = pin ? "sticky left-0 z-[1] bg-inherit" : "";
-  const toolbtn = "inline-flex items-center gap-1 rounded-md border border-sand-300 bg-white px-2 py-1 text-xs text-ink hover:bg-sand-50";
+  const rowH = compact ? "h-6" : "h-7";
+  const toolbtn = "inline-flex h-8 items-center gap-1 border border-sand-300 bg-white px-2.5 text-[13px] text-ink hover:bg-sand-50";
   const check = (label: string, on: boolean, set: (v: boolean) => void) => (
     <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-sand-50"><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>
   );
@@ -134,9 +147,9 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   );
   const accountRow = (r: TbRow, path: string) => (
     <tr key={r.key} id={`a-${r.key}`} data-path={path} onClick={(e) => { if (r.drillable && !(e.target as HTMLElement).closest("a,button,input,form")) setPanel(r); }}
-      className={`bg-white target:bg-navy-50 ${r.drillable ? "cursor-pointer hover:bg-sand-50" : ""} ${panel?.key === r.key ? "bg-navy-50" : ""} ${r.flagged ? "shadow-[inset_3px_0_0_#e0b04a]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
-      <td className={`py-[5px] pr-1 pl-${grouped ? "8" : "3"} whitespace-nowrap text-ink-2 tabular-nums ${sticky}`} style={{ paddingLeft: grouped ? 30 : 12 }}>{hl(r.number)}</td>
-      <td className={`px-2 py-[5px] ${sticky}`} style={pin ? { left: 70 } : undefined}>{r.drillable
+      className={`${rowH} border-b border-sand-100 bg-white target:bg-navy-50 ${r.drillable ? "cursor-pointer hover:bg-sand-50" : ""} ${panel?.key === r.key ? "bg-navy-50" : ""} ${r.flagged ? "shadow-[inset_3px_0_0_#8A4B00]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
+      <td className={`pr-1 whitespace-nowrap text-ink-2 tabular-nums ${sticky}`} style={{ paddingLeft: grouped ? 30 : 12, width: 70, minWidth: 70 }}>{hl(r.number)}</td>
+      <td className={`px-2 ${sticky} ${pin ? "shadow-[1px_0_0_var(--color-sand-200)]" : ""}`} style={pin ? { left: 70 } : undefined}>{r.flagged && <span className="mr-1.5 text-[11px] font-semibold text-warning" data-flagged>Flagged</span>}{r.drillable
         ? <button type="button" id={`ab-${r.key}`} onClick={() => setPanel(r)} className="text-left hover:underline" aria-haspopup="dialog">{hl(r.name)}</button> : hl(r.name)}
         {r.lastFrom && <span className="ml-2 text-[11px] text-ink-2">{r.lastFrom}</span>}</td>
       {shown.map(([k]) => cell(r, k, k === "pct" ? r.pct : (r[k] as number)))}
@@ -144,8 +157,8 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
     </tr>
   );
   return (
-    <section className="rounded-[10px] border border-sand-200 bg-white" aria-label="Trial balance">
-      <div className="sticky top-[146px] z-10 flex flex-wrap items-center gap-1.5 rounded-t-[10px] border-b border-sand-200 bg-white px-3 py-2">
+    <section className="border border-sand-200 bg-white" aria-label="Trial balance">
+      <div className="sticky top-[var(--top,56px)] z-10 flex flex-wrap items-center gap-1.5 border-b border-sand-200 bg-white px-3 py-2">
         <Popover label="Columns" button={<span className={toolbtn}>Columns <ChevronDown className="h-3 w-3" /></span>} width="w-56">
           <div className="grid text-[12.5px]">{cols.map(([k, l]) => check(l, !hidden.has(k), (v) => setHidden((h) => { const n = new Set(h); if (v) n.delete(k); else n.add(k); return n; })))}
             <div className="mt-1 border-t border-sand-200 pt-1">{check("Pin the account column", pin, setPin)}</div></div>
@@ -163,6 +176,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
         </Popover>
         {grouped && <button type="button" className={toolbtn} onClick={() => setClosed(anyClosed ? new Set() : new Set(filtered.map((g) => g.code)))}>
           {anyClosed ? <><ChevronsUpDown className="h-3 w-3" />Expand all</> : <><ChevronsDownUp className="h-3 w-3" />Collapse all</>}</button>}
+        <button type="button" aria-pressed={compact} onClick={() => setCompact(!compact)} className={`${toolbtn} ${compact ? "!bg-navy-700 !text-white" : ""}`}>Compact</button>
         <span className="flex-1" />
         <label className="inline-flex w-56 items-center gap-1.5 rounded-md border border-sand-300 bg-white px-2 py-1 text-xs focus-within:border-navy-600">
           <Search className="h-3.5 w-3.5 text-ink-3" aria-hidden /><span className="sr-only">Search</span>
@@ -172,14 +186,19 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
           <ul className="grid gap-1"><li><a href={`${exportBase}&format=xlsx`} className="block rounded px-2 py-1 hover:bg-sand-100">Excel</a></li><li><a href={`${exportBase}&format=pdf`} className="block rounded px-2 py-1 hover:bg-sand-100">PDF</a></li></ul>
         </Popover>
       </div>
-      {grouped && path && <div className="sticky top-[192px] z-10 flex items-center gap-1.5 border-b border-navy-200 bg-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-800"><ChevronRight className="h-3 w-3" />{path}</div>}
-      <div className="overflow-x-auto">
-        <table ref={tableRef} className="w-full border-collapse text-[12.5px]">
-          <thead><tr className="bg-sand-50 text-[11px] text-ink-3">
-            <th className={`py-1.5 pl-3 text-left font-semibold ${sticky}`} style={{ width: 70 }}>No.</th>
-            <th className={`px-2 py-1.5 text-left font-semibold ${sticky}`} style={pin ? { left: 70 } : undefined}>Account
-              {(out !== 0 || outPrelim !== 0) && <span className="ml-3 font-bold text-danger">Out of balance {money(out || outPrelim)}</span>}</th>
-            {shown.map(([k, l]) => <th key={k} className="px-2.5 py-1.5 text-right font-semibold whitespace-nowrap">{l}</th>)}<th />
+      {grouped && path && <div className="flex items-center gap-1.5 border-b border-navy-200 bg-navy-100 px-3 py-1.5 text-xs font-semibold text-navy-800"><ChevronRight className="h-3 w-3" />{path}</div>}
+      <div ref={wrapRef} className="max-h-[calc(100vh-var(--top,56px)-118px)] overflow-auto" tabIndex={0} aria-label="Trial balance table, scrolls both ways">
+        <table ref={tableRef} className={`w-full border-separate border-spacing-0 ${compact ? "text-[12.5px]" : "text-[13px]"}`}>
+          {/* Headings stay on top while the table scrolls; "Change from prior" spans $ and %. */}
+          <thead className="sticky top-0 z-[2] bg-sand-50 text-[11px] tracking-[.04em] text-ink-2 uppercase [&_th]:bg-sand-50">
+            {shown.some(([k]) => k === "diff" || k === "pct") && <tr>
+              <th className={sticky} style={{ width: 70 }} /><th className={sticky} style={pin ? { left: 70 } : undefined} />
+              {shown.map(([k]) => k === "diff" || (k === "pct" && !shown.some(([x]) => x === "diff")) ? <th key={k} colSpan={shown.filter(([x]) => x === "diff" || x === "pct").length} className="border-b border-sand-200 border-l px-2.5 pt-1.5 pb-0.5 text-right text-[10.5px] font-semibold">Change from prior</th> : k === "pct" ? null : <th key={k} />)}<th />
+            </tr>}
+            <tr>
+            <th className={`border-b-2 border-navy-700 py-1.5 pl-3 text-left font-semibold ${sticky}`} style={{ width: 70 }}>No.</th>
+            <th className={`border-b-2 border-navy-700 px-2 py-1.5 text-left font-semibold ${sticky}`} style={pin ? { left: 70 } : undefined}>Account</th>
+            {shown.map(([k, l]) => <th key={k} className={`border-b-2 border-navy-700 px-2.5 py-1.5 text-right font-semibold whitespace-nowrap ${k === "diff" ? "border-l border-l-sand-200" : ""}`}>{k === "diff" ? "$" : k === "pct" ? "%" : l}</th>)}<th className="border-b-2 border-navy-700" />
           </tr></thead>
           <tbody>
             {filtered.map((g, gi) => {
@@ -190,17 +209,28 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
               return (
                 <Fragment key={g.code}>
                   {section && <tr><td colSpan={shown.length + 3} className="bg-white px-3 pt-3 pb-1 text-[10.5px] font-bold tracking-[.1em] text-ink-3 uppercase">{section}</td></tr>}
-                  {grouped && <tr data-group-head="" data-path={path} className="cursor-pointer border-b border-navy-100 bg-navy-50 font-bold text-navy-700 hover:bg-navy-100" onClick={() => toggleGroup(g.code)}>
-                    <td colSpan={2} className={`px-2 py-[5px] whitespace-nowrap ${sticky}`}><button type="button" aria-expanded={open} onClick={(e) => { e.stopPropagation(); toggleGroup(g.code); }} className="text-left font-bold">{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{hl(g.name)}</button></td>
-                    {shown.map(([k]) => cell(null, k, k === "pct" ? pctOf(tot.final, tot.last) : (tot[k as keyof typeof tot] as number), true))}<td />
+                  {grouped && <tr data-group-head="" data-path={path} className={`${rowH} cursor-pointer bg-white font-semibold text-navy-700 hover:bg-navy-50`} onClick={() => toggleGroup(g.code)}>
+                    <td colSpan={2} className={`px-2 whitespace-nowrap ${sticky}`}><button type="button" aria-expanded={open} onClick={(e) => { e.stopPropagation(); toggleGroup(g.code); }} className="text-left text-[12px] font-bold tracking-[.04em] uppercase">{open ? <ChevronDown className="mr-1 inline h-3.5 w-3.5" aria-hidden /> : <ChevronRight className="mr-1 inline h-3.5 w-3.5" aria-hidden />}{hl(g.name)}</button></td>
+                    {/* UI1 item 8: a folded group (or groups only) keeps its totals on its own line. */}
+                    {open && accts ? <td colSpan={shown.length + 1} /> : <>{shown.map(([k]) => cell(null, k, k === "pct" ? pctOf(tot.final, tot.last) : (tot[k as keyof typeof tot] as number), true))}<td /></>}
                   </tr>}
                   {(!grouped || (open && accts)) && g.rows.map((r) => accountRow(r, path))}
+                  {grouped && open && accts && <tr data-group-total={g.code} className={`${rowH} bg-white font-semibold [&>td]:border-t [&>td]:border-b-2 [&>td]:border-sand-300`}>
+                    <td className={sticky} /><td className={`px-2 ${sticky}`} style={pin ? { left: 70 } : undefined}>Total {g.name.toLowerCase()}</td>
+                    {shown.map(([k]) => cell(null, k, k === "pct" ? pctOf(tot.final, tot.last) : (tot[k as keyof typeof tot] as number), true))}<td />
+                  </tr>}
                 </Fragment>
               );
             })}
             {!filtered.length && <tr><td colSpan={shown.length + 3} className="px-3 py-3 text-ink-3">Nothing matches.</td></tr>}
           </tbody>
         </table>
+      </div>
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-sand-200 px-3 py-2 text-[13px] ${outs.length ? "bg-warning-soft text-warning" : ""}`} data-tb-foot role={outs.length ? "status" : undefined}>
+        <b className="font-semibold">Out of balance</b>
+        {outs.length ? <span>{outs.map((x) => `${x.l} is out by ${money(x.by)}`).join("; ")}. Debits and credits differ. Find the entry before signing.</span>
+          : <span className="text-success">0.00 · Debits equal credits</span>}
+        <span className="ml-auto text-ink-2">% change is worked out on the size of the balance.</span>
       </div>
       {panel && <AccountPanel fileId={fileId} a={panel} view={view} year={year} canReview={canReview} editable={editable} onClose={closePanel} noteStep={noteStep} />}
     </section>

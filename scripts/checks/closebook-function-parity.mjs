@@ -9,6 +9,7 @@
 //   node scripts/checks/closebook-function-parity.mjs capture before.json
 //   node scripts/checks/closebook-function-parity.mjs capture after.json
 //   node scripts/checks/closebook-function-parity.mjs compare before.json after.json
+//   PARITY_FILES=<id>,<id> limits the crawl to those files (UI1).
 // Local only: it needs the app on http://localhost:3300 and the dummy accounts and files (no client data).
 import { chromium } from "playwright";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -16,7 +17,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 const BASE = process.env.APP_URL ?? "http://localhost:3300";
 const USERS = { staff: "staff.dummy@example.test", owner: "owner.dummy@example.test" };
 const PASS = process.env.DUMMY_PASS ?? "dummy-pass-123";
-const STEPS = ["setup", "opening", "records", "code", "entries", "mapping", "review", "t2", "statements", "lock"];
+// Piece 10 renamed step 6 "mapping" to "compare" (UI1 spec-checker item 15).
+const STEPS = ["setup", "opening", "records", "code", "entries", "compare", "review", "t2", "statements", "lock"];
 // Round 15b: steps hold working papers, and entries open in a dialog on the Entries tab.
 const PAPERS = { entries: ["revenue", "sh", "expenses"], t2: ["gifi", "taxwp", "tie", "gst"], statements: ["package", "mal"], lock: ["checklist", "email", "documents", "filing"] };
 const REPORTS = ["tb", "bs", "pl", "gl", "journal"];
@@ -68,7 +70,11 @@ async function capture(out) {
   for (const who of Object.keys(USERS)) {
     const p = await login(browser, who);
     await p.goto(`${BASE}/closebook/files`);
-    const files = await p.locator('a[href^="/closebook/"]').evaluateAll((as) => [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => /^\/closebook\/[0-9a-f-]{36}$/.test(h)).map((h) => h.slice(11)))]);
+    const listed = await p.locator('a[href^="/closebook/"]').evaluateAll((as) => [...new Set(as.map((a) => a.getAttribute("href")).filter((h) => /^\/closebook\/[0-9a-f-]{36}$/.test(h)).map((h) => h.slice(11)))]);
+    // UI1: the local database holds hundreds of dummy files (about 40 screens each). PARITY_FILES (ids, comma-separated)
+    // limits the crawl to a sample that covers each kind of file; the same sample must be used before and after.
+    const only = (process.env.PARITY_FILES ?? "").split(",").filter(Boolean);
+    const files = only.length ? listed.filter((f) => only.includes(f)) : listed;
     const urls = ["/closebook", "/closebook/files", "/closebook/notes", ...SETTINGS, ...files.flatMap(fileScreens)];
     for (let u of urls) {
       if (u === "OPEN_FIRST_ENTRY") continue;

@@ -97,7 +97,7 @@ export default function DesignPage() {
         </div>
       </Section>
 
-      <Section id="type" title="Type" note="One font for the whole app: Plus Jakarta Sans, served from the app itself (no outside font service). Close to Concept Studio's Poppins, with numbers that line up in columns.">
+      <Section id="type" title="Type" note="Client pages: Plus Jakarta Sans. Staff screens (UI1): Alexandria, 400 to 700. Both are served from the app itself (no outside font service), with numbers that line up in columns.">
         <Card>
           <div className="space-y-5">
             {([["Display · 32", type.display, "Personal tax, done properly"], ["Heading 1 · 26", type.h1, "Quotes"], ["Heading 2 · 20", type.h2, "Engagement terms"], ["Heading 3 · 16", type.h3, "Services included"], ["Body · 15", type.body, "We prepare and file your return from the documents you upload. A CPA reviews every return before it is filed."], ["Small · 13", type.small, "Prices are before tax. GST/HST is added based on your province."], ["Caption · 12", type.caption, "Total before tax"]] as const).map(([label, cls, sample]) => (

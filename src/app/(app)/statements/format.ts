@@ -22,8 +22,8 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n ==
 
 // The status pill: blue while reading, green when ready or imported, amber for a look, red when failed.
 export const STATUS_CLS: Record<StatementStatus, string> = {
-  queued: "bg-navy-50 text-navy-700",
-  reading: "bg-navy-50 text-navy-700",
+  queued: "bg-info-soft text-info",
+  reading: "bg-info-soft text-info",
   ready: "bg-success-soft text-success",
   needs_look: "bg-warning-soft text-warning",
   failed: "bg-danger-soft text-danger",

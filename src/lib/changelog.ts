@@ -4,6 +4,25 @@ export type ChangeEntry = { date: string; title: string; points: string[] };
 
 export const CHANGELOG: ChangeEntry[] = [
   {
+    date: "2026-11-20",
+    title: "New look for staff screens",
+    points: [
+      "Staff screens use the Concept brand: navy top bar, Concept Green for the page you are on, the Alexandria font with figures that line up, and square corners. Client pages do not change.",
+      "The left menu is gone. The top bar holds My day, Clients, Closebook, Engagements, Documents and Sales (Leads and Quotes). Find a client, the bell, Help, Settings, + New and your name are on the right.",
+      "Counts: Sales shows new website leads. Engagements shows letters waiting for a signature and opens the Letters tab. Quotes waiting for a signature show beside Quotes in the Sales menu.",
+      "On a narrow window the items move into the Menu button, with Help. Find a client becomes a Find button below 1366 px wide.",
+      "Settings pages list every setting on the left, with a box to search them.",
+      "Closebook files have a white header: client name (opens the client), year end, status, people, net income, T2 due, History and My files. A thin bar under it shows how many steps each module has reviewed.",
+      "File tabs: Steps, Trial balance, Entries, Reports, Notes, Statements, then Tools. Old report links open the Reports tab.",
+      "The step list groups the 10 steps under Planning, Bookkeeping (Books on trial balance files), Fieldwork and Completion. A module folds. Each step shows its number (green once reviewed), its name, Next on the step to work on, and one sign-off tag.",
+      "Sign-offs are tags: blue Prepared and green Reviewed with initials and date; grey Not prepared or Not reviewed. Click a tag to sign or take back, as before. Banking shows In progress until 3.1, 3.2 and 3.3 are all signed, and names everyone who signed them.",
+      "A step prepared and reviewed by the same person says so in an amber line. A locked file says it is read-only.",
+      "On steps 4 and 7 the step list folds on windows narrower than 1440 px, so the tables have room. On a phone the list folds behind one button.",
+      "Trial balance: rows are 28 px (24 px with Compact), the headings stay on top, No. and Account stay at the left, $ and % sit under Change from prior, negative % shows in brackets, a folded group keeps its totals, and Flagged is written out. The footer names any column that is out of balance.",
+      "Quotes show amounts as $2,450.00 plus GST/HST, monthly quotes show how many options they hold, and the list has a Source filter. Status colours follow one rule: green done, blue in progress, amber needs attention, grey not started or closed.",
+    ],
+  },
+  {
     date: "2026-11-19",
     title: "Roles are titles; Admin is a right",
     points: [

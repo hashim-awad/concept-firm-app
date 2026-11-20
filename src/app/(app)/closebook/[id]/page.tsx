@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireAccess, canEdit } from "@/lib/access";
 import { readMenuPins } from "@/lib/menu-pins";
 import { TipLink } from "./shell/ui";
+import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { messageFrom } from "@/lib/messages";
 import { formatDate } from "@/lib/dates";
@@ -323,6 +324,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
 
   // Reports (Hashim, Nov 15, 2026): full pages under "Reports" in the step list, built live every time.
   const report = REPORTS.find(([k]) => k === str(sp.report))?.[0] as ReportKey | undefined;
+  // UI1 (closebook specialist item 10): reports live on the Reports tab. An old link with ?report= and no tab opens it
+  // there (the trial balance itself on the Trial balance tab); everything else in the address travels with it.
+  if (report && !str(sp.area) && !showHistory) {
+    const q = new URLSearchParams(Object.entries(sp).filter(([, v]) => typeof v === "string") as [string, string][]);
+    if (report === "tb") { q.delete("report"); q.set("area", "tb"); if (q.get("view") === "flat") { q.delete("view"); q.set("tbv", "accounts"); } } else q.set("area", "reporting");
+    redirect(`/closebook/${id}?${q}`);
+  }
   // Back from a drill-down: only to a page of this file.
   const back = str(sp.back);
   const backHref = back && back.startsWith(`/closebook/${id}?`) ? back : null;
@@ -678,7 +686,10 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const signFor = (k: StepKey, st = review.status[k], back = href(k)) => ({ fileId: id, step: k, st, names, me: access.staff_id, canPrepare: cb.prepare, canReview: rv, canRemove: cb.remove_signoffs,
     editable: editable && file.phase !== "locked", back, preparerElsewhere: k === "opening" && bankFile && !file.first_year,
     // Round 34: step 3 on a bank file is signed in 3.1, 3.2 and 3.3; its own circles say which are left.
-    subsOf: k === "records" && subs ? SUBS.map((x) => ({ key: x.key, href: paperHref("records", x.paper), prepared: !!subs[x.key].prepared_at, reviewed: !!subs[x.key].reviewed_at })) : undefined });
+    subsOf: k === "records" && subs ? SUBS.map((x) => ({ key: x.key, href: paperHref("records", x.paper), prepared: !!subs[x.key].prepared_at, reviewed: !!subs[x.key].reviewed_at })) : undefined,
+    // UI1 Q3: step 3 on a bank file names everyone who signed its parts.
+    signers: k === "records" && subs ? { prepared: [...new Set(SUBS.map((x) => subs[x.key].prepared_by).filter(Boolean).map((i) => names.get(i!) ?? ""))].filter(Boolean),
+      reviewed: [...new Set(SUBS.map((x) => subs[x.key].reviewed_by).filter(Boolean).map((i) => names.get(i!) ?? ""))].filter(Boolean) } : undefined });
   if (showHistory) {
     const hstep = str(sp.hstep) ?? null;
     const hist = await loadHistory(supabase, id, names, hstep);
@@ -722,30 +733,59 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const moduleOf = new Map(modules.flatMap((m) => m.steps.map((k) => [k, m] as const)));
   const firstOf = new Set(modules.map((m) => m.steps[0]));
   const title = (t: string) => t.charAt(0) + t.slice(1).toLowerCase();
-  const stepRail = (
-    <>
-      {steps.flatMap((x) => [
-        ...(firstOf.has(x.key) ? [<PanelHead key={`m-${x.key}`}>{moduleOf.get(x.key)!.name}</PanelHead>] : []),
-        <div key={x.key} data-step-row={x.key} className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-1.5 ${x.key === step && area === "steps" && !showHistory && (!papers.length || !paper) ? "bg-navy-50" : "hover:bg-sand-50"}`}>
-          <Link href={href(x.key)} aria-current={x.key === step && area === "steps" ? "step" : undefined} className={`flex h-10 min-w-0 flex-1 items-center gap-2 pl-2 text-[12.5px] ${x.key === step && area === "steps" ? "font-semibold text-navy-900" : "text-ink-2"}`}>
-            <StepMark n={x.n} p={stepProgress(x.key, progress)} /><span className="leading-snug">{x.name}</span>
-          </Link>
-          {x.notes > 0 && <span className="grid h-[15px] min-w-[15px] place-items-center rounded-full bg-danger px-1 text-[9.5px] font-bold text-white" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes}</span>}
-          <SignCircles {...signFor(x.key)} />
-        </div>,
-        ...(x.key === step && area === "steps" && !showHistory ? papers.map((pp) => (
+  // UI1 (M1 A): the 10 steps under their 4 modules. A module folds; the one holding the open step starts open. Each step
+  // shows its number (green when reviewed), its name and one tag that opens the sign-off box. The open step's papers sit
+  // under it. "Next" marks the step to work on when another is open.
+  const reviewedOf = (keys: StepKey[]) => keys.filter((k) => !!review.status[k]?.reviewed_at).length;
+  const strip = modules.map((m) => ({ name: title(m.name), reviewed: reviewedOf(m.steps), of: m.steps.length }));
+  const inSteps = area === "steps" && !showHistory;
+  const stepRow = (x: (typeof steps)[number]) => {
+    const on = x.key === step && inSteps;
+    return [
+      <div key={x.key} data-step-row={x.key} className={`flex min-h-11 items-center gap-2.5 pr-3 ${on && (!papers.length || !paper) ? "bg-navy-50 shadow-[inset_3px_0_0_var(--color-navy-700)]" : on ? "bg-navy-50/60" : "hover:bg-sand-50"}`}>
+        <Link href={href(x.key)} aria-current={on ? "step" : undefined} className={`flex min-h-11 min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-5 text-[13.5px] leading-snug text-navy-700 ${on ? "font-semibold" : ""}`}>
+          <StepMark n={x.n} p={stepProgress(x.key, progress)} reviewed={x.word === "signed"} on={on} />
+          <span className="min-w-0">{x.name}{x.key === current && !on && <span className="ml-1.5 text-[11.5px] font-semibold text-info" data-next>Next</span>}</span>
+        </Link>
+        {x.notes > 0 && <span className="bg-danger-soft px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap text-danger" title={`${x.notes} review note${x.notes === 1 ? "" : "s"} open`}>{x.notes} note{x.notes === 1 ? "" : "s"}</span>}
+        {SIGNED_STEPS.includes(x.key) && <SignCircles {...signFor(x.key)} />}
+      </div>,
+      ...(on ? papers.map((pp) => {
+        // Banking's sub-steps carry their own sign-off word.
+        const sb = x.key === "records" && subs ? SUBS.find((y) => y.paper === pp.key) : undefined;
+        const ss = sb && subs ? subs[sb.key] : undefined;
+        return (
           <Link key={`${x.key}-${pp.key}`} href={paperHref(x.key, pp.key)} aria-current={pp.key === paper ? "page" : undefined}
-            className={`mx-1.5 flex h-10 items-center gap-2 rounded-lg pr-3 pl-8 text-[12.5px] leading-snug ${pp.key === paper ? "bg-navy-50 font-semibold text-navy-900" : "text-ink-2 hover:bg-sand-50"}`}>
-            <PaperMark p={paperProgress(x.key, pp.key, progress)} />{pp.name}</Link>)) : []),
-      ])}
-    </>
+            className={`flex min-h-9 items-center gap-2 py-1.5 pr-3 pl-14 text-[13px] leading-snug ${pp.key === paper ? "bg-[#F2F5FB] font-semibold text-navy-700" : "text-ink-2 hover:bg-sand-50"}`}>
+            {!ss && <PaperMark p={paperProgress(x.key, pp.key, progress)} />}<span className="min-w-0 flex-1">{pp.name}</span>
+            {ss && <span className={`px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${ss.reviewed_at ? "bg-success-soft text-success" : ss.prepared_at ? "bg-info-soft text-info" : "bg-sand-100 text-[#3F4246]"}`}>{ss.reviewed_at ? "Reviewed" : ss.prepared_at ? "Prepared" : "Open"}</span>}
+          </Link>
+        );
+      }) : []),
+    ];
+  };
+  const stepRail = (
+    <nav aria-label="Steps" id="steps">
+      {modules.map((m) => {
+        const ms = steps.filter((x) => m.steps.includes(x.key));
+        const notesN = ms.reduce((n, x) => n + x.notes, 0);
+        return (
+          <details key={m.key} open={m.steps.includes(step) || undefined} className="group border-b border-sand-200" data-module={m.key}>
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-[11px] font-bold tracking-[.06em] text-ink-2 [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="h-3 w-3 text-ink-3 transition-transform group-open:rotate-90" aria-hidden />{m.name}
+              <span className="ml-auto text-[12px] font-medium tracking-normal text-ink-3">{reviewedOf(m.steps)} of {m.steps.length} reviewed{notesN > 0 && <> · <span className="text-danger">{notesN} note{notesN === 1 ? "" : "s"}</span></>}</span>
+            </summary>
+            <div className="pb-1.5">{ms.flatMap(stepRow)}</div>
+          </details>
+        );
+      })}
+    </nav>
   );
   const stepRailFolded = (
     <>{steps.flatMap((x) => [
       ...(firstOf.has(x.key) && x.key !== "setup" ? [<hr key={`r-${x.key}`} aria-hidden className="mx-3 my-1 border-sand-300" data-module-rule />] : []),
       <TipLink key={x.key} href={href(x.key)} label={`${title(moduleOf.get(x.key)!.name)} · ${x.n}. ${x.name}`} className={`relative mx-1.5 flex h-10 items-center justify-center rounded-lg text-xs tabular-nums ${x.key === step && area === "steps" ? "bg-navy-50 font-bold text-navy-900" : "text-ink-2 hover:bg-sand-50"}`}>
-        <StepMark n={x.n} p={stepProgress(x.key, progress)} />{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
-        {x.word === "signed" && <span className="absolute right-2 bottom-1 h-1.5 w-1.5 rounded-full bg-success" title="Reviewed" />}
+        <StepMark n={x.n} p={stepProgress(x.key, progress)} reviewed={x.word === "signed"} on={x.key === step && area === "steps"} />{x.notes > 0 && <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-danger" />}
       </TipLink>])}</>
   );
   const tbv = str(sp.tbv) ?? (report === "tb" && view === "flat" ? "accounts" : "groups");
@@ -756,7 +796,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       {/* Piece R1: no GIFI views here; GIFI matching is step 8's first paper. */}
       {([["groups", "Groups"], ["accounts", "Accounts"]] as const).map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=tb&tbv=${k}`} on={(!report || report === "tb") && tbv === k && !tool}>{l}</PanelLink>)}
       <PanelHead>Reports</PanelHead>
-      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
+      {REPORTS.filter(([k]) => k !== "tb").map(([k, l]) => <PanelLink key={k} href={`/closebook/${id}?area=reporting&report=${k}`} on={report === k && !tool}>{l}</PanelLink>)}
     </>
   );
   let left: React.ReactNode = stepRail, folded: React.ReactNode = stepRailFolded, content: React.ReactNode = body;
@@ -828,7 +868,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const signoffPill = subs ? await loadSignoffPill(supabase, id, access.staff_id ?? "") : null;
 
   return (
-    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
+    <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} clientHref={client?.id ? `/clients/${client.id}` : undefined} strip={strip}
+      stepSum={area === "steps" && !showHistory ? `${cur.n}. ${cur.name}${paperName ? ` › ${paperName}` : ""}` : undefined}
+      narrowFold={area === "steps" && (step === "code" || step === "review") && !showHistory} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
       tools={{ on: !!tool, journal: editable && file.phase !== "locked" }}
       history={rv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>

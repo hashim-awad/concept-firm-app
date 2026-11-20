@@ -82,7 +82,7 @@ export async function statementsArea({ supabase, fileId, data, canReview, sp }: 
       const shownTb = (credit ? -1 : 1) * row.cur * 100, shownPri = (credit ? -1 : 1) * row.pri * 100;
       const round = shownTb - sum("final"), roundPri = shownPri - sum("last");
       details = (
-        <div role="dialog" aria-label="Account details" className="fixed top-[206px] left-1/2 z-40 w-[680px] max-w-[95vw] -translate-x-1/2 rounded-[10px] border border-sand-300 bg-white shadow-[0_18px_40px_rgba(15,35,80,.22)]">
+        <div role="dialog" aria-label="Account details" className="fixed top-[calc(var(--top,56px)+60px)] left-1/2 z-40 w-[680px] max-w-[95vw] -translate-x-1/2 rounded-[10px] border border-sand-300 bg-white shadow-[0_18px_40px_rgba(15,35,80,.22)]">
           <div className="flex items-center gap-2 border-b border-sand-200 px-4 py-2.5">
             <span className="flex-1 text-[13px] font-semibold">Account details · {row.cap}</span>{row.note && <span className="text-xs text-ink-3">Note {row.note}</span>}
             <Link href={`${base}?area=statements&doc=${doc}`} aria-label="Close" className="rounded p-0.5 text-ink-2 hover:bg-sand-100"><X className="h-4 w-4" /></Link>

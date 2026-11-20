@@ -56,12 +56,13 @@ export function stepTitle(key: string, books: string): string {
 }
 
 // Piece R2 (Hashim, Nov 19, 2026; CaseWare Cloud's document map phases): the 10 steps in 4 modules, display only. Module 2
-// reads "TRIAL BALANCE" on trial balance files and "BOOKKEEPING" on bank-statement files. Keys and numbers do not change.
+// reads "BOOKS" on trial balance files (UI1: never the same words as the Trial balance tab) and "BOOKKEEPING" on
+// bank-statement files. Keys and numbers do not change.
 export type Module = { key: "planning" | "books" | "fieldwork" | "completion"; name: string; steps: StepKey[] };
 export function stepModules(books: string): Module[] {
   return [
     { key: "planning", name: "PLANNING", steps: ["setup"] },
-    { key: "books", name: fromStatements(books) ? "BOOKKEEPING" : "TRIAL BALANCE", steps: ["opening", "records", "code"] },
+    { key: "books", name: fromStatements(books) ? "BOOKKEEPING" : "BOOKS", steps: ["opening", "records", "code"] },
     { key: "fieldwork", name: "FIELDWORK", steps: ["entries", "compare", "review", "t2"] },
     { key: "completion", name: "COMPLETION", steps: ["statements", "lock"] },
   ];
