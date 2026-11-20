@@ -1177,9 +1177,11 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
   title and hidden label ("Saved on the entry: n. Put replaces it."); Entries list W/P ref and Description cut short at
   1280; Expenses schedule shows "Owed to the owner" twice; Settings threshold boxes show 5,000 not 5,000.00; tests for a
   TJE booked after step 8, another reviewer signing step 5 while entries wait, and the take-back-and-re-prepare path;
-  Hashim to confirm: booking may come before step 7 is reviewed (E1-Q1 A); step 5 Reviewed may be signed by anyone with
-  Review who did not prepare step 5 (R3a-2's team model narrows it).
-- E1 round 2 Lows: test E1-4b counts line rows for the whole file (count the deleted entry's rows, expect 3). Done in the
+  Decided (Hashim, Nov 20, 2026): booking stays after step 5 Reviewed (E1-Q1 A, kept); step 5 Reviewed stays open to
+  anyone with Review who did not prepare step 5, and R3a-2 narrows it to the file's team.
+- E1 round 2 Lows (Hashim, Nov 20, 2026): test E1-4b counts line rows for the whole file (count the deleted entry's rows,
+  expect 3); after Escape on a schedule window opened by "Change schedule", sched=1 stays in the address, so a reload
+  reopens the schedule (drop it on close). Done in the
   build after round 2 (builder check with test-runner's script): focus back to the form's schedule button or "From a
   schedule"; Escape closes an open menu first; the save message names step 5 when a type changes to or from TJE.
 
