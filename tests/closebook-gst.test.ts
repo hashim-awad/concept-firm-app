@@ -3,7 +3,8 @@
 // CRA RC4058, the periods and due dates, the instalments pre-filled, and the check against 21500.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildReturn, buildYear, buildYearPrefilled, checkAgainstBooks, gstPeriods, prefillInstalments, type GstItem } from "../src/lib/closebook/gst-return.ts";
+import { bankLineItems, buildReturn, buildYear, buildYearPrefilled, checkAgainstBooks, gstPeriods, prefillInstalments, type BankTaxLine, type GstItem, type GstPayment } from "../src/lib/closebook/gst-return.ts";
+import type { TaxCode } from "../src/lib/closebook/sales-tax.ts";
 
 const DUE = { annual: 3, period: 1 };
 const sale = (date: string, net: number, tax: number, code = "HST_ON"): GstItem => ({ date, source: "bank", ref: date, label: "Commission", account: "40000", accountName: "Commission income", code, sale: true, netCents: net, taxCents: tax });
@@ -143,4 +144,44 @@ test("quick method, round 20: a missing rate is named and line 103 is not guesse
   const none = buildReturn([sale("2026-02-01", 1000000, 130000)], year, true, { rate: null, creditRate: 0.01, creditLimitCents: 3000000, province: "ON", type: "services", rates }, 0);
   assert.equal(none.lines["103"], 0);
   assert.match(none.problems[0], /^No approved quick method rate for services in Ontario/);
+});
+
+// Piece GST-SPLIT (Hashim, Nov 20, 2026): a split bank line counts row by row, each row with its own account and code.
+// Invented figures only.
+const g13 = { name: "GST", rate: 0.13, recoverable: true, liability: "gst_hst" as const };
+const CODES = new Map<string, TaxCode>([["HST_ON", { code: "HST_ON", name: "HST ON", parts: [g13] }], ["OUT_OF_SCOPE", { code: "OUT_OF_SCOPE", name: "Out of Scope", parts: [] }]]);
+const CHART = new Map([["40000", { name: "Sales", account_type: "Revenue" }], ["64000", { name: "Licences and permits", account_type: "Expense" }],
+  ["64310", { name: "Office supplies", account_type: "Expense" }], ["21500", { name: "GST/HST payable", account_type: "Liability" }]]);
+const REG = { registered: true, quick: false };
+const run = (l: BankTaxLine, isBank = true, ctx = REG) => { const items: GstItem[] = [], payments: GstPayment[] = []; bankLineItems(l, isBank, CHART, CODES, ctx, items, payments); return { items, payments }; };
+const split = (cents: number, rows: [string, string | null, number][], status = "done"): BankTaxLine =>
+  ({ status, date: "2026-06-15", id: "x", description: "Split", cents, chart_account: null, tax_code: null, splits: rows.map(([a, t, c]) => ({ chart_account: a, tax_code: t, cents: c })) });
+
+test("GST-SPLIT: a split deposit counts its HST ON row only; lines 101 to 113 move by that row", () => {
+  // A deposit of 665.00 split 565.00 Sales HST ON and 100.00 Licences and permits Out of Scope.
+  const { items } = run(split(66500, [["40000", "HST_ON", 56500], ["64000", "OUT_OF_SCOPE", 10000]]));
+  assert.deepEqual(items.map((i) => [i.account, i.code, i.sale, i.netCents, i.taxCents]), [["40000", "HST_ON", true, 50000, 6500], ["64000", "OUT_OF_SCOPE", false, -10000, 0]]);
+  const rest = [sale("2026-03-01", 4000000, 520000), buy("2026-03-02", 1000000, 130000)];
+  const r = buildReturn([...rest, ...items], gstPeriods("2026-01-01", "2026-12-31", "annual", DUE)[0], false, { rate: null, creditRate: null, creditLimitCents: null }, 100000);
+  assert.deepEqual(["101", "103", "106", "109", "110", "113"].map((k) => r.lines[k as keyof typeof r.lines]), [4050000, 526500, 130000, 396500, 100000, 296500]);
+});
+
+test("GST-SPLIT: money out, card lines, a row on 21500, quick method, unknown accounts and lines not done", () => {
+  // A split cheque: the HST ON row's ITC only.
+  assert.deepEqual(run(split(-14300, [["64310", "HST_ON", 11300], ["64000", "OUT_OF_SCOPE", 3000]])).items.map((i) => [i.netCents, i.taxCents]), [[10000, 1300], [3000, 0]]);
+  // A split card charge (a card line is positive for a charge): the same ITC as the cheque.
+  assert.deepEqual(run(split(14300, [["64310", "HST_ON", 11300], ["64000", "OUT_OF_SCOPE", 3000]]), false).items.map((i) => [i.netCents, i.taxCents]), [[10000, 1300], [3000, 0]]);
+  // A deposit with a row on 21500 (a refund from the CRA): a payment of minus that row, not an item.
+  const refund = run(split(66500, [["40000", "HST_ON", 56500], ["21500", null, 10000]]));
+  assert.deepEqual(refund.payments.map((p) => p.cents), [-10000]);
+  assert.equal(refund.items.length, 1);
+  // Quick method: 101 takes the HST ON row's sale with the tax (565.00), to the dollar.
+  const quick = run(split(66500, [["40000", "HST_ON", 56500], ["64000", "OUT_OF_SCOPE", 10000]]), true, { registered: true, quick: true });
+  const q = buildReturn(quick.items, gstPeriods("2026-01-01", "2026-12-31", "annual", DUE)[0], true, { rate: 0.088, creditRate: null, creditLimitCents: null }, 0);
+  assert.equal(q.lines["101"], 56500);
+  // A row on an account not in the chart: the whole line is left out, as the trial balance leaves it out.
+  assert.equal(run(split(66500, [["40000", "HST_ON", 56500], ["99999", "OUT_OF_SCOPE", 10000]])).items.length, 0);
+  // A line with no split is unchanged; a line not done is left out.
+  assert.deepEqual(run({ status: "done", cents: 11300, chart_account: "40000", tax_code: "HST_ON" }).items.map((i) => [i.netCents, i.taxCents]), [[10000, 1300]]);
+  assert.equal(run(split(66500, [["40000", "HST_ON", 56500], ["64000", "OUT_OF_SCOPE", 10000]], "new")).items.length, 0);
 });

@@ -6,8 +6,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { gstInputs } from "./tb-build-server";
 import { loadFile } from "./server";
-import { splitLine } from "./sales-tax";
-import { buildYearPrefilled, checkAgainstBooks, gstPeriods, itemsFromEntry, quickType, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line, type QuickRate, type QuickSettings } from "./gst-return";
+import { bankLineItems, buildYearPrefilled, checkAgainstBooks, gstPeriods, itemsFromEntry, quickType, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line, type QuickRate, type QuickSettings } from "./gst-return";
 
 // The standard chart account the quick method gain is booked to (round 13 fix): 42400, GIFI 8230.
 export const QUICK_GAIN = "42400";
@@ -59,17 +58,8 @@ export async function gstFor(supabase: SupabaseClient, fileId: string, instalmen
   // The items: coded bank and card lines with a sales tax code, split as the trial balance splits them.
   const items: GstItem[] = [], payments: GstPayment[] = [];
   const bankKind = new Map(inp.banks.map((b) => [b.id, b.kind]));
-  for (const l of inp.lines) {
-    const c = l.status === "done" && l.chart_account ? inp.chart.get(l.chart_account) : undefined;
-    if (!c) continue;
-    const debit = bankKind.get(l.account_id) === "bank" ? l.cents : -l.cents;
-    const ref = { date: l.date ?? "", source: "bank" as const, ref: l.id ?? "", label: l.description ?? "", account: l.chart_account!, accountName: c.name };
-    if (l.chart_account === "21500") { payments.push({ date: ref.date, ref: ref.ref, label: ref.label, cents: -debit }); continue; }
-    const code = l.tax_code ? inp.codes.get(l.tax_code) ?? null : null;
-    if (!l.tax_code) continue;
-    if (c.account_type === "Revenue") { const s = splitLine(debit, code, "sale", inp.ctx); items.push({ ...ref, code: l.tax_code, sale: true, netCents: s.netCents, taxCents: s.gstCollectedCents }); }
-    else { const s = splitLine(-debit, code, "purchase", inp.ctx, c.account_type === "Asset"); items.push({ ...ref, code: l.tax_code, sale: false, netCents: s.netCents, taxCents: s.itcCents }); }
-  }
+  // Piece GST-SPLIT (Hashim, Nov 20, 2026): split lines count row by row (bankLineItems).
+  for (const l of inp.lines) bankLineItems(l, bankKind.get(l.account_id) === "bank", inp.chart, inp.codes, inp.ctx, items, payments);
   // Entries with a sales tax code (expenses paid personally, the standard entries, adjusting entries), as
   // posted. An entry that moves an amount into 21500 without a tax code is an instalment candidate, for
   // the preparer to confirm or leave out (the quick method gain entry is not one).
