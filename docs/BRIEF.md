@@ -1000,6 +1000,12 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Plan to January (Hashim, Nov 20, 2026; replaces the earlier order)
+- Nov 20 to 26: RF1 roll forward, then the first fix round from Hashim's real-file list.
+- Nov 27 to Dec 3: R3a-2, R3, R3b. The bank statement route is complete by Dec 3. R3a-2 does not start before Nov 27.
+- Dec 4 to 18: fix rounds twice a week, plus the clean-up list.
+- Dec 19 to Jan 8: the trial balance route (R5, "Already closed in QuickBooks", firm chart matching).
+
 ## Piece S2: step 8 check 5 and the opening rounding (Hashim, Nov 20, 2026; urgent, it held up a Live GIFI export)
 Status: built, in review. On a bank-statement file the automatic "Opening balance rounding" (statement cents against last
 year's whole-dollar T2, round 23) posts to opening retained earnings, so 3660 differs from last year's 3849 in step 2 by
