@@ -73,9 +73,9 @@ reset role; reset request.jwt.claims;
 select test.check('adding a revenue check (step 5) leaves step 6 signed', (:state) like '%compare%');
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_review_entry(:'aje');
+select test.check('E1: entry approval is retired (approved test change)', test.try(format('select public.cb_review_entry(%L)', :'aje')) = 'Entry approval was retired. Sign step 5 instead.');
 reset role; reset request.jwt.claims;
-select test.check('approving an entry clears nothing', (:state) = 'code,compare,entries,review,t2');
+select test.check('the refused call clears nothing', (:state) = 'code,compare,entries,review,t2');
 
 -- ---------- An AJE's lines changed (amount): step 6 clears.
 :signed;

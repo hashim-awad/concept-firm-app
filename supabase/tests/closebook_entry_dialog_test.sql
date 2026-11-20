@@ -53,11 +53,9 @@ select test.check('an edited entry keeps its number and origin, with the new lin
   and :'rv2' = :'rv'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'rv2') = 45);
 select test.check('the edit still checks every rule', test.try(format($f$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Bad', false, '[{"line":"8860.00","amount":5},{"line":"2620.00","amount":-4}]', 'Payables listing')$f$, :'rv2')) like '%does not balance%');
--- An approved entry cannot change (the delete rule).
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_review_entry(:'e7');
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('an approved entry cannot be edited', test.try(format($f$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Changed', false, '[{"line":"8860.00","amount":100},{"line":"2620.00","amount":-100}]', 'Payables listing')$f$, :'e7')) like '%approved entry cannot be deleted%');
+-- Piece E1 (approved test change): entry approval is retired; an entry can be edited until the file is locked.
+select test.check('E1: entry approval is retired', test.try(format('select public.cb_review_entry(%L)', :'e7')) = 'Entry approval was retired. Sign step 5 instead.');
+select test.check('E1: an entry can be edited until the file is locked', test.try(format($f$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Changed', false, '[{"line":"8860.00","amount":100},{"line":"2620.00","amount":-100}]', 'Payables listing')$f$, :'e7')) = 'OK');
 
 -- The step numbers in the messages follow the new order: GIFI mapping is step 6, Review step 7.
 select test.check('review is step 7', test.try(format($f$select public.cb_sign_step(%L, 'review', 'prepared')$f$, :'f')) like 'Step 7 is the reviewer%');

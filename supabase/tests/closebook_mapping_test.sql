@@ -52,7 +52,7 @@ select test.check('a prior period adjustment posts to GIFI 3720', (select a.line
   and (select seq from public.cb_entries where id = :'e3') = 3);
 select test.check('numbered AJE-1, AJE-2; free entries go to the reviewer', (select string_agg(kind || '-' || number || ':' || needs_review, ',' order by number) from public.cb_entries where file_id = :'f') = 'AJE-1:true,AJE-2:true,AJE-3:true');
 select test.check('a line given by GIFI line adds an account on that line', (select line_no from public.cb_accounts where file_id = :'f' and account_key = 'line:8860.00') = '8860.00');
-select test.check('only the reviewer approves', test.try(format($f$select public.cb_review_entry(%L)$f$, :'e1')) like '%reviewer approves%');
+select test.check('E1: entry approval is retired (approved test change)', test.try(format($f$select public.cb_review_entry(%L)$f$, :'e1')) = 'Entry approval was retired. Sign step 5 instead.');
 reset role;
 reset request.jwt.claims;
 
@@ -64,10 +64,8 @@ select test.check('the reviewer decides; saved for future years', (select mappin
   and (select line_no from public.cb_client_mappings where client_id = :'client' and account_key = '5900') = '1301.10');
 select public.cb_set_tax_code(:'off', 'NONDED');
 select test.check('the reviewer sets a tax code', (select tax_code from public.cb_accounts where id = :'off') = 'NONDED');
-select public.cb_review_entry(:'e1');
-select test.check('approved entries cannot be deleted', test.try(format($f$select public.cb_delete_entry(%L)$f$, :'e1')) like '%cannot be deleted%');
 select public.cb_delete_entry(:'e2');
-select test.check('an unapproved entry can be deleted', (select count(*) from public.cb_entries where file_id = :'f') = 2);
+select test.check('an entry can be deleted until the file is locked (E1)', (select count(*) from public.cb_entries where file_id = :'f') = 2);
 -- Next year's file reuses the client's matching.
 select public.cb_create_file(:'client', '2027-12-31', '2027-01-01', '', 'full', 'statements', :C::uuid, :A::uuid) as f2 \gset
 select public.cb_import_tb(:'f2', 'this_year', 'client_software', 'tb.csv', '[{"number":"5300","name":"Office expenses","amount":50},{"number":"5900","name":"Johnson advance","amount":-50}]');

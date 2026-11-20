@@ -1,6 +1,6 @@
--- Local tests: piece S1 (Hashim, Nov 20, 2026): a saved schedule changes through its window after its entry is approved.
--- Saving updates the same entry and number, takes back the approval (History says so) and the step 5 sign-offs; every
--- other change to an approved entry is still refused. Vehicle, Home office and Expenses paid personally. Dummy data only.
+-- Local tests: piece S1 (Hashim, Nov 20, 2026): a saved schedule changes through its window. Saving updates the same entry
+-- and number and takes back the step 5 sign-offs. Piece E1 (approved test change) retired entry approval, so the approval
+-- checks are gone. Vehicle, Home office and Expenses paid personally. Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
@@ -25,10 +25,6 @@ select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Home offi
 \set xsched '''{"kind":"expenses","itc":true,"inputs":{"lines":[{"acct":"chart:62000","paid":50000}]},"lines":[{"schedule_part":"exp_1","amount":500},{"schedule_part":"exp_due","amount":-500}]}'''
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Expenses paid personally', false, :xlines, 'Expenses paid personally schedule', null, '{}', null, :xsched) as x \gset
 
--- The reviewer approves all three.
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_review_entry(:'v'); select public.cb_review_entry(:'h'); select public.cb_review_entry(:'x');
-select test.check('S1 setup: three schedule entries, all approved', (select count(*) from public.cb_entries where file_id = :'f' and origin = 'schedule' and reviewed_at is not null) = 3);
 select (select seq from public.cb_entries where id = :'v') as vseq \gset
 
 -- S1-1 the preparer changes the vehicle schedule: same entry and number, new amount, approval taken back.
@@ -38,40 +34,20 @@ select public.cb_save_schedule_entry(:'f', :'v', 'AJE', 'correction', 'Vehicle, 
 select test.check('S1-1: the same entry and number', :'v2' = :'v' and (select seq from public.cb_entries where id = :'v') = :vseq);
 select test.check('S1-1: the new amount, Dr 70600 9,100.00', (select string_agg(format('%s %s', a.number, l.amount), ', ' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'v') = '70600 9100.00, 23000 -9100.00');
 select test.check('S1-1: the saved inputs are the new ones', (select inputs ->> 'businessKm' from public.cb_schedules where entry_id = :'v') = '13500');
-select test.check('S1-1: the approval is taken back', (select needs_review and reviewed_at is null and reviewed_by is null from public.cb_entries where id = :'v'));
-reset role;
-select test.check('S1-1: History says why', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_approval_taken_back'
-  and detail = format('Entry %s: approval taken back because its schedule changed', private.cb_entry_label(:'v'))));
-set role authenticated;
+select test.check('S1-1: it is on the reviewer''s list again', (select needs_review from public.cb_entries where id = :'v'));
 
 -- S1-2 Home office and Expenses paid personally, the same.
 select public.cb_save_schedule_entry(:'f', :'h', 'AJE', 'correction', 'Home office', false, replace(:hlines, '1338.60', '1400')::jsonb, 'Home office schedule', null, '{}', null, replace(:hsched, '1338.60', '1400')::jsonb) as h2 \gset
 select public.cb_save_schedule_entry(:'f', :'x', 'AJE', 'correction', 'Expenses paid personally', false, replace(:xlines, '500', '650')::jsonb, 'Expenses paid personally schedule', null, '{}', null, replace(:xsched, '500', '650')::jsonb) as x2 \gset
-select test.check('S1-2: Home office changed on the same entry, approval taken back', :'h2' = :'h' and (select reviewed_at is null from public.cb_entries where id = :'h')
+select test.check('S1-2: Home office changed on the same entry', :'h2' = :'h'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'h') = 1400);
-select test.check('S1-2: Expenses paid personally changed on the same entry, approval taken back', :'x2' = :'x' and (select reviewed_at is null from public.cb_entries where id = :'x')
+select test.check('S1-2: Expenses paid personally changed on the same entry', :'x2' = :'x'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'x') = 650);
 
--- S1-3 everything else about an approved entry stays closed.
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_review_entry(:'v');
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('S1-3: an approved schedule entry is not changed outside its schedule',
-  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule')$q$, :'v', replace(:vlines, '8300', '9100')))
-  = 'An approved entry cannot be deleted. Add a correcting entry instead.');
-select test.check('S1-3: an approved schedule entry is still not deleted', test.try(format('select public.cb_delete_entry(%L)', :'v')) = 'An approved entry cannot be deleted. Add a correcting entry instead.');
-select test.check('S1-3: a schedule save with no schedule does not get round it',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule', null, '{}', null, null)$q$, :'f', :'v', replace(:vlines, '8300', '9100')))
-  = 'An approved entry cannot be deleted. Add a correcting entry instead.');
-
--- S1-5 on an approved entry only the schedule changes (security-risk and ui-reviewer, Nov 20).
-select test.check('S1-5: a new description is refused on an approved entry',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Totally new words', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :'v', replace(:vlines, '8300', '9200'), replace(:vsched, '8300', '9200'))) = 'Only the schedule can change on an approved entry.');
-select test.check('S1-5: a new type or number is refused on an approved entry',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'TJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', 77, %L)$q$,
-    :'f', :'v', replace(:vlines, '8300', '9200'), replace(:vsched, '8300', '9200'))) = 'Only the schedule can change on an approved entry.');
-select test.check('S1-5: the approved entry is untouched', (select reviewed_at is not null and seq = :vseq and kind = 'AJE' from public.cb_entries where id = :'v'));
+-- S1-3 an amount from a schedule still changes only in its schedule.
+select test.check('S1-3: a schedule amount is not changed outside its schedule',
+  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule')$q$, :'v', replace(:vlines, '8300', '9900')))
+  = 'Change this amount in its schedule: click the Schedule tag.');
 
 -- S1-6 the step 5 sign-offs are taken back when the schedule changes.
 reset role;

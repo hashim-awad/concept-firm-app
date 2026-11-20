@@ -78,14 +78,12 @@ select public.cb_edit_entry(:'e3', 'AJE', 'correction', 'Home office share', fal
 select test.check('T2: after the edit the link is still there', (select standard_id from public.cb_entries where id = :'e3') = :'std'::uuid);
 select test.check('T2: and it goes to the reviewer again, as an edit did before', (select needs_review from public.cb_entries where id = :'e3'));
 
--- T3: an approved entry, a revenue check entry and an Expenses paid personally entry behave as before.
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select public.cb_review_entry(:'e3');
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T3: an approved entry cannot be edited (same message as before)',
+-- T3: a revenue check entry and an Expenses paid personally entry behave as before. Piece E1 (approved test change): there
+-- is no approved entry any more; the entry changes until the file is locked.
+select test.check('T3 (E1): the entry can be edited again',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Home office share', false, '[{"chart":"65100","amount":130},{"chart":"23000","amount":-130}]', 'Home office schedule')$q$, :'e3'))
-  = 'An approved entry cannot be deleted. Add a correcting entry instead.');
-select test.check('T3: and it is unchanged', (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'e3') = 120);
+  = 'OK');
+select test.check('T3 (E1): and it changed', (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'e3') = 130);
 select public.cb_add_revenue_entry(:'f', 'Commission booked twice.', '[{"chart":"40100","amount":40},{"chart":"10900","amount":-40}]', false) as rv \gset
 select public.cb_edit_entry(:'rv', 'AJE', 'correction', 'Commission booked twice in December.', false, '[{"chart":"40100","amount":45},{"chart":"10900","amount":-45}]', 'Revenue check') as rv2 \gset
 select test.check('T3: a revenue check entry keeps its origin and W/P ref, on the same entry',
@@ -148,6 +146,6 @@ reset role;
 update public.cb_files set phase = 'locked' where id = :'f';
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T3 (last, as a lock is final here): a locked file refuses an edit (as before)', test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Commission booked twice.', false, '[{"chart":"40100","amount":50},{"chart":"10900","amount":-50}]', 'Revenue check')$q$, :'rv'))
-  = 'This file is locked.');
+select test.check('T3 (last, as a lock is final here): a locked file refuses an edit (E1 D6 wording)', test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Commission booked twice.', false, '[{"chart":"40100","amount":50},{"chart":"10900","amount":-50}]', 'Revenue check')$q$, :'rv'))
+  = 'This file is locked. Reopen it to change entries.');  -- E1 D6 wording
 reset role;

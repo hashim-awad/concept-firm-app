@@ -187,13 +187,15 @@ select test.check('D12b: the pick rolls forward with the client', (select accoun
 select id as e1 from public.cb_entries where file_id = :'m' order by seq limit 1 \gset
 update public.cb_entries set needs_review = true, reviewed_at = null where id = :'e1';
 :prep;
-select test.check('D12c: an entry is marked booked only once reviewed', test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) = 'Only a reviewed entry can be marked Booked in QuickBooks.');
+select test.check('D12c (E1, approved change): an entry is marked booked only once step 5 is reviewed', test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) = 'Sign step 5 Reviewed first: entries are booked after step 5 is reviewed.');
 :out;
-update public.cb_entries set reviewed_at = now(), reviewed_by = '00000000-0000-0000-0000-00000000000a' where id = :'e1';
+insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
+values (:'m', 'entries', '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now())
+on conflict (file_id, step) do update set prepared_at = now(), reviewed_at = now(), reviewed_by = excluded.reviewed_by;
 :prep;
 select public.cb_mark_booked(:'e1', true);
 :out;
-select test.check('D12c: a booked entry''s lines cannot change', test.try(format('update public.cb_entry_lines set memo = memo || %L where entry_id = %L', 'x', :'e1')) = 'This entry is marked Booked in QuickBooks. Unmark it first.');
+select test.check('D12c: a booked entry''s lines cannot change', test.try(format('update public.cb_entry_lines set memo = memo || %L where entry_id = %L', 'x', :'e1')) = 'This entry is booked in QuickBooks. Unmark it first to change it.');
 :prep;
 select test.check('D12c: a new trial balance is refused while an entry is booked', test.try(format($q$select public.cb_import_tb(%L, 'this_year', 'quickbooks', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":1},{"number":"4000","name":"Commission income","amount":-1}]')$q$, :'m'))
   = 'Some entries are marked Booked in QuickBooks: a new trial balance already holds them, so they would count twice. Unmark and delete those entries first, then import.');
