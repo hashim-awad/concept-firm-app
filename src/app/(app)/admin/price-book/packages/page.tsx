@@ -32,7 +32,7 @@ export default async function PackagesPage({ searchParams }: PageProps<"/admin/p
             <thead><tr><th>Offer</th><th>Monthly</th><th>Software</th><th>Year end</th><th>Annual floor</th><th>Services</th><th></th></tr></thead>
             <tbody>{section(seg).map((o) => (
               <tr key={o.id} className={o.is_active ? "" : "text-muted"}>
-                <td className="font-medium">{o.offer}{o.is_package && <span className="ml-2 rounded bg-lime-100 px-1.5 py-0.5 text-[11px] text-navy-900">Package</span>}{!o.is_active && <span className="ml-2 text-xs">(off)</span>}<span className="block text-xs text-muted">{o.notes}</span></td>
+                <td className="font-medium">{o.offer}{o.is_package && <span className="ml-2 border border-navy-700 px-1.5 py-0.5 text-[11px] text-navy-800">Package</span>}{!o.is_active && <span className="ml-2 text-xs">(off)</span>}<span className="block text-xs text-muted">{o.notes}</span></td>
                 <td>{$(o.monthly_fee)}</td><td>{$(o.software_per_month)}</td><td>{$(o.year_end_fee)}</td><td className="font-medium">{$(o.annual_floor)}</td>
                 <td className="text-xs">{o.services.map(serviceName).join(", ")}</td>
                 <td className="text-right text-sm"><Link href={`/admin/price-book/packages/${o.id}`} className="text-navy-700 underline">{editable ? "Edit" : "View"}</Link></td>

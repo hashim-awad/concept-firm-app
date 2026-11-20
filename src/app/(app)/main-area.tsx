@@ -1,6 +1,6 @@
 "use client";
-// The content area beside the sidebar: every page uses the full width beside the sidebar (Hashim,
-// 2026-11-08). The letter and proposal screens also use the full height, so the form and preview
+// The content area under the top bar (UI1: the left menu is gone, so pages use the full width; Hashim,
+// 2026-11-08 and 2026-11-20). The letter and proposal screens also use the full height, so the form and preview
 // panes can fill it.
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
@@ -11,11 +11,11 @@ export function MainArea({ children, workspace: force }: { children: ReactNode; 
   const path = usePathname();
   const workspace = force ?? (WORKSPACE_PATHS.some((p) => path === p || path.startsWith(p + "/")));
   // A Closebook file lays out its own header, tabs and panels edge to edge (round 15, CaseWare Cloud).
-  if (/^\/closebook\/[0-9a-f-]{36}$/.test(path)) return <main className="min-w-0 flex-1">{children}</main>;
+  if (/^\/closebook\/[0-9a-f-]{36}$/.test(path)) return <main id="main" tabIndex={-1} className="min-w-0 flex-1 outline-none">{children}</main>;
   if (workspace) {
-    return <main className="min-w-0 flex-1 px-4 py-4 md:px-6 lg:flex lg:h-[calc(100vh-3.5rem)] lg:flex-col lg:overflow-hidden">{children}</main>;
+    return <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-4 outline-none md:px-6 lg:flex lg:h-[calc(100vh-3.5rem)] lg:flex-col lg:overflow-hidden">{children}</main>;
   }
   return (
-    <main className="cb-push min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+    <main id="main" tabIndex={-1} className="cb-push min-w-0 flex-1 outline-none px-4 py-6 md:px-8 md:py-8">{children}</main>
   );
 }

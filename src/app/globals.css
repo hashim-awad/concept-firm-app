@@ -170,3 +170,54 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--color-navy-700
 @media (min-width: 1024px) {
   body:has(details.cb-drawer[open]) .cb-push { padding-right: 436px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Piece UI1 (Hashim, Nov 19 to 20, 2026; the C3 theme). Staff screens only (Q1 A): the staff layout
+   carries data-ui1, so client pages and sign-in pages keep the look above. body:has() reaches windows
+   and menus that render outside the layout too. Brand: navy #012169, green #86BC25 (bar only),
+   Alexandria with tabular figures, square corners (step marks and counts stay round).
+   --------------------------------------------------------------------------- */
+html:has([data-ui1]) { scroll-padding-top: calc(var(--top, 56px) + 36px); }
+body:has([data-ui1]) {
+  --font-brand: "Alexandria", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --color-navy-950: #000E2E;
+  --color-navy-900: #00174D;
+  --color-navy-800: #011C5B;
+  --color-navy-700: #012169;
+  --color-navy-600: #12357D;
+  --color-navy-500: #3B5793;
+  --color-lime-500: #86BC25;
+  --color-paper: #F6F7F8;
+  --color-sand-50: #F4F5F6;
+  --color-sand-100: #EEEFF0;
+  --color-sand-200: #DCDDDE;
+  --color-sand-300: #BBBCBC;
+  --color-ink: #1D2125;
+  --color-ink-2: #53565A;
+  --color-ink-3: #63666A;
+  --color-success: #046A38;
+  --color-success-soft: #E3F1E8;
+  --color-info: #005587;
+  --color-info-soft: #E0F2FE;
+  --color-warning: #8A4B00;
+  --color-warning-soft: #FFF1D6;
+  --background: #F6F7F8;
+  --border: #DCDDDE;
+  --accent: #012169;
+  --accent-hover: #011C5B;
+  --muted: #53565A;
+  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0;
+  --radius-ds: 0;
+  --top: 56px;
+  font-family: var(--font-brand);
+  font-variant-numeric: tabular-nums;
+}
+body:has([data-ui1]) :focus-visible { outline: 2px solid #012169; outline-offset: 2px; border-radius: 0; }
+body:has([data-ui1]) [data-bar] :focus-visible { outline-color: #fff; }
+/* Skip links: first in Tab order, shown only when focused. */
+.skips { position: fixed; left: 8px; top: -80px; z-index: 70; display: flex; gap: 8px; }
+.skips:focus-within { top: 8px; }
+.skips a { background: #fff; color: #012169; padding: 10px 14px; font-weight: 600; outline: 2px solid #012169; }
+/* Amount columns: a hidden bracket-width space after positive amounts lines decimals up with bracketed
+   negatives (D9). On screen only; it is not text, so a copy never picks up a ")". */
+.amt-pad::after { content: ")"; visibility: hidden; }
