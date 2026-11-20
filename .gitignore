@@ -43,3 +43,4 @@ next-env.d.ts
 
 # local dev (scripts/dev/up.sh): the fixed local Server Actions key, never committed
 /scripts/dev/.actions-key
+/scripts/dev/logs/

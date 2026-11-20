@@ -3,9 +3,15 @@
 // made with scripts/dev/up.sh use one fixed local key (scripts/dev/.actions-key), so their ids compare. This warns
 // before a capture when the running build was not made with that key. Local only.
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Paths from this script's own place, so it works from any folder. It checks the local build in this repo (.next), not
+// whatever server APP_URL points at.
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export function checkBuildKey() {
-  const manifest = ".next/server/server-reference-manifest.json", key = "scripts/dev/.actions-key";
+  const manifest = join(ROOT, ".next/server/server-reference-manifest.json"), key = join(ROOT, "scripts/dev/.actions-key");
   if (!existsSync(manifest)) return;
   const built = JSON.parse(readFileSync(manifest, "utf8")).encryptionKey;
   const fixed = existsSync(key) ? readFileSync(key, "utf8").trim() : null;
