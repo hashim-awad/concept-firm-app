@@ -170,7 +170,8 @@ export function LeftPanel({ children, folded: foldedNode, pinned: saved = true, 
         </button>
       )}
       <aside className={`flex-none flex-col border-sand-200 bg-white print:hidden max-lg:border-b ${summary && !phoneOpen ? "max-lg:hidden" : "max-lg:flex"} lg:sticky lg:top-[var(--top,56px)] lg:flex lg:h-[calc(100vh-var(--top,56px))] lg:border-r ${pinned ? (wide ? "lg:w-[290px]" : "lg:w-[200px]") : "lg:w-14"}`} data-steps-panel={pinned ? "pinned" : "unpinned"}>
-        <div className="flex-1 overflow-x-hidden overflow-y-auto py-2">{pinned ? children : <><div className="lg:hidden">{children}</div><div className="max-lg:hidden">{foldedNode ?? null}</div></>}</div>
+        {/* One tree for both states (only classes change), so the server's forms stay in place when the width is known. */}
+        <div className="flex-1 overflow-x-hidden overflow-y-auto py-2"><div className={pinned ? "" : "lg:hidden"}>{children}</div><div className={pinned ? "hidden" : "max-lg:hidden"}>{foldedNode ?? null}</div></div>
         <div className={`flex border-t border-sand-200 py-2 max-lg:hidden ${pinned ? "px-1.5" : "justify-center"}`}>
           {/* On a page that needs the full width the pin says why it does nothing (round 36b item 6). */}
           {forceFolded ? null : <PinButton pin={held ? { pinned: false, onToggle: () => {}, locked: "Folded on this step when the window is narrower than 1440 px" } : { pinned, onToggle: toggle }} wide={pinned} tone="light" what="panel" />}
