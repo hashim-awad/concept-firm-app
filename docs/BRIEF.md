@@ -1051,5 +1051,6 @@ Governed by `docs/FRONT-OFFICE-BATCH.md` (Nov 11, 2026). In short:
 - Show a working preview with dummy data before calling anything done.
 - Ask before doing anything outside this repo.
 - Every request to Hashim includes the full link to open (Hashim, Nov 10, 2026; moved here from docs/STATUS.md).
+- Usage (Hashim, Nov 20, 2026): the full database suite runs once per piece, before the PR. Fix rounds run only the changed test files. Each reviewer runs at most twice per piece. Questions, mocks to review and SQL go in one copy-ready block.
 - This brief is the one record of status and decisions. docs/STATUS.md was retired on Nov 19, 2026 (Hashim) and is kept
   only as a pointer here.
