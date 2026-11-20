@@ -1000,6 +1000,75 @@ In short:
 - Reports panel label (Hashim, Nov 13, 2026): "Working view: not for the client".
 - Delete and change a file (Hashim, Nov 13, 2026): a file can be deleted until its first sign-off; after that an owner can only close it as "Not proceeding", kept read-only. Preparer and reviewer change any time before lock (owner); setup answers until the step 8 sign-off; the year until the review sign-off; how the books are kept only before anything is imported; the client never.
 
+## Piece R3a-2: file team and sign-offs (Hashim, Nov 20, 2026, version 1; benchmark CaseWare Cloud engagement team)
+Status: mock stage. Not built. Nothing changes on Live until Hashim approves the plan. Builds on R3a-1 (roles and Closebook
+switches) and UI1 (theme). One migration.
+
+What it does (Hashim's version 1):
+1. Each file has a team: the people allowed to work on it. An Admin with Closebook Edit sets it, on New file and from the
+   Team chip in the file header (it replaces the People chip). The file keeps a lead preparer and a lead reviewer for My files
+   and the work queue; both are always on the team.
+2. A team member signs a circle only if their role has the switch: Prepared (Prepare), Reviewed (Review), Partner (Partner
+   sign-off). People not on the team cannot sign.
+3. A Partner circle on steps 1, 9 and 10. Step 7 stays reviewer only. The "Applies from R3a-2" tag on Partner sign-off comes off.
+4. One person cannot sign both Prepared and Reviewed on the same step, except someone with Partner sign-off. Then the step shows
+   the amber "Prepared and reviewed by the same person" line and History records it. This replaces R3a-1 decision 7A.
+5. The file's team reads its History. Decision 4A (History with the Review switch) becomes the team rule.
+6. Live: before any data change, a read-only report per file (file id only): current preparer, reviewer, locked, steps signed.
+   Proposed move: each file's current preparer and reviewer become its team and its leads; no sign-off is cleared.
+
+CaseWare basis (research Nov 20; search excerpts only, the caseware.com pages could not be opened from this session, so each
+quote is to be confirmed on the page before it goes into an SOP):
+- The team is set per engagement (Manage Team: preparer, reviewers, second reviewer) and engagement documents are only open to
+  assigned users, who also need View on the entity (Cloud permissions page). Basis for Q1 A.
+- Partner is a reviewer-type sign-off role that the firm adds to a sign-off scheme for chosen documents; other documents keep
+  Preparer and Reviewer. Role dependencies set the order (Working Papers). Basis for item 3 and Q3 A.
+- Removing other users' sign-offs is its own permission (Cloud 2026 update). Basis for Q7.
+- Silent: the same person signing two roles, who views History, what happens to sign-offs when someone leaves the team, and
+  which permission sets the team. Hashim's rules (items 4 and 5) and the Recommended options apply.
+
+Decisions (Recommended first):
+- Q1 Who opens a file. A (Recommended, as in CaseWare): only the team, and Admins with Closebook Edit (to manage the team), open
+  the file and work in it. Others with Closebook rights see it in All files; opening it shows "You are not on this file's team"
+  with the leads named (mock not-on-team-closed). B: others with Closebook View read the file; only the team works in it, signs
+  and reads History (mock not-on-team). A needs the team check in the read rules of every Closebook table (one helper).
+- Q2 Who can be on the team. A (Recommended): any active person whose role has Edit on Closebook; the lead preparer needs the
+  Prepare switch and the lead reviewer the Review switch (as today); a lead stays on the team while they are a lead.
+- Q3 Partner circle order. A (Recommended, CaseWare role dependencies): it opens after the reviewer signs the step. B: any time.
+- Q4 Partner circle as a gate. A (Recommended): the file cannot be locked until the partner circles on steps 1, 9 and 10 are
+  signed; nothing else waits on them. B: a record only, no gate.
+- Q5 A partner who prepared or reviewed the step. A (Recommended, small firm): may also sign the Partner circle; the amber line
+  says so and History records it. B: the Partner circle needs someone who did not prepare or review the step.
+- Q6 Removing someone from the team. A (Recommended): their sign-offs stay; History records the removal and who did it.
+  B: their sign-offs on steps not yet reviewed are cleared.
+- Q7 Team membership for the other file rights. A (Recommended): Lock and unlock, Remove others' sign-offs and adding review
+  notes also need team membership. Remove others' sign-offs covers the partner circle too. B: the switches alone, as in R3a-1.
+
+Build plan (after mocks and decisions are approved):
+- One migration: cb_file_team (file, person, added by, added at; append rows to cb_log on add and remove); partner_by and
+  partner_at on cb_step_signoffs (steps 1, 9, 10); private.cb_on_team(file); team checks in cb_sign_step, cb_sign_substep,
+  cb_sign_opening, cb_unsign_step, cb_unsign_substep, cb_lock_file and review notes; History read by the team; cb_set_people
+  becomes cb_set_team (team list and leads, Admin with Closebook Edit); the same-person rule in the database; under Q1 A the
+  team check in the Closebook read rules. Backfill: each file's preparer and reviewer become its team.
+- App: Team chip and panel in the file header; New file picks the team; the Partner tag and "Sign as partner" on steps 1, 9
+  and 10; the not-on-team line or page; the same-person line names the Partner sign-off; rights page drops "Applies from R3a-2".
+- Tests: database tests for every rule above (dummy data); app parity before and after with scripts/dev/up.sh and the fixed key.
+
+Live check (read-only, Hashim runs it; file id only, staff shown by initials):
+```sql
+select f.id as file_id,
+       (select string_agg(left(w, 1), '') from regexp_split_to_table(p.full_name, '\s+') w) as preparer,
+       (select string_agg(left(w, 1), '') from regexp_split_to_table(r.full_name, '\s+') w) as reviewer,
+       f.phase = 'locked' as locked,
+       (select count(*) from public.cb_step_signoffs s where s.file_id = f.id and s.prepared_at is not null) as steps_prepared,
+       (select count(*) from public.cb_step_signoffs s where s.file_id = f.id and s.reviewed_at is not null) as steps_reviewed,
+       (select count(*) from public.cb_step_signoffs s where s.file_id = f.id and s.prepared_by = s.reviewed_by) as same_person_steps
+from public.cb_files f
+left join public.staff p on p.id = f.preparer_id
+left join public.staff r on r.id = f.reviewer_id
+order by f.created_at;
+```
+
 ## Piece UI1: the C3 theme (Hashim, Nov 19, 2026)
 Hashim proposed theme C3 (top navy bar, Closebook module bar, sign-offs beside the step title, file areas in the client header, square corners, Concept brand colours and Alexandria). ui-reviewer judged it against CaseWare Cloud, Xero, QuickBooks Online, WCAG 2.2 AA and the screen standard. Hashim chose every Recommended option (D1 to D10 A) and all the fixes. Brand values confirmed by Hashim: brand green #86BC25 (Pantone 368; #C4D600 is Green 2, a supporting shade), navy #012169 (Pantone 280), font Alexandria, red #DA291C, orange #ED8B00 and yellow #FFCD00 only where they mean something. Status: built and merged Nov 20, 2026 (PR #109, e5b3ead on main). Mocks approved by Hashim Nov 19, 2026 (M1 A, with P1 A, P2 A and F1 A). Mocks: 25 screenshots at 1280, 1920, 1024 and phone, plus the D9 font sample, checked by ui-reviewer over four rounds.
 
