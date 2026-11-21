@@ -13,7 +13,7 @@ type Hist = { id: string; action: string; detail: string; old_value: string | nu
 type Col = "number" | "name" | "type" | "gifi" | "tax" | "balance";
 const TYPES = ["Asset", "Liability", "Equity", "Revenue", "Expense"];
 
-function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+export function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-navy-950/30" />

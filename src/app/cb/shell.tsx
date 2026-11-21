@@ -4,13 +4,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BookOpen, ChevronDown, FileText, LayoutDashboard, ListTree, Menu, Plus, Search, Settings, X } from "lucide-react";
+import { BookOpen, ChevronDown, FileText, Landmark, LayoutDashboard, ListChecks, ListTree, Menu, Plus, Scale, Search, Settings, X } from "lucide-react";
 import { CbLogo } from "./logo";
 
 export type ShellClient = { id: string; name: string };
 
 const BOOKS = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "bank", label: "Bank transactions", icon: Landmark },
+  { key: "reconcile", label: "Reconcile", icon: Scale },
+  { key: "rules", label: "Rules", icon: ListChecks },
   { key: "chart", label: "Chart of accounts", icon: ListTree },
   { key: "journal", label: "Journal entries", icon: BookOpen },
   { key: "reports", label: "Reports", icon: FileText },
@@ -63,7 +66,8 @@ function NewMenu({ base, canEdit }: { base: string; canEdit: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, () => setOpen(false));
   if (!canEdit) return null;
-  const items = [{ label: "Journal entry", href: `${base}/journal/new` }, { label: "Account", href: `${base}/chart?panel=new` }];
+  const items = [{ label: "Journal entry", href: `${base}/journal/new` }, { label: "Account", href: `${base}/chart?panel=new` },
+    { label: "Upload bank file", href: `${base}/bank/upload` }, { label: "Rule", href: `${base}/rules?panel=new` }];
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="New" data-new-menu
