@@ -41,7 +41,10 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
   const [askDelete, setAskDelete] = useState(false);
   const [pending, start] = useTransition();
   const drag = useRef<number | null>(null);
-  const ro = !canEdit;
+  // Until the switch-over, the opening balances, opening difference and trial balance import entries are view-only here.
+  const viewOnly = !!entry.genId || ["opening_balances", "opening_difference", "tb_import"].includes(entry.origin ?? "");
+  const ro = !canEdit || viewOnly;
+  const act = canEdit && !viewOnly;
   const acct = useMemo(() => new Map(accounts.map((a) => [a.value, a])), [accounts]);
   const code = useMemo(() => new Map(codes.map((c) => [c.code, c])), [codes]);
   const ctx = useMemo(() => years.find((y) => y.from <= date && date <= y.to) ?? years[years.length - 1] ?? { registered: true, quick: false }, [years, date]);
@@ -110,7 +113,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
         <button type="button" onClick={() => setPanel(panel === "history" ? null : "history")} aria-label="Audit history" title="Audit history" className={iconBtn} disabled={!entry.saved} data-je-history-icon><Clock className="h-5 w-5" /></button>
         <h1 className="min-w-0 truncate text-[18px] font-bold" data-je-title>{title}</h1>
         <span className="flex-1" />
-        {entry.saved && <a href={copyHref} className={`${iconBtn} flex items-center gap-1 text-[13px]`} data-je-copy><Copy className="h-4 w-4" />Copy</a>}
+        {entry.saved && act && <a href={copyHref} className={`${iconBtn} flex items-center gap-1 text-[13px]`} data-je-copy><Copy className="h-4 w-4" />Copy</a>}
         <button type="button" onClick={() => setPanel(panel === "help" ? null : "help")} aria-label="Help" title="Help" className={iconBtn}><HelpCircle className="h-5 w-5" /></button>
         <button type="button" onClick={() => router.push(back)} aria-label="Close" title="Close" className={iconBtn} data-je-close><X className="h-5 w-5" /></button>
       </div>
@@ -122,6 +125,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
             <label className="grid gap-1 text-[12.5px] font-semibold text-ink-2">Journal no.<input value={no} onChange={(e) => setNo(e.target.value)} disabled={ro || !!entry.genId} maxLength={21} className="input input-compact w-32" data-je-no /></label>
             <label className="flex items-center gap-2 pb-2 text-[13px]"><input type="checkbox" checked={reclass} onChange={(e) => setReclass(e.target.checked)} disabled={ro} className="h-4 w-4" data-je-reclass />Reclass entry</label>
           </div>
+          {viewOnly && <p className="mt-3 rounded-md bg-navy-50 px-3 py-2 text-[13px] text-navy-800" data-je-view-only>Change this entry in the old Closebook until the switch-over.</p>}
           {warnings.length > 0 && <ul className="mt-3 grid gap-1 rounded-md bg-warning-soft px-3 py-2 text-[12.5px] text-warning" data-je-warnings>{warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
           {entry.schedule && <p className="mt-3 text-[12.5px] text-ink-3">Made by a schedule. It edits here as an ordinary entry.</p>}
           {/* Lines: #, Account, Debits, Credits, Description, Sales tax. */}
@@ -210,20 +214,20 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
       <div className="flex flex-none flex-wrap items-center gap-2 border-t border-sand-200 bg-sand-50 px-4 py-3">
         <button type="button" className="btn-secondary" onClick={() => router.push(back)} data-je-cancel>Cancel</button>
         <span className="flex-1" />
-        {(entry.saved || entry.genId) && canEdit && <a href={reverseHref} className="btn-secondary" data-je-reverse>Reverse</a>}
+        {(entry.saved || entry.genId) && act && <a href={reverseHref} className="btn-secondary" data-je-reverse>Reverse</a>}
         {(entry.saved || entry.genId) && (
           <div className="relative">
             <button type="button" className="btn-secondary" onClick={() => setMore(!more)} aria-expanded={more} data-je-more>More</button>
             {more && <ul className="absolute bottom-full left-0 mb-1 w-48 rounded-md border border-sand-200 bg-white py-1 shadow-xl">
-              <li><a href={copyHref} className="block px-3 py-2 text-[13px] hover:bg-sand-100">Copy</a></li>
-              {entry.saved && canEdit && <li><button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-sand-100" onClick={() => { setMore(false); setAskDelete(true); }} data-je-delete>Delete</button></li>}
+              {act && <li><a href={copyHref} className="block px-3 py-2 text-[13px] hover:bg-sand-100">Copy</a></li>}
+              {entry.saved && act && <li><button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-sand-100" onClick={() => { setMore(false); setAskDelete(true); }} data-je-delete>Delete</button></li>}
               <li><button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-sand-100" onClick={() => { setMore(false); setPanel("journal"); }} data-je-txn-journal>Transaction journal</button></li>
               <li><button type="button" className="block w-full px-3 py-2 text-left text-[13px] hover:bg-sand-100" onClick={() => { setMore(false); setPanel("history"); }} data-je-audit>Audit history</button></li>
             </ul>}
           </div>
         )}
         <span className="flex-1" />
-        {canEdit && <>
+        {act && <>
           <button type="button" className="btn-secondary" disabled={pending} onClick={() => save("close")} data-je-save>Save</button>
           <button type="button" className="btn" disabled={pending} onClick={() => save("new")} data-je-save-new>Save and new</button></>}
       </div>
