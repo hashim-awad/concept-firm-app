@@ -16,7 +16,6 @@ import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
 import { scheduleSaveArgs, type SchedForm } from "@/lib/closebook/vehicle-save";
 import { entryNo } from "@/lib/closebook/reports";
-import { STEP_KEYS, stepTitle, type StepKey } from "@/lib/closebook/steps";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -350,8 +349,7 @@ export async function saveOpeningInline(fileId: string, lines: [string, number][
   return tb;
 }
 
-// Round 21: as signStep does after "Sign as preparer": the next step opens by itself, with a note naming it.
-// The screen shows the note and goes to `next` (no redirect, so the note shows from the client).
+// Step 2's "Sign as preparer" (the schedule). CB2-0 step 3 (rule 14): it stays on step 2.
 export async function signOpeningInline(fileId: string): Promise<{ error: string } | { next: string; note: string }> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook." };
@@ -359,10 +357,7 @@ export async function signOpeningInline(fileId: string): Promise<{ error: string
   const { error } = await supabase.rpc("cb_sign_opening", { p_file: fileId });
   if (error) return { error: error.message };
   revalidatePath(`/closebook/${fileId}`);
-  const nextKey = STEP_KEYS[STEP_KEYS.indexOf("opening") + 1];
-  const { data: f } = await supabase.from("cb_files").select("books").eq("id", fileId).maybeSingle();
-  const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
-  return { next: `/closebook/${fileId}?step=${nextKey}`, note: `${STEP_WORD.opening} signed. Next: ${nextName}` };
+  return { next: `/closebook/${fileId}?step=opening`, note: `${STEP_WORD.opening} signed.` };
 }
 
 // The source PDF: the prior T2 or the CRA assessment, kept in the private documents store.
@@ -418,13 +413,7 @@ export async function signStep(formData: FormData) {
   // Round 34: step 3 on a bank file is signed in its sub-steps. Said as information, never as an error.
   if (error && step === "records" && /signed in its sub-steps/.test(error.message))
     redirect(withMessage(back, "msg", "Step 3 is complete when 3.1, 3.2 and 3.3 are signed."));
-  // Round 21 (Hashim): after "Sign as preparer" the next step opens by itself, with a note naming it.
-  const i = STEP_KEYS.indexOf(step as StepKey), nextKey = STEP_KEYS[i + 1];
-  if (!error && role === "prepared" && i >= 0 && nextKey) {
-    const { data: f } = await supabase.from("cb_files").select("books").eq("id", id).maybeSingle();
-    const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
-    redirect(withMessage(`/closebook/${id}?step=${nextKey}`, "msg", `${STEP_WORD[step]} signed. Next: ${nextName}`));
-  }
+  // CB2-0 step 3 (rule 14): signing stays on the page it was made on.
   redirect(withMessage(back, error ? "error" : "msg", error ? error.message : role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`));
 }
 

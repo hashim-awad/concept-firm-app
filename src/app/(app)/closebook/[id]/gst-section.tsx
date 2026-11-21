@@ -26,7 +26,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
       {revenueBox && <div className="mt-4">{revenueBox}</div>}
     </section>
   );
-  const href = (p: number, l: Line) => `/closebook/${fileId}?step=t2&gst=${p}&line=${l}#gst-drill`;
+  const href = (p: number, l: Line) => `/closebook/${fileId}?step=t2&paper=gst&gst=${p}&line=${l}#gst-drill`;
   const prep = new Map(g.prepared.map((r) => [r.period_no, r]));
   const allPrepared = g.periods.every((p) => prep.has(p.n)) && g.changed.length === 0;
   const c = g.check, row = g.checkRow;
@@ -73,7 +73,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-medium">Line {drill.line}, {LINE_NAMES.find(([k]) => k === drill.line)?.[1]}: {d.period.label} ({items.length} posting{items.length === 1 ? "" : "s"})
               {g.quick && drill.line === "103" && <span className="block text-sm font-normal">{d.rateUsed ? `${d.rateUsed}, applied to line 101.` : "No approved quick method rate: line 103 is not worked out."}</span>}</p>
-            <Link href={`/closebook/${fileId}?step=t2#gst`} className="text-sm text-navy-700 underline">Close</Link>
+            <Link href={`/closebook/${fileId}?step=t2&paper=gst#gst`} className="text-sm text-navy-700 underline">Close</Link>
           </div>
           <table className="table table-compact mt-2">
             <thead><tr><th>Date</th><th>Source</th><th>Description</th><th>Account</th><th>Code</th><th className="text-right">{g.quick && (drill.line === "101" || drill.line === "103") ? "Sale with tax" : "Amount before tax"}</th><th className="text-right">GST/HST</th></tr></thead>

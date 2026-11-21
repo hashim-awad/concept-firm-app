@@ -8,6 +8,7 @@ import { acceptT2Difference, saveT2Tieout, setBookAmortization, setReviewTreatme
 import { ExportButton } from "./export-button";
 import { FilePick } from "./file-pick";
 import { InfoTip } from "@/components/ds/info-tip";
+import { ActionForm } from "@/components/action-form";
 import { AmountField } from "@/components/amount";
 import { negativeTone } from "@/lib/closebook/amount";
 
@@ -146,7 +147,8 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
               : rounding.fix ? `In ProFile, change ${rounding.fix.code} from ${whole(rounding.fix.from)} to ${whole(rounding.fix.to)} so Schedule 100 balances.`
               : "No change needed in ProFile."}</p>
         )}
-        {!g.final ? <p className="text-sm text-ink-2">Export the final GIFI file first.</p> : (<>
+        {/* CB2-0 step 3: the ProFile figures save at any time; the comparison shows once a final GIFI file is exported. */}
+        {!g.final ? <p className="text-sm text-ink-2">The comparison shows after the final GIFI file is exported. The ProFile figures can be saved now.</p> : (<>
           <table className="table table-compact">
             <thead><tr><th>Figure</th><th className="text-right">Closebook (final export)</th><th className="text-right">ProFile</th><th className="text-right">Difference (Closebook less ProFile)</th><th>Status</th></tr></thead>
             <tbody>{g.tieItems.map((t) => (
@@ -159,28 +161,28 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
                   : !t.open && t.accepted ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {staff.get(t.accepted.by) ?? "the reviewer"}: {t.accepted.reason}</span>
                   : <span className="grid gap-1"><span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Blocks the preparer&rsquo;s sign-off</span>
                       {t.accepted && <span className="text-xs text-ink-2">Accepted at {fmt(t.accepted.diff)}; the difference changed.</span>}
-                      {canReview && editable && !g.stale && (
-                        <form action={acceptT2Difference} className="flex flex-wrap items-center gap-2">{hidden}<input type="hidden" name="item" value={t.key} />
+                      {canReview && editable && (
+                        <ActionForm action={acceptT2Difference} className="flex flex-wrap items-center gap-2">{hidden}<input type="hidden" name="item" value={t.key} />
                           <input name="reason" required minLength={3} maxLength={300} placeholder="Why it is accepted" aria-label={`${t.label}: reason`} className="input input-compact" style={{ width: "16rem" }} />
-                          <button type="submit" className="btn-secondary btn-compact">Accept</button></form>)}</span>}</td></tr>
+                          <button type="submit" className="btn-secondary btn-compact">Accept</button></ActionForm>)}</span>}</td></tr>
             ))}</tbody>
           </table>
           <p className="text-xs text-ink-3">Rounding allowed: {fmt(g.roundingAllowed)}</p>
           {anyOpen && <p className="text-sm text-danger">A red difference blocks sign-off.</p>}
-          {editable && !g.stale && (
-            <form action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
+        </>)}
+          {editable && (
+            <ActionForm action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}
               {([["ni", "Net income (9999)"], ["assets", "Total assets (2599)"], ["cca", "Total CCA, Schedule 8"], ["tax", "Total income tax, federal plus provincial"]] as const).map(([k, label]) => {
                 const t = g.tieItems.find((x) => x.key === k);
-                return <label key={k} className="grid gap-1 text-sm">{label}<AmountField name={k} required defaultValue={t?.profile === null || t?.profile === undefined ? "" : t.profile.toFixed(2)}
+                return <label key={k} className="grid gap-1 text-sm">{label}<AmountField name={k} defaultValue={t?.profile === null || t?.profile === undefined ? "" : t.profile.toFixed(2)}
                   className="input input-compact" style={{ width: "11rem" }} /></label>;
               })}
               <FilePick id="t2-pdf" name="t2_pdf" label="T2 from ProFile" add={g.tie?.t2_pdf ? "Replace the T2 PDF" : "Attach the T2 PDF"} accept=".pdf"
-                hint={g.tie?.t2_pdf ? `Attached: ${g.tie.t2_pdf.split("/").pop()!.replace(/^\d+-/, "")}` : "Required."} />
+                hint={g.tie?.t2_pdf ? `Attached: ${g.tie.t2_pdf.split("/").pop()!.replace(/^\d+-/, "")}` : ""} />
               <button type="submit" className="btn-secondary">Save the ProFile figures</button>
-            </form>
+            </ActionForm>
           )}
           {g.tie?.entered_by && <p className="text-xs text-ink-3">Entered by {staff.get(g.tie.entered_by) ?? ""}, {when(g.tie.entered_at)}</p>}
-        </>)}
       </section>
       </>}
     </div>

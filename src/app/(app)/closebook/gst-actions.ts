@@ -17,7 +17,7 @@ const done = (back: string, id: string, error: { message: string } | null, ok: s
 // Prepare the year's returns: the instalments confirmed from the CRA account, the lines kept as worked
 // out, and the check against 21500 with its one-line explanation.
 export async function prepareGstReturns(formData: FormData) {
-  const id = s(formData, "file_id"), back = `/closebook/${id}?step=t2#gst`;
+  const id = s(formData, "file_id"), back = `/closebook/${id}?step=t2&paper=gst#gst`;
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) redirect(withMessage(back, "error", "You need Edit on Closebook."));
   const inst = new Map<number, number>();
@@ -44,7 +44,7 @@ export async function prepareGstReturns(formData: FormData) {
 export async function acceptGstCheck(formData: FormData) {
   const id = s(formData, "file_id");
   const { error } = await (await createClient()).rpc("cb_accept_gst_check", { p_file: id, p_why: s(formData, "why") });
-  done(`/closebook/${id}?step=t2#gst`, id, error, "The GST/HST difference is accepted.");
+  done(`/closebook/${id}?step=t2&paper=gst#gst`, id, error, "The GST/HST difference is accepted.");
 }
 
 export async function saveGstFiling(formData: FormData) {
@@ -58,13 +58,13 @@ export async function confirmGstEntry(formData: FormData) {
   const id = s(formData, "file_id");
   const yes = s(formData, "yes") === "yes";
   const { error } = await (await createClient()).rpc("cb_confirm_gst_entry", { p_file: id, p_entry: s(formData, "entry"), p_yes: yes });
-  done(`/closebook/${id}?step=t2#gst`, id, error, yes ? "Counted as an instalment. Prepare the returns again." : "Left out of the instalments. Prepare the returns again.");
+  done(`/closebook/${id}?step=t2&paper=gst#gst`, id, error, yes ? "Counted as an instalment. Prepare the returns again." : "Left out of the instalments. Prepare the returns again.");
 }
 
 // The quick method gain: the GST/HST the company keeps under the quick method is income. The ready entry
 // moves the difference out of 21500 into 42400 GST/HST quick method gain (GIFI 8230).
 export async function bookQuickGain(formData: FormData) {
-  const id = s(formData, "file_id"), back = `/closebook/${id}?step=t2#gst`;
+  const id = s(formData, "file_id"), back = `/closebook/${id}?step=t2&paper=gst#gst`;
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) redirect(withMessage(back, "error", "You need Edit on Closebook."));
   const supabase = await createClient();

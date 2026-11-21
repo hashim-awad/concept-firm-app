@@ -18,7 +18,6 @@ import { signedCents, type ReadResult } from "@/lib/statements/types";
 import { discardStatement } from "../statements/actions";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const PAPER: Record<string, string> = { "3.1": "accounts", "3.2": "feeds", "3.3": "reconcile" };
 
 export type Guarded<T = object> = ({ ok: true } & T) | { ok: false; error: string; confirm?: string };
 // A refusal that only asks to remove a sign-off comes back as a question; any other refusal as an error.
@@ -36,12 +35,8 @@ export async function signSubstep(f: FormData) {
   const { error } = await supabase.rpc("cb_sign_substep", { p_file: id, p_sub: sub, p_role: role });
   revalidatePath(`/closebook/${id}`);
   if (error) redirect(withMessage(back, "error", plainError(error.message)));
-  // After the preparer signs, the next sub-step opens (step 4 after 3.3).
-  if (role === "prepared") {
-    const next = sub === "3.1" ? "3.2" : sub === "3.2" ? "3.3" : null;
-    redirect(withMessage(next ? `/closebook/${id}?step=records&paper=${PAPER[next]}` : `/closebook/${id}?step=code`, "msg", `${sub} signed.${next ? ` Next: ${next}.` : " Next: step 4."}`));
-  }
-  redirect(withMessage(back, "msg", `${sub} signed as reviewed.`));
+  // CB2-0 step 3 (rule 14): signing stays on the page it was made on.
+  redirect(withMessage(back, "msg", role === "prepared" ? `${sub} signed.` : `${sub} signed as reviewed.`));
 }
 
 export async function unsignSubstep(f: FormData) {
