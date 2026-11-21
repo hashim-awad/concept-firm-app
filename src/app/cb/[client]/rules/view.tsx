@@ -89,7 +89,7 @@ function RulePanel({ clientId, rule, accounts, taxes, defaultTax, banks, onClose
               <button type="button" aria-label={`Delete condition ${i + 1}`} disabled={r.conditions.length <= 1} onClick={() => set({ conditions: r.conditions.filter((_, j) => j !== i) })} className="rounded p-1 hover:bg-sand-100 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
-          {r.conditions.length < 10 && <button type="button" className="btn btn-ghost btn-compact justify-self-start" onClick={() => set({ conditions: [...r.conditions, { field: "description", op: "contains", value: "" }] })}><Plus className="h-4 w-4" />Add a condition</button>}
+          {r.conditions.length < 10 && <button type="button" className="btn btn-secondary btn-compact justify-self-start" onClick={() => set({ conditions: [...r.conditions, { field: "description", op: "contains", value: "" }] })}><Plus className="h-4 w-4" />Add a condition</button>}
         </fieldset>
         <fieldset className="grid gap-2"><legend className="mb-1 text-[13px] font-bold">Then</legend>
           <div className="flex gap-4 text-[13px]" role="radiogroup" aria-label="Set or split">
@@ -108,7 +108,7 @@ function RulePanel({ clientId, rule, accounts, taxes, defaultTax, banks, onClose
                 <button type="button" aria-label={`Delete split ${i + 1}`} disabled={r.splits!.length <= 2} onClick={() => set({ splits: r.splits!.filter((_, j) => j !== i) })} className="rounded p-1 hover:bg-sand-100 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
-            <div className="flex items-center gap-3 text-[13px]"><button type="button" className="btn btn-ghost btn-compact" onClick={() => set({ splits: [...r.splits!, { account: "", tax: "", percent: 0 }] })}><Plus className="h-4 w-4" />Add a split line</button>
+            <div className="flex items-center gap-3 text-[13px]"><button type="button" className="btn btn-secondary btn-compact" onClick={() => set({ splits: [...r.splits!, { account: "", tax: "", percent: 0 }] })}><Plus className="h-4 w-4" />Add a split line</button>
               <span className={pct === 100 ? "text-ink-3" : "font-semibold text-danger"}>Total {pct}%</span></div>
           </div>}
           <label className={lbl}>Memo<input value={r.memo} onChange={(e) => set({ memo: e.target.value })} className="input input-compact" maxLength={200} /></label>
@@ -117,7 +117,7 @@ function RulePanel({ clientId, rule, accounts, taxes, defaultTax, banks, onClose
           <span><b>Automatically confirm</b><br /><span className="text-ink-3">Lines this rule applies to are confirmed when a bank file is uploaded. Off: the rule only suggests.</span></span></label>
         {rule && <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={r.active} onChange={(e) => set({ active: e.target.checked })} />Active</label>}
         {err && <p role="alert" className="text-[13px] font-semibold text-danger" data-rule-err>{err}</p>}
-        <div className="flex justify-end gap-2"><button type="button" className="btn btn-ghost btn-compact" onClick={onClose}>Cancel</button>
+        <div className="flex justify-end gap-2"><button type="button" className="btn btn-secondary btn-compact" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-compact" disabled={busy} onClick={save} data-rule-save>Save</button></div>
       </div>
     </SidePanel>
@@ -144,20 +144,20 @@ export function RulesView({ clientId, rules, accounts, taxes, defaultTax, banks,
       <div className="card overflow-x-auto p-0">
         <table className="w-full text-[13px]" data-rules-table>
           <thead className="border-b border-sand-200 bg-sand-50 text-left text-[12px] text-ink-3"><tr>
-            <th className="px-3 py-2">Priority</th><th className="px-2 py-2">Rule name</th><th className="hidden px-2 py-2 md:table-cell">Applies to</th>
-            <th className="hidden px-2 py-2 md:table-cell">Conditions</th><th className="px-2 py-2">Then</th><th className="px-2 py-2">Auto confirm</th><th className="px-2 py-2">Status</th><th className="w-10 px-2 py-2" /></tr></thead>
+            <th className="hidden px-3 py-2 sm:table-cell">Priority</th><th className="px-2 py-2">Rule name</th><th className="hidden px-2 py-2 md:table-cell">Applies to</th>
+            <th className="hidden px-2 py-2 md:table-cell">Conditions</th><th className="px-2 py-2">Then</th><th className="hidden px-2 py-2 sm:table-cell">Auto confirm</th><th className="hidden px-2 py-2 sm:table-cell">Status</th><th className="w-10 px-2 py-2" /></tr></thead>
           <tbody>
             {!rules.length && <tr><td colSpan={8} className="px-3 py-6 text-center text-ink-3">No rules yet.</td></tr>}
             {rules.map((r, i) => (
               <tr key={r.id} className="border-b border-sand-100 align-top" data-rule={r.name}>
-                <td className="px-3 py-2">{i + 1}</td>
-                <td className="px-2 py-2 font-semibold">{r.name}</td>
+                <td className="hidden px-3 py-2 sm:table-cell">{i + 1}</td>
+                <td className="px-2 py-2 font-semibold">{r.name}<div className="text-[12px] font-normal text-ink-3 sm:hidden">{r.active ? "Active" : "Inactive"}{r.auto_confirm ? " · Automatically confirm" : ""}</div></td>
                 <td className="hidden px-2 py-2 md:table-cell">{DIR[r.direction]}<div className="text-[12px] text-ink-3">{r.accounts.length ? r.accounts.map((a) => bank.get(a) ?? a).join(", ") : "All accounts"}</div></td>
                 <td className="hidden px-2 py-2 md:table-cell">{r.conditions.map(condText).join(r.match_all ? " and " : " or ")}</td>
                 <td className="px-2 py-2">{r.splits?.length ? `Split: ${r.splits.map((s) => `${s.percent}% ${acct.get(s.account) ?? s.account}`).join(", ")}` : acct.get(r.chart_account ?? "") ?? r.chart_account}
                   {r.memo && <div className="text-[12px] text-ink-3">Memo: {r.memo}</div>}</td>
-                <td className="px-2 py-2">{r.auto_confirm ? "Yes" : "No"}</td>
-                <td className="px-2 py-2">{r.active ? "Active" : "Inactive"}</td>
+                <td className="hidden px-2 py-2 sm:table-cell">{r.auto_confirm ? "Yes" : "No"}</td>
+                <td className="hidden px-2 py-2 sm:table-cell">{r.active ? "Active" : "Inactive"}</td>
                 <td className="px-2 py-2 text-right"><RuleMenu name={r.name} canEdit={canEdit} onEdit={() => setEdit(r)} onCopy={() => act(r.id, "copy")}
                   onDelete={() => { if (window.confirm(`Delete the rule ${r.name}? Lines it already confirmed stay as they are.`)) act(r.id, "delete"); }} onHistory={() => router.push(`${base}?history=${r.id}`)} /></td>
               </tr>
