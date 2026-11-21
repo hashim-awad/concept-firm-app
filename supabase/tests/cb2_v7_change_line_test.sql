@@ -112,3 +112,37 @@ set role authenticated;
 select test.check('a line still to code is not changed here', test.try(format($q$select public.cb_change_line(%L, %L, '{"account":"60200"}')$q$, :'f', :'s_in')) = 'Only a coded line changes here.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';
 select test.check('a viewer cannot change a line', test.try(format($q$select public.cb_change_line(%L, %L, '{"account":"60200"}')$q$, :'f', :'c_coffee')) like 'You need Edit on Closebook%');
+
+-- ---------- Spec-checker fixes (rule 16)
+-- Item 1: the line that cleared an outstanding item may be in another account of the file.
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+set role authenticated;
+select test.check('an outstanding item on the card is cleared by a line in chequing (any account in the file)',
+  test.try(format($q$select public.cb_add_outstanding(%L, 'start', '2025-12-30', 'Card payment in transit', 'out', 1200, %L)$q$, :'visa', :'c_visa')) = 'OK');
+select test.check('a line from another file is still refused',
+  test.try(format($q$select public.cb_add_outstanding(%L, 'start', '2025-12-30', 'Other file', 'out', 10, gen_random_uuid())$q$, :'visa')) = 'That line is not in this file.');
+-- Item 8: the Reclass entry box is saved inside the entry's save: one History row.
+reset role;
+select count(*) as h6 from public.cb_file_history where file_id = :'f' \gset
+set role authenticated;
+select public.cb_save_entry(:'f', null, true, 'AJE', 'correction', 'Reclass dummy', false, '[{"chart":"65100","amount":550},{"chart":"60200","amount":-550}]', 'Lead sheet') as re1 \gset
+reset role;
+select test.check('a new entry saved with Reclass entry ticked: ticked, one History row that says so',
+  (select is_reclass from public.cb_entries where id = :'re1')
+  and (select count(*) from public.cb_file_history where file_id = :'f') = :h6 + 1
+  and (select count(*) from public.cb_file_history where file_id = :'f' and entry_id = :'re1' and detail like '%Reclass entry ticked%') = 1);
+select count(*) as h7 from public.cb_file_history where file_id = :'f' \gset
+set role authenticated;
+select public.cb_save_entry(:'f', :'re1', false, 'AJE', 'correction', 'Reclass dummy', false, '[{"chart":"65100","amount":550},{"chart":"60200","amount":-550}]', 'Lead sheet');
+reset role;
+select test.check('only the box changes: unticked, one History row',
+  (select not is_reclass from public.cb_entries where id = :'re1')
+  and (select count(*) from public.cb_file_history where file_id = :'f') = :h7 + 1
+  and (select count(*) from public.cb_file_history where file_id = :'f' and entry_id = :'re1' and detail like '%Reclass entry unticked%') = 1);
+select count(*) as h8 from public.cb_file_history where file_id = :'f' \gset
+set role authenticated;
+select public.cb_save_entry(:'f', :'re1', true, 'AJE', 'correction', 'Reclass dummy, amount changed', false, '[{"chart":"65100","amount":600},{"chart":"60200","amount":-600}]', 'Lead sheet');
+reset role;
+select test.check('the amount and the box change together: one History row',
+  (select is_reclass from public.cb_entries where id = :'re1')
+  and (select count(*) from public.cb_file_history where file_id = :'f') = :h8 + 1);

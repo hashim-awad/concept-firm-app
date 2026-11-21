@@ -30,11 +30,21 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 14. Firms (rule 12): people (staff) and clients are not yet per firm; one firm's preparer could be named on another
     firm's file. Settings (cb_settings) is one row; reference tables (chart, master lines, tax codes) carry Concept's firm
     and a second firm would need its own copies. Unique numbers (the chart) are not yet per firm.
-15. The "Reclass entry" box is saved by its own call after the entry, so ticking it on a new entry writes a second History
-    row ("Reclass entry ticked"). One row needs the box inside the entry's own save.
+15. (Done in this PR: the "Reclass entry" box is saved inside the entry's own save, one History row.) The revenue check's
+    "Fix with an entry" still saves an AJE with the box unticked.
 16. On a bank-statement file the GIFI reads each account's stored balance while the trial balance reads postings; they
     agree whenever the trial balance is rebuilt (the normal path). The Birch fixture had a hand-added account that broke
     this; the answer keys' bug check now catches it.
 17. The old GST/HST screen still says line 110 is "pre-filled with the payments coded to GST/HST" (frozen screen, rule 15);
     the engine reads the instalments account (21510).
 18. cb_client_tax_settings (book amortization) is no longer read; kept as a record.
+
+## From the one spec-checker run (rule 16), outside the piece
+19. The old T2 help text still describes a rounding allowance and a blocking tie-out (shell/help.tsx; frozen screen).
+20. docs/cb2/refusals.md still lists "Rounding is only for a difference left under 1.00" under To decide; v7 removed it.
+21. The engine names 21510 in code instead of reading the chart marker is_gst_instalments (rule 12).
+22. Database tests to add: a change of sales tax only; a change to a line that cleared an outstanding item.
+23. tests/answer-keys/file-b/known-differences.json is now [] and could be deleted.
+24. The Live check marks "a 21500 payment" from bank lines only, not journal entries (can only give a false fail).
+25. The spec-checker agent's body still says "before anything is built"; only its description follows rule 16.
+26. reports.ts comment still says a reclass "cannot change the result".

@@ -220,24 +220,23 @@ export async function addEntry(formData: FormData) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null;
   const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
     p_date: date, p_standard: form!.standard, p_seq: seq };
+  // CB2-0 v7 item 3: the "Reclass entry" box (rule 5), saved inside the entry's own save (cb_save_entry): one History row.
+  const reclass = form!.head.reclass ?? form!.head.kind === "RJE";
   let res: { data: unknown; error: { message: string } | null };
   if (form!.edit) {
     // Edit (CaseWare): piece 2, the entry changes in place (same id, number, creator, standard entry link); its
     // attachments are kept and new ones added. History records each change (cb_edit_entry).
     const { data: old } = await supabase.from("cb_entries").select("attachments").eq("id", form!.edit).eq("file_id", id).maybeSingle();
-    res = await supabase.rpc("cb_edit_entry", { p_entry: form!.edit, ...args, p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
+    res = await supabase.rpc("cb_save_entry", { p_file: id, p_entry: form!.edit, p_reclass: reclass, ...args,
+      p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
   } else if (form!.origin === "revenue_check") {
     // Fix with an entry (round 9): an AJE with W/P ref "Revenue check", marked as made from the check.
     res = await supabase.rpc("cb_add_revenue_entry", { p_file: id, p_note: form!.head.memo, p_lines: plan.rpc, p_reverse: form!.head.reverse, p_seq: seq });
   } else {
-    res = await supabase.rpc("cb_add_entry", { p_file: id, ...args, p_attachments: paths });
+    res = await supabase.rpc("cb_save_entry", { p_file: id, p_entry: null, p_reclass: reclass, ...args, p_attachments: paths });
   }
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
-  // CB2-0 v7 item 3: the "Reclass entry" box (rule 5), saved on the entry; History records a change.
-  const reclass = form!.head.reclass ?? form!.head.kind === "RJE";
-  const set = await supabase.rpc("cb_set_entry_reclass", { p_entry: res.data as string, p_on: reclass });
-  if (set.error) redirect(withMessage(dialog, "error", `The entry was saved; Reclass entry was not: ${set.error.message}`));
   // CB2-0 (rule 14): sign-offs are never taken back and there is no review threshold; History records the change.
   const msg = form!.edit ? "Entry changed." : "Entry added.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);

@@ -148,6 +148,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const isReviewer = access.staff_id === file.reviewer_id;
   // R3a-1: the Closebook switches on the person's role (no Owner role).
   const cb = access.closebook, rv = cb.review;
+  // CB2-0 v7 item 8: History is visible to everyone who can open the file, not only with the Review right.
+  const hv = true;
   // Notes by role (round 15b): the file's reviewer, or someone with the Review right who does not prepare it,
   // reviews; everyone else prepares (replies and marks fixed).
   const preparerRole = !isReviewer && (!rv || access.staff_id === file.preparer_id);
@@ -215,7 +217,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const asked = (str(sp.step) === "mapping" ? "compare" : str(sp.step)) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
-  const showHistory = rv && str(sp.history) === "1";
+  const showHistory = hv && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
   // Round 15b (CaseWare's document map): a step's working papers, each its own screen. The step's branch
@@ -470,7 +472,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       pp.key = first.paper;
       body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
         names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} admin={access.admin}
-        lock={feedLock(subs, cb.remove_signoffs || access.staff_id === file.reviewer_id, access.staff_id)} history={rv} />;
+        lock={feedLock(subs, cb.remove_signoffs || access.staff_id === file.reviewer_id, access.staff_id)} history={hv} />;
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
@@ -511,7 +513,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         adjustmentsTop({ supabase, file, entries, base: base5, editable, addRevenue: open && rev5 && !rev5.state.added ? (
           <form action={addRevenueCheck}><input type="hidden" name="file_id" value={id} />
             <button className="text-[13px] font-medium text-navy-700 underline" data-add-revenue>+ Add revenue check</button></form>) : undefined, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
-        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year", history: rv,
+        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year", history: hv,
           rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
           sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
       ]);
@@ -839,7 +841,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         : <ReportingList fileId={id} />;
   } else if (area === "entries") {
     const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
-    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, history: rv, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
+    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, history: hv, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {
@@ -879,7 +881,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // CB2-0 step 2: ⋯ › History on an item opens its history in a side panel (QBO Transaction history).
   const ihist = /^(entry|statement|line):([0-9a-f-]{36})$/.exec(str(sp.ihist) ?? "");
   let itemPanel: React.ReactNode = null;
-  if (ihist && rv) {
+  if (ihist && hv) {
     const [, kind, itemId] = ihist;
     const rows = await loadHistory(supabase, id, names, null, kind === "entry" ? { entry: itemId } : kind === "line" ? { line: itemId } : { statement: itemId });
     const e = kind === "entry" ? entries.find((x) => x.id === itemId) : undefined;
@@ -896,7 +898,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       stepSum={area === "steps" && !showHistory ? `${cur.n}. ${cur.name}${paperName ? ` › ${paperName}` : ""}` : undefined}
       narrowFold={area === "steps" && (step === "code" || step === "review") && !showHistory} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
       tools={{ on: !!tool, journal: editable && file.phase !== "locked" }}
-      history={rv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
+      history={hv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">‹ Back</Link>}
       {content}

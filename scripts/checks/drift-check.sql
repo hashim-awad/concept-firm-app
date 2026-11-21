@@ -1429,6 +1429,7 @@ expected_funcs(name) as (values
 ('cb_save_bank_account'),
 ('cb_save_checklist'),
 ('cb_save_close_fields'),
+('cb_save_entry'),
 ('cb_save_expense_line_account'),
 ('cb_save_filing_record'),
 ('cb_save_firm_vendor_rule'),

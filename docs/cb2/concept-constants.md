@@ -28,7 +28,7 @@ database functions on Nov 21, 2026. Comments that only credit a decision ("Hashi
 | Account | Where |
 |---|---|
 | 10900 Clearing | tb-build.ts:250, :255; database private.cb_clearing |
-| 21500 GST/HST payable | gst-return.ts:162, :234; gst-server.ts:78, :88, :89; sales-tax.ts:49 |
+| 21500 GST/HST payable | gst-return.ts:161, :181, :194, :234; gst-server.ts:78, :88, :89; sales-tax.ts:49 |
 | 21510 GST/HST instalments paid (marked in the chart; the code also names it) | gst-return.ts (GST_INSTALMENTS_ACCOUNT) |
 | 23000, 23050 Due to shareholder | expenses.ts:95, :109; expenses-server.ts:89; fs-server.ts:83, :87 |
 | 42400 quick method gain | gst-server.ts:12 |
@@ -47,7 +47,7 @@ database functions on Nov 21, 2026. Comments that only credit a decision ("Hashi
 | What | Where |
 |---|---|
 | Instalment amount in the client email ($3,000 default; CRA's figure) | settings.ts:6, :13; close-server.ts (threshold) |
-| Shareholder loan "repaid near year end" window (30 days default) | settings.ts:6, :13; sh-loans.ts:29; sh-server.ts:26, :45 |
+| Shareholder loan "repaid near year end" window (30 days default) | settings.ts:6, :13; sh-loans.ts:155, :201, :213; sh-server.ts:26, :45 |
 | GST/HST due months (annual 3, period 1) | gst-server.ts (cb_settings gst_due_months_annual, gst_due_months_period) |
 | Opening rounding under 1.00 (check 5, piece S2) | t2.ts:16, :50 |
 | A year longer than 53 weeks refused | database cb_create_file |

@@ -57,7 +57,7 @@ with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces 
 
 ## Phases
 - **Phase 0 (CB2-0): engine clean.** Answer-key tests; sign-offs never cleared; no gates or redirects; refusals become
-  warnings; no thresholds; one "Reclass entry" checkbox; figures from the ledger only; type over any worked-out figure;
+  warnings; no thresholds; one "Reclass entry" checkbox; figures from the ledger only;
   firm ID and row-level security; inventory of Concept constants. No new screens.
 - Later phases: new window, menu, logo, Books and Workpapers screens, Sales tax centre, schedules with an account per
   line, CloseBook2 Settings pages, trial balance import, Exceptions column.
