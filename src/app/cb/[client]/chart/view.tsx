@@ -8,7 +8,8 @@ import { formatDateTime } from "@/lib/dates";
 import { Picker, type PickOpt } from "../../picker";
 import { saveAccount, setAccountActive } from "../../actions";
 
-export type ChartRow = { id: string; ident: string; number: string; name: string; type: string; line_no: string | null; lineName: string; tax: string | null; active: boolean; balance: number };
+export type ChartRow = { id: string; ident: string; number: string; name: string; type: string; line_no: string | null; lineName: string; tax: string | null; active: boolean; balance: number;
+  salesTax: boolean };
 type Hist = { id: string; action: string; detail: string; old_value: string | null; new_value: string | null; created_at: string; who: string };
 type Col = "number" | "name" | "type" | "gifi" | "tax" | "balance";
 const TYPES = ["Asset", "Liability", "Equity", "Revenue", "Expense"];
@@ -17,10 +18,10 @@ export function SidePanel({ title, onClose, children }: { title: string; onClose
   return (
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-navy-950/30" />
-      <aside role="dialog" aria-modal="true" aria-label={title} className="absolute inset-y-0 right-0 flex w-[min(28rem,100vw)] flex-col bg-white shadow-2xl">
+      <aside role="dialog" aria-modal="true" aria-label={title} className="absolute inset-y-0 right-0 flex w-[min(32rem,100vw)] min-w-0 flex-col bg-white shadow-2xl" data-side-panel>
         <div className="flex items-center justify-between border-b border-sand-200 px-5 py-3.5"><h2 className="text-[16px] font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">{children}</div>
       </aside>
     </div>
   );
@@ -29,12 +30,14 @@ export function SidePanel({ title, onClose, children }: { title: string; onClose
 function AccountPanel({ clientId, row, lines, taxes, onClose }: { clientId: string; row: ChartRow | null; lines: PickOpt[]; taxes: PickOpt[]; onClose: () => void }) {
   const router = useRouter();
   const [f, setF] = useState({ number: row?.number ?? "", name: row?.name ?? "", type: row?.type ?? "Expense", line: row?.line_no ?? "", tax: row?.tax ?? "" });
+  // The "Sales tax account" tick: sent only when changed (left alone, the account keeps following the chart template).
+  const [salesTax, setSalesTax] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [merge, setMerge] = useState<{ id: string; label: string } | null>(null);
   const [pending, start] = useTransition();
   const save = (m = false) => start(async () => {
     setError(null);
-    const r = await saveAccount(clientId, { id: row?.id, ...f }, m);
+    const r = await saveAccount(clientId, { id: row?.id, ...f, salesTax }, m);
     if (r.ok) { onClose(); router.refresh(); return; }
     if ("merge" in r) { setMerge(r.merge); return; }
     setError(r.error);
@@ -48,6 +51,8 @@ function AccountPanel({ clientId, row, lines, taxes, onClose }: { clientId: stri
         <div className="grid gap-1"><span className="label">GIFI line <span className="font-normal text-ink-3">(optional)</span></span>
           <Picker ariaLabel="GIFI line" value={f.line} onChange={(v) => setF({ ...f, line: v })} options={lines} allowEmpty emptyLabel="Unmatched" placeholder="Unmatched" /></div>
         <div className="grid gap-1"><span className="label">Default tax code</span><Picker ariaLabel="Default tax code" value={f.tax} onChange={(v) => setF({ ...f, tax: v })} options={taxes} allowEmpty emptyLabel="None" placeholder="None" /></div>
+        <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" className="mt-0.5" checked={salesTax ?? row?.salesTax ?? false} onChange={(e) => setSalesTax(e.target.checked)} data-acct-sales-tax />
+          <span><b>Sales tax account</b><br /><span className="text-ink-3">GST/HST or PST payable, or instalments. The Overview&apos;s sales tax payable tile adds these accounts.</span></span></label>
         {error && <p role="alert" className="text-[13px] text-danger">{error}</p>}
         {merge && (
           <div role="alertdialog" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-[13px]" data-merge-ask>
@@ -100,6 +105,9 @@ export function ChartView({ clientId, rows, lines, taxes, canEdit, asOf, from, p
   const [sort, setSort] = useState<{ col: Col; dir: 1 | -1 }>({ col: "number", dir: 1 });
   const [inactive, setInactive] = useState(false);
   const [edit, setEdit] = useState<ChartRow | "new" | null>(panel === "new" && canEdit ? "new" : null);
+  // + New opens the panel on this page too (the address changes; the page stays).
+  const [seenPanel, setSeenPanel] = useState(panel);
+  if (panel !== seenPanel) { setSeenPanel(panel); if (panel === "new" && canEdit) setEdit("new"); }
   const taxName = useMemo(() => new Map(taxes.map((t) => [t.value, t.label])), [taxes]);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();

@@ -29,6 +29,16 @@ select test.check('a new account with no GIFI line saves (it shows as Unmatched)
 select test.check('a second account with the same number is refused',
   test.try(format($q$select public.cb_books_save_account(%L, null, '65100', 'Office again', 'Expense', null, null)$q$, :'c')) = 'Account number 65100 is already used by Office expenses.');
 select public.cb_books_save_account(:'c', :'supplies', '65150', 'Dummy office supplies', 'Expense', null, null);
+-- PR C: the "Sales tax account" tick (null: as the chart template), kept when a later save leaves it alone; in History.
+select public.cb_books_save_account(:'c', null, '24600', 'Dummy GST owing', 'Liability', '2680.00', null, false, true) as gst_acct \gset
+select public.cb_books_save_account(:'c', :'gst_acct', '24600', 'Dummy GST/HST owing', 'Liability', '2680.00', null);
+reset role;
+select test.check('a client''s own account can be ticked as a sales tax account; a later save keeps the tick; History names it',
+  (select sales_tax from public.cb_client_accounts where id = :'gst_acct')
+  and (select sales_tax is null from public.cb_client_accounts where id = :'office')
+  and exists (select 1 from public.cb_books_history where account_id = :'gst_acct' and new_value like '%Sales tax account: Yes%')
+  and (select bool_and(sales_tax) from public.cb_chart_accounts where number in ('21500', '21510', '21550')));
+set role authenticated;
 select test.check('giving an account another account''s number asks once to merge',
   test.try(format($q$select public.cb_books_save_account(%L, %L, '65100', 'Dummy office supplies', 'Expense', null, null)$q$, :'c', :'supplies')) like 'MERGE|' || :'office' || '|65100 Office expenses');
 select public.cb_books_save_account(:'c', :'supplies', '65100', 'Dummy office supplies', 'Expense', null, null, true);

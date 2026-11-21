@@ -8,6 +8,7 @@ import { loadReportData } from "../../src/lib/closebook/report-data.ts";
 import { statements, trialBalance } from "../../src/lib/closebook/reports.ts";
 import { loadBooks } from "../../src/lib/books/server.ts";
 import { identOf, rangeInput } from "../../src/lib/books/ledger.ts";
+import { isShareholderLine, overviewFigures } from "../../src/lib/books/overview.ts";
 
 const money = (c: number) => (c / 100).toFixed(2);
 
@@ -41,6 +42,14 @@ export async function checkBooks(sb: SupabaseClient, cbClientId: string): Promis
       ["total revenue", s1.pl.revenue.now, s2.pl.revenue.now], ["total expenses", s1.pl.expenses.now, s2.pl.expenses.now], ["net income", s1.pl.net.now, s2.pl.net.now],
     ];
     for (const [what, x, y] of pairs) if (x !== y) fails.push(`${f.year_end} ${what}: today ${money(x)}, Books ${money(y)}`);
+    // PR C item 5: the Overview's cash and shareholder figures equal the balance sheet's.
+    const lineOf = new Map(input.accounts.map((a) => [a.key, a.line_no]));
+    const ov = overviewFigures(books, (k) => lineOf.get(k));
+    const bsCash = s2.bs.assets.groups.filter((g) => g.name === "Cash and bank").reduce((n, g) => n + g.now, 0);
+    const accts = (sec: typeof s2.bs.assets) => sec.groups.flatMap((g) => g.accounts).filter((a) => isShareholderLine(a.line_no)).reduce((n, a) => n + a.now, 0);
+    const bsSh = accts(s2.bs.liabilities) - accts(s2.bs.assets);
+    if (ov.cash !== bsCash) fails.push(`${f.year_end} Overview cash ${money(ov.cash)}, balance sheet cash and bank ${money(bsCash)}`);
+    if (ov.shareholder !== bsSh) fails.push(`${f.year_end} Overview due to (from) shareholder ${money(ov.shareholder)}, balance sheet ${money(bsSh)}`);
   }
   return { years: b.files.length, fails };
 }

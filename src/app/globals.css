@@ -229,3 +229,6 @@ body:has([data-ui1]) [data-bar] .bg-white :focus-visible { outline-color: #01216
   .cb-books .table td { overflow-wrap: anywhere; }
   .cb-books .card.overflow-x-auto { padding-left: 0; padding-right: 0; }
 }
+
+/* CB2-1 PR C: a dropdown inside a side panel stays within the panel (no sideways scroll that cuts off the labels). */
+[data-side-panel] [role="listbox"] { max-width: 100%; width: 100%; }

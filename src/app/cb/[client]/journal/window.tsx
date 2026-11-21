@@ -36,6 +36,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
   const [memo, setMemo] = useState(entry.memo);
   const [rows, setRows] = useState<Row[]>(() => pad(entry.lines.map((l) => ({ key: ++seq, account: l.account, dr: l.amount > 0 ? bracketAmount(l.amount) : "", cr: l.amount < 0 ? bracketAmount(-l.amount) : "", memo: l.memo, tax: l.tax }))));
   const [files, setFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [panel, setPanel] = useState<"history" | "journal" | "help" | null>(openHistory ? "history" : null);
   const [more, setMore] = useState(false);
@@ -186,11 +187,22 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <label className="grid gap-1 text-[12.5px] font-semibold text-ink-2">Memo<textarea value={memo} onChange={(e) => setMemo(e.target.value)} disabled={ro} maxLength={500} rows={4} className="input min-h-24 py-2" data-je-memo /></label>
             <div className="grid content-start gap-1 text-[12.5px] font-semibold text-ink-2"><span className="flex items-center gap-1"><Paperclip className="h-4 w-4" />Attachments</span>
-              <div className="rounded-md border border-dashed border-sand-300 p-3 text-[12.5px] font-normal">
+              <div className="rounded-md border border-sand-200 p-3 text-[12.5px] font-normal">
                 {entry.attachments.length > 0 && <ul className="mb-2 grid gap-0.5">{entry.attachments.map((a) => <li key={a}>{a}</li>)}</ul>}
-                {!ro && <input type="file" multiple onChange={(e) => setFiles([...(e.target.files ?? [])])} aria-label="Add attachments" className="text-[12.5px]" />}
+                {files.length > 0 && <ul className="mb-2 grid gap-0.5" data-je-new-files>{files.map((f, i) => (
+                  <li key={f.name + i} className="flex items-center gap-2"><span className="min-w-0 flex-1 truncate">{f.name}</span>
+                    <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))} className="rounded p-0.5 hover:bg-sand-100"><X className="h-3.5 w-3.5" /></button></li>))}</ul>}
+                {!ro && (
+                  <label onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => { e.preventDefault(); setDragOver(false); setFiles([...files, ...Array.from(e.dataTransfer.files)].slice(0, 10)); }}
+                    className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed px-3 py-4 text-center ${dragOver ? "border-navy-500 bg-navy-50" : "border-sand-300 hover:border-navy-500"}`} data-je-attach>
+                    <input type="file" multiple className="sr-only" onClick={(e) => { e.currentTarget.value = ""; }}
+                      onChange={(e) => setFiles([...files, ...Array.from(e.target.files ?? [])].slice(0, 10))} aria-label="Add attachment" />
+                    <span className="font-semibold text-navy-700 underline">Add attachment</span>
+                    <span className="text-ink-3">or drag and drop files here. Max 10 files.</span>
+                  </label>
+                )}
                 {!entry.attachments.length && ro && <span className="text-ink-3">None</span>}
-                <p className="mt-1 text-ink-3">Max 10 files.</p>
               </div></div>
           </div>
           {(error || (plan.problems.length > 0 && plan.out.length > 0)) && <p role="alert" className="mt-3 text-[13px] text-danger" data-je-error>{error ?? plan.problems[0]}</p>}

@@ -8,7 +8,9 @@ import { buildBooks, identOf, type AcctType, type Books, type YearIn } from "./l
 import { defaultTaxCode } from "@/lib/closebook/sales-tax";
 
 export type BooksClient = { id: string; name: string; province: string; studio_client_id: string | null };
+// sales_tax: the account's own "Sales tax account" tick (null: as the chart template); salesTax: what applies.
 export type ChartAccount = { id: string; ident: string; number: string; name: string; account_type: AcctType; line_no: string | null; tax_code: string | null; active: boolean;
+  sales_tax: boolean | null; salesTax: boolean;
   source: string; merged_into: string | null };
 export type BooksFile = { id: string; year_start: string; year_end: string; books: string; phase: string };
 export type BooksEntry = CbEntry & { fileId: string; yearEnd: string; yearStart: string; no: string; date: string; locked: boolean };
@@ -34,8 +36,14 @@ export async function listClients(supabase: SupabaseClient): Promise<BooksClient
 }
 
 export async function loadChart(supabase: SupabaseClient, clientId: string): Promise<ChartAccount[]> {
-  const { data } = await supabase.from("cb_client_accounts").select("id, number, name, account_type, line_no, tax_code, active, source, merged_into").eq("cb_client_id", clientId).limit(5000);
-  return ((data ?? []) as Omit<ChartAccount, "ident">[]).map((a) => ({ ...a, ident: identOf(a) }));
+  const [{ data }, { data: tpl }] = await Promise.all([
+    supabase.from("cb_client_accounts").select("id, number, name, account_type, line_no, tax_code, sales_tax, active, source, merged_into").eq("cb_client_id", clientId).limit(5000),
+    supabase.from("cb_chart_accounts").select("number, line_no").eq("sales_tax", true),
+  ]);
+  // Left empty, the tick follows the chart template: an account that came from it (same number and GIFI line).
+  const fromTemplate = new Set(((tpl ?? []) as { number: string; line_no: string | null }[]).map((t) => `${t.number}|${t.line_no ?? ""}`));
+  return ((data ?? []) as Omit<ChartAccount, "ident" | "salesTax">[]).map((a) => ({ ...a, ident: identOf(a),
+    salesTax: a.sales_tax ?? fromTemplate.has(`${a.number}|${a.line_no ?? ""}`) }));
 }
 
 // The client's books: every year file through today's engine, then one ledger (src/lib/books/ledger.ts).

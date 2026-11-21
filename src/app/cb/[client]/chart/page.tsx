@@ -25,7 +25,7 @@ export default async function ChartPage({ params, searchParams }: { params: Prom
   const names = history.data ? await staffNames(supabase) : new Map<string, string>();
   const rows: ChartRow[] = b.chart.filter((a) => !a.merged_into).map((a) => ({
     id: a.id, ident: a.ident, number: a.number, name: a.name, type: a.account_type, line_no: a.line_no, lineName: a.line_no ? b.lineName.get(a.line_no) ?? "" : "",
-    tax: a.tax_code, active: a.active, balance: bal.get(a.ident) ?? 0,
+    tax: a.tax_code, active: a.active, balance: bal.get(a.ident) ?? 0, salesTax: a.salesTax,
   }));
   const lines = b.gifiLines.map((l) => ({ value: l.line_no, label: `${l.line_no.replace(/\.00$/, "")} ${l.name}`, sort: l.line_no }));
   const province = b.client.province;
