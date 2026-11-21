@@ -12,7 +12,7 @@ export type CbAccount = { id: string; account_key: string; number: string; name:
   // Piece R2: the master account (trial balance files), the QuickBooks parent and detail type, and Account List rows.
   chart_account?: string | null; parent_key?: string | null; full_name?: string | null; tb_type?: string | null; qbo_detail_type?: string | null; in_list?: boolean;
   last_year_line?: string | null };   // round 25: the T2 line last year's figure came from, when it differs
-export type CbEntry = { id: string; kind: string; is_reclass?: boolean; number: number; seq: number; wp_ref: string; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
+export type CbEntry = { id: string; kind: string; journal_no?: string | null; is_reclass?: boolean; number: number; seq: number; wp_ref: string; reason: string; note: string; reverse_next_year: boolean; needs_review: boolean; reviewed_at: string | null;
   reviewed_by: string | null; created_by: string | null; created_at: string; entry_date?: string | null; attachments?: string[]; origin?: string | null; standard_id?: string | null; booked_at?: string | null; booked_by?: string | null;
   lines: { id?: string; account_id: string; amount: number; memo: string; tax_code?: string | null; is_tax?: boolean; schedule_part?: string | null }[] };
 export type CbImport = { target: string; source: string; file_name: string; rows: number; debit_total: number; credit_total: number; imported_at: string; who: { full_name: string } | null };
@@ -37,7 +37,10 @@ export async function loadFileList(supabase: SupabaseClient, mine?: string): Pro
   return (data ?? []) as unknown as ListedFile[];
 }
 
-export async function loadFile(supabase: SupabaseClient, id: string) {
+// CB2-1: the entries Books saves for a year's opening balances, opening difference or trial balance import are read by
+// Books only (books: true); today's screens keep working them out from the stored figures, so their figures never move.
+export const BOOKS_ORIGINS = ["opening_balances", "opening_difference", "tb_import"];
+export async function loadFile(supabase: SupabaseClient, id: string, opts: { books?: boolean } = {}) {
   const { data: f } = await supabase.from("cb_files").select("id, client_id, year_start, year_end, year_change_reason, file_type, books, preparer_id, reviewer_id, phase, created_at, setup, opening_source, opening_re_stated, opening_set_at, opening_note, opening_pdf, opening_ni_typed, opening_signed_by, opening_signed_at, first_year").eq("id", id).maybeSingle();
   if (!f) return null;
   const [{ data: client }, { data: docs }, { data: accounts }, { data: imports }, names] = await Promise.all([
@@ -48,11 +51,12 @@ export async function loadFile(supabase: SupabaseClient, id: string) {
     staffNames(supabase),
   ]);
   const { data: notes } = await supabase.from("cb_flag_notes").select("account_id, reason, note").eq("file_id", id);
-  const { data: entries } = await supabase.from("cb_entries").select("id, kind, is_reclass, number, seq, wp_ref, reason, note, reverse_next_year, needs_review, reviewed_at, reviewed_by, created_by, created_at, entry_date, attachments, origin, standard_id, booked_at, booked_by, lines:cb_entry_lines(id, account_id, amount, memo, tax_code, is_tax, schedule_part)")
+  const { data: entries } = await supabase.from("cb_entries").select("id, kind, journal_no, is_reclass, number, seq, wp_ref, reason, note, reverse_next_year, needs_review, reviewed_at, reviewed_by, created_by, created_at, entry_date, attachments, origin, standard_id, booked_at, booked_by, lines:cb_entry_lines(id, account_id, amount, memo, tax_code, is_tax, schedule_part)")
     .eq("file_id", id).order("seq");
+  const kept = ((entries ?? []) as { origin?: string | null }[]).filter((e) => opts.books || !BOOKS_ORIGINS.includes(e.origin ?? ""));
   return {
     notes: new Map(((notes ?? []) as { account_id: string; reason: string; note: string }[]).map((n) => [n.account_id, { reason: n.reason, note: n.note }])),
-    entries: ((entries ?? []) as unknown as CbEntry[]).map((e) => ({ ...e, lines: e.lines.map((l) => ({ ...l, amount: Number(l.amount) })) })),
+    entries: (kept as unknown as CbEntry[]).map((e) => ({ ...e, kind: e.kind ?? "", lines: e.lines.map((l) => ({ ...l, amount: Number(l.amount) })) })),
     file: f as CbFileRow, client: client as CbClient | null, docs: (docs ?? []) as CbDoc[],
     accounts: ((accounts ?? []) as CbAccount[]).map((a) => ({ ...a, last_year: Number(a.last_year), this_year: Number(a.this_year) })),
     imports: (imports ?? []) as unknown as CbImport[], names,
