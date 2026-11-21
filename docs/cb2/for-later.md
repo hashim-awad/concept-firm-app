@@ -27,9 +27,6 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 ## Engine notes
 13. Thresholds left in Settings: the instalment amount in the client email (CRA's $3,000) and the shareholder loan
     "repaid near year end" window (30 days). Rule 7 says no thresholds; Hashim decides whether these two stay.
-14. Firms (rule 12): people (staff) and clients are not yet per firm; one firm's preparer could be named on another
-    firm's file. Settings (cb_settings) is one row; reference tables (chart, master lines, tax codes) carry Concept's firm
-    and a second firm would need its own copies. Unique numbers (the chart) are not yet per firm.
 15. (Done in this PR: the "Reclass entry" box is saved inside the entry's own save, one History row.) The revenue check's
     "Fix with an entry" still saves an AJE with the box unticked.
 16. On a bank-statement file the GIFI reads each account's stored balance while the trial balance reads postings; they
