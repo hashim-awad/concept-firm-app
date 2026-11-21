@@ -141,7 +141,8 @@ select public.cb_set_tax_code(:'off', 'NONDED');
 reset role; reset request.jwt.claims;
 -- CB2-0 step 2: a tax code change clears nothing either; History has it.
 select test.check('T7: a tax code change clears nothing (trial balance file)', (:state) = 'code,compare,entries,review,t2'
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and detail = '65100 Office expenses: tax code the line''s default to NONDED'));
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'tax_code_changed' and step = 'code' and detail = 'Tax code on 65100 Office expenses: default to NONDED')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and detail like '%tax code%'));   -- one action, one row
 
 -- T8: a TJE added after steps 5 to 8 are signed clears nothing (CB2-0 step 2).
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, last_year, mapping_source)

@@ -32,7 +32,7 @@ export function ShReview({ fileId, sh, report, noted, editable, canReview, names
     <section id="sh-review" aria-label="Shareholder loans" className="card grid gap-3" data-sh-review>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-semibold">Shareholder loans</h2>
-        {!st.prepared_at ? pill("bg-danger-soft text-danger", "Not worked out") : st.stale ? pill("bg-danger-soft text-danger", "Books changed")
+        {!st.prepared_at ? pill("bg-danger-soft text-danger", "Not worked out") : st.stale ? pill("bg-sand-100 text-ink-2", "Work it out again")
           : pill("bg-navy-100 text-navy-800", `Updated ${formatDate(st.prepared_at)}`)}
         <span className="flex-1" />
         <Link href={reportHref} className="text-[12.5px] font-semibold text-navy-700 underline">Open the report</Link>

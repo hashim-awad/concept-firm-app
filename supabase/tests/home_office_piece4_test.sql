@@ -39,9 +39,12 @@ select test.check('T1: Dr 65100 1,310.00, Dr 21500 28.60, Cr 23000 1,338.60, tag
   (select string_agg(format('%s %s %s', a.number, l.amount, l.schedule_part), ', ' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e')
   = '65100 1310.00 home, 21500 28.60 home_itc, 23000 -1338.60 home_due');
 select test.check('T1: it goes to the reviewer like a typed entry', (select needs_review from public.cb_entries where id = :'e'));
-select test.check('T5 lock: Edit refuses a changed schedule amount',
+select test.check('T5: Edit with only the owed line changed is refused as unbalanced (the kept hard stop)',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule')$q$, :'e', replace(:lines, '1338.60', '1300')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'The entry does not balance: it is out by 38.60.');
+select test.check('T5 (CB2-0 review round): no lock: Edit changes a schedule amount on the entry when it balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule')$q$, :'e',
+    replace(replace(:lines, '"amount":1310,', '"amount":1300,'), '-1338.60', '-1328.60'))) = 'OK');
 select test.check('One schedule per entry: a home office entry is not put in as a vehicle schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"home_office"', '"kind":"vehicle"'))) = 'This entry holds another schedule.');

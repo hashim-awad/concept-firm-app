@@ -24,22 +24,25 @@ export async function loadHistory(supabase: SupabaseClient, fileId: string, name
 // CB2-0 step 2 (rule 14): the steps a change affects. Its own step; a change to steps 2 to 5 moves the trial balance,
 // so steps 6, 8 and 9 rest on it too; a change to step 8 reaches step 9.
 const TB_STEPS = ["opening", "records", "code", "entries"];
+// Step 7 (the reviewer's overall review) and step 10 rest on every step after step 1 (CB2-0 review round). "mal": any change
+// after the MAL was signed, in its own group, as the MAL covers every entry made during the compilation.
 export const affectedSteps = (step: string): string[] =>
-  TB_STEPS.includes(step) ? [step, "compare", "t2", "statements"] : step === "t2" ? ["t2", "statements"] : step ? [step] : [];
+  TB_STEPS.includes(step) ? [step, "compare", "review", "t2", "statements", "lock", "mal"]
+    : step === "compare" ? ["compare", "review", "lock", "mal"] : step === "t2" ? ["t2", "review", "statements", "lock", "mal"]
+    : step === "statements" ? ["statements", "lock", "mal"] : step ? [step, "mal"] : [];
 // Rows that are sign-offs, not changes.
 const SIGN_ACTIONS = new Set(["prepared", "reviewed", "unsigned_prepared", "unsigned_reviewed", "signoff_removed", "signoff_cleared", "signoff_changed"]);
 
-// History > "Changed after sign-off": the changes made after the latest sign-off of each step they affect, grouped by
-// step in the steps' order. A step not signed lists nothing.
+// History > "Changed after sign-off": the changes made after the latest sign-off of the steps they affect. Each change
+// shows once, under the first of those steps in the steps' order; "also" names the others (UI review: no repeated rows).
+// A step not signed lists nothing.
 export function changedAfterSignoff(rows: HistoryRow[], signs: Record<string, { prepared_at?: string | null; reviewed_at?: string | null } | undefined>, order: string[]) {
   const latest = (k: string) => { const s = signs[k]; const t = [s?.prepared_at, s?.reviewed_at].filter((x): x is string => !!x).sort(); return t[t.length - 1] ?? null; };
-  const groups = new Map<string, HistoryRow[]>();
+  const groups = new Map<string, (HistoryRow & { also: string[] })[]>();
   for (const r of rows) {
     if (SIGN_ACTIONS.has(r.action) || r.erased) continue;
-    for (const k of affectedSteps(r.step)) {
-      const t = latest(k);
-      if (t && Date.parse(r.at) > Date.parse(t)) groups.set(k, [...(groups.get(k) ?? []), r]);
-    }
+    const hit = order.filter((k) => affectedSteps(r.step).includes(k) && (() => { const t = latest(k); return !!t && Date.parse(r.at) > Date.parse(t); })());
+    if (hit.length) groups.set(hit[0], [...(groups.get(hit[0]) ?? []), { ...r, also: hit.slice(1) }]);
   }
   return order.filter((k) => groups.has(k)).map((k) => ({ step: k, rows: groups.get(k)! }));
 }

@@ -136,9 +136,9 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           <table className="table table-compact mt-2"><thead><tr><th>Date</th><th>Entry</th><th className="text-right">Into 21500</th><th>Instalment?</th><th /></tr></thead>
             <tbody>{g.candidates.map((x) => (
               <tr key={x.ref}><td className="whitespace-nowrap">{formatDate(x.date)}</td><td>{x.label}</td><td className="text-right tabular-nums">{m(x.cents)}</td>
-                <td>{x.confirmed ? chip(true, "Counted on line 110", "") : <span className="text-xs text-ink-3">Not counted</span>}</td>
+                <td className="whitespace-nowrap">{x.confirmed ? chip(true, "Counted on line 110", "") : <span className="text-xs text-ink-3">Not counted</span>}</td>
                 <td>{editable && <form action={confirmGstEntry}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="entry" value={x.ref} />
-                  <input type="hidden" name="yes" value={x.confirmed ? "no" : "yes"} /><button className="btn-secondary btn-compact">{x.confirmed ? "Leave out" : "Count as an instalment"}</button></form>}</td></tr>
+                  <input type="hidden" name="yes" value={x.confirmed ? "no" : "yes"} /><button className="btn-secondary btn-compact whitespace-nowrap">{x.confirmed ? "Leave out" : "Count as an instalment"}</button></form>}</td></tr>
             ))}</tbody></table>
         </div>
       )}

@@ -46,7 +46,7 @@ export function GstRevenueBox({ fileId, st, sources, editable, canReview, names,
         ))}
         <tr className="border-t border-ink font-semibold"><td className={cell}>Difference</td><td className={`${cell} text-right tabular-nums`}>{has ? m(st.gst_diff) : "–"}</td></tr>
       </tbody></table>
-      {st.gst_explanation && <p className="px-3 py-1.5 text-xs">Note: {st.gst_explanation}{st.gst_explained_diff !== null && st.gst_explained_diff !== st.gst_diff && <span className="text-danger"> (written for {bracketAmount(Math.round(st.gst_explained_diff * 100))}: explain again)</span>}</p>}
+      {st.gst_explanation && <p className="px-3 py-1.5 text-xs">Note: {st.gst_explanation}{st.gst_explained_diff !== null && st.gst_explained_diff !== st.gst_diff && <span className="block text-ink-2">Written for a difference of {bracketAmount(Math.round(st.gst_explained_diff * 100))}. Update it if the difference changed.</span>}</p>}
       {accepted && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(st.gst_accepted_by ?? "") ?? "the reviewer"}, {formatDate(st.gst_accepted_at)}.</p>}
       {editable && (!fromReturn || (has && st.gst_diff !== 0) || (canReview && st.gst_waiting && st.gst_explained)) && (
         <div className="grid gap-2 border-t border-sand-200 px-3 py-2">

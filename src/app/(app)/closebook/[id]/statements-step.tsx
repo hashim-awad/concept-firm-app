@@ -34,7 +34,7 @@ export function StatementsStep({ fileId, pk, editable, canReview, siteUrl, paper
       {/* CB2-0 step 4: what is still open is a warning; the documents build and the MAL can be sent. */}
       {pk.warnings.length > 0 && <ul className="text-[12.5px] text-warning" data-warnings>{pk.warnings.map((b) => <li key={b}>{b}</li>)}</ul>}
       {mal.mal_withdrawn_at && !mal.mal_quote_id && (
-        <p role="alert" className="text-[12.5px] text-warning"><b>MAL withdrawn</b> {when(mal.mal_withdrawn_at)}: {mal.mal_withdrawn_why}. Sign step 9 again before a new MAL.</p>
+        <p role="alert" className="text-[12.5px] text-warning"><b>MAL withdrawn</b> {when(mal.mal_withdrawn_at)}: {mal.mal_withdrawn_why}.</p>
       )}
 
       {show("package") && <>

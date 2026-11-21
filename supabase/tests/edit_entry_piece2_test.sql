@@ -97,9 +97,9 @@ reset role;
 update public.cb_entries set origin = 'expenses_personal' where id = :'e2';
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T3: an Expenses paid personally entry cannot be edited here (same message as before)',
+select test.check('T3 (CB2-0 review round): an Expenses paid personally entry can be edited here',
   test.try(format($q$select public.cb_edit_entry(%L, 'RJE', 'reclassification', 'Second entry', false, '[{"chart":"60000","amount":60},{"chart":"64000","amount":-60}]', 'Expense listing')$q$, :'e2'))
-  = 'Change this entry on the Expenses paid personally paper.');
+  = 'OK');
 
 -- T4: an edit clears no sign-off, the same as when Edit deleted and re-added the entry (CB2-0 step 2).
 reset role;

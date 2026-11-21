@@ -488,3 +488,29 @@ begin
   return v_id;
 end;
 $function$;
+
+-- CB2-0 review round: accepting a difference is refused on a locked file (security review).
+CREATE OR REPLACE FUNCTION public.cb_accept_revenue_difference(p_file uuid, p_check text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v jsonb; v_diff numeric; v_name text;
+begin
+  perform private.require(private.can_edit('closebook') and private.cb_can('review'), 'Only the reviewer accepts a revenue difference. Reviewers need the Review right.');
+  perform private.require(p_check in ('revenue', 'gst', 't4a'), 'Unknown check.');
+  perform private.require(exists (select 1 from public.cb_files where id = p_file and phase <> 'locked'), 'This file is locked or missing.');
+  v := private.cb_revenue_state(p_file);
+  v_diff := (v ->> case p_check when 'revenue' then 'diff' when 'gst' then 'gst_diff' else 't4a_diff' end)::numeric;
+  v_name := case p_check when 'revenue' then 'Revenue difference' when 'gst' then 'GST/HST returns difference' else 'T4A difference' end;
+  -- CB2-0 step 5 (rule 7): the reviewer may accept any difference; nothing waits for it.
+  perform private.require(coalesce(v_diff, 0) <> 0, 'Nothing to accept: there is no difference.');
+  insert into public.cb_revenue_checks (file_id) values (p_file) on conflict (file_id) do nothing;
+  if p_check = 'revenue' then update public.cb_revenue_checks set accepted_by = (select auth.uid()), accepted_at = now(), accepted_diff = v_diff where file_id = p_file;
+  elsif p_check = 'gst' then update public.cb_revenue_checks set gst_accepted_by = (select auth.uid()), gst_accepted_at = now(), gst_accepted_diff = v_diff where file_id = p_file;
+  else update public.cb_revenue_checks set t4a_accepted_by = (select auth.uid()), t4a_accepted_at = now(), t4a_accepted_diff = v_diff where file_id = p_file;
+  end if;
+  perform private.cb_log(p_file, 'revenue_accepted', case when p_check = 'gst' then 't2' else 'entries' end, format('%s %s accepted', v_name, private.cb_money(v_diff)));
+end;
+$function$;

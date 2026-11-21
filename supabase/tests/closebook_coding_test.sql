@@ -92,6 +92,8 @@ select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210},{"code":"10
 select test.check('an account must be on the row''s GIFI line', test.try(format($f$select public.cb_save_opening(%L, '[{"code":"2680","amount":1,"account":"10000"}]', 1, 1, '')$f$, :'f')) like '%not on GIFI line 2680%');
 select test.check('a total cannot be typed as a line', test.try(format($f$select public.cb_save_opening(%L, '[{"code":"2599","amount":1}]', 1, 1, '')$f$, :'f')) like '%is a total%');
 select test.check('signs while 3640 is out (CB2-0: a warning, not a stop)', test.try(format($f$select public.cb_sign_opening(%L)$f$, :'f')) = 'OK');
+select test.check('a second sign-off is refused while step 2 is signed', test.try(format($f$select public.cb_sign_opening(%L)$f$, :'f')) = 'This step is already signed as prepared.');
+select public.cb_unsign_step(:'f', 'opening', 'prepared');   -- the preparer takes their own sign-off back to fix it
 select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210,"account":"10000"},{"code":"1062","amount":6500},{"code":"1774","amount":9800},{"code":"1775","amount":-3920},{"code":"2620","amount":4250,"account":"21100"},{"code":"2680","amount":2110,"account":"21500"},{"code":"2781","amount":12400,"account":"23000"},{"code":"3500","amount":100},{"code":"3660","amount":29480},{"code":"3700","amount":8000,"account":"32200"}]', 41730, 20250, 'Prior T2, year ended Oct 31, 2025');
 select test.check('the chosen account is kept with the opening balance', (select chart_account from public.cb_opening_balances where file_id = :'f' and code = '2680') = '21500');
 select test.check('a dividend typed as printed (positive) is stored negative', (select amount from public.cb_opening_balances where file_id = :'f' and code = '3700') = -8000);
@@ -99,9 +101,13 @@ select public.cb_sign_opening(:'f');
 select test.check('signed once everything ties', (select opening_signed_at is not null and opening_note like 'Prior T2%' from public.cb_files where id = :'f'));
 select public.cb_save_opening(:'f', '[{"code":"1002","amount":48210}]', 41730, 20250, 'Prior T2, year ended Oct 31, 2025');
 select test.check('saving again keeps the sign-off (CB2-0 step 2)', (select opening_signed_at is not null from public.cb_files where id = :'f'));
--- Round 21: the first problem is 3660 blank while 3849 is typed. CB2-0: a warning; signing again is not refused.
+-- Round 21: the first problem is 3660 blank while 3849 is typed. CB2-0: a warning; signed again after the preparer takes
+-- their sign-off back, the problem goes into History.
+select public.cb_unsign_step(:'f', 'opening', 'prepared');
 select test.check('a wrong 3849 is not refused', test.try(format($f$select public.cb_sign_opening(%L)$f$, :'f')) = 'OK');
 reset role;
 select test.check('the first problem still names it', private.cb_opening_problem(:'f') like 'Line 3660 is blank%');
+select test.check('the sign-off''s History row records it', (select detail from public.cb_file_history where file_id = :'f' and action = 'prepared' and step = 'opening' order by id desc limit 1)
+  like 'Signed with open items: Line 3660 is blank%');
 set role authenticated;
 reset role;

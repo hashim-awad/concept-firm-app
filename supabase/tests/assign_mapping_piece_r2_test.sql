@@ -192,8 +192,8 @@ select public.cb_assign(:'m', format('[{"account":"%s","chart":"10000"},{"accoun
 select test.check('T3: an AJE on a monthly file', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue the year-end fee', false, '[{"chart":"66000","new_name":"Year-end accounting fee","new_type":"Expenses","amount":100},{"account":"%s","amount":-100}]', 'Fee letter')$q$,
   :'m', (select id from public.cb_accounts where file_id = :'m' and number = '1000'))) = 'OK');
 select test.check('T3: the new client account carries its master account', (select chart_account || '|' || line_no from public.cb_accounts where file_id = :'m' and client_new) = '66000|8862.00');
-select test.check('T3: a new account with no master account is refused', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue', false, '[{"line":"8860.00","new_name":"Fees","new_type":"Expenses","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m'))
-  = 'Choose the master account for the new account.');
+select test.check('T3: a new account with no master account is accepted (CB2-0 review round: step 4 lists it to assign; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue', false, '[{"line":"8860.00","new_name":"Fees","new_type":"Expenses","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m'))
+  = 'OK');
 select test.check('D12b: two client accounts on one master account: the preparer picks', test.try(format($q$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Sales tax', false, '[{"chart":"21500","amount":1},{"chart":"66000","amount":-1}]', 'Fee letter')$q$, :'m'))
   = 'Several of the client''s accounts are on master account 21500 GST/HST payable: choose the one entries take (step 4, open the master account).');
 select public.cb_pick_chart_account(:'m', '21500', (select id from public.cb_accounts where file_id = :'m' and number = '2200'));

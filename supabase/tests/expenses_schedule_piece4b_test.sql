@@ -39,9 +39,12 @@ select test.check('T1: four Dr expense lines 1,473.25, Dr 21500 122.85, Cr 23000
   (select string_agg(format('%s %s %s %s', a.number, l.amount, coalesce(l.tax_code, '-'), l.schedule_part), ', ' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e')
   = '70500 720.00 HST_ON exp_2, 62000 500.00 - exp_4, 65000 200.00 HST_ON exp_1, 21500 122.85 - exp_itc, 60200 53.25 MEALS_HST_50 exp_3, 23000 -1596.10 - exp_due');
 select test.check('T1: what it was is the line description', (select memo from public.cb_entry_lines where entry_id = :'e' and schedule_part = 'exp_3') = 'Client lunch');
-select test.check('T8 lock: Edit refuses a changed schedule amount',
+select test.check('T8: Edit with only the owed line changed is refused as unbalanced (the kept hard stop)',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule')$q$, :'e', replace(:lines, '1596.10', '1500')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'The entry does not balance: it is out by 96.10.');
+select test.check('T8 (CB2-0 review round): no lock: Edit changes a schedule amount on the entry when it balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule')$q$, :'e',
+    replace(replace(:lines, '"amount":500,', '"amount":400,'), '-1596.10', '-1496.10'))) = 'OK');
 select test.check('One schedule per entry: an expenses entry is not put in as a home office schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"expenses"', '"kind":"home_office"'))) = 'This entry holds another schedule.');

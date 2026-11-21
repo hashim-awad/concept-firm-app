@@ -56,12 +56,16 @@ select test.check('T4: one schedule with the entry, its inputs kept', (select co
 select test.check('T4: it goes to the reviewer like a typed entry', (select needs_review and reviewed_at is null from public.cb_entries where id = :'e'));
 select test.check('T4: staff can read the schedule', (select count(*) from public.cb_schedules where file_id = :'f') = 1);
 
--- T10: the lock. Edit refuses a changed schedule amount; the account and the description can change.
-select test.check('T10: Edit refuses a changed schedule amount',
-  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e', replace(:lines, '8300', '8000'))) = 'Change this amount in its schedule: click the Schedule tag.');
-select test.check('T10: Edit refuses a schedule line taken out',
+-- T10 (CB2-0 review round): no lock. Edit changes a schedule amount on the entry; the account and the description can change.
+-- An entry that no longer balances is still refused (the kept hard stop).
+select test.check('T10: Edit with only the owed line changed is refused as unbalanced',
+  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e', replace(:lines, '8300', '8000'))) = 'The entry does not balance: it is out by 300.00.');
+select test.check('T10: Edit changes a schedule amount when the entry balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e',
+    replace(replace(:lines, '7345.13', '7045.13'), '-8300', '-8000'))) = 'OK');
+select test.check('T10: a schedule line taken out leaves the entry unbalanced: refused by the hard stop',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e',
-    (select jsonb_agg(x) from jsonb_array_elements(:lines::jsonb) x where x ->> 'schedule_part' <> 'company_gst')::text)) = 'Change this amount in its schedule: click the Schedule tag.');
+    (select jsonb_agg(x) from jsonb_array_elements(:lines::jsonb) x where x ->> 'schedule_part' <> 'company_gst')::text)) = 'The entry does not balance: it is out by 51.78.');
 -- The account of the allowance line changed to 70650, and a normal line added; the same schedule amounts.
 \set lines2 '''[{"chart":"70650","amount":7345.13,"tax_code":"HST_ON","schedule_part":"allowance"},{"chart":"21500","amount":954.87,"is_tax":true,"schedule_part":"allowance_itc"},{"chart":"23000","amount":-8300,"schedule_part":"allowance_due"},{"chart":"23000","amount":450,"schedule_part":"company_due"},{"chart":"70600","amount":-398.22,"tax_code":"HST_ON","schedule_part":"company_cost:a"},{"chart":"21500","amount":-51.78,"is_tax":true,"schedule_part":"company_gst"},{"chart":"64000","amount":10},{"chart":"21100","amount":-10}]'''
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Vehicle, owner''s car (2026)', false, :lines2, 'Vehicle schedule', null, '{}', null, null) as e2 \gset

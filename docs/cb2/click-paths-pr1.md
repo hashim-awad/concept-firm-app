@@ -5,7 +5,7 @@ Birch dummy file (Playwright, 1440 x 900). A click is a press or a choice from a
 
 | # | Flow | Before | After | Preparer | Reviewer |
 |---|---|---|---|---|---|
-| 1 | An AJE is added after the steps are reviewed | Steps 5 to 8 lose their sign-offs; the MAL is withdrawn. Preparer signs 4 steps again (4), reviewer signs 4 steps again (4), MAL sent again (2) | Nothing is cleared. One History row. The reviewer looks when they choose: History › Changed after sign-off (2), a row opens the entry (1) | −6 | −4 (−1 if they open the entry) |
+| 1 | An AJE is added after the steps are reviewed | Steps 5 to 8 lose their sign-offs; the MAL is withdrawn. Preparer signs 4 steps again (4), reviewer signs 4 steps again (4), MAL sent again (2) | Nothing is cleared. One History row, shown once under the first affected step with "Also affects" for the others, and under "After the MAL was signed" when it came later. The reviewer looks when they choose: History › Changed after sign-off (2), a row opens the entry (1) | −6 | −4 (−1 if they open the entry) |
 | 2 | See one entry's history | Not available | Entry ⋯ › History, side panel (2) | +0 (new) | +0 (new) |
 | 3 | Sign a step as preparer | Sign (1), page jumps to the next step; back to the step (1) | Sign (1), stays on the step | −1 | 0 |
 | 4 | Sign a step with open problems | Refused. Fix or ask someone, then sign (1+) | Sign (1). The open items are kept in the sign-off's History row | −1 or more | −1 or more |
@@ -23,6 +23,9 @@ Birch dummy file (Playwright, 1440 x 900). A click is a press or a choice from a
 | 16 | Revenue or GST/HST difference over $5,000 | Preparer explains; reviewer must accept (2) before step 8 can be signed | Preparer explains (typing). The reviewer may accept; nothing waits | 0 | −2 |
 | 17 | Pair two transfer lines 6 to 7 days apart (cb_accept_transfer) / 8+ days (post) | Refused | Pairs | −1 or more | 0 |
 | 18 | Name the line that cleared an outstanding item after day 90 | Not offered; needed an entry | Offered in the list (1) | −2 | 0 |
+| 20 | Change an amount on a schedule entry (vehicle, home office, expenses paid personally) | Refused: open the schedule (1), change, put it in the entry (1) | Change it on the entry (1 Save); History records it | −1 | 0 |
+| 21 | An entry line on retained earnings | Moved to 3720 and renamed without asking | Posts where it was coded | 0 | 0 |
+| 22 | A new client account with no master account yet | Refused: pick a master account first (2) | Saved; step 4 lists it to assign | −2 | 0 |
 | 19 | Settings › Closebook rules › Thresholds | 8 amounts | 3 (T2 rounding, instalment amount in the client email, shareholder loan window) | 0 | 0 |
 
 Totals for a typical file with one late AJE, 3 flagged lines and 2 GST/HST actions (flows 1, 3 × 8 steps, 5, 6 × 2, 7 × 3):

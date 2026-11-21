@@ -42,6 +42,11 @@ refusing: Hashim decides; a recommendation is given).
 | cb_post_lines, cb_accept_transfer | Transfer dates within 7 or 5 days | Removed. Suggestions still look within 7 days |
 | step 3 outstanding items picker | First 90 days of the year only | Removed |
 | Settings | Outstanding items $5,000, flag $5,000 / 20%, entry review $5,000, capital invoice $5,000 | Removed from Settings. Columns kept, not read |
+| cb_edit_entry (review round) | A schedule amount or the Expenses paid personally entry changes only in its paper | Removed. Changes on the entry; History records it. An unbalanced change is still refused |
+| cb_entry_write_lines (review round) | A retained earnings line was moved to 3720 and renamed | Removed. Posts where it was coded |
+| cb_entry_write_lines (review round) | A new client account needs a master account first | Removed. Step 4 lists it to assign |
+| cb_add_outstanding (review round) | The clearing line must be for the same amount | Removed. The reconciliation shows the difference |
+| cb_lock_file, cb_send_mal, cb_record_delivery (review round) | Warnings shown but not recorded | Recorded in the History row (open items, sent before step 9 reviewed or on/before year end, delivered before step 10 reviewed or with the MAL not signed) |
 
 ## Kept: hard stop (unbalanced entry) (4)
 
@@ -354,7 +359,7 @@ Rights (Edit on Closebook, the Review right, Admin). A reviewer's own act (accep
 | public.cb_update_t2_rounding | Only an Admin changes thresholds. |
 | public.cb_upload_bank | You need Edit on Closebook to upload. |
 
-## Kept: input (234)
+## Kept: input (232)
 
 Input that cannot be read or is missing. Sorted by a word search.
 
@@ -370,7 +375,6 @@ Input that cannot be read or is missing. Sorted by a word search.
 | private.cb_entry_head_check | Up to 10 attachments. |
 | private.cb_entry_write_lines | Choose an account from the standard chart. |
 | private.cb_entry_write_lines | Choose one of the client's accounts, or name a new account for their books. |
-| private.cb_entry_write_lines | Choose the master account for the new account. |
 | private.cb_entry_write_lines | Choose the new account's QuickBooks account type. |
 | private.cb_entry_write_lines | Enter last year's closing retained earnings in step 2 first. |
 | private.cb_entry_write_lines | Name the new account in plain words, for example "Amortization expense". |
@@ -398,7 +402,6 @@ Input that cannot be read or is missing. Sorted by a word search.
 | public.cb_add_outstanding | Account not found. |
 | public.cb_add_outstanding | Enter the amount as a positive number with up to 2 decimals. |
 | public.cb_add_outstanding | Enter the date of the item. |
-| public.cb_add_outstanding | The line that cleared it must be for the same amount. |
 | public.cb_add_outstanding | The line that cleared it must be on this account. |
 | public.cb_add_personal_expenses | %s: add a note saying what it is. |
 | public.cb_add_personal_expenses | %s: choose one of %s. |

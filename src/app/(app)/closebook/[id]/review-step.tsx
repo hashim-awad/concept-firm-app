@@ -18,8 +18,7 @@ export type ChecklistRow = { key: string; text: string; answer: "" | "yes" | "no
 
 // Round 35: on a bank file the lines and accounts for the reviewer are a working list (list), counted live in the chip.
 // Piece 8: extra, the shareholder loans panel (the reviewer answers them here).
-// Piece E1: look, the entries to look at from step 5 (free entries, over the threshold, changed): a list, not a wait.
-export function ReviewStep({ groups, look = [], notes, list, listCount = 0, extra }: { groups: ReviewGroup[]; look?: ReviewItem[]; notes: ReviewItem[]; list?: React.ReactNode; listCount?: number; extra?: React.ReactNode }) {
+export function ReviewStep({ groups, notes, list, listCount = 0, extra }: { groups: ReviewGroup[]; notes: ReviewItem[]; list?: React.ReactNode; listCount?: number; extra?: React.ReactNode }) {
   const waiting = groups.reduce((n, g) => n + g.items.length, 0);
   return (
     <div className="grid gap-4">
@@ -47,20 +46,6 @@ export function ReviewStep({ groups, look = [], notes, list, listCount = 0, extr
             </ul>
           </div>
         ))}
-      </section>}
-
-      {look.length > 0 && <section aria-label="Entries to look at" className="card grid gap-2" data-look-list>
-        <h2 className="font-semibold">Entries to look at <span className="font-normal text-ink-3">(step 5, {look.length})</span></h2>
-        <p className="text-[12.5px] text-ink-3">Free entries, entries over the review threshold and entries changed after they were made. Step 5&apos;s sign-offs cover them; nothing here holds up step 7.</p>
-        <ul className="divide-y divide-sand-100 rounded-lg border border-sand-200">
-          {look.map((it) => (
-            <li key={it.href} className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 text-sm">
-              <span className="min-w-0"><Link href={it.href} className="font-medium text-navy-700 underline">{it.label}</Link>
-                {it.detail && <span className="block text-xs text-ink-2">{it.detail}</span>}</span>
-              {it.amount && <span className={`tabular-nums ${isNegativeText(it.amount) ? "text-danger" : ""}`}>{it.amount}</span>}
-            </li>
-          ))}
-        </ul>
       </section>}
 
       {extra}
@@ -128,7 +113,7 @@ import { actionLabel, type HistoryRow } from "@/lib/closebook/history";
 // Round 24 (rule 20): when, who, what, the statement or line, the reason, old and new; filtered by step.
 export function HistoryView({ rows, stepName, steps, current, base, exportBase, changed }: { rows: HistoryRow[]; stepName: (k: string) => string; steps: { key: string; label: string }[];
   current: string | null; base: string; exportBase: string;
-  changed?: { step: string; rows: (HistoryRow & { href: string | null })[] }[] | null }) {
+  changed?: { step: string; rows: (HistoryRow & { href: string | null; also?: string[] })[] }[] | null }) {
   const chip = (on: boolean, href: string, label: string) => <Link key={href} href={href} className={`border px-3 py-1 text-[12.5px] ${on ? "border-navy-700 bg-navy-700 font-semibold text-white" : "border-sand-300 text-ink-2 hover:bg-sand-50"}`}>{label}</Link>;
   const when = (at: string) => `${formatDate(at)} ${new Date(at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`;
   return (
@@ -150,7 +135,8 @@ export function HistoryView({ rows, stepName, steps, current, base, exportBase, 
                 {g.rows.map((r, i) => (
                   <li key={i} className="grid gap-x-3 px-3 py-1.5 text-[12.5px] sm:grid-cols-[10rem_9rem_1fr]">
                     <span className="text-ink-3">{when(r.at)}</span><span>{r.who}</span>
-                    {r.href ? <Link href={r.href} className="text-navy-700 underline">{r.detail || actionLabel(r.action)}</Link> : <span>{r.detail || actionLabel(r.action)}</span>}
+                    <span>{r.href ? <Link href={r.href} className="text-navy-700 underline">{r.detail || actionLabel(r.action)}</Link> : r.detail || actionLabel(r.action)}
+                      {!!r.also?.length && <span className="block text-ink-3">Also affects: {r.also.map(stepName).join("; ")}</span>}</span>
                   </li>))}
               </ul>
             </div>))}

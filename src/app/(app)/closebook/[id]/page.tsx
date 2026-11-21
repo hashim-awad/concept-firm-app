@@ -700,12 +700,13 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
     // affect, grouped by step. A row opens its item.
     const changedOnly = str(sp.changed) === "1";
     const hist = await loadHistory(supabase, id, names, changedOnly ? null : hstep);
-    const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
+    const stepName = (k: string) => { if (k === "mal") return "After the MAL was signed"; const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
+    const malSigned = changedOnly ? ((await supabase.rpc("cb_fs_status", { p_file: id })).data as { mal_signed_at?: string | null } | null)?.mal_signed_at ?? null : null;
     const itemHref = (r: { entryId?: string | null; statementId?: string | null; step: string }) =>
       r.entryId ? `/closebook/${id}?step=entries&open=${r.entryId}` : r.statementId ? `${href("records")}&paper=feeds&ihist=statement:${r.statementId}` : r.step ? href(r.step as StepKey) : null;
     body = <><PageTitle>File history</PageTitle><HistoryView stepName={stepName} rows={hist} current={hstep} base={`/closebook/${id}?history=1`}
       exportBase={`/closebook/${id}/report-export?report=history`} steps={steps.map((x) => ({ key: x.key, label: `${x.n}. ${x.name}` }))}
-      changed={changedOnly ? changedAfterSignoff(hist, review.status, [...STEP_KEYS]).map((g) => ({ ...g, rows: g.rows.map((r) => ({ ...r, href: itemHref(r) })) })) : null} /></>;
+      changed={changedOnly ? changedAfterSignoff(hist, { ...review.status, mal: { reviewed_at: malSigned } }, [...STEP_KEYS, "mal"]).map((g) => ({ ...g, rows: g.rows.map((r) => ({ ...r, href: itemHref(r) })) })) : null} /></>;
   } else {
     const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
       ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];

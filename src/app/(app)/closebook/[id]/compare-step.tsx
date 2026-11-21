@@ -28,19 +28,19 @@ export function CompareStep({ fileId, editable, leadHref, every, newAccounts, un
   const rows = sort === "dollar" ? [...every].sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents))
     : sort === "pct" ? [...every].sort((a, b) => (b.pctValue === null ? -1 : Math.abs(b.pctValue)) - (a.pctValue === null ? -1 : Math.abs(a.pctValue))) : every;
   const sortBtn = (k: "sheet" | "dollar" | "pct", label: string) => <button type="button" onClick={() => setSort(k)} aria-pressed={sort === k} data-compare-sort={k}
-    className={`hover:underline ${sort === k ? "font-semibold text-navy-900" : "text-navy-700"}`}>{label}</button>;
+    className={`h-7 border border-sand-300 px-2.5 text-[12.5px] first:rounded-l last:rounded-r [&+&]:-ml-px ${sort === k ? "bg-navy-900 font-semibold text-white" : "bg-white text-ink-2 hover:bg-sand-50"}`}>{label}</button>;
   const amt = (v: string, href: string) => <Link href={href} className="text-navy-700 hover:underline" data-compare-amount>{v}</Link>;
   return (
-    <div className="grid gap-5" data-compare-step>
+    <div className="grid min-w-0 gap-5" data-compare-step>
       {err && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{err}</p>}
 
-      <section aria-label="Every line" id="every-line">
+      <section aria-label="Every line" id="every-line" className="min-w-0">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-[14px] font-semibold text-navy-900">Every line <span className="ml-1 text-[12.5px] font-normal text-ink-3">Last year against this year. A reason and note are optional.</span></h2>
-          <span className="flex items-baseline gap-3 text-[12.5px]"><span className="text-ink-3">Sort:</span>{sortBtn("sheet", "Lead sheet")}{sortBtn("dollar", "$ change")}{sortBtn("pct", "% change")}
-            <Link href={leadHref} className="font-medium text-navy-700 hover:underline" data-lead-view>Lead sheets view</Link></span>
+          <span className="flex flex-wrap items-center gap-3 text-[12.5px]"><Link href={leadHref} className="font-medium text-navy-700 hover:underline" data-lead-view>Lead sheets view</Link>
+            <span className="inline-flex items-center" role="group" aria-label="Sort"><span className="mr-2 text-ink-3">Sort by</span>{sortBtn("sheet", "Lead sheet")}{sortBtn("dollar", "$ change")}{sortBtn("pct", "% change")}</span></span>
         </div>
-        <div className="card overflow-x-auto p-0">
+        <div className="card min-w-0 overflow-x-auto p-0">
           <table className="w-full min-w-[1040px] table-fixed">
             <colgroup><col className="w-[19%]" /><col className="w-[15%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[7%]" /><col className="w-[13%]" /><col className="w-[16%]" /></colgroup>
             <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Lead sheet</th><th className={`${th} text-right`}>Last year</th><th className={`${th} text-right`}>This year</th>

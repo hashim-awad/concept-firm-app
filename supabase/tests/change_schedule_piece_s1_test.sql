@@ -44,10 +44,13 @@ select test.check('S1-2: Home office changed on the same entry', :'h2' = :'h'
 select test.check('S1-2: Expenses paid personally changed on the same entry', :'x2' = :'x'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'x') = 650);
 
--- S1-3 an amount from a schedule still changes only in its schedule.
-select test.check('S1-3: a schedule amount is not changed outside its schedule',
+-- S1-3 (CB2-0 review round): an amount from a schedule can change on the entry; History records the edit.
+select test.check('S1-3: a schedule amount changes outside its schedule',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule')$q$, :'v', replace(:vlines, '8300', '9900')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'OK');
+reset role;
+select test.check('S1-3: History has the edit, one row', (select count(*) from public.cb_file_history where entry_id = :'v' and action = 'entry_edited' and reason = 'description, lines' and new_value like '%9,900.00%') = 1);
+set role authenticated;
 
 -- S1-6 the step 5 sign-offs are kept when the schedule changes (CB2-0 step 2); History has the change.
 reset role;

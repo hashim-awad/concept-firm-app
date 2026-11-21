@@ -30,12 +30,10 @@ const whole = (v: number) => v.toLocaleString("en-US");
 export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper }: { fileId: string; g: G; staff: Map<string, string>; editable: boolean; canReview: boolean; rounding?: RoundingLine; paper?: string }) {
   const show = (k: string) => !paper || paper === k;
   const hidden = <input type="hidden" name="file_id" value={fileId} />;
-  const anyOpen = g.tieItems.some((t) => t.open);
   return (
     <div className="grid gap-4">
       {g.stale && (
-        <p role="alert" className="rounded-lg border border-danger/40 bg-danger/5 px-4 py-3 text-sm font-medium text-danger">
-          The trial balance changed after the final export. Export again and import it into ProFile.</p>
+        <p className="text-sm text-ink-2">The trial balance changed after the final export. Export again before you file.</p>
       )}
 
       {show("gifi") && <>
@@ -86,7 +84,7 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
             <tbody>{g.exports.map((e) => (
               <tr key={e.id}><td className="whitespace-nowrap">{KIND_LABEL[e.kind] === "final" ? "Final" : "Before tax entries"}</td><td>{e.file_name}</td>
                 <td>{e.created_by ? staff.get(e.created_by) ?? "" : ""}</td><td className="whitespace-nowrap">{when(e.created_at)}</td>
-                <td>{e.kind === "final" ? (e.id === g.final?.id ? (g.stale ? chip(false, "", "Stale") : chip(true, "Current")) : <span className="text-xs text-ink-3">Replaced</span>) : null}</td>
+                <td>{e.kind === "final" ? (e.id === g.final?.id ? (g.stale ? chip(false, "", "Out of date") : chip(true, "Current")) : <span className="text-xs text-ink-3">Replaced</span>) : null}</td>
                 <td><a href={`/closebook/${fileId}/gifi?export=${e.id}`} className="text-sm text-navy-700 underline">Download</a></td></tr>
             ))}</tbody>
           </table>
@@ -154,7 +152,7 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
                   : t.diff === 0 ? chip(true, "Ties")
                   : t.rounding ? <span className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800">Rounding</span>
                   : !t.open && t.accepted ? <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Accepted by {staff.get(t.accepted.by) ?? "the reviewer"}: {t.accepted.reason}</span>
-                  : <span className="grid gap-1"><span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Blocks the preparer&rsquo;s sign-off</span>
+                  : <span className="grid gap-1"><span className="rounded bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">Open difference</span>
                       {t.accepted && <span className="text-xs text-ink-2">Accepted at {fmt(t.accepted.diff)}; the difference changed.</span>}
                       {canReview && editable && (
                         <ActionForm action={acceptT2Difference} className="flex flex-wrap items-center gap-2">{hidden}<input type="hidden" name="item" value={t.key} />
@@ -163,7 +161,6 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
             ))}</tbody>
           </table>
           <p className="text-xs text-ink-3">Rounding allowed: {fmt(g.roundingAllowed)}</p>
-          {anyOpen && <p className="text-sm text-danger">A red difference blocks sign-off.</p>}
         </>)}
           {editable && (
             <ActionForm action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}

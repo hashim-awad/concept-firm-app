@@ -13,6 +13,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),
   ('00000000-0000-0000-0000-00000000000b', 'viewer.b@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.create_role('Viewer', 'Closebook view') as vr \gset
@@ -130,7 +143,7 @@ select public.cb_set_bank_coverage(:'chq2', null, null, '');
 select public.cb_import_statement('00000000-0000-0000-0000-0000000022b1', ('[{"key":"a1","account":"' || :'chq2' || '","opening":5860.00,"closing":5410.00,"period_start":"2025-09-01","period_end":"2025-09-30","at_start":5860.00,"at_end":null,"rows":[{"line":1,"date":"2025-09-04","description":"CHEQUE #204","amount":-450.00}],"check":{},"edits":{}}]')::jsonb, false, '');
 select test.check('an unexplained difference at the start blocks', test.rp(:'f') like '%10010 Chequing · NDB ••• 3302: the start of the year differs from the bank by (450.00). Explain it.%');
 select id as l204 from public.cb_bank_lines where account_id = :'chq2' \gset
-select test.check('the clearing line must be for the same amount', test.try(format($q$select public.cb_add_outstanding(%L, 'start', '2025-08-28', 'Cheque #204', 'out', 45, %L)$q$, :'chq2', :'l204')) like '%same amount%');
+select test.check('the clearing line may be for another amount (CB2-0 review round: the reconciliation shows the difference; rolled back here)', test.try_rollback(format($q$select public.cb_add_outstanding(%L, 'start', '2025-08-28', 'Cheque #204', 'out', 45, %L)$q$, :'chq2', :'l204')) = 'OK');
 select public.cb_add_outstanding(:'chq2', 'start', '2025-08-28', 'Cheque #204', 'out', 450, :'l204') as item \gset
 select test.check('explained: the difference is gone', test.rp(:'f') not like '%10010 Chequing · NDB ••• 3302: the start of the year%');
 select test.check('the line that cleared it posts nothing', (select status = 'matched' and source = 'outstanding' from public.cb_bank_lines where id = :'l204'));
