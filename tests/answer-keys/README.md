@@ -11,3 +11,11 @@ Reclass, Final), net income, every GIFI line and every GST/HST return line.
   `npm run answer-keys -- <folder> --write`. One new folder, no code.
 - Change an expected figure: only with a written reason in the PR (`--write` rewrites the answer key).
 - Dummy data only. No real client names or figures.
+
+## Answer keys given as CSV files (`source/`)
+Some keys are written by hand (a disguised real file, tests only). `scripts/answer-keys/build-from-csv.ts <csv folder>
+<folder>` builds the client through the app's own save functions (file, setup, step 2, bank accounts, CSV import,
+coding with splits, entries), saves it as a normal folder and copies the CSV files to `source/`. Every run also checks
+the engine against `source/answer_key.json`; `known-differences.json` lists any expected difference with its reason.
+`tests/closebook-answer-key-schedules.test.ts` checks the schedule calculators against `source/schedule_inputs.json`.
+Never copy a figure, name or description from `source/` into code, docs, screens or other tests.

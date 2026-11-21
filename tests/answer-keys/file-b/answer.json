@@ -1,0 +1,434 @@
+[
+ {
+  "year_end": "2026-08-31",
+  "books": "statements",
+  "tb": [
+   {
+    "account": "10000",
+    "name": "Chequing · RBC Chq ••• 0001",
+    "gifi": "1002",
+    "prior": 164,
+    "prelim": 41.4,
+    "adj": 0,
+    "reclass": 0,
+    "final": 41.4
+   },
+   {
+    "account": "10500",
+    "name": "Petty cash",
+    "gifi": "1001",
+    "prior": 1000,
+    "prelim": 1000,
+    "adj": 0,
+    "reclass": 0,
+    "final": 1000
+   },
+   {
+    "account": "13000",
+    "name": "Due from shareholder 1",
+    "gifi": "1301.10",
+    "prior": 0,
+    "prelim": 45911.05,
+    "adj": 0,
+    "reclass": -45911.05,
+    "final": 0
+   },
+   {
+    "account": "15000",
+    "name": "Computer equipment",
+    "gifi": "1774",
+    "prior": 3200,
+    "prelim": 3200,
+    "adj": 0,
+    "reclass": 0,
+    "final": 3200
+   },
+   {
+    "account": "15050",
+    "name": "Accumulated amortization – computer equipment",
+    "gifi": "1775",
+    "prior": -3194,
+    "prelim": -3194,
+    "adj": -3,
+    "reclass": 0,
+    "final": -3197
+   },
+   {
+    "account": "15200",
+    "name": "Equipment",
+    "gifi": "1740",
+    "prior": 1182,
+    "prelim": 1182,
+    "adj": 0,
+    "reclass": 0,
+    "final": 1182
+   },
+   {
+    "account": "15250",
+    "name": "Accumulated amortization – equipment",
+    "gifi": "1741",
+    "prior": -1004,
+    "prelim": -1004,
+    "adj": -36,
+    "reclass": 0,
+    "final": -1040
+   },
+   {
+    "account": "15700",
+    "name": "Tools and dies",
+    "gifi": "1744",
+    "prior": 454,
+    "prelim": 454,
+    "adj": 0,
+    "reclass": 0,
+    "final": 454
+   },
+   {
+    "account": "15750",
+    "name": "Accumulated amortization – tools and dies",
+    "gifi": "1745",
+    "prior": -399,
+    "prelim": -399,
+    "adj": -11,
+    "reclass": 0,
+    "final": -410
+   },
+   {
+    "account": "21100",
+    "name": "Accrued liabilities",
+    "gifi": "2620",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -3049.87,
+    "reclass": 0,
+    "final": -3049.87
+   },
+   {
+    "account": "21400",
+    "name": "Income taxes payable",
+    "gifi": "2680",
+    "prior": -9589,
+    "prelim": -9589,
+    "adj": 0,
+    "reclass": 0,
+    "final": -9589
+   },
+   {
+    "account": "21500",
+    "name": "GST/HST payable",
+    "gifi": "2680",
+    "prior": 0,
+    "prelim": -5008.52,
+    "adj": 3246.36,
+    "reclass": 0,
+    "final": -1762.16
+   },
+   {
+    "account": "21700",
+    "name": "Customer deposits",
+    "gifi": "2961",
+    "prior": 0,
+    "prelim": -7539.5,
+    "adj": 0,
+    "reclass": 0,
+    "final": -7539.5
+   },
+   {
+    "account": "22000",
+    "name": "Credit card · RBC MC ••• 0002",
+    "gifi": "2707",
+    "prior": -22640,
+    "prelim": -22966.87,
+    "adj": 0,
+    "reclass": 0,
+    "final": -22966.87
+   },
+   {
+    "account": "22100",
+    "name": "Line of credit · RBC LOC ••• 0003",
+    "gifi": "2701",
+    "prior": -5750,
+    "prelim": -4750,
+    "adj": 0,
+    "reclass": 0,
+    "final": -4750
+   },
+   {
+    "account": "23000",
+    "name": "Due to shareholder 1",
+    "gifi": "2781.10",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -31451.85,
+    "reclass": 31451.85,
+    "final": 0
+   },
+   {
+    "account": "25400",
+    "name": "Loan from shareholder (long-term)",
+    "gifi": "3261",
+    "prior": -25103,
+    "prelim": -25103,
+    "adj": 0,
+    "reclass": 14459.2,
+    "final": -10643.8
+   },
+   {
+    "account": "30000",
+    "name": "Common shares",
+    "gifi": "3500",
+    "prior": -1000,
+    "prelim": -1000,
+    "adj": 0,
+    "reclass": 0,
+    "final": -1000
+   },
+   {
+    "account": "31000",
+    "name": "Retained earnings",
+    "gifi": "3600",
+    "prior": 41930,
+    "prelim": 62678.48,
+    "adj": 0,
+    "reclass": 0,
+    "final": 62678.48
+   },
+   {
+    "account": "40000",
+    "name": "Sales",
+    "gifi": "8000",
+    "prior": 0,
+    "prelim": -55085,
+    "adj": 0,
+    "reclass": 0,
+    "final": -55085
+   },
+   {
+    "account": "50000",
+    "name": "Purchases and materials",
+    "gifi": "8320",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 676.12,
+    "reclass": 0,
+    "final": 676.12
+   },
+   {
+    "account": "50200",
+    "name": "Direct wages",
+    "gifi": "8340",
+    "prior": 0,
+    "prelim": 9209.73,
+    "adj": 0,
+    "reclass": 0,
+    "final": 9209.73
+   },
+   {
+    "account": "60000",
+    "name": "Advertising",
+    "gifi": "8521",
+    "prior": 0,
+    "prelim": 636.87,
+    "adj": 184.8,
+    "reclass": 0,
+    "final": 821.67
+   },
+   {
+    "account": "60200",
+    "name": "Meals and entertainment",
+    "gifi": "8523",
+    "prior": 0,
+    "prelim": 397.75,
+    "adj": 1271.46,
+    "reclass": 0,
+    "final": 1669.21
+   },
+   {
+    "account": "61500",
+    "name": "Amortization",
+    "gifi": "8670",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 50,
+    "reclass": 0,
+    "final": 50
+   },
+   {
+    "account": "62000",
+    "name": "Insurance",
+    "gifi": "8690",
+    "prior": 0,
+    "prelim": 1128.6,
+    "adj": 0,
+    "reclass": 0,
+    "final": 1128.6
+   },
+   {
+    "account": "63000",
+    "name": "Bank charges",
+    "gifi": "8715",
+    "prior": 0,
+    "prelim": 5717.82,
+    "adj": 0,
+    "reclass": 0,
+    "final": 5717.82
+   },
+   {
+    "account": "64000",
+    "name": "Licences and permits",
+    "gifi": "8764",
+    "prior": 0,
+    "prelim": 452.37,
+    "adj": 0,
+    "reclass": 0,
+    "final": 452.37
+   },
+   {
+    "account": "65000",
+    "name": "Office supplies",
+    "gifi": "8811",
+    "prior": 0,
+    "prelim": 40.16,
+    "adj": 324.58,
+    "reclass": 0,
+    "final": 364.74
+   },
+   {
+    "account": "65100",
+    "name": "Office expenses",
+    "gifi": "8810",
+    "prior": 0,
+    "prelim": 15.39,
+    "adj": 4050.51,
+    "reclass": 0,
+    "final": 4065.9
+   },
+   {
+    "account": "65300",
+    "name": "Postage, courier and freight",
+    "gifi": "9275",
+    "prior": 0,
+    "prelim": 400,
+    "adj": 70.61,
+    "reclass": 0,
+    "final": 470.61
+   },
+   {
+    "account": "66000",
+    "name": "Accounting fees",
+    "gifi": "8862",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 2699,
+    "reclass": 0,
+    "final": 2699
+   },
+   {
+    "account": "66100",
+    "name": "Legal fees",
+    "gifi": "8861",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 985.76,
+    "reclass": 0,
+    "final": 985.76
+   },
+   {
+    "account": "66500",
+    "name": "Training and education",
+    "gifi": "8876",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 15.42,
+    "reclass": 0,
+    "final": 15.42
+   },
+   {
+    "account": "70200",
+    "name": "Travel",
+    "gifi": "9200",
+    "prior": 0,
+    "prelim": 256.31,
+    "adj": 3025.87,
+    "reclass": 0,
+    "final": 3282.18
+   },
+   {
+    "account": "70500",
+    "name": "Telephone",
+    "gifi": "9225",
+    "prior": 0,
+    "prelim": 2246.88,
+    "adj": 16.51,
+    "reclass": 0,
+    "final": 2263.39
+   },
+   {
+    "account": "70600",
+    "name": "Vehicle expenses",
+    "gifi": "9281",
+    "prior": 0,
+    "prelim": 670.08,
+    "adj": 17934.72,
+    "reclass": 0,
+    "final": 18604.8
+   }
+  ],
+  "net_income": 2607.68,
+  "gifi": {
+   "1001": 1000,
+   "1002": 41.4,
+   "1740": 1182,
+   "1741": -1040,
+   "1744": 454,
+   "1745": -410,
+   "1774": 3200,
+   "1775": -3197,
+   "2620": 3049.87,
+   "2680": 11351.16,
+   "2701": 4750,
+   "2707": 22966.87,
+   "2961": 7539.5,
+   "3261": 10643.8,
+   "3500": 1000,
+   "3660": -62678.48,
+   "8000": 55085,
+   "8320": 676.12,
+   "8340": 9209.73,
+   "8521": 821.67,
+   "8523": 1669.21,
+   "8670": 50,
+   "8690": 1128.6,
+   "8715": 5717.82,
+   "8764": 452.37,
+   "8810": 4065.9,
+   "8811": 364.74,
+   "8861": 985.76,
+   "8862": 2699,
+   "8876": 15.42,
+   "9200": 3282.18,
+   "9225": 2263.39,
+   "9275": 470.61,
+   "9281": 18604.8
+  },
+  "gst": [
+   {
+    "period": "2025-09-01 to 2026-08-31",
+    "lines": {
+     "101": 55085,
+     "103": 7161.05,
+     "104": 0,
+     "105": 7161.05,
+     "106": 4993.95,
+     "107": 0,
+     "108": 4993.95,
+     "109": 2167.1,
+     "110": 404.94,
+     "111": 0,
+     "112": 404.94,
+     "113": 1762.16
+    }
+   }
+  ]
+ }
+]

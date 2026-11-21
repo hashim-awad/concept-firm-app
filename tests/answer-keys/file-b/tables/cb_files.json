@@ -1,0 +1,42 @@
+[
+ {
+  "id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "client_id": "5cb7ab12-c972-4036-aca6-9e05987d058a",
+  "year_start": "2025-09-01",
+  "year_end": "2026-08-31",
+  "year_change_reason": "",
+  "file_type": "full",
+  "books": "statements",
+  "preparer_id": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewer_id": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "phase": "planning",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-21T01:03:00.473476+00:00",
+  "updated_at": "2026-11-21T01:03:01.582076+00:00",
+  "setup": {
+   "gst_rt": "RT0001",
+   "holdco": false,
+   "payroll": false,
+   "realtor": false,
+   "dividends": false,
+   "owner_paid": true,
+   "quick_method": false,
+   "gst_frequency": "annual",
+   "gst_year_same": true,
+   "gst_registered": true
+  },
+  "opening_source": "manual",
+  "opening_re_stated": -62679,
+  "opening_set_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "opening_set_at": "2026-11-21T01:03:00.637998+00:00",
+  "opening_note": "",
+  "opening_pdf": null,
+  "opening_ni_typed": -20749,
+  "opening_signed_by": null,
+  "opening_signed_at": null,
+  "first_year": false,
+  "excluded_reviewed_key": null,
+  "excluded_reviewed_by": null,
+  "excluded_reviewed_at": null
+ }
+]

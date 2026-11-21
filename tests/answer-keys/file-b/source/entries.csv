@@ -1,0 +1,33 @@
+entry,date,reclass_entry,old_type,account,debit,credit,line_description
+2026-001,2026-08-31,no,AJE,21500,63.01,,2026-001 AJE: Home office (ITC on the business share)
+2026-001,2026-08-31,no,AJE,23000,,4113.52,2026-001 AJE: Home office (Home office costs owed to the owner)
+2026-001,2026-08-31,no,AJE,65100,4050.51,,"2026-001 AJE: Home office (Home office, business share 15.38%)"
+2026-002,2026-08-31,no,AJE,21500,524.41,,2026-002 AJE: Expenses paid personally (ITC on the business share)
+2026-002,2026-08-31,no,AJE,23000,,7275.56,"2026-002 AJE: Expenses paid personally (Expenses paid personally, owed to the owner)"
+2026-002,2026-08-31,no,AJE,50000,676.12,,2026-002 AJE: Expenses paid personally (Purchases and materials)
+2026-002,2026-08-31,no,AJE,60000,184.80,,2026-002 AJE: Expenses paid personally (Client Gift)
+2026-002,2026-08-31,no,AJE,60200,1271.46,,2026-002 AJE: Expenses paid personally (Meal with HST)
+2026-002,2026-08-31,no,AJE,65000,324.58,,2026-002 AJE: Expenses paid personally (Office supplies)
+2026-002,2026-08-31,no,AJE,65300,70.61,,"2026-002 AJE: Expenses paid personally (Postage, courier and freight)"
+2026-002,2026-08-31,no,AJE,66100,985.76,,2026-002 AJE: Expenses paid personally (Legal fees)
+2026-002,2026-08-31,no,AJE,66500,15.42,,2026-002 AJE: Expenses paid personally (Training and education)
+2026-002,2026-08-31,no,AJE,70200,3025.87,,2026-002 AJE: Expenses paid personally (Travel)
+2026-002,2026-08-31,no,AJE,70500,16.51,,2026-002 AJE: Expenses paid personally (Telephone)
+2026-002,2026-08-31,no,AJE,70600,180.02,,2026-002 AJE: Expenses paid personally (Vehicle expenses)
+2026-003,2026-08-31,no,AJE,21500,2395.22,,"2026-003 AJE: Vehicle, owner's car (ITC on the per-km allowance)"
+2026-003,2026-08-31,no,AJE,21500,,87.15,"2026-003 AJE: Vehicle, owner's car (GST/HST on car costs the company paid)"
+2026-003,2026-08-31,no,AJE,23000,,20820.00,"2026-003 AJE: Vehicle, owner's car (Per-km allowance owed to the owner)"
+2026-003,2026-08-31,no,AJE,23000,757.23,,"2026-003 AJE: Vehicle, owner's car (Car costs the company paid: the owner's)"
+2026-003,2026-08-31,no,AJE,70600,18424.78,,"2026-003 AJE: Vehicle, owner's car (Per-km allowance)"
+2026-003,2026-08-31,no,AJE,70600,,670.08,"2026-003 AJE: Vehicle, owner's car (Car costs the company paid)"
+2026-004,2026-08-31,yes,RJE,13000,,45911.05,2026-004 RJE: Reclass Shareholder Account (Reclass Shareholder account)
+2026-004,2026-08-31,yes,RJE,23000,31451.85,,2026-004 RJE: Reclass Shareholder Account (Reclass Shareholder account)
+2026-004,2026-08-31,yes,RJE,25400,45911.05,,2026-004 RJE: Reclass Shareholder Account (Reclass Shareholder account)
+2026-004,2026-08-31,yes,RJE,25400,,31451.85,2026-004 RJE: Reclass Shareholder Account (Reclass Shareholder account)
+2026-005,2026-08-31,no,AJE,21100,,3049.87,"2026-005 AJE: Our fee for this year's financial statements and tax return, owing at year end. (Compiled financial statements and corporate tax return (T2)Fiscal year Sep 01, 2025 to Aug 31, 2026)"
+2026-005,2026-08-31,no,AJE,21500,350.87,,"2026-005 AJE: Our fee for this year's financial statements and tax return, owing at year end. (Sales tax)"
+2026-005,2026-08-31,no,AJE,66000,2699.00,,"2026-005 AJE: Our fee for this year's financial statements and tax return, owing at year end. (Compiled financial statements and corporate tax return (T2)Fiscal year Sep 01, 2025 to Aug 31, 2026)"
+2026-006,2026-08-31,no,TJE,15050,,3.00,2026-006 TJE: FYE 2026-08-31 CCA (FYE 2026-08-31 CCA)
+2026-006,2026-08-31,no,TJE,15250,,36.00,2026-006 TJE: FYE 2026-08-31 CCA (FYE 2026-08-31 CCA)
+2026-006,2026-08-31,no,TJE,15750,,11.00,2026-006 TJE: FYE 2026-08-31 CCA (FYE 2026-08-31 CCA)
+2026-006,2026-08-31,no,TJE,61500,50.00,,2026-006 TJE: FYE 2026-08-31 CCA (FYE 2026-08-31 CCA)

@@ -1,0 +1,22 @@
+[
+ {
+  "id": "406ae2d9-2e57-4594-89e9-e91484a3542c",
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "line_id": "22caac57-cdc0-4dfb-bd2c-d9f59d1464ae",
+  "row_no": 1,
+  "chart_account": "40000",
+  "tax_code": "HST_ON",
+  "amount": 847.5,
+  "memo": ""
+ },
+ {
+  "id": "82799637-c900-4e3b-be71-b2ad02bb9765",
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "line_id": "22caac57-cdc0-4dfb-bd2c-d9f59d1464ae",
+  "row_no": 2,
+  "chart_account": "64000",
+  "tax_code": "OUT_OF_SCOPE",
+  "amount": 159.91,
+  "memo": ""
+ }
+]

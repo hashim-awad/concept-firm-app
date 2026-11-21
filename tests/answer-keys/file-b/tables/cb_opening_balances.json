@@ -1,0 +1,93 @@
+[
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1001",
+  "amount": 1000,
+  "chart_account": "10500",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1002",
+  "amount": 164,
+  "chart_account": null,
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1740",
+  "amount": 1182,
+  "chart_account": "15200",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1741",
+  "amount": -1004,
+  "chart_account": "15250",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1744",
+  "amount": 454,
+  "chart_account": "15700",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1745",
+  "amount": -399,
+  "chart_account": "15750",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1774",
+  "amount": 3200,
+  "chart_account": "15000",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "1775",
+  "amount": -3194,
+  "chart_account": "15050",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "2680",
+  "amount": 9589,
+  "chart_account": "21400",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "2707",
+  "amount": 28390,
+  "chart_account": "22000",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "3260",
+  "amount": 25103,
+  "chart_account": "25400",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "3500",
+  "amount": 1000,
+  "chart_account": "30000",
+  "bank_account": null
+ },
+ {
+  "file_id": "f53afdd9-9bab-4fca-8791-3cdaa8dbea54",
+  "code": "3660",
+  "amount": -41930,
+  "chart_account": "31000",
+  "bank_account": null
+ }
+]

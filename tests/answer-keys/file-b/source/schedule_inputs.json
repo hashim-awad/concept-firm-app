@@ -1,0 +1,163 @@
+{
+  "home_office": {
+    "entry": "2026-001",
+    "home_sq_ft": 1300,
+    "office_sq_ft": 200,
+    "business_share": "15.3846%",
+    "claim_itc": true,
+    "itc_rate": "13/113 ON",
+    "costs": [
+      {
+        "cost": "Interest on mortgage",
+        "paid": 11965.14,
+        "gst_hst": null
+      },
+      {
+        "cost": "Property tax",
+        "paid": 3977.0,
+        "gst_hst": null
+      },
+      {
+        "cost": "General repairs and maintenance",
+        "paid": 560.0,
+        "gst_hst": 64.42
+      },
+      {
+        "cost": "Home insurance",
+        "paid": 875.76,
+        "gst_hst": null
+      },
+      {
+        "cost": "Electricity and heat",
+        "paid": 1920.0,
+        "gst_hst": 220.88
+      },
+      {
+        "cost": "Other",
+        "paid": 7440.0,
+        "gst_hst": 124.25
+      }
+    ],
+    "expected": {
+      "total_paid": 26737.9,
+      "total_gst_hst": 409.55,
+      "business_share": 4113.52,
+      "itc": 63.01,
+      "expense": 4050.51,
+      "owed_to_owner": 4113.52
+    }
+  },
+  "expenses_paid_personally": {
+    "entry": "2026-002",
+    "claim_itc": true,
+    "itc_rate": "13/113 ON",
+    "lines": [
+      {
+        "account": "60200",
+        "what": "Meal with HST",
+        "paid": 1344.39,
+        "gst_hst": 145.86,
+        "business_pct": 100,
+        "note": "meals: half the GST/HST"
+      },
+      {
+        "account": "60000",
+        "what": "Client Gift",
+        "paid": 203.46,
+        "gst_hst": 18.66,
+        "business_pct": 100
+      },
+      {
+        "account": "66100",
+        "paid": 985.76,
+        "gst_hst": 0.0,
+        "business_pct": 100
+      },
+      {
+        "account": "50000",
+        "paid": 777.16,
+        "gst_hst": 101.04,
+        "business_pct": 100
+      },
+      {
+        "account": "65300",
+        "paid": 81.15,
+        "gst_hst": 10.54,
+        "business_pct": 100
+      },
+      {
+        "account": "65000",
+        "paid": 361.24,
+        "gst_hst": 36.66,
+        "business_pct": 100
+      },
+      {
+        "account": "70500",
+        "paid": 18.98,
+        "gst_hst": 2.47,
+        "business_pct": 100
+      },
+      {
+        "account": "66500",
+        "paid": 16.23,
+        "gst_hst": 0.81,
+        "business_pct": 100
+      },
+      {
+        "account": "70200",
+        "paid": 3303.08,
+        "gst_hst": 277.21,
+        "business_pct": 100
+      },
+      {
+        "account": "70600",
+        "paid": 184.11,
+        "gst_hst": 4.09,
+        "business_pct": 100
+      }
+    ],
+    "expected": {
+      "expenses": 6751.15,
+      "itc": 524.41,
+      "owed_to_owner": 7275.56
+    }
+  },
+  "vehicle": {
+    "entry": "2026-003",
+    "mode": "Prorated",
+    "period": "2025-09-01 to 2026-08-31",
+    "business_km": 30780,
+    "total_km": 32400,
+    "owner_paid_personally": 188.2,
+    "owner_paid_gst_hst": null,
+    "company_paid_from_accounts": [
+      "70600",
+      "70650",
+      "67300"
+    ],
+    "claim_itc": true,
+    "itc_rate": "13/113 ON",
+    "cra_rates": {
+      "2025": {
+        "first_5000": 0.72,
+        "after": 0.66
+      },
+      "2026": {
+        "first_5000": 0.73,
+        "after": 0.67
+      }
+    },
+    "expected": {
+      "company_paid": 757.23,
+      "company_paid_before_tax": 670.08,
+      "company_paid_gst_hst": 87.15,
+      "allowance_2025_part": "10,260 km x 0.66 = 6,771.60 (after 20,520 km already driven in 2025)",
+      "allowance_2026_part": "5,000 km x 0.73 + 15,520 km x 0.67 = 14,048.40",
+      "per_km_allowance": 20820.0,
+      "itc_on_allowance": 2395.22,
+      "actual_costs_95pct": 898.16,
+      "used": "per-km allowance (higher)"
+    }
+  },
+  "cra_rate_note": "CRA automobile allowance rates as entered on the CRA rates page; check against canada.ca, do not hard-code."
+}

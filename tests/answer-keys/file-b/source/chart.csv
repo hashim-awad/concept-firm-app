@@ -1,0 +1,40 @@
+account,name,gifi_line
+10000,Chequing · RBC Chq ••• 0001,1002
+10500,Petty cash,1001
+10900,Clearing,
+13000,Due from shareholder 1,1301.10
+15000,Computer equipment,1774
+15050,Accumulated amortization – computer equipment,1775
+15200,Equipment,1740
+15250,Accumulated amortization – equipment,1741
+15700,Tools and dies,1744
+15750,Accumulated amortization – tools and dies,1745
+21100,Accrued liabilities,2620
+21400,Income taxes payable,2680
+21500,GST/HST payable,2680
+21700,Customer deposits,2961
+22000,Credit card · RBC MC ••• 0002,2707
+22100,Line of credit · RBC LOC ••• 0003,2701
+23000,Due to shareholder 1,2781.10
+25200,Other long-term loan,3140
+25400,Loan from shareholder (long-term),3261
+30000,Common shares,3500
+31000,Retained earnings,3600
+40000,Sales,8000
+50000,Purchases and materials,8320
+50200,Direct wages,8340
+60000,Advertising,8521
+60200,Meals and entertainment,8523
+61500,Amortization,8670
+62000,Insurance,8690
+63000,Bank charges,8715
+64000,Licences and permits,8764
+65000,Office supplies,8811
+65100,Office expenses,8810
+65300,"Postage, courier and freight",9275
+66000,Accounting fees,8862
+66100,Legal fees,8861
+66500,Training and education,8876
+70200,Travel,9200
+70500,Telephone,9225
+70600,Vehicle expenses,9281

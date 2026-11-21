@@ -1,0 +1,19 @@
+{
+  "name": "Spruce Dummy Design Inc.",
+  "owner": "Owner One",
+  "province": "ON",
+  "year_end": "2026-08-31",
+  "first_day": "2025-09-01",
+  "gst_hst": {
+    "filing": "annual",
+    "method": "regular",
+    "period": "2025-09-01 to 2026-08-31"
+  },
+  "bank_accounts": {
+    "10000": "Chequing (feed)",
+    "22000": "Credit card (feed)",
+    "22100": "Line of credit (no feed lines; all lines coded from chequing)"
+  },
+  "instalments_account": null,
+  "note": "No account is marked as GST/HST instalments, so line 110 is 0.00. The 404.94 payment on 2025-11-10 is coded to 21500."
+}

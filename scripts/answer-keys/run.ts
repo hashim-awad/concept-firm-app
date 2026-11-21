@@ -7,6 +7,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { loadFixture, removeLoaded } from "./load.ts";
 import { computeClient, signIn, type FileResult } from "./compute.ts";
+import { checkExternal } from "./external.ts";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write"), keep = args.includes("--keep");
@@ -36,6 +37,15 @@ for (const folder of folders) {
   const client = loadFixture(folder);
   try {
     const got: FileResult[] = await computeClient(sb, client);
+    // A hand-written answer key in source/ (the CSV answer keys) is checked on every run, before the baseline.
+    const ext = path.join(root, folder, "source", "answer_key.json");
+    if (existsSync(ext)) {
+      const kf = path.join(root, folder, "known-differences.json");
+      const r = checkExternal(got[got.length - 1], JSON.parse(readFileSync(ext, "utf8")), existsSync(kf) ? JSON.parse(readFileSync(kf, "utf8")) : {});
+      console.log(`${folder}: hand-written key, ${r.checked} figures, ${r.fails.length} difference${r.fails.length === 1 ? "" : "s"}${r.known.length ? `, ${r.known.length} known` : ""}`);
+      for (const l of [...r.fails, ...r.known]) console.log(`  ${l}`);
+      if (r.fails.length) failed++;
+    }
     const file = path.join(root, folder, "answer.json");
     if (write || !existsSync(file)) {
       writeFileSync(file, JSON.stringify(got, null, 1) + "\n");

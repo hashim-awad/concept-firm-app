@@ -1,0 +1,16 @@
+date,account,amount,note
+2025-09-01,10000,164.52,"Balance in the books at the start of the year, Chequing · RBC Chq ••• 0001"
+2025-09-01,10500,1000.00,"Last year's closing balance, GIFI 1001"
+2025-09-01,15000,3200.00,"Last year's closing balance, GIFI 1774"
+2025-09-01,15050,-3194.00,"Last year's closing balance, GIFI 1775"
+2025-09-01,15200,1182.00,"Last year's closing balance, GIFI 1740"
+2025-09-01,15250,-1004.00,"Last year's closing balance, GIFI 1741"
+2025-09-01,15700,454.00,"Last year's closing balance, GIFI 1744"
+2025-09-01,15750,-399.00,"Last year's closing balance, GIFI 1745"
+2025-09-01,21400,-9589.00,"Last year's closing balance, GIFI 2680"
+2025-09-01,22000,-22640.00,"Balance in the books at the start of the year, Credit card · RBC MC ••• 0002"
+2025-09-01,22100,-5750.00,"Balance in the books at the start of the year, Line of credit · RBC LOC ••• 0003"
+2025-09-01,25400,-25103.00,"Last year's closing balance, GIFI 3260"
+2025-09-01,30000,-1000.00,"Last year's closing balance, GIFI 3500"
+2025-09-01,31000,-0.52,"Opening balance rounding, GIFI 1002"
+2025-09-01,31000,62679.00,Retained earnings at the start of the year (last year's 3849)
