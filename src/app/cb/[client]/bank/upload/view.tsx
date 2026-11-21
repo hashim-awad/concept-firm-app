@@ -39,10 +39,11 @@ export function UploadView({ clientId, accounts, initial, saved, years }: { clie
     if (!f) return;
     const g = parseCsv(await f.text());
     if (!g.length) { setErr("The file has no rows."); return; }
-    setFileName(f.name); setGrid(g);
+    // The lines already uploaded first, so the preview never shows a duplicate as new.
+    const keys = await existingKeys(clientId, id);
     const keep = saved[id] && fits(saved[id], g[0].length) ? saved[id] : null;
+    setDups(new Set(keys)); setFileName(f.name); setGrid(g);
     setMap(keep ?? guessMapping(g)); setMapping(!keep);
-    setDups(new Set(await existingKeys(clientId, id)));
   };
   const parsed = useMemo(() => (grid && map ? rowsOf(grid, map) : null), [grid, map]);
   // The account's own signs: money in positive on a bank account; a charge positive on a card.

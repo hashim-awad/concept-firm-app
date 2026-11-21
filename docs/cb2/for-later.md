@@ -85,3 +85,19 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 46. "No year in Closebook covers [date]. Add the year first." for an entry dated where no year file exists (accepted for now).
 47. The opening balances, opening difference and trial balance import entries are view-only in Books ("Change this entry in
     the old Closebook until the switch-over."); at the switch-over they become ordinary entries Books saves and changes.
+
+## From building PR B (Bank transactions, Upload, Rules, Reconcile)
+48. Match finds journal entries of the same amount on the account within 60 days of the line, and lines in another of the
+    client's accounts within 7 days in the same year. QBO also matches bills, invoices and payments; Closebook has none yet.
+49. Categorized: change in place covers the account, tax code, split and memo. A transfer or a match is changed by Undo,
+    then Confirm again.
+50. A suggestion from the last similar line (same vendor) never confirms by itself. Only a rule set to "Automatically
+    confirm" does, and only when a bank file is uploaded.
+51. Upload adds lines only to bank and card accounts that exist in a year file. Adding a new bank or card account from Books
+    comes later.
+52. Balances typed on an upload are kept as typed. The old engine's statement opening and closing (which must tie) are filled
+    only when the upload covers one year and ties; a file spanning two years keeps the typed balances on each year's part.
+53. Reconcile lists Categorized lines only. Lines still For review are counted, with a link to confirm them first (they are
+    not in the books yet). A journal entry posted to the bank account with no bank line is not listed.
+54. Reconciliations in Books and the old Closebook's step 3 statement ties are kept apart until the switch-over.
+55. Rules run in the order they were added. Changing the order (QBO lets you drag them) comes later.

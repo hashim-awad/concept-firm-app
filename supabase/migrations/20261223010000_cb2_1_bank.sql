@@ -10,6 +10,10 @@
 -- ---------- 1. Upload
 alter table public.cb_bank_statements alter column opening drop not null;
 alter table public.cb_bank_statements alter column closing drop not null;
+-- The balances typed at upload, kept as typed. The old engine's opening and closing (which must tie to the lines) are filled
+-- only when the upload covers one year and ties; a difference is a warning, never a refusal.
+alter table public.cb_bank_statements add column if not exists stated_opening numeric(14, 2);
+alter table public.cb_bank_statements add column if not exists stated_closing numeric(14, 2);
 create table if not exists public.cb_books_csv_maps (
   id uuid primary key default gen_random_uuid(),
   firm_id uuid not null default private.cb_default_firm() references public.firms (id),
@@ -109,7 +113,7 @@ create or replace function public.cb_books_upload(p_client uuid, p_ident text, p
   p_closing numeric default null, p_mapping jsonb default null) returns jsonb
  language plpgsql security definer set search_path to ''
 as $function$
-declare f public.cb_files; v_acc uuid; v_stmt uuid; v_n int := 0; v_out jsonb := '[]'::jsonb; v_missing text; v_row jsonb; v_cnt int;
+declare f public.cb_files; v_acc uuid; v_stmt uuid; v_n int := 0; v_out jsonb := '[]'::jsonb; v_missing text; v_row jsonb; v_cnt int; v_ties boolean;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook to upload.');
   perform private.cb_books_client(p_client);
@@ -122,14 +126,21 @@ begin
   select string_agg(distinct to_char((r ->> 'date')::date, 'Mon FMDD, YYYY'), ', ') into v_missing from jsonb_array_elements(p_rows) r
    where not exists (select 1 from public.cb_files x where x.cb_client_id = p_client and (r ->> 'date')::date between x.year_start and x.year_end);
   perform private.require(v_missing is null, format('No year in Closebook covers %s. Add the year first.', v_missing));
+  perform private.require((p_opening is null or round(p_opening, 2) = p_opening) and (p_closing is null or round(p_closing, 2) = p_closing), 'Balances have at most 2 decimals.');
+  -- Both balances given, one year, and opening plus the lines equals closing.
+  v_ties := p_opening is not null and p_closing is not null
+    and (select count(distinct x.id) from public.cb_files x, jsonb_array_elements(p_rows) r where x.cb_client_id = p_client and (r ->> 'date')::date between x.year_start and x.year_end) = 1
+    and p_opening + (select sum((r ->> 'amount')::numeric) from jsonb_array_elements(p_rows) r) = p_closing;
   for f in select * from public.cb_files x where x.cb_client_id = p_client
       and exists (select 1 from jsonb_array_elements(p_rows) r where (r ->> 'date')::date between x.year_start and x.year_end) order by x.year_end loop
     perform private.require(f.phase <> 'locked', format('The year ending %s is locked.', to_char(f.year_end, 'Mon FMDD, YYYY')));
     v_acc := private.cb_books_bank_account(f, p_ident);
     select count(*) into v_cnt from jsonb_array_elements(p_rows) r where (r ->> 'date')::date between f.year_start and f.year_end;
-    insert into public.cb_bank_statements (file_id, account_id, file_name, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total, uploaded_by)
+    insert into public.cb_bank_statements (file_id, account_id, file_name, first_date, last_date, period_start, period_end, opening, closing, stated_opening, stated_closing,
+           lines, plus_total, minus_total, uploaded_by)
     select f.id, v_acc, left(coalesce(p_file_name, ''), 200), min((r ->> 'date')::date), max((r ->> 'date')::date), min((r ->> 'date')::date), max((r ->> 'date')::date),
-           p_opening, p_closing, count(*), coalesce(sum((r ->> 'amount')::numeric) filter (where (r ->> 'amount')::numeric > 0), 0),
+           case when v_ties then p_opening end, case when v_ties then p_closing end, p_opening, p_closing,
+           count(*), coalesce(sum((r ->> 'amount')::numeric) filter (where (r ->> 'amount')::numeric > 0), 0),
            coalesce(sum((r ->> 'amount')::numeric) filter (where (r ->> 'amount')::numeric < 0), 0), (select auth.uid())
       from jsonb_array_elements(p_rows) r where (r ->> 'date')::date between f.year_start and f.year_end
     returning id into v_stmt;
@@ -277,8 +288,9 @@ end;
 $function$;
 
 -- Reconcile: the lines ticked as cleared, the statement's ending date and balance. The beginning balance is the last
--- finished reconciliation's ending balance (nil at the first). Finish works with a difference; the difference is recorded.
-create or replace function public.cb_books_reconcile(p_client uuid, p_ident text, p_date date, p_ending numeric, p_lines uuid[]) returns uuid
+-- finished reconciliation's ending balance; at the first, the account's opening balance in Books (p_opening, as QBO).
+-- Finish works with a difference; the difference is recorded.
+create or replace function public.cb_books_reconcile(p_client uuid, p_ident text, p_date date, p_ending numeric, p_lines uuid[], p_opening numeric default 0) returns uuid
  language plpgsql security definer set search_path to ''
 as $function$
 declare v_begin numeric; v_cleared numeric; v uuid; v_bad int;
@@ -290,7 +302,8 @@ begin
    where l.id = any (coalesce(p_lines, '{}')) and (f.cb_client_id <> p_client or coalesce(nullif(a.number, ''), a.chart_account) <> p_ident or l.status = 'excluded' or l.txn_date > p_date
      or exists (select 1 from public.cb_books_reconciliations r where r.cb_client_id = p_client and r.status = 'finished' and l.id = any (r.lines)));
   perform private.require(v_bad = 0, 'A line ticked is not this account''s, is excluded, is after the statement date, or is already reconciled.');
-  select coalesce((select ending from public.cb_books_reconciliations where cb_client_id = p_client and ident = p_ident and status = 'finished' order by statement_date desc, created_at desc limit 1), 0)
+  perform private.require(p_opening is not null and round(p_opening, 2) = p_opening, 'The opening balance has at most 2 decimals.');
+  select coalesce((select ending from public.cb_books_reconciliations where cb_client_id = p_client and ident = p_ident and status = 'finished' order by statement_date desc, created_at desc limit 1), p_opening)
     into v_begin;
   select coalesce(sum(amount), 0) into v_cleared from public.cb_bank_lines where id = any (coalesce(p_lines, '{}'));
   insert into public.cb_books_reconciliations (cb_client_id, ident, statement_date, beginning, ending, cleared, difference, lines, created_by)
@@ -320,10 +333,10 @@ $function$;
 
 revoke all on function private.cb_books_bank_account(public.cb_files, text), private.cb_books_rule_text(public.cb_books_rules) from public, anon, authenticated;
 revoke all on function public.cb_books_upload(uuid, text, text, jsonb, numeric, numeric, jsonb), public.cb_books_match_entry(uuid, uuid), public.cb_books_unmatch_entry(uuid),
-  public.cb_books_save_rule(uuid, uuid, jsonb), public.cb_books_rule_action(uuid, text), public.cb_books_reconcile(uuid, text, date, numeric, uuid[]),
+  public.cb_books_save_rule(uuid, uuid, jsonb), public.cb_books_rule_action(uuid, text), public.cb_books_reconcile(uuid, text, date, numeric, uuid[], numeric),
   public.cb_books_undo_reconcile(uuid) from public, anon;
 grant execute on function public.cb_books_upload(uuid, text, text, jsonb, numeric, numeric, jsonb), public.cb_books_match_entry(uuid, uuid), public.cb_books_unmatch_entry(uuid),
-  public.cb_books_save_rule(uuid, uuid, jsonb), public.cb_books_rule_action(uuid, text), public.cb_books_reconcile(uuid, text, date, numeric, uuid[]),
+  public.cb_books_save_rule(uuid, uuid, jsonb), public.cb_books_rule_action(uuid, text), public.cb_books_reconcile(uuid, text, date, numeric, uuid[], numeric),
   public.cb_books_undo_reconcile(uuid) to authenticated;
 
 -- Confirm (QBO Bank transactions): each line routed to its year file. kind: code (account and tax code), split (rows of

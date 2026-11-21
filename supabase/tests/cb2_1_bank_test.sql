@@ -34,6 +34,16 @@ select test.check('upload with no balances: 1 line in 2025, 4 in 2026; the 2025 
   and (select opening is null and closing is null from public.cb_bank_statements where file_id = :'f1'));
 select test.check('the column mapping is kept for the account', (select mapping ->> 'dateFormat' from public.cb_books_csv_maps where cb_client_id = :'c' and ident = :'chq_no') = 'YYYY-MM-DD');
 set role authenticated;
+-- Balances are optional; a difference is a warning, never a refusal. Typed balances are kept as typed; the old engine's
+-- opening and closing (which must tie) are filled only when the upload is one year and ties.
+select public.cb_books_upload(:'c', :'chq_no', 'april-off.csv', '[{"date":"2026-04-01","description":"DUMMY APRIL A","amount":-10}]', 1000, 5000, null);
+select public.cb_books_upload(:'c', :'chq_no', 'april-ties.csv', '[{"date":"2026-04-02","description":"DUMMY APRIL B","amount":-10}]', 1000, 990, null);
+reset role;
+select test.check('balances that do not tie upload with the balances kept as typed (the difference is only a warning)',
+  (select stated_opening = 1000 and stated_closing = 5000 and opening is null and closing is null from public.cb_bank_statements where file_name = 'april-off.csv'));
+select test.check('balances that tie fill the statement''s opening and closing too',
+  (select opening = 1000 and closing = 990 and stated_closing = 990 from public.cb_bank_statements where file_name = 'april-ties.csv'));
+set role authenticated;
 select test.check('a date no year covers is refused',
   test.try(format($q$select public.cb_books_upload(%L, %L, 'x.csv', '[{"date":"2030-01-01","description":"X","amount":1}]')$q$, :'c', :'chq_no')) = 'No year in Closebook covers Jan 1, 2030. Add the year first.');
 
@@ -114,6 +124,11 @@ select test.check('reconciled: difference nil, then a difference of 8.70 recorde
 set role authenticated;
 select test.check('a line already reconciled cannot be ticked again',
   test.try(format('select public.cb_books_reconcile(%L, %L, ''2026-05-31'', 0, array[%L]::uuid[])', :'c', :'chq_no', :'l_open')) like 'A line ticked%');
+select public.cb_books_reconcile(:'c', :'visa_no', '2026-01-31', 25, '{}'::uuid[], 25) as rec_v1 \gset
+select public.cb_books_reconcile(:'c', :'visa_no', '2026-02-28', 25, '{}'::uuid[], 999) as rec_v2 \gset
+select test.check('the first reconciliation starts from the opening balance in Books; later ones from the last ending balance',
+  (select beginning = 25 and difference = 0 from public.cb_books_reconciliations where id = :'rec_v1')
+  and (select beginning = 25 and difference = 0 from public.cb_books_reconciliations where id = :'rec_v2'));
 select test.check('Undo the later reconciliation first', test.try(format('select public.cb_books_undo_reconcile(%L)', :'rec1')) = 'Undo the later reconciliation first.');
 select public.cb_books_undo_reconcile(:'rec2');
 

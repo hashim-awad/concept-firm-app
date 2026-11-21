@@ -48,7 +48,7 @@ function PastMenu({ clientId, r, canEdit }: { clientId: string; r: PastRec; canE
   );
 }
 
-export function ReconcileView({ clientId, accounts, ident, date, ending, beginning, lines, pending, past, canEdit }: { clientId: string;
+export function ReconcileView({ clientId, accounts, ident, date, ending, beginning, opening, lines, pending, past, canEdit }: { clientId: string; opening: number;
   accounts: { value: string; label: string; kind: "bank" | "card" }[]; ident: string; date: string | null; ending: string; beginning: number; lines: RecLine[]; pending: number;
   past: PastRec[]; canEdit: boolean }) {
   const router = useRouter();
@@ -72,7 +72,7 @@ export function ReconcileView({ clientId, accounts, ident, date, ending, beginni
 
   const finish = () => start(async () => {
     setErr(""); setWarn(false);
-    const r = await finishReconcile(clientId, ident, date!, endC! / 100, cleared.map((l) => l.id));
+    const r = await finishReconcile(clientId, ident, date!, endC! / 100, cleared.map((l) => l.id), opening / 100);
     if (!r.ok) { setErr(r.error); return; }
     setTicked(new Set());
     router.push(`${base}/${r.id}`);
@@ -89,7 +89,7 @@ export function ReconcileView({ clientId, accounts, ident, date, ending, beginni
           <label className="grid gap-1 text-[12px] font-semibold text-ink-3">Statement ending date<input type="date" value={d} onChange={(e) => setD(e.target.value)} className="input input-compact" data-rec-date /></label>
           <label className="grid gap-1 text-[12px] font-semibold text-ink-3">Ending balance<input value={end} onChange={(e) => setEnd(e.target.value)} onBlur={(e) => setEnd(tidyAmount(e.target.value))} inputMode="decimal" className="input input-compact text-right" data-rec-ending /></label>
           {canEdit && <button type="submit" className="btn btn-compact" data-rec-go>Start reconciling</button>}
-          <p className="text-[12px] text-ink-3 sm:col-span-4">Beginning balance: <b>{money(beginning)}</b> (the last reconciliation&apos;s ending balance{past.some((p) => p.status === "finished") ? "" : "; nil at the first"}).</p>
+          <p className="text-[12px] text-ink-3 sm:col-span-4">Beginning balance: <b>{money(beginning)}</b> ({past.some((p) => p.status === "finished") ? "the last reconciliation\u2019s ending balance" : "the account\u2019s opening balance in Books, at the first reconciliation"}).</p>
         </form>
 
         {started && (
