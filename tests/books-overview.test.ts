@@ -13,9 +13,9 @@ test("cash is every account on GIFI lines 1000 to 1007 (petty cash too); receiva
 });
 
 test("due to (from) shareholder nets due-from and due-to lines, short and long term, sub-lines included, any account number", () => {
-  const bal = new Map([["x", -1064380], ["y", 250000], ["z", -10000], ["w", 30000], ["r", -99999]]);
+  const bal = new Map([["x", -2470055], ["y", 250000], ["z", -10000], ["w", 30000], ["r", -99999]]);
   const line: Record<string, string> = { x: "3261.00", y: "1301.10", z: "2781.20", w: "2181.00", r: "2860.00" };
   const f = overviewFigures(bal, (k) => line[k]);
-  assert.equal(f.shareholder, 1064380 - 250000 + 10000 - 30000);   // positive: owed to the shareholder; related parties (2860) left out
+  assert.equal(f.shareholder, 2470055 - 250000 + 10000 - 30000);   // positive: owed to the shareholder; related parties (2860) left out
   assert.deepEqual(f.shareholderKeys.sort(), ["w", "x", "y", "z"]);
 });

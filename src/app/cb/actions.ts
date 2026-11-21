@@ -9,12 +9,12 @@ import { entryActions, VIEW_ONLY_TEXT } from "@/lib/books/view-only";
 const UUID = /^[0-9a-f-]{36}$/;
 export type AccountResult = { ok: true; id: string } | { ok: false; error: string } | { ok: false; merge: { id: string; label: string } };
 
-export async function saveAccount(clientId: string, a: { id?: string; number: string; name: string; type: string; line: string; tax: string; salesTax?: boolean | null }, merge = false): Promise<AccountResult> {
+export async function saveAccount(clientId: string, a: { id?: string; number: string; name: string; type: string; line: string; tax: string }, merge = false): Promise<AccountResult> {
   await requireAccess("closebook", "edit");
   if (!UUID.test(clientId)) return { ok: false, error: "Client not found." };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("cb_books_save_account", { p_client: clientId, p_id: a.id || null, p_number: a.number, p_name: a.name, p_type: a.type,
-    p_line: a.line, p_tax: a.tax, p_merge: merge, p_sales_tax: a.salesTax ?? null });
+    p_line: a.line, p_tax: a.tax, p_merge: merge });
   if (error) {
     const m = /^MERGE\|([0-9a-f-]{36})\|(.*)$/.exec(error.message);
     if (m) return { ok: false, merge: { id: m[1], label: m[2] } };
