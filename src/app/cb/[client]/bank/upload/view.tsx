@@ -92,7 +92,7 @@ export function UploadView({ clientId, accounts, initial, saved, years }: { clie
         <label className="grid gap-1 text-[12px] font-semibold text-ink-3">Account
           <Picker value={ident} options={accounts} onChange={(v) => { setIdent(v); setGrid(null); setMap(null); }} ariaLabel="Account" /></label>
         <label className="grid gap-1 text-[12px] font-semibold text-ink-3">CSV file
-          <input type="file" accept=".csv,text/csv" onChange={(e) => choose(e.target.files?.[0])} className="input input-compact" data-upload-file /></label>
+          <input type="file" accept=".csv,text/csv" onClick={(e) => { e.currentTarget.value = ""; }} onChange={(e) => choose(e.target.files?.[0])} className="input input-compact" data-upload-file /></label>
         {saved[ident] && <p className="text-[12px] text-ink-3 sm:col-span-2">The column mapping from the last upload to this account is used. <button type="button" className="font-semibold text-navy-700 underline" onClick={() => setMapping(true)} disabled={!grid}>Change it</button></p>}
       </div>
 

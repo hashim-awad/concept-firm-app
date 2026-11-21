@@ -38,7 +38,6 @@ function PastMenu({ clientId, r, canEdit }: { clientId: string; r: PastRec; canE
           {canEdit && r.status === "finished" && <button type="button" className={item} data-rec-undo onClick={() => start(async () => {
             setOpen(false); setErr("");
             if (!r.latest) { setErr("Undo the later reconciliation first."); return; }
-            if (!window.confirm(`Undo the reconciliation to ${formatDate(r.date)}? Its lines go back to not reconciled.`)) return;
             const res = await undoReconcile(clientId, r.id);
             if (!res.ok) setErr(res.error); else router.refresh();
           })}>Undo</button>}

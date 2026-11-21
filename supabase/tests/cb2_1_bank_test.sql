@@ -64,8 +64,9 @@ select test.check('confirm posts each line: categorized with its memo, split, tr
   (select status = 'done' and chart_account = '60200' and memo = 'Client meeting' from public.cb_bank_lines where id = :'l_coffee')
   and (select status = 'done' and is_split from public.cb_bank_lines where id = :'l_soft') and (select count(*) from public.cb_line_splits where line_id = :'l_soft') = 2
   and (select status = 'done' and transfer_account = :'visa'::uuid from public.cb_bank_lines where id = :'l_tfr'));
-select test.check('confirming 3 lines writes 3 History rows, one per line',
-  (select count(distinct line_id) from public.cb_file_history where file_id = :'f2' and line_id in (:'l_coffee', :'l_soft', :'l_tfr')) = 3);
+select test.check('confirming 3 lines (one with a memo) writes 3 History rows, one per line, the memo in its row',
+  (select count(*) from public.cb_file_history where file_id = :'f2') - :h0 = 3
+  and (select count(*) from public.cb_file_history where line_id = :'l_coffee' and new_value like '%Client meeting%') = 1);
 set role authenticated;
 select test.check('a split that does not add up is refused',
   test.try(format($q$select public.cb_books_confirm(%L, '[{"id":"%s","kind":"split","rows":[{"account":"65100","tax":"HST_ON","amount":100},{"account":"65000","tax":"HST_ON","amount":1}]}]')$q$, :'c', :'l_office')) like 'Left to split%');
@@ -89,6 +90,18 @@ set role authenticated;
 select public.cb_books_unmatch_entry(:'l_office');
 reset role;
 select test.check('Undo the match: back to For review', (select status = 'new' and matched_entry is null from public.cb_bank_lines where id = :'l_office'));
+-- Confirm selected with a match first: the match leaves no switch on, so the next line still writes its own row.
+select count(*) as h1 from public.cb_file_history where file_id = :'f2' \gset
+set role authenticated;
+select public.cb_books_confirm(:'c', format('[{"id":"%s","kind":"entry","entry":"%s","memo":"Cheque 101"},{"id":"%s","kind":"code","account":"60200","tax":"MEALS_HST_50"}]', :'l_office', :'je', :'l_coffee')::jsonb);
+reset role;
+select test.check('a match then a line in one Confirm selected: one History row each',
+  (select count(*) from public.cb_file_history where file_id = :'f2') - :h1 = 2
+  and (select count(*) from public.cb_file_history where file_id = :'f2' and line_id = :'l_coffee' and action <> 'line_unposted') >= 1);
+set role authenticated;
+select public.cb_books_unmatch_entry(:'l_office');
+select public.cb_unpost_lines(:'f2', array[:'l_coffee']::uuid[]);
+reset role;
 
 -- Exclude with a reason; Undo.
 set role authenticated;

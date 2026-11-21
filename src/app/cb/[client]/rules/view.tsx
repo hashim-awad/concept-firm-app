@@ -159,7 +159,7 @@ export function RulesView({ clientId, rules, accounts, taxes, defaultTax, banks,
                 <td className="hidden px-2 py-2 sm:table-cell">{r.auto_confirm ? "Yes" : "No"}</td>
                 <td className="hidden px-2 py-2 sm:table-cell">{r.active ? "Active" : "Inactive"}</td>
                 <td className="px-2 py-2 text-right"><RuleMenu name={r.name} canEdit={canEdit} onEdit={() => setEdit(r)} onCopy={() => act(r.id, "copy")}
-                  onDelete={() => { if (window.confirm(`Delete the rule ${r.name}? Lines it already confirmed stay as they are.`)) act(r.id, "delete"); }} onHistory={() => router.push(`${base}?history=${r.id}`)} /></td>
+                  onDelete={() => act(r.id, "delete")} onHistory={() => router.push(`${base}?history=${r.id}`)} /></td>
               </tr>
             ))}
           </tbody>

@@ -51,8 +51,6 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 28. Dark mode: Closebook is light only, like Studio (Hashim, Nov 21, 2026).
 29. Settings in Books shows the chart template and the tax codes and rates read only. Today's Closebook screens read the
     same template and rates, so they are still changed where they are kept today until those screens retire.
-30. An entry Books saves for a year's opening balances, opening difference or trial balance import is read by Books only;
-    today's screens keep working them out from the stored figures (so a change made in Books does not show there).
 31. A merge in Books points the account at the other one in Books' reports; the year files keep their own accounts, and
     today's screens still show both.
 32. An entry dated where no year file exists is refused ("No year in Closebook covers ... Add the year first."). Starting a
@@ -94,3 +92,10 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
     not in the books yet). A journal entry posted to the bank account with no bank line is not listed.
 54. Reconciliations in Books and the old Closebook's step 3 statement ties are kept apart until the switch-over.
 55. Rules run in the order they were added. Changing the order (QBO lets you drag them) comes later.
+56. Undo of a match to a journal entry (cb_books_unmatch_entry) does not check the year lock.
+57. The bank account picker and Rules accept only accounts whose number is in the chart template, because the old posting
+    engine needs it. Rule 12: clients who keep their own books bring their own numbers.
+58. The old screens read a statement's opening and closing as nil when a Books upload left them empty (balances that did
+    not tie), so step 3 shows 0.00 there.
+59. Reconcile in the database accepts a line still For review (the screen lists Categorized lines only).
+60. cb_bank_lines.rule_id holds a rule from either the old rules table or the Books one.

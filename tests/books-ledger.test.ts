@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Posting } from "../src/lib/closebook/tb-build.ts";
-import { statements, trialBalance, type LineInfo, type RepAccount } from "../src/lib/closebook/reports.ts";
+import { journal, netIncomeBox, statements, trialBalance, type LineInfo, type RepAccount } from "../src/lib/closebook/reports.ts";
 import { buildBooks, fiscalStart, identOf, rangeInput, type AcctType, type YearIn } from "../src/lib/books/ledger.ts";
 
 const acct = (key: string, number: string, name: string, line_no: string, lastCents = 0): RepAccount => ({ key, number, name, line_no, lastCents });
@@ -67,6 +67,19 @@ test("a later year whose stored opening differs from last year's closing gets on
   assert.equal(bank.prelim, 135000);
   assert.equal(bank.adjust, 0);
   assert.equal(bank.reclass, 0);
+  // Every report: the difference posts as part of the opening (Prelim) in the journal, the net income box and the statements.
+  const mine = now.postings.filter((p) => p.ref === diff.id);
+  assert.ok(mine.length > 0 && mine.every((p) => p.kind === "opening"));
+  const openTxn = journal(now.postings).find((t) => t.kind === "opening")!;
+  const openBank = now.postings.filter((p) => p.kind === "opening" && p.key === "10000").reduce((n, p) => n + p.cents, 0);
+  assert.equal(openTxn.lines.find((l) => l.key === "10000")?.cents, openBank);   // the journal's opening transaction holds the difference
+  assert.ok(mine.some((p) => p.key === "10000" && p.cents === 5000));
+  assert.ok(!journal(now.postings, "entry").some((t) => t.ref === diff.id));
+  const box = netIncomeBox(now.accounts, now.postings, info);
+  assert.equal(box.adjust, 0);
+  assert.equal(box.reclass, 0);
+  const st = statements(trialBalance(now.accounts, now.postings), info);
+  assert.equal(st.bs.assets.now, st.bs.totalLE.now);
 });
 
 test("a trial balance import is one entry at the year end, in Prelim, less the opening", () => {

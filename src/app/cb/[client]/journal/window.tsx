@@ -8,6 +8,7 @@ import { Clock, Copy, GripVertical, HelpCircle, Paperclip, Trash2, X } from "luc
 import { formatDate, formatDateTime } from "@/lib/dates";
 import { bracketAmount, parseAmount, tidyAmount } from "@/lib/closebook/amount";
 import { entryLineTax, type TaxCode } from "@/lib/closebook/sales-tax";
+import { entryActions, VIEW_ONLY_TEXT } from "@/lib/books/view-only";
 import { Picker } from "../../picker";
 import { deleteEntry, saveEntry, uploadEntryFiles } from "../../actions";
 
@@ -42,9 +43,10 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
   const [pending, start] = useTransition();
   const drag = useRef<number | null>(null);
   // Until the switch-over, the opening balances, opening difference and trial balance import entries are view-only here.
-  const viewOnly = !!entry.genId || ["opening_balances", "opening_difference", "tb_import"].includes(entry.origin ?? "");
-  const ro = !canEdit || viewOnly;
-  const act = canEdit && !viewOnly;
+  const acts = entryActions({ origin: entry.origin, generated: !!entry.genId }, canEdit);
+  const viewOnly = acts.viewOnly;
+  const ro = acts.readOnly;
+  const act = acts.save;
   const acct = useMemo(() => new Map(accounts.map((a) => [a.value, a])), [accounts]);
   const code = useMemo(() => new Map(codes.map((c) => [c.code, c])), [codes]);
   const ctx = useMemo(() => years.find((y) => y.from <= date && date <= y.to) ?? years[years.length - 1] ?? { registered: true, quick: false }, [years, date]);
@@ -110,7 +112,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
     <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex flex-col bg-white" data-journal-window>
       {/* Top bar: History (QBO's clock) and the title at the left; Copy, Help and Close at the right. */}
       <div className="flex flex-none items-center gap-2 border-b border-sand-200 px-4 py-2.5">
-        <button type="button" onClick={() => setPanel(panel === "history" ? null : "history")} aria-label="Audit history" title="Audit history" className={iconBtn} disabled={!entry.saved} data-je-history-icon><Clock className="h-5 w-5" /></button>
+        <button type="button" onClick={() => setPanel(panel === "history" ? null : "history")} aria-label="Audit history" title="Audit history" className={iconBtn} disabled={!entry.saved && !entry.genId} data-je-history-icon><Clock className="h-5 w-5" /></button>
         <h1 className="min-w-0 truncate text-[18px] font-bold" data-je-title>{title}</h1>
         <span className="flex-1" />
         {entry.saved && act && <a href={copyHref} className={`${iconBtn} flex items-center gap-1 text-[13px]`} data-je-copy><Copy className="h-4 w-4" />Copy</a>}
@@ -125,7 +127,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
             <label className="grid gap-1 text-[12.5px] font-semibold text-ink-2">Journal no.<input value={no} onChange={(e) => setNo(e.target.value)} disabled={ro || !!entry.genId} maxLength={21} className="input input-compact w-32" data-je-no /></label>
             <label className="flex items-center gap-2 pb-2 text-[13px]"><input type="checkbox" checked={reclass} onChange={(e) => setReclass(e.target.checked)} disabled={ro} className="h-4 w-4" data-je-reclass />Reclass entry</label>
           </div>
-          {viewOnly && <p className="mt-3 rounded-md bg-navy-50 px-3 py-2 text-[13px] text-navy-800" data-je-view-only>Change this entry in the old Closebook until the switch-over.</p>}
+          {viewOnly && <p className="mt-3 rounded-md bg-navy-50 px-3 py-2 text-[13px] text-navy-800" data-je-view-only>{VIEW_ONLY_TEXT}</p>}
           {warnings.length > 0 && <ul className="mt-3 grid gap-1 rounded-md bg-warning-soft px-3 py-2 text-[12.5px] text-warning" data-je-warnings>{warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
           {entry.schedule && <p className="mt-3 text-[12.5px] text-ink-3">Made by a schedule. It edits here as an ordinary entry.</p>}
           {/* Lines: #, Account, Debits, Credits, Description, Sales tax. */}
@@ -200,7 +202,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
             {panel === "history" && <ol className="grid gap-2.5">{history.map((h) => (
               <li key={h.id} className="rounded-md border border-sand-200 p-2.5 text-[12.5px]"><p className="text-[11.5px] text-ink-3">{formatDateTime(h.at)}{h.who ? ` · ${h.who}` : ""}</p><p className="mt-0.5 font-semibold">{h.detail}</p>
                 {(h.old || h.now) && <div className="mt-1 grid gap-1">{h.old && <pre className="whitespace-pre-wrap rounded bg-sand-50 p-1.5 font-sans text-[11.5px]">{h.old}</pre>}{h.now && <pre className="whitespace-pre-wrap rounded bg-navy-50 p-1.5 font-sans text-[11.5px]">{h.now}</pre>}</div>}</li>))}
-              {!history.length && <li className="text-[12.5px] text-ink-3">{entry.saved ? "Nothing recorded yet." : "This entry is not saved yet."}</li>}</ol>}
+              {!history.length && <li className="text-[12.5px] text-ink-3">{entry.saved ? "Nothing recorded yet." : entry.genId ? "Worked out from the year file\u2019s figures. Nothing has been changed here." : "This entry is not saved yet."}</li>}</ol>}
             {panel === "journal" && <table className="w-full text-[12.5px]"><thead><tr className="text-left text-ink-3"><th className="py-1">Account</th><th className="py-1 text-right">Debit</th><th className="py-1 text-right">Credit</th></tr></thead>
               <tbody>{journal.map((j, i) => <tr key={i} className="border-t border-sand-200"><td className="py-1">{j.account}</td><td className="py-1 text-right tabular-nums">{j.cents > 0 ? fmt(j.cents) : ""}</td><td className="py-1 text-right tabular-nums">{j.cents < 0 ? fmt(-j.cents) : ""}</td></tr>)}
                 {!journal.length && <tr><td colSpan={3} className="py-1 text-ink-3">Nothing posted yet.</td></tr>}</tbody></table>}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { entryActions, VIEW_ONLY_TEXT } from "@/lib/books/view-only";
 
 const UUID = /^[0-9a-f-]{36}$/;
 export type AccountResult = { ok: true; id: string } | { ok: false; error: string } | { ok: false; merge: { id: string; label: string } };
@@ -74,7 +75,7 @@ export async function deleteEntry(clientId: string, entryId: string): Promise<{ 
   // The entry must be this client's (the database checks the firm and the rights).
   const { data: e } = await supabase.from("cb_entries").select("id, origin, file:file_id(cb_client_id)").eq("id", entryId).maybeSingle();
   if (!e || (e.file as unknown as { cb_client_id: string } | null)?.cb_client_id !== clientId) return { error: "Entry not found." };
-  if (["opening_balances", "opening_difference", "tb_import"].includes((e as { origin?: string | null }).origin ?? "")) return { error: "Change this entry in the old Closebook until the switch-over." };
+  if (!entryActions({ origin: (e as { origin?: string | null }).origin }, true).delete) return { error: VIEW_ONLY_TEXT };
   const { error } = await supabase.rpc("cb_delete_entry", { p_entry: entryId });
   revalidatePath(`/cb/${clientId}`, "layout");
   return error ? { error: error.message } : {};
