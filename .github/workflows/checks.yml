@@ -71,7 +71,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx eslint src
-      - run: npx tsc --noEmit -p .
+      - run: npx next typegen && npx tsc --noEmit -p .
       - run: npm test
       - run: npx next build
 
