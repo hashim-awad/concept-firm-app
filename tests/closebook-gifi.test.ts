@@ -153,21 +153,19 @@ test("round 10: tax workpaper: meals add back 50%, amortization and income tax 1
   assert.equal(set[0].effect, -120);
 });
 
-test("round 10: tie-out: Closebook less ProFile; within $5 is rounding; over it stays open until accepted at that signed amount; CCA skipped with book amortization", () => {
+test("CB2-0 v7: tie-out: net income and total assets compare whole dollars, no rounding allowance; income tax to the cent; CCA never compared", () => {
   const cb = { ni: 1036.63, assets: 65624.5, amort: 1960, tax: 800 };
-  // Birch in ProFile: every line rounded to whole dollars.
-  const t = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}, false);
-  assert.deepEqual(t.map((x) => [x.key, x.diff, x.rounding, x.open]), [["ni", 0.63, true, false], ["assets", -0.5, true, false], ["cca", 0, false, false], ["tax", 0, false, false]]);
-  const d = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 812.5 }, {}, false);
+  // Birch in ProFile: every line rounded to whole dollars. 1,036.63 is 1,037 in whole dollars: ProFile's 1,036 is out by 1.
+  const t = tieOut(cb, { ni: 1037, assets: 65625, cca: 1960, tax: 800 }, {});
+  assert.deepEqual(t.map((x) => [x.key, x.diff, x.rounding, x.open]), [["ni", 0, false, false], ["assets", 0, false, false], ["cca", 0, false, false], ["tax", 0, false, false]]);
+  assert.deepEqual(tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}).filter((x) => x.open).map((x) => [x.key, x.diff]), [["ni", 1]], "no rounding allowance");
+  const d = tieOut(cb, { ni: 1037, assets: 65625, cca: 1960, tax: 812.5 }, {});
   assert.deepEqual(d.filter((x) => x.open).map((x) => [x.key, x.diff]), [["tax", -12.5]], "(12.50): Closebook less ProFile");
-  const acc = tieOut(cb, { ni: 1036, assets: 65625, cca: 1500, tax: 812.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } }, true);
-  assert.deepEqual(acc.filter((x) => x.open).map((x) => x.key), [], "accepted, and CCA not compared");
-  const flip = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 787.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } }, false);
+  const acc = tieOut(cb, { ni: 1037, assets: 65625, cca: 1500, tax: 812.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } });
+  assert.deepEqual(acc.filter((x) => x.open).map((x) => x.key), [], "accepted, and CCA never compared");
+  const flip = tieOut(cb, { ni: 1037, assets: 65625, cca: 1960, tax: 787.5 }, { tax: { diff: -12.5, by: "o", at: "", reason: "Late change" } });
   assert.ok(flip.find((x) => x.key === "tax")!.open, "12.50 is not (12.50)");
-  assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 800 }, {}, false, 0).find((x) => x.key === "ni")!.open, "the rounding allowed is a setting");
-  const tax3 = tieOut(cb, { ni: 1036, assets: 65625, cca: 1960, tax: 803 }, {}, false);
-  assert.deepEqual(tax3.filter((x) => x.open).map((x) => [x.key, x.diff, x.rounding]), [["tax", -3, false]], "income tax ties to the cent: 3.00 blocks");
-  assert.ok(tieOut(cb, { ni: 1036, assets: 65625, cca: 1959.99, tax: 800 }, {}, false).find((x) => x.key === "cca")!.open, "CCA ties to the cent");
+  assert.ok(!tieOut(cb, { ni: 1037, assets: 65625, cca: 1959.99, tax: 800 }, {}).find((x) => x.key === "cca")!.open, "CCA is not compared");
 });
 
 test("S2: check 5 passes when the whole difference is the automatic opening rounding and under 1.00", () => {

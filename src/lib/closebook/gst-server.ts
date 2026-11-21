@@ -6,7 +6,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { gstInputs } from "./tb-build-server";
 import { loadFile } from "./server";
-import { bankLineItems, buildYearPrefilled, checkAgainstBooks, gstPeriods, itemsFromEntry, quickType, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line, type QuickRate, type QuickSettings } from "./gst-return";
+import { bankLineItems, buildYearPrefilled, checkAgainstBooks, GST_INSTALMENTS_ACCOUNT, instalmentsFromAccount, gstPeriods, itemsFromEntry, quickType, type EntryTaxLine, type Frequency, type GstItem, type GstPayment, type GstReturn, type Line, type QuickRate, type QuickSettings } from "./gst-return";
 
 // The standard chart account the quick method gain is booked to (round 13 fix): 42400, GIFI 8230.
 export const QUICK_GAIN = "42400";
@@ -88,14 +88,21 @@ export async function gstFor(supabase: SupabaseClient, fileId: string, instalmen
   const opening = -inp.postings.filter((p) => p.key === "chart:21500" && p.kind === "opening").reduce((n, p) => n + p.cents, 0);
   const row = f.accounts.find((a) => a.account_key === "chart:21500");
   const entryTotal = f.entries.flatMap((e) => e.lines).filter((x) => x.account_id === row?.id).reduce((n, x) => n + Math.round(Number(x.amount) * 100), 0);
-  const book = row ? -(Math.round(Number(row.this_year) * 100) + entryTotal) : 0;
+  // CB2-0 v7 item 4: the instalments account (21510) is part of what is owed: its debits reduce the balance.
+  const instKey = `chart:${GST_INSTALMENTS_ACCOUNT}`;
+  const instPostings = inp.postings.filter((p) => p.key === instKey && p.kind !== "opening" && p.date >= f.file.year_start && p.date <= f.file.year_end);
+  const instBalance = inp.postings.filter((p) => p.key === instKey).reduce((n, p) => n + p.cents, 0);
+  const book = (row ? -(Math.round(Number(row.this_year) * 100) + entryTotal) : 0) - instBalance;
 
   const prepared = ((stored ?? []) as StoredReturn[]).map((r) => ({ ...r, instalments: Number(r.instalments) }));
   const inYear = [...payments, ...candidates.filter((x) => x.confirmed)].filter((p) => p.date >= f.file.year_start && p.date <= f.file.year_end);
   // Instalments: typed now, else as prepared, else pre-filled (period by period).
   const typed = instalmentsCents ?? (prepared.length ? new Map(prepared.map((r) => [r.period_no, Math.round(r.instalments * 100)])) : undefined);
-  const { returns, prefill: pre } = buildYearPrefilled(items, periods, quick, q, inYear, opening, typed);
-  const check = checkAgainstBooks(opening, returns, inYear, book);
+  // Line 110: as typed or prepared, else the instalments account for the period (CB2-0 v7 item 4).
+  const fromAccount = instalmentsFromAccount(instPostings, periods);
+  const { returns, prefill } = buildYearPrefilled(items, periods, quick, q, inYear, opening, typed ?? fromAccount);
+  const pre = { ...prefill, byPeriod: fromAccount };
+  const check = checkAgainstBooks(opening, returns, [...inYear, ...instPostings.map((p) => ({ date: p.date, ref: p.ref, label: p.label, cents: p.cents }))], book);
   const changed = returns.filter((r) => { const s = prepared.find((x) => x.period_no === r.period.n); return s && JSON.stringify(s.lines) !== JSON.stringify(storedLines(r)); }).map((r) => r.period.n);
   return {
     applies: true as const, quick, quickType: type, freq, rt: rtLabel(setup.gst_rt), province: inp.province, periods, returns, prepared, changed, items, payments, prefill: pre,

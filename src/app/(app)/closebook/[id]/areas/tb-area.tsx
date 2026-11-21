@@ -37,7 +37,7 @@ export function TbArea({ fileId, data, file, accounts, notes, canReview, editabl
   for (const n of notes) if (n.target_type === "account" && n.status !== "cleared" && n.target_id) openNotes.set(n.target_id, (openNotes.get(n.target_id) ?? 0) + 1);
   // Adjustments split by kind (Options: split adjustments into AJE, RJE and TJE columns).
   const byKind = new Map<string, { aje: number; tje: number }>();
-  for (const p of data.postings) if (p.kind === "entry" && p.entryKind !== "RJE") { const k = byKind.get(p.key) ?? { aje: 0, tje: 0 }; if (p.entryKind === "TJE") k.tje += p.cents; else k.aje += p.cents; byKind.set(p.key, k); }
+  for (const p of data.postings) if (p.kind === "entry" && !p.reclass) { const k = byKind.get(p.key) ?? { aje: 0, tje: 0 }; if (p.entryKind === "TJE") k.tje += p.cents; else k.aje += p.cents; byKind.set(p.key, k); }
   const { groups } = tbByGroup(tb, data.info);
   const groupOf = new Map<string, string>();
   for (const g of groups) for (const r of g.rows) groupOf.set(r.key, g.name);
@@ -90,7 +90,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
     : kind === "entry" ? entryHref(ref) : kind === "import" ? withBack(`${base}?step=records`) : ref.startsWith("stmt:") ? withBack(`${base}?step=records&account=${ref.slice(5)}`) : withBack(`${base}?step=opening`);
   let body: React.ReactNode;
   if (col === "adjust" || col === "reclass") {
-    const lines = data.postings.filter((p) => p.key === drill && p.kind === "entry" && (col === "reclass" ? p.entryKind === "RJE" : p.entryKind !== "RJE"));
+    const lines = data.postings.filter((p) => p.key === drill && p.kind === "entry" && (col === "reclass" ? !!p.reclass : !p.reclass));
     body = (
       <table className="w-full text-[12.5px]"><thead><tr className="bg-sand-50 text-left text-[11px] text-ink-3"><th className="px-3 py-1.5 font-semibold">Entry</th><th className="px-2 py-1.5 font-semibold">Description</th><th className="px-3 py-1.5 text-right font-semibold">Debit</th><th className="px-3 py-1.5 text-right font-semibold">Credit</th></tr></thead>
         <tbody>{lines.map((p, i) => <tr key={i} className="border-t border-sand-100"><td className="px-3 py-1.5 whitespace-nowrap"><Link href={entryHref(p.ref)} className="text-navy-700 hover:underline">{data.entryLabel.get(p.ref) ?? KIND_LABEL.entry}</Link></td>

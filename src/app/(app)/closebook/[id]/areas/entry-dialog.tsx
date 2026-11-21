@@ -163,7 +163,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
     origin = entry.origin === "revenue_check" ? "revenue_check" : undefined;
     if (entry.origin === "schedule") lock = { kind: true };
     if (origin) lock = { kind: true, wp: true };
-    init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
+    init = { seq: String(entry.seq), date: entry.entry_date ?? file.year_end, head: { kind: entry.kind, reclass: entry.is_reclass ?? entry.kind === "RJE", wpRef: entry.wp_ref ?? "", memo: entry.note, reverse: entry.reverse_next_year }, lines: linesOf(entry) };
   } else if (sp.new?.startsWith("std:")) {
     init = { std: sp.new.slice(4) };
   } else if ((sp.new?.startsWith("dup:") || sp.new?.startsWith("rev:")) && entry) {

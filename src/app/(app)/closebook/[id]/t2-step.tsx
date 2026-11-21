@@ -160,7 +160,7 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
                           <button type="submit" className="btn-secondary btn-compact">Accept</button></ActionForm>)}</span>}</td></tr>
             ))}</tbody>
           </table>
-          <p className="text-xs text-ink-3">Rounding allowed: {fmt(g.roundingAllowed)}</p>
+          <p className="text-xs text-ink-3">Net income and total assets compare in whole dollars, as ProFile shows them.</p>
         </>)}
           {editable && (
             <ActionForm action={saveT2Tieout} className="flex flex-wrap items-end gap-3 border-t border-sand-200 pt-3">{hidden}

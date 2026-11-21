@@ -241,7 +241,10 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <Attachments kept={keptAttachments} />
-          <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
+          <span className="grid gap-1">
+            <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reclass ?? head.kind === "RJE"} onChange={(e) => setHead({ ...head, reclass: e.target.checked })} className="h-4 w-4" data-reclass />Reclass entry</label>
+            <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
+          </span>
         </div>
       </div>
 

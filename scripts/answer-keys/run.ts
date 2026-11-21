@@ -37,6 +37,19 @@ for (const folder of folders) {
   const client = loadFixture(folder);
   try {
     const got: FileResult[] = await computeClient(sb, client);
+    // CB2-0 v7 item 6: bug checks on every file (not user rules). The balance sheet balances (GIFI 2599 = 3499 + 3620;
+    // the engine's GIFI totals are credit-positive from 2600) and the statements' net income (9999) equals the trial
+    // balance's (revenue and expense accounts, GIFI 8000 and up, credit-positive).
+    for (const f of got) {
+      const g = (c: string) => Math.round((f.gifi[c] ?? 0) * 100);
+      const bs = g("2599") - g("3499") - g("3620");
+      const tbNi = -f.tb.filter((r) => Number(r.gifi.slice(0, 4)) >= 8000).reduce((n, r) => n + Math.round(r.final * 100), 0);
+      const ni = Math.round(f.net_income * 100);
+      const bad = [...(bs !== 0 ? [`total assets ${g("2599") / 100} do not equal total liabilities ${g("3499") / 100} plus equity ${g("3620") / 100}`] : []),
+        ...(tbNi !== ni ? [`statement net income ${ni / 100} does not equal trial balance net income ${tbNi / 100}`] : [])];
+      if (bad.length) { failed++; console.log(`${folder} ${f.year_end}: BUG CHECK FAILED`); for (const l of bad) console.log(`  ${l}`); }
+      else console.log(`${folder} ${f.year_end}: balance sheet balances; net income ties to the trial balance`);
+    }
     // A hand-written answer key in source/ (the CSV answer keys) is checked on every run, before the baseline.
     const ext = path.join(root, folder, "source", "answer_key.json");
     if (existsSync(ext)) {

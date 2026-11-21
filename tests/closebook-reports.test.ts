@@ -39,7 +39,7 @@ test("the postings add up to the trial balance, account by account", () => {
 
 test("trial balance columns: prelim, adjust (AJE and TJE), reclass (RJE), final, prior, change", () => {
   const { postings, accounts } = sample();
-  const e = (key: string, cents: number, entryKind: "AJE" | "RJE" | "TJE", ref: string): Posting => ({ key, cents, date: "2026-12-31", kind: "entry", ref, label: "", entryKind });
+  const e = (key: string, cents: number, entryKind: "AJE" | "RJE" | "TJE", ref: string): Posting => ({ key, cents, date: "2026-12-31", kind: "entry", ref, label: "", entryKind, reclass: entryKind === "RJE" });
   const tb = trialBalance(accounts.map((a) => (a.key === "chart:10000" ? { ...a, lastCents: 480000 } : a)),
     [...postings, e("chart:65100", 5000, "AJE", "e1"), e("chart:10000", -5000, "AJE", "e1"), e("chart:65100", 700, "TJE", "e2"), e("chart:10000", -700, "TJE", "e2"), e("chart:21500", 300, "RJE", "e3"), e("chart:10000", -300, "RJE", "e3")]);
   const bank = tb.find((t) => t.key === "chart:10000")!;
@@ -176,7 +176,7 @@ test("last year without Schedule 125: net income is the figure that ties last ye
 
 test("journal box: net income before entries, adjusting and tax entries, reclassifying entries, adjusted", () => {
   const { postings, accounts } = sample();
-  const e = (key: string, cents: number, entryKind: "AJE" | "RJE" | "TJE"): Posting => ({ key, cents, date: "2026-12-31", kind: "entry", ref: entryKind, label: "", entryKind });
+  const e = (key: string, cents: number, entryKind: "AJE" | "RJE" | "TJE"): Posting => ({ key, cents, date: "2026-12-31", kind: "entry", ref: entryKind, label: "", entryKind, reclass: entryKind === "RJE" });
   const b = netIncomeBox(accounts, [...postings, e("chart:65100", 5000, "AJE"), e("chart:21500", -5000, "AJE"), e("chart:65100", 1000, "TJE"), e("chart:21500", -1000, "TJE")], info);
   assert.deepEqual(b, { before: 90000, adjust: -6000, reclass: 0, after: 84000 });
 });

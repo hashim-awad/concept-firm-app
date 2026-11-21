@@ -42,8 +42,9 @@ export type BuildOpening = { lines: { code: string; line_no: string; name: strin
 // One amount on one account. kind: where it came from; ref: the bank line, entry, GIFI code or
 // statement it came from (for the drill-down); acct: the bank or card account of a bank line.
 export type PostingKind = "opening" | "bank" | "entry" | "import";
-// entryKind: AJE, RJE or TJE for an adjusting entry (Adjust = AJE and TJE, Reclass = RJE).
-export type Posting = { key: string; cents: number; date: string; kind: PostingKind; ref: string; acct?: string; label: string; entryKind?: "AJE" | "RJE" | "TJE" };
+// entryKind: AJE, RJE or TJE for an entry. reclass: the entry's "Reclass entry" box (CB2-0 v7, rule 5): Reclass when
+// ticked, Adj's otherwise. Nothing else depends on it.
+export type Posting = { key: string; cents: number; date: string; kind: PostingKind; ref: string; acct?: string; label: string; entryKind?: "AJE" | "RJE" | "TJE"; reclass?: boolean };
 
 export const UNCODED = "uncoded";
 // Round 24: a line posts only once it has an account (coded). New lines, matched transfer money-in lines, lines that

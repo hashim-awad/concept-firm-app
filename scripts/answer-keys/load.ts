@@ -43,6 +43,8 @@ export function loadFixture(folder: string): string {
     if (!have.size) throw new Error(`${folder}: table ${table} no longer exists`);
     const fixed = rows.map((r) => remap(r, ids) as Row);
     if (table === "clients") for (const r of fixed) { r.legal_name = `AK ${folder}`; r.taxdome_account_id = null; if (r.business_number) r.business_number = `8${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}`; }
+    // Saved before CB2-0 v7 item 3: the "Reclass entry" box follows the entry type, as the migration sets it.
+    if (table === "cb_entries") for (const r of fixed) if (!("is_reclass" in r)) r.is_reclass = r.kind === "RJE";
     const keys = [...new Set(fixed.flatMap((r) => Object.keys(r)))].filter((k) => have.has(k));
     const list = keys.map((k) => `"${k}"`).join(", ");
     parts.push(`insert into public.${table} (${list}) overriding system value select ${list} from jsonb_populate_recordset(null::public.${table}, ${lit(JSON.stringify(fixed))}::jsonb);`);

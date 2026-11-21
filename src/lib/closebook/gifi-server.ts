@@ -56,15 +56,12 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
 
   // The tax workpaper: each account's final balance as GIFI shows it (the override when set, piece R1), with its tax code
   // (the account's, else its group line's default: D3, an override changes the GIFI code only).
-  const [{ data: codes }, { data: treat }, { data: book }, { data: exps }, { data: tie }, { data: set }] = await Promise.all([
+  const [{ data: codes }, { data: treat }, { data: exps }, { data: tie }] = await Promise.all([
     supabase.from("cb_tax_codes").select("code, name, schedule1_effect"),
     supabase.from("cb_review_treatments").select("line_no, treatment").eq("client_id", data.file.client_id),
-    supabase.from("cb_client_tax_settings").select("book_amortization").eq("client_id", data.file.client_id).maybeSingle(),
     supabase.from("cb_gifi_exports").select("id, kind, file_name, created_by, created_at, fingerprint, totals").eq("file_id", fileId).order("created_at", { ascending: false }),
     supabase.from("cb_t2_tieouts").select("net_income, total_assets, cca, income_tax, t2_pdf, accepted, entered_by, entered_at").eq("file_id", fileId).maybeSingle(),
-    supabase.from("cb_settings").select("t2_rounding").maybeSingle(),
   ]);
-  const roundingAllowed = Number((set as { t2_rounding?: number } | null)?.t2_rounding ?? 5);
   const wpAccounts: WpAccount[] = [];
   let amort = 0, inctax = 0;
   for (const a of data.accounts) {
@@ -95,15 +92,14 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   type Tie = { net_income: number | null; total_assets: number | null; cca: number | null; income_tax: number | null; t2_pdf: string | null; accepted: Record<string, { diff: number; by: string; at: string; reason: string }>; entered_by: string | null; entered_at: string };
   const t = tie as Tie | null;
   const n = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-  // CB2-0 step 4: the "amortization = CCA" rule is gone. Amortization is whatever entry is posted; CCA is not compared.
-  void book;
+  // CB2-0: amortization is whatever entry is posted; CCA is never compared. Net income and total assets compare whole dollars.
   const bookAmortization = true;
   const tieItems = final ? tieOut({ ni: Number(final.totals["9999"] ?? 0), assets: Number(final.totals["2599"] ?? 0), amort: Number(final.totals.amort ?? 0), tax: Number(final.totals.inctax ?? 0) },
-    { ni: n(t?.net_income), assets: n(t?.total_assets), cca: n(t?.cca), tax: n(t?.income_tax) }, t?.accepted ?? {}, bookAmortization, roundingAllowed) : [];
+    { ni: n(t?.net_income), assets: n(t?.total_assets), cca: n(t?.cca), tax: n(t?.income_tax) }, t?.accepted ?? {}) : [];
   const names = new Map(ref.lines.map((l) => [l.gifi_code, l.line_no.endsWith(".00") ? l.name : undefined]).filter(([, nm]) => nm) as [string, string][]);
   names.set("3660", "Retained earnings/deficit – Start");
   return {
-    ...result, kind, roundingAllowed, checks, refused, warnings, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
+    ...result, kind, checks, refused, warnings, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
     reviewLines: [...new Set(wpAccounts.filter((a) => a.code === "REVIEW").map((a) => a.line_no))],
     treatments: new Map(((treat ?? []) as { line_no: string; treatment: Treatment }[]).map((x) => [x.line_no, x.treatment])),
     tjes: data.entries.filter((e) => e.kind === "TJE").length,

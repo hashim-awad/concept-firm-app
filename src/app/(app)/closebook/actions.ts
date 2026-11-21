@@ -234,6 +234,10 @@ export async function addEntry(formData: FormData) {
   }
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
+  // CB2-0 v7 item 3: the "Reclass entry" box (rule 5), saved on the entry; History records a change.
+  const reclass = form!.head.reclass ?? form!.head.kind === "RJE";
+  const set = await supabase.rpc("cb_set_entry_reclass", { p_entry: res.data as string, p_on: reclass });
+  if (set.error) redirect(withMessage(dialog, "error", `The entry was saved; Reclass entry was not: ${set.error.message}`));
   // CB2-0 (rule 14): sign-offs are never taken back and there is no review threshold; History records the change.
   const msg = form!.edit ? "Entry changed." : "Entry added.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
