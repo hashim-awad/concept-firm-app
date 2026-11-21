@@ -1,5 +1,5 @@
 -- CloseBook2 piece CB2-0 version 7, Part 4 item 1 (Hashim, Nov 21, 2026): the engine rules still inside database functions.
--- Thresholds: the cb_settings threshold columns go, with every read. The T2 tie-out compares Closebook's GIFI line totals
+-- Thresholds: every read of the cb_settings threshold columns goes (the columns stay, unused). The T2 tie-out compares Closebook's GIFI line totals
 -- rounded to whole dollars with ProFile (no rounding allowance). Amortization is never compared to CCA
 -- (cb_set_book_amortization goes; cb_client_tax_settings is no longer read and is kept as a record). Outstanding items:
 -- rounding at any amount, a clearing line from any account, at either edge. A line may post to an account with no GIFI
@@ -9,9 +9,14 @@
 drop function if exists public.cb_update_t2_rounding(numeric);
 drop function if exists public.cb_set_book_amortization(uuid, boolean);
 drop function if exists public.cb_update_settings(numeric, numeric, numeric, numeric, numeric, text);
-alter table public.cb_settings drop column if exists recon_outstanding_max, drop column if exists flag_amount,
-  drop column if exists flag_percent, drop column if exists entry_review_amount, drop column if exists capital_invoice_amount,
-  drop column if exists t2_rounding;
+-- The six threshold columns stay in cb_settings (migration-order check, round 32: the deploy's restore needs every column)
+-- but nothing reads or writes them any more.
+comment on column public.cb_settings.recon_outstanding_max is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
+comment on column public.cb_settings.flag_amount is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
+comment on column public.cb_settings.flag_percent is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
+comment on column public.cb_settings.entry_review_amount is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
+comment on column public.cb_settings.capital_invoice_amount is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
+comment on column public.cb_settings.t2_rounding is 'Unused since CB2-0 v7 (rule 7, no thresholds).';
 
 create or replace function public.cb_update_settings(p_note1 text)
  returns void language plpgsql security definer set search_path to ''

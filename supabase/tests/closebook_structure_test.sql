@@ -25,7 +25,8 @@ select test.check('today''s package captions on the statement lines', (select st
   and (select statement_line from public.cb_master_lines where line_no = '9225.00') = 'Telecommunications'
   and (select statement_line from public.cb_master_lines where line_no = '8910.00') = 'Rent');
 select test.check('defaults: no thresholds (CB2-0 v7, rule 7); Note 1 wording', (select note1_policy = 'amortization_equals_cca' from public.cb_settings)
-  and not exists (select 1 from information_schema.columns where table_name = 'cb_settings' and column_name in ('flag_amount', 'flag_percent', 'recon_outstanding_max', 'entry_review_amount', 'capital_invoice_amount', 't2_rounding')));
+  and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public', 'private')
+    and p.prosrc ~ '\m(flag_amount|flag_percent|recon_outstanding_max|entry_review_amount|capital_invoice_amount|t2_rounding)\M'));
 
 -- Staff without Closebook see nothing and change nothing.
 set role authenticated;
