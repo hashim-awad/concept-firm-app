@@ -1,7 +1,6 @@
--- Local tests: CloseBook2 piece CB2-0 step 2 (Hashim, Nov 21, 2026): sign-offs are never cleared. A change stamps the
--- sign-off "Changed since review" (when, who, why) on the step where it was made and, when trial balance figures move,
--- on steps 6, 8 and 9; never on 7 or 10; the MAL is never withdrawn by a change. Signing again clears the stamp.
--- Taking back a sign-off is still a person's own act. Dummy data only.
+-- Local tests: CloseBook2 piece CB2-0 step 2 (Hashim, Nov 21, 2026; rule 14). QuickBooks Online's audit history: every
+-- change is recorded, nothing is pushed onto the screen. A change leaves every sign-off identical (same person, same time,
+-- no flag); one action writes exactly one History row, the details inside it. The MAL is never withdrawn. Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
@@ -14,68 +13,77 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Birch Dummy Kept Inc.', 'ON') returning id as client \gset
 select public.cb_create_file(:'client', '2026-08-31', '2025-09-01', '', 'full', 'statements', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000a') as f \gset
-select public.cb_add_entry(:'f', 'AJE', 'correction', 'Accrued fees', false, '[{"chart":"65100","amount":500},{"chart":"23000","amount":-500}]', 'Payables listing', null, null, '{}', null) as e1 \gset
 
--- Every step signed by both, as on a file at the end of the year.
+-- Every step signed by both, as on a file at the end of the year, and the MAL out for signing.
 reset role;
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
-select :'f', s, '00000000-0000-0000-0000-00000000000c', now() - interval '1 hour', '00000000-0000-0000-0000-00000000000a', now() - interval '1 hour'
+select :'f', s, '00000000-0000-0000-0000-00000000000c', '2026-11-01 10:00+00', '00000000-0000-0000-0000-00000000000a', '2026-11-02 10:00+00'
   from unnest(array['setup', 'opening', 'entries', 'compare', 'review', 't2', 'statements', 'lock']) s;
 insert into public.cb_file_fs (file_id, mal_sent_at) values (:'f', now()) on conflict (file_id) do update set mal_sent_at = excluded.mal_sent_at;
+create temp table before_signs as select * from public.cb_step_signoffs where file_id = :'f';
+grant select on before_signs to authenticated;
 set role authenticated;
 
--- K1 a new entry after the steps are signed: every sign-off stays.
-select public.cb_add_entry(:'f', 'AJE', 'correction', 'Late fix', false, '[{"chart":"65100","amount":20},{"chart":"23000","amount":-20}]', 'Payables listing', null, null, '{}', null) as e2 \gset
+-- K1 an AJE added after review: no sign-off moves; one History row, the entry's own.
+select count(*) as h0 from public.cb_file_history where file_id = :'f' \gset
+select public.cb_add_entry(:'f', 'AJE', 'correction', 'Late fix', false, '[{"chart":"65100","amount":20},{"chart":"23000","amount":-20}]', 'Payables listing', null, null, '{}', null) as e1 \gset
 reset role;
-select test.check('K1: no sign-off is removed', (select count(*) from public.cb_step_signoffs where file_id = :'f' and prepared_at is not null and reviewed_at is not null) = 8);
-select test.check('K1: step 5 is stamped', (select changed_at is not null and changed_by = '00000000-0000-0000-0000-00000000000c' from public.cb_step_signoffs where file_id = :'f' and step = 'entries'));
-select test.check('K1: steps 6, 8 and 9 are stamped (trial balance figures moved)',
-  (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('compare', 't2', 'statements') and changed_at is not null) = 3);
-select test.check('K1: step 7 and step 10 are not stamped', (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('review', 'lock') and changed_at is not null) = 0);
-select test.check('K1: steps 1 and 2 are not stamped', (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('setup', 'opening') and changed_at is not null) = 0);
-select test.check('K1: History records the change on step 5', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'signoff_changed' and step = 'entries' and detail = 'Entry 2026-002 added') = 1);
-select count(*) as k1_rows from public.cb_file_history where file_id = :'f' and action = 'signoff_changed' and step = 'entries' \gset
-select changed_at as k1_at from public.cb_step_signoffs where file_id = :'f' and step = 'entries' \gset
-select test.check('K1: nothing is recorded as cleared', not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
-select test.check('K1: the MAL is not withdrawn', (select mal_sent_at is not null and mal_withdrawn_at is null from public.cb_file_fs where file_id = :'f'));
+select test.check('K1: every sign-off is exactly as signed',
+  not exists (select * from public.cb_step_signoffs where file_id = :'f' except select * from before_signs)
+  and (select count(*) from public.cb_step_signoffs where file_id = :'f') = 8);
+select test.check('K1: one History row for the save', (select count(*) from public.cb_file_history where file_id = :'f') = :h0 + 1);
+select test.check('K1: it is the entry''s own row (who, when, what)',
+  exists (select 1 from public.cb_file_history where entry_id = :'e1' and action = 'entry_created' and actor_id = '00000000-0000-0000-0000-00000000000c'
+    and detail = 'Entry 2026-001 added' and new_value like '2026-001 AJE, Aug 31, 2026, Late fix: Dr 65100 % 20.00; Cr 23000 % 20.00'));
+select test.check('K1: nothing is cleared and the MAL is not withdrawn',
+  not exists (select 1 from public.cb_file_history where file_id = :'f' and action in ('signoff_cleared', 'mal_withdrawn'))
+  and (select mal_sent_at is not null and mal_withdrawn_at is null from public.cb_file_fs where file_id = :'f'));
+select test.check('K1: the entry waits to be looked at', (select needs_review from public.cb_entries where id = :'e1'));
 
--- K2 a second change keeps the first stamp (when and who) and adds no second stamp row.
+-- K2 the entry changed: one row with the entry before and after.
 set role authenticated;
-select public.cb_delete_entry(:'e2');
+select count(*) as h1 from public.cb_file_history where file_id = :'f' \gset
+select public.cb_edit_entry(:'e1', 'AJE', 'correction', 'Late fix', false, '[{"chart":"65100","amount":25},{"chart":"23000","amount":-25}]', 'Payables listing');
 reset role;
-select test.check('K2: the second change is listed too', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'signoff_changed' and step = 'entries') > :k1_rows);
-select test.check('K2: the stamp keeps the first change (when)', (select changed_at = :'k1_at'::timestamptz from public.cb_step_signoffs where file_id = :'f' and step = 'entries'));
-select test.check('K2: the delete itself is in History', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_deleted'));
+select test.check('K2: one History row for the change', (select count(*) from public.cb_file_history where file_id = :'f') = :h1 + 1);
+select test.check('K2: before and after are kept',
+  exists (select 1 from public.cb_file_history where entry_id = :'e1' and action = 'entry_edited' and reason = 'lines' and detail = 'Entry 2026-001 AJE changed: lines' and old_value like 'Lines: %20.00%' and new_value like 'Lines: %25.00%'));
+select test.check('K2: sign-offs still exactly as signed', not exists (select * from public.cb_step_signoffs where file_id = :'f' except select * from before_signs));
+select test.check('K2: the entry''s audit history reads newest first',
+  (select array_agg(action order by at desc, id desc) from public.cb_file_history where entry_id = :'e1') = array['entry_edited', 'entry_created']);
 
--- K3 signing again clears the stamp; nothing else does.
+-- K3 step 2 saved again: its sign-off and the file's "opening signed" stay; one History row.
+update public.cb_files set opening_signed_by = '00000000-0000-0000-0000-00000000000c', opening_signed_at = '2026-11-01 10:00+00' where id = :'f';
 set role authenticated;
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('K3: the reviewer signs step 5 again', test.try(format($q$select public.cb_sign_step(%L, 'entries', 'reviewed')$q$, :'f')) = 'OK');
-reset role;
-select test.check('K3: the step 5 stamp is gone', (select changed_at is null and changed_why = '' from public.cb_step_signoffs where file_id = :'f' and step = 'entries'));
-select test.check('K3: step 8 keeps its stamp until it is signed again', (select changed_at is not null from public.cb_step_signoffs where file_id = :'f' and step = 't2'));
-set role authenticated;
-select test.check('K3: an unchanged step is still "already reviewed"', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) = 'This step is already reviewed.');
-
--- K4 step 2 changes: the sign-off and its mirror on the file stay; the step is stamped.
-reset role;
-update public.cb_files set opening_signed_by = '00000000-0000-0000-0000-00000000000c', opening_signed_at = now() where id = :'f';
-set role authenticated;
-set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select count(*) as h2 from public.cb_file_history where file_id = :'f' \gset
 select public.cb_save_opening(:'f', '[{"code":"1002","amount":100},{"code":"3500","amount":100}]', 0, null, '');
 reset role;
-select test.check('K4: step 2 keeps its sign-off', (select prepared_at is not null from public.cb_step_signoffs where file_id = :'f' and step = 'opening'));
-select test.check('K4: the file keeps "opening signed"', (select opening_signed_at is not null from public.cb_files where id = :'f'));
-select test.check('K4: step 2 is stamped', (select changed_at is not null from public.cb_step_signoffs where file_id = :'f' and step = 'opening'));
+select test.check('K3: step 2 keeps its sign-off', not exists (select * from public.cb_step_signoffs where file_id = :'f' except select * from before_signs));
+select test.check('K3: the file keeps "opening signed"', (select opening_signed_at is not null from public.cb_files where id = :'f'));
+select test.check('K3: one History row for the save', (select count(*) from public.cb_file_history where file_id = :'f') = :h2 + 1);
+select test.check('K3: it belongs to step 2', exists (select 1 from public.cb_file_history where file_id = :'f' and step = 'opening' and id = (select max(id) from public.cb_file_history where file_id = :'f')));
 
--- K5 taking back a sign-off is still a person's act and removes it.
+-- K4 taking back your own reviewer sign-off on a step leaves step 7 as signed.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_unsign_step(:'f', 'compare', 'reviewed');
 reset role;
-select test.check('K5: the reviewer circle is taken back', (select reviewed_at is null from public.cb_step_signoffs where file_id = :'f' and step = 'compare'));
-select test.check('K5: taking it back does not stamp step 7', (select changed_at is null from public.cb_step_signoffs where file_id = :'f' and step = 'review'));
+select test.check('K4: the reviewer circle on step 6 is taken back', (select reviewed_at is null from public.cb_step_signoffs where file_id = :'f' and step = 'compare'));
+select test.check('K4: step 7 is untouched', (select reviewed_at = '2026-11-02 10:00+00' from public.cb_step_signoffs where file_id = :'f' and step = 'review'));
 
--- K6 the screens read the stamp.
+-- K5 a save that changes nothing the entry shows writes nothing.
 set role authenticated;
-select test.check('K6: cb_step_status returns the stamp', (public.cb_step_status(:'f') -> 't2' ->> 'changed_at') is not null and (public.cb_step_status(:'f') -> 't2' ->> 'changed_why') <> '');
+select count(*) as h3 from public.cb_file_history where entry_id = :'e1' \gset
+select public.cb_edit_entry(:'e1', 'AJE', 'correction', 'Late fix', false, '[{"chart":"65100","amount":25},{"chart":"23000","amount":-25}]', 'Payables listing');
+reset role;
+select test.check('K5: an unchanged save writes no row', (select count(*) from public.cb_file_history where entry_id = :'e1') = :h3);
+
+-- K6 a delete is one row with the whole entry inside.
+set role authenticated;
+select count(*) as h4 from public.cb_file_history where file_id = :'f' \gset
+select public.cb_delete_entry(:'e1');
+reset role;
+select test.check('K6: one History row for the delete', (select count(*) from public.cb_file_history where file_id = :'f') = :h4 + 1);
+select test.check('K6: the lines are inside it', exists (select 1 from public.cb_file_history where entry_id = :'e1' and action = 'entry_deleted' and old_value like '%Dr 65100 % 25.00; Cr 23000 % 25.00'));
+select test.check('K6: sign-offs still identical', not exists (select * from public.cb_step_signoffs where file_id = :'f' and step <> 'compare' except select * from before_signs));
+select test.check('K6: no row ever says a sign-off was cleared', not exists (select 1 from public.cb_file_history where file_id = :'f' and action in ('signoff_cleared', 'signoff_changed')));

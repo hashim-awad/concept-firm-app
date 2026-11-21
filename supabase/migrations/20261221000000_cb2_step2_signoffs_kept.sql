@@ -1,37 +1,43 @@
--- CloseBook2 piece CB2-0, step 2 (Hashim, Nov 21, 2026; docs/CLOSEBOOK2.md): sign-offs are never cleared.
--- A change no longer removes a sign-off. The sign-off is stamped "Changed since review" (when, who, why) and stays.
--- Signing the step again clears the stamp; nothing else does. The stamp goes on the step where the change was made, and,
--- when trial balance figures move (steps 2 to 5), on 6 Compare, 8 Tax returns and 9 Statements (Q2 A). Step 7 and step 10
--- are never stamped by a change, and the MAL is never withdrawn by a change (step 9 shows a warning).
--- Taking back a sign-off (unsign, reopen) stays a person's own act and still removes it. No sign-off on Live is removed.
+-- CloseBook2 piece CB2-0, step 2 (Hashim, Nov 21, 2026; docs/CLOSEBOOK2.md rules 13 and 14). QuickBooks Online's audit
+-- history: record everything, show nothing unless the accountant goes looking.
+-- - A sign-off is a person's act. No change ever clears, stamps or reopens it. (Taking back your own sign-off stays.)
+-- - History records every change to the file, signed step or not: one row per action the person took, with what, who,
+--   when and the step it belongs to. An entry added with its lines is one row, the lines inside; an edit is one row with
+--   the old and new values inside; a delete is one row with what was deleted.
+-- - The MAL is never withdrawn by a change.
+-- No sign-off on Live is removed. No column is dropped.
 
-alter table public.cb_step_signoffs add column if not exists changed_at timestamptz;
-alter table public.cb_step_signoffs add column if not exists changed_by uuid;
-alter table public.cb_step_signoffs add column if not exists changed_why text not null default '';
-alter table public.cb_substep_signoffs add column if not exists changed_at timestamptz;
-alter table public.cb_substep_signoffs add column if not exists changed_by uuid;
-alter table public.cb_substep_signoffs add column if not exists changed_why text not null default '';
+alter table public.cb_file_history add column if not exists entry_id uuid;
+create index if not exists cb_file_history_entry on public.cb_file_history (entry_id, at) where entry_id is not null;
 
--- Stamp a signed step "Changed since review". The first change sets the stamp (when, who, why); every change to a signed
--- step is a History row, so the step lists what changed since its sign-off.
-create or replace function private.cb_mark_changed(p_file uuid, p_step text, p_why text)
- returns void language plpgsql security definer set search_path to ''
+-- Safety net for "every change is in History": a change that writes no row of its own (a trigger saw the data move, the
+-- action logged nothing) gets one row at commit. A change that logged its own row gets nothing more, so one action is
+-- one row. The queue holds one line per file and step per transaction.
+create table if not exists private.cb_change_queue (
+  id bigint generated always as identity primary key,
+  file_id uuid not null, step text not null, why text not null default '', actor_id uuid, txid bigint not null default txid_current(),
+  unique (txid, file_id, step)
+);
+create or replace function private.cb_change_flush()
+ returns trigger language plpgsql security definer set search_path to ''
 as $function$
 begin
-  if not exists (select 1 from public.cb_step_signoffs where file_id = p_file and step = p_step and (prepared_at is not null or reviewed_at is not null)) then return; end if;
-  update public.cb_step_signoffs set changed_at = now(), changed_by = (select auth.uid()), changed_why = left(coalesce(p_why, ''), 300)
-   where file_id = p_file and step = p_step and changed_at is null;
-  -- One row per change: an entry and its lines fire several triggers in one save.
-  if not exists (select 1 from public.cb_file_history where file_id = p_file and action = 'signoff_changed' and step = p_step and at = now()
-      and detail = coalesce(nullif(p_why, ''), 'Changed since review')) then
-    perform private.cb_log(p_file, 'signoff_changed', p_step, coalesce(nullif(p_why, ''), 'Changed since review'));
+  -- Rows of this file already written in this transaction (the action's own row) are the record.
+  if not exists (select 1 from public.cb_file_history where file_id = new.file_id and at = now())
+     and exists (select 1 from public.cb_files where id = new.file_id) then
+    insert into public.cb_file_history (file_id, actor_id, action, step, detail) values (new.file_id, new.actor_id, 'changed', new.step, left(coalesce(nullif(new.why, ''), 'Changed'), 500));
   end if;
+  delete from private.cb_change_queue where id = new.id;
+  return null;
 end;
 $function$;
-revoke all on function private.cb_mark_changed(uuid, text, text) from public, anon, authenticated;
+drop trigger if exists cb_change_flush on private.cb_change_queue;
+create constraint trigger cb_change_flush after insert on private.cb_change_queue deferrable initially deferred for each row execute function private.cb_change_flush();
+revoke all on table private.cb_change_queue from public, anon, authenticated;
+revoke all on function private.cb_change_flush() from public, anon, authenticated;
 
 
--- The one place that used to remove sign-offs: it now stamps them.
+-- The one place that removed sign-offs on a change: it now only makes sure the change is in History.
 CREATE OR REPLACE FUNCTION private.cb_clear_step(p_file uuid, p_step text, p_why text)
  RETURNS void
  LANGUAGE plpgsql
@@ -40,15 +46,10 @@ CREATE OR REPLACE FUNCTION private.cb_clear_step(p_file uuid, p_step text, p_why
 AS $function$
 begin
   if not exists (select 1 from public.cb_files where id = p_file) then return; end if;
-  perform private.cb_mark_changed(p_file, p_step, p_why);
-  -- Trial balance figures moved (steps 2 to 5): steps 6, 8 and 9 rest on them.
-  if p_step in ('opening', 'records', 'code', 'entries') then
-    perform private.cb_mark_changed(p_file, 'compare', p_why);
-    perform private.cb_mark_changed(p_file, 't2', 'The trial balance changed');
-    perform private.cb_mark_changed(p_file, 'statements', 'The trial balance changed');
-  elsif p_step = 't2' then
-    perform private.cb_mark_changed(p_file, 'statements', p_why);
-  end if;
+  -- An entry's own changes are recorded by the entry (cb_entry_audit, cb_edit_entry, cb_delete_entry).
+  if coalesce(p_why, '') ~ '^Entry \d{4}-\d{3}' then return; end if;
+  insert into private.cb_change_queue (file_id, step, why, actor_id) values (p_file, p_step, coalesce(p_why, ''), (select auth.uid()))
+  on conflict (txid, file_id, step) do nothing;
 end;
 $function$;
 
@@ -58,17 +59,9 @@ CREATE OR REPLACE FUNCTION private.cb_clear_substeps(p_file uuid, p_subs text[],
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v_gone text[]; v_why text := btrim(coalesce(p_why, ''));
+declare v_why text := btrim(coalesce(p_why, ''));
 begin
-  with d as (update public.cb_substep_signoffs set changed_at = now(), changed_by = (select auth.uid()), changed_why = left(v_why, 300)
-    where file_id = p_file and substep = any (p_subs) and changed_at is null and (prepared_at is not null or reviewed_at is not null) returning substep)
-  select array_agg(substep order by substep) into v_gone from d;
-  if v_gone is not null then
-    if substr(v_why, 2, 1) ~ '[a-z]' then v_why := lower(left(v_why, 1)) || substr(v_why, 2); end if;
-    perform private.cb_log_event(p_file, 'signoff_changed', 'records', format('%s changed since review: %s', private.cb_substep_label(v_gone), v_why),
-      null, null, '', v_why, '', '');
-    perform private.cb_clear_step(p_file, 'records', v_why);
-  end if;
+  perform private.cb_clear_step(p_file, 'records', format('%s: %s', private.cb_substep_label(p_subs), v_why));
 end;
 $function$;
 
@@ -78,12 +71,9 @@ CREATE OR REPLACE FUNCTION private.cb_substep_guard(p_file uuid, p_subs text[], 
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v_subs text[];
 begin
-  select array_agg(substep order by substep) into v_subs
-    from public.cb_substep_signoffs where file_id = p_file and substep = any (p_subs) and prepared_at is not null;
-  if v_subs is null then return; end if;
-  perform private.cb_clear_substeps(p_file, v_subs, p_what);
+  -- No question and no removal: the change goes ahead; History records it.
+  perform private.cb_clear_substeps(p_file, p_subs, p_what);
 end;
 $function$;
 
@@ -104,18 +94,15 @@ begin
     values (p_file, 'records', v_pby, v_pat, case when v_rev = 3 then v_rby end, case when v_rev = 3 then v_rat end)
     on conflict (file_id, step) do update set prepared_by = excluded.prepared_by, prepared_at = excluded.prepared_at,
       reviewed_by = excluded.reviewed_by, reviewed_at = excluded.reviewed_at;
-    -- Every sub-step signed again: the stamp on step 3 goes too.
-    if not exists (select 1 from public.cb_substep_signoffs where file_id = p_file and changed_at is not null) then
-      update public.cb_step_signoffs set changed_at = null, changed_by = null, changed_why = '' where file_id = p_file and step = 'records';
-    end if;
   elsif exists (select 1 from public.cb_step_signoffs where file_id = p_file and step = 'records') then
-    -- Only a person taking back a sub-step sign-off gets here: step 3 is no longer fully prepared.
+    -- Only a person taking back their own sub-step sign-off gets here: step 3 is no longer fully prepared.
     delete from public.cb_step_signoffs where file_id = p_file and step = 'records';
     perform private.cb_log(p_file, 'signoff_removed', 'records', 'A Banking sub-step sign-off was taken back');
   end if;
 end;
 $function$;
 
+-- A master account change on step 4 is one History row; the step 4 sign-off stays.
 CREATE OR REPLACE FUNCTION private.cb_assign_changed()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -125,14 +112,15 @@ AS $function$
 begin
   if new.line_no is distinct from old.line_no then return null; end if;
   -- Step 4 only: nothing that rests on it moves (cb_clear_step would also clear steps 6 to 8).
-  if exists (select 1 from public.cb_step_signoffs where file_id = new.file_id and step = 'code') then
-    perform private.cb_mark_changed(new.file_id, 'code', format('%s: master account %s to %s', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
+  if true then
+    perform private.cb_log(new.file_id, 'mapping_changed', 'code', format('%s: master account %s to %s', btrim(coalesce(nullif(new.number, '') || ' ', '') || new.name),
       coalesce(old.chart_account, 'none'), coalesce(new.chart_account, 'none')));
   end if;
   return null;
 end;
 $function$;
 
+-- Step 2 keeps its sign-off when it is saved again.
 CREATE OR REPLACE FUNCTION public.cb_save_opening(p_file uuid, p_codes jsonb, p_re_stated numeric, p_ni_typed numeric, p_note text)
  RETURNS integer
  LANGUAGE plpgsql
@@ -227,140 +215,7 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.cb_sign_step(p_file uuid, p_step text, p_role text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare v_file public.cb_files; r public.cb_step_signoffs; v_list text[]; v_look int := 0; v_same text := '';
-begin
-  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
-  select * into v_file from public.cb_files where id = p_file for update;
-  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
-  perform private.require(p_step in ('setup', 'opening', 'records', 'code', 'entries', 'compare', 'review', 't2', 'statements', 'lock'), 'Unknown step.');
-  perform private.require(p_role in ('prepared', 'reviewed'), 'Unknown sign-off.');
-  perform private.require(not (p_step = 'records' and v_file.books in ('statements', 'paper')), 'Step 3 is signed in its sub-steps: 3.1, 3.2 and 3.3.');
-  select * into r from public.cb_step_signoffs where file_id = p_file and step = p_step;
-  if p_role = 'prepared' then
-    perform private.require(private.cb_can('prepare'), 'You need the Prepare right to sign as preparer.');
-    perform private.require(p_step <> 'review', 'Step 7 is the reviewer''s: it has no preparer sign-off.');
-    perform private.require(r.prepared_at is null or r.changed_at is not null, 'This step is already signed as prepared.');
-    v_list := case when p_step = 't2' then private.cb_step8_problems(p_file) when p_step = 'statements' then private.cb_step9_problems(p_file)
-      when p_step = 'lock' then private.cb_step10_problems(p_file) else private.cb_prepare_blockers(p_file, p_step) end;
-    perform private.require(cardinality(v_list) = 0, 'Not yet: ' || array_to_string(v_list, ' '));
-    if p_step = 'opening' and v_file.books in ('statements', 'paper') then
-      perform public.cb_sign_opening(p_file);
-      return;
-    end if;
-    insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (p_file, p_step, (select auth.uid()), now())
-    on conflict (file_id, step) do update set prepared_by = excluded.prepared_by, prepared_at = excluded.prepared_at, changed_at = null, changed_by = null, changed_why = '';
-    perform private.cb_log(p_file, 'prepared', p_step, case when r.changed_at is not null then 'Signed again after a change' else '' end);
-  else
-    perform private.require(private.cb_can('review'), 'You need the Review right to sign as reviewer.');
-    perform private.require(r.reviewed_at is null or r.changed_at is not null, 'This step is already reviewed.');
-    -- Piece E1 (D5 B): while entries wait to be looked at, the person who prepared step 5 does not also sign it Reviewed,
-    -- unless they have Partner sign-off; then the same-person line and History give the reason.
-    if p_step = 'entries' then
-      select count(*) into v_look from public.cb_entries where file_id = p_file and needs_review and kind <> 'TJE';
-      if v_look > 0 and r.prepared_by = (select auth.uid()) then
-        perform private.require(private.cb_can('partner'),
-          'You prepared step 5 and entries wait to be looked at. Someone else signs Reviewed, or someone with Partner sign-off.');
-        v_same := ' (Partner sign-off)';
-      end if;
-    end if;
-    if p_step = 'review' then
-      v_list := private.cb_review_problems(p_file);
-      perform private.require(cardinality(v_list) = 0, 'Not yet: ' || array_to_string(v_list, ' '));
-      insert into public.cb_step_signoffs (file_id, step, reviewed_by, reviewed_at) values (p_file, 'review', (select auth.uid()), now())
-      on conflict (file_id, step) do update set reviewed_by = excluded.reviewed_by, reviewed_at = excluded.reviewed_at, changed_at = null, changed_by = null, changed_why = '';
-    else
-      perform private.require(r.prepared_at is not null, 'The preparer signs first.');
-      v_list := case when p_step = 't2' then coalesce((select array_agg(x) from unnest(private.cb_step8_problems(p_file)) x where x not like '%review note%'), '{}')
-        when p_step = 'statements' then coalesce((select array_agg(x) from unnest(private.cb_step9_problems(p_file)) x where x not like '%review note%'), '{}')
-        when p_step = 'lock' then coalesce((select array_agg(x) from unnest(private.cb_step10_problems(p_file)) x where x not like '%review note%'), '{}')
-        else private.cb_step_waiting(p_file, p_step)
-          || coalesce((select array_agg(x) from unnest(private.cb_step_problems(p_file, p_step)) x where x not like '%review note%'), '{}') end;
-      perform private.require(cardinality(v_list) = 0, 'Not yet: ' || array_to_string(v_list, ' '));
-      update public.cb_step_signoffs set reviewed_by = (select auth.uid()), reviewed_at = now(), changed_at = null, changed_by = null, changed_why = '' where file_id = p_file and step = p_step;
-    end if;
-    perform private.cb_log(p_file, 'reviewed', p_step, case when r.prepared_by = (select auth.uid()) then 'Prepared and reviewed by the same person' || v_same else '' end);
-    -- Piece E1: what step 5 Reviewed covered at that moment.
-    if p_step = 'entries' then
-      perform private.cb_log_event(p_file, 'step5_covered', 'entries',
-        format('Step 5 Reviewed covers %s AJE and RJE entr%s, debits %s; %s to look at%s',
-          (select count(*) from public.cb_entries where file_id = p_file and kind <> 'TJE'),
-          case when (select count(*) from public.cb_entries where file_id = p_file and kind <> 'TJE') = 1 then 'y' else 'ies' end,
-          to_char(coalesce((select sum(l.amount) from public.cb_entry_lines l join public.cb_entries e on e.id = l.entry_id where e.file_id = p_file and e.kind <> 'TJE' and l.amount > 0), 0), 'FM999,999,999,990.00'),
-          v_look,
-          case when exists (select 1 from public.cb_entries where file_id = p_file and kind = 'TJE')
-            then format('; %s TJE under step 8', (select count(*) from public.cb_entries where file_id = p_file and kind = 'TJE')) else '' end),
-        null, null, null, null, null, null, null);
-    end if;
-  end if;
-  update public.cb_files set updated_at = now() where id = p_file;
-end;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.cb_sign_substep(p_file uuid, p_sub text, p_role text)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare v_file public.cb_files; r public.cb_substep_signoffs; v_list text[];
-begin
-  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
-  select * into v_file from public.cb_files where id = p_file for update;
-  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
-  perform private.require(v_file.books in ('statements', 'paper'), 'Banking sub-steps are for bank and card files.');
-  perform private.require(p_sub in ('3.1', '3.2', '3.3'), 'Unknown sub-step.');
-  perform private.require(p_role in ('prepared', 'reviewed'), 'Unknown sign-off.');
-  select * into r from public.cb_substep_signoffs where file_id = p_file and substep = p_sub;
-  v_list := private.cb_banking_problems(p_file, p_sub);
-  if p_role = 'prepared' then
-    perform private.require(private.cb_can('prepare'), 'You need the Prepare right to sign as preparer.');
-    perform private.require(r.prepared_at is null or r.changed_at is not null, 'This sub-step is already signed as prepared.');
-    perform private.require(cardinality(v_list) = 0, 'Not yet: ' || array_to_string(v_list, ' '));
-    insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (p_file, p_sub, (select auth.uid()), now())
-    on conflict (file_id, substep) do update set prepared_by = excluded.prepared_by, prepared_at = excluded.prepared_at, changed_at = null, changed_by = null, changed_why = '';
-    perform private.cb_log(p_file, 'prepared', 'records', 'Sub-step ' || p_sub);
-  else
-    perform private.require(private.cb_can('review'), 'You need the Review right to sign as reviewer.');
-    perform private.require(r.prepared_at is not null, 'The preparer signs first.');
-    perform private.require(r.reviewed_at is null or r.changed_at is not null, 'This sub-step is already reviewed.');
-    perform private.require(cardinality(v_list) = 0, 'Not yet: ' || array_to_string(v_list, ' '));
-    update public.cb_substep_signoffs set reviewed_by = (select auth.uid()), reviewed_at = now(), changed_at = null, changed_by = null, changed_why = '' where file_id = p_file and substep = p_sub;
-    perform private.cb_log(p_file, 'reviewed', 'records', 'Sub-step ' || p_sub || case when r.prepared_by = (select auth.uid()) then ': prepared and reviewed by the same person' else '' end);
-  end if;
-  perform private.cb_records_follow(p_file);
-  update public.cb_files set updated_at = now() where id = p_file;
-end;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.cb_sign_opening(p_file uuid)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO ''
-AS $function$
-declare
-  v_file public.cb_files;
-  v_problem text;
-begin
-  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
-  select * into v_file from public.cb_files where id = p_file for update;
-  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
-  v_problem := private.cb_opening_problem(p_file);
-  perform private.require(v_problem is null, coalesce(v_problem, ''));
-  update public.cb_files set opening_signed_by = (select auth.uid()), opening_signed_at = now(), updated_at = now() where id = p_file;
-  -- Round 8: this is step 2's "Prepared by".
-  insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (p_file, 'opening', (select auth.uid()), now())
-  on conflict (file_id, step) do update set prepared_by = excluded.prepared_by, prepared_at = excluded.prepared_at, changed_at = null, changed_by = null, changed_why = '';
-  perform private.cb_log(p_file, 'prepared', 'opening', '');
-end;
-$function$;
-
+-- Taking back your own reviewer sign-off on a step leaves step 7 as signed.
 CREATE OR REPLACE FUNCTION public.cb_unsign_step(p_file uuid, p_step text, p_role text)
  RETURNS void
  LANGUAGE plpgsql
@@ -393,43 +248,159 @@ begin
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.cb_step_status(p_file uuid)
- RETURNS jsonb
+-- An entry as it stands, in one line: number, type, date, description and every line (debits positive, tax code).
+create or replace function private.cb_entry_snapshot(p_entry uuid)
+ returns text language sql stable security definer set search_path to ''
+as $function$
+  select format('%s-%s %s, %s%s: %s', to_char(f.year_end, 'YYYY'), lpad(e.seq::text, 3, '0'), e.kind, to_char(coalesce(e.entry_date, f.year_end), 'Mon FMDD, YYYY'),
+    case when e.note <> '' then ', ' || e.note else '' end,
+    coalesce((select string_agg(format('%s %s %s%s%s', case when l.amount >= 0 then 'Dr' else 'Cr' end, btrim(coalesce(nullif(a.number, '') || ' ', '') || a.name),
+        to_char(abs(l.amount), 'FM999,999,999,990.00'), case when l.is_tax then ' (sales tax)' when coalesce(l.tax_code, '') <> '' then ' ' || l.tax_code else '' end,
+        case when l.memo <> '' then ' (' || l.memo || ')' else '' end), '; ' order by l.amount desc, a.number)
+      from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = e.id), 'no lines'))
+  from public.cb_entries e join public.cb_files f on f.id = e.file_id where e.id = p_entry;
+$function$;
+revoke all on function private.cb_entry_snapshot(uuid) from public, anon, authenticated;
+
+-- An entry added, or changed some other way than "Edit" (a schedule saved again), is one History row at commit, with the
+-- entry before and after. The entry keeps its last snapshot. A save that already wrote its own row for the entry, or that
+-- changes nothing the snapshot shows (booked mark, looked at), writes nothing.
+alter table public.cb_entries add column if not exists audit_snapshot text;
+create or replace function private.cb_entry_audit()
+ returns trigger language plpgsql security definer set search_path to ''
+as $function$
+declare v_id uuid; v_e public.cb_entries; v_now text; v_no text;
+begin
+  if tg_table_name = 'cb_entries' then v_id := coalesce(new.id, old.id);
+  elsif tg_op = 'DELETE' then v_id := old.entry_id;
+  else v_id := new.entry_id; end if;
+  select * into v_e from public.cb_entries where id = v_id;
+  if v_e.id is null then return null; end if;
+  v_now := private.cb_entry_snapshot(v_id);
+  if v_e.audit_snapshot is not distinct from v_now then return null; end if;
+  update public.cb_entries set audit_snapshot = v_now where id = v_id;
+  if exists (select 1 from public.cb_file_history where entry_id = v_id and at = now()) then return null; end if;
+  v_no := split_part(v_now, ' ', 1);
+  insert into public.cb_file_history (file_id, actor_id, action, step, detail, entry_id, ref_label, old_value, new_value)
+  values (v_e.file_id, (select auth.uid()), case when v_e.created_at = now() then 'entry_created' else 'entry_changed' end, 'entries',
+          format('Entry %s %s', v_no, case when v_e.created_at = now() then 'added' else 'changed' end), v_id, v_no, coalesce(v_e.audit_snapshot, ''), v_now);
+  return null;
+end;
+$function$;
+revoke all on function private.cb_entry_audit() from public, anon, authenticated;
+drop trigger if exists cb_entry_audit on public.cb_entries;
+create constraint trigger cb_entry_audit after insert or update on public.cb_entries deferrable initially deferred for each row execute function private.cb_entry_audit();
+drop trigger if exists cb_entry_audit on public.cb_entry_lines;
+create constraint trigger cb_entry_audit after insert or update or delete on public.cb_entry_lines deferrable initially deferred for each row execute function private.cb_entry_audit();
+
+
+-- An edit is one History row, with the entry's old and new values inside.
+CREATE OR REPLACE FUNCTION public.cb_edit_entry(p_entry uuid, p_kind text, p_reason text, p_note text, p_reverse boolean, p_lines jsonb, p_wp_ref text, p_date date DEFAULT NULL::date, p_standard uuid DEFAULT NULL::uuid, p_attachments text[] DEFAULT '{}'::text[], p_seq integer DEFAULT NULL::integer)
+ RETURNS uuid
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v jsonb := '{}'::jsonb; s text; r public.cb_step_signoffs;
+declare
+  v_what text; v_was text; v_now text;
+  v_e public.cb_entries;
+  v_file public.cb_files;
+  v_new public.cb_entries;
+  v_label text;
+  v_old_lines text;
+  v_new_lines text;
+  v_old_all text; v_new_all text;   -- piece 10b
+  v_seq int;
+  r record;
 begin
-  perform private.require(private.can_view('closebook'), 'You need Closebook access.');
-  foreach s in array array['setup', 'opening', 'records', 'code', 'entries', 'compare', 'review', 't2', 'statements', 'lock'] loop
-    select * into r from public.cb_step_signoffs where file_id = p_file and step = s;
-    v := v || jsonb_build_object(s, jsonb_build_object(
-      'prepared_by', r.prepared_by, 'prepared_at', r.prepared_at, 'reviewed_by', r.reviewed_by, 'reviewed_at', r.reviewed_at,
-      'changed_at', r.changed_at, 'changed_by', r.changed_by, 'changed_why', r.changed_why,
-      'problems', to_jsonb(case when s = 'review' then private.cb_review_problems(p_file) when s = 't2' then private.cb_step8_problems(p_file)
-        when s = 'statements' then private.cb_step9_problems(p_file) when s = 'lock' then private.cb_step10_problems(p_file) else private.cb_step_problems(p_file, s) end),
-      'waiting', to_jsonb(case when s in ('review', 't2', 'statements', 'lock') then '{}'::text[] else private.cb_step_waiting_shown(p_file, s) end),
-      'notes', (select count(*) from public.cb_review_notes n where n.file_id = p_file and n.step = s and n.status <> 'cleared')));
-  end loop;
-  return v || jsonb_build_object('checklist', to_jsonb(private.cb_checklist_problems(p_file)));
+  select * into v_e from public.cb_entries where id = p_entry;
+  perform private.require(v_e.id is not null, 'Entry not found.');
+  perform private.require(coalesce(v_e.origin, '') <> 'expenses_personal', 'Change this entry on the Expenses paid personally paper.');
+  -- Piece 3: an amount from a schedule changes only in its schedule (the account may change).
+  perform private.require(coalesce(v_e.origin, '') <> 'schedule' or coalesce(current_setting('cb.schedule_save', true), '') = 'on'
+    or private.cb_schedule_amounts(p_entry) = private.cb_schedule_amounts_of(p_lines), 'Change this amount in its schedule: click the Schedule tag.');
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  -- Piece E1: no entry approval; an entry changes until the file is locked (booked entries: the booked guard).
+  perform private.require(v_e.booked_at is null, 'This entry is booked in QuickBooks. Unmark it first to change it.');
+  select * into v_file from public.cb_files where id = v_e.file_id for update;
+  perform private.require(v_file.phase <> 'locked', 'This file is locked. Reopen it to change entries.');
+  perform private.cb_entry_head_check(v_file, p_kind, p_reason, p_note, p_reverse, p_lines, p_wp_ref, p_date, p_attachments);
+  v_seq := coalesce(p_seq, v_e.seq);
+  perform private.require(v_seq between 1 and 999 and not exists (select 1 from public.cb_entries where file_id = v_e.file_id and seq = v_seq and id <> p_entry),
+    format('Entry number %s-%s is taken. Choose another.', to_char(v_file.year_end, 'YYYY'), lpad(v_seq::text, 3, '0')));
+  v_label := private.cb_entry_label(p_entry);
+  v_old_lines := private.cb_entry_lines_text(p_entry);
+
+  -- The header, in place. The per-type number changes only when the type does (it is unique per type).
+  update public.cb_entries set kind = p_kind, reason = p_reason, note = btrim(p_note), reverse_next_year = coalesce(p_reverse, false),
+      wp_ref = btrim(p_wp_ref), entry_date = coalesce(p_date, v_file.year_end), attachments = coalesce(p_attachments, '{}'), seq = v_seq,
+      number = case when p_kind = v_e.kind then v_e.number else coalesce((select max(number) from public.cb_entries where file_id = v_e.file_id and kind = p_kind), 0) + 1 end,
+      needs_review = true, reviewed_by = null, reviewed_at = null
+   where id = p_entry
+  returning * into v_new;
+  -- The lines, written again by the same rules as a new entry.
+  -- Piece 10b: the lines' own triggers leave step 6 alone here; step 6 reopens below only when the lines differ
+  -- (every line, sales tax lines included: account and amount).
+  select coalesce(string_agg(l.account_id::text || ':' || l.amount::text, ',' order by l.account_id, l.amount), '') into v_old_all
+    from public.cb_entry_lines l where l.entry_id = p_entry;
+  perform set_config('cb.lines_rewrite', 'on', true);
+  delete from public.cb_entry_lines where entry_id = p_entry;
+  perform private.cb_entry_write_lines(p_entry, v_file, p_kind, p_reason, p_reverse, p_lines);
+  perform set_config('cb.lines_rewrite', '', true);
+  v_new_lines := private.cb_entry_lines_text(p_entry);
+  -- A TJE that stays a TJE clears step 8 only (piece 6); a change of type reopens step 6 through cb_changed.
+  select coalesce(string_agg(l.account_id::text || ':' || l.amount::text, ',' order by l.account_id, l.amount), '') into v_new_all
+    from public.cb_entry_lines l where l.entry_id = p_entry;
+  if v_new_all is distinct from v_old_all and not (v_e.kind = 'TJE' and p_kind = 'TJE') then
+    perform private.cb_clear_step(v_e.file_id, 'compare', format('Entry %s changed: lines', private.cb_entry_label(p_entry)));
+  end if;
+
+  -- History (CB2-0 step 2): one row for the edit, naming what changed, with the old and new values inside.
+  select string_agg(lower(what), ', ' order by n), string_agg(what || ': ' || coalesce(was, ''), E'\n' order by n), string_agg(what || ': ' || coalesce(now, ''), E'\n' order by n)
+    into v_what, v_was, v_now from (values
+      (1, 'Number', v_new.seq = v_e.seq, v_label, private.cb_entry_label(p_entry)),
+      (2, 'Type', p_kind = v_e.kind, v_e.kind, p_kind),
+      (3, 'Date', v_new.entry_date = v_e.entry_date, to_char(v_e.entry_date, 'Mon FMDD, YYYY'), to_char(v_new.entry_date, 'Mon FMDD, YYYY')),
+      (4, 'Description', v_new.note = v_e.note, v_e.note, v_new.note),
+      (5, 'W/P ref', v_new.wp_ref = v_e.wp_ref, v_e.wp_ref, v_new.wp_ref),
+      (6, 'Reverses next year', v_new.reverse_next_year = v_e.reverse_next_year, case when v_e.reverse_next_year then 'Yes' else 'No' end, case when v_new.reverse_next_year then 'Yes' else 'No' end),
+      (7, 'Attachments', v_new.attachments = v_e.attachments,
+         coalesce(nullif(array_to_string(array(select regexp_replace(x, '^.*/(\d+-)?', '') from unnest(v_e.attachments) x), ', '), ''), 'None'),
+         coalesce(nullif(array_to_string(array(select regexp_replace(x, '^.*/(\d+-)?', '') from unnest(v_new.attachments) x), ', '), ''), 'None')),
+      (8, 'Lines', v_new_lines = v_old_lines, v_old_lines, v_new_lines)) as x(n, what, same, was, now)
+    where not same;
+  if v_what is not null then
+    insert into public.cb_file_history (file_id, actor_id, action, step, detail, entry_id, ref_label, reason, old_value, new_value)
+    values (v_e.file_id, (select auth.uid()), 'entry_edited', 'entries', left(format('Entry %s changed: %s', private.cb_entry_label(p_entry), v_what), 500), p_entry,
+            left(private.cb_entry_label(p_entry), 300), left(v_what, 300), v_was, v_now);
+  end if;
+  update public.cb_files set updated_at = now() where id = v_e.file_id;
+  return p_entry;
 end;
 $function$;
 
-CREATE OR REPLACE FUNCTION public.cb_substep_status(p_file uuid)
- RETURNS jsonb
+-- A delete is one History row, with the whole entry inside.
+CREATE OR REPLACE FUNCTION public.cb_delete_entry(p_entry uuid)
+ RETURNS void
  LANGUAGE plpgsql
- STABLE SECURITY DEFINER
+ SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare v jsonb := '{}'::jsonb; s text; r public.cb_substep_signoffs;
+declare v_e public.cb_entries; v_label text; r record;
 begin
-  perform private.require(private.can_view('closebook'), 'You need Closebook access.');
-  foreach s in array array['3.1', '3.2', '3.3'] loop
-    select * into r from public.cb_substep_signoffs where file_id = p_file and substep = s;
-    v := v || jsonb_build_object(s, jsonb_build_object('prepared_by', r.prepared_by, 'prepared_at', r.prepared_at, 'reviewed_by', r.reviewed_by,
-      'reviewed_at', r.reviewed_at, 'changed_at', r.changed_at, 'changed_by', r.changed_by, 'changed_why', r.changed_why, 'problems', to_jsonb(private.cb_banking_problems(p_file, s))));
-  end loop;
-  return v;
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_e from public.cb_entries where id = p_entry;
+  perform private.require(v_e.id is not null, 'Entry not found.');
+  -- Piece E1: hold the file as an edit does, so a delete cannot slip past a lock made at the same moment.
+  perform 1 from public.cb_files where id = v_e.file_id for update;
+  perform private.require((select phase from public.cb_files where id = v_e.file_id) <> 'locked', 'This file is locked. Reopen it to delete entries.');
+  perform private.require(v_e.booked_at is null, 'This entry is booked in QuickBooks. Unmark it first to delete it.');
+  -- History (CB2-0 step 2): one row for the delete, with the whole entry inside (every line, sales tax lines included).
+  v_label := private.cb_entry_label(p_entry);
+  insert into public.cb_file_history (file_id, actor_id, action, step, detail, entry_id, ref_label, reason, old_value, new_value)
+  values (v_e.file_id, (select auth.uid()), 'entry_deleted', 'entries',
+          left(format('Entry %s deleted (%s, %s): %s', v_label, v_e.kind, to_char(v_e.entry_date, 'Mon FMDD, YYYY'), v_e.note), 500), p_entry, left(v_label, 300), 'Entry',
+          format('W/P ref %s; %s', coalesce(nullif(v_e.wp_ref, ''), 'none'), private.cb_entry_snapshot(p_entry)), '');
+  delete from public.cb_entries where id = p_entry;
 end;
 $function$;

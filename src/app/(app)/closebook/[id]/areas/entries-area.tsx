@@ -4,6 +4,7 @@
 // "New entry" is a menu (QuickBooks Online's + New): a journal entry, a standard entry, or the Expenses
 // paid personally paper. An entry reached from the trial balance is marked with a blue bar.
 import Link from "next/link";
+import { Menu } from "../step3/banking-ui";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { formatDate } from "@/lib/dates";
@@ -19,17 +20,18 @@ export const entryStatus = (e: CbEntry): EntryStatus => (e.needs_review ? "Yes" 
 type Source = "Typed" | "Standard entry" | "Revenue check" | "Expenses paid personally" | "Schedule";
 const sourceOf = (e: CbEntry & { standard_id?: string | null }): Source => (e.origin === "revenue_check" ? "Revenue check" : e.origin === "expenses_personal" ? "Expenses paid personally" : e.origin === "schedule" ? "Schedule"
   : /^Standard entry/.test(e.wp_ref ?? "") || e.standard_id ? "Standard entry" : "Typed");
-const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px]";
+const COLS = "grid-cols-[18px_92px_44px_104px_minmax(0,1fr)_minmax(0,190px)_110px_70px_32px]";
 const money = (n: number) => { const t = Math.abs(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return n < 0 ? `(${t})` : t; };
 
 // Piece 5 (Hashim, Nov 18, 2026): the same list on step 5, "Entries this year". There the step list keeps the left
 // panel, so the filters sit in a strip above the list, and every link stays on step 5 (listBase).
-export async function entriesArea({ supabase, file, entries, accounts, sp, editable, standard, rounding = [], listBase, title = "Entries" }: {
+export async function entriesArea({ supabase, file, entries, accounts, sp, editable, standard, rounding = [], listBase, title = "Entries", history = false }: {
   supabase: SupabaseClient; file: CbFileRow; entries: CbEntry[]; accounts: CbAccount[];
   sp: { type?: string; status?: string; source?: string; entry?: string; back?: string };
   editable: boolean; standard: { id: string; name: string }[];
   rounding?: { gifi: string; title: string; cents: number }[];   // round 23: posted by itself from 3.1, one per T2 line under 1.00
   listBase?: string; title?: string;
+  history?: boolean;   // CB2-0 step 2: ⋯ › History on each entry (the people who may read the file's History)
 }) {
   const base = `/closebook/${file.id}`;
   const lb = listBase ?? `${base}?area=entries`;
@@ -93,7 +95,7 @@ export async function entriesArea({ supabase, file, entries, accounts, sp, edita
       {listBase && strip}
       <section className="overflow-hidden rounded-[var(--radius-ds)] border border-sand-200 bg-white" aria-label="Entries">
         <div className={`grid ${COLS} gap-x-2 border-b border-sand-200 bg-sand-50 px-3 py-1.5 text-[11px] font-semibold text-ink-3`}>
-          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span><span className="sr-only">For the reviewer</span></span>
+          <span /><span>No.</span><span>Type</span><span>Date</span><span>Description</span><span>W/P ref</span><span className="text-right">Amount</span><span><span className="sr-only">For the reviewer</span></span><span><span className="sr-only">More</span></span>
         </div>
         {shown.map(({ e }) => {
           const total = e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0);
@@ -110,6 +112,8 @@ export async function entriesArea({ supabase, file, entries, accounts, sp, edita
                 : <span className="truncate text-ink-3">{e.wp_ref || "–"}</span>}
               <span className="text-right tabular-nums">{money(total)}</span>
               <span>{e.needs_review && <span className="rounded bg-sand-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-ink-2" title="Step 7 lists it for the reviewer to look at" data-look-tag>To look at</span>}</span>
+              <span>{history && <Menu label={`More for entry ${entryNo(file.year_end, e).split(" ")[0]}`}>
+                <Link href={`${open.replace(/&open=[^&]+$/, "")}&ihist=entry:${e.id}`} scroll={false} className="rounded px-3 py-1.5 hover:bg-navy-50" data-entry-history>History</Link></Menu>}</span>
             </div>
           );
         })}
@@ -117,7 +121,7 @@ export async function entriesArea({ supabase, file, entries, accounts, sp, edita
           <div key={`rounding-${r.gifi}`} className={`grid ${COLS} items-center gap-x-2 border-b border-sand-100 px-3 py-[6px] text-[12.5px] text-ink-2 last:border-0`}>
             <span /><span>–</span><span className="text-ink-3">Opening</span><span className="whitespace-nowrap">{formatDate(new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) - 1)).toISOString().slice(0, 10))}</span>
             <span className="truncate">Opening balance rounding · {r.title} to retained earnings</span><span className="truncate text-ink-3">3.1</span>
-            <span className="text-right tabular-nums">{money(Math.abs(r.cents) / 100)}</span><span className="text-[11.5px] text-ink-3">Automatic</span>
+            <span className="text-right tabular-nums">{money(Math.abs(r.cents) / 100)}</span><span className="text-[11.5px] text-ink-3">Automatic</span><span />
           </div>
         ))}
         {!shown.length && !rounding.length && <p className="px-3 py-3 text-[12.5px] text-ink-3">No entries.</p>}

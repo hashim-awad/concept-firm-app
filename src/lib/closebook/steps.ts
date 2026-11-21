@@ -15,7 +15,7 @@ export type StepState = "done" | "current" | "open";
 // preparer only), Next (the current step), Open. notes: review notes not yet cleared on the step.
 export type StepWord = "signed" | "prepared" | "next" | "open";
 export type Step = { key: StepKey; n: number; name: string; who: string; note: string; state: StepState; word: StepWord; notes: number };
-export type StepSign = { prepared: boolean; reviewed: boolean; notes: number; changed?: boolean };
+export type StepSign = { prepared: boolean; reviewed: boolean; notes: number };
 // The steps with sign-offs today (round 8); 8 to 10 get theirs when they are built.
 export const SIGNED_STEPS: StepKey[] = [...STEP_KEYS];
 

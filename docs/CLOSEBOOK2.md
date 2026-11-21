@@ -6,7 +6,7 @@ replaced in later phases. CloseBook2 is built as if it were a product. Nothing i
 **This file wins.** Where docs/PHASE3-BATCH.md, the Step 5 decision log in docs/BRIEF.md, or any earlier piece disagrees
 with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces it.
 
-## The 13 rules
+## The rules
 
 1. **Basic tools, no code.** If a QBO or CaseWare user could handle a situation with basic tools, a CloseBook2 user
    handles it the same way. Code changes are only for bugs and new features, never for a client's unusual facts.
@@ -30,6 +30,16 @@ with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces 
     and tax rates as data; tax software as a setting; two-factor sign-in.
 13. **Only four hard stops:** an unbalanced entry, posting to a total line, a locked period or file, and a compilation
     report dated before the MAL is signed. Everything else is a warning.
+14. **Record everything, show only what the task needs** (Hashim, Nov 21, 2026; wins over anything earlier, including
+    the first step 2 instruction).
+    1. Record everything; show only what the user needs for the task in front of them. Logs, history and change trails
+       live behind a menu (like QBO "Audit history"), never pushed onto the screen.
+    2. Never force a step on the accountant: no blocking, no re-sign, no confirm prompts, no banners, tags or pop-ups
+       about what changed. The accountant decides when to look.
+    3. A sign-off is a person's act. Only that person can undo it. Software never stamps, clears or reopens it.
+    4. Fewest clicks wins. Every change proposed states the clicks it adds for the preparer and the reviewer.
+    5. When in doubt, cut.
+    6. Report flows as clicks, not screenshots.
 
 ## Phases
 - **Phase 0 (CB2-0): engine clean.** Answer-key tests; sign-offs never cleared; no gates or redirects; refusals become
