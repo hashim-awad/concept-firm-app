@@ -108,8 +108,8 @@ export function ChartView({ clientId, rows, lines, taxes, canEdit, asOf, from, p
     return rows.filter((r) => (inactive || r.active) && (!t || `${r.number} ${r.name} ${r.type} ${r.line_no ?? ""} ${r.lineName}`.toLowerCase().includes(t)))
       .sort((a, b) => { const x = key(a), y = key(b); return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "en", { numeric: true })) * sort.dir; });
   }, [rows, q, sort, inactive, taxName]);
-  const head = (col: Col, label: string, right = false) => (
-    <th className={right ? "text-right" : ""} aria-sort={sort.col === col ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+  const head = (col: Col, label: string, right = false, wide = false) => (
+    <th className={`${right ? "text-right" : ""} ${wide ? "max-md:hidden" : ""}`} aria-sort={sort.col === col ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
       <button type="button" onClick={() => setSort({ col, dir: sort.col === col ? (sort.dir === 1 ? -1 : 1) : 1 })} className="inline-flex items-center gap-1 font-semibold">
         {label}{sort.col === col && (sort.dir === 1 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}</button></th>
   );
@@ -129,14 +129,14 @@ export function ChartView({ clientId, rows, lines, taxes, canEdit, asOf, from, p
       </div>
       <div className="card overflow-x-auto p-0">
         <table className="table" data-chart-table>
-          <thead><tr>{head("number", "Number")}{head("name", "Name")}{head("type", "Type")}{head("gifi", "GIFI line")}{head("tax", "Default tax code")}{head("balance", "Balance", true)}<th className="w-10"><span className="sr-only">Actions</span></th></tr></thead>
+          <thead><tr>{head("number", "Number")}{head("name", "Name")}{head("type", "Type", false, true)}{head("gifi", "GIFI line", false, true)}{head("tax", "Default tax code", false, true)}{head("balance", "Balance", true)}<th className="w-10"><span className="sr-only">Actions</span></th></tr></thead>
           <tbody>{shown.map((r) => (
             <tr key={r.id} className={r.active ? "" : "text-ink-3"} data-chart-row={r.ident}>
               <td className="tabular-nums">{r.number}</td>
-              <td className="min-w-[12rem]"><Link href={run(r)} className="hover:underline">{r.name}</Link>{!r.active && <span className="ml-1.5 text-[11.5px]">(inactive)</span>}</td>
-              <td>{r.type}</td>
-              <td className="min-w-[10rem]">{r.line_no ? <span title={r.lineName}>{r.line_no.replace(/\.00$/, "")} {r.lineName}</span> : <span className="text-warning">Unmatched</span>}</td>
-              <td>{r.tax ? taxName.get(r.tax) ?? r.tax : ""}</td>
+              <td className="md:min-w-[12rem]"><Link href={run(r)} className="hover:underline">{r.name}</Link>{!r.active && <span className="ml-1.5 text-[11.5px]">(inactive)</span>}</td>
+              <td className="max-md:hidden">{r.type}</td>
+              <td className="min-w-[10rem] max-md:hidden">{r.line_no ? <span title={r.lineName}>{r.line_no.replace(/\.00$/, "")} {r.lineName}</span> : <span className="text-warning">Unmatched</span>}</td>
+              <td className="max-md:hidden">{r.tax ? taxName.get(r.tax) ?? r.tax : ""}</td>
               <td className="text-right tabular-nums"><Link href={run(r)} className="hover:underline">{bracketAmount(r.balance)}</Link></td>
               <td className="text-right"><RowMenu clientId={clientId} row={r} runHref={run(r)} canEdit={canEdit} onEdit={() => setEdit(r)} onHistory={() => router.push(`${base}?history=${r.id}`)} /></td>
             </tr>

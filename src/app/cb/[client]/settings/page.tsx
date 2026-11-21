@@ -22,9 +22,9 @@ export default async function SettingsPage({ params, searchParams }: { params: P
     body = <>
       <form method="get" className="flex gap-2"><input type="hidden" name="tab" value="chart" /><input name="q" defaultValue={sp.q ?? ""} placeholder="Filter by number or name" className="input input-compact w-full max-w-xs" /></form>
       <div className="card overflow-x-auto p-0"><table className="table table-compact" data-settings-chart>
-        <thead><tr><th>Number</th><th>Name</th><th>Type</th><th>GIFI line</th><th>Default tax code</th></tr></thead>
-        <tbody>{rows.map((r) => <tr key={r.number}><td className="tabular-nums">{r.number}</td><td>{r.name}</td><td>{r.account_type}</td>
-          <td>{r.line_no ? `${r.line_no.replace(/\.00$/, "")} ${b.lineName.get(r.line_no) ?? ""}` : "Unmatched"}</td><td>{r.tax_default ?? ""}</td></tr>)}</tbody></table></div>
+        <thead><tr><th>Number</th><th>Name</th><th className="max-md:hidden">Type</th><th className="max-md:hidden">GIFI line</th><th className="max-md:hidden">Default tax code</th></tr></thead>
+        <tbody>{rows.map((r) => <tr key={r.number}><td className="tabular-nums">{r.number}</td><td>{r.name}</td><td className="max-md:hidden">{r.account_type}</td>
+          <td className="max-md:hidden">{r.line_no ? `${r.line_no.replace(/\.00$/, "")} ${b.lineName.get(r.line_no) ?? ""}` : "Unmatched"}</td><td className="max-md:hidden">{r.tax_default ?? ""}</td></tr>)}</tbody></table></div>
       <p className="text-[12.5px] text-ink-3">A new client&rsquo;s chart starts from this template. {rows.length} accounts.</p>
     </>;
   } else {
@@ -36,9 +36,9 @@ export default async function SettingsPage({ params, searchParams }: { params: P
     for (const p of (parts ?? []) as { code: string; name: string; rate: number; recoverable: boolean; effective_from: string }[])
       byCode.set(p.code, [...(byCode.get(p.code) ?? []), { name: p.name, rate: Number(p.rate), recoverable: p.recoverable, from: p.effective_from }]);
     body = <div className="card overflow-x-auto p-0"><table className="table table-compact" data-settings-tax>
-      <thead><tr><th>Code</th><th>Name</th><th>Provinces</th><th>Parts (rate, claimable, in force from)</th></tr></thead>
-      <tbody>{((codes ?? []) as { code: string; name: string; provinces: string[] | null }[]).map((c) => <tr key={c.code}><td className="font-semibold">{c.code}</td><td>{c.name}</td>
-        <td>{c.provinces?.join(", ") ?? "All"}</td>
+      <thead><tr><th className="max-md:hidden">Code</th><th>Name</th><th className="max-md:hidden">Provinces</th><th>Parts (rate, claimable, in force from)</th></tr></thead>
+      <tbody>{((codes ?? []) as { code: string; name: string; provinces: string[] | null }[]).map((c) => <tr key={c.code}><td className="font-semibold max-md:hidden">{c.code}</td><td>{c.name}</td>
+        <td className="max-md:hidden">{c.provinces?.join(", ") ?? "All"}</td>
         <td>{(byCode.get(c.code) ?? []).map((p, i) => <div key={i}>{p.name}: {(p.rate * 100).toFixed(3).replace(/\.?0+$/, "")}%, {p.recoverable ? "claimable" : "not claimable"}, from {p.from}</div>)}
           {!byCode.has(c.code) && <span className="text-ink-3">No tax</span>}</td></tr>)}</tbody></table></div>;
   }

@@ -125,7 +125,7 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
           {warnings.length > 0 && <ul className="mt-3 grid gap-1 rounded-md bg-warning-soft px-3 py-2 text-[12.5px] text-warning" data-je-warnings>{warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
           {entry.schedule && <p className="mt-3 text-[12.5px] text-ink-3">Made by a schedule. It edits here as an ordinary entry.</p>}
           {/* Lines: #, Account, Debits, Credits, Description, Sales tax. */}
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 hidden overflow-x-auto md:block">
             <table className="w-full min-w-[56rem] border-collapse text-[13px]" data-je-lines>
               <thead><tr className="border-b border-sand-300 text-left text-[11.5px] font-semibold uppercase tracking-[.04em] text-ink-3">
                 <th className="w-12 px-1.5 py-2">#</th><th className="px-1.5 py-2">Account</th><th className="w-32 px-1.5 py-2 text-right">Debits</th><th className="w-32 px-1.5 py-2 text-right">Credits</th>
@@ -153,6 +153,26 @@ export function JournalWindow({ clientId, entry, nextNo, accounts, codes, years,
                   <td className="border-t-2 border-ink px-1.5 py-2 text-right tabular-nums">{bracketAmount(plan.cr)}</td><td colSpan={3} /></tr></tbody>
             </table>
           </div>
+          {/* Phone width: each line as a card (same fields), so nothing scrolls sideways. */}
+          <ol className="mt-4 grid gap-2.5 md:hidden" data-je-cards>{rows.map((r, i) => (
+            <li key={r.key} className="rounded-md border border-sand-200 p-2.5">
+              <div className="mb-1.5 flex items-center justify-between text-[12px] font-semibold text-ink-3"><span>Line {i + 1}</span>{!ro && <span>
+                <button type="button" aria-label={`Copy line ${i + 1}`} onClick={() => setRows((rs) => [...rs.slice(0, i + 1), { ...rs[i], key: ++seq }, ...rs.slice(i + 1)])} className={iconBtn}><Copy className="h-4 w-4" /></button>
+                <button type="button" aria-label={`Delete line ${i + 1}`} onClick={() => setRows((rs) => pad(rs.filter((_, k) => k !== i), 2))} className={iconBtn}><Trash2 className="h-4 w-4" /></button></span>}</div>
+              <div className="grid gap-1.5">
+                {ro ? <span>{acct.get(r.account)?.label}</span> : <Picker compact ariaLabel={`Line ${i + 1} account (phone)`} value={r.account} onChange={(v) => pickAccount(i, v)} options={accounts} placeholder="Account" />}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input value={r.dr} onChange={(e) => set(i, { dr: e.target.value, ...(e.target.value ? { cr: "" } : {}) })} onBlur={(e) => set(i, { dr: tidyAmount(e.target.value) })} disabled={ro} inputMode="decimal" placeholder="Debit" aria-label={`Line ${i + 1} debit (phone)`} className="input input-compact w-full text-right tabular-nums" />
+                  <input value={r.cr} onChange={(e) => set(i, { cr: e.target.value, ...(e.target.value ? { dr: "" } : {}) })} onBlur={(e) => set(i, { cr: tidyAmount(e.target.value) })} disabled={ro} inputMode="decimal" placeholder="Credit" aria-label={`Line ${i + 1} credit (phone)`} className="input input-compact w-full text-right tabular-nums" />
+                </div>
+                <input value={r.memo} onChange={(e) => set(i, { memo: e.target.value })} disabled={ro} maxLength={200} placeholder="Description" aria-label={`Line ${i + 1} description (phone)`} className="input input-compact w-full" />
+                {ro ? <span className="text-ink-2">{code.get(r.tax)?.name}</span> : <Picker compact ariaLabel={`Line ${i + 1} sales tax (phone)`} value={r.tax} onChange={(v) => set(i, { tax: v })} options={taxOpts} allowEmpty emptyLabel="No sales tax" placeholder="Sales tax" />}
+              </div>
+            </li>))}
+            {plan.gst !== 0 && <li className="flex justify-between px-1 text-[13px] text-ink-2"><span>21500 GST/HST payable (sales tax)</span><span className="tabular-nums">{bracketAmount(plan.gst)}</span></li>}
+            {plan.pst !== 0 && <li className="flex justify-between px-1 text-[13px] text-ink-2"><span>21550 PST payable (sales tax)</span><span className="tabular-nums">{bracketAmount(plan.pst)}</span></li>}
+            <li className="flex justify-between border-t-2 border-ink px-1 pt-1.5 text-[13px] font-bold"><span>Total</span><span className="tabular-nums">Debits {bracketAmount(plan.dr)} · Credits {bracketAmount(plan.cr)}</span></li>
+          </ol>
           {!ro && <div className="mt-2 flex gap-2">
             <button type="button" className="btn-secondary btn-compact" onClick={() => setRows((rs) => [...rs, ...Array.from({ length: 8 }, blank)])} data-je-add-lines>Add lines</button>
             <button type="button" className="btn-secondary btn-compact" onClick={() => setRows(pad([]))} data-je-clear-lines>Clear all lines</button></div>}

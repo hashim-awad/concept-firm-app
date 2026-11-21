@@ -50,13 +50,13 @@ export default async function SearchPage({ params, searchParams }: { params: Pro
         <button type="submit" className="btn">Search</button></form>
       {q && <p className="text-[13px] text-ink-3">{hits.size} result{hits.size === 1 ? "" : "s"}{hits.size > 200 ? " (the first 200)" : ""}</p>}
       {list.length > 0 && <div className="card overflow-x-auto p-0"><table className="table" data-search-results>
-        <thead><tr><th>Date</th><th>Type</th><th>No.</th><th>Description</th><th>Accounts</th><th className="text-right">Amount</th></tr></thead>
+        <thead><tr><th>Date</th><th className="max-md:hidden">Type</th><th className="max-md:hidden">No.</th><th>Description</th><th className="max-md:hidden">Accounts</th><th className="text-right">Amount</th></tr></thead>
         <tbody>{list.map((h) => (
           <tr key={h.ref} className="hover:bg-sand-50" data-search-hit>
             <td className="whitespace-nowrap"><Link href={`${h.href}?back=${encodeURIComponent(`/cb/${client}/search?q=${encodeURIComponent(q)}`)}`} className="text-navy-700 hover:underline">{formatDate(h.date)}</Link></td>
-            <td>{h.type}</td><td>{h.no}</td>
-            <td className="min-w-[14rem]"><Link href={`${h.href}?back=${encodeURIComponent(`/cb/${client}/search?q=${encodeURIComponent(q)}`)}`} className="hover:underline">{h.text}</Link></td>
-            <td className="text-[12.5px] text-ink-2">{[...h.accounts].join(", ")}</td><td className="text-right tabular-nums">{bracketAmount(h.amount)}</td>
+            <td className="max-md:hidden">{h.type}</td><td className="max-md:hidden">{h.no}</td>
+            <td className="md:min-w-[14rem]"><Link href={`${h.href}?back=${encodeURIComponent(`/cb/${client}/search?q=${encodeURIComponent(q)}`)}`} className="hover:underline">{h.text}</Link></td>
+            <td className="text-[12.5px] text-ink-2 max-md:hidden">{[...h.accounts].join(", ")}</td><td className="text-right tabular-nums">{bracketAmount(h.amount)}</td>
           </tr>))}</tbody></table></div>}
     </div>
   );

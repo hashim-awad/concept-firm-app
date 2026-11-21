@@ -39,15 +39,15 @@ export default async function JournalList({ params, searchParams }: { params: Pr
       </form>
       <div className="card overflow-x-auto p-0">
         <table className="table" data-je-list>
-          <thead><tr><th>No.</th><th>Date</th><th>Memo</th><th className="text-right">Total</th><th className="text-center">Reclass</th><th>Created from</th></tr></thead>
+          <thead><tr><th>No.</th><th>Date</th><th>Memo</th><th className="text-right">Total</th><th className="text-center max-md:hidden">Reclass</th><th className="max-md:hidden">Created from</th></tr></thead>
           <tbody>{rows.map((r) => (
             <tr key={r.id} className="cursor-pointer hover:bg-sand-50" data-je-row={r.no || r.id}>
               <td className="whitespace-nowrap"><Link href={r.href} className="font-semibold text-navy-700 hover:underline">{r.no || "–"}</Link></td>
               <td className="whitespace-nowrap"><Link href={r.href} className="block">{formatDate(r.date)}</Link></td>
-              <td className="min-w-[16rem]"><Link href={r.href} className="block">{r.memo}</Link></td>
+              <td className="md:min-w-[16rem]"><Link href={r.href} className="block">{r.memo}</Link></td>
               <td className="text-right tabular-nums"><Link href={r.href} className="block">{bracketAmount(r.total)}</Link></td>
-              <td className="text-center">{r.reclass && <Check className="mx-auto h-4 w-4 text-navy-700" aria-label="Reclass entry" />}</td>
-              <td><Link href={r.href} className="block">{r.from}</Link></td>
+              <td className="text-center max-md:hidden">{r.reclass && <Check className="mx-auto h-4 w-4 text-navy-700" aria-label="Reclass entry" />}</td>
+              <td className="max-md:hidden"><Link href={r.href} className="block">{r.from}</Link></td>
             </tr>
           ))}
             {!rows.length && <tr><td colSpan={6} className="text-ink-3">No journal entry in this range.</td></tr>}</tbody>

@@ -223,3 +223,9 @@ body:has([data-ui1]) [data-bar] .bg-white :focus-visible { outline-color: #01216
 /* Amount columns: a hidden bracket-width space after positive amounts lines decimals up with bracketed
    negatives (D9). On screen only; it is not text, so a copy never picks up a ")". */
 .amt-pad::after { content: ")"; visibility: hidden; }
+/* CB2-1: Closebook at phone width. Tables keep their key columns (the others hide) and tighten, so nothing scrolls sideways. */
+@media (max-width: 767px) {
+  .cb-books .table th, .cb-books .table td { padding-left: 0.4rem; padding-right: 0.4rem; font-size: 12.5px; }
+  .cb-books .table td { overflow-wrap: anywhere; }
+  .cb-books .card.overflow-x-auto { padding-left: 0; padding-right: 0; }
+}

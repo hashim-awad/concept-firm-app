@@ -63,3 +63,16 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 33. Changing an entry's journal number alone is recorded on the entry, but its History row does not name the change.
 34. Attachments on an entry are listed by name (as in today's window); opening them from the window comes later.
 35. scripts/checks/drift-check.sql (manual audit) does not list the CB2-1 tables and functions yet.
+
+## From the one spec-checker run on PR #117 (rule 16), outside the piece or for Hashim
+36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
+    its own HST_ON or 21500, and sees no codes. Needs keys per firm and a starting set per firm (Hashim to decide).
+37. Account numbers written in the new code (rule 12): 21500 and 21550 (sales tax lines, Overview tile), 31000 (retained
+    earnings fallback). To come from markers on the firm's chart template, as item 21 proposes for 21510 (Hashim to decide).
+38. The suggested journal number does not follow the date into another year.
+39. Saving a schedule entry from Books drops its lines' schedule tags.
+40. The Back link on reports and the bank transaction page follows any address given; limit it to /cb.
+41. The opening entry's "not cleared" warning fires on any line to an Opening Balance Equity account.
+42. Report subtotals, totals and $ change are not links (QBO links totals).
+43. A worked-out entry's window title reads "Journal entry: Opening balances", not a number (it has none until saved).
+44. Chart search box: the icon overlaps the placeholder.

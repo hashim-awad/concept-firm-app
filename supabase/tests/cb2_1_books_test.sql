@@ -76,6 +76,16 @@ select test.check('the three opening refusals are gone (warnings only)',
   and (select prosrc from pg_proc where proname = 'cb_entry_write_lines') not like '%must clear Opening Balance Equity to nil%'
   and (select prosrc from pg_proc where proname = 'cb_entry_write_lines') not like '%is already moved to retained earnings by another entry%');
 
+-- Part 1.6: a client added by hand starts from the firm's chart template, with each account's default sales tax code.
+set role authenticated;
+select public.cb_books_add_client('Cedar Dummy Hand Ltd.', 'AB') as hand \gset
+reset role;
+select test.check('a client added by hand starts with the whole chart template',
+  (select count(*) from public.cb_client_accounts where cb_client_id = :'hand') = (select count(*) from public.cb_chart_accounts where firm_id = private.concept_firm()));
+select test.check('its default tax codes follow its province (Alberta: GST on a GST/HST account, meals at 50 per cent)',
+  (select tax_code from public.cb_client_accounts where cb_client_id = :'hand' and number = '65100') = 'GST'
+  and (select tax_code from public.cb_client_accounts where cb_client_id = :'hand' and number = '60200') = 'MEALS_GST_50');
+
 -- Part 4.4: firm B reads and changes nothing of firm A's clients, charts, History and tax codes.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000b"}';

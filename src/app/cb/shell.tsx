@@ -122,7 +122,7 @@ export function CbShell({ client, clients, canEdit, children }: { client: ShellC
             </div>
           </div>
         )}
-        <main id="main" className="min-w-0 flex-1 px-4 py-5 md:px-6">{children}</main>
+        <main id="main" className="cb-books min-w-0 flex-1 px-4 py-5 md:px-6">{children}</main>
       </div>
     </div>
   );

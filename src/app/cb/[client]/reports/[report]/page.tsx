@@ -36,11 +36,11 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
 
   const tbRow = (t: TbLine, indent = false, bold = false) => (
     <tr key={t.key} className={bold ? "font-semibold" : ""} data-tb-row={t.key}>
-      <td className={indent ? "pl-6" : ""}>{t.number}</td><td>{t.name}</td><td>{(t.line_no ?? "").replace(/\.00$/, "")}</td>
-      <td className="text-right tabular-nums">{link(t.key, t.prelim)}</td><td className="text-right tabular-nums">{link(t.key, t.adjust)}</td>
-      <td className="text-right tabular-nums">{link(t.key, t.reclass)}</td><td className="text-right tabular-nums">{link(t.key, t.final)}</td>
-      <td className="text-right tabular-nums">{link(t.key, t.last, yearBefore(from), yearBefore(to))}</td><td className="text-right tabular-nums">{amt(t.diff)}</td>
-      <td className="text-right tabular-nums">{bold && !t.number && t.key === "total" ? "" : pctChange(t.final, t.last)}</td>
+      <td className={`${indent ? "pl-6" : ""} max-md:hidden`}>{t.number}</td><td>{t.name}</td><td className="max-md:hidden">{(t.line_no ?? "").replace(/\.00$/, "")}</td>
+      <td className="text-right tabular-nums max-md:hidden">{link(t.key, t.prelim)}</td><td className="text-right tabular-nums max-md:hidden">{link(t.key, t.adjust)}</td>
+      <td className="text-right tabular-nums max-md:hidden">{link(t.key, t.reclass)}</td><td className="text-right tabular-nums">{link(t.key, t.final)}</td>
+      <td className="text-right tabular-nums max-md:hidden">{link(t.key, t.last, yearBefore(from), yearBefore(to))}</td><td className="text-right tabular-nums max-md:hidden">{amt(t.diff)}</td>
+      <td className="text-right tabular-nums max-md:hidden">{bold && !t.number && t.key === "total" ? "" : pctChange(t.final, t.last)}</td>
     </tr>
   );
   const sec = (s: StmtSection, total: string, f: string, t: string, pf: string, pt: string) => (
@@ -68,18 +68,18 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
     for (const t of r.tb) { if (t.final > 0) dr += t.final; else cr -= t.final; }
     body = (
       <table className="table" data-report="tb">
-        <thead><tr><th>Number</th><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
+        <thead><tr><th className="max-md:hidden">Number</th><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
         <tbody>{r.tb.filter((t) => t.final).map((t) => (
-          <tr key={t.key} data-tb-row={t.key}><td>{t.number}</td><td>{t.name}</td>
+          <tr key={t.key} data-tb-row={t.key}><td className="max-md:hidden">{t.number}</td><td>{t.name}</td>
             <td className="text-right tabular-nums">{t.final > 0 ? link(t.key, t.final) : ""}</td><td className="text-right tabular-nums">{t.final < 0 ? link(t.key, -t.final) : ""}</td></tr>))}
-          <tr className="font-bold"><td /><td>Total</td><td className="border-t border-ink text-right tabular-nums">{amt(dr)}</td><td className="border-t border-ink text-right tabular-nums">{amt(cr)}</td></tr></tbody>
+          <tr className="font-bold"><td className="max-md:hidden" /><td>Total</td><td className="border-t border-ink text-right tabular-nums">{amt(dr)}</td><td className="border-t border-ink text-right tabular-nums">{amt(cr)}</td></tr></tbody>
       </table>
     );
   } else if (report === "tbg" && r.groups) {
     body = (
       <table className="table table-compact" data-report="tbg">
-        <thead><tr><th>Number</th><th>Account</th><th>GIFI</th><th className="text-right">Prelim</th><th className="text-right">Adj&apos;s</th><th className="text-right">Reclass</th>
-          <th className="text-right">Final</th><th className="text-right">Prior</th><th className="text-right">$ change</th><th className="text-right">% change</th></tr></thead>
+        <thead><tr><th className="max-md:hidden">Number</th><th>Account</th><th className="max-md:hidden">GIFI</th><th className="text-right max-md:hidden">Prelim</th><th className="text-right max-md:hidden">Adj&apos;s</th><th className="text-right max-md:hidden">Reclass</th>
+          <th className="text-right">Final</th><th className="text-right max-md:hidden">Prior</th><th className="text-right max-md:hidden">$ change</th><th className="text-right max-md:hidden">% change</th></tr></thead>
         <tbody>{r.groups.groups.map((g) => (
           <Fragment key={g.code}>
             <tr key={`h${g.code}`} className="font-bold"><td colSpan={10} className="pt-3">{g.name}</td></tr>
@@ -109,19 +109,19 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   } else if (report === "gl" && r.ledger) {
     body = (
       <table className="table table-compact" data-report="gl">
-        <thead><tr><th>Date</th><th>Transaction type</th><th>No.</th><th>Description</th><th className="text-right">Amount</th><th className="text-right">Balance</th></tr></thead>
+        <thead><tr><th>Date</th><th className="max-md:hidden">Transaction type</th><th className="max-md:hidden">No.</th><th>Description</th><th className="text-right">Amount</th><th className="text-right max-md:hidden">Balance</th></tr></thead>
         <tbody>{r.ledger.map((a) => (
           <Fragment key={a.key}>
             <tr key={`h${a.key}`} className="font-bold"><td colSpan={6} className="pt-3">{acctLabel(a)}</td></tr>
-            <tr key={`b${a.key}`} className="text-ink-2"><td>{formatDate(from)}</td><td colSpan={3}>Balance at start</td><td /><td className="text-right tabular-nums">{amt(a.before)}</td></tr>
+            <tr key={`b${a.key}`} className="text-ink-2"><td>{formatDate(from)}</td><td colSpan={3}>Balance at start</td><td /><td className="text-right tabular-nums max-md:hidden">{amt(a.before)}</td></tr>
             {a.lines.map((l, i) => {
               const tx = txnOf(b, l);
               const href = tx ? `${tx.href}${tx.href.includes("?") ? "&" : "?"}back=${encodeURIComponent(here)}` : null;
               return (
                 <tr key={`${a.key}${i}`} data-gl-line>
-                  <td className="whitespace-nowrap">{formatDate(l.date)}</td><td>{tx ? <Link href={href!} className="text-navy-700 hover:underline">{tx.type}</Link> : ""}</td>
-                  <td>{tx?.no ?? ""}</td><td className="min-w-[14rem]">{href ? <Link href={href} className="hover:underline">{tx?.text || l.label}</Link> : l.label}</td>
-                  <td className="text-right tabular-nums">{amt(l.cents)}</td><td className="text-right tabular-nums">{amt(l.running)}</td>
+                  <td className="whitespace-nowrap">{formatDate(l.date)}</td><td className="max-md:hidden">{tx ? <Link href={href!} className="text-navy-700 hover:underline">{tx.type}</Link> : ""}</td>
+                  <td className="max-md:hidden">{tx?.no ?? ""}</td><td className="md:min-w-[14rem]">{href ? <Link href={href} className="hover:underline">{tx?.text || l.label}</Link> : l.label}</td>
+                  <td className="text-right tabular-nums">{amt(l.cents)}</td><td className="text-right tabular-nums max-md:hidden">{amt(l.running)}</td>
                 </tr>
               );
             })}
@@ -134,15 +134,15 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   } else if (report === "journal" && r.journal && r.box) {
     body = (
       <table className="table table-compact" data-report="journal">
-        <thead><tr><th>Date</th><th>Transaction type</th><th>No.</th><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
+        <thead><tr><th>Date</th><th className="max-md:hidden">Transaction type</th><th className="max-md:hidden">No.</th><th>Account</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
         <tbody>{r.journal.map((t, i) => {
           const tx = txnOf(b, { kind: t.kind, ref: t.ref, label: t.label });
           const href = tx ? `${tx.href}${tx.href.includes("?") ? "&" : "?"}back=${encodeURIComponent(here)}` : null;
           return (
             <Fragment key={i}>
               <tr key={`h${i}`} className="border-t border-sand-300 font-semibold"><td className="whitespace-nowrap">{formatDate(t.date)}</td>
-                <td>{href ? <Link href={href} className="text-navy-700 hover:underline">{tx!.type}</Link> : ""}</td><td>{tx?.no}</td><td colSpan={3}>{tx?.text || t.label}</td></tr>
-              {t.lines.map((l, k) => <tr key={`${i}-${k}`}><td colSpan={3} /><td>{name(l.key)}</td><td className="text-right tabular-nums">{l.cents > 0 ? amt(l.cents) : ""}</td><td className="text-right tabular-nums">{l.cents < 0 ? amt(-l.cents) : ""}</td></tr>)}
+                <td className="max-md:hidden">{href ? <Link href={href} className="text-navy-700 hover:underline">{tx!.type}</Link> : ""}</td><td className="max-md:hidden">{tx?.no}</td><td colSpan={3}>{tx?.text || t.label}</td></tr>
+              {t.lines.map((l, k) => <tr key={`${i}-${k}`}><td /><td colSpan={2} className="max-md:hidden" /><td>{name(l.key)}</td><td className="text-right tabular-nums">{l.cents > 0 ? amt(l.cents) : ""}</td><td className="text-right tabular-nums">{l.cents < 0 ? amt(-l.cents) : ""}</td></tr>)}
             </Fragment>
           );
         })}
@@ -169,7 +169,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
         <a href={exp("xlsx")} className="btn-secondary btn-compact" data-export="xlsx"><FileSpreadsheet className="h-4 w-4" />Excel</a>
         <a href={exp("pdf")} target="_blank" rel="noreferrer" className="btn-secondary btn-compact" data-export="pdf"><FileText className="h-4 w-4" />PDF</a>
       </form>
-      <div className="card overflow-x-auto p-4">
+      <div className="card overflow-x-auto p-4 max-md:px-2">
         <div className="mb-3 text-center"><p className="text-[13px] text-ink-3">{b.client.name}</p><h1 className="text-[18px] font-bold">{REPORTS[report]}{account ? `: ${account.split(",").map(name).join(", ")}` : ""}</h1><p className="text-[13px] text-ink-3">{period}</p></div>
         {body}
       </div>
