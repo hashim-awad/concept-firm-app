@@ -26,8 +26,11 @@ with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces 
     list is exported after the T2 is filed. Never imported twice (later phase).
 11. **CloseBook2 has its own Settings** for accounting and tax; Studio Settings keep users, roles, pricing, letters,
     signing, firm name and letterhead (later phase).
-12. **Product-ready:** firm ID on every CloseBook2 table with row-level security; no Concept constant in code; provinces
-    and tax rates as data; tax software as a setting; two-factor sign-in.
+12. **Built for Concept only, not for sale.** Closebook is Concept's competitive advantage, not a product. No work for
+    other firms: no per-firm settings, no provinces beyond Ontario, Alberta and British Columbia, ProFile is the only tax
+    software. Flexibility stays: no firm policies, thresholds or forced amounts in the engine, because Concept's own files
+    vary. Client account numbers are never assumed, because clients who keep their own books bring their own charts. The
+    firm ID already built stays, unused. Two-factor sign-in stays on the list for client confidentiality.
 13. **Only four hard stops:** an unbalanced entry, posting to a total line, a locked period or file, and a compilation
     report dated before the MAL is signed. Everything else is a warning.
 14. **Record everything, show only what the task needs** (Hashim, Nov 21, 2026; wins over anything earlier, including

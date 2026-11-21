@@ -66,7 +66,8 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 
 ## From the one spec-checker run on PR #117 (rule 16), outside the piece or for Hashim
 37. Account numbers written in the new code (rule 12): 21500 and 21550 (sales tax lines, Overview tile), 31000 (retained
-    earnings fallback). Later, with markers on the chart template, when Closebook Settings becomes editable (Hashim, Nov 21, 2026).
+    earnings fallback). Clients who keep their own books use their own account numbers, so the code must not assume ours.
+    Later, with markers on the chart template, when Closebook Settings becomes editable (Hashim, Nov 21, 2026).
 38. The suggested journal number does not follow the date into another year.
 39. Saving a schedule entry from Books drops its lines' schedule tags.
 40. The Back link on reports and the bank transaction page follows any address given; limit it to /cb.
@@ -74,11 +75,6 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 42. Report subtotals, totals and $ change are not links (QBO links totals).
 43. A worked-out entry's window title reads "Journal entry: Opening balances", not a number (it has none until saved).
 44. Chart search box: the icon overlaps the placeholder.
-
-## Before a second firm
-36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
-    its own HST_ON or 21500, and sees no codes. Keys per firm (firm_id, code) and (firm_id, number), and a starting set for
-    each new firm (Hashim, Nov 21, 2026: later).
 
 ## For the switch-over
 45. A bank line dated outside its year posts on the year's first or last day (accepted for now, Hashim, Nov 21, 2026).
