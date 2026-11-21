@@ -283,7 +283,6 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next,
   const count = issues.problems.length + issues.waiting.length;
   const icon = "grid h-[30px] w-[30px] place-items-center rounded-md text-ink-2 hover:bg-sand-100";
   // CB2-0 step 2 (rule 14): each sign-off shows once, as the Prepared and Reviewed chips in the title row.
-  const st = sign?.st;
   return (
     <>
     <div className="mb-3 flex min-h-[30px] flex-wrap items-center gap-2.5">
@@ -329,9 +328,6 @@ export function StepTitle({ n, name, paper, sub, sign, issues, notesPanel, next,
       {menu && <StepMenu {...menu} />}
       {action}
     </div>
-    {sign && st?.prepared_at && st?.reviewed_at && st.prepared_by === st.reviewed_by && (
-      <p className="-mt-1 mb-3 inline-block bg-warning-soft px-2.5 py-1 text-[13px] text-warning" data-same-person>Prepared and reviewed by the same person.</p>
-    )}
     </>
   );
 }

@@ -158,9 +158,9 @@ export function CloseStep({ fileId, d, checklist, checklistTrial, checklistVersi
         ) : can && d.pk.signed ? (
           <form action={recordDelivery} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-3">
             <input type="hidden" name="file_id" value={fileId} />
-            <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="confirm" value="yes" className="h-4 w-4" disabled={!d.reviewed} /> Uploaded to TaxDome and email sent</label>
-            <button className="btn-secondary btn-compact" disabled={!d.reviewed}>Record</button>
-            {!d.reviewed && <span className="text-xs text-ink-3">After the reviewer signs step 10.</span>}
+            <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="confirm" value="yes" className="h-4 w-4" /> Uploaded to TaxDome and email sent</label>
+            <button className="btn-secondary btn-compact">Record</button>
+            {!d.reviewed && <span className="text-xs text-warning">Step 10 is not reviewed yet: the email is still a draft.</span>}
           </form>
         ) : null}
         </div>

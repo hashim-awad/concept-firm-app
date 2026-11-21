@@ -55,9 +55,3 @@ export async function setReviewTreatment(formData: FormData) {
   const { error } = await (await createClient()).rpc("cb_set_review_treatment", { p_file: id, p_line: s(formData, "line"), p_treatment: s(formData, "treatment") });
   done(id, error, "Treatment saved for this client.", "taxwp");
 }
-
-export async function setBookAmortization(formData: FormData) {
-  const id = s(formData, "file_id");
-  const { error } = await (await createClient()).rpc("cb_set_book_amortization", { p_file: id, p_on: s(formData, "on") === "1" });
-  done(id, error, "Saved for this client.", "taxwp");
-}

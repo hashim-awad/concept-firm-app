@@ -413,8 +413,12 @@ export async function signStep(formData: FormData) {
   // Round 34: step 3 on a bank file is signed in its sub-steps. Said as information, never as an error.
   if (error && step === "records" && /signed in its sub-steps/.test(error.message))
     redirect(withMessage(back, "msg", "Step 3 is complete when 3.1, 3.2 and 3.3 are signed."));
-  // CB2-0 step 3 (rule 14): signing stays on the page it was made on.
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`));
+  // CB2-0 step 3 (rule 14): signing stays on the page it was made on. Step 4 (rule 13): open items do not stop a sign-off;
+  // the message says how many are still open (the Issues panel lists them).
+  let open = 0;
+  if (!error) { const { data: st } = await supabase.rpc("cb_step_status", { p_file: id }); open = ((st as Record<string, { problems?: string[] }> | null)?.[step]?.problems ?? []).length; }
+  const tail = open ? ` ${open} open item${open === 1 ? "" : "s"}: see Issues.` : "";
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : (role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`) + tail));
 }
 
 export async function unsignStep(formData: FormData) {

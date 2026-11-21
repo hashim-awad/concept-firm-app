@@ -44,13 +44,15 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   const checks = gifiChecks(result, lastYearRe, openingRounding);
   const c = data.client;
   const bn = businessNumber(c?.business_number);
-  // Every reason the export is refused, by name: a failed check, or no Business Number.
-  const refused = [...checks.filter((x) => !x.ok).map((x) => x.title)];
-  if (!data.accounts.length) refused.unshift("Import the trial balance first.");
-  if (!bn) refused.push("The client has no Business Number. Add it on the client record (Clients), then export.");
-  // Piece R1: on bank-statement files, Match accounts to GIFI first (the box empty, the two ties met). The database refuses too.
+  // CB2-0 step 4 (rule 13): the export refuses only an unbalanced trial balance (or no trial balance at all). Failed checks,
+  // no Business Number and unmatched accounts are warnings: they show on step 8 and the export goes ahead.
+  const refused: string[] = [];
+  if (!data.accounts.length) refused.push("Import the trial balance first.");
+  else if (Math.abs(result.tbOutBy ?? 0) >= 0.005) refused.push(`The trial balance is out by ${result.tbOutBy.toFixed(2)}.`);
+  const warnings = [...checks.filter((x) => !x.ok).map((x) => x.title)];
+  if (!bn) warnings.push("The client has no Business Number. Add it on the client record (Clients).");
   const { data: match } = await supabase.rpc("cb_match_state", { p_file: fileId });
-  refused.push(...(((match as { problems?: string[] } | null)?.problems) ?? []));
+  warnings.push(...(((match as { problems?: string[] } | null)?.problems) ?? []));
 
   // The tax workpaper: each account's final balance as GIFI shows it (the override when set, piece R1), with its tax code
   // (the account's, else its group line's default: D3, an override changes the GIFI code only).
@@ -93,13 +95,15 @@ export async function gifiFor(supabase: SupabaseClient, fileId: string, kind: Ex
   type Tie = { net_income: number | null; total_assets: number | null; cca: number | null; income_tax: number | null; t2_pdf: string | null; accepted: Record<string, { diff: number; by: string; at: string; reason: string }>; entered_by: string | null; entered_at: string };
   const t = tie as Tie | null;
   const n = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-  const bookAmortization = !!(book as { book_amortization?: boolean } | null)?.book_amortization;
+  // CB2-0 step 4: the "amortization = CCA" rule is gone. Amortization is whatever entry is posted; CCA is not compared.
+  void book;
+  const bookAmortization = true;
   const tieItems = final ? tieOut({ ni: Number(final.totals["9999"] ?? 0), assets: Number(final.totals["2599"] ?? 0), amort: Number(final.totals.amort ?? 0), tax: Number(final.totals.inctax ?? 0) },
     { ni: n(t?.net_income), assets: n(t?.total_assets), cca: n(t?.cca), tax: n(t?.income_tax) }, t?.accepted ?? {}, bookAmortization, roundingAllowed) : [];
   const names = new Map(ref.lines.map((l) => [l.gifi_code, l.line_no.endsWith(".00") ? l.name : undefined]).filter(([, nm]) => nm) as [string, string][]);
   names.set("3660", "Retained earnings/deficit – Start");
   return {
-    ...result, kind, roundingAllowed, checks, refused, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
+    ...result, kind, roundingAllowed, checks, refused, warnings, bn, lastYearRe, names, totals, workpaper, exports, final, stale, tie: t, tieItems, bookAmortization,
     reviewLines: [...new Set(wpAccounts.filter((a) => a.code === "REVIEW").map((a) => a.line_no))],
     treatments: new Map(((treat ?? []) as { line_no: string; treatment: Treatment }[]).map((x) => [x.line_no, x.treatment])),
     tjes: data.entries.filter((e) => e.kind === "TJE").length,

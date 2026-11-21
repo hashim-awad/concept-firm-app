@@ -117,19 +117,21 @@ export async function loadPackage(supabase: SupabaseClient, fileId: string) {
   // What stops the package (named), and the notes to add by hand.
   const signs = await supabase.from("cb_step_signoffs").select("step, prepared_at, reviewed_at").eq("file_id", fileId);
   const sg = new Map(((signs.data ?? []) as { step: string; prepared_at: string | null; reviewed_at: string | null }[]).map((x) => [x.step, x]));
+  // CB2-0 step 4 (rule 13): the package stops only when there is nothing to build from (no trial balance). The rest are
+  // warnings shown on step 9; the PDFs build. (The compilation report's date after the MAL is signed is the hard stop.)
   const blocked: string[] = [];
-  if (!sg.get("t2")?.prepared_at) blocked.push("Step 8 must be signed by the preparer first.");
-  if (missingS125) blocked.push("Enter last year's Schedule 125 in step 2.");
+  const warnings: string[] = [];
+  if (!sg.get("t2")?.prepared_at) warnings.push("Step 8 is not signed by the preparer yet.");
+  if (missingS125) warnings.push("Last year's Schedule 125 is not in step 2.");
   if (!g.codes.length) blocked.push("There is no trial balance yet.");
-  // Without last year's Schedule 125 the prior column cannot tie: the missing schedule is the one problem named.
-  for (const t of m.failed.filter((x) => !(missingS125 && x.column === "prior"))) blocked.push(`Tie-out failed (${t.column === "current" ? "this year" : "last year"}): ${t.name}. ${(t.left / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })} against ${(t.right / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}.`);
+  for (const t of m.failed.filter((x) => !(missingS125 && x.column === "prior"))) warnings.push(`Tie-out failed (${t.column === "current" ? "this year" : "last year"}): ${t.name}. ${(t.left / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })} against ${(t.right / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}.`);
   const byHand: string[] = [];
   if ((cur.get("1483") ?? 0) !== 0) byHand.push("Note to add by hand: income taxes recoverable.");
   // Captions where the master line's statement line contradicts its line: the GIFI name is used.
   const captionFallbacks = [...new Set([...cur.keys(), ...(prior?.keys() ?? [])])].filter((c) => { const l = lines.get(c); return !!l && !!l.caption && l.caption !== "Calculated total" && caption(l, c) !== l.caption.trim(); })
     .map((c) => ({ code: c, used: caption(lines.get(c), c), statementLine: lines.get(c)!.caption }));
 
-  return { data, m, ctx, fields, firstYear, firstYearSuggested, lastYearExists, needsShTerms, relatedCodes, divLines, lawyer, mal, signed, blocked, byHand, captionFallbacks,
+  return { data, m, ctx, fields, firstYear, firstYearSuggested, lastYearExists, needsShTerms, relatedCodes, divLines, lawyer, mal, signed, blocked, warnings, byHand, captionFallbacks,
     reviewed: !!sg.get("statements")?.reviewed_at, prepared: !!sg.get("statements")?.prepared_at, bank };
 }
 export type PackageData = NonNullable<Awaited<ReturnType<typeof loadPackage>>>;

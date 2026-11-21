@@ -97,7 +97,6 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
       <Frame closeHref={closeHref}>
         <div className="flex flex-wrap items-center gap-2 border-b border-sand-200 px-5 py-3">
           <h2 className="text-[15px] font-bold">Journal entry {no}</h2>
-          {entry.needs_review && <span className="rounded bg-sand-100 px-1.5 py-0.5 text-[11px] font-semibold text-ink-2" title="Step 7 lists it for the reviewer to look at">To look at</span>}
           {file.books !== "statements" && file.books !== "paper" && <BookedMark fileId={file.id} entry={entry.id} booked={!!entry.booked_at} when={entry.booked_at ? formatDate(entry.booked_at.slice(0, 10)) : ""} by={entry.booked_by ? names.get(entry.booked_by) ?? "" : ""} editable={editable && !locked} waitStep={waitStep} />}
           <span className="flex-1" />
           {canChange && entry.origin !== "expenses_personal" && entry.origin !== "schedule" && <Link href={`${here}&edit=1`} className={act}><Pencil className="h-3.5 w-3.5" />Edit</Link>}
@@ -134,7 +133,6 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
               <div className="grid gap-2 px-3.5 py-2.5 text-[12.5px]">
                 <p>{prep} · {formatDate(entry.created_at)}</p>
                 {last && <p className="text-ink-2" data-entry-last-change>Last changed by {last.changed_by} · {formatDate(last.changed_at)}</p>}
-                <p className="text-ink-3">{entry.needs_review ? "Step 7 lists it for the reviewer to look at. Step 5's sign-offs cover it." : "Step 5's sign-offs cover it."}</p>
               </div>
             </section>
             <section className="rounded-[var(--radius-ds)] border border-sand-200">

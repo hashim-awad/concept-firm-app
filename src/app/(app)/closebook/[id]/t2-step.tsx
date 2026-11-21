@@ -4,7 +4,7 @@
 import { formatDate } from "@/lib/dates";
 import { fmt, KIND_LABEL, TREATMENT, type Treatment } from "@/lib/closebook/t2";
 import type { gifiFor } from "@/lib/closebook/gifi-server";
-import { acceptT2Difference, saveT2Tieout, setBookAmortization, setReviewTreatment } from "../t2-actions";
+import { acceptT2Difference, saveT2Tieout, setReviewTreatment } from "../t2-actions";
 import { ExportButton } from "./export-button";
 import { FilePick } from "./file-pick";
 import { InfoTip } from "@/components/ds/info-tip";
@@ -73,6 +73,8 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
           </div>
         ) : editable ? (
           <div className="flex flex-wrap items-center gap-3">
+            {/* CB2-0 step 4: failed checks, no Business Number and unmatched accounts are warnings; the export goes ahead. */}
+            {g.warnings.length > 0 && <ul className="basis-full text-[12.5px] text-warning" data-warnings>{g.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
             <ExportButton href={`/closebook/${fileId}/gifi?kind=before_tax`} label="Export before tax entries" primary={false} />
             <ExportButton href={`/closebook/${fileId}/gifi?kind=final`} label="Export final" />
             {g.tjes === 0 && <span className="text-xs font-semibold text-warning">No TJE booked yet</span>}
@@ -127,13 +129,6 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
           return <p className="flex justify-between rounded-lg border border-ink/60 px-3 py-1.5 text-sm font-semibold"><span>Net Schedule 1 adjustment (an amount in brackets is a deduction)</span>
             <span className={`tabular-nums ${negativeTone(net)}`}>{net === 0 ? "–" : fmt(net)}</span></p>;
         })()}
-        {canReview && editable && (
-          <form action={setBookAmortization} className="flex flex-wrap items-center gap-3 border-t border-sand-200 pt-2 text-sm">{hidden}
-            <input type="hidden" name="on" value={g.bookAmortization ? "0" : "1"} />
-            <span>Amortization for this client: <b>{g.bookAmortization ? "book amortization (CCA is not compared)" : "CCA (the tie-out compares CCA with the amortization booked)"}</b></span>
-            <button type="submit" className="btn-secondary btn-compact">{g.bookAmortization ? "Use CCA" : "Set book amortization"}</button>
-          </form>
-        )}
       </section>
 
       </>}
@@ -154,7 +149,7 @@ export function T2Step({ fileId, g, staff, editable, canReview, rounding, paper 
             <tbody>{g.tieItems.map((t) => (
               <tr key={t.key}><td>{t.label}</td><td className={`text-right tabular-nums ${negativeTone(t.closebook)}`}>{fmt(t.closebook)}</td><td className={`text-right tabular-nums ${negativeTone(t.profile)}`}>{amt(t.profile)}</td>
                 <td className={`text-right font-semibold tabular-nums ${t.open ? "text-danger" : ""}`}>{amt(t.diff)}</td>
-                <td>{!t.compared ? <span className="text-xs text-ink-2">Not compared: book amortization</span>
+                <td>{!t.compared ? <span className="text-xs text-ink-2">Not compared</span>
                   : t.diff === null ? <span className="text-xs text-ink-3">To enter</span>
                   : t.diff === 0 ? chip(true, "Ties")
                   : t.rounding ? <span className="rounded bg-navy-100 px-2 py-0.5 text-xs font-semibold text-navy-800">Rounding</span>

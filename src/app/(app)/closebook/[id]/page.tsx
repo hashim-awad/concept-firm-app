@@ -585,9 +585,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           accounts={acctRows} stepFour={href("code")} />;
       }
       // Piece E1: entries are not approved one by one; step 7 lists the ones to look at, and they hold nothing up.
-      const look = entries.filter((e) => e.needs_review).map((e) => (
-        { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) }));
-      body = <ReviewStep groups={groups} look={look} notes={openNotes} list={list} listCount={listCount}
+      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
         extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} canReview={rv} names={names} /> : null}</>} />;
     }
   } else if (step === "compare") {
