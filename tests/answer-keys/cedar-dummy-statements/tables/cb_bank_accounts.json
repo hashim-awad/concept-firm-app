@@ -1,0 +1,27 @@
+[
+ {
+  "id": "88e92423-3106-4144-a431-a77b3a834118",
+  "file_id": "d9dfa407-17e4-4eb0-9d50-7e852400fd37",
+  "name": "TD chequing",
+  "name_key": "td chequing",
+  "kind": "bank",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-15T23:57:33.78692+00:00",
+  "chart_account": "10000",
+  "number": "10000",
+  "last4": null,
+  "account_type": null,
+  "bank": null,
+  "long_term": false,
+  "books_opening": null,
+  "number_base": null,
+  "gifi_line": null,
+  "opened_on": null,
+  "closed_on": null,
+  "coverage_note": "",
+  "coverage_by": null,
+  "coverage_at": null,
+  "origin": "import",
+  "t2_line": null
+ }
+]

@@ -1,0 +1,50 @@
+[
+ {
+  "id": "13f1aa3a-9ec0-4f4f-a7d2-74d041bf123c",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "review",
+  "target_type": "step",
+  "target_id": null,
+  "target_label": "",
+  "body": "Check the MAL date is on or before the report date.",
+  "status": "cleared",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T00:45:26.88824+00:00",
+  "fixed_by": null,
+  "fixed_at": null,
+  "cleared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "cleared_at": "2026-11-14T00:45:28.705838+00:00"
+ },
+ {
+  "id": "1f4f484c-2080-4c4b-9a1c-58359a8a74a1",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "review",
+  "target_type": "step",
+  "target_id": null,
+  "target_label": "",
+  "body": "Check the MAL date is on or before the report date.",
+  "status": "cleared",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T00:44:27.705537+00:00",
+  "fixed_by": null,
+  "fixed_at": null,
+  "cleared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "cleared_at": "2026-11-14T00:44:29.322723+00:00"
+ },
+ {
+  "id": "2657629f-cd64-4d27-b07b-a33acf4978a2",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "review",
+  "target_type": "step",
+  "target_id": null,
+  "target_label": "",
+  "body": "Check the MAL date is on or before the report date.",
+  "status": "cleared",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T00:43:53.636773+00:00",
+  "fixed_by": null,
+  "fixed_at": null,
+  "cleared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "cleared_at": "2026-11-14T00:43:55.125338+00:00"
+ }
+]

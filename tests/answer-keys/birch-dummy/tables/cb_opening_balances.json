@@ -1,0 +1,72 @@
+[
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "2680",
+  "amount": 2110,
+  "chart_account": "21400",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "1002",
+  "amount": 49210,
+  "chart_account": "10000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "2781",
+  "amount": 13400,
+  "chart_account": "23000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "1062",
+  "amount": 6500,
+  "chart_account": "11000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "1774",
+  "amount": 9800,
+  "chart_account": "15000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "1775",
+  "amount": -3920,
+  "chart_account": "15050",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "2620",
+  "amount": 4250,
+  "chart_account": "21100",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "3500",
+  "amount": 100,
+  "chart_account": "30000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "3660",
+  "amount": 29480,
+  "chart_account": "31000",
+  "bank_account": null
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "code": "3700",
+  "amount": -8000,
+  "chart_account": "32200",
+  "bank_account": null
+ }
+]

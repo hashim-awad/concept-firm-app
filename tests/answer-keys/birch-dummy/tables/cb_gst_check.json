@@ -1,0 +1,18 @@
+[
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "owing": 672.57,
+  "book": 672.57,
+  "diff": 0,
+  "fingerprint": "a6dfeb4f919f3a890a6fb69341a056dd",
+  "note": "",
+  "noted_by": null,
+  "noted_at": null,
+  "accepted_by": null,
+  "accepted_at": null,
+  "accepted_why": "",
+  "instalment_entries": [
+   "918800a3-014d-4926-8962-d79f7eadcdeb"
+  ]
+ }
+]

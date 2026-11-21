@@ -1,0 +1,455 @@
+[
+ {
+  "year_end": "2026-12-31",
+  "books": "statements",
+  "tb": [
+   {
+    "account": "10000",
+    "name": "TD chequing",
+    "gifi": "1002",
+    "prior": 49210,
+    "prelim": 7294.5,
+    "adj": 0,
+    "reclass": 0,
+    "final": 7294.5
+   },
+   {
+    "account": "10010",
+    "name": "TD savings 9999",
+    "gifi": "1002",
+    "prior": 0,
+    "prelim": -300,
+    "adj": 0,
+    "reclass": 0,
+    "final": -300
+   },
+   {
+    "account": "11000",
+    "name": "Accounts receivable",
+    "gifi": "1062",
+    "prior": 6500,
+    "prelim": 6500,
+    "adj": -1000,
+    "reclass": 0,
+    "final": 5500
+   },
+   {
+    "account": "12000",
+    "name": "Prepaid expenses",
+    "gifi": "1484",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 400,
+    "reclass": 0,
+    "final": 400
+   },
+   {
+    "account": "12100",
+    "name": "Deposits paid",
+    "gifi": "1486",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 250,
+    "reclass": 0,
+    "final": 250
+   },
+   {
+    "account": "12200",
+    "name": "Income taxes recoverable",
+    "gifi": "1483",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 300,
+    "reclass": 0,
+    "final": 300
+   },
+   {
+    "account": "13000",
+    "name": "Due from shareholder 1",
+    "gifi": "1301.10",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 1000,
+    "reclass": 0,
+    "final": 1000
+   },
+   {
+    "account": "15000",
+    "name": "Computer equipment",
+    "gifi": "1774",
+    "prior": 9800,
+    "prelim": 9800,
+    "adj": 0,
+    "reclass": 0,
+    "final": 9800
+   },
+   {
+    "account": "15050",
+    "name": "Accumulated amortization – computer equipment",
+    "gifi": "1775",
+    "prior": -3920,
+    "prelim": -3920,
+    "adj": -1960,
+    "reclass": 0,
+    "final": -5880
+   },
+   {
+    "account": "19000",
+    "name": "Capital lease: copier",
+    "gifi": "1912",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 5000,
+    "reclass": 0,
+    "final": 5000
+   },
+   {
+    "account": "19010",
+    "name": "Accumulated amortization: copier lease",
+    "gifi": "1913",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -1000,
+    "reclass": 0,
+    "final": -1000
+   },
+   {
+    "account": "21100",
+    "name": "Accrued liabilities",
+    "gifi": "2620",
+    "prior": -4250,
+    "prelim": -4250,
+    "adj": -3100,
+    "reclass": 0,
+    "final": -7350
+   },
+   {
+    "account": "21400",
+    "name": "Income taxes payable",
+    "gifi": "2680",
+    "prior": -2110,
+    "prelim": 0,
+    "adj": -300,
+    "reclass": -300,
+    "final": -600
+   },
+   {
+    "account": "21500",
+    "name": "GST/HST payable",
+    "gifi": "2680",
+    "prior": 0,
+    "prelim": -1206.57,
+    "adj": 234,
+    "reclass": 300,
+    "final": -672.57
+   },
+   {
+    "account": "22000",
+    "name": "Visa 4111",
+    "gifi": "2707",
+    "prior": 0,
+    "prelim": 55.2,
+    "adj": 0,
+    "reclass": 0,
+    "final": 55.2
+   },
+   {
+    "account": "23000",
+    "name": "Due to shareholder 1",
+    "gifi": "2781.10",
+    "prior": -13400,
+    "prelim": -12100,
+    "adj": -14340.5,
+    "reclass": 0,
+    "final": -26440.5
+   },
+   {
+    "account": "25400",
+    "name": "Loan from shareholder (long-term)",
+    "gifi": "3261",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -3000,
+    "reclass": 0,
+    "final": -3000
+   },
+   {
+    "account": "30000",
+    "name": "Common shares",
+    "gifi": "3500",
+    "prior": -100,
+    "prelim": -100,
+    "adj": 0,
+    "reclass": 0,
+    "final": -100
+   },
+   {
+    "account": "31000",
+    "name": "Retained earnings",
+    "gifi": "3600",
+    "prior": -29480,
+    "prelim": -41730,
+    "adj": 0,
+    "reclass": 0,
+    "final": -41730
+   },
+   {
+    "account": "31500",
+    "name": "Prior period adjustments",
+    "gifi": "3720",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 500,
+    "reclass": 0,
+    "final": 500
+   },
+   {
+    "account": "32000",
+    "name": "Dividends – non-eligible",
+    "gifi": "3701.10",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 5000,
+    "reclass": 0,
+    "final": 5000
+   },
+   {
+    "account": "32200",
+    "name": "Dividends declared",
+    "gifi": "3700",
+    "prior": 8000,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "40250",
+    "name": "Real estate commission",
+    "gifi": "8121",
+    "prior": 0,
+    "prelim": -10000,
+    "adj": 1000,
+    "reclass": 0,
+    "final": -9000
+   },
+   {
+    "account": "60200",
+    "name": "Meals and entertainment",
+    "gifi": "8523",
+    "prior": 0,
+    "prelim": 128.25,
+    "adj": 106.5,
+    "reclass": 0,
+    "final": 234.75
+   },
+   {
+    "account": "61500",
+    "name": "Amortization",
+    "gifi": "8670",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 1960,
+    "reclass": 0,
+    "final": 1960
+   },
+   {
+    "account": "65000",
+    "name": "Office supplies",
+    "gifi": "8811",
+    "prior": 0,
+    "prelim": 285.88,
+    "adj": 0,
+    "reclass": 0,
+    "final": 285.88
+   },
+   {
+    "account": "65100",
+    "name": "Office expenses",
+    "gifi": "8810",
+    "prior": 0,
+    "prelim": 132.74,
+    "adj": 1000,
+    "reclass": 0,
+    "final": 1132.74
+   },
+   {
+    "account": "66000",
+    "name": "Accounting fees",
+    "gifi": "8862",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 2500,
+    "reclass": 0,
+    "final": 2500
+   },
+   {
+    "account": "66300",
+    "name": "Brokerage fees",
+    "gifi": "8869",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 200,
+    "reclass": 0,
+    "final": 200
+   },
+   {
+    "account": "66400",
+    "name": "Management fees",
+    "gifi": "8871",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 300,
+    "reclass": 0,
+    "final": 300
+   },
+   {
+    "account": "66500",
+    "name": "Training and education",
+    "gifi": "8876",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 150,
+    "reclass": 0,
+    "final": 150
+   },
+   {
+    "account": "67100",
+    "name": "Condominium fees",
+    "gifi": "8913",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 500,
+    "reclass": 0,
+    "final": 500
+   },
+   {
+    "account": "67200",
+    "name": "Equipment rental",
+    "gifi": "8914",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 250,
+    "reclass": 0,
+    "final": 250
+   },
+   {
+    "account": "69100",
+    "name": "Commissions paid",
+    "gifi": "9061",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 400,
+    "reclass": 0,
+    "final": 400
+   },
+   {
+    "account": "69150",
+    "name": "Bonuses",
+    "gifi": "9063",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 2000,
+    "reclass": 0,
+    "final": 2000
+   },
+   {
+    "account": "70500",
+    "name": "Telephone",
+    "gifi": "9225",
+    "prior": 0,
+    "prelim": 200,
+    "adj": 100,
+    "reclass": 0,
+    "final": 300
+   },
+   {
+    "account": "70600",
+    "name": "Vehicle expenses",
+    "gifi": "9281",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 750,
+    "reclass": 0,
+    "final": 750
+   },
+   {
+    "account": "72000",
+    "name": "Current income taxes",
+    "gifi": "9990",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 800,
+    "reclass": 0,
+    "final": 800
+   },
+   {
+    "account": "opening",
+    "name": "Opening balances to enter",
+    "gifi": "",
+    "prior": 0,
+    "prelim": 49210,
+    "adj": 0,
+    "reclass": 0,
+    "final": 49210
+   }
+  ],
+  "net_income": -4003.37,
+  "gifi": {
+   "1002": 54964.5,
+   "1062": 5500,
+   "1301": 1000,
+   "1483": 300,
+   "1484": 400,
+   "1486": 250,
+   "1774": 9800,
+   "1775": -5880,
+   "1912": 5000,
+   "1913": -1000,
+   "2620": 7350,
+   "2680": 1272.57,
+   "2707": -55.2,
+   "2781": 26440.5,
+   "3261": 3000,
+   "3500": 100,
+   "3660": 41730,
+   "3701": -5000,
+   "3720": -500,
+   "8121": 9000,
+   "8523": 234.75,
+   "8670": 1960,
+   "8811": 1418.62,
+   "8862": 2500,
+   "8869": 200,
+   "8871": 300,
+   "8876": 150,
+   "8913": 500,
+   "8914": 250,
+   "9061": 400,
+   "9063": 2000,
+   "9225": 300,
+   "9270": 1240,
+   "9281": 750,
+   "9990": 800
+  },
+  "gst": [
+   {
+    "period": "2026-01-01 to 2026-12-31",
+    "lines": {
+     "101": 10000,
+     "103": 1300,
+     "104": 0,
+     "105": 1300,
+     "106": 327.43,
+     "107": 0,
+     "108": 327.43,
+     "109": 972.57,
+     "110": 300,
+     "111": 0,
+     "112": 300,
+     "113": 672.57
+    }
+   }
+  ]
+ }
+]

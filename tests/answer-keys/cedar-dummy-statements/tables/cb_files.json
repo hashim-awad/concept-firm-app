@@ -1,0 +1,31 @@
+[
+ {
+  "id": "d9dfa407-17e4-4eb0-9d50-7e852400fd37",
+  "client_id": "33c76152-5311-497c-9bdb-0a107a93e45d",
+  "year_start": "2026-01-01",
+  "year_end": "2026-12-31",
+  "year_change_reason": "",
+  "file_type": "full",
+  "books": "statements",
+  "preparer_id": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewer_id": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "phase": "planning",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-15T23:57:33.784035+00:00",
+  "updated_at": "2026-11-16T00:37:34.309733+00:00",
+  "setup": {},
+  "opening_source": "manual",
+  "opening_re_stated": 52730,
+  "opening_set_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "opening_set_at": "2026-11-15T23:57:33.803539+00:00",
+  "opening_note": "Prior T2, year ended Dec 31, 2025",
+  "opening_pdf": null,
+  "opening_ni_typed": null,
+  "opening_signed_by": null,
+  "opening_signed_at": null,
+  "first_year": false,
+  "excluded_reviewed_key": null,
+  "excluded_reviewed_by": null,
+  "excluded_reviewed_at": null
+ }
+]

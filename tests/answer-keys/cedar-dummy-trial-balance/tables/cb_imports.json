@@ -1,0 +1,50 @@
+[
+ {
+  "id": "00611eec-b3da-440d-abcf-b250c422e0a1",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "target": "account_list",
+  "source": "quickbooks",
+  "file_name": "cedar-account-list.csv",
+  "rows": 23,
+  "debit_total": 0,
+  "credit_total": 0,
+  "imported_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "imported_at": "2026-11-13T22:57:26.362107+00:00"
+ },
+ {
+  "id": "94cd1883-1cf6-40df-953c-04b87dae394a",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "target": "last_year",
+  "source": "prior_accountant",
+  "file_name": "cedar-tb-2025.csv",
+  "rows": 15,
+  "debit_total": 197600,
+  "credit_total": 197600,
+  "imported_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "imported_at": "2026-11-13T16:04:33.518088+00:00"
+ },
+ {
+  "id": "adb46847-5f2a-4ae6-9f64-9baf5ebf5a0d",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "target": "this_year",
+  "source": "client_software",
+  "file_name": "cedar-qbo-tb-2026.csv",
+  "rows": 15,
+  "debit_total": 242500,
+  "credit_total": 242500,
+  "imported_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "imported_at": "2026-11-13T16:04:33.42049+00:00"
+ },
+ {
+  "id": "e7db0fc2-64bc-4a76-ac14-07706f820ee3",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "target": "this_year",
+  "source": "client_software",
+  "file_name": "cedar-qbo-tb-2026-v2.csv",
+  "rows": 15,
+  "debit_total": 241300,
+  "credit_total": 241300,
+  "imported_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "imported_at": "2026-11-13T17:40:21.689017+00:00"
+ }
+]

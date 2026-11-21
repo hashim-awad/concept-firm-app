@@ -1,0 +1,422 @@
+[
+ {
+  "id": "04c8fc38-590c-40d1-b188-01eb9e2e02a1",
+  "entry_id": "fad73d85-d6c2-4f29-9fec-d7b4358991c6",
+  "account_id": "394fc053-a624-43c9-857c-67c75b0047b2",
+  "amount": -250,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "0aebf64c-87da-4018-a7ef-ce6e3f42ae37",
+  "entry_id": "2c6c4bf1-eb1f-4800-933f-773c1e099971",
+  "account_id": "d9858811-7607-4312-bf91-b763fb8e3a1a",
+  "amount": 100,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "11bb92f0-e38b-4c6d-bc92-cf2d050e3ba8",
+  "entry_id": "765d8b45-f2aa-45b2-8d8d-0dbba0cf1539",
+  "account_id": "1895ac7b-d7a7-4ac3-8860-8dde099ba084",
+  "amount": 500,
+  "memo": "Payments to CRA for the company",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "16908a6e-adb5-442e-a6fe-c60ff4fe49d7",
+  "entry_id": "3df340b8-e840-4814-8188-1f6309cd9893",
+  "account_id": "394fc053-a624-43c9-857c-67c75b0047b2",
+  "amount": -250,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "232fd2ee-222a-47cb-9291-ec33da7f7c90",
+  "entry_id": "1f452b9a-73ec-4d20-bf9d-4be0c815e1aa",
+  "account_id": "6737671b-fb38-4193-bd25-8ab2310d0c32",
+  "amount": 1000,
+  "memo": "Commission recorded twice in December.",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "23a6b453-dfc7-47e2-89b3-2ef2d90f9c73",
+  "entry_id": "3df340b8-e840-4814-8188-1f6309cd9893",
+  "account_id": "1e2b6c5a-0c32-47ff-9d5f-e3591b88807b",
+  "amount": 250,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "287e528e-43e2-451e-bd4e-5d0a5e3fd6ef",
+  "entry_id": "77628155-f5fa-453c-ba75-d71dcacadf3f",
+  "account_id": "36dee6b0-40a5-4990-afbf-46cca8c11256",
+  "amount": -2000,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "30ab5833-52e0-419b-af0b-8a4f2b8d29fe",
+  "entry_id": "12044fe3-275d-4a87-aa0a-c93c072b32dd",
+  "account_id": "d4e94c55-c206-4a13-99b3-f9b3ae3419f1",
+  "amount": 130,
+  "memo": "Sales tax",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "33b31142-542c-4b62-8fba-3f8f37ddc19e",
+  "entry_id": "12044fe3-275d-4a87-aa0a-c93c072b32dd",
+  "account_id": "ba577890-9a7b-4aa1-87ea-671178b37e4a",
+  "amount": 1000,
+  "memo": "Business share, 20% of 5,000.00",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "36e9722c-cda8-446e-8860-596762a0c4bf",
+  "entry_id": "77628155-f5fa-453c-ba75-d71dcacadf3f",
+  "account_id": "1253253a-ca98-4cc9-ab60-2db0e936a58b",
+  "amount": 2000,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "38a16d68-e73f-4015-8026-863d07f29d7c",
+  "entry_id": "e7f5132d-082d-4470-b714-9998a32ff99e",
+  "account_id": "86bfae50-1aa0-4efc-b305-15ed0c61c8b3",
+  "amount": -1960,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "40a5c40c-2709-4b71-8d3e-f94901fbcee7",
+  "entry_id": "765d8b45-f2aa-45b2-8d8d-0dbba0cf1539",
+  "account_id": "36dee6b0-40a5-4990-afbf-46cca8c11256",
+  "amount": -1460.5,
+  "memo": "Paid personally by the shareholder",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "46c89c38-3cc2-479f-aec9-72f64b350ee1",
+  "entry_id": "8c6576d7-1bd9-4453-8a95-68fb51eb9274",
+  "account_id": "2df546b6-7d5d-49e9-b63e-20281ca81b50",
+  "amount": 5000,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "500e9e21-f5a1-4e10-9a86-97c8df11e567",
+  "entry_id": "918800a3-014d-4926-8962-d79f7eadcdeb",
+  "account_id": "1895ac7b-d7a7-4ac3-8860-8dde099ba084",
+  "amount": -300,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "589fd9de-1cd8-4dbf-b3b1-92b7c5ff2e88",
+  "entry_id": "fad73d85-d6c2-4f29-9fec-d7b4358991c6",
+  "account_id": "1e2b6c5a-0c32-47ff-9d5f-e3591b88807b",
+  "amount": 250,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "5c4d7a5f-44cc-4718-a092-edb0b5a382df",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "d223e818-3c83-4c5f-ac3d-685d1c7a9f4b",
+  "amount": 400,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "5cae977f-5b23-428f-bb42-68f2e8240c13",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "36dee6b0-40a5-4990-afbf-46cca8c11256",
+  "amount": -4750,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "60f9ed49-6b93-4bc1-b3d7-74b4e2956c2d",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "f40dfb4f-105e-4085-9add-b495eeaac9bd",
+  "amount": -1000,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "6405c09a-5f7b-415c-96f7-b8b6535f9527",
+  "entry_id": "7cbadb35-f785-4c96-a66b-f605d28a5515",
+  "account_id": "d1a8ffc3-9dcf-48d3-91ed-3d5a7d6bf9d2",
+  "amount": 800,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "64ab2fbd-a44c-4e47-9eb1-6f3ea5cbadcf",
+  "entry_id": "59758f9b-74d5-4d51-8f78-6396327683da",
+  "account_id": "8939596a-f78d-4d7a-8e7b-60cfefb287c8",
+  "amount": 2500,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "79d45b09-f84b-47d3-9f26-fb05ded36af0",
+  "entry_id": "1f452b9a-73ec-4d20-bf9d-4be0c815e1aa",
+  "account_id": "d4eefe91-b594-4ddd-8fb7-eea129a8d837",
+  "amount": -1000,
+  "memo": "Commission recorded twice in December.",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "84793a15-57bd-4ef4-a561-99a2021b0662",
+  "entry_id": "765d8b45-f2aa-45b2-8d8d-0dbba0cf1539",
+  "account_id": "c34790fb-e9df-4e86-bd39-2ff4dce87e79",
+  "amount": 750,
+  "memo": "Vehicle - fuel (business share 75%)",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "87f8f9a7-31a7-47cb-9631-91b962850dba",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "7b2f5c8e-3362-4957-b8a3-96ee50c97d58",
+  "amount": 250,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "8a3453e5-7309-4ed5-92d8-692a1d0d3aad",
+  "entry_id": "e7f5132d-082d-4470-b714-9998a32ff99e",
+  "account_id": "2a49efd2-ba6a-4e6c-9019-ed5ab8803bc4",
+  "amount": 1960,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "9383431a-e306-4a8e-b924-1b8f3955397c",
+  "entry_id": "8c6576d7-1bd9-4453-8a95-68fb51eb9274",
+  "account_id": "36dee6b0-40a5-4990-afbf-46cca8c11256",
+  "amount": -5000,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "944ea344-f89c-4824-951c-c4dc1e1ded0a",
+  "entry_id": "2c6c4bf1-eb1f-4800-933f-773c1e099971",
+  "account_id": "394fc053-a624-43c9-857c-67c75b0047b2",
+  "amount": -100,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "9505a5b0-fa1d-4f15-b214-48de679011b7",
+  "entry_id": "7cbadb35-f785-4c96-a66b-f605d28a5515",
+  "account_id": "1895ac7b-d7a7-4ac3-8860-8dde099ba084",
+  "amount": -800,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "a23fc6c6-bc9e-45f3-9936-e95d93a34999",
+  "entry_id": "59758f9b-74d5-4d51-8f78-6396327683da",
+  "account_id": "394fc053-a624-43c9-857c-67c75b0047b2",
+  "amount": -2500,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "a4900890-5d5f-403a-8b2f-6fc4f43e627e",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "aff260c2-f36a-4c49-9ad0-924d17755e53",
+  "amount": 400,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "a6a8e7b5-3ede-47de-9790-478de5eb7204",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "b1ae0402-5bf9-4971-bc5a-e855379f0e70",
+  "amount": 300,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "bda2e897-6e81-4d35-a8b2-50a018484f8d",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "ffa1b5af-af2f-4c21-b28a-f7f837d59fcc",
+  "amount": 200,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "be39f2ac-2078-47ae-b361-8def647d8f55",
+  "entry_id": "765d8b45-f2aa-45b2-8d8d-0dbba0cf1539",
+  "account_id": "6cd901d7-8d21-4ee7-865c-e87857dc0161",
+  "amount": 106.5,
+  "memo": "Meals and entertainment",
+  "tax_code": "MEALS_HST_50",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "c68e82f9-9053-4b23-a472-098b88728fe2",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "34abe171-7f1f-4025-9ca0-66cdd19ecf29",
+  "amount": 1000,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "cc40b80e-2680-41ac-9340-d1e4bb6e7936",
+  "entry_id": "12044fe3-275d-4a87-aa0a-c93c072b32dd",
+  "account_id": "36dee6b0-40a5-4990-afbf-46cca8c11256",
+  "amount": -1130,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "cef69900-92bf-4307-8bf1-d3db743b9b2b",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "9d73ab62-642f-40a7-a6d0-64b14f77b057",
+  "amount": 250,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "d48ae051-59b2-43b3-911f-1fabb1ad82fa",
+  "entry_id": "918800a3-014d-4926-8962-d79f7eadcdeb",
+  "account_id": "d4e94c55-c206-4a13-99b3-f9b3ae3419f1",
+  "amount": 300,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "da10d3bf-8158-444b-8be0-9b030a5147ec",
+  "entry_id": "765d8b45-f2aa-45b2-8d8d-0dbba0cf1539",
+  "account_id": "d4e94c55-c206-4a13-99b3-f9b3ae3419f1",
+  "amount": 104,
+  "memo": "ITCs on expenses paid personally",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "e4d9b1a6-290b-46f4-9408-57aec7a48b10",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "b55bec8b-1cff-4706-a529-0e51d0dad8da",
+  "amount": -3000,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "ecd6d7b2-ecd4-4d12-a0ff-9b7d54380333",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "c8c45210-9620-4e00-936c-80a8238a8b54",
+  "amount": 150,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "edc0d607-3712-4add-877b-1c06e3e70603",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "c3c7f3b3-4042-4466-8f3f-d2425e2360f9",
+  "amount": 300,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "eebdf6c1-aa9e-4253-bb6e-45e8e19a20a1",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "7af4772f-2ed5-4e62-a717-aadfc38ba5f4",
+  "amount": 500,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "fb3e7543-0af7-4b2d-8890-841cffba7b00",
+  "entry_id": "057fefea-6c77-4137-aaa6-b67dcefeded8",
+  "account_id": "432ac7db-ae91-494b-bd5b-ffe23239b8df",
+  "amount": 5000,
+  "memo": "Dummy",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ }
+]

@@ -1,0 +1,167 @@
+[
+ {
+  "id": "43f9dd6c-0ef1-49a0-898c-599588860332",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "kind": "final",
+  "file_name": "Cedar Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"000000001RC0001\",\"Cedar Dummy Realty Inc.\",\"\",\"2 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A2\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",88300.00\r\n\"1062\",12000.00\r\n\"1774\",6000.00\r\n\"1775\",-2400.00\r\n\"2620\",4500.00\r\n\"2621\",3000.00\r\n\"2680\",5700.00\r\n\"2781\",16409.05\r\n\"3500\",100.00\r\n\"3660\",37400.00\r\n\"8121\",180000.00\r\n\"8521\",18000.00\r\n\"8523\",113.00\r\n\"8670\",1200.00\r\n\"8810\",1200.00\r\n\"8811\",4096.05\r\n\"8862\",6000.00\r\n\"9060\",110000.00\r\n\"9990\",2600.00",
+  "totals": {
+   "2599": 103900,
+   "3499": 29609.05,
+   "3620": 74290.95,
+   "3640": 103900,
+   "3660": 37400,
+   "3849": 74190.95,
+   "8299": 180000,
+   "9368": 140609.05,
+   "9999": 36790.95,
+   "amort": 1200,
+   "inctax": 2600
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "b8b2c3ee3810acb8123a65007aa660b2",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T04:30:53.088592+00:00"
+ },
+ {
+  "id": "62ad407c-c596-45a9-962d-ba51cf04a7ce",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "kind": "final",
+  "file_name": "Cedar Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"000000001RC0001\",\"Cedar Dummy Realty Inc.\",\"\",\"2 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A2\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",88340.00\r\n\"1062\",12000.00\r\n\"1774\",6000.00\r\n\"1775\",-2400.00\r\n\"2620\",4500.00\r\n\"2621\",3000.00\r\n\"2680\",5700.00\r\n\"2781\",21409.05\r\n\"3500\",100.00\r\n\"3660\",37400.00\r\n\"3700\",-5000.00\r\n\"8121\",180000.00\r\n\"8231\",40.00\r\n\"8521\",18000.00\r\n\"8523\",113.00\r\n\"8670\",1200.00\r\n\"8810\",1200.00\r\n\"8811\",4096.05\r\n\"8862\",6000.00\r\n\"9060\",110000.00\r\n\"9990\",2600.00",
+  "totals": {
+   "2599": 103940,
+   "3499": 34609.05,
+   "3620": 69330.95,
+   "3640": 103940,
+   "3660": 37400,
+   "3849": 69230.95,
+   "8299": 180040,
+   "9368": 140609.05,
+   "9999": 36830.95,
+   "amort": 1200,
+   "inctax": 2600
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "9a1c5c54552a1a7c18c0618897950917",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T04:58:05.403339+00:00"
+ },
+ {
+  "id": "7d1cb10b-73b8-4184-a07d-494013b64407",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "kind": "final",
+  "file_name": "Cedar Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"000000001RC0001\",\"Cedar Dummy Realty Inc.\",\"\",\"2 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A2\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",88340.00\r\n\"1062\",12000.00\r\n\"1774\",6000.00\r\n\"1775\",-2400.00\r\n\"2620\",4500.00\r\n\"2621\",3000.00\r\n\"2680\",5700.00\r\n\"2781\",21409.05\r\n\"3500\",100.00\r\n\"3660\",37400.00\r\n\"3700\",-5000.00\r\n\"8121\",180000.00\r\n\"8231\",40.00\r\n\"8521\",18000.00\r\n\"8523\",113.00\r\n\"8670\",1200.00\r\n\"8810\",1200.00\r\n\"8811\",4096.05\r\n\"8862\",6000.00\r\n\"9060\",110000.00\r\n\"9990\",2600.00",
+  "totals": {
+   "2599": 103940,
+   "3499": 34609.05,
+   "3620": 69330.95,
+   "3640": 103940,
+   "3660": 37400,
+   "3849": 69230.95,
+   "8299": 180040,
+   "9368": 140609.05,
+   "9999": 36830.95,
+   "amort": 1200,
+   "inctax": 2600
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "9a1c5c54552a1a7c18c0618897950917",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-14T04:58:05.953056+00:00"
+ }
+]

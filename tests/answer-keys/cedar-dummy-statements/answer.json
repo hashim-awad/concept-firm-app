@@ -1,0 +1,139 @@
+[
+ {
+  "year_end": "2026-12-31",
+  "books": "statements",
+  "tb": [
+   {
+    "account": "10000",
+    "name": "TD chequing",
+    "gifi": "1002",
+    "prior": 62679,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "15700",
+    "name": "Tools and dies",
+    "gifi": "1744",
+    "prior": 10000,
+    "prelim": 10000,
+    "adj": 0,
+    "reclass": 0,
+    "final": 10000
+   },
+   {
+    "account": "15750",
+    "name": "Accumulated amortization – tools and dies",
+    "gifi": "1745",
+    "prior": -2000,
+    "prelim": -2000,
+    "adj": 0,
+    "reclass": 0,
+    "final": -2000
+   },
+   {
+    "account": "21100",
+    "name": "Accrued liabilities",
+    "gifi": "2620",
+    "prior": -5000,
+    "prelim": -5000,
+    "adj": 0,
+    "reclass": 0,
+    "final": -5000
+   },
+   {
+    "account": "29000",
+    "name": "Due to shareholder(s)/director(s)",
+    "gifi": "3260",
+    "prior": -12849,
+    "prelim": -12849,
+    "adj": 0,
+    "reclass": 0,
+    "final": -12849
+   },
+   {
+    "account": "30000",
+    "name": "Common shares",
+    "gifi": "3500",
+    "prior": -100,
+    "prelim": -100,
+    "adj": 0,
+    "reclass": 0,
+    "final": -100
+   },
+   {
+    "account": "31000",
+    "name": "Retained earnings",
+    "gifi": "3600",
+    "prior": 0,
+    "prelim": -10800,
+    "adj": 0,
+    "reclass": 0,
+    "final": -10800
+   },
+   {
+    "account": "31500",
+    "name": "Prior period adjustments",
+    "gifi": "3720",
+    "prior": 1200,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "32200",
+    "name": "Dividends declared",
+    "gifi": "3700",
+    "prior": 8000,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "40200",
+    "name": "Commission income",
+    "gifi": "8120",
+    "prior": -30000,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "65100",
+    "name": "Office expenses",
+    "gifi": "8810",
+    "prior": 10000,
+    "prelim": 0,
+    "adj": 0,
+    "reclass": 0,
+    "final": 0
+   },
+   {
+    "account": "opening",
+    "name": "Opening balances to enter",
+    "gifi": "",
+    "prior": 0,
+    "prelim": 20749,
+    "adj": 0,
+    "reclass": 0,
+    "final": 20749
+   }
+  ],
+  "net_income": 0,
+  "gifi": {
+   "1002": 62689,
+   "1744": 10000,
+   "1745": -2000,
+   "2620": 5000,
+   "3260": 12849,
+   "3500": 100,
+   "3660": 10800
+  },
+  "gst": null
+ }
+]
