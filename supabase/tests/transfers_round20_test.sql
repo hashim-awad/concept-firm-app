@@ -8,6 +8,18 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000b', 'viewer.b@example.test'),
   ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- Runs a statement and rolls it back: 'OK' when it would succeed, or the error.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.create_role('Closebook viewer', 'Reads Closebook only') as viewer \gset
@@ -52,7 +64,8 @@ select test.check('a viewer reads transfers (none yet)', (select count(*) from p
 -- ---------- What is a transfer
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('amounts must be the same to the cent', test.try(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'c_coffee', :'s_in')) like '%same to the cent%');
-select test.check('dates within 5 days', test.try(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'c_tfr', :'s_late')) like '%within 5 days%');
+-- CB2-0 step 5 (rule 7): no date window. Lines 17 days apart pair; the pair is rolled back so the rest of the file runs on the same lines.
+select test.check('dates 17 days apart (Mar 13 and Mar 30) are accepted (CB2-0: no 5-day window)', test.try_rollback(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'c_tfr', :'s_late')) = 'OK');
 select test.check('one out and one in', test.try(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'s_in', :'s_late')) like '%two different accounts%'
   and test.try(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'c_visa', :'s_in')) like '%same to the cent%');
 select test.check('the same line twice is refused', test.try(format($q$select public.cb_accept_transfer(%L, %L, %L)$q$, :'f', :'c_tfr', :'c_tfr')) like 'Choose two lines%');

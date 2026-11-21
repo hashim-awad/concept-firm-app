@@ -1,6 +1,6 @@
 -- Local tests, round 21 (Hashim, Nov 15, 2026), step 2: one sign rule (dividends negative, 3720 and 3740
--- as printed), one place for Schedule 125, an account on every Schedule 100 line, source and PDF before
--- sign-off, the retained earnings message, and one problem counted once. Dummy data only.
+-- as printed), one place for Schedule 125, an account on every Schedule 100 line, source and PDF (CB2-0: warnings
+-- on the sign-off, not stops), the retained earnings message, and one problem counted once. Dummy data only.
 \set ON_ERROR_STOP 1
 -- Safe to run twice: the migration again on top of itself.
 \ir ../migrations/20261210010000_round21_opening.sql
@@ -40,8 +40,11 @@ select test.check('each problem is its own line: source, PDF, 1746 account',
   test.op(:'f') = array['Type the source: which T2 or CRA assessment the balances come from.', 'Attach the PDF of last year''s T2 or the CRA assessment.', 'GIFI 1746: pick an account.']);
 select test.check('the Issues panel lists each one under "To fix"',
   (public.cb_step_status(:'f') -> 'opening' -> 'problems') = to_jsonb(test.op(:'f')));
-select test.check('sign-off refused without the source', test.try(format('select public.cb_sign_opening(%L)', :'f')) like 'Type the source%');
-select test.check('the step sign-off refuses too', test.try(format($f$select public.cb_sign_step(%L, 'opening', 'prepared')$f$, :'f')) like 'Not yet: Type the source%');
+select test.check('signs without the source (CB2-0: a warning, not a stop)', test.try(format('select public.cb_sign_opening(%L)', :'f')) = 'OK');
+select test.check('the missing source is still listed as a warning', test.op(:'f') @> array['Type the source: which T2 or CRA assessment the balances come from.']);
+select public.cb_unsign_step(:'f', 'opening', 'prepared');   -- the preparer takes their own sign-off back
+select test.check('the step sign-off signs too', test.try(format($f$select public.cb_sign_step(%L, 'opening', 'prepared')$f$, :'f')) = 'OK');
+select public.cb_unsign_step(:'f', 'opening', 'prepared');
 
 -- 3660 left blank: flagged, and the plain message, difference in brackets.
 select public.cb_save_opening(:'f', format('[{"code":"1002","amount":47830,"account":"bank:%s"},{"code":"1740","amount":10000,"account":"15200"},{"code":"2620","amount":5000,"account":"21100"},{"code":"3500","amount":100},
@@ -74,7 +77,7 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('an open note: "To fix" has it', (public.cb_step_status(:'f') -> 'opening' -> 'problems') ? '1 review note to fix.');
 select test.check('an open note: "With the reviewer" does not repeat it', (public.cb_step_status(:'f') -> 'opening' -> 'waiting') = '[]'::jsonb);
-select test.check('an open note still stops the reviewer''s sign-off', test.try(format($f$select public.cb_sign_step(%L, 'opening', 'reviewed')$f$, :'f')) like 'Not yet: 1 review note to clear.%');
+select test.check('an open note no longer stops the reviewer''s sign-off (CB2-0: a warning, not a stop)', test.try(format($f$select public.cb_sign_step(%L, 'opening', 'reviewed')$f$, :'f')) = 'OK');
 reset role;
 update public.cb_review_notes set status = 'fixed', fixed_by = created_by, fixed_at = now() where id = :'note';
 set role authenticated;

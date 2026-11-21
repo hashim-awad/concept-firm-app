@@ -79,7 +79,8 @@ select test.check('the reason, who and when are kept, for the line it was given 
   = 'Small tools under the capitalization limit: expensed by policy.|00000000-0000-0000-0000-00000000000a|8810.00|true');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the preparer cannot confirm', test.try(format($q$select public.cb_confirm_type(%L, 'Because')$q$, :'gear')) like 'Only the file''s reviewer%');
+select test.check('the preparer can confirm too (CB2-0: anyone with Edit)', test.try(format($q$select public.cb_confirm_type(%L, 'Because')$q$, :'gear')) = 'OK');
+select test.check('the preparer''s confirmation is kept with who', (select type_confirm_reason || '|' || type_confirmed_by from public.cb_accounts where id = :'gear') = 'Because|00000000-0000-0000-0000-00000000000c');
 -- Moved to another expense line: checked again.
 select public.cb_map_account(:'gear', '8811.00');
 reset role;

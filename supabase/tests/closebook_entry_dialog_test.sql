@@ -10,6 +10,19 @@ select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 
 reset role;
 reset request.jwt.claims;
 update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
 -- Staff C prepares; owner A reviews.
@@ -31,8 +44,8 @@ select public.cb_apply_matching(:'f', format('[{"account":"%s","line":"1002.00"}
 select test.check('suggestions applied; no match goes to the reviewer', :'r'::jsonb = '{"history": 0, "suggested": 4, "reviewer": 1}'
   and (select needs_reviewer from public.cb_accounts where id = :'adv'));
 select test.check('no total lines', test.try(format($f$select public.cb_map_account(%L, '2599.00')$f$, :'off')) like '%totals are calculated%');
-select test.check('the preparer cannot decide the reviewer''s list', test.try(format($f$select public.cb_map_account(%L, '1301.10')$f$, :'adv')) like '%waits for the reviewer%');
-select test.check('the preparer cannot change a tax code', test.try(format($f$select public.cb_set_tax_code(%L, 'NONDED')$f$, :'off')) like '%reviewer changes a tax code%');
+select test.check('the preparer can decide an account on the reviewer''s list (CB2-0: anyone with Edit)', test.try_rollback(format($f$select public.cb_map_account(%L, '1301.10')$f$, :'adv')) = 'OK');
+select test.check('the preparer can change a tax code (CB2-0: anyone with Edit)', test.try_rollback(format($f$select public.cb_set_tax_code(%L, 'NONDED')$f$, :'off')) = 'OK');
 select public.cb_map_account(:'off', '8811.00');
 select test.check('the preparer can change a suggestion', (select line_no || '|' || mapping_source from public.cb_accounts where id = :'off') = '8811.00|preparer');
 

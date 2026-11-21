@@ -63,9 +63,9 @@ select test.check('moved: 40000, same tax, same dates and amounts, still posted'
 select test.check('History: the batch (3 lines, 350.00, from 40100 to 40000) and each line', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reclassified'
   and detail = 'Reclassified 3 lines' and ref_label = '3 lines, 350.00' and old_value = '40100' and new_value like '40000 %' and actor_id = :C::uuid)
   and (select count(*) = 3 from public.cb_file_history where file_id = :'f' and action = 'line_recoded' and old_value like '40100%' and new_value like '40000%'));
-select test.check('step 4''s sign-off is removed (with the reason); step 5''s stays', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'code')
+select test.check('steps 4 and 5 keep their sign-offs (CB2-0 step 2); no History row says a sign-off was cleared', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'code' and prepared_by = :C::uuid)
   and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries')
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'code' and detail like '%account 40100 to 40000%'));
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 set role authenticated;
 select public.cb_reclassify_undo(:'b1');
 reset role;
@@ -79,12 +79,12 @@ select public.cb_reclassify(:'f', jsonb_build_array(jsonb_build_object('kind', '
 reset role;
 select test.check('tax only: account kept, tax changed', (select chart_account = '40100' and tax_code = 'HST_ON' from public.cb_bank_lines where id = test.l('CLIENT DEPOSIT DUMMY 3')));
 
--- ---------- An AJE line from 64000 to 63000: step 5's sign-off goes, with the reason in History.
+-- ---------- An AJE line from 64000 to 63000: step 5's sign-off stays (CB2-0 step 2); History has the change.
 set role authenticated;
 select public.cb_reclassify(:'f', jsonb_build_array(jsonb_build_object('kind', 'entry', 'id', :'el64')), '63000', null, 50.00);
 reset role;
 select test.check('the entry line moved to 63000; the other line and the amount did not change', (select a.number = '63000' and l.amount = 50 from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.id = :'el64')
   and (select count(*) = 2 from public.cb_entry_lines where entry_id = :'e1'));
-select test.check('step 5''s sign-off removed with the reason; History logs the entry line', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries')
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'entries' and detail like 'Entry 2026-001 lines changed%')
+select test.check('step 5''s sign-off kept; History logs the entry line', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries' and prepared_by = :C::uuid)
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared')
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_line_reclassified' and old_value like '64000%' and new_value like '63000%'));

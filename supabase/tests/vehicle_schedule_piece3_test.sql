@@ -7,6 +7,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -60,12 +73,12 @@ select test.check('T10: Reclassify refuses any line of the entry, the added norm
     jsonb_build_array(jsonb_build_object('kind', 'entry', 'id', (select id from public.cb_entry_lines where entry_id = :'e' and schedule_part is null and amount > 0)))::text))
   like '%comes from a working paper: change it there. Nothing was changed.');
 
--- T12: "Claim the ITC". The preparer cannot untick it; the file's reviewer (an owner, as every reviewer is) can.
+-- T12: "Claim the ITC". CB2-0: anyone with Edit can untick it (the preparer's try is rolled back here); the reviewer unticks it below.
 \set unticked '''{"kind":"vehicle","method":"prorated","choice":"higher","itc":false,"inputs":{"businessKm":12000},"summary":"Per-km allowance 8,300.00 used","lines":[{"schedule_part":"allowance","amount":8300},{"schedule_part":"allowance_due","amount":-8300}],"changes":[{"what":"Total km in the year","old":"20,000","new":"empty"}]}'''
 \set ulines '''[{"chart":"70600","amount":8300,"schedule_part":"allowance"},{"chart":"23000","amount":-8300,"schedule_part":"allowance_due"}]'''
-select test.check('T12: the preparer cannot change Claim the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :'e', :ulines, :unticked)) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+select test.check('T12: the preparer can change Claim the ITC (CB2-0: anyone with Edit)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
+    :'f', :'e', :ulines, :unticked)) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Vehicle, owner''s car', false, :ulines, 'Vehicle schedule', null, '{}', null, :unticked) as e3 \gset
 select test.check('T12/T9: put in again by the reviewer: same entry, Dr 70600 8,300.00, Cr 23000 8,300.00', :'e3' = :'e'

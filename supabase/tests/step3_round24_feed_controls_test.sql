@@ -143,16 +143,32 @@ select test.check('T7: a clearer copy replaces the file; the lines and the accou
   and (select acct_date = '2025-09-01' from public.cb_bank_lines where id = :'l_coffee') and (select count(*) from public.cb_bank_lines where statement_id = :'sep') = 4
   and exists (select 1 from public.cb_statement_files where statement_id = :'sep' and file_name = 'rbc-2025-09-01.pdf'));
 
--- ---------- The sign-off locks (rule 17; T9)
+-- ---------- The sign-off locks (rule 17; T9). CB2-0 step 2 (rule 14): there are none. The preparer may exclude, replace,
+-- upload and change the opening while 3.3 is signed by both; the sign-off stays exactly as signed. Each action is run, the
+-- sign-off checked, then rolled back, so the rest of this file works on the same statement.
 reset role;
 insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at, reviewed_by, reviewed_at) values (:'f', '3.3', :C::uuid, now(), :A::uuid, now());
+create function test.try_undone(p_sql text, p_check text) returns text language plpgsql as $$
+declare v_ok boolean;
+begin
+  begin
+    execute p_sql;
+    execute p_check into v_ok;
+    raise exception using message = case when coalesce(v_ok, false) then 'UNDONE_OK' else 'UNDONE_CHECK_FAILED' end;
+  exception when others then
+    if sqlerrm = 'UNDONE_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_undone(text, text) to authenticated;
+\set kept '''select exists (select 1 from public.cb_substep_signoffs where substep = ''''3.3'''' and prepared_by = ''''00000000-0000-0000-0000-00000000000c'''' and reviewed_by = ''''00000000-0000-0000-0000-00000000000a'''')'''
 set role authenticated;
-select test.check('T9: the preparer cannot exclude', test.try(format($q$select public.cb_exclude_statement(%L, 'wrong_period', '', true)$q$, :'sep')) = 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: nor replace the file', test.try(format($q$select public.cb_replace_statement_file(%L, '00000000-0000-0000-0000-0000000024a3', '2468', '2025-09-01', '2025-09-30', 1262.40, 1172.40, %L, 'y.pdf', true)$q$, :'sep', :same))
-  like 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: nor upload', test.try(format($q$select public.cb_feed_unlock(%L)$q$, :'f')) = 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: nor change the opening', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'chequing', 'RBC', '2468', 600.00, false, false, true)$q$, :'f', :'chq')) = 'Ask the reviewer to remove the 3.3 sign-off.');
-select test.check('T9: nothing changed', (select acct_date = '2025-09-01' from public.cb_bank_lines where id = :'l_coffee') and (select books_opening from public.cb_bank_accounts where id = :'chq') = 512.40
+select test.check('T9: the preparer can exclude; 3.3 stays signed by both', test.try_undone(format($q$select public.cb_exclude_statement(%L, 'wrong_period', '', true)$q$, :'sep'), :kept) = 'OK');
+select test.check('T9: and replace the file; 3.3 stays signed', test.try_undone(format($q$select public.cb_replace_statement_file(%L, '00000000-0000-0000-0000-0000000024a3', '2468', '2025-09-01', '2025-09-30', 1262.40, 1172.40, %L, 'y.pdf', true)$q$, :'sep', :same), :kept)
+  = 'OK');
+select test.check('T9: and upload; 3.3 stays signed', test.try_undone(format($q$select public.cb_feed_unlock(%L)$q$, :'f'), :kept) = 'OK');
+select test.check('T9: and change the opening; 3.3 stays signed', test.try_undone(format($q$select public.cb_save_bank_account(%L, %L, 'chequing', 'RBC', '2468', 600.00, false, false, true)$q$, :'f', :'chq'), :kept) = 'OK');
+select test.check('T9: the rolled-back tries left the file as it was', (select acct_date = '2025-09-01' from public.cb_bank_lines where id = :'l_coffee') and (select books_opening from public.cb_bank_accounts where id = :'chq') = 512.40
   and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3'));
 -- Round 34 (Hashim): the accounting date and the memo are step 4's; they never touch 3.2 or 3.3.
 select public.cb_set_line_date(:'l_coffee', '2025-09-02', false);
@@ -162,12 +178,13 @@ select test.check('T9 (round 34): the accounting date and the memo change; 3.3 s
 reset role;
 update public.cb_substep_signoffs set reviewed_by = null, reviewed_at = null where file_id = :'f' and substep = '3.3';
 set role authenticated;
--- Round 34: a statement change (here, Upload statements after Continue) removes the preparer's sign-off, logged.
+-- CB2-0 step 2: a statement change (here, Upload statements) keeps the preparer's sign-off; History has the change.
 select public.cb_feed_unlock(:'f');
-select test.check('with Continue the preparer''s sign-off goes (logged)', not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3'));
+select test.check('the preparer''s sign-off stays', exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.3' and prepared_by = :C::uuid));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the removal is in the history, with the reason', exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and reason = 'statements to upload'
-  and detail = '3.3 sign-off removed: statements to upload'));
+select test.check('the change is in the history, with the reason; no removal', exists (select 1 from test.h() where file_id = :'f' and action = 'changed' and step = 'records'
+  and detail like '%statements to upload')
+  and not exists (select 1 from test.h() where file_id = :'f' and action in ('signoff_removed', 'signoff_cleared')));
 
 -- ---------- Purge (rule 11; T10) and accounts (rule 16; T11)
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';

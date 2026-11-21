@@ -6,6 +6,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -32,10 +45,10 @@ select test.check('T8 lock: Edit refuses a changed schedule amount',
 select test.check('One schedule per entry: an expenses entry is not put in as a home office schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"expenses"', '"kind":"home_office"'))) = 'This entry holds another schedule.');
-select test.check('the preparer cannot untick the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
+select test.check('the preparer can untick the ITC (CB2-0: anyone with Edit; rolled back here)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65000","amount":226,"schedule_part":"exp_1"},{"chart":"23000","amount":-226,"schedule_part":"exp_due"}]',
-    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'OK');
 
 -- T2: a second use on the same file: its own entry and its own schedule.
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Expenses paid personally', false,

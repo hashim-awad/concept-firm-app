@@ -7,6 +7,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),
   ('00000000-0000-0000-0000-00000000000c', 'prep.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -37,8 +50,8 @@ insert into public.cb_checklist_answers (file_id, question, answer) values (:'f'
 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the checklist is closed before the MAL is signed', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000d","answer":"yes"}]')$q$, :'f'))
-  = 'The checklist opens once the MAL is signed (step 9).');
+select test.check('the checklist can be answered before the MAL is signed (CB2-0: a warning, not a stop)', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000d","answer":"yes"}]')$q$, :'f'))
+  = 'OK');
 select test.check('step 10 waits for the MAL', (public.cb_close_status(:'f') -> 'step10') = '["The MAL is not signed yet (step 9)."]');
 select public.cb_send_mal(:'f', 'MAL', '<p>' || repeat('MAL text ', 30) || '</p>', '[{"text":"MAL"}]') as mal \gset
 reset role;
@@ -60,17 +73,17 @@ select test.check('question 10 is read-only: an answer typed for it is ignored',
 select test.check('the other rules stay: 8 questions still to answer', private.cb_checklist_problems(:'f') = array['8 checklist questions to answer.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('a "No" needs a note', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000e","answer":"no","note":""}]')$q$, :'f')) like 'A "No" needs a note%');
+select test.check('a "No" without a note is accepted (CB2-0: no note rule)', test.try_rollback(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000e","answer":"no","note":""}]')$q$, :'f')) = 'OK');
 select test.check('Not applicable only on 8 and 9', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000f","answer":"na"}]')$q$, :'f')) like 'Question 3 cannot be Not applicable%');
 select public.cb_save_checklist(:'f', (select jsonb_agg(jsonb_build_object('question', key, 'answer', case when sort_order in (8, 9) then 'na' else 'yes' end))
   from public.cb_checklist_questions where active and sort_order not in (1, 6, 10, 11, 12)));
 select test.check('step 10: the email figures are "To fill"', (public.cb_close_status(:'f') -> 'step10') @> '["To fill: the corporate tax balance owing or refund (A).", "To fill: federal and provincial tax for the year filed (C)."]');
-select test.check('the preparer cannot sign step 10 yet', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) like 'Not yet: To fill:%');
+select test.check('the preparer can sign step 10 with figures to fill (CB2-0: a warning, not a stop)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) = 'OK');
 select test.check('an instalment needs a date and an amount', test.try(format($q$select public.cb_save_close_fields(%L, '{"instalments":[{"date":"","amount":5}]}')$q$, :'f')) = 'Each instalment needs a due date and an amount.');
 select public.cb_save_close_fields(:'f', '{"tax_balance":1250.40,"tax_due":"2027-03-31","filed_on":"2027-02-15","noa_issued":false,"fed_tax":900,"prov_tax":350.40,"fed_tax_prior":0,"prov_tax_prior":0,"instalments":[]}');
 select public.cb_sign_step(:'f', 'lock', 'prepared');
-select test.check('the documents wait for the reviewer: the email is a draft until then',
-  test.try(format($q$select public.cb_record_delivery(%L, 'closebook/%s/delivered/x.zip', repeat('b', 64), '{"subject":"S"}')$q$, :'f', :'f')) = 'The reviewer signs step 10 first: until then the email is a draft.');
+select test.check('the documents can go before the reviewer signs step 10 (CB2-0: a warning, not a stop)',
+  test.try_rollback(format($q$select public.cb_record_delivery(%L, 'closebook/%s/delivered/x.zip', repeat('b', 64), '{"subject":"S"}')$q$, :'f', :'f')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_sign_step(:'f', 'lock', 'reviewed');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -78,8 +91,12 @@ select public.cb_record_delivery(:'f', format('closebook/%s/delivered/x.zip', :'
 select test.check('the email figures are kept as sent', test.try(format($q$select public.cb_save_close_fields(%L, '{"tax_balance":1}')$q$, :'f')) = 'The email was sent: its figures are kept as sent.');
 select test.check('only an owner locks', test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) = 'You need the Lock and unlock right to lock a file.');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the lock is refused, each missing item named',
-  test.try(format($q$select public.cb_lock_file(%L)$q$, :'f')) like 'The file cannot be locked yet: Step 1, Set up: not signed by the reviewer.%Step 8, Tax returns: not signed by the reviewer.%The EFILE confirmation number is not recorded.');
+select test.check('the lock is the person''s decision: it goes ahead with items open (CB2-0; rolled back here)',
+  test.try_rollback(format($q$select public.cb_lock_file(%L)$q$, :'f')) = 'OK');
+reset role;
+select test.check('each open item is still named on step 10, as a warning',
+  array_to_string(private.cb_lock_problems(:'f'), ' ') like 'Step 1, Set up: not signed by the reviewer.%Step 8, Tax returns: not signed by the reviewer.%The EFILE confirmation number is not recorded.%');
+set role authenticated;
 reset role;
 reset request.jwt.claims;
 -- Steps 1 to 8 reviewed (their own rules are tested in their rounds).
@@ -118,21 +135,24 @@ select test.check('a reason is needed', test.try(format($q$select public.cb_reop
 select public.cb_reopen_file(:'f', 'The CRA reassessed: update the email');
 reset role;
 reset request.jwt.claims;
-select test.check('reopened: the phase is back, step 10 is open again, the history has the reason',
+select test.check('reopened: the phase is back, step 10 keeps its sign-offs (CB2-0: only the person takes them back), the history has the reason',
   (select phase from public.cb_files where id = :'f') <> 'locked'
-  and not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'lock')
+  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'lock' and prepared_at is not null and reviewed_at is not null)
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reopened' and detail = 'The CRA reassessed: update the email')
   and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'statements' and reviewed_at is not null));
 
--- A package change after delivery: the MAL is taken back, questions 10 and 11 empty again, the delivery cleared.
+-- A package change after delivery (CB2-0 step 2): the MAL is never withdrawn, the questions Closebook filled stay, the delivery
+-- stays recorded; History has the change.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb2.csv', '[
   {"number":"10100","name":"Chequing","amount":10500},{"number":"41000","name":"Commission income","amount":-20500},{"number":"64250","name":"Accounting fees","amount":10000}]');
 reset role;
 reset request.jwt.claims;
-select test.check('a TB change after delivery: MAL taken back, the questions Closebook fills empty, delivery cleared',
-  (select mal_quote_id is null from public.cb_file_fs where file_id = :'f')
-  and not exists (select 1 from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.active and q.sort_order in (6, 10, 11, 12))
-  and (select delivered_at is null from public.cb_file_close where file_id = :'f'));
+select test.check('a TB change after delivery: the MAL stays, the questions Closebook filled stay, the delivery stays',
+  (select mal_quote_id is not null and mal_withdrawn_at is null from public.cb_file_fs where file_id = :'f')
+  and (select count(*) from public.cb_checklist_answers a join public.cb_checklist_questions q on q.key = a.question where a.file_id = :'f' and q.active and q.sort_order in (6, 10, 11, 12)) = 4
+  and (select delivered_at is not null from public.cb_file_close where file_id = :'f'));
+select test.check('History has the trial balance change, and no MAL withdrawn', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Trial balance imported (tb2.csv)')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action in ('mal_withdrawn', 'signoff_cleared')));
 select test.check('the instalment threshold is a setting (3,000)', (select instalment_threshold from public.cb_settings) = 3000);

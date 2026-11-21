@@ -49,8 +49,9 @@ select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return', 11
 reset role; reset request.jwt.claims;
 select test.check('T4: books 120,000.00, returns 118,500.00, difference 1,500.00',
   (private.cb_revenue_state(:'f') ->> 'tb')::numeric = 120000 and (private.cb_revenue_state(:'f') ->> 'gst')::numeric = 118500 and (private.cb_revenue_state(:'f') ->> 'gst_diff')::numeric = 1500);
-select test.check('T5: the returns figure clears step 8, not step 5', (:state) = 'entries');
-select test.check('T5: History says why step 8 was cleared', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail like 'The revenue on the GST/HST returns changed%'));
+select test.check('T5: the returns figure clears nothing (CB2-0 step 2): steps 5 and 8 stay signed', (:state) = 'entries,t2');
+select test.check('T5: History has the change under step 8, and no sign-off cleared', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 't2' and detail = 'The revenue on the GST/HST returns changed')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 select test.check('GST/HST data alone does not add the revenue check', not private.cb_revenue_added(:'f') and (:rev5) = 'none');
 select test.check('T6: step 8 asks for the difference to be explained', (:gst8) = 'GST/HST revenue: explain the difference between the books and the returns.');
 
@@ -58,21 +59,21 @@ select test.check('T6: step 8 asks for the difference to be explained', (:gst8) 
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_gst_revenue_note(:'f', 'Deposit received in December, reported on the next return.');
 reset role; reset request.jwt.claims;
-select test.check('T5: the note clears step 8, not step 5', (:state) = 'entries');
-select test.check('T6: 1,500.00 explained, under the review threshold (5,000.00): step 8 has no GST/HST revenue item', (:gst8) = 'none');
--- An amended return (dummy): 112,000.00, a difference of 8,000.00, over the threshold.
+select test.check('T5: the note clears nothing', (:state) = 'entries,t2');
+select test.check('T6: 1,500.00 explained: step 8 has no GST/HST revenue item', (:gst8) = 'none');
+-- An amended return (dummy): 112,000.00, a difference of 8,000.00 (CB2-0 step 5: no threshold, explained like any other).
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_remove_revenue_source(:'gsrc');
 select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return, amended', 112000, 'files/gst.pdf');
 reset role; reset request.jwt.claims;
-select test.check('T5: replacing the returns figure clears step 8, not step 5', (:state) = 'entries');
+select test.check('T5: replacing the returns figure clears nothing', (:state) = 'entries,t2');
 select test.check('T6: the note was written for 1,500.00: explain again', (:gst8) = 'GST/HST revenue: explain the difference between the books and the returns.');
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_gst_revenue_note(:'f', 'Amended return: a sale moved to next year.');
 reset role; reset request.jwt.claims;
-select test.check('T6: over the review threshold, the reviewer accepts it', (:gst8) = 'GST/HST revenue: the difference of 8,000.00 is over the review threshold: the reviewer accepts it.');
-select test.check('step 7: the difference still waits for the reviewer', private.cb_review_problems(:'f') @> array['Items still wait for the reviewer: see the list above.']);
+select test.check('T6: no threshold: the 8,000.00 difference explained leaves no GST/HST revenue item', (:gst8) = 'none');
+select test.check('step 7: the difference does not wait for the reviewer', not (private.cb_review_problems(:'f') @> array['Items still wait for the reviewer: see the list above.']));
 select test.check('step 5 does not wait on it', private.cb_step5_waiting(:'f') = '{}');
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
@@ -90,7 +91,7 @@ select public.cb_add_revenue_check(:'f');
 select test.check('T2: added', (public.cb_revenue_status(:'f') ->> 'added')::boolean);
 select public.cb_add_revenue_check(:'f');
 reset role; reset request.jwt.claims;
-select test.check('T2: adding it clears step 5 (and step 8 through the existing chain)', (:state) = 'none');
+select test.check('T2: adding it clears nothing (CB2-0 step 2)', (:state) = 'entries,t2');
 select test.check('T2: History records it once', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'revenue_added') = 1);
 select test.check('T2: step 5 now needs a source', (:rev5) like 'Revenue check: %');
 select test.check('T2: step 5 no longer carries the GST/HST comparison', (:rev5) not like '%GST/HST%');
@@ -98,12 +99,13 @@ select test.check('T2: step 5 no longer carries the GST/HST comparison', (:rev5)
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_revenue_source(:'f', 'sales_report', '', 'Sales report', 110000, 'files/sales.pdf');
 reset role; reset request.jwt.claims;
-select test.check('T2: a source clears step 5 as today (step 8 through the chain)', (:state) = 'none');
+select test.check('T2: a source clears nothing; History has it', (:state) = 'entries,t2'
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 'entries' and detail = 'A revenue source changed'));
 select test.check('T2: a difference of 10,000.00: explain it, or fix it with an entry, as today', (:rev5) = 'Revenue check: explain the difference, or fix it with an entry.');
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_revenue_check(:'f', 'Cash sales not in the report.', 'Amended return: a sale moved to next year.', '', false);
 reset role; reset request.jwt.claims;
-select test.check('T2: over the threshold it waits for the reviewer in step 5', array_length(private.cb_step5_waiting(:'f'), 1) = 1);
+select test.check('T2: a large difference explained does not wait for the reviewer (CB2-0: no threshold)', private.cb_step5_waiting(:'f') = '{}' and (:rev5) = 'none');
 select test.check('T2: the GST/HST note kept by step 5''s save', (private.cb_revenue_state(:'f') ->> 'gst_explanation') = 'Amended return: a sale moved to next year.');
 
 -- T3: a file with revenue check data saved before piece 7 (dummy fixture: written as the old screens did) counts as added.

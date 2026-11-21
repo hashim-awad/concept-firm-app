@@ -1220,3 +1220,29 @@ begin
   raise exception 'Retired: amortization is whatever entry is posted; CCA is not compared (CloseBook2, Nov 21, 2026).' using errcode = '42501';
 end;
 $function$;
+
+-- Review fixes (test round, Nov 21, 2026). The tables still held two of the removed rules as CHECK constraints: a "yes"
+-- in "What changed this year" needed a note, and a "No" on the checklist needed a note. Both are warnings now.
+alter table public.cb_year_changes drop constraint if exists cb_year_changes_check;
+alter table public.cb_checklist_answers drop constraint if exists cb_checklist_answers_check;
+
+-- Step 2 signed with open items records them, as every other step does; signing again as preparer never clears the
+-- reviewer's sign-off (rule 14.3).
+create or replace function public.cb_sign_opening(p_file uuid)
+ returns void language plpgsql security definer set search_path to ''
+as $function$
+declare
+  v_file public.cb_files;
+  v_problem text;
+begin
+  perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook.');
+  select * into v_file from public.cb_files where id = p_file for update;
+  perform private.require(v_file.id is not null and v_file.phase <> 'locked', 'This file is locked or missing.');
+  v_problem := private.cb_opening_problem(p_file);
+  update public.cb_files set opening_signed_by = (select auth.uid()), opening_signed_at = now(), updated_at = now() where id = p_file;
+  -- Round 8: this is step 2's "Prepared by".
+  insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (p_file, 'opening', (select auth.uid()), now())
+  on conflict (file_id, step) do update set prepared_by = excluded.prepared_by, prepared_at = excluded.prepared_at;
+  perform private.cb_log(p_file, 'prepared', 'opening', case when coalesce(v_problem, '') <> '' then 'Signed with open items: ' || v_problem else '' end);
+end;
+$function$;

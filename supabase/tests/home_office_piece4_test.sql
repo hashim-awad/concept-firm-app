@@ -1,11 +1,24 @@
 -- Local tests: piece 4 (Hashim, Nov 18, 2026, version 2): the Home office schedule on the piece 3 engine. Saved with its
--- entry (kind home_office), put in again on the same entry, the amounts locked, "Claim the ITC" only by the reviewer or
--- an owner, History named "Home office schedule", an entry's schedule keeps its kind, deleting the entry deletes the
+-- entry (kind home_office), put in again on the same entry, the amounts locked, "Claim the ITC" by anyone with Edit
+-- (CB2-0), History named "Home office schedule", an entry's schedule keeps its kind, deleting the entry deletes the
 -- schedule, and the vehicle first-car rule does not touch it. T1's figures (worked out by the app,
 -- tests/closebook-home-office.test.ts). Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -32,10 +45,10 @@ select test.check('T5 lock: Edit refuses a changed schedule amount',
 select test.check('One schedule per entry: a home office entry is not put in as a vehicle schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"home_office"', '"kind":"vehicle"'))) = 'This entry holds another schedule.');
-select test.check('T3: the preparer cannot untick the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
+select test.check('T3: the preparer can untick the ITC (CB2-0: anyone with Edit; rolled back here)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]',
-    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Home office', false,
   '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]', 'Home office schedule', null, '{}', null,

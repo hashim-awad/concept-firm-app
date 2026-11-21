@@ -12,6 +12,19 @@ update public.role_permissions set level = 'edit' where area_key = 'closebook' a
 insert into public.clients (kind, legal_name, province) values ('corporation', 'Aspen Dummy Realty Team Inc.', 'ON') returning id as client \gset
 \set C '\'00000000-0000-0000-0000-00000000000c\''
 \set A '\'00000000-0000-0000-0000-00000000000a\''
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 \set prep 'set role authenticated; set request.jwt.claims = \'{"sub":"00000000-0000-0000-0000-00000000000c"}\''
 \set rev 'set role authenticated; set request.jwt.claims = \'{"sub":"00000000-0000-0000-0000-00000000000a"}\''
 \set out 'reset role; reset request.jwt.claims'
@@ -41,8 +54,13 @@ select test.check('T1: the detail type is kept (D11)', (select qbo_detail_type f
 select test.check('T1: no automatic match after the import (D5)', not exists (select 1 from public.cb_accounts where file_id = :'f' and (line_no is not null or chart_account is not null)));
 :prep;
 select public.cb_sign_step(:'f', 'records', 'prepared');
-select test.check('T1: step 4 cannot be signed until every account with a balance is assigned',
-  test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'code', 'prepared')) = 'Not yet: 150 accounts with a balance to assign to a master account.');
+select test.check('T1: step 4 signs with accounts unassigned (CB2-0: a warning, not a stop)',
+  test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 'code', 'prepared')) = 'OK');
+:out;
+select test.check('T1: the sign-off''s History row lists the 150 accounts to assign', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'prepared' and step = 'code'
+  and detail like 'Signed with open items: %150 accounts with a balance to assign to a master account.%'));
+:prep;
+select public.cb_unsign_step(:'f', 'code', 'prepared');   -- the preparer takes their own sign-off back
 -- One Assign for a parent's 8 children: one call, one action.
 select (public.cb_assign(:'f', (select jsonb_agg(jsonb_build_object('account', id, 'chart', '60000')) from public.cb_accounts where file_id = :'f' and parent_key = '6000'),
   'Assigned 8 accounts to 60000 Advertising')) ->> 'action' as act1 \gset
@@ -78,11 +96,12 @@ select public.cb_assign(:'f', (select jsonb_agg(jsonb_build_object('account', id
        when name in ('Payment app clearing (USD)', 'Undeposited Funds', 'Opening Balance Equity') then '10900' else '66000' end))
   from public.cb_accounts a where file_id = :'f' and (this_year <> 0 or last_year <> 0)), 'Assigned 150 accounts');
 select public.cb_sign_step(:'f', 'code', 'prepared');
-select test.check('T1c: once step 4 is signed, Assign is refused', test.try(format('select public.cb_assign(%L, %L, %L)', :'f',
-  (select jsonb_agg(jsonb_build_object('account', id, 'chart', '66000')) from public.cb_accounts where file_id = :'f' and number = '7001'), 'x accounts')) = 'Step 4 is signed. Take back the sign-off first.');
-select test.check('T1c: Unassign all is refused too', test.try(format('select public.cb_unassign_all(%L)', :'f')) = 'Step 4 is signed. Take back the sign-off first.');
-select test.check('T1c: and Undo', test.try(format('select public.cb_undo_assign(%L)', (select id from public.cb_assign_actions where file_id = :'f' and undone_at is null order by done_at desc limit 1)))
-  = 'Step 4 is signed. Take back the sign-off first.');
+-- CB2-0 step 4: mapping does not lock when step 4 is signed. Each call is rolled back so the rest of the file runs on the same data.
+select test.check('T1c: once step 4 is signed, Assign still works', test.try_rollback(format('select public.cb_assign(%L, %L, %L)', :'f',
+  (select jsonb_agg(jsonb_build_object('account', id, 'chart', '66000')) from public.cb_accounts where file_id = :'f' and number = '7001'), 'x accounts')) = 'OK');
+select test.check('T1c: Unassign all works too', test.try_rollback(format('select public.cb_unassign_all(%L)', :'f')) = 'OK');
+select test.check('T1c: and Undo', test.try_rollback(format('select public.cb_undo_assign(%L)', (select id from public.cb_assign_actions where file_id = :'f' and undone_at is null order by done_at desc limit 1)))
+  = 'OK');
 :out;
 
 -- D2: Clearing by master account holds step 6 while it has a balance; Opening Balance Equity says how to clear it.
@@ -111,9 +130,9 @@ select test.check('OBE: refused when retained earnings would not tie to step 2',
 select public.cb_save_tb_opening_re(:'f', 0);
 select test.check('OBE: one RJE clears it to retained earnings when it ties', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
   :'f', :'obe', :'re')) = 'OK');
-select test.check('OBE: only from that account: retained earnings otherwise still needs a prior period adjustment',
-  test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
-  :'f', :'chq', :'re')) = 'A line on retained earnings needs the reason "Prior period adjustment".');
+select test.check('OBE: retained earnings may move from another account with any reason (CB2-0: no prior period reason rule; rolled back here)',
+  test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
+  :'f', :'chq', :'re')) = 'OK');
 :out;
 select test.check('OBE: History records it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_obe'));
 select test.check('decision 1A: the OBE entry is dated the first day of the year', (select entry_date from public.cb_entries where file_id = :'f' and note = 'Clear Opening Balance Equity') = '2026-01-01');
@@ -130,18 +149,18 @@ select public.cb_save_tb_opening_re(:'f', 0);
 :out;
 select test.check('OBE: it no longer holds step 6', not exists (select 1 from unnest(private.cb_step_problems(:'f', 'compare')) p where p like 'Opening Balance Equity%'));
 
--- D7: a new master account on the same line clears step 4 only; one on another line also clears steps 6, 7 and 8.
+-- D7, CB2-0 step 2: a new master account, on the same line or another, clears nothing; History has the change.
 \set signed 'insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) select :''f'', s, ''00000000-0000-0000-0000-00000000000c'', now() from unnest(array[''code'', ''entries'', ''compare'', ''review'', ''t2'']) s on conflict (file_id, step) do update set prepared_at = excluded.prepared_at'
 \set state 'select coalesce(string_agg(step, \',\' order by step), \'none\') from public.cb_step_signoffs where file_id = :''f'' and step in (''code'', ''entries'', ''compare'', ''review'', ''t2'') and (prepared_at is not null or reviewed_at is not null)'
 :signed;
 update public.cb_accounts set chart_account = '10100' where id = :'chq';
-select test.check('D7: a master account on the same line clears step 4 only', (:state) = 'compare,entries,review,t2');
-select test.check('D7: History names the old and new master account', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'code'
+select test.check('D7: a master account on the same line clears nothing', (:state) = 'code,compare,entries,review,t2');
+select test.check('D7: History names the old and new master account', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'mapping_changed' and step = 'code'
   and detail = '1000 Chequing: master account 10000 to 10100'));
 :signed;
 update public.cb_accounts set chart_account = '66000', line_no = '8862.00' where number = '7001' and file_id = :'f';
 update public.cb_accounts set chart_account = '65100', line_no = '8810.00' where number = '7001' and file_id = :'f';
-select test.check('D7: a master account on another line clears steps 4, 6, 7 and 8', (:state) = 'entries');
+select test.check('D7: a master account on another line clears nothing', (:state) = 'code,compare,entries,review,t2');
 select test.check('item 6: History names the groups, not GIFI codes', exists (select 1 from public.cb_file_history where file_id = :'f' and detail like '7001 Other 1: % to Office expenses' and detail not like '%GIFI%'));
 
 -- D6: a line written directly takes the master account on it; a line with none is refused.
@@ -150,13 +169,14 @@ select test.check('D6: a line with no master account is refused', test.try(forma
 update public.cb_accounts set line_no = '8862.00' where number = '7002' and file_id = :'f';
 select test.check('D6: a line with one master account takes it', (select chart_account from public.cb_accounts where number = '7002' and file_id = :'f') = '66000');
 
--- T4: step 8 on a trial balance file: the Match paper's box and ties, and an override clears step 8 only.
+-- T4: step 8 on a trial balance file: the Match paper's box and ties, and an override clears nothing (CB2-0 step 2).
 select test.check('T4: step 8 on a trial balance file has the Match box', private.cb_match_problems(:'f') @> array['1 account needs a decision in Match accounts to GIFI.']);
 :signed;
 :prep;
 select public.cb_set_gifi_override((select id from public.cb_accounts where number = '7003' and file_id = :'f'), '8860.00');
 :out;
-select test.check('T4: an override on a trial balance file clears step 8 only', (:state) = 'code,compare,entries,review');
+select test.check('T4: an override on a trial balance file clears nothing; History has it', (:state) = 'code,compare,entries,review,t2'
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override' and detail = '7003 Other 3: GIFI 8862 to 8860'));
 
 -- T3: a monthly QuickBooks file: an AJE on client accounts; a new client account carries its master account; with two client
 -- accounts on one master account the preparer picks; a parent with sub-accounts is refused.
@@ -183,11 +203,12 @@ select test.check('D12b: a parent with sub-accounts is refused', test.try(format
 :out;
 select test.check('D12b: the pick rolls forward with the client', (select account_key from public.cb_client_chart_picks where client_id = :'client' and chart_account = '21500') = '2200');
 
--- D12c: "Booked in QuickBooks": the entry is fixed and a new trial balance is refused until it is unmarked.
+-- D12c: "Booked in QuickBooks": a new trial balance is refused until it is unmarked. CB2-0 step 4: booking does not wait for
+-- step 5, and a booked entry can still change (History records it).
 select id as e1 from public.cb_entries where file_id = :'m' order by seq limit 1 \gset
 update public.cb_entries set needs_review = true, reviewed_at = null where id = :'e1';
 :prep;
-select test.check('D12c (E1, approved change): an entry is marked booked only once step 5 is reviewed', test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) = 'Sign step 5 Reviewed first: entries are booked after step 5 is reviewed.');
+select test.check('D12c: an entry can be marked booked before step 5 is reviewed (CB2-0: a warning, not a stop)', test.try(format('select public.cb_mark_booked(%L, true)', :'e1')) = 'OK');
 :out;
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
 values (:'m', 'entries', '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now())
@@ -195,14 +216,15 @@ on conflict (file_id, step) do update set prepared_at = now(), reviewed_at = now
 :prep;
 select public.cb_mark_booked(:'e1', true);
 :out;
-select test.check('D12c: a booked entry''s lines cannot change', test.try(format('update public.cb_entry_lines set memo = memo || %L where entry_id = %L', 'x', :'e1')) = 'This entry is booked in QuickBooks. Unmark it first to change it.');
+select test.check('D12c: a booked entry''s lines can change (CB2-0)', test.try(format('update public.cb_entry_lines set memo = memo || %L where entry_id = %L', 'x', :'e1')) = 'OK');
 :prep;
 select test.check('D12c: a new trial balance is refused while an entry is booked', test.try(format($q$select public.cb_import_tb(%L, 'this_year', 'quickbooks', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":1},{"number":"4000","name":"Commission income","amount":-1}]')$q$, :'m'))
   = 'Some entries are marked Booked in QuickBooks: a new trial balance already holds them, so they would count twice. Unmark and delete those entries first, then import.');
 select public.cb_mark_booked(:'e1', false);
 select test.check('D12c: unmarked, the trial balance imports again', test.try(format($q$select public.cb_import_tb(%L, 'this_year', 'quickbooks', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":1},{"number":"4000","name":"Commission income","amount":-1}]')$q$, :'m')) = 'OK');
 :out;
-select test.check('D12c: History records the marks', (select count(*) from public.cb_file_history where file_id = :'m' and action = 'entry_booked') = 2);
+select test.check('D12c: History records the marks (booked before review, booked again, unmarked)', (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'m' and action = 'entry_booked')
+  like 'AJE % marked Booked in QuickBooks; step 5 not reviewed yet | AJE % marked Booked in QuickBooks, under step 5 Reviewed by Test Owner A, % | AJE % no longer marked Booked in QuickBooks');
 
 -- T5 and T1b (database part): next year's file finds last year's matches with the client, by number and by name.
 select test.check('T1b: last year''s match for an account with no number is kept by its name', (select chart_account || '|' || name from public.cb_client_mappings where client_id = :'client' and account_key = 'undeposited funds') = '10900|Undeposited Funds');
@@ -280,8 +302,8 @@ select test.check('security: Undo puts the override back', (select gifi_override
 select test.check('security: History records the override put back', exists (select 1 from public.cb_file_history where file_id = :'sr' and detail = '6000 Ads: GIFI override 8524 restored (Undo)'));
 update public.cb_accounts set needs_reviewer = true, reviewer_reason = 'Which line?' where file_id = :'sr' and number = '6000';
 :prep;
-select test.check('security: the preparer cannot assign an account sent to the reviewer', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
-  json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'), 'chart', '60100')), 'Assigned 1 account')) = 'This account waits for the reviewer''s decision.');
+select test.check('security: the preparer can assign an account sent to the reviewer (CB2-0: anyone with Edit; rolled back here)', test.try_rollback(format('select public.cb_assign(%L, %L, %L)', :'sr',
+  json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'sr' and number = '6000'), 'chart', '60100')), 'Assigned 1 account')) = 'OK');
 select test.check('security: an account from another file is refused', test.try(format('select public.cb_assign(%L, %L, %L)', :'sr',
   json_build_array(json_build_object('account', (select id from public.cb_accounts where file_id = :'m' limit 1), 'chart', '60100')), 'Assigned 1 account')) = 'An account is not in this file.');
 :out;
@@ -326,12 +348,14 @@ select test.check('1A: the same figure typed positive holds step 6, with the dif
 :prep;
 select public.cb_save_tb_opening_re(:'dt', -1000);
 :out;
-select test.check('1A: a new step 2 figure reopens step 6', not exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null));
+select test.check('1A: a new step 2 figure keeps step 6 signed (CB2-0 step 2); History has it', exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null)
+  and exists (select 1 from public.cb_file_history where file_id = :'dt' and action = 'opening_re' and detail = 'Last year''s closing retained earnings (T2 line 3849): 1,000.00 to (1,000.00)'));
 :signdt;
 :prep;
 select public.cb_import_tb(:'dt', 'this_year', 'client_software', 'tb2.csv', '[{"number":"1000","name":"Chequing","amount":-900},{"number":"3000","name":"Retained earnings","amount":900}]');
 :out;
-select test.check('1A: a new trial balance reopens step 6', not exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null));
+select test.check('1A: a new trial balance keeps step 6 signed (CB2-0 step 2); History has it', exists (select 1 from public.cb_step_signoffs where file_id = :'dt' and step = 'compare' and prepared_at is not null)
+  and exists (select 1 from public.cb_file_history where file_id = :'dt' and detail like 'Trial balance%tb2.csv%'));
 :prep;
 select test.check('security: a figure that is not a number is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', 'NaN')) = 'Type the amount as printed on the T2.');
 select test.check('security: a figure too large is refused', test.try(format('select public.cb_save_tb_opening_re(%L, %L)', :'dt', '1e13')) = 'Type the amount as printed on the T2.');
@@ -368,8 +392,8 @@ select test.check('dividends: the entry is dated the first day of the year', (se
 select test.check('dividends: History records it', exists (select 1 from public.cb_file_history where file_id = :'dv' and action = 'entry_dividends'
   and detail = '3400 Dividends: last year''s balance 20,000.00 moved to retained earnings (RJE), checked against step 2'));
 :prep;
-select test.check('dividends: any other entry to retained earnings still needs a prior period adjustment', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
-  :'dv', (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), :'dvre')) = 'A line on retained earnings needs the reason "Prior period adjustment".');
+select test.check('dividends: any other entry to retained earnings is accepted with any reason (CB2-0; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
+  :'dv', (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), :'dvre')) = 'OK');
 :out;
 
 -- Several opening RJEs (Hashim, Nov 19, option A, projected tie): each entry ties to step 2 once the other qualifying balances

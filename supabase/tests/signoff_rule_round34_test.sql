@@ -1,6 +1,6 @@
--- Local tests: round 34 (Hashim, Nov 17, 2026): a sign-off is removed only when what it signed changes.
--- 3.1, 3.2 and 3.3 stay signed through every step 4 action; a statement excluded in 3.2 removes 3.2 and 3.3, with
--- the reason in History. Dummy data only.
+-- Local tests: round 34 (Hashim, Nov 17, 2026), updated for CB2-0 step 2 (rule 14): no change removes a sign-off.
+-- 3.1, 3.2 and 3.3 stay signed through every step 4 action and through 3.2 work (statement excluded or added, an
+-- outstanding item); History records each change. Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
@@ -77,30 +77,32 @@ select test.check('ask a client question, send it, the client answers: still sig
 select test.check('History has no sign-off removal for 3.x', not exists (select 1 from public.cb_file_history where file_id = :'f' and action in ('signoff_removed', 'signoff_cleared') and step = 'records'));
 select test.check('step 3 still signed', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and prepared_at is not null));
 
--- ---------- 3.2 work: a statement excluded removes 3.2 and 3.3 (asked first), with the reason.
+-- ---------- 3.2 work (CB2-0 rule 14): a statement excluded is not asked about and removes no sign-off; History has it.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('excluding a statement asks first', test.try(format($q$select public.cb_exclude_statement(%L, 'twice', '')$q$, :'extra')) = 'This removes the sign-off on 3.2 and 3.3. Continue?');
-select public.cb_exclude_statement(:'extra', 'twice', '', true);
+select test.check('excluding a statement does not ask first (CB2-0: no confirm prompts)', test.try(format($q$select public.cb_exclude_statement(%L, 'twice', '')$q$, :'extra')) = 'OK');
+select test.check('the statement is gone: excluding it again is refused', test.try(format($q$select public.cb_exclude_statement(%L, 'twice', '', true)$q$, :'extra')) = 'Statement not found, or already excluded.');
 reset role;
-select test.check('statement excluded: 3.2 and 3.3 removed, 3.1 stays', test.signed() = '3.1');
-select test.check('step 3 follows: not signed', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records'));
-select test.check('History says which and why', exists (select 1 from public.cb_file_history where file_id = :'f' and step = 'records'
-  and action in ('signoff_removed', 'signoff_cleared') and detail = '3.2 and 3.3 sign-offs removed: statement excluded' and reason = 'statement excluded'));
+select test.check('statement excluded: 3.1, 3.2 and 3.3 all stay signed', test.signed() = '3.1,3.2,3.3');
+select test.check('step 3 stays signed', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and prepared_at is not null));
+select test.check('History has the exclusion, and no sign-off removal', exists (select 1 from public.cb_file_history where file_id = :'f' and step = 'records'
+  and action = 'statement_excluded' and reason = 'Imported twice')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action in ('signoff_removed', 'signoff_cleared')));
 
--- ---------- An outstanding item removes only 3.3, with the reason.
-insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.2', :A::uuid, now()), (:'f', '3.3', :A::uuid, now());
+-- ---------- An outstanding item removes no sign-off (CB2-0); History has the change.
+insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.2', :A::uuid, now()), (:'f', '3.3', :A::uuid, now()) on conflict do nothing;
 set role authenticated;
 select public.cb_add_outstanding(:'chq', 'end', '2026-08-30', 'CHEQUE DUMMY 101', 'out', 50.00, null, 'item');
 reset role;
-select test.check('an outstanding item: only 3.3 removed', test.signed() = '3.1,3.2');
-select test.check('History: "3.3 sign-off removed: an outstanding item changed"', exists (select 1 from public.cb_file_history where file_id = :'f'
-  and detail = '3.3 sign-off removed: an outstanding item changed'));
+select test.check('an outstanding item: 3.1, 3.2 and 3.3 all stay signed', test.signed() = '3.1,3.2,3.3');
+select test.check('History: the outstanding item, in one row', (select count(*) from public.cb_file_history where file_id = :'f'
+  and action = 'bank_outstanding' and detail = 'Outstanding item added at the end of the year') = 1);
 
--- ---------- A statement added on a bank file clears 3.2 and 3.3, never step 3 alone.
+-- ---------- A statement added on a bank file clears no sign-off (CB2-0); History has the change.
 insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.3', :A::uuid, now()) on conflict do nothing;
 select private.cb_records_follow(:'f');
 select private.cb_add_statement(:'f', :'loc', 'loc-2.pdf', 3200.00, 3195.00, '[
   {"line": 1, "date": "2026-08-20", "description": "LOC INTEREST DUMMY", "amount": -5.00}]', '2026-08-01', '2026-08-31', 3200.00, 3195.00, null);
-select test.check('a statement added: 3.2 and 3.3 removed and step 3 with them, 3.1 stays', test.signed() = '3.1'
-  and not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records'));
+select test.check('a statement added: 3.1, 3.2, 3.3 and step 3 all stay signed', test.signed() = '3.1,3.2,3.3'
+  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and prepared_at is not null));
+select test.check('History has the statement added', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 'records' and detail like '%A statement was added'));

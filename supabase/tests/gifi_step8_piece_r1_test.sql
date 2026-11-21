@@ -5,6 +5,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -44,9 +57,9 @@ select test.check('T1: and the net income tie shows the difference (no group cou
 select test.check('T1: total assets tie', (private.cb_match_ties(:'f') ->> 'assets_chart')::numeric = 18760 and (private.cb_match_ties(:'f') ->> 'assets_gifi')::numeric = 18760);
 select test.check('T1: step 6 says "no group"', private.cb_step_problems(:'f', 'compare') @> array['1 account with no group: choose a group.']);
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T1: the GIFI export refuses', test.try(format('select public.cb_record_gifi_export(%L, %L, %L, %L, %L::jsonb, %L::jsonb)', :'f', 'final', 'x.gfi', '"GIFI01",x', '{}', :'checks')) like 'Export refused.%');
+select test.check('T1: the GIFI export goes ahead with an account with no group (CB2-0: a warning; rolled back here)', test.try_rollback(format('select public.cb_record_gifi_export(%L, %L, %L, %L, %L::jsonb, %L::jsonb)', :'f', 'final', 'x.gfi', '"GIFI01",x', '{}', :'checks')) = 'OK');
 select test.check('T1: no override on an account with no group', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'dum', '8810.00')) = 'Choose a group for the account first.');
-select test.check('T1: step 8 cannot be signed', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) like 'Not yet:%1 account needs a decision in Match accounts to GIFI.%');
+select test.check('T1: step 8 can be signed with the account open (CB2-0: a warning; rolled back here)', test.try_rollback(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) = 'OK');
 -- "Choose a group" (the existing Change window) writes the group.
 select public.cb_map_account(:'dum', '9270.00');
 reset role; reset request.jwt.claims;
@@ -64,15 +77,15 @@ reset role; reset request.jwt.claims;
 select test.check('T2: total assets tie fails by 500.00', exists (select 1 from unnest(private.cb_match_problems(:'f')) p where p = 'Total assets 19,260.00 · GIFI 2599 18,760.00 · Out of balance 500.00.'));
 select test.check('T2: the wrong-side flag tests the override line', (:items) = '10200:side');
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T2: step 8 cannot be signed', test.try(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) like '%Total assets 19,260.00 · GIFI 2599%');
-select test.check('T2: the export refuses', test.try(format('select public.cb_record_gifi_export(%L, %L, %L, %L, %L::jsonb, %L::jsonb)', :'f', 'final', 'x.gfi', '"GIFI01",x', '{}', :'checks')) like 'Export refused.%Total assets%');
+select test.check('T2: step 8 can be signed with the tie out (CB2-0: a warning; rolled back here)', test.try_rollback(format('select public.cb_sign_step(%L, %L, %L)', :'f', 't2', 'prepared')) = 'OK');
+select test.check('T2: the export goes ahead with the tie out (the trial balance itself balances) (CB2-0: a warning; rolled back here)', test.try_rollback(format('select public.cb_record_gifi_export(%L, %L, %L, %L, %L::jsonb, %L::jsonb)', :'f', 'final', 'x.gfi', '"GIFI01",x', '{}', :'checks')) = 'OK');
 select public.cb_set_gifi_override(:'sav', null);
 reset role; reset request.jwt.claims;
 select test.check('T2: removed, the ties are met again', private.cb_match_problems(:'f') = '{}');
 delete from public.cb_accounts where id = :'sav';
 update public.cb_accounts set this_year = 18760 where id = :'chq';
 
--- ---------- T3: an override clears step 8 (then 9 and 10) only; History names the account and the lines.
+-- ---------- T3: an override clears nothing (CB2-0 step 2); History names the account and the lines.
 :signed;
 select private.cb_gifi_fingerprint(:'f') as fp0 \gset
 select private.cb_tb_fingerprint(:'f') as tb0 \gset
@@ -81,10 +94,10 @@ select private.cb_sh_fingerprint(:'f') as sh0 \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_set_gifi_override(:'off', '8811.00');
 reset role; reset request.jwt.claims;
-select test.check('T3: steps 4, 5, 6 and 7 stay signed; 8 and 9 clear', (:state) = 'code,compare,entries,review');
+select test.check('T3: steps 4 to 9 all stay signed', (:state) = 'code,compare,entries,review,statements,t2');
 select test.check('T3: History names the account, old and new line', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'gifi_override'
   and detail = '65100 Office expenses: GIFI 8810 to 8811' and old_value = 'GIFI 8810' and new_value = 'GIFI 8811'));
-select test.check('T3: the step 8 clearing gives the same reason', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail = '65100 Office expenses: GIFI 8810 to 8811'));
+select test.check('T3: no History row says a sign-off was cleared', not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 select test.check('T3: the GIFI export fingerprint changes', private.cb_gifi_fingerprint(:'f') <> :'fp0');
 select test.check('T3: the trial balance fingerprint (GST/HST returns, 21500, shareholder loans) does not', private.cb_tb_fingerprint(:'f') = :'tb0');
 select test.check('T3: the shareholder loan fingerprint does not change', private.cb_sh_fingerprint(:'f') = :'sh0');
@@ -98,7 +111,7 @@ select test.check('T3: the same line again changes nothing', (:state) = 'code,co
 
 -- ---------- Refusals.
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('another account type is refused', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'off', '8000.00')) like 'This is a GIFI line for revenue. The account''s group is for expense%');
+select test.check('another account type is accepted (CB2-0: a warning; rolled back here)', test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'off', '8000.00')) = 'OK');
 select test.check('Clearing takes no GIFI line', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'clr', '1002.00')) like 'Clearing and the system rows take no GIFI line.%');
 select test.check('a locked line is refused', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'chq', '1301.00')) like 'This line is locked%');
 reset role; reset request.jwt.claims;
@@ -112,7 +125,7 @@ select test.check('piece R2: a trial balance file takes the step 8 override', :'
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_set_gifi_override(:'tba', null);
 select public.cb_send_to_reviewer(:'chq', 'Which line?');
-select test.check('the preparer cannot pick for an account waiting for the reviewer', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'chq', '1001.00')) = 'This account waits for the reviewer''s decision.');
+select test.check('the preparer can pick for an account waiting for the reviewer (CB2-0: anyone with Edit; rolled back here)', test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'chq', '1001.00')) = 'OK');
 reset role; reset request.jwt.claims;
 select test.check('the waiting account is in step 8''s box', (:items) = '10100:reviewer');
 select test.check('step 7 on a bank file no longer waits for it', not exists (select 1 from unnest(private.cb_review_problems(:'f')) p where p like '%waiting for the reviewer''s decision%'));
@@ -159,8 +172,8 @@ reset role; reset request.jwt.claims;
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'f', 'chart:30000', '30000', 'Common shares', '3500.00', 0, 'chart');
 select id as shr from public.cb_accounts where file_id = :'f' and number = '30000' \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('fix 4: retained earnings (3600) is refused as an override on an equity account',
-  test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3600.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
+select test.check('fix 4: retained earnings (3600) is accepted as an override on an equity account (CB2-0: no retained earnings rule; rolled back here)',
+  test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3600.00')) = 'OK');
 reset role; reset request.jwt.claims;
 select test.check('fix 2: saving the line confirms the suggestion', (select mapping_source from public.cb_accounts where id = :'off') = 'preparer'
   and not exists (select 1 from private.cb_match_items(:'f') i where i.account_id = :'off'));
@@ -172,8 +185,8 @@ select test.check('fix 3: a group of another type drops the override, with Histo
 insert into public.cb_accounts (file_id, account_key, number, name, line_no, this_year, mapping_source) values (:'f', 'chart:31000', '31000', 'Retained earnings', '3600.00', 0, 'chart');
 select id as re from public.cb_accounts where file_id = :'f' and number = '31000' \gset
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('retained earnings cannot be moved to another equity line', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'re', '3500.00'))
-  = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
+select test.check('retained earnings can be moved to another equity line (CB2-0; rolled back here)', test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'re', '3500.00'))
+  = 'OK');
 reset role; reset request.jwt.claims;
 -- An equity account with an override whose group moves to retained earnings drops the override, with History.
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -187,8 +200,8 @@ select test.check('a group moved to retained earnings drops the override, with H
 -- ---------- Hashim (Nov 19): 3600 to 3849 neither take nor give an override; an override equal to the group goes.
 update public.cb_accounts set line_no = '3500.00' where id = :'shr';
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('share capital cannot move to prior period adjustments (3720)', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3720.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
-select test.check('share capital cannot move to dividends (3700)', test.try(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3700.00')) = 'Retained earnings, dividends and prior period adjustments (3600 to 3849) take no override. Use an entry.');
+select test.check('share capital can move to prior period adjustments (3720) (CB2-0; rolled back here)', test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3720.00')) = 'OK');
+select test.check('share capital can move to dividends (3700) (CB2-0; rolled back here)', test.try_rollback(format('select public.cb_set_gifi_override(%L, %L)', :'shr', '3700.00')) = 'OK');
 select public.cb_set_gifi_override(:'shr', '3520.00');
 reset role; reset request.jwt.claims;
 update public.cb_accounts set line_no = '3520.00' where id = :'shr';

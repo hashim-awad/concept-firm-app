@@ -5,6 +5,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000c', 'prep.c@example.test'),
   ('00000000-0000-0000-0000-00000000000d', 'staff.d@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -34,36 +47,41 @@ select public.cb_create_file(:'client', '2026-12-31', '2026-01-01', '', 'full', 
 -- The preparer works the file.
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer sees the file', exists (select 1 from public.cb_files where id = :'f'));
-select test.check('step 1: the preparer cannot sign while setup questions are open',
-  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) like 'Not yet: 6 setup questions to answer.%');
+select test.check('step 1: the preparer can sign while setup questions are open (CB2-0: a warning, not a stop)',
+  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'OK');
+reset role;
+select test.check('step 1: the open questions are recorded on the sign-off''s History row', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'prepared' and step = 'setup'
+  and detail like 'Signed with open items: 6 setup questions to answer.%'));
+set role authenticated;
+select public.cb_unsign_step(:'f', 'setup', 'prepared');   -- the preparer takes their own sign-off back
 select public.cb_save_setup(:'f', '{"realtor":true,"owner_paid":false,"dividends":false,"payroll":false,"holdco":false,"gst_registered":true}');
-select test.check('step 1: a registrant also answers the filing frequency and the quick method',
-  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) like 'Not yet: 2 setup questions to answer.%');
+select test.check('step 1: a registrant''s two open questions do not stop the sign-off either (rolled back here)',
+  test.try_rollback(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'OK');
 select public.cb_save_setup(:'f', '{"gst_frequency":"annual","quick_method":false}');
 -- Round 16: step 1 also needs the acceptance record.
-select test.check('step 1: the acceptance record is needed too',
-  test.try(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'Not yet: Answer the acceptance questions.');
+select test.check('step 1: nor does a missing acceptance record (rolled back here)',
+  test.try_rollback(format($q$select public.cb_sign_step(%L, 'setup', 'prepared')$q$, :'f')) = 'OK');
 select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q5_note":"","q9":"yes"}'::jsonb);
 select public.cb_acceptance_confirm_client(:'f');
 select public.cb_sign_step(:'f', 'setup', 'prepared');
 select test.check('the preparer cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) like 'You need the Review right to sign as reviewer%');
 select test.check('the preparer cannot add a review note', test.try(format($q$select public.cb_add_note(%L, 'setup', 'step', null, 'x')$q$, :'f')) like 'Only the reviewer adds review notes%');
-select test.check('step 3: nothing imported yet', test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'f')) = 'Not yet: Import the trial balance.');
+select test.check('step 3: nothing imported yet does not stop the sign-off (rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'f')) = 'OK');
 select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb.csv', '[
   {"number":"10100","name":"Chequing","amount":12000},{"number":"41000","name":"Commission income","amount":-20000},
   {"number":"64250","name":"Accounting fees","amount":8000}]');
 select public.cb_sign_step(:'f', 'records', 'prepared');
-select test.check('step 4: three accounts to match', test.try(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'Not yet: 3 accounts with a balance to assign to a master account.');
+select test.check('step 4: three accounts to match do not stop the sign-off (rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'code', 'prepared')$q$, :'f')) = 'OK');
 select public.cb_map_account(id, case number when '10100' then '1002.00' when '41000' then '8000.00' else '8862.00' end) from public.cb_accounts where file_id = :'f';
 select public.cb_sign_step(:'f', 'code', 'prepared');
-select test.check('step 10 has its sign-off (round 12), and it waits for the MAL', test.try(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) = 'Not yet: The MAL is not signed yet (step 9).');
+select test.check('step 10 has its sign-off (round 12); the MAL not signed is a warning (rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'lock', 'prepared')$q$, :'f')) = 'OK');
 reset role;
 reset request.jwt.claims;
 
 -- The reviewer signs after the preparer.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the reviewer cannot sign before the preparer', test.try(format($q$select public.cb_sign_step(%L, 'entries', 'reviewed')$q$, :'f')) = 'The preparer signs first.');
+select test.check('the reviewer may sign before the preparer (CB2-0: no order rule; rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'entries', 'reviewed')$q$, :'f')) = 'OK');
 select public.cb_sign_step(:'f', 'setup', 'reviewed');
 select public.cb_sign_step(:'f', 'records', 'reviewed');
 reset role;
@@ -72,17 +90,18 @@ select test.check('step 1 shows both sign-offs with name and date',
   (select prepared_by::text || '|' || reviewed_by::text || '|' || (prepared_at <= reviewed_at) from public.cb_step_signoffs where file_id = :'f' and step = 'setup')
   = '00000000-0000-0000-0000-00000000000c|00000000-0000-0000-0000-00000000000a|true');
 
--- A change to a signed step clears its sign-offs, and only its own.
+-- CB2-0 step 2: a change to a signed step keeps every sign-off; History records the change.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_setup(:'f', '{"payroll":true}');
 reset role;
 reset request.jwt.claims;
-select test.check('a setup change clears step 1''s sign-offs', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'setup'));
+select test.check('a setup change keeps step 1''s sign-offs', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'setup' and prepared_at is not null and reviewed_at is not null));
 select test.check('step 3 keeps its sign-offs', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and reviewed_at is not null));
-select test.check('the history records the cleared sign-off, with who', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'setup'
+select test.check('the history records the change, with who', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 'setup'
   and actor_id = '00000000-0000-0000-0000-00000000000c' and detail = 'Payroll: No to Yes'));
-select test.check('saving the same answers again changes nothing', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared') = 1);
+select test.check('one row for it, and no sign-off cleared', (select count(*) from public.cb_file_history where file_id = :'f' and detail = 'Payroll: No to Yes') = 1
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 
 -- Review notes: added, replied, fixed (reopening only its step), cleared.
 set role authenticated;
@@ -90,16 +109,16 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_add_note(:'f', 'records', 'step', null, 'Attach the trial balance export to the file.') as n1 \gset
 select public.cb_add_note(:'f', 'code', 'account', id, 'Is this the right line?') as n2 from public.cb_accounts where file_id = :'f' and number = '64250' \gset
 select test.check('a note on an account names it', (select target_label from public.cb_review_notes where id = :'n2') = '64250 Accounting fees');
-select test.check('the reviewer cannot sign a step with a note to clear',
-  test.try(format($q$select public.cb_sign_step(%L, 'code', 'reviewed')$q$, :'f')) = 'Not yet: 1 review note to clear.');
+select test.check('the reviewer can sign a step with a note to clear (CB2-0: a warning; rolled back here)',
+  test.try_rollback(format($q$select public.cb_sign_step(%L, 'code', 'reviewed')$q$, :'f')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer cannot clear a note', test.try(format($q$select public.cb_clear_note(%L, null)$q$, :'n1')) like 'Only the reviewer clears%');
 select test.check('a reply needs words', test.try(format($q$select public.cb_reply_note(%L, ' ', true)$q$, :'n1')) like 'Type the reply%');
 select public.cb_reply_note(:'n1', 'Attached in the document vault.', true);
 reset role;
 reset request.jwt.claims;
-select test.check('fixing a note reopens only its step (3); step 4 keeps its sign-off',
-  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records')
+select test.check('fixing a note reopens nothing (CB2-0): steps 3 and 4 keep their sign-offs',
+  exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and reviewed_at is not null)
   and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'code' and prepared_at is not null));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
@@ -128,7 +147,7 @@ select public.cb_add_revenue_source(:'f', 't4a', 'brokerage', 'T4A', 20000, 'fil
 select public.cb_sign_step(:'f', 'entries', 'prepared');
 reset role;
 reset request.jwt.claims;
-select test.check('step 6: flagged changes to explain', private.cb_step_problems(:'f', 'compare') @> array['3 flagged changes to explain in Flagged changes.']);
+select test.check('step 6: no flagged changes (CB2-0 step 5: no threshold)', not exists (select 1 from unnest(private.cb_step_problems(:'f', 'compare')) p where p like '%flagged%'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_explain_flag(id, 'revenue_grew', 'First full year of trading.') from public.cb_accounts where file_id = :'f';
@@ -139,7 +158,14 @@ reset role;
 reset request.jwt.claims;
 
 -- The same person may prepare and review; the history says so.
+-- CB2-0: nothing above cleared steps 1 and 3, so their signers take their own sign-offs back first (a person's act).
 set role authenticated;
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
+select public.cb_unsign_step(:'f', 'setup', 'reviewed');
+select public.cb_unsign_step(:'f', 'records', 'reviewed');
+set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
+select public.cb_unsign_step(:'f', 'setup', 'prepared');
+select public.cb_unsign_step(:'f', 'records', 'prepared');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_sign_step(:'f', 'setup', 'prepared');
 select public.cb_sign_step(:'f', 'setup', 'reviewed');
@@ -155,33 +181,33 @@ select public.cb_sign_step(:'f', 'compare', 'reviewed');
 select public.cb_review_new_account(:'f', account_key, true) from public.cb_accounts where file_id = :'f' and last_year = 0 and this_year <> 0;
 reset role;
 reset request.jwt.claims;
-select test.check('the history says when one person prepared and reviewed', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reviewed' and step = 'setup' and detail = 'Prepared and reviewed by the same person'));
+select test.check('the history says when one person prepared and reviewed', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reviewed' and step = 'setup' and detail like 'Prepared and reviewed by the same person.%'));
 
 -- Round 8b: the completion checklist belongs to step 10. Step 6 does not need it. Round 12: it opens once
 -- the MAL is signed (its rules are tested in closebook_deliver_lock_test.sql).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the checklist is closed until the MAL is signed', test.try(format($q$select public.cb_save_checklist(%L, '[{"question":"wb200000002","answer":"yes"}]')$q$, :'f')) = 'The checklist opens once the MAL is signed (step 9).');
+select test.check('the checklist can be answered before the MAL is signed (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_save_checklist(%L, '[{"question":"wb20000000d","answer":"yes"}]')$q$, :'f')) = 'OK');
 reset role;
 reset request.jwt.claims;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_add_note(:'f', 'review', 'step', null, 'Check the MAL date against the report date.') as n3 \gset
-select test.check('step 6 is refused while a note is open', test.try(format($q$select public.cb_sign_step(%L, 'review', 'reviewed')$q$, :'f')) = 'Not yet: 1 review note still open.');
+select test.check('step 7 can be signed while a note is open (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'review', 'reviewed')$q$, :'f')) = 'OK');
 select public.cb_clear_note(:'n3', null);
 select public.cb_sign_step(:'f', 'review', 'reviewed');
 reset role;
 reset request.jwt.claims;
 select test.check('step 6 is signed by the reviewer', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'review' and reviewed_by = '00000000-0000-0000-0000-00000000000a'));
--- A later change to any step clears that step and step 6.
+-- CB2-0 step 2: a later change to any step clears nothing; History has it.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_map_account(id, '8810.00') from public.cb_accounts where file_id = :'f' and number = '64250';
 reset role;
 reset request.jwt.claims;
-select test.check('a line change on a trial balance file clears steps 4 and 7, and step 6',
-  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare', 'review'))
-  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries'));
+select test.check('a line change on a trial balance file keeps steps 4, 5, 6 and 7 signed',
+  (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'entries', 'compare', 'review') and reviewed_at is not null) = 4);
+select test.check('and History has the change', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 'code' and detail like '64250 Accounting fees:%'));
 select test.check('history is for owners only: the preparer sees none', true);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
@@ -205,19 +231,23 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_create_file(:'client2', '2026-12-31', '2026-01-01', '', 'full', 'statements', '00000000-0000-0000-0000-00000000000c'::uuid, '00000000-0000-0000-0000-00000000000a'::uuid) as g \gset
 -- Round 23: on a bank file step 3 is "Banking", signed in its sub-steps.
 select test.check('step 3 on a bank file is signed in its sub-steps', test.try(format($q$select public.cb_sign_step(%L, 'records', 'prepared')$q$, :'g')) = 'Step 3 is signed in its sub-steps: 3.1, 3.2 and 3.3.');
-select test.check('3.1 needs the bank accounts', test.try(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'g')) = 'Not yet: Add the bank and card accounts.');
+select test.check('3.1 signs with no bank account (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'g')) = 'OK');
 reset role;
 reset request.jwt.claims;
 insert into public.cb_bank_accounts (file_id, name, name_key, kind, chart_account) values (:'g', 'TD chequing', 'td chequing', 'bank', '10000') returning id as ba \gset
 insert into public.cb_bank_statements (file_id, account_id, first_date, last_date, period_start, period_end, opening, closing, lines, plus_total, minus_total) values (:'g', :'ba', '2026-01-01', '2026-03-31', '2026-01-01', '2026-03-31', 0, 0, 0, 0, 0);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('3.1 needs the balance at last year end; 3.2 counts the gap (Apr to Dec is one)',
-  test.try(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'g')) = 'Not yet: 10000 TD chequing: enter its balance at last year end.'
-  and test.try(format($q$select public.cb_sign_substep(%L, '3.2', 'prepared')$q$, :'g')) = 'Not yet: 10000 TD chequing: 1 missing.');
-select test.check('step 2 on a bank file needs last year''s balance sheet', test.try(format($q$select public.cb_sign_step(%L, 'opening', 'prepared')$q$, :'g')) = 'Not yet: Type the source: which T2 or CRA assessment the balances come from. Attach the PDF of last year''s T2 or the CRA assessment. Enter last year''s balance sheet (Schedule 100).');
+select test.check('3.1 and 3.2 sign with items open (CB2-0: warnings; rolled back here)',
+  test.try_rollback(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'g')) = 'OK'
+  and test.try_rollback(format($q$select public.cb_sign_substep(%L, '3.2', 'prepared')$q$, :'g')) = 'OK');
+select test.check('step 2 on a bank file signs without last year''s balance sheet (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 'opening', 'prepared')$q$, :'g')) = 'OK');
 reset role;
 reset request.jwt.claims;
+select test.check('3.1 still names the balance at last year end; 3.2 counts the gap (Apr to Dec is one)',
+  private.cb_banking_problems(:'g', '3.1') = array['10000 TD chequing: enter its balance at last year end.']
+  and private.cb_banking_problems(:'g', '3.2') = array['10000 TD chequing: 1 missing.']);
+select test.check('step 2 on a bank file still names last year''s balance sheet', private.cb_opening_problems(:'g') = array['Type the source: which T2 or CRA assessment the balances come from.', 'Attach the PDF of last year''s T2 or the CRA assessment.', 'Enter last year''s balance sheet (Schedule 100).']);
 -- Deleting a file with sign-offs leaves nothing behind.
 delete from public.cb_files where id = :'f';
 select test.check('a deleted file takes its sign-offs, notes and history with it',

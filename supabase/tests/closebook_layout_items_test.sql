@@ -5,6 +5,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),
   ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -31,8 +44,8 @@ select id as refund from public.cb_bank_lines where description = 'SAMPLE REFUND
 select id as comm from public.cb_bank_lines where description = 'SAMPLE COMMISSION' \gset
 select id as back from public.cb_bank_lines where description = 'SAMPLE CHARGEBACK' \gset
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
--- Round 3 item 5: nothing is confirmed before the GST/HST questions are answered.
-select test.check('no coding before the GST/HST answers', test.try(format($f$select public.cb_code_lines(%L, '[{"id":"%s","account":"65200","tax":"HST_ON"}]')$f$, :'f', :'soft')) like '%GST/HST questions in step 1%');
+-- Round 3 item 5, CB2-0 step 4: coding before the GST/HST questions are answered is allowed (rolled back here).
+select test.check('coding before the GST/HST answers is allowed (CB2-0: a warning, not a stop)', test.try_rollback(format($f$select public.cb_code_lines(%L, '[{"id":"%s","account":"65200","tax":"HST_ON"}]')$f$, :'f', :'soft')) = 'OK');
 select public.cb_save_setup(:'f', '{"gst_registered": true, "quick_method": false}');
 select public.cb_code_lines(:'f', format('[{"id":"%s","account":"65200","tax":"HST_ON"},{"id":"%s","account":"65200","tax":"HST_ON"},{"id":"%s","account":"40000","tax":"HST_ON"},{"id":"%s","account":"40000","tax":"HST_ON"}]',
   :'soft', :'refund', :'comm', :'back')::jsonb);
@@ -90,10 +103,10 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('a memo is required', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', '', false, %L, 'Payables listing')$f$, :'f', :'L')) like '%memo%');
 select test.check('a W/P reference is required', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue a fee', false, %L, '')$f$, :'f', :'L')) like '%W/P reference%');
 select test.check('only an accrual reverses next year', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix a fee', true, %L, 'Payables listing')$f$, :'f', :'L')) like '%Only an accrual%');
-select test.check('a line on 31500 needs the reason "Prior period adjustment"',
-  test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Missed accrual', false, '[{"chart":"31500","amount":100},{"chart":"21100","amount":-100}]', 'Prior year file')$f$, :'f')) like '%needs the reason%');
-select test.check('that reason needs a 31500 line',
-  test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'prior_period', 'Missed accrual', false, %L, 'Prior year file')$f$, :'f', :'L')) like '%needs a line on 31500%');
+select test.check('a line on 31500 takes any reason (CB2-0: no prior period reason rule; rolled back here)',
+  test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Missed accrual', false, '[{"chart":"31500","amount":100},{"chart":"21100","amount":-100}]', 'Prior year file')$f$, :'f')) = 'OK');
+select test.check('that reason needs no 31500 line (CB2-0; rolled back here)',
+  test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'prior_period', 'Missed accrual', false, %L, 'Prior year file')$f$, :'f', :'L')) = 'OK');
 select public.cb_add_entry(:'f', 'AJE', 'prior_period', 'Missed accrual last year', false, '[{"chart":"31500","amount":100},{"chart":"21100","amount":-100}]', 'Prior year file') as ppa \gset
 select test.check('a prior period adjustment posts to 31500', exists (select 1 from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'ppa' and a.account_key = 'chart:31500'));
 
@@ -120,11 +133,11 @@ select test.check('staff cannot change a standard entry', test.try(format($f$sel
 select test.check('standard entries carry a tax choice, never a code: home office no tax, the accounting fee taxable', (select string_agg(name || '=' || tax_mode, ',' order by sort_order) from public.cb_standard_entries where style = 'simple')
   = 'Home office=none,Auto expenses=line,Accounting fee accrual=taxable,Tax provision=none');
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"66000","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1 \gset
-select test.check('a standard entry as set, under the threshold: no review needed', (select not needs_review and standard_id = :'accrual' from public.cb_entries where id = :'e1'));
+select test.check('a standard entry as set: no review needed', (select not needs_review and standard_id = :'accrual' from public.cb_entries where id = :'e1'));
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'To accrue the year-end accounting fee.', true, '[{"chart":"65100","amount":2500},{"chart":"21100","amount":-2500}]', 'Standard entry: accounting fee accrual', null, :'accrual') as e1b \gset
 select test.check('a standard entry with its accounts changed goes to the reviewer', (select needs_review from public.cb_entries where id = :'e1b'));
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Income tax provision.', false, '[{"chart":"72000","amount":6000},{"chart":"21400","amount":-6000}]', 'Income tax schedule', null, :'taxp') as e2 \gset
-select test.check('over the threshold: it goes to the reviewer', (select needs_review and kind = 'TJE' from public.cb_entries where id = :'e2'));
+select test.check('a standard entry as set needs no review at any amount (CB2-0: no review amount)', (select not needs_review and kind = 'TJE' from public.cb_entries where id = :'e2'));
 
 -- Round 2 item 2: a client who keeps their own books. The preparer picks the client's account or names a
 -- new one; a standard chart account with no client account on its line is refused, except the tax line.

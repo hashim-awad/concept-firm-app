@@ -42,12 +42,13 @@ select test.check('an unknown step is refused', test.try(format($q$select public
 select public.cb_save_setup(:'f', '{"realtor": true, "payroll": false, "gst_registered": true}'::jsonb);
 select public.cb_save_acceptance(:'f', '{"q1":"yes","q2":"yes","q3":"yes","q4":"yes","q5":"yes","q9":"yes"}'::jsonb);
 reset role;
--- A signed step is refused until the sign-off is taken back.
+-- A signed step is cleared too; the sign-off stays (CB2-0 rules 13 and 14). History has it.
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at) values (:'f', 'setup', :C, now());
 set role authenticated;
-select test.check('a signed step is refused', test.try(format($q$select public.cb_clear_typed_step(%L, 'setup')$q$, :'f')) = 'Step 1 is signed. Take back the sign-off first.');
+select test.check('a signed step is cleared (CB2-0: not refused)', test.try(format($q$select public.cb_clear_typed_step(%L, 'setup')$q$, :'f')) = 'OK');
 reset role;
-select test.check('the refused clear changed nothing', (select setup ? 'realtor' from public.cb_files where id = :'f') and exists (select 1 from public.cb_acceptance where file_id = :'f'));
+select test.check('the clear emptied step 1 and kept its sign-off', not (select setup ? 'realtor' from public.cb_files where id = :'f') and not exists (select 1 from public.cb_acceptance where file_id = :'f')
+  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'setup' and prepared_by = :C));
 delete from public.cb_step_signoffs where file_id = :'f' and step = 'setup';
 -- A locked file: never.
 update public.cb_files set phase = 'locked' where id = :'f';
@@ -125,12 +126,12 @@ set role authenticated;
 select public.cb_clear_typed_step(:'f', 'lock');
 reset role;
 select test.check('step 10: the checklist answers are gone', not exists (select 1 from public.cb_checklist_answers where file_id = :'f'));
--- A step that was not signed clears the review sign-off resting on it.
+-- Clearing a step leaves the review sign-off as signed (CB2-0 step 2).
 insert into public.cb_step_signoffs (file_id, step, reviewed_by, reviewed_at) values (:'f', 'review', :A, now());
 set role authenticated;
 select public.cb_clear_typed_step(:'f', 't2');
 reset role;
-select test.check('clearing a step clears the review sign-off', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'review'));
+select test.check('clearing a step keeps the review sign-off', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'review' and reviewed_by = :A));
 
 -- ---------- 9. Repair: questions 6 and 8 confirmed by a key press ----------
 -- Hit: no earlier file, step 1 not signed, confirmed before the fix.

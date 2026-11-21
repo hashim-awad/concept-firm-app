@@ -6,6 +6,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),
   ('00000000-0000-0000-0000-00000000000c', 'prep.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -36,7 +49,12 @@ select test.check('step 9 before the fields: each empty one is "To fill"', priva
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_sign_step(:'f', 't2', 'prepared');
-select test.check('"To fill" blocks the preparer''s sign-off', test.try(format($q$select public.cb_sign_step(%L, 'statements', 'prepared')$q$, :'f')) like 'Not yet: To fill: the signing officer''s name.%');
+select test.check('"To fill" does not block the preparer''s sign-off (CB2-0: a warning, not a stop)', test.try(format($q$select public.cb_sign_step(%L, 'statements', 'prepared')$q$, :'f')) = 'OK');
+reset role;
+select test.check('the "To fill" items are recorded on the sign-off''s History row', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'prepared' and step = 'statements'
+  and detail like 'Signed with open items: %To fill: the signing officer''s name.%'));
+set role authenticated;
+select public.cb_unsign_step(:'f', 'statements', 'prepared');   -- the preparer takes their own sign-off back
 select test.check('a bad email is refused', test.try(format($q$select public.cb_save_fs_fields(%L, '{"officer_email":"not-an-email"}')$q$, :'f')) = 'The signing officer''s email does not look right.');
 select public.cb_save_fs_fields(:'f', '{"officer_name":"Pat Dummy","officer_position":"President","officer_email":"Pat@Example.test","sh_terms":"The amount is non-interest bearing.","first_year":true,"audit_waiver":true,"related":{},"dividends":[]}');
 reset role;
@@ -54,18 +72,18 @@ select test.check('all fields filled: nothing open', private.cb_step9_problems(:
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_sign_step(:'f', 'statements', 'prepared');
-select test.check('the MAL waits for the reviewer', test.try(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f')) = 'The reviewer signs step 9 first. Nothing goes to the client before that.');
+select test.check('the MAL can go before the reviewer signs step 9 (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_sign_step(:'f', 'statements', 'reviewed');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 reset role;
 reset request.jwt.claims;
--- A year that ends today (Toronto): the MAL waits until tomorrow.
+-- A year that ends today (Toronto): CB2-0 step 4, the MAL may go the same day (a warning, not a stop).
 update public.cb_files set year_end = (now() at time zone 'America/Toronto')::date, year_start = (now() at time zone 'America/Toronto')::date - 364 where id = :'f';
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the MAL waits for the day after the year end', test.try(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f'))
-  = format('The MAL can be sent from %s, the day after the year end.', trim(to_char((now() at time zone 'America/Toronto')::date + 1, 'FMMonth FMDD, YYYY'))));
+select test.check('the MAL can be sent on the year end itself (CB2-0; rolled back here)', test.try_rollback(format($q$select public.cb_send_mal(%L, 'MAL', repeat('x', 200), '[]')$q$, :'f'))
+  = 'OK');
 reset role;
 reset request.jwt.claims;
 -- The year end moved into the past (yesterday, Toronto), for the rest of the tests.
@@ -98,7 +116,7 @@ select test.check('signed: the signature is kept with its title, and no engageme
   and not exists (select 1 from public.engagements where quote_id = :'mal')
   and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'mal_signed' and detail = 'MAL signed by Pat Dummy, President'));
 
--- A trial balance change after the MAL is sent withdraws it; the package goes back to draft.
+-- CB2-0 step 2: a trial balance change after the MAL is sent never withdraws it; step 9 keeps its sign-offs.
 -- (A second MAL, to test the withdrawal: the signed one is set aside here by hand.)
 update public.cb_file_fs set mal_quote_id = null where file_id = :'f';
 set role authenticated;
@@ -109,10 +127,11 @@ select public.cb_import_tb(:'f', 'this_year', 'client_software', 'tb2.csv', '[
   {"number":"41000","name":"Commission income","amount":-20500},{"number":"64250","name":"Accounting fees","amount":10000}]');
 reset role;
 reset request.jwt.claims;
-select test.check('the MAL is withdrawn: its link says so', (select status from public.quotes where id = :'mal2') = 'withdrawn'
-  and (select mal_quote_id is null and mal_withdrawn_quote = :'mal2'::uuid from public.cb_file_fs where file_id = :'f'));
-select test.check('step 9 reopens: its sign-offs are cleared', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'statements' and (prepared_at is not null or reviewed_at is not null)));
-select test.check('the history names the withdrawal', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'mal_withdrawn'));
+select test.check('the MAL stays out for signing: its link still works', (select status from public.quotes where id = :'mal2') = 'sent'
+  and (select mal_quote_id = :'mal2'::uuid and mal_withdrawn_quote is null from public.cb_file_fs where file_id = :'f'));
+select test.check('step 9 keeps its sign-offs', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'statements' and prepared_at is not null and reviewed_at is not null));
+select test.check('the history has the trial balance change and no withdrawal', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Trial balance imported (tb2.csv)')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'mal_withdrawn'));
 
 -- Last year's Schedule 125: only revenue and expense codes.
 set role authenticated;

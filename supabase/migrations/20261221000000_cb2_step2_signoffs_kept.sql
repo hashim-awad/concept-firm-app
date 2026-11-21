@@ -404,3 +404,41 @@ begin
   delete from public.cb_entries where id = p_entry;
 end;
 $function$;
+
+-- Review fixes (test round, Nov 21, 2026). An edit that changes only the sales tax lines is an "entry_edited" change:
+-- the lines text now includes them. The audit row is skipped when the action already wrote its own row for the file in
+-- this transaction (an OBE entry, a reclassify), so one action is one row.
+create or replace function private.cb_entry_lines_text(p_entry uuid)
+ returns text language sql stable security definer set search_path to ''
+as $function$
+  select coalesce(string_agg(trim(concat_ws(' ', nullif(a.number, ''), a.name, case when l.amount > 0 then 'Dr' else 'Cr' end,
+           to_char(abs(l.amount), 'FM999,999,999,990.00'), case when l.is_tax then '(sales tax)' else nullif(l.tax_code, '') end)), ' · '
+           order by l.is_tax, l.amount < 0, a.number, l.id), '')
+    from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id
+   where l.entry_id = p_entry;
+$function$;
+
+CREATE OR REPLACE FUNCTION private.cb_entry_audit()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v_id uuid; v_e public.cb_entries; v_now text; v_no text;
+begin
+  if tg_table_name = 'cb_entries' then v_id := coalesce(new.id, old.id);
+  elsif tg_op = 'DELETE' then v_id := old.entry_id;
+  else v_id := new.entry_id; end if;
+  select * into v_e from public.cb_entries where id = v_id;
+  if v_e.id is null then return null; end if;
+  v_now := private.cb_entry_snapshot(v_id);
+  if v_e.audit_snapshot is not distinct from v_now then return null; end if;
+  update public.cb_entries set audit_snapshot = v_now where id = v_id;
+  if exists (select 1 from public.cb_file_history where (entry_id = v_id or (file_id = v_e.file_id and action not in ('changed', 'entry_created', 'entry_changed'))) and at = now()) then return null; end if;
+  v_no := split_part(v_now, ' ', 1);
+  insert into public.cb_file_history (file_id, actor_id, action, step, detail, entry_id, ref_label, old_value, new_value)
+  values (v_e.file_id, (select auth.uid()), case when v_e.created_at = now() then 'entry_created' else 'entry_changed' end, 'entries',
+          format('Entry %s %s', v_no, case when v_e.created_at = now() then 'added' else 'changed' end), v_id, v_no, coalesce(v_e.audit_snapshot, ''), v_now);
+  return null;
+end;
+$function$;
