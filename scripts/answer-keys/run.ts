@@ -8,6 +8,7 @@ import path from "node:path";
 import { loadFixture, removeLoaded } from "./load.ts";
 import { computeClient, signIn, type FileResult } from "./compute.ts";
 import { checkExternal } from "./external.ts";
+import { checkBooks, saveOpeningAsEntry } from "../books/parity.ts";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write"), keep = args.includes("--keep");
@@ -49,6 +50,18 @@ for (const folder of folders) {
         ...(tbNi !== ni ? [`statement net income ${ni / 100} does not equal trial balance net income ${tbNi / 100}`] : [])];
       if (bad.length) { failed++; console.log(`${folder} ${f.year_end}: BUG CHECK FAILED`); for (const l of bad) console.log(`  ${l}`); }
       else console.log(`${folder} ${f.year_end}: balance sheet balances; net income ties to the trial balance`);
+    }
+    // CB2-1 Part 4.1 and 4.3: Books gives the same figures as today's reports; then the opening balances are saved as an
+    // ordinary journal entry (as anyone saving a change to them in Books does) and the figures are the same again.
+    const { data: bc } = await sb.from("cb_clients").select("id").eq("studio_client_id", client).maybeSingle();
+    if (!bc) { failed++; console.log(`${folder}: BOOKS FAILED: no Books client`); }
+    else {
+      const b1 = await checkBooks(sb, bc.id as string);
+      const saved = await saveOpeningAsEntry(sb, bc.id as string);
+      const b2 = await checkBooks(sb, bc.id as string);
+      const fails = [...b1.fails, ...saved.fails, ...b2.fails.map((l) => `after saving the opening entry: ${l}`)];
+      if (fails.length) { failed++; console.log(`${folder}: BOOKS FAILED`); for (const l of fails.slice(0, 30)) console.log(`  ${l}`); }
+      else console.log(`${folder}: Books reports equal today's (${b1.years} year${b1.years === 1 ? "" : "s"}); ${saved.note}`);
     }
     // A hand-written answer key in source/ (the CSV answer keys) is checked on every run, before the baseline.
     const ext = path.join(root, folder, "source", "answer_key.json");

@@ -122,11 +122,13 @@ select test.check('D2: an entry to cash clears it', not exists (select 1 from un
 
 -- Opening Balance Equity (Hashim, option A): one RJE to retained earnings, only against step 2's typed figure, and it must tie.
 :prep;
-select test.check('OBE: refused while step 2 has no closing retained earnings', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
-  :'f', :'obe', :'re')) = 'Enter last year''s closing retained earnings in step 2 first.');
+select test.check('OBE: saves while step 2 has no closing retained earnings (CB2-1: a warning on the entry, never a refusal; rolled back here)',
+  test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
+  :'f', :'obe', :'re')) = 'OK');
 select public.cb_save_tb_opening_re(:'f', 5);   -- decision 1A: step 2's field on a trial balance file
-select test.check('OBE: refused when retained earnings would not tie to step 2', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
-  :'f', :'obe', :'re')) like 'After this entry, retained earnings at the start must equal last year''s closing retained earnings in step 2: 0.00 and 5.00.');
+select test.check('OBE: saves when retained earnings would not tie to step 2 (CB2-1: a warning; rolled back here)',
+  test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
+  :'f', :'obe', :'re')) = 'OK');
 select public.cb_save_tb_opening_re(:'f', 0);
 select test.check('OBE: one RJE clears it to retained earnings when it ties', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'Step 2')$q$,
   :'f', :'obe', :'re')) = 'OK');
@@ -379,18 +381,18 @@ select id as dvre from public.cb_accounts where file_id = :'dv' and number = '30
 select test.check('dividends: step 6 names the account carrying last year''s balance', private.cb_step_problems(:'dv', 'compare')
   @> array['3400 Dividends carries 20,000.00 from last year: if QuickBooks did not close it, move that balance to retained earnings with one RJE dated the first day of the year.']);
 :prep;
-select test.check('dividends: refused when the amount differs from last year''s balance, naming both', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Close last year''s dividends', false, '[{"account":"%s","amount":-15000},{"account":"%s","amount":15000}]', 'QuickBooks trial balance')$q$,
-  :'dv', :'dvd', :'dvre')) = 'The entry must move 3400 Dividends''s balance from last year exactly: last year 20,000.00, this entry 15,000.00.');
+select test.check('dividends: an amount that differs from last year''s balance saves (CB2-1: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Close last year''s dividends', false, '[{"account":"%s","amount":-15000},{"account":"%s","amount":15000}]', 'QuickBooks trial balance')$q$,
+  :'dv', :'dvd', :'dvre')) = 'OK');
 select test.check('dividends: one RJE of last year''s balance is accepted', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Close last year''s dividends', false, '[{"account":"%s","amount":-20000},{"account":"%s","amount":20000}]', 'QuickBooks trial balance')$q$,
   :'dv', :'dvd', :'dvre')) = 'OK');
-select test.check('dividends: a second RJE on the same account is refused', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Again', false, '[{"account":"%s","amount":-20000},{"account":"%s","amount":20000}]', 'QuickBooks trial balance')$q$,
-  :'dv', :'dvd', :'dvre')) = '3400 Dividends: last year''s balance is already moved to retained earnings by another entry.');
+select test.check('dividends: a second RJE on the same account saves (CB2-1: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Again', false, '[{"account":"%s","amount":-20000},{"account":"%s","amount":20000}]', 'QuickBooks trial balance')$q$,
+  :'dv', :'dvd', :'dvre')) = 'OK');
 :out;
 select test.check('dividends: this year''s dividends show 5,000.00, not 25,000.00', private.cb_account_final(:'dvd') = 5000);
 select test.check('dividends: retained earnings at the start tie to step 2 (80,000.00)', not exists (select 1 from unnest(private.cb_step_problems(:'dv', 'compare')) p where p like 'Retained earnings at the start%' or p like '%carries%from last year%'));
 select test.check('dividends: the entry is dated the first day of the year', (select entry_date from public.cb_entries where file_id = :'dv' and kind = 'RJE') = '2019-01-01');
 select test.check('dividends: History records it', exists (select 1 from public.cb_file_history where file_id = :'dv' and action = 'entry_dividends'
-  and detail = '3400 Dividends: last year''s balance 20,000.00 moved to retained earnings (RJE), checked against step 2'));
+  and detail = '3400 Dividends: last year''s balance 20,000.00 moved to retained earnings (RJE)'));
 :prep;
 select test.check('dividends: any other entry to retained earnings is accepted with any reason (CB2-0; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Move', false, '[{"account":"%s","amount":-1},{"account":"%s","amount":1}]', 'x schedule')$q$,
   :'dv', (select id from public.cb_accounts where file_id = :'dv' and number = '1000'), :'dvre')) = 'OK');
@@ -435,8 +437,8 @@ select public.cb_save_tb_opening_re(:'ob', 80000);
 select (select id from public.cb_accounts where file_id = :'ob' and name = 'Opening Balance Equity') as o_obe, (select id from public.cb_accounts where file_id = :'ob' and number = '3400') as o_div,
        (select id from public.cb_accounts where file_id = :'ob' and number = '3000') as o_re \gset
 :prep;
-select test.check('OBE plus dividends: a wrong OBE amount is refused, naming what is still to move', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-4000},{"account":"%s","amount":4000}]', 'QuickBooks trial balance')$q$,
-  :'ob', :'o_obe', :'o_re')) = 'The entry must clear Opening Balance Equity to nil.');
+select test.check('OBE plus dividends: a wrong OBE amount saves (CB2-1: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-4000},{"account":"%s","amount":4000}]', 'QuickBooks trial balance')$q$,
+  :'ob', :'o_obe', :'o_re')) = 'OK');
 select test.check('OBE plus dividends: the OBE RJE is accepted, counting the 15,000.00 still to move', test.try(format($q$select public.cb_add_entry(%L, 'RJE', 'correction', 'Clear Opening Balance Equity', false, '[{"account":"%s","amount":-5000},{"account":"%s","amount":5000}]', 'QuickBooks trial balance')$q$,
   :'ob', :'o_obe', :'o_re')) = 'OK');
 select test.check('OBE plus dividends: then the dividends RJE', (:rje :'ob', :'o_div', -15000, :'o_re', 15000))) = 'OK');
