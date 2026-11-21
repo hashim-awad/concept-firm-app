@@ -166,10 +166,11 @@ type SignProps = { fileId: string; step: string; st: StepStatus | undefined; nam
 
 // UI1 (M1 A, Q2, Q3): a sign-off is a tag. Blue "Prepared" and green "Reviewed" are filled; grey says what is not signed.
 // In the title row the tag names the person's initials and the date; in the step list it is one word.
-function Tag({ kind, who, at, size, words }: { kind: "none-p" | "none-r" | "prepared" | "reviewed" | "progress"; who?: string; at?: string | null; size: "sm" | "lg"; words?: string }) {
-  const cls = kind === "prepared" || kind === "progress" ? "bg-info-soft text-info" : kind === "reviewed" ? "bg-success-soft text-success" : "bg-sand-100 text-[#3F4246]";
+function Tag({ kind, who, at, size, words }: { kind: "none-p" | "none-r" | "prepared" | "reviewed" | "progress" | "changed"; who?: string; at?: string | null; size: "sm" | "lg"; words?: string }) {
+  // CB2-0 step 2: amber "Changed since review" (CaseWare "Modified since last review").
+  const cls = kind === "changed" ? "bg-warning-soft text-warning" : kind === "prepared" || kind === "progress" ? "bg-info-soft text-info" : kind === "reviewed" ? "bg-success-soft text-success" : "bg-sand-100 text-[#3F4246]";
   const signed = size === "lg" && (kind === "prepared" || kind === "reviewed");
-  const text = words ?? (kind === "none-p" ? "Not prepared" : kind === "none-r" ? "Not reviewed" : kind === "progress" ? "In progress" : kind === "prepared" ? "Prepared" : "Reviewed");
+  const text = words ?? (kind === "changed" ? "Changed since review" : kind === "none-p" ? "Not prepared" : kind === "none-r" ? "Not reviewed" : kind === "progress" ? "In progress" : kind === "prepared" ? "Prepared" : "Reviewed");
   return <span className={`${TAG} ${cls}`} data-sign={kind}>{text}{signed && who ? ` ${who}` : ""}{signed && at ? `, ${formatDate(at)}` : ""}</span>;
 }
 
@@ -178,6 +179,8 @@ export function SignCircles(p: SignProps) {
   const { fileId, step, st, names, me, canPrepare, canReview, canRemove, editable, back, size = "sm", align = "left", side = size === "sm" ? "right" : "below" } = p;
   const review = step === "review";
   const prepared = !!st?.prepared_at, reviewed = !!st?.reviewed_at;
+  // CB2-0 step 2: a signed step that changed keeps its sign-offs and is stamped; signing it again clears the stamp.
+  const changed = !!st?.changed_at && (prepared || reviewed);
   const hidden = (k: string, v: string) => <input type="hidden" name={k} value={v} />;
   const name = (id: string | null | undefined) => (id ? names.get(id) ?? "" : "");
   const signForm = (role: "prepared" | "reviewed", label: string) => (
@@ -212,6 +215,7 @@ export function SignCircles(p: SignProps) {
       <p className="font-bold">{prepared ? `Prepared by ${name(st!.prepared_by)}` : "Preparer"}</p>
       <p className="text-ink-3">{prepared ? formatDateTime(st!.prepared_at) : "Not signed"}</p>
       {!prepared && problems.length > 0 && <ul className="mt-2 list-disc pl-4 text-xs text-ink-2">{problems.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
+      {changed && prepared && !p.subsOf && editable && canPrepare && !p.preparerElsewhere && signForm("prepared", "Sign again as preparer")}
       {!prepared && p.subsOf ? subsNote("prepared") : !prepared && editable && (p.preparerElsewhere ? <p className="mt-2 text-xs text-ink-2">Sign with the schedule below.</p> : canPrepare ? signForm("prepared", "Sign as preparer") : <p className="mt-2 text-xs text-ink-3">You need the Prepare right to sign as preparer.</p>)}
       {prepared && !reviewed && editable && canUndo("prepared") && !p.subsOf && undo("prepared")}
     </>
@@ -223,8 +227,27 @@ export function SignCircles(p: SignProps) {
       {reviewed && prepared && st?.prepared_by === st?.reviewed_by && <p className="mt-1 text-xs text-ink-2">Prepared and reviewed by the same person.</p>}
       {!reviewed && p.subsOf ? subsNote("reviewed") : !reviewed && editable && (canReview ? (review || prepared) && signForm("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")
         : <p className="mt-2 text-xs text-ink-3">You need the Review right to sign as reviewer.</p>)}
+      {changed && reviewed && !p.subsOf && editable && canReview && signForm("reviewed", review ? "Sign step 7 again" : "Sign again as reviewer")}
       {reviewed && editable && canUndo("reviewed") && !p.subsOf && undo("reviewed")}
     </>
+  );
+  // What changed since the stamp, from History: who, when, what (newest first).
+  const changedContent = changed && (
+    <>
+      <p className="font-bold">Changed since review</p>
+      <p className="text-ink-3">{formatDateTime(st!.changed_at!)}{st!.changed_by ? `, ${name(st!.changed_by)}` : ""}</p>
+      {st!.changed_why && <p className="mt-1 text-xs text-ink-2">{st!.changed_why}</p>}
+      {(st!.changes ?? []).length > 0 && (
+        <ul className="mt-2 max-h-48 space-y-1 overflow-auto text-xs text-ink-2" data-changes>
+          {st!.changes!.map((c, i) => <li key={i}><span className="text-ink-3">{formatDateTime(c.at)}{c.who ? `, ${name(c.who)}` : ""}:</span> {c.what}</li>)}
+        </ul>)}
+      <p className="mt-2 text-xs text-ink-3">The sign-offs stay. Signing again clears this.</p>
+      {editable && !p.subsOf && prepared && !review && canPrepare && !p.preparerElsewhere && signForm("prepared", "Sign again as preparer")}
+      {editable && !p.subsOf && reviewed && canReview && signForm("reviewed", review ? "Sign step 7 again" : "Sign again as reviewer")}
+    </>
+  );
+  const changedTag = (sz: "sm" | "lg") => changed && (
+    <Popover align={align} side={side} label={`Changed since review, ${formatDateTime(st!.changed_at!)}. Open what changed`} button={<Tag kind="changed" size={sz} words={sz === "sm" ? "Changed" : undefined} />}>{changedContent}</Popover>
   );
   // WCAG 2.5.3: each name starts with the words on the tag, then the full name with date and time.
   const partWords = (role: "prepared" | "reviewed") => `In progress, ${role} ${p.subsOf!.filter((x) => x[role]).length} of ${p.subsOf!.length}`;
@@ -244,9 +267,10 @@ export function SignCircles(p: SignProps) {
       );
     }
     return (
+      <span className="inline-flex items-center gap-1">
       <Popover align={align} side={side} label={kind === "progress" ? `In progress. ${partly("reviewed") ? partWords("reviewed") : partWords("prepared")}, open sign-off` : reviewed ? rLabel : pLabel} button={<Tag kind={kind} size="sm" />}>
         {!review && <div className="mb-3">{prepContent}</div>}{revContent}
-      </Popover>
+      </Popover>{changedTag("sm")}</span>
     );
   }
   const prep = !review && (
@@ -262,7 +286,7 @@ export function SignCircles(p: SignProps) {
   );
   const canSignP = !review && !prepared && editable && canPrepare && !p.subsOf && !p.preparerElsewhere;
   const canSignR = !reviewed && editable && canReview && (review || prepared) && !p.subsOf;
-  return <span className="inline-flex flex-wrap items-center gap-1.5">{prep}{canSignP && signNow("prepared", "Sign as preparer")}{rev}{canSignR && signNow("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")}</span>;
+  return <span className="inline-flex flex-wrap items-center gap-1.5">{prep}{canSignP && signNow("prepared", "Sign as preparer")}{rev}{canSignR && signNow("reviewed", review ? "Sign step 7 as reviewer" : "Sign as reviewer")}{changedTag("lg")}</span>;
 }
 
 // ---------------------------------------------------------------------------------------------------
