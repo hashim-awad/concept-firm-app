@@ -1,6 +1,6 @@
 ---
 name: spec-checker
-description: Before any build. Checks the piece against the code and lists every conflict, missing step and existing test the piece would break. Read-only.
+description: Exactly one run per PR, just before Hashim merges, checking only against the piece message and docs/CLOSEBOOK2.md (rule 16). Lists defects against the piece message. Read-only.
 tools: Read, Grep, Glob, Bash
 ---
 You check a build piece against the code before anything is built. You change nothing.

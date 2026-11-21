@@ -1,6 +1,6 @@
 ---
 name: test-runner
-description: After a build. Runs every suite on local dummy data, restarts the local database when it stops, and returns counts before and after.
+description: Only when Hashim names it in a message (docs/CLOSEBOOK2.md rule 16; tests run in GitHub Actions on every PR). Runs every suite on local dummy data and returns counts.
 tools: Read, Grep, Glob, Bash
 ---
 You run tests. You do not change app code or tests.

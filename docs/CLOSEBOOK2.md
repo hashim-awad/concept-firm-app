@@ -40,6 +40,20 @@ with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces 
     4. Fewest clicks wins. Every change proposed states the clicks it adds for the preparer and the reviewer.
     5. When in doubt, cut.
     6. Report flows as clicks, not screenshots.
+15. **Built from the end product backwards** (Hashim, Nov 21, 2026, CB2-0 version 7). The old ten-step shell (steps,
+    step sign-offs, step screens, step texts) is frozen and is deleted at switch-over. No work on old screens, step wording,
+    step sign-offs, redirects on old screens or old-screen UI findings. Only the engine carries over: ledger and postings,
+    bank lines and coding, entries, schedule calculators, GIFI, GST/HST calculations, statements generation, History,
+    answer keys. Frozen is not broken: the old screens keep loading so finished files can be read. If an engine change
+    breaks an old screen, the smallest change that keeps it loading, nothing more.
+16. **Agents** (Hashim, Nov 21, 2026, CB2-0 version 7). No agent runs on the builder's own initiative.
+    1. Tests run in GitHub Actions on every PR. No agent runs tests.
+    2. spec-checker: exactly one run per PR, just before Hashim merges, checking only against the piece message and this
+       file. One round. Only defects against the piece message are fixed; everything else goes to docs/cb2/for-later.md.
+    3. security-risk: once at the end of each phase, only when Hashim's message says "Run security audit".
+    4. Tax update: January and July, only when Hashim says "Run tax update".
+    5. Every other agent: only when Hashim names it in a message.
+    6. Agents never add scope.
 
 ## Phases
 - **Phase 0 (CB2-0): engine clean.** Answer-key tests; sign-offs never cleared; no gates or redirects; refusals become
