@@ -1,7 +1,8 @@
 # CloseBook2: the rules
 
 Set by Hashim, Nov 21, 2026 (piece CB2-0). Closebook is being rebuilt as CloseBook2: the engine stays, the shell is
-replaced in later phases. CloseBook2 is built as if it were a product. Nothing in it may depend on how Concept works.
+replaced in later phases. Closebook is built for Concept only. It must not build Concept's current habits into the engine:
+no thresholds, forced amounts or assumed account numbers, because Concept's own files vary.
 
 **This file wins.** Where docs/PHASE3-BATCH.md, the Step 5 decision log in docs/BRIEF.md, or any earlier piece disagrees
 with this file, this file governs. Piece ST1 is cancelled; piece CB2-0 replaces it.

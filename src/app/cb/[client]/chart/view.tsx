@@ -17,10 +17,10 @@ export function SidePanel({ title, onClose, children }: { title: string; onClose
   return (
     <div className="fixed inset-0 z-50">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-navy-950/30" />
-      <aside role="dialog" aria-modal="true" aria-label={title} className="absolute inset-y-0 right-0 flex w-[min(28rem,100vw)] flex-col bg-white shadow-2xl">
+      <aside role="dialog" aria-modal="true" aria-label={title} className="absolute inset-y-0 right-0 flex w-[min(32rem,100vw)] min-w-0 flex-col bg-white shadow-2xl" data-side-panel>
         <div className="flex items-center justify-between border-b border-sand-200 px-5 py-3.5"><h2 className="text-[16px] font-bold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-sand-100"><X className="h-5 w-5" /></button></div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5 py-4">{children}</div>
       </aside>
     </div>
   );
@@ -100,6 +100,9 @@ export function ChartView({ clientId, rows, lines, taxes, canEdit, asOf, from, p
   const [sort, setSort] = useState<{ col: Col; dir: 1 | -1 }>({ col: "number", dir: 1 });
   const [inactive, setInactive] = useState(false);
   const [edit, setEdit] = useState<ChartRow | "new" | null>(panel === "new" && canEdit ? "new" : null);
+  // + New opens the panel on this page too (the address changes; the page stays).
+  const [seenPanel, setSeenPanel] = useState(panel);
+  if (panel !== seenPanel) { setSeenPanel(panel); if (panel === "new" && canEdit) setEdit("new"); }
   const taxName = useMemo(() => new Map(taxes.map((t) => [t.value, t.label])), [taxes]);
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();

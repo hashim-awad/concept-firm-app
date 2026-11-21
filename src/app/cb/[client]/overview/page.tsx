@@ -4,11 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { bracketAmount } from "@/lib/closebook/amount";
 import { formatDate } from "@/lib/dates";
 import { statements, trialBalance } from "@/lib/closebook/reports";
+import { overviewOn } from "@/lib/books/overview";
 import { balancesOn, currentYear, getBankAccounts, getBooks, inputFor } from "../../data";
 
 // CB2-1 Part 3a: one page, no tabs. Every figure opens its report in one click.
-const GST = ["21500"];
-const SHAREHOLDER_LINES = ["1301", "2781"];
 
 export default async function Overview({ params }: { params: Promise<{ client: string }> }) {
   const { client } = await params;
@@ -29,10 +28,8 @@ export default async function Overview({ params }: { params: Promise<{ client: s
   const { data: pending } = ids.length ? await supabase.from("cb_bank_lines").select("account_id").in("account_id", ids).eq("status", "new").limit(50000) : { data: [] };
   const review = new Map<string, number>();
   for (const r of (pending ?? []) as { account_id: string }[]) review.set(r.account_id, (review.get(r.account_id) ?? 0) + 1);
-  const cash = banks.filter((x) => x.kind === "bank");
-  const gst = GST.filter((k) => b.byIdent.has(k) || bal.has(k));
-  const sh = b.chart.filter((a) => !a.merged_into && SHAREHOLDER_LINES.includes((a.line_no ?? "").slice(0, 4))).map((a) => a.ident);
-  const sum = (keys: string[]) => keys.reduce((n, k) => n + (bal.get(k) ?? 0), 0);
+  // Cash and the shareholder figure by GIFI line, never by account number (the balance sheet's own totals).
+  const fig = overviewOn(b, cur.asOf);
   const gl = (keys: string[]) => `${base}/reports/gl?to=${cur.asOf}&from=${cur.from}&account=${encodeURIComponent(keys.join(","))}`;
   const range = `${formatDate(cur.from)} to ${formatDate(cur.asOf)}`;
   const tile = (label: string, cents: number, href: string, note: string, attr: string) => (
@@ -47,9 +44,13 @@ export default async function Overview({ params }: { params: Promise<{ client: s
       <div><h1 className="text-[22px] font-bold">Overview</h1><p className="text-[13px] text-ink-3">Fiscal year {formatDate(cur.from)} to {formatDate(cur.to)}</p></div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {tile("Net income, year to date", ni, `${base}/reports/pl?from=${cur.from}&to=${cur.asOf}`, range, "data-ov-ni")}
-        {tile("Cash and bank", sum(cash.map((x) => x.ident)), gl(cash.map((x) => x.ident)), `At ${formatDate(cur.asOf)}`, "data-ov-cash")}
-        {tile("GST/HST payable", -sum(gst), gl(gst), `At ${formatDate(cur.asOf)} (a credit is owing)`, "data-ov-gst")}
-        {tile("Due to (from) shareholder", -sum(sh), gl(sh), `At ${formatDate(cur.asOf)} (positive: owed to the shareholder)`, "data-ov-sh")}
+        {tile("Cash and bank", fig.cash, gl(fig.cashKeys), `At ${formatDate(cur.asOf)}`, "data-ov-cash")}
+        <Link href={`${base}/chart`} className="card block p-4 hover:border-navy-500" data-ov-gst>
+          <p className="text-[12px] font-semibold uppercase tracking-[.06em] text-ink-3">GST/HST payable</p>
+          <p className="mt-1 text-[15px] font-semibold text-navy-700">Set up sales tax accounts</p>
+          <p className="mt-0.5 text-[12px] text-ink-3">The tile reads the CRA control accounts (next update).</p>
+        </Link>
+        {tile("Due to (from) shareholder", fig.shareholder, gl(fig.shareholderKeys), `At ${formatDate(cur.asOf)} (positive: owed to the shareholder)`, "data-ov-sh")}
       </div>
       <section className="card p-0">
         <h2 className="border-b border-sand-200 px-4 py-2.5 text-[14px] font-bold">Bank and card accounts</h2>

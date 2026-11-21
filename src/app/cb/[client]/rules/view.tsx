@@ -129,6 +129,9 @@ export function RulesView({ clientId, rules, accounts, taxes, defaultTax, banks,
   const router = useRouter();
   const base = `/cb/${clientId}/rules`;
   const [edit, setEdit] = useState<BooksRule | "new" | null>(panel === "new" && canEdit ? "new" : null);
+  // + New opens the panel on this page too (the address changes; the page stays).
+  const [seenPanel, setSeenPanel] = useState(panel);
+  if (panel !== seenPanel) { setSeenPanel(panel); if (panel === "new" && canEdit) setEdit("new"); }
   const [err, setErr] = useState("");
   const [, start] = useTransition();
   const acct = new Map(accounts.map((a) => [a.value, a.label]));

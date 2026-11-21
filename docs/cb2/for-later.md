@@ -99,3 +99,4 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
     not tie), so step 3 shows 0.00 there.
 59. Reconcile in the database accepts a line still For review (the screen lists Categorized lines only).
 60. cb_bank_lines.rule_id holds a rule from either the old rules table or the Books one.
+61. PST BC agency: add the agency, its control accounts and FIN400; no change to CRA (Hashim, Nov 21, 2026).
