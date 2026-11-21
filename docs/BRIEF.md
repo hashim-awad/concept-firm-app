@@ -2,6 +2,10 @@
 
 Last updated: 2026-11-11 (Front office batch adopted: docs/FRONT-OFFICE-BATCH.md governs leads, quotes, engagement letters, clients, engagements and the menu; where it differs from this brief, PHASE2-BATCH.md or PHASE3-BATCH.md, the front office batch wins)
 
+> **CloseBook2 (Nov 21, 2026):** Closebook is being rebuilt as CloseBook2. Its rules are in `docs/CLOSEBOOK2.md`, which
+> wins over docs/PHASE3-BATCH.md, the Step 5 decision log below and any earlier piece. Piece ST1 is cancelled; piece
+> CB2-0 (engine clean) replaces it.
+
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
 
