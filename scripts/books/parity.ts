@@ -45,23 +45,20 @@ export async function checkBooks(sb: SupabaseClient, cbClientId: string): Promis
   return { years: b.files.length, fails };
 }
 
-// Part 4.3: the first year's opening balances saved as an ordinary journal entry (origin opening_balances), exactly as
-// worked out; afterwards the entry is a real one and nothing is worked out for that year.
+// Part 4.3: the first year's opening balances are one ordinary journal entry, worked out from the stored figures. Until the
+// switch-over they are view-only in Books (Hashim, Nov 21, 2026): Books refuses to save one.
 export async function saveOpeningAsEntry(sb: SupabaseClient, cbClientId: string): Promise<{ fails: string[]; note: string }> {
   const b = await loadBooks(sb, cbClientId);
   if (!b) return { fails: ["the client did not load"], note: "" };
   const gen = b.books.generated.find((g) => g.origin === "opening_balances");
-  if (!gen) return { fails: [], note: "no opening balances to save" };
+  if (!gen) return { fails: [], note: "no opening balances to show" };
   const lines = gen.lines.map((l) => ({ account: b.byIdent.get(l.ident)?.id, amount: l.cents / 100, memo: "" }));
   if (lines.some((l) => !l.account)) return { fails: [`opening balances: an account is not in the client chart (${gen.lines.filter((l) => !b.byIdent.has(l.ident)).map((l) => l.ident).join(", ")})`], note: "" };
   const { error } = await sb.rpc("cb_books_save_entry", { p_client: cbClientId, p_entry: null, p_date: gen.date, p_journal_no: "", p_reclass: false,
     p_memo: gen.memo, p_lines: lines, p_attachments: [], p_origin: "opening_balances" });
-  if (error) return { fails: [`saving the opening balances entry: ${error.message}`], note: "" };
-  const after = await loadBooks(sb, cbClientId);
-  const still = after?.books.generated.some((g) => g.origin === "opening_balances" && g.fileId === gen.fileId);
-  const saved = after?.entries.find((e) => e.origin === "opening_balances" && e.fileId === gen.fileId);
-  return { fails: [...(still ? ["the opening balances are still worked out after saving the entry"] : []), ...(saved ? [] : ["the saved opening entry is missing"])],
-    note: `opening balances saved as journal entry ${saved?.no ?? "?"} (${gen.lines.length} lines)` };
+  const refused = error?.message === "Change this entry in the old Closebook until the switch-over.";
+  return { fails: refused ? [] : [`the opening balances entry was not refused in Books: ${error?.message ?? "it saved"}`],
+    note: `opening balances: one journal entry (${gen.lines.length} lines, ${gen.date}), view-only until the switch-over` };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

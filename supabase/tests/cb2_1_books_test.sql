@@ -60,11 +60,22 @@ select test.check('an unbalanced entry is refused (the hard stop)',
   test.try(format($q$select public.cb_books_save_entry(%L, null, '2026-06-30', '', false, '', '[{"account":"%s","amount":10},{"account":"%s","amount":-9}]')$q$, :'c', :'office', :'accr')) like 'The entry does not balance%');
 select test.check('a date no year covers is refused',
   test.try(format($q$select public.cb_books_save_entry(%L, null, '2030-01-15', '', false, '', '[{"account":"%s","amount":10},{"account":"%s","amount":-10}]')$q$, :'c', :'office', :'accr')) = 'No year in Closebook covers Jan 15, 2030. Add the year first.');
-select public.cb_books_save_entry(:'c', null, '2025-12-31', '', false, 'Opening balances', format('[{"account":"%s","amount":50},{"account":"%s","amount":-50}]', :'office', :'accr')::jsonb, '{}', 'opening_balances') as ob \gset
+-- Until the switch-over, the opening balances, opening difference and trial balance import entries are view-only in Books.
+select test.check('Books does not save an opening balances entry (view-only until the switch-over)',
+  test.try(format($q$select public.cb_books_save_entry(%L, null, '2025-12-31', '', false, 'Opening balances', '[{"account":"%s","amount":50},{"account":"%s","amount":-50}]', '{}', 'opening_balances')$q$, :'c', :'office', :'accr'))
+  = 'Change this entry in the old Closebook until the switch-over.');
+-- One saved before (made here as the old Closebook would hold it): Books does not change it either.
+select public.cb_add_entry(:'f', null, 'correction', 'Opening balances', false, format('[{"account":"%s","amount":50},{"account":"%s","amount":-50}]',
+  (select id from public.cb_accounts where file_id = :'f' and number = '65100'), (select id from public.cb_accounts where file_id = :'f' and number = '21100'))::jsonb, '', '2025-12-31') as ob \gset
 reset role;
-select test.check('the opening balances entry is dated the day before the year, marked as such, with its one History row',
-  (select origin = 'opening_balances' and entry_date = '2025-12-31' and file_id = :'f'::uuid from public.cb_entries where id = :'ob')
-  and (select count(*) from public.cb_file_history where file_id = :'f') = :h0 + 2);
+do $$ begin perform set_config('cb.one_action', 'on', true); update public.cb_entries set origin = 'opening_balances' where note = 'Opening balances'; end $$;
+set role authenticated;
+select test.check('Books does not change a saved opening balances entry',
+  test.try(format($q$select public.cb_books_save_entry(%L, %L, '2025-12-31', '', false, 'Changed', '[{"account":"%s","amount":60},{"account":"%s","amount":-60}]')$q$, :'c', :'ob', :'office', :'accr'))
+  = 'Change this entry in the old Closebook until the switch-over.');
+reset role;
+select test.check('an ordinary entry still saves; the opening entry is unchanged',
+  (select note = 'Opening balances' from public.cb_entries where id = :'ob') and (select count(*) from public.cb_file_history where file_id = :'f') = :h0 + 2);
 set role authenticated;
 select public.cb_books_save_entry(:'c', :'e1', '2026-07-31', 'JE-77', false, 'Changed', format('[{"account":"%s","amount":200},{"account":"%s","amount":-200}]', :'office', :'accr')::jsonb);
 reset role;

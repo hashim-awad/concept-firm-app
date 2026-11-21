@@ -27,9 +27,6 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 ## Engine notes
 13. Thresholds left in Settings: the instalment amount in the client email (CRA's $3,000) and the shareholder loan
     "repaid near year end" window (30 days). Rule 7 says no thresholds; Hashim decides whether these two stay.
-14. Firms (rule 12): people (staff) and clients are not yet per firm; one firm's preparer could be named on another
-    firm's file. Settings (cb_settings) is one row; reference tables (chart, master lines, tax codes) carry Concept's firm
-    and a second firm would need its own copies. Unique numbers (the chart) are not yet per firm.
 15. (Done in this PR: the "Reclass entry" box is saved inside the entry's own save, one History row.) The revenue check's
     "Fix with an entry" still saves an AJE with the box unticked.
 16. On a bank-statement file the GIFI reads each account's stored balance while the trial balance reads postings; they
@@ -54,8 +51,6 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 28. Dark mode: Closebook is light only, like Studio (Hashim, Nov 21, 2026).
 29. Settings in Books shows the chart template and the tax codes and rates read only. Today's Closebook screens read the
     same template and rates, so they are still changed where they are kept today until those screens retire.
-30. An entry Books saves for a year's opening balances, opening difference or trial balance import is read by Books only;
-    today's screens keep working them out from the stored figures (so a change made in Books does not show there).
 31. A merge in Books points the account at the other one in Books' reports; the year files keep their own accounts, and
     today's screens still show both.
 32. An entry dated where no year file exists is refused ("No year in Closebook covers ... Add the year first."). Starting a
@@ -65,10 +60,9 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 35. scripts/checks/drift-check.sql (manual audit) does not list the CB2-1 tables and functions yet.
 
 ## From the one spec-checker run on PR #117 (rule 16), outside the piece or for Hashim
-36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
-    its own HST_ON or 21500, and sees no codes. Needs keys per firm and a starting set per firm (Hashim to decide).
 37. Account numbers written in the new code (rule 12): 21500 and 21550 (sales tax lines, Overview tile), 31000 (retained
-    earnings fallback). To come from markers on the firm's chart template, as item 21 proposes for 21510 (Hashim to decide).
+    earnings fallback). Clients who keep their own books use their own account numbers, so the code must not assume ours.
+    Later, with markers on the chart template, when Closebook Settings becomes editable (Hashim, Nov 21, 2026).
 38. The suggested journal number does not follow the date into another year.
 39. Saving a schedule entry from Books drops its lines' schedule tags.
 40. The Back link on reports and the bank transaction page follows any address given; limit it to /cb.
@@ -76,3 +70,32 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 42. Report subtotals, totals and $ change are not links (QBO links totals).
 43. A worked-out entry's window title reads "Journal entry: Opening balances", not a number (it has none until saved).
 44. Chart search box: the icon overlaps the placeholder.
+
+## For the switch-over
+45. A bank line dated outside its year posts on the year's first or last day (accepted for now, Hashim, Nov 21, 2026).
+46. "No year in Closebook covers [date]. Add the year first." for an entry dated where no year file exists (accepted for now).
+47. The opening balances, opening difference and trial balance import entries are view-only in Books ("Change this entry in
+    the old Closebook until the switch-over."); at the switch-over they become ordinary entries Books saves and changes.
+
+## From building PR B (Bank transactions, Upload, Rules, Reconcile)
+48. Match finds journal entries of the same amount on the account within 60 days of the line, and lines in another of the
+    client's accounts within 7 days in the same year. QBO also matches bills, invoices and payments; Closebook has none yet.
+49. Categorized: change in place covers the account, tax code, split and memo. A transfer or a match is changed by Undo,
+    then Confirm again.
+50. A suggestion from the last similar line (same vendor) never confirms by itself. Only a rule set to "Automatically
+    confirm" does, and only when a bank file is uploaded.
+51. Upload adds lines only to bank and card accounts that exist in a year file. Adding a new bank or card account from Books
+    comes later.
+52. Balances typed on an upload are kept as typed. The old engine's statement opening and closing (which must tie) are filled
+    only when the upload covers one year and ties; a file spanning two years keeps the typed balances on each year's part.
+53. Reconcile lists Categorized lines only. Lines still For review are counted, with a link to confirm them first (they are
+    not in the books yet). A journal entry posted to the bank account with no bank line is not listed.
+54. Reconciliations in Books and the old Closebook's step 3 statement ties are kept apart until the switch-over.
+55. Rules run in the order they were added. Changing the order (QBO lets you drag them) comes later.
+56. Undo of a match to a journal entry (cb_books_unmatch_entry) does not check the year lock.
+57. The bank account picker and Rules accept only accounts whose number is in the chart template, because the old posting
+    engine needs it. Rule 12: clients who keep their own books bring their own numbers.
+58. The old screens read a statement's opening and closing as nil when a Books upload left them empty (balances that did
+    not tie), so step 3 shows 0.00 there.
+59. Reconcile in the database accepts a line still For review (the screen lists Categorized lines only).
+60. cb_bank_lines.rule_id holds a rule from either the old rules table or the Books one.

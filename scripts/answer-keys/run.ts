@@ -51,15 +51,15 @@ for (const folder of folders) {
       if (bad.length) { failed++; console.log(`${folder} ${f.year_end}: BUG CHECK FAILED`); for (const l of bad) console.log(`  ${l}`); }
       else console.log(`${folder} ${f.year_end}: balance sheet balances; net income ties to the trial balance`);
     }
-    // CB2-1 Part 4.1 and 4.3: Books gives the same figures as today's reports; then the opening balances are saved as an
-    // ordinary journal entry (as anyone saving a change to them in Books does) and the figures are the same again.
+    // CB2-1 Part 4.1 and 4.3: Books gives the same figures as today's reports; the opening balances are one ordinary journal
+    // entry, view-only in Books until the switch-over (saving one is refused), and the figures are the same again.
     const { data: bc } = await sb.from("cb_clients").select("id").eq("studio_client_id", client).maybeSingle();
     if (!bc) { failed++; console.log(`${folder}: BOOKS FAILED: no Books client`); }
     else {
       const b1 = await checkBooks(sb, bc.id as string);
       const saved = await saveOpeningAsEntry(sb, bc.id as string);
       const b2 = await checkBooks(sb, bc.id as string);
-      const fails = [...b1.fails, ...saved.fails, ...b2.fails.map((l) => `after saving the opening entry: ${l}`)];
+      const fails = [...b1.fails, ...saved.fails, ...b2.fails.map((l) => `checked again: ${l}`)];
       if (fails.length) { failed++; console.log(`${folder}: BOOKS FAILED`); for (const l of fails.slice(0, 30)) console.log(`  ${l}`); }
       else console.log(`${folder}: Books reports equal today's (${b1.years} year${b1.years === 1 ? "" : "s"}); ${saved.note}`);
     }
