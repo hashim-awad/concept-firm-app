@@ -30,11 +30,12 @@ const PAPER: Record<SubKey, string> = { "3.1": "accounts", "3.2": "feeds", "3.3"
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const PAGE = 50;
 
-export async function BankingPage({ supabase, file, names, sp, editable, sub, subs, admin = false, lock = null }: {
+export async function BankingPage({ supabase, file, names, sp, editable, sub, subs, admin = false, lock = null, history = false }: {
   supabase: SupabaseClient; file: { id: string; year_start: string; year_end: string; opening_source: string | null; first_year: boolean | null };
   names: Map<string, string>; sp: Sp; editable: boolean; sub: SubKey;
   subs?: Awaited<ReturnType<typeof loadSubsteps>>;   // already read by the file page
   admin?: boolean; lock?: Lock;                      // round 24: Purge is for Admins (R3a-1); a signed 3.2 or 3.3 asks first
+  history?: boolean;                                 // CB2-0 step 2: ⋯ › History on each statement
 }) {
   const fileId = file.id;
   const d = await loadBanking(supabase, file, names, false, subs);
@@ -91,6 +92,7 @@ export async function BankingPage({ supabase, file, names, sp, editable, sub, su
                       {s.attachment_path && <a href={`/closebook/${fileId}/statement-pdf?s=${s.id}`} className="block rounded px-3 py-2 hover:bg-sand-50">Download file</a>}
                       {editable && s.source !== "csv" && <Link href={`${back}&repl=${s.id}`} scroll={false} className="block rounded px-3 py-2 hover:bg-sand-50">Replace file</Link>}
                       {editable && <Link href={`${back}&excl=${s.id}`} scroll={false} className="block rounded px-3 py-2 hover:bg-sand-50">Exclude statement</Link>}
+                      {history && <Link href={`${back}&ihist=statement:${s.id}`} scroll={false} className="block rounded px-3 py-2 hover:bg-sand-50">History</Link>}
                     </Menu>
                   </td>
                 </tr>

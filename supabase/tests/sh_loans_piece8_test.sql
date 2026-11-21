@@ -38,7 +38,7 @@ select test.check('T2: step 7 needs the repay-by date noted for the account owed
   private.cb_sh_review_problems(:'f') = array['Shareholder loans: note the repay-by date for 1 account owed by the shareholder.']);
 select test.check('History logs the update under step 7', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'sh_prepared' and step = 'review'));
 
--- T2/T4: "Noted: repay by Aug 31, 2027": the reviewer's; clears step 7 only.
+-- T2/T4: "Noted: repay by Aug 31, 2027": the reviewer's; clears nothing (CB2-0 step 2), History has it.
 :signed;
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('T2: the preparer cannot note it', test.try(format('select public.cb_note_sh_due(%L, %L)', :'f', '23050')) like 'Only the reviewer%');
@@ -48,10 +48,10 @@ select public.cb_note_sh_due(:'f', '23000');
 reset role; reset request.jwt.claims;
 select test.check('T2: noted with the date one year after the year end', (select due_on = '2027-08-31' and closing = 46872.40 from public.cb_sh_noted where file_id = :'f' and account_key = '23000'));
 select test.check('T2: nothing left for step 7 from the shareholder loans', private.cb_sh_review_problems(:'f') = '{}');
-select test.check('T4: noting clears step 7, not step 5', (:state) = 'entries');
+select test.check('T4: noting clears nothing: steps 5 and 7 stay signed', (:state) = 'entries,review');
 select test.check('History: noted, under step 7', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'sh_due_noted' and step = 'review' and detail like '23000 Due to shareholder 1: owed by the shareholder at year-end 46,872.40; repay by Aug 31, 2027'));
 
--- A flag decided by the reviewer, with no preparer's answer first; the decision clears step 7 only.
+-- A flag decided by the reviewer, with no preparer's answer first; the decision clears nothing (CB2-0 step 2).
 \set groups2 '[{"group_key":"sh:1","shareholder":1,"accounts":["23000"],"opening":0,"closing":46872.40,"reductions":0,"last_part":0,"this_part":46872.40,"due_on":"2027-08-31","flags":["late_repayment"],"flag_amounts":{"late_repayment":46872.40}},{"group_key":"sh:2","shareholder":2,"accounts":["23050"],"opening":0,"closing":-8200,"reductions":0,"last_part":0,"this_part":0,"due_on":"","flags":[]}]'
 set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_prepare_sh_schedule(:'f', :'rows', :'groups2');
@@ -62,7 +62,7 @@ set role authenticated; set request.jwt.claims = '{"sub":"00000000-0000-0000-000
 select public.cb_accept_sh_flag(:'f', 'sh:1', 'late_repayment', 'One loan, repaid after year end: not a series.');
 reset role; reset request.jwt.claims;
 select test.check('the reviewer decides without a preparer''s answer', private.cb_sh_review_problems(:'f') = '{}');
-select test.check('T4: the reviewer''s decision clears step 7, not step 5', (:state) = 'entries');
+select test.check('T4: the reviewer''s decision clears nothing: steps 5 and 7 stay signed', (:state) = 'entries,review');
 
 -- A change in the books: Update again; a changed balance needs noting again.
 :signed;

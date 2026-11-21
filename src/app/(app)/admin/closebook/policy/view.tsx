@@ -19,7 +19,6 @@ export async function PolicyView(sp: SP): Promise<View> {
       <Notice msg={messageFrom(sp.msg)} error={messageFrom(sp.error)} />
       <SaveForm action={updateCbSettings} aria-label="Closebook policy" className="card grid gap-4">
         <input type="hidden" name="back" value="/admin/closebook/policy" />
-        {([["recon", c.recon_outstanding_max], ["flag_amount", c.flag_amount], ["flag_percent", c.flag_percent], ["entry_review", c.entry_review_amount], ["capital_invoice", c.capital_invoice_amount]] as [string, number][]).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
         <div><label htmlFor="note1" className="label">Amortization</label>
           <select id="note1" name="note1" defaultValue={c.note1_policy} className="input">{Object.entries(NOTE1).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         </div>

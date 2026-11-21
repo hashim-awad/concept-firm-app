@@ -34,25 +34,28 @@ select test.check('T1: the new description and amount are on the same entry',
   and (select count(*) from public.cb_entry_lines where entry_id = :'e1') = 2);
 select test.check('T1: no standard entry link before or after (a typed entry)', (select standard_id is null from public.cb_entries where id = :'e1'));
 reset role;
-select test.check('T1: History has the description, old and new',
-  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_edited' and reason = 'Description'
-          and old_value = 'Licence fee accrual' and new_value = 'Licence fee accrual, September invoice' and ref_label like '2026-001 AJE'
+select test.check('T1: History has one row for the edit, naming what changed (CB2-0 step 2: one action, one row)',
+  exists (select 1 from public.cb_file_history where file_id = :'f' and entry_id = :'e1' and action = 'entry_edited' and reason = 'description, lines'
+          and detail = 'Entry 2026-001 AJE changed: description, lines' and ref_label = '2026-001 AJE'
           and actor_id = '00000000-0000-0000-0000-00000000000a'));
-select test.check('T1: History has the lines, old and new',
-  (select old_value || ' => ' || new_value from public.cb_file_history where file_id = :'f' and action = 'entry_edited' and reason = 'Lines')
-  = '64000 Licences and permits Dr 400.00 · 21100 Accrued liabilities Cr 400.00 => 64000 Licences and permits Dr 450.00 · 21100 Accrued liabilities Cr 450.00');
-select test.check('T1: only what changed is in History (description and lines)',
-  (select string_agg(reason, ',' order by reason) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 'Description,Lines');
+select test.check('T1: the row has the description, old and new',
+  (select split_part(old_value, E'\n', 1) || ' => ' || split_part(new_value, E'\n', 1) from public.cb_file_history where file_id = :'f' and action = 'entry_edited')
+  = 'Description: Licence fee accrual => Description: Licence fee accrual, September invoice');
+select test.check('T1: the row has the lines, old and new',
+  (select split_part(old_value, E'\n', 2) || ' => ' || split_part(new_value, E'\n', 2) from public.cb_file_history where file_id = :'f' and action = 'entry_edited')
+  = 'Lines: 64000 Licences and permits Dr 400.00 · 21100 Accrued liabilities Cr 400.00 => Lines: 64000 Licences and permits Dr 450.00 · 21100 Accrued liabilities Cr 450.00');
+select test.check('T1: only what changed is in History (description and lines), in one row',
+  (select string_agg(reason, ',' order by reason) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 'description, lines');
 
 -- Piece 2b: "Last changed by" for anyone who can view Closebook; History itself stays owner-only.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('2b: staff see who changed the entry last and when (the owner, today)',
   (select changed_by || ' · ' || (changed_at::date = current_date) from public.cb_entry_last_change(:'e1')) = 'Test Owner A · true');
-select test.check('2b: staff still cannot read the file history (round 8 rule)', (select count(*) from public.cb_file_history where file_id = :'f') = 0);
+select test.check('2b: staff read the file history (CB2-0 v7: everyone who can open the file)', (select count(*) from public.cb_file_history where file_id = :'f') > 0);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('2b: owners see the same line, and can read the history', (select changed_by from public.cb_entry_last_change(:'e1')) = 'Test Owner A'
-  and (select count(*) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 2);
+  and (select count(*) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 1);
 reset role;
 
 -- Other fields: type, date, W/P ref, number; a number in use is refused.
@@ -63,10 +66,12 @@ select test.check('a number in use is refused on Edit', test.try(format($q$selec
   = 'Entry number 2026-001 is taken. Choose another.');
 select public.cb_edit_entry(:'e2', 'RJE', 'reclassification', 'Second entry', false, '[{"chart":"60000","amount":50},{"chart":"64000","amount":-50}]', 'Expense listing', '2026-06-30', null, '{}', 9);
 reset role;
-select test.check('type, date, W/P ref and a free number all change in place, each in History',
+select test.check('type, date, W/P ref and a free number all change in place, in one History row (CB2-0 step 2)',
   (select seq || ' ' || kind || ' ' || entry_date || ' ' || wp_ref from public.cb_entries where id = :'e2') = '9 RJE 2026-06-30 Expense listing'
-  and (select string_agg(reason || ': ' || old_value || ' → ' || new_value, ' | ' order by reason) from public.cb_file_history where file_id = :'f' and action = 'entry_edited' and ref_label = '2026-009 RJE' and reason <> 'Lines')
-    = 'Date: Aug 31, 2026 → Jun 30, 2026 | Number: 2026-002 AJE → 2026-009 RJE | Type: AJE → RJE | W/P ref: Payables listing → Expense listing');
+  and (select count(*) from public.cb_file_history where entry_id = :'e2' and action = 'entry_edited') = 1
+  and (select reason || ' | ' || left(old_value, strpos(old_value, E'\nLines:') - 1) || ' → ' || left(new_value, strpos(new_value, E'\nLines:') - 1)
+         from public.cb_file_history where file_id = :'f' and action = 'entry_edited' and ref_label = '2026-009 RJE')
+    = E'number, type, date, w/p ref, lines | Number: 2026-002 AJE\nType: AJE\nDate: Aug 31, 2026\nW/P ref: Payables listing → Number: 2026-009 RJE\nType: RJE\nDate: Jun 30, 2026\nW/P ref: Expense listing');
 
 -- T2: an entry made from a standard entry keeps its link.
 set role authenticated;
@@ -92,11 +97,11 @@ reset role;
 update public.cb_entries set origin = 'expenses_personal' where id = :'e2';
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('T3: an Expenses paid personally entry cannot be edited here (same message as before)',
+select test.check('T3 (CB2-0 review round): an Expenses paid personally entry can be edited here',
   test.try(format($q$select public.cb_edit_entry(%L, 'RJE', 'reclassification', 'Second entry', false, '[{"chart":"60000","amount":60},{"chart":"64000","amount":-60}]', 'Expense listing')$q$, :'e2'))
-  = 'Change this entry on the Expenses paid personally paper.');
+  = 'OK');
 
--- T4: the sign-offs an edit clears are the same as when Edit deleted and re-added the entry.
+-- T4: an edit clears no sign-off, the same as when Edit deleted and re-added the entry (CB2-0 step 2).
 reset role;
 create temp table t4 (how text, cleared text);
 grant all on t4 to authenticated;
@@ -124,9 +129,12 @@ select test.check('2b: a new entry that took a deleted entry''s number shows no 
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Never changed', false, '[{"chart":"60000","amount":20},{"chart":"21100","amount":-20}]', 'Payables listing') as e9 \gset
 select test.check('2b: a new, unedited entry shows no "Last changed" line', not exists (select 1 from public.cb_entry_last_change(:'e9')));
 reset role;
-select test.check('T4: an edit clears steps 5, 7 and 8 and keeps step 4, as before',
-  (select cleared from t4 where how = 'edit in place') = 'entries,review,t2' and (select cleared from t4 where how = 'delete and add (before)') = 'entries,review,t2');
-select test.check('T4: the reason names the entry', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'entries' and detail like 'Entry 2026-001%'));
+select test.check('T4: an edit, or a delete and add, keeps every sign-off (CB2-0 step 2: software never clears a sign-off)',
+  (select count(*) from t4) = 2 and (select cleared from t4 where how = 'edit in place') is null and (select cleared from t4 where how = 'delete and add (before)') is null);
+select test.check('T4: History has the change instead, naming the entry; nothing says a sign-off was cleared',
+  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_edited' and detail = 'Entry 2026-001 AJE changed: lines' and new_value like '%Dr 460.00%')
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_deleted' and detail like 'Entry 2026-001 AJE deleted%')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 
 -- T5: Reclassify and its Undo still work on a typed entry that was edited.
 set role authenticated;

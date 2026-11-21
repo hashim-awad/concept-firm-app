@@ -156,6 +156,14 @@ export function prefillInstalments(payments: GstPayment[], periods: Period[], la
   return { byPeriod, lastYear, balances: [...used].filter((x) => x !== lastYear) };
 }
 
+// CB2-0 v7 item 4 (Hashim, Nov 21, 2026; Q4 A): line 110 reads only the GST/HST instalments account (21510 in the standard
+// chart), period by period, as coded (rule 4): its debits in the period, less any credit. A payment coded to GST/HST payable
+// (21500) pays a balance and is not an instalment.
+export const GST_INSTALMENTS_ACCOUNT = "21510";
+export function instalmentsFromAccount(postings: { date: string; cents: number }[], periods: Period[]): Map<number, number> {
+  return new Map(periods.map((p) => [p.n, postings.filter(inPeriod(p)).reduce((n, x) => n + x.cents, 0)]));
+}
+
 // The year's returns with the instalments pre-filled period by period (each period's pre-fill needs the
 // balances of the returns before it). Typed instalments, when given, are used as they are.
 export function buildYearPrefilled(items: GstItem[], periods: Period[], quick: boolean, q: QuickSettings, payments: GstPayment[], lastYearOwingCents: number, typed?: Map<number, number>) {

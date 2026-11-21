@@ -38,7 +38,7 @@ select public.cb_save_gst_check(:'f', 4160, 4160, '');
 reset role;
 reset request.jwt.claims;
 select test.check('all four prepared, the check ties: nothing open', private.cb_gst_problems(:'f') = '{}');
--- A difference under the threshold needs one line; over it, the reviewer.
+-- A difference needs one line, at any amount (CB2-0 step 5: no review threshold); the reviewer may also accept it.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_gst_check(:'f', 4160, 4172.50, '');
@@ -52,7 +52,7 @@ select public.cb_save_gst_check(:'f', 4160, 14160, '');
 select test.check('the preparer cannot accept a difference', test.try(format($q$select public.cb_accept_gst_check(%L, 'ok')$q$, :'f')) like 'Only the reviewer accepts%');
 reset role;
 reset request.jwt.claims;
-select test.check('over the review threshold: the reviewer decides', (private.cb_gst_problems(:'f'))[1] like '%over the review threshold: the reviewer accepts it, or fix it with an entry.');
+select test.check('a large difference: explain it in one line, as any other (no threshold)', private.cb_gst_problems(:'f') = array['GST/HST payable (21500) differs from the balances owing on the returns by 10,000.00: explain it in one line, or fix it with an entry.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_accept_gst_check(:'f', 'Last year''s return was reassessed; adjusted next year.');

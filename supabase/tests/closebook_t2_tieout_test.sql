@@ -5,6 +5,19 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'),
   ('00000000-0000-0000-0000-00000000000c', 'prep.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Preparer C', 'prep.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -23,15 +36,15 @@ select public.cb_map_account(id, case number when '10100' then '1002.00' when '4
 \set checks '[{"key":"tb","title":"TB","ok":true},{"key":"bs","title":"BS","ok":true},{"key":"ni","title":"NI","ok":true},{"key":"re","title":"RE","ok":true},{"key":"opening","title":"Opening","ok":true}]'
 \set bad '[{"key":"tb","title":"TB","ok":true},{"key":"bs","title":"BS","ok":true},{"key":"ni","title":"NI","ok":true},{"key":"re","title":"RE","ok":true},{"key":"opening","title":"Retained earnings start = last year","ok":false}]'
 \set totals '{"9999":12000,"2599":12000,"amort":0,"inctax":0}'
-select test.check('a failed check refuses the export, by name',
-  test.try(format($q$select public.cb_record_gifi_export(%L, 'final', 'x.gfi', '"GIFI01",""', %L, %L)$q$, :'f', :'totals', :'bad')) = 'Export refused. Failed: Retained earnings start = last year.');
+select test.check('a failed check does not refuse the export (CB2-0: only an unbalanced trial balance does; rolled back here)',
+  test.try_rollback(format($q$select public.cb_record_gifi_export(%L, 'final', 'x.gfi', '"GIFI01",""', %L, %L)$q$, :'f', :'totals', :'bad')) = 'OK');
 reset role;
 reset request.jwt.claims;
 select test.check('step 8: nothing exported yet', private.cb_step8_problems(:'f') = array['Export the final GIFI file, after the tax entries are booked.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the preparer cannot sign step 8 yet', test.try(format($q$select public.cb_sign_step(%L, 't2', 'prepared')$q$, :'f')) like 'Not yet: Export the final GIFI file%');
-select test.check('ProFile figures need the final export first', test.try(format($q$select public.cb_save_t2_tieout(%L, 1, 1, 0, 0, 't2.pdf')$q$, :'f')) = 'Export the final GIFI file first, then import it into ProFile.');
+select test.check('the preparer can sign step 8 before the export (CB2-0: a warning; rolled back here)', test.try_rollback(format($q$select public.cb_sign_step(%L, 't2', 'prepared')$q$, :'f')) = 'OK');
+select test.check('ProFile figures save before the final export (CB2-0 step 3: no gate; rolled back here)', test.try_rollback(format($q$select public.cb_save_t2_tieout(%L, 1, 1, 0, 0, 't2.pdf')$q$, :'f')) = 'OK');
 select public.cb_record_gifi_export(:'f', 'before_tax', 'Pine GIFI 2026-12-31 before tax entries.gfi', '"GIFI01",""', :'totals', :'checks');
 select public.cb_record_gifi_export(:'f', 'final', 'Pine GIFI 2026-12-31 final.gfi', '"GIFI01",""', :'totals', :'checks') as ex \gset
 reset role;
@@ -40,12 +53,12 @@ select test.check('both exports are kept with who and when', (select count(*) fr
 select test.check('step 8: the ProFile figures come next', private.cb_step8_problems(:'f') = array['Enter the figures from ProFile and attach the T2 PDF.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the T2 PDF is needed', test.try(format($q$select public.cb_save_t2_tieout(%L, 12000, 12000, 0, 0, '')$q$, :'f')) = 'Attach the T2 PDF from ProFile.');
+select test.check('the figures save without the T2 PDF (CB2-0 step 3: whatever is filled in; rolled back here)', test.try_rollback(format($q$select public.cb_save_t2_tieout(%L, 12000, 12000, 0, 0, '')$q$, :'f')) = 'OK');
 select public.cb_save_t2_tieout(:'f', 11987.50, 12000, 0, 0, 'files/t2.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('a difference over the rounding allowed blocks the preparer, Closebook less ProFile',
-  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 12.50, more than the rounding allowed (5.00). Only the reviewer can accept it.']);
+select test.check('a difference shows as a warning, Closebook (whole dollars) less ProFile',
+  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 12.50, in whole dollars.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer cannot accept it', test.try(format($q$select public.cb_accept_t2_difference(%L, 'ni', 'Rounding')$q$, :'f')) like 'Only the reviewer accepts%');
@@ -60,18 +73,16 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12012.50, 12000, 0, 0, null);
 reset role;
 reset request.jwt.claims;
-select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is (12.50), more than the rounding allowed (5.00). Only the reviewer can accept it.']);
+select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is (12.50), in whole dollars.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 -- ProFile rounds each line to whole dollars: 11,999 against 12,000.00 is rounding, not a difference.
 select public.cb_save_t2_tieout(:'f', 11999, 12000, 0, 0, null);
 reset role;
 reset request.jwt.claims;
-select test.check('a difference within the rounding allowed ($5) does not block', private.cb_step8_problems(:'f') = '{}'
-  and (select (x ->> 'rounding')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'ni'));
-update public.cb_settings set t2_rounding = 0;
-select test.check('the rounding allowed is a setting', private.cb_step8_problems(:'f') @> array['Net income: Closebook less ProFile is 1.00, more than the rounding allowed (0.00). Only the reviewer can accept it.']);
-update public.cb_settings set t2_rounding = 5;
+select test.check('no rounding allowance (CB2-0 v7, rule 7): 1.00 in whole dollars shows as a difference',
+  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 1.00, in whole dollars.']
+  and not (select (x ->> 'rounding')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'ni'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 3, null);
@@ -98,7 +109,7 @@ select test.check('step 8 is in the step status', (public.cb_step_status(:'f') -
 reset role;
 reset request.jwt.claims;
 
--- A change to the trial balance after the final export: stale, step 8 reopens and its sign-offs clear.
+-- A change to the trial balance after the final export: stale, step 8 lists it again; its sign-offs stay (CB2-0 step 2).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'To record the income tax provision.', false, jsonb_build_array(
@@ -108,8 +119,9 @@ reset role;
 reset request.jwt.claims;
 select test.check('the final export is stale', (private.cb_t2_state(:'f') ->> 'stale')::boolean);
 select test.check('step 8 reopens with the message', private.cb_step8_problems(:'f') = array['The trial balance changed after the final export. Export again and import it into ProFile.']);
-select test.check('and its sign-offs are cleared, with the reason in the history', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 't2')
-  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2'));
+select test.check('and its sign-offs stay; History has the entry, no sign-off cleared', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 't2' and prepared_at is not null)
+  and exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_created' and step = 'entries')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 
 -- The reviewer's treatment of a REVIEW line and book amortization, per client.
 set role authenticated;
@@ -118,12 +130,11 @@ select test.check('only the reviewer sets a treatment', test.try(format($q$selec
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('only a REVIEW line', test.try(format($q$select public.cb_set_review_treatment(%L, '8862.00', 'deduct100')$q$, :'f')) = 'This line is not a REVIEW line.');
 select public.cb_set_review_treatment(:'f', '8231.00', 'deduct100');
-select public.cb_set_book_amortization(:'f', true);
+select test.check('"Set book amortization" is gone (CB2-0 v7: amortization is never compared to CCA)', to_regprocedure('public.cb_set_book_amortization(uuid, boolean)') is null);
 reset role;
 reset request.jwt.claims;
-select test.check('kept for the client, so they roll forward', exists (select 1 from public.cb_review_treatments where client_id = :'client' and line_no = '8231.00' and treatment = 'deduct100')
-  and (select book_amortization from public.cb_client_tax_settings where client_id = :'client'));
-select test.check('with book amortization, CCA is not compared', (select (x ->> 'compared')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'cca') = false);
+select test.check('the treatment is kept for the client, so it rolls forward', exists (select 1 from public.cb_review_treatments where client_id = :'client' and line_no = '8231.00' and treatment = 'deduct100'));
+select test.check('CCA is never compared with amortization', (select (x ->> 'compared')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'cca') = false);
 
 -- A REVIEW line with no treatment blocks the preparer; the reviewer's treatment clears it.
 set role authenticated;

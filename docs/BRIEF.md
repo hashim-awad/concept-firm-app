@@ -2,6 +2,10 @@
 
 Last updated: 2026-11-11 (Front office batch adopted: docs/FRONT-OFFICE-BATCH.md governs leads, quotes, engagement letters, clients, engagements and the menu; where it differs from this brief, PHASE2-BATCH.md or PHASE3-BATCH.md, the front office batch wins)
 
+> **CloseBook2 (Nov 21, 2026):** Closebook is being rebuilt as CloseBook2. Its rules are in `docs/CLOSEBOOK2.md`, which
+> wins over docs/PHASE3-BATCH.md, the Step 5 decision log below and any earlier piece. Piece ST1 is cancelled; piece
+> CB2-0 (engine clean) replaces it.
+
 ## Who
 Concept Accounting & Advisory Professional Corporation, a CPA firm in Kitchener, Ontario. Owner: Hashim Awad, CPA. Hashim is not a developer. Staff are accountants.
 
@@ -1217,12 +1221,11 @@ Small items found during UI1. None is a decision yet. Each goes into a piece whe
 - Show a working preview with dummy data before calling anything done.
 - Ask before doing anything outside this repo.
 - Every request to Hashim includes the full link to open (Hashim, Nov 10, 2026; moved here from docs/STATUS.md).
-- Usage (Hashim, Nov 20, 2026): the full database suite runs once per piece, before the PR. Fix rounds run only the changed test files. Each reviewer runs at most twice per piece. Questions, mocks to review and SQL go in one copy-ready block.
+- Usage (Hashim, Nov 20, 2026; agents replaced by docs/CLOSEBOOK2.md rule 16 on Nov 21, 2026): tests run in GitHub Actions on every PR. Questions, mocks to review and SQL go in one copy-ready block.
 - Working rules (Hashim approved, Nov 20, 2026, after UI1):
-  - Builder self-check before any reviewer: each build note and approved decision becomes a checklist line, measured on the built app. Reviewers get the same checklist.
+  - Builder self-check: each build note and approved decision becomes a checklist line, measured on the built app.
   - Measure before fixing: no visual fix is pushed without a before and after number (scroll, width or contrast).
   - After any session restart, run `bash scripts/dev/up.sh` first, once the tooling PR merges. It starts Docker, local Supabase and the app on port 3301. `--build` rebuilds the app.
   - Function-parity builds use the fixed local Server Actions key (scripts/dev/.actions-key, made by up.sh, not in git), so action ids can be compared. Use the same sample of files before and after.
-  - No code changes while a reviewer or test-runner is running.
 - This brief is the one record of status and decisions. docs/STATUS.md was retired on Nov 19, 2026 (Hashim) and is kept
   only as a pointer here.

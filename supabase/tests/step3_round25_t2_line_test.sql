@@ -33,16 +33,18 @@ reset role;
 insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at, reviewed_by, reviewed_at) values (:'f', '3.1', :C::uuid, now(), :A::uuid, now());
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('as the preparer: refused, "Ask the reviewer to remove the 3.1 sign-off."',
-  test.try(format($q$select public.cb_save_bank_account(%L, %L, 'loc', 'RBC', '9012', 5000, false, false, true, '2707')$q$, :'f', :'loc')) = 'Ask the reviewer to remove the 3.1 sign-off.');
-select test.check('nothing changed', (select t2_line is null from public.cb_bank_accounts where id = :'loc') and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1' and reviewed_at is not null));
+select test.check('as the preparer: the change is saved (CB2-0: no "Ask the reviewer to remove the 3.1 sign-off.")',
+  test.try(format($q$select public.cb_save_bank_account(%L, %L, 'loc', 'RBC', '9012', 5000, false, false, true, '2707')$q$, :'f', :'loc')) = 'OK');
+select test.check('changed, and the 3.1 sign-off kept as signed', (select t2_line = '2707' from public.cb_bank_accounts where id = :'loc')
+  and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1' and prepared_by = :C::uuid and reviewed_by = :A::uuid));
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('as the reviewer: asked first', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'loc', 'RBC', '9012', 5000, false, false, false, '2707')$q$, :'f', :'loc'))
-  = 'This removes the sign-off on 3.1. Continue?');
+select test.check('as the reviewer: not asked first (CB2-0: no confirm prompts)', test.try(format($q$select public.cb_save_bank_account(%L, %L, 'loc', 'RBC', '9012', 5000, false, false, false, '2707')$q$, :'f', :'loc'))
+  = 'OK');
 select public.cb_save_bank_account(:'f', :'loc', 'loc', 'RBC', '9012', 5000.00, false, false, true, '2707');
-select test.check('then changed, and the sign-off removed; both in the history', (select t2_line = '2707' from public.cb_bank_accounts where id = :'loc')
-  and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1')
-  and exists (select 1 from test.h() where file_id = :'f' and action = 'signoff_removed' and detail = '3.1 sign-off removed: T2 line changed' and reason = 'T2 line changed' and actor_id = :A::uuid));
+select test.check('the line stays changed, the sign-off stays, and History has the change by the preparer, not a removal', (select t2_line = '2707' from public.cb_bank_accounts where id = :'loc')
+  and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1' and reviewed_at is not null)
+  and exists (select 1 from test.h() where file_id = :'f' and action = 'bank_account_changed' and detail = 'Last year''s T2 line changed' and actor_id = :C::uuid)
+  and not exists (select 1 from test.h() where file_id = :'f' and action in ('signoff_removed', 'signoff_cleared')));
 select test.check('after: the line of credit on 2707 with the card: 7,112.00 against 7,112.00, nothing to fix; no 2701 line', test.sp(:'f') = '{}');
 select test.check('this year''s GIFI line does not follow (2701 stays on the account)', (select t2_line = '2707' and gifi_line is null and chart_account = '22100' from public.cb_bank_accounts where id = :'loc')
   and (select left(line_no, 4) from public.cb_chart_accounts where number = '22100') = '2701');
@@ -59,19 +61,19 @@ select test.check('a usual line with a T2 amount and no account shows (an accoun
 reset role;
 \i supabase/migrations/20261212020000_round25_t2_line.sql
 \i supabase/migrations/20261212380000_piece_r3a1_roles_rights.sql   -- piece R3a-1: the replay above restores owner checks; put the rights back
--- The months of an account (3.2 and 3.3) and removing an account (3.1 and 3.3) ask first too.
-insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.2', :C::uuid, now()), (:'f', '3.1', :C::uuid, now());
+\i supabase/migrations/20261221000000_cb2_step2_signoffs_kept.sql   -- CB2-0 step 2: the replay above restores the old sign-off guard; put the current rule back
+-- The months of an account (3.2 and 3.3) and adding or removing an account (3.1 and 3.3) do not ask either (CB2-0 rule 14).
+insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.2', :C::uuid, now()), (:'f', '3.1', :C::uuid, now()) on conflict do nothing;
 set role authenticated;
-select test.check('the months of an account ask first', test.try(format($q$select public.cb_set_bank_coverage(%L, null, null, 'No statements: dormant')$q$, :'card')) = 'This removes the sign-off on 3.2. Continue?');
+select test.check('the months of an account do not ask first; 3.2 stays signed', test.try(format($q$select public.cb_set_bank_coverage(%L, null, null, 'No statements: dormant')$q$, :'card')) = 'OK');
+select test.check('3.2 is still signed after the months changed', exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.2'));
 select public.cb_save_bank_account(:'f', null, 'savings', 'RBC', '7777', 0, false, false, true) as sav \gset
-select test.check('adding an account asks first; with Continue the 3.1 sign-off goes', not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1'));
-reset role;
-insert into public.cb_substep_signoffs (file_id, substep, prepared_by, prepared_at) values (:'f', '3.1', :C::uuid, now());
-set role authenticated;
-select test.check('removing an account asks first', test.try(format($q$select public.cb_remove_bank_account(%L)$q$, :'sav')) = 'This removes the sign-off on 3.1. Continue?');
+select test.check('adding an account does not ask; the 3.1 sign-off stays', exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1'));
+select test.check('removing an account does not ask first', test.try(format($q$select public.cb_remove_bank_account(%L)$q$, :'sav')) = 'OK');
+select test.check('and 3.1 stays signed', exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.1'));
 reset role;
 -- Run twice: each patched function holds its change once (one log line for a T2 line change, not two).
 select test.check('patches placed once', (select (length(d) - length(replace(d, 'Last year''''s T2 line changed', ''))) / length('Last year''''s T2 line changed') = 1
   from (select pg_get_functiondef('private.cb_account_log()'::regprocedure) d) x)
   and (select (length(d) - length(replace(d, 'new.t2_line is distinct', ''))) / length('new.t2_line is distinct') = 1 from (select pg_get_functiondef('private.cb_banking_changed()'::regprocedure) d) x));
-select test.check('safe to run twice', (select count(*) from public.cb_bank_accounts where file_id = :'f') = 3 and position('cb_substep_guard' in pg_get_functiondef('public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text)'::regprocedure)) > 0);
+select test.check('safe to run twice (chequing and card left: the savings account was removed above)', (select count(*) from public.cb_bank_accounts where file_id = :'f') = 2 and position('cb_substep_guard' in pg_get_functiondef('public.cb_save_bank_account(uuid, uuid, text, text, text, numeric, boolean, boolean, boolean, text)'::regprocedure)) > 0);

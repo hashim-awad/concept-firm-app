@@ -80,9 +80,11 @@ for rec in open(msgs_path, encoding='utf-8', errors='replace').read().split('\x1
     sha, _, body = rec.partition('\0')
     scan(body, lambda no, sha=sha: f'commit {sha}, message line {no}')
 print(f'Name check ({"files changed against main and commit messages" if mode == "branch" else "whole repository"}).')
-if not names_path:
-    print('WARNING: CLIENT_NAMES is not set: client names were not checked. Business numbers were.')
 gh = 'GITHUB_ACTIONS' in os.environ
+if not names_path:
+    # CB2-0 v7 item 10: until Hashim adds the CLIENT_NAMES secret, the check says so and does not fail.
+    print('::warning title=Client-name check::secret not set: client names were not checked. Business numbers were.' if os.environ.get('GITHUB_ACTIONS')
+          else 'WARNING: CLIENT_NAMES secret not set: client names were not checked. Business numbers were.')
 for b in binaries:
     print(f'::warning file={b}::Not scanned (binary): check it by hand' if gh and mode == 'branch' else f'Not scanned (binary), check by hand: {b}')
 for h in hits:

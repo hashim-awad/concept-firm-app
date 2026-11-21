@@ -44,12 +44,15 @@ select test.check('S1-2: Home office changed on the same entry', :'h2' = :'h'
 select test.check('S1-2: Expenses paid personally changed on the same entry', :'x2' = :'x'
   and (select sum(amount) filter (where amount > 0) from public.cb_entry_lines where entry_id = :'x') = 650);
 
--- S1-3 an amount from a schedule still changes only in its schedule.
-select test.check('S1-3: a schedule amount is not changed outside its schedule',
+-- S1-3 (CB2-0 review round): an amount from a schedule can change on the entry; History records the edit.
+select test.check('S1-3: a schedule amount changes outside its schedule',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'New words', false, %L, 'Vehicle schedule')$q$, :'v', replace(:vlines, '8300', '9900')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'OK');
+reset role;
+select test.check('S1-3: History has the edit, one row', (select count(*) from public.cb_file_history where entry_id = :'v' and action = 'entry_edited' and reason = 'description, lines' and new_value like '%9,900.00%') = 1);
+set role authenticated;
 
--- S1-6 the step 5 sign-offs are taken back when the schedule changes.
+-- S1-6 the step 5 sign-offs are kept when the schedule changes (CB2-0 step 2); History has the change.
 reset role;
 insert into public.cb_step_signoffs (file_id, step, prepared_by, prepared_at, reviewed_by, reviewed_at)
 values (:'f', 'entries', '00000000-0000-0000-0000-00000000000c', now(), '00000000-0000-0000-0000-00000000000a', now())
@@ -57,7 +60,10 @@ on conflict (file_id, step) do update set prepared_at = now(), reviewed_at = now
 set role authenticated;
 select public.cb_save_schedule_entry(:'f', :'v', 'AJE', 'correction', 'Vehicle, owner''s car', false, replace(:vlines, '8300', '9300')::jsonb, 'Vehicle schedule', null, '{}', null, replace(:vsched, '8300', '9300')::jsonb);
 reset role;
-select test.check('S1-6: the step 5 sign-offs are taken back', not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries' and (prepared_at is not null or reviewed_at is not null)));
+select test.check('S1-6: the step 5 sign-offs are kept exactly as signed', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries'
+  and prepared_by = '00000000-0000-0000-0000-00000000000c' and reviewed_by = '00000000-0000-0000-0000-00000000000a'));
+select test.check('S1-6: History has the schedule save on the entry, one row with the lines after (CB2-0 v7 item 8), and no sign-off cleared', exists (select 1 from public.cb_file_history where entry_id = :'v' and action = 'schedule_saved' and new_value like '%9,300.00%')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 set role authenticated;
 
 -- S1-4 a locked file refuses it.

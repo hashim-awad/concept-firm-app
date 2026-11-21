@@ -1,0 +1,277 @@
+[
+ {
+  "id": "1e7c684f-a4d9-4edd-a888-8aae677fc832",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "final",
+  "file_name": "Birch Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"123456780RC0001\",\"Birch Dummy Realty Inc.\",\"\",\"1 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A1\",\"\",\"20261231\",\"20261119\",\"\"\r\n\"1002\",54964.50\r\n\"1062\",5500.00\r\n\"1301\",1000.00\r\n\"1483\",300.00\r\n\"1484\",400.00\r\n\"1486\",250.00\r\n\"1774\",9800.00\r\n\"1775\",-5880.00\r\n\"1912\",5000.00\r\n\"1913\",-1000.00\r\n\"2620\",7350.00\r\n\"2680\",1272.57\r\n\"2707\",-55.20\r\n\"2781\",26440.50\r\n\"3261\",3000.00\r\n\"3500\",100.00\r\n\"3660\",41730.00\r\n\"3701\",-5000.00\r\n\"3720\",-500.00\r\n\"8121\",9000.00\r\n\"8523\",234.75\r\n\"8670\",1960.00\r\n\"8811\",1418.62\r\n\"8862\",2500.00\r\n\"8869\",200.00\r\n\"8871\",300.00\r\n\"8876\",150.00\r\n\"8913\",500.00\r\n\"8914\",250.00\r\n\"9061\",400.00\r\n\"9063\",2000.00\r\n\"9225\",300.00\r\n\"9270\",1240.00\r\n\"9281\",750.00\r\n\"9990\",800.00",
+  "totals": {
+   "2599": 70334.5,
+   "3499": 38007.87,
+   "3620": 32326.63,
+   "3640": 70334.5,
+   "3660": 41730,
+   "3849": 32226.63,
+   "8299": 9000,
+   "9368": 12203.37,
+   "9999": -4003.37,
+   "amort": 1960,
+   "inctax": 800
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 6)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "6e00f38322b987e79e1850b460584973",
+  "created_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "created_at": "2026-11-19T07:23:49.681172+00:00"
+ },
+ {
+  "id": "365ceeca-c207-485f-b987-adafa3d02457",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "final",
+  "file_name": "Birch Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"123456780RC0001\",\"Birch Dummy Realty Inc.\",\"\",\"1 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A1\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",56204.50\r\n\"1062\",5500.00\r\n\"1774\",9800.00\r\n\"1775\",-5880.00\r\n\"2620\",7350.00\r\n\"2680\",1272.57\r\n\"2707\",-55.20\r\n\"2781\",14690.50\r\n\"3500\",100.00\r\n\"3660\",41730.00\r\n\"3720\",-500.00\r\n\"8121\",9000.00\r\n\"8523\",234.75\r\n\"8670\",1960.00\r\n\"8810\",1132.74\r\n\"8811\",285.88\r\n\"8862\",2500.00\r\n\"9225\",300.00\r\n\"9281\",750.00\r\n\"9990\",800.00",
+  "totals": {
+   "2599": 65624.5,
+   "3499": 23257.87,
+   "3620": 42366.63,
+   "3640": 65624.5,
+   "3660": 41730,
+   "3849": 42266.63,
+   "8299": 9000,
+   "9368": 7163.37,
+   "9999": 1036.63,
+   "amort": 1960,
+   "inctax": 800
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "4d4375be6e144ef7d95e1152e787eedd",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T04:29:57.495942+00:00"
+ },
+ {
+  "id": "56146ec2-9699-4a4b-899d-13db6109f265",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "final",
+  "file_name": "Birch Dummy Realty Inc. GIFI 2026-12-31 final.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"123456780RC0001\",\"Birch Dummy Realty Inc.\",\"\",\"1 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A1\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",56204.50\r\n\"1062\",5500.00\r\n\"1774\",9800.00\r\n\"1775\",-5880.00\r\n\"2620\",7350.00\r\n\"2680\",1272.57\r\n\"2707\",-55.20\r\n\"2781\",14690.50\r\n\"3500\",100.00\r\n\"3660\",41730.00\r\n\"3720\",-500.00\r\n\"8121\",9000.00\r\n\"8523\",234.75\r\n\"8670\",1960.00\r\n\"8810\",1132.74\r\n\"8811\",285.88\r\n\"8862\",2500.00\r\n\"9225\",300.00\r\n\"9281\",750.00\r\n\"9990\",800.00",
+  "totals": {
+   "2599": 65624.5,
+   "3499": 23257.87,
+   "3620": 42366.63,
+   "3640": 65624.5,
+   "3660": 41730,
+   "3849": 42266.63,
+   "8299": 9000,
+   "9368": 7163.37,
+   "9999": 1036.63,
+   "amort": 1960,
+   "inctax": 800
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "4d4375be6e144ef7d95e1152e787eedd",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T04:58:01.69345+00:00"
+ },
+ {
+  "id": "60dc57a1-7464-4339-bb85-4d59d11c9e65",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "before_tax",
+  "file_name": "Birch Dummy Realty Inc. GIFI 2026-12-31 before tax entries.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"123456780RC0001\",\"Birch Dummy Realty Inc.\",\"\",\"1 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A1\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",56204.50\r\n\"1062\",5500.00\r\n\"1774\",9800.00\r\n\"1775\",-5880.00\r\n\"2620\",7350.00\r\n\"2680\",472.57\r\n\"2707\",-55.20\r\n\"2781\",14690.50\r\n\"3500\",100.00\r\n\"3660\",41730.00\r\n\"3720\",-500.00\r\n\"8121\",9000.00\r\n\"8523\",234.75\r\n\"8670\",1960.00\r\n\"8810\",1132.74\r\n\"8811\",285.88\r\n\"8862\",2500.00\r\n\"9225\",300.00\r\n\"9281\",750.00",
+  "totals": {
+   "2599": 65624.5,
+   "3499": 22457.87,
+   "3620": 43166.63,
+   "3640": 65624.5,
+   "3660": 41730,
+   "3849": 43066.63,
+   "8299": 9000,
+   "9368": 7163.37,
+   "9999": 1836.63,
+   "amort": 1960,
+   "inctax": 0
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "4d4375be6e144ef7d95e1152e787eedd",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T04:58:00.405912+00:00"
+ },
+ {
+  "id": "60fc3570-932c-4fb3-8845-61b05a4bab31",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "before_tax",
+  "file_name": "Birch Dummy Realty Inc. GIFI 2026-12-31 before tax entries.gfi",
+  "content": "\"GIFI01\",\"\",\"\",\"\",\"\",\"Concept Accounting\",\"\",\"\",\"\",\"\",\"Concept Studio\",\"\",\"\",\"123456780RC0001\",\"Birch Dummy Realty Inc.\",\"\",\"1 DUMMY ST\",\"Kitchener\",\"ON\",\"N2A 0A1\",\"\",\"20261231\",\"20261113\",\"\"\r\n\"1002\",56204.50\r\n\"1062\",5500.00\r\n\"1774\",9800.00\r\n\"1775\",-5880.00\r\n\"2620\",7350.00\r\n\"2680\",1272.57\r\n\"2707\",-55.20\r\n\"2781\",14690.50\r\n\"3500\",100.00\r\n\"3660\",41730.00\r\n\"3720\",-500.00\r\n\"8121\",9000.00\r\n\"8523\",234.75\r\n\"8670\",1960.00\r\n\"8810\",1132.74\r\n\"8811\",285.88\r\n\"8862\",2500.00\r\n\"9225\",300.00\r\n\"9281\",750.00\r\n\"9990\",800.00",
+  "totals": {
+   "2599": 65624.5,
+   "3499": 23257.87,
+   "3620": 42366.63,
+   "3640": 65624.5,
+   "3660": 41730,
+   "3849": 42266.63,
+   "8299": 9000,
+   "9368": 7163.37,
+   "9999": 1036.63,
+   "amort": 1960,
+   "inctax": 800
+  },
+  "checks": [
+   {
+    "ok": true,
+    "key": "tb",
+    "title": "The trial balance balances and every account is matched (step 7)",
+    "result": "Balances; every account is matched"
+   },
+   {
+    "ok": true,
+    "key": "bs",
+    "title": "Total assets (2599) = total liabilities (3499) + total equity (3620)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "ni",
+    "title": "Net income on the income statement (9999) = net income in the retained earnings schedule (3680)",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "re",
+    "title": "Retained earnings end (3849) = start + net income − dividends + prior period adjustments + other, = 3600 on the balance sheet",
+    "result": "Ties"
+   },
+   {
+    "ok": true,
+    "key": "opening",
+    "title": "Retained earnings start (3660) = last year's closing retained earnings (step 2)",
+    "result": "Ties"
+   }
+  ],
+  "fingerprint": "4d4375be6e144ef7d95e1152e787eedd",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T04:29:55.876701+00:00"
+ }
+]

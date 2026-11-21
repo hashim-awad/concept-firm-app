@@ -37,7 +37,6 @@ export type ExpenseRow = {
 export type ExpenseRpcLine = { chart?: string; account?: string; new_name?: string; amount: number; memo: string; tax_code?: string; is_tax?: boolean };
 
 const cents = (n: number) => Math.round(n);
-export const OVER_RECEIPTS = 500000;   // a line over $5,000 needs its receipts attached
 
 export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: ExpenseHead, ctx: ExpenseCtx) {
   const byKey = new Map(inputs.map((i) => [i.key, i]));
@@ -59,7 +58,7 @@ export function planExpenses(defs: ExpenseDef[], inputs: ExpenseInput[], head: E
     if (account.startsWith("new:") && account.slice(4).trim().length < 3) problems.push(`${d.name}: name the new account.`);
     if (d.pick && d.choices.length && account && !d.choices.includes(account)) problems.push(`${d.name}: choose one of ${d.choices.join(", ")}.`);
     if (d.note_required && (i.note ?? "").trim().length < 3) problems.push(`${d.name}: add a note saying what it is.`);
-    if (total > OVER_RECEIPTS && !(i.receipts ?? 0)) problems.push(`${d.name} is over $5,000: attach the receipts.`);
+    // CB2-0 step 5 (rule 7): no receipts amount. Receipts can be attached at any amount; none is required.
     // The business share, applied to the cost and its tax; the personal share is left out.
     let share: number | null = null;
     if (d.share === "km") { kmNeeded = true; share = kmShare; }

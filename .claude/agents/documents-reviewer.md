@@ -1,6 +1,6 @@
 ---
 name: documents-reviewer
-description: Before pieces that create, store or send documents, and in best-practice reviews. Reviews naming, filing, retention and the documents Studio produces. Read-only. Both parts.
+description: Only when Hashim names it in a message (docs/CLOSEBOOK2.md rule 16). Reviews naming, filing, retention and the documents Studio produces. Read-only. Both parts.
 tools: Read, Grep, Glob, Bash
 ---
 You review how Studio handles documents. You change nothing.

@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { ExternalLink, X } from "lucide-react";
 import { formatDate } from "@/lib/dates";
-import { flagged, NO_FLAG_TAX, reclassNote } from "@/lib/closebook/matching";
+import { reclassNote } from "@/lib/closebook/matching";
 import { CLEARING, CLEARING_NAME, KIND_LABEL, ledger, NI_LAST, pctChange, tbByGroup, trialBalance, type TbLine } from "@/lib/closebook/reports";
 import type { ReportData } from "@/lib/closebook/report-data";
 import type { CbAccount, CbEntry } from "@/lib/closebook/server";
@@ -20,13 +20,10 @@ import { EscClose } from "./esc-close";
 
 const SECTION: Record<number, string> = { 0: "Assets", 1: "Liabilities", 2: "Equity", 3: "Revenue", 4: "Expenses" };
 const money = (c: number) => (c === 0 ? "–" : c < 0 ? `(${(-c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : (c / 100).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-// No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
-export const noFlagLine = (line_no: string | null) => /^36(00|60)/.test(line_no ?? "");
 
-export function TbArea({ fileId, data, file, accounts, notes, canReview, editable, view, drill, col, flag, lineTax, shNames, noteStep }: {
+export function TbArea({ fileId, data, file, accounts, notes, canReview, editable, view, drill, col, shNames, noteStep }: {
   fileId: string; data: ReportData; file: CbFileRow; accounts: CbAccount[]; entries: CbEntry[]; notes: ReviewNote[]; canReview: boolean; editable: boolean;
-  view: "groups" | "accounts"; drill?: string; col?: string; flag: { amount: number; percent: number };
-  lineTax?: Map<string, string | null>;   // piece 6: each GIFI line's default tax code (INCTAX and AMORT lines are never flagged)
+  view: "groups" | "accounts"; drill?: string; col?: string;
   shNames?: Map<string, string>;          // piece 8: the shareholder's name on each shareholder account
   noteStep?: string;                      // piece R1 (workpaper 15): the step a note from the account panel is filed under (the current open step)
 }) {
@@ -40,20 +37,17 @@ export function TbArea({ fileId, data, file, accounts, notes, canReview, editabl
   for (const n of notes) if (n.target_type === "account" && n.status !== "cleared" && n.target_id) openNotes.set(n.target_id, (openNotes.get(n.target_id) ?? 0) + 1);
   // Adjustments split by kind (Options: split adjustments into AJE, RJE and TJE columns).
   const byKind = new Map<string, { aje: number; tje: number }>();
-  for (const p of data.postings) if (p.kind === "entry" && p.entryKind !== "RJE") { const k = byKind.get(p.key) ?? { aje: 0, tje: 0 }; if (p.entryKind === "TJE") k.tje += p.cents; else k.aje += p.cents; byKind.set(p.key, k); }
+  for (const p of data.postings) if (p.kind === "entry" && !p.reclass) { const k = byKind.get(p.key) ?? { aje: 0, tje: 0 }; if (p.entryKind === "TJE") k.tje += p.cents; else k.aje += p.cents; byKind.set(p.key, k); }
   const { groups } = tbByGroup(tb, data.info);
   const groupOf = new Map<string, string>();
   for (const g of groups) for (const r of g.rows) groupOf.set(r.key, g.name);
   const row = (t: TbLine): TbRow => {
     const a = idOf.get(t.key);
     const k = byKind.get(t.key) ?? { aje: 0, tje: 0 };
-    // Piece 6: the flag leaves out this year's tax entries and never applies to INCTAX or AMORT accounts.
-    const taxFree = !!lineTax && NO_FLAG_TAX.includes(a?.tax_code ?? lineTax.get(t.line_no ?? "") ?? "");
-    const isFlag = t.key !== NI_LAST && !noFlagLine(t.line_no) && !taxFree && flagged(t.last / 100, (t.final - (lineTax ? k.tje : 0)) / 100, flag.amount, flag.percent);
     // Piece 8 and R1: the shareholder name on a shareholder account, by its group line (never the GIFI override).
     const sh = isShAccount({ key: t.key, line_no: t.line_no, chart: a?.chart_account ?? null });   // piece R2 (D13): directors by master account too
     return { key: t.key, id: a?.id ?? "", number: t.number, name: t.name, group: groupOf.get(t.key) ?? "", sh, shName: sh ? shNames?.get(t.key) ?? "" : "", prelim: t.prelim, aje: k.aje, tje: k.tje, adjust: t.adjust, reclass: t.reclass,
-      final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), flagged: isFlag, lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
+      final: t.final, last: t.last, diff: t.diff, pct: pctChange(t.final, t.last), lastFrom: reclassNote(a?.last_year_line, t.line_no), notes: a ? openNotes.get(a.id) ?? 0 : 0, reviewer: !!a?.needs_reviewer, drillable: t.key !== NI_LAST };
   };
   const sectionOf = (g: { rows: TbLine[]; code: string }) => {
     if (g.code === NI_LAST) return "Last year";
@@ -96,7 +90,7 @@ function Drill({ fileId, data, tb, drill, col, view }: { fileId: string; data: R
     : kind === "entry" ? entryHref(ref) : kind === "import" ? withBack(`${base}?step=records`) : ref.startsWith("stmt:") ? withBack(`${base}?step=records&account=${ref.slice(5)}`) : withBack(`${base}?step=opening`);
   let body: React.ReactNode;
   if (col === "adjust" || col === "reclass") {
-    const lines = data.postings.filter((p) => p.key === drill && p.kind === "entry" && (col === "reclass" ? p.entryKind === "RJE" : p.entryKind !== "RJE"));
+    const lines = data.postings.filter((p) => p.key === drill && p.kind === "entry" && (col === "reclass" ? !!p.reclass : !p.reclass));
     body = (
       <table className="w-full text-[12.5px]"><thead><tr className="bg-sand-50 text-left text-[11px] text-ink-3"><th className="px-3 py-1.5 font-semibold">Entry</th><th className="px-2 py-1.5 font-semibold">Description</th><th className="px-3 py-1.5 text-right font-semibold">Debit</th><th className="px-3 py-1.5 text-right font-semibold">Credit</th></tr></thead>
         <tbody>{lines.map((p, i) => <tr key={i} className="border-t border-sand-100"><td className="px-3 py-1.5 whitespace-nowrap"><Link href={entryHref(p.ref)} className="text-navy-700 hover:underline">{data.entryLabel.get(p.ref) ?? KIND_LABEL.entry}</Link></td>

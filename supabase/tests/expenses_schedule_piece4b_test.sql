@@ -6,6 +6,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -26,16 +39,19 @@ select test.check('T1: four Dr expense lines 1,473.25, Dr 21500 122.85, Cr 23000
   (select string_agg(format('%s %s %s %s', a.number, l.amount, coalesce(l.tax_code, '-'), l.schedule_part), ', ' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e')
   = '70500 720.00 HST_ON exp_2, 62000 500.00 - exp_4, 65000 200.00 HST_ON exp_1, 21500 122.85 - exp_itc, 60200 53.25 MEALS_HST_50 exp_3, 23000 -1596.10 - exp_due');
 select test.check('T1: what it was is the line description', (select memo from public.cb_entry_lines where entry_id = :'e' and schedule_part = 'exp_3') = 'Client lunch');
-select test.check('T8 lock: Edit refuses a changed schedule amount',
+select test.check('T8: Edit with only the owed line changed is refused as unbalanced (the kept hard stop)',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule')$q$, :'e', replace(:lines, '1596.10', '1500')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'The entry does not balance: it is out by 96.10.');
+select test.check('T8 (CB2-0 review round): no lock: Edit changes a schedule amount on the entry when it balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule')$q$, :'e',
+    replace(replace(:lines, '"amount":500,', '"amount":400,'), '-1596.10', '-1496.10'))) = 'OK');
 select test.check('One schedule per entry: an expenses entry is not put in as a home office schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"expenses"', '"kind":"home_office"'))) = 'This entry holds another schedule.');
-select test.check('the preparer cannot untick the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
+select test.check('the preparer can untick the ITC (CB2-0: anyone with Edit; rolled back here)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Expenses paid personally', false, %L, 'Expenses paid personally schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65000","amount":226,"schedule_part":"exp_1"},{"chart":"23000","amount":-226,"schedule_part":"exp_due"}]',
-    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+    '{"kind":"expenses","itc":false,"inputs":{},"lines":[{"schedule_part":"exp_1","amount":226},{"schedule_part":"exp_due","amount":-226}]}')) = 'OK');
 
 -- T2: a second use on the same file: its own entry and its own schedule.
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Expenses paid personally', false,
@@ -62,7 +78,7 @@ select test.check('T8: the T2 entry deletes with its schedule; T1 stays',
   not exists (select 1 from public.cb_schedules where entry_id = :'e2') and exists (select 1 from public.cb_schedules where entry_id = :'e' and kind = 'expenses'));
 select test.check('History names the Expenses paid personally schedule',
   (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%' and ref_label = '2026-001 AJE')
-  = 'Expenses paid personally schedule created for entry 2026-001 AJE | Expenses paid personally schedule put into entry 2026-001 AJE | Expenses paid personally schedule put into entry 2026-001 AJE | Expenses paid personally schedule 2026-001 AJE printed');
+  = 'Expenses paid personally schedule created for entry 2026-001 AJE | Expenses paid personally schedule saved for entry 2026-001 AJE | Expenses paid personally schedule 2026-001 AJE printed');   -- CB2-0 v7 item 8: one row per save
 select test.check('the deleted entry names its schedule', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Entry 2026-002 AJE deleted with its Expenses paid personally schedule'));
 select test.check('an unknown kind is still refused', test.try($q$insert into public.cb_schedules (file_id, entry_id, kind) values (gen_random_uuid(), gen_random_uuid(), 'boat')$q$) like '%cb_schedules_kind_check%');
 select test.check('step 5 problems say nothing about expenses paid personally',

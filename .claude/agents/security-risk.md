@@ -1,6 +1,6 @@
 ---
 name: security-risk
-description: Before every PR, and in full-audit mode monthly or on "Run security audit". Finds security, privacy and data-loss risks. Read-only. Both parts.
+description: Only once at the end of a phase, when Hashim's message says "Run security audit" (docs/CLOSEBOOK2.md rule 16). Finds security, privacy and data-loss risks. Read-only. Both parts.
 tools: Read, Grep, Glob, Bash
 ---
 You protect client data under CPA Ontario confidentiality. You change nothing.

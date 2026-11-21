@@ -26,13 +26,14 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
       {revenueBox && <div className="mt-4">{revenueBox}</div>}
     </section>
   );
-  const href = (p: number, l: Line) => `/closebook/${fileId}?step=t2&gst=${p}&line=${l}#gst-drill`;
+  const href = (p: number, l: Line) => `/closebook/${fileId}?step=t2&paper=gst&gst=${p}&line=${l}#gst-drill`;
   const prep = new Map(g.prepared.map((r) => [r.period_no, r]));
   const allPrepared = g.periods.every((p) => prep.has(p.n)) && g.changed.length === 0;
   const c = g.check, row = g.checkRow;
-  const over = Math.abs(c.diffCents) > g.threshold * 100;
-  const status = c.diffCents === 0 ? chip(true, "Ties", "") : over ? (row?.accepted_at && Math.round(row.diff * 100) === c.diffCents ? chip(true, "Accepted by the reviewer", "") : chip(false, "", "Over the review threshold: the reviewer decides"))
-    : (row?.note && Math.round(row.diff * 100) === c.diffCents ? chip(true, "Explained", "") : chip(false, "", "To explain, or fix with an entry"));
+  // CB2-0 step 5 (rule 7): no review threshold. Any difference is explained in one line, accepted by the reviewer, or fixed.
+  const same = (d: number | undefined) => d !== undefined && Math.round(d * 100) === c.diffCents;
+  const status = c.diffCents === 0 ? chip(true, "Ties", "") : row?.accepted_at && same(row.diff) ? chip(true, "Accepted by the reviewer", "")
+    : row?.note && same(row.diff) ? chip(true, "Explained", "") : chip(false, "", "To explain, or fix with an entry");
   const problems = g.returns.flatMap((r) => r.problems).filter((x, i, a) => a.indexOf(x) === i);
   const d = drill ? g.returns.find((r) => r.period.n === drill.period) : null;
   const items = d && drill ? d.drill[drill.line] ?? [] : [];
@@ -73,7 +74,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-medium">Line {drill.line}, {LINE_NAMES.find(([k]) => k === drill.line)?.[1]}: {d.period.label} ({items.length} posting{items.length === 1 ? "" : "s"})
               {g.quick && drill.line === "103" && <span className="block text-sm font-normal">{d.rateUsed ? `${d.rateUsed}, applied to line 101.` : "No approved quick method rate: line 103 is not worked out."}</span>}</p>
-            <Link href={`/closebook/${fileId}?step=t2#gst`} className="text-sm text-navy-700 underline">Close</Link>
+            <Link href={`/closebook/${fileId}?step=t2&paper=gst#gst`} className="text-sm text-navy-700 underline">Close</Link>
           </div>
           <table className="table table-compact mt-2">
             <thead><tr><th>Date</th><th>Source</th><th>Description</th><th>Account</th><th>Code</th><th className="text-right">{g.quick && (drill.line === "101" || drill.line === "103") ? "Sale with tax" : "Amount before tax"}</th><th className="text-right">GST/HST</th></tr></thead>
@@ -119,7 +120,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           </form>
         </div>
       )}
-      {canReview && editable && over && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
+      {canReview && editable && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
         <form action={acceptGstCheck} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="file_id" value={fileId} />
           <input name="why" required minLength={3} maxLength={300} placeholder="Why the difference is accepted" className="input input-compact" style={{ width: "24rem" }} aria-label="Reason" />
@@ -135,9 +136,9 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           <table className="table table-compact mt-2"><thead><tr><th>Date</th><th>Entry</th><th className="text-right">Into 21500</th><th>Instalment?</th><th /></tr></thead>
             <tbody>{g.candidates.map((x) => (
               <tr key={x.ref}><td className="whitespace-nowrap">{formatDate(x.date)}</td><td>{x.label}</td><td className="text-right tabular-nums">{m(x.cents)}</td>
-                <td>{x.confirmed ? chip(true, "Counted on line 110", "") : <span className="text-xs text-ink-3">Not counted</span>}</td>
+                <td className="whitespace-nowrap">{x.confirmed ? chip(true, "Counted on line 110", "") : <span className="text-xs text-ink-3">Not counted</span>}</td>
                 <td>{editable && <form action={confirmGstEntry}><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="entry" value={x.ref} />
-                  <input type="hidden" name="yes" value={x.confirmed ? "no" : "yes"} /><button className="btn-secondary btn-compact">{x.confirmed ? "Leave out" : "Count as an instalment"}</button></form>}</td></tr>
+                  <input type="hidden" name="yes" value={x.confirmed ? "no" : "yes"} /><button className="btn-secondary btn-compact whitespace-nowrap">{x.confirmed ? "Leave out" : "Count as an instalment"}</button></form>}</td></tr>
             ))}</tbody></table>
         </div>
       )}
@@ -154,7 +155,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
             ))}
           </div>
           <p className="text-xs text-ink-2">Confirm them against the CRA account.</p>
-          {c.diffCents !== 0 && !over && (
+          {c.diffCents !== 0 && (
             <label><span className="label">Explain the difference with 21500 in one line (or fix it with an entry in step 5)</span>
               <input name="note" className="input" maxLength={300} defaultValue={row?.note ?? ""} style={{ width: "40rem", maxWidth: "100%" }} /></label>
           )}

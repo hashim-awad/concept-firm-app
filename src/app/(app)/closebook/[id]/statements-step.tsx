@@ -31,8 +31,10 @@ export function StatementsStep({ fileId, pk, editable, canReview, siteUrl, paper
   return (
     <div className="grid gap-3.5">
       {pk.blocked.length > 0 && <ul role="alert" className="text-[12.5px] text-danger">{pk.blocked.map((b) => <li key={b}>Stopped: {b}</li>)}</ul>}
+      {/* CB2-0 step 4: what is still open is a warning; the documents build and the MAL can be sent. */}
+      {pk.warnings.length > 0 && <ul className="text-[12.5px] text-warning" data-warnings>{pk.warnings.map((b) => <li key={b}>{b}</li>)}</ul>}
       {mal.mal_withdrawn_at && !mal.mal_quote_id && (
-        <p role="alert" className="text-[12.5px] text-warning"><b>MAL withdrawn</b> {when(mal.mal_withdrawn_at)}: {mal.mal_withdrawn_why}. Sign step 9 again before a new MAL.</p>
+        <p role="alert" className="text-[12.5px] text-warning"><b>MAL withdrawn</b> {when(mal.mal_withdrawn_at)}: {mal.mal_withdrawn_why}.</p>
       )}
 
       {show("package") && <>
@@ -148,14 +150,12 @@ export function StatementsStep({ fileId, pk, editable, canReview, siteUrl, paper
               <CopyButton text={link} label="Copy signing link" />
             </div>
           </div>
-        ) : !pk.reviewed ? (
-          <p className="text-[12.5px] text-ink-3">After the reviewer signs step 9.</p>
         ) : editable ? (
           <form action={sendMal} className="flex flex-wrap items-center gap-3">
             <input type="hidden" name="file_id" value={fileId} />
-            <button className="btn btn-compact" disabled={pk.blocked.length > 0 || notYet}>Send the MAL for signing</button>
-            {notYet && <span role="alert" className="text-[12.5px] text-danger">Not yet: from {longDate(dayAfter)}.</span>}
-            {!notYet && <span className="text-xs text-ink-3">To {f.officer_name || "the signing officer"} ({f.officer_email || "no email"})</span>}
+            <button className="btn btn-compact" disabled={pk.blocked.length > 0}>Send the MAL for signing</button>
+            <span className="text-xs text-ink-3">To {f.officer_name || "the signing officer"} ({f.officer_email || "no email"})</span>
+            {(notYet || !pk.reviewed) && <span className="text-[12.5px] text-warning">{[notYet && `The year ends ${longDate(ye)}.`, !pk.reviewed && "Step 9 is not reviewed yet."].filter(Boolean).join(" ")}</span>}
           </form>
         ) : null}
         </div>

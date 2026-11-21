@@ -1,0 +1,25 @@
+[
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "explanation": "Second commission statement from the old brokerage not received yet.",
+  "gst_explanation": "The amended return includes a 500.00 deal from next year.",
+  "t4a_explanation": "The T4A covers both halves of the year; the statement covers the first half.",
+  "t4a_none": false,
+  "accepted_by": null,
+  "accepted_at": null,
+  "accepted_diff": null,
+  "updated_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "updated_at": "2026-11-14T03:27:44.587377+00:00",
+  "explained_diff": 7000,
+  "gst_explained_diff": -500,
+  "t4a_explained_diff": -6750,
+  "gst_accepted_by": null,
+  "gst_accepted_at": null,
+  "gst_accepted_diff": null,
+  "t4a_accepted_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "t4a_accepted_at": "2026-11-14T03:27:45.294373+00:00",
+  "t4a_accepted_diff": -6750,
+  "added_at": null,
+  "added_by": null
+ }
+]

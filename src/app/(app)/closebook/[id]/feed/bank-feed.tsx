@@ -21,7 +21,7 @@ import { NotifyWindow } from "./notify-window";
 import { addSavedQuestion, askQuestions, deleteQuestion, editQuestion, getThreads, moveQuestionToNote, removeSavedQuestion, savedQuestions } from "../../question-actions";
 import {
   attachReceipt, clearSplits, excludeLines, excludedReviewed, exportList, fillLines, getLines, pairChoice, postLines, receiptUrl, reorderRules, restoreLines,
-  ruleAction, saveRule, saveSplits, setDate, setMemo, unpostLines,
+  recodeLines, ruleAction, saveRule, saveSplits, setDate, setMemo, unpostLines,
 } from "../../feed-actions";
 
 type Tab = "pending" | "posted" | "excluded";
@@ -389,6 +389,14 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
     </>
   );
 
+  // CB2-0 step 4: change a posted line in place (not a transfer, a split or an outstanding item).
+  const changeable = (l: FeedLine) => !l.transfer && !l.transfer_account && !l.is_split && l.source !== "outstanding" && l.source !== "transfer";
+  const changePosted = async (l: FeedLine, account: string, tax: string) => {
+    if (!tax) { fail("Choose a sales tax code."); return; }
+    const r = await recodeLines(data.fileId, [{ id: l.id, account, tax }]);
+    if (!r.ok) { fail(r.error); return; }
+    await refresh([l.id]); notify("Changed");
+  };
   const rowCtx = makeCtx({ views, outOf, cols, itcOf, accShort, a, accById, accountText, ticked, focus, editable, toggle, setPop, data, splits, setWin, fill, post: (ids) => post(ids),
     fromRow, fail, setChoices, setLines, accounts, attach, threads, openQ, openRow, setOpenRow });
   const th = "px-2 py-2 text-left text-[12px] font-semibold tracking-[.04em] text-ink-3 uppercase";
@@ -480,10 +488,17 @@ export function BankFeed({ data, editable, isReviewer, initialAccount, focusLine
                     <td className="px-2 tabular-nums">{formatDate(l.acct_date)}</td><td className="truncate px-2" title={l.description}>{l.description}</td>
                     <td className="px-2 text-right tabular-nums">{out ? money(l.cents) : ""}</td><td className="px-2 text-right tabular-nums">{out ? "" : money(l.cents)}</td>
                     <td className="px-1 text-center">{(threads[l.id]?.length ?? 0) > 0 && <QIcon id={l.id} status={l.q_status ?? ""} thread={threads[l.id] ?? []} onOpen={(el) => openQ(l.id, el)} />}</td>
+                    {/* CB2-0 step 4: a coded line changes in place (account, sales tax); History keeps the old coding. */}
+                    {editable && changeable(l) ? <>
+                      <td className="px-1.5"><TaxSelect codes={data.codes} value={l.tax_code ?? ""} label={`Sales tax for ${l.description}`}
+                        onChange={(t) => { if (t && l.chart_account) void changePosted(l, l.chart_account, t); }} /></td>
+                      <td className="px-1.5"><AccountPicker chart={data.chart} banks={[]} out={out} ownAccount={l.account_id} label={accountText(l)}
+                        onPick={(pk) => { if ("account" in pk) void changePosted(l, pk.account, l.tax_code ?? data.defaultTax[pk.account] ?? ""); }} /></td>
+                    </> : <>
                     <td className="truncate px-2" title={taxName(l)}>{taxName(l)}</td>
                     <td className="truncate px-2" title={`${accountText(l)}${l.reviewer_reason ? `\nFor the reviewer: ${l.reviewer_reason}` : ""}`}>{l.transfer && <span className="mr-1.5 rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">PAIR</span>}
                       {!l.transfer && (l.source === "rule" || l.source === "auto") && <span title={rules.find((r) => r.id === l.rule_id)?.name ?? "Bank rule"} className="mr-1.5 rounded bg-sand-200 px-1.5 py-0.5 text-[11px] font-bold text-ink-2">RULE</span>}
-                      {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <a href={`/closebook/${data.fileId}?step=review&line=${l.id}`} title="Open in step 7, Review" data-reviewer-badge className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning hover:underline">For the reviewer</a>}</td>
+                      {l.transfer ? accountText(l).replace(/^PAIR · /, "") : accountText(l)}{l.status === "reviewer" && <a href={`/closebook/${data.fileId}?step=review&line=${l.id}`} title="Open in step 7, Review" data-reviewer-badge className="ml-1.5 rounded bg-warning-soft px-1.5 py-0.5 text-[11px] font-semibold text-warning hover:underline">For the reviewer</a>}</td></>}
                     <td className="px-2 text-[12px] font-semibold text-ink-2">{postedBy(l)}</td>
                     <td className="px-2 text-right">{editable && l.source !== "outstanding" && <button type="button" className="font-semibold text-navy-700 hover:underline" onClick={() => unpost([l.id])}>Undo</button>}</td>
                   </tr>);

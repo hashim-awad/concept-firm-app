@@ -36,8 +36,11 @@ set role authenticated;
 -- ---------- 3.1 Bank accounts & T2 tie-out
 select test.check('3.1 with no account: add the accounts', test.sp(:'f', '3.1') = array['Add the bank and card accounts.']::text);
 select public.cb_save_bank_account(:'f', null, 'chequing', 'RBC', '2468', 514.40, false, false) as chq \gset
-select test.check('H7: 514.40 against the T2''s 512: too much, 3.1 cannot be signed',
-  test.try(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'f')) = 'Not yet: GIFI 1002: the accounts total 514.40, last year''s T2 has 512.00 (2.40 too much).');
+select test.check('H7: 514.40 against the T2''s 512: too much is listed on 3.1',
+  test.sp(:'f', '3.1') = array['GIFI 1002: the accounts total 514.40, last year''s T2 has 512.00 (2.40 too much).']::text);
+select test.check('H7: 3.1 can still be signed (CB2-0: a warning, not a stop)',
+  test.try(format($q$select public.cb_sign_substep(%L, '3.1', 'prepared')$q$, :'f')) = 'OK');
+select public.cb_unsign_substep(:'f', '3.1', 'prepared');   -- the preparer takes their own sign-off back to fix the balance
 select public.cb_save_bank_account(:'f', :'chq', 'chequing', 'RBC', '2468', 511.00, false, false);
 select test.check('below the T2 by 1.00 or more: to add', test.sp(:'f', '3.1') like '%(1.00 to add)%');
 select public.cb_save_bank_account(:'f', :'chq', 'chequing', 'RBC', '2468', 512.40, false, false);
@@ -65,7 +68,8 @@ select public.cb_sign_substep(:'f', '3.2', 'prepared');
 
 -- ---------- 3.3 Reconcile
 select test.check('H10: the start of the year differs from the bank by 750.00: explain it', test.sp(:'f', '3.3') = array['10000 Chequing · RBC ••• 2468: the start of the year differs from the bank by (750.00). Explain it.']::text);
-select test.check('3.3 cannot be signed yet', test.try(format($q$select public.cb_sign_substep(%L, '3.3', 'prepared')$q$, :'f')) like 'Not yet: %Explain it.');
+select test.check('3.3 can be signed with the difference open (CB2-0: a warning, not a stop)', test.try(format($q$select public.cb_sign_substep(%L, '3.3', 'prepared')$q$, :'f')) = 'OK');
+select public.cb_unsign_substep(:'f', '3.3', 'prepared');   -- the preparer takes their own sign-off back to explain it
 select id as l121 from public.cb_bank_lines where account_id = :'chq' and txn_date = '2025-09-09' \gset
 select public.cb_add_outstanding(:'chq', 'start', '2025-08-28', 'Cheque #121', 'out', 750, :'l121') as item \gset
 select test.check('H10: the Sep 9 line posts nothing; DIFFERENCE 0.00; 3.3 has nothing to do', (select status = 'matched' and source = 'outstanding' from public.cb_bank_lines where id = :'l121')
@@ -79,11 +83,11 @@ select public.cb_sign_substep(:'f', '3.3', 'reviewed');
 select test.check('all three reviewed: step 3 is reviewed', (select reviewed_at is not null from public.cb_step_signoffs where file_id = :'f' and step = 'records'));
 select test.check('cb_substep_status shows each sub-step', (public.cb_substep_status(:'f') -> '3.2' ->> 'reviewed_by') = '00000000-0000-0000-0000-00000000000a');
 
--- A change saved after sign-off clears the sign-off: an outstanding item clears 3.3 (and step 3), not 3.1 or 3.2.
+-- CB2-0 step 2: a change saved after sign-off keeps every sign-off; History has it.
 select public.cb_remove_outstanding(:'item');
-select test.check('an outstanding item changed: 3.3 and step 3 cleared, 3.1 and 3.2 kept',
-  (select array_agg(substep order by substep) from public.cb_substep_signoffs where file_id = :'f') = array['3.1', '3.2']
-  and not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records'));
+select test.check('an outstanding item changed: 3.1, 3.2, 3.3 and step 3 all kept',
+  (select array_agg(substep order by substep) from public.cb_substep_signoffs where file_id = :'f') = array['3.1', '3.2', '3.3']
+  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'records' and reviewed_at is not null));
 select public.cb_add_outstanding(:'chq', 'start', '2025-08-28', 'Cheque #121', 'out', 750, :'l121') as item \gset
 
 -- ---------- H11: delete a statement after its lines are coded
@@ -98,9 +102,9 @@ select test.check('H11 (round 24): excluding it is refused while its line is cod
   and jsonb_array_length(:'ex'::jsonb -> 'blockers') = 1 and (:'ex'::jsonb -> 'blockers' -> 0 ->> 'kind') = 'coded');
 select public.cb_uncode_lines(:'f', array(select id from public.cb_bank_lines where statement_id = :'mar' and status <> 'new'));
 select (public.cb_exclude_statement(:'mar', 'wrong_period', '', true) ->> 'ok') as ok \gset
-select test.check('H11: after the uncode it is excluded; its lines leave the feed; 3.2 clears and shows March missing', :'ok' = 'true'
+select test.check('H11: after the uncode it is excluded; its lines leave the feed; 3.2 shows March missing and keeps its sign-off (CB2-0)', :'ok' = 'true'
   and not exists (select 1 from public.cb_bank_lines where statement_id = :'mar') and test.sp(:'f', '3.2') = array['10000 Chequing · RBC ••• 2468: 1 missing.']::text
-  and not exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.2'));
+  and exists (select 1 from public.cb_substep_signoffs where file_id = :'f' and substep = '3.2'));
 
 -- ---------- H9: one CSV for the whole year, on a second account
 -- Round 25: 3.1 is signed: adding an account asks first; Continue.

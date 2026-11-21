@@ -1,0 +1,322 @@
+[
+ {
+  "id": "04ddb32e-c7a8-480a-8312-abc7d9c85b2f",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "30b28d5c-7116-465c-9839-8caaeb880432",
+  "amount": -7275.56,
+  "memo": "Expenses paid personally, owed to the owner",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "05e3f6ce-c0a8-4f6f-ad00-bf01ad239b5f",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "13962aec-4b4d-4cd5-b59c-8570f13843ba",
+  "amount": 985.76,
+  "memo": "Legal fees",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "1be6a3d3-1c82-4ae4-bfdf-fcc0c4c35712",
+  "entry_id": "dcd66a6e-3b86-4152-a8be-62a2a69d6e72",
+  "account_id": "2d566c39-9bbb-491a-9295-f0dabbe36b74",
+  "amount": -45911.05,
+  "memo": "Reclass Shareholder account",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "3b087a8f-8d17-4e5c-979d-91ad9d0dafed",
+  "entry_id": "b2b3a8f5-f2b1-4c60-a5be-1b87b226899f",
+  "account_id": "a1ce5b09-50f2-438a-85f1-e24fe9d7aba7",
+  "amount": -3049.87,
+  "memo": "",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "42db9e91-0af3-4f86-8411-6dbe748e80fa",
+  "entry_id": "b2b3a8f5-f2b1-4c60-a5be-1b87b226899f",
+  "account_id": "4d55a2fa-1cc5-4d3a-97a0-775cbf5a32e2",
+  "amount": 350.87,
+  "memo": "Sales tax",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "505b848d-ce23-4226-a786-ce889aeb741a",
+  "entry_id": "fb6992c9-f174-44a5-8558-5e040b2f2b42",
+  "account_id": "7b5fdc4f-f024-4713-9770-feb4802d894f",
+  "amount": 4050.51,
+  "memo": "Home office, business share 15.38%",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "5105befa-ab81-4327-98ee-ba0591c1c637",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "eea4fe40-e4c4-44db-8f6c-5783ec17b679",
+  "amount": -670.08,
+  "memo": "Car costs the company paid",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "52f80033-9bc4-4d9e-bacf-0a3994e06739",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "9f640454-1a34-411c-883e-dff6e3e73246",
+  "amount": 70.61,
+  "memo": "Postage, courier and freight",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "531ab015-ef82-45f8-9889-7ffe12db2ef3",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "eea4fe40-e4c4-44db-8f6c-5783ec17b679",
+  "amount": 18424.78,
+  "memo": "Per-km allowance",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "58a2d4e0-325f-4289-8488-4fc429c256c4",
+  "entry_id": "fb6992c9-f174-44a5-8558-5e040b2f2b42",
+  "account_id": "30b28d5c-7116-465c-9839-8caaeb880432",
+  "amount": -4113.52,
+  "memo": "Home office costs owed to the owner",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "5f8d2863-b9ca-4dd8-bda2-6c41eb9ef18f",
+  "entry_id": "fb6992c9-f174-44a5-8558-5e040b2f2b42",
+  "account_id": "4d55a2fa-1cc5-4d3a-97a0-775cbf5a32e2",
+  "amount": 63.01,
+  "memo": "ITC on the business share",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "6c56abed-1a60-4a4a-ad5a-f1e386fddf95",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "30b28d5c-7116-465c-9839-8caaeb880432",
+  "amount": 757.23,
+  "memo": "Car costs the company paid: the owner's",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "71452c6a-0a38-4e6b-95f1-3d8b22e17146",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "ef6a7af5-1ef1-4a3a-a013-1dd2c1f0298e",
+  "amount": 16.51,
+  "memo": "Telephone",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "716a44da-9f3d-415c-99c3-58d54d6726f8",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "42cdd110-92a3-4e22-9cbd-25119d1fa0ba",
+  "amount": 184.8,
+  "memo": "Client Gift",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "7bb899d4-fb22-497c-b3a2-27317afaaf0c",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "7c5d54ec-8bda-4d10-aec5-025ed0723338",
+  "amount": 324.58,
+  "memo": "Office supplies",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "7bcb4598-c298-40ea-9236-1ae64b134ce1",
+  "entry_id": "f4227fa3-d03a-4d48-80de-ddb8fc3eb39e",
+  "account_id": "fa8ebb07-6994-40c9-b456-4472f171a215",
+  "amount": 50,
+  "memo": "FYE 2026-08-31 CCA",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "7e044d4d-023f-43a2-99a8-695b82f738ab",
+  "entry_id": "b2b3a8f5-f2b1-4c60-a5be-1b87b226899f",
+  "account_id": "97854804-ddf7-45d6-9395-f3d9764bf1f0",
+  "amount": 2699,
+  "memo": "",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "88634fe1-cd1a-4dc5-9773-3f6b39e4fc53",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "9611580f-4679-41f8-a9dd-bc6bf60e88ad",
+  "amount": 15.42,
+  "memo": "Training and education",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "8daca842-4b14-4c80-8d7a-4f2b0e4abea6",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "30b28d5c-7116-465c-9839-8caaeb880432",
+  "amount": -20820,
+  "memo": "Per-km allowance owed to the owner",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "91c117f7-fa14-4970-bc28-eca5842ae9b2",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "0c58425d-972a-4d85-a02d-35f2a7193855",
+  "amount": 1271.46,
+  "memo": "Meal with HST",
+  "tax_code": "MEALS_HST_50",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "a1c033fd-5197-4680-ab35-12cd1ed89945",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "4d55a2fa-1cc5-4d3a-97a0-775cbf5a32e2",
+  "amount": 524.41,
+  "memo": "ITC on the business share",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "ac93d170-78d1-4a68-9692-12030a0962b1",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "29aba290-3d0e-47b9-af8e-63de430fdb46",
+  "amount": 3025.87,
+  "memo": "Travel",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "b025e689-9334-4104-995d-1884bc22a6c8",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "eea4fe40-e4c4-44db-8f6c-5783ec17b679",
+  "amount": 180.02,
+  "memo": "Vehicle expenses",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "b7edd134-5371-44d8-b432-a1ed4f39d1c1",
+  "entry_id": "f4227fa3-d03a-4d48-80de-ddb8fc3eb39e",
+  "account_id": "915250f2-55a1-4507-867a-43adfc716d98",
+  "amount": -3,
+  "memo": "FYE 2026-08-31 CCA",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "b90a19cc-8a99-4113-85eb-6cd3a2b0c9a8",
+  "entry_id": "f4227fa3-d03a-4d48-80de-ddb8fc3eb39e",
+  "account_id": "5e83d2aa-afe5-4c16-95dc-032a2b09ab26",
+  "amount": -36,
+  "memo": "FYE 2026-08-31 CCA",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "bf32e8ab-225d-49c3-91b8-00042725c8d5",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "4d55a2fa-1cc5-4d3a-97a0-775cbf5a32e2",
+  "amount": 2395.22,
+  "memo": "ITC on the per-km allowance",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ },
+ {
+  "id": "c2587d59-02b0-4794-bd4d-047c0248b03d",
+  "entry_id": "dcd66a6e-3b86-4152-a8be-62a2a69d6e72",
+  "account_id": "efee56d1-6cb1-4d8d-b055-d0f4d5f740e9",
+  "amount": -31451.85,
+  "memo": "Reclass Shareholder account",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "c405d99d-1773-4d93-9fe9-f9d1b7a89037",
+  "entry_id": "36bd91e3-7133-4c66-913d-974f474fe5c9",
+  "account_id": "ea1689ff-e6c7-47e3-b69f-21bd550e0fa0",
+  "amount": 676.12,
+  "memo": "Purchases and materials",
+  "tax_code": "HST_ON",
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "c5aa3074-a3ef-4be5-9387-223a6e163ad0",
+  "entry_id": "dcd66a6e-3b86-4152-a8be-62a2a69d6e72",
+  "account_id": "30b28d5c-7116-465c-9839-8caaeb880432",
+  "amount": 31451.85,
+  "memo": "Reclass Shareholder account",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "d493ee90-3626-448e-9d5c-cf190d57b7bb",
+  "entry_id": "dcd66a6e-3b86-4152-a8be-62a2a69d6e72",
+  "account_id": "efee56d1-6cb1-4d8d-b055-d0f4d5f740e9",
+  "amount": 45911.05,
+  "memo": "Reclass Shareholder account",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "d75b7e8f-61c3-40d8-a463-fe5c29f4b1ec",
+  "entry_id": "f4227fa3-d03a-4d48-80de-ddb8fc3eb39e",
+  "account_id": "53091b78-423b-4140-a8b1-984710978ab7",
+  "amount": -11,
+  "memo": "FYE 2026-08-31 CCA",
+  "tax_code": null,
+  "is_tax": false,
+  "schedule_part": null
+ },
+ {
+  "id": "eb95a1b4-63c0-459e-804c-8b5a28c1bf59",
+  "entry_id": "5c72e998-373d-4bd3-b97a-39e5eb51d45a",
+  "account_id": "4d55a2fa-1cc5-4d3a-97a0-775cbf5a32e2",
+  "amount": -87.15,
+  "memo": "GST/HST on car costs the company paid",
+  "tax_code": null,
+  "is_tax": true,
+  "schedule_part": null
+ }
+]

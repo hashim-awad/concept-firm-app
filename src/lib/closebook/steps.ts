@@ -127,7 +127,7 @@ export function fileSteps(f: StepFacts): { steps: Step[]; current: StepKey; next
       : f.unmatched ? `Assign ${s(f.unmatched, "account")} with a balance to the master chart.` : "Every account with a balance is assigned: sign step 4.",
     entries: "Finish the checks and post the year-end entries.",
     review: `Review by ${f.people.reviewer}: work through the list below, answer the completion checklist, then sign step 7.`,
-    compare: "Explain the flagged changes, confirm the new accounts, tick Seen and answer the questions, then sign off.",
+    compare: "Look over every line's change, confirm the new accounts, tick Seen and answer the questions, then sign off.",
     t2: "Export the GIFI file, import it into ProFile, then tie out the T2.",
     statements: "Send the management acknowledgement (MAL) for signature.",
     lock: "Send the package to the client and lock the file.",

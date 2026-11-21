@@ -2,7 +2,7 @@
 // the revenue on the year's GST/HST returns, moved here from step 5's revenue check. Same style as the 21500 box above
 // it. The figures are where they were saved: a file whose return is built in Closebook takes the return's revenue
 // (round 13); otherwise the preparer types the returns' total and attaches them. A difference is explained in one
-// line; over the review threshold the reviewer accepts it. Step 8's sign-off needs it done on a registrant's full file.
+// line (CB2-0 step 5: no review threshold; nothing waits for the reviewer). Step 8's sign-off needs it done on a registrant's full file.
 import { formatDate } from "@/lib/dates";
 import type { RevenueSource, RevenueState } from "@/lib/closebook/expenses-server";
 import { acceptRevenueDifference, addRevenueSource, removeRevenueSource, saveGstRevenueNote } from "../round9-actions";
@@ -21,11 +21,10 @@ export function GstRevenueBox({ fileId, st, sources, editable, canReview, names,
   const gst = sources.filter((x) => x.kind === "gst_returns");
   const has = st.n_gst > 0;
   const books = fromReturn ? st.tb_gst ?? st.tb : st.tb;
-  const accepted = !st.gst_waiting && !!st.gst_accepted_by && st.gst_accepted_diff === st.gst_diff && Math.abs(st.gst_diff) > st.threshold;
+  const accepted = !st.gst_waiting && !!st.gst_accepted_by && st.gst_accepted_diff === st.gst_diff && st.gst_diff !== 0;
   const status = !has ? chip(false, fromReturn ? "Prepare the return" : "Not entered")
     : st.gst_diff === 0 ? chip(true, "Ties")
     : accepted ? chip(true, "Accepted by the reviewer")
-    : st.gst_waiting && st.gst_explained ? chip(false, "Over the review threshold: the reviewer decides")
     : st.gst_explained ? chip(true, "Explained")
     : chip(false, "To explain");
   const hidden = <><input type="hidden" name="file_id" value={fileId} /><input type="hidden" name="back" value={back} /></>;
@@ -47,7 +46,7 @@ export function GstRevenueBox({ fileId, st, sources, editable, canReview, names,
         ))}
         <tr className="border-t border-ink font-semibold"><td className={cell}>Difference</td><td className={`${cell} text-right tabular-nums`}>{has ? m(st.gst_diff) : "–"}</td></tr>
       </tbody></table>
-      {st.gst_explanation && <p className="px-3 py-1.5 text-xs">Note: {st.gst_explanation}{st.gst_explained_diff !== null && st.gst_explained_diff !== st.gst_diff && <span className="text-danger"> (written for {bracketAmount(Math.round(st.gst_explained_diff * 100))}: explain again)</span>}</p>}
+      {st.gst_explanation && <p className="px-3 py-1.5 text-xs">Note: {st.gst_explanation}{st.gst_explained_diff !== null && st.gst_explained_diff !== st.gst_diff && <span className="block text-ink-2">Written for a difference of {bracketAmount(Math.round(st.gst_explained_diff * 100))}. Update it if the difference changed.</span>}</p>}
       {accepted && <p className="px-3 py-1.5 text-xs">Accepted by {names.get(st.gst_accepted_by ?? "") ?? "the reviewer"}, {formatDate(st.gst_accepted_at)}.</p>}
       {editable && (!fromReturn || (has && st.gst_diff !== 0) || (canReview && st.gst_waiting && st.gst_explained)) && (
         <div className="grid gap-2 border-t border-sand-200 px-3 py-2">

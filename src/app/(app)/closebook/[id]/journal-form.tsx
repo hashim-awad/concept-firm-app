@@ -38,10 +38,10 @@ const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Ca
 
 export type JournalInit = { head?: Partial<FormHead>; lines?: FormLine[]; std?: string; seq?: string; date?: string; balanceLast?: boolean };
 
-export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, threshold, qboTypes,
+export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, clientList, opts, gifiLines, codes, ctx, standard, qboTypes,
   init = {}, lock = {}, origin, edit, closeHref, backHref, problem, keptAttachments = [], vehicle, home, expenses, schedKind, openSchedule = false, printHref = "" }: {
   fileId: string; title: string; nextSeq: string; yearStart: string; yearEnd: string; clientList: boolean; opts: AcctOpt[]; gifiLines: [string, string, string, string?][];
-  codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; qboTypes: string[];
+  codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; qboTypes: string[];
   init?: JournalInit; lock?: { kind?: boolean; wp?: boolean }; origin?: string; edit?: string;
   closeHref: string; backHref: string; problem?: string | null; keptAttachments?: string[];
   // Piece 3: the Vehicle schedule (every full file); printHref once the entry is saved.
@@ -135,7 +135,6 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const [first] = useState(snap);
   useUnsavedGuard(snap !== first, { form: () => formRef.current,
     save: () => { if (ok) formRef.current?.requestSubmit(saveRef.current); return false; } });
-  const stdCents = parseAmount(stdAmount) ?? 0;
   const fld = "grid gap-1 text-[11.5px] font-semibold text-ink-2";
   const box = "input input-compact text-[13px] font-normal text-ink";
 
@@ -170,7 +169,6 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
         {(s0 || ctx.registered) && (
           <div className="flex flex-wrap items-end gap-4">
             {s0 && <label className={fld}>Total, including any tax<input value={stdAmount} inputMode="decimal" onChange={(e) => setAmount(e.target.value)} onBlur={(e) => setAmount(tidyAmount(e.target.value))} className={`${box} w-40 text-right tabular-nums ${amountTone(stdAmount)}`} /></label>}
-            {s0 && stdAmount && <span className="pb-1.5 text-[12px] text-ink-3">{stdCents > threshold * 100 ? `Over ${formatAmount(threshold * 100)}: on the reviewer's list in step 7` : "Under the review threshold"}</span>}
             <span className="flex-1" />
             {ctx.registered && !s0 && !hasSched && <label className={`${fld} w-52`}>Amounts are<select value={head.inclusive ? "inc" : "exc"} onChange={(e) => setHead({ ...head, inclusive: e.target.value === "inc" })} className={box}>
               <option value="exc">Before tax</option><option value="inc">Including tax</option></select></label>}
@@ -243,7 +241,10 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <Attachments kept={keptAttachments} />
-          <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
+          <span className="grid gap-1">
+            <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reclass ?? head.kind === "RJE"} onChange={(e) => setHead({ ...head, reclass: e.target.checked })} className="h-4 w-4" data-reclass />Reclass entry</label>
+            <label className="flex items-center gap-2 pt-1 text-[13px]"><input type="checkbox" checked={head.reverse} onChange={(e) => setHead({ ...head, reverse: e.target.checked })} className="h-4 w-4" />Reverse on the first day of next year</label>
+          </span>
         </div>
       </div>
 

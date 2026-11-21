@@ -1,12 +1,12 @@
 "use client";
 // Round 15: the trial balance table, as CaseWare Cloud's Data page. One toolbar of dropdowns: Columns
 // (show, hide, pin), Options (suppress zero balances, accounts on or off, split adjustments into AJE and
-// TJE), Filters (amount range, flagged, with notes), Collapse all, Search (highlights as you type) and
+// TJE), Filters (amount range, with the reviewer, with notes), Collapse all, Search (highlights as you type) and
 // one export icon. Groups are blue rows with their totals; the group of the first visible row stays at
 // the top while scrolling. "Out of balance" shows only when it is.
 // Piece UI1 (Hashim, Nov 20, 2026; closebook specialist items 7 to 11): rows 28 px, 24 px with Compact; the table scrolls in
 // its own box so the headings stay on top and No. and Account stay at the left; "Change from prior" over $ and %; negative
-// % in brackets; a folded group keeps its totals; "Flagged" in words (dark amber); the footer names the column that is out.
+// % in brackets; a folded group keeps its totals; no year-over-year flag (CB2-0, rule 7); the footer names the column that is out.
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Download, Flag, MessageSquare, Plus, Search } from "lucide-react";
@@ -20,7 +20,7 @@ import { pctChange } from "@/lib/closebook/reports";
 
 // Piece R1: no GIFI on the Trial balance tab; group, sh and shName feed the account panel (mock N).
 export type TbRow = { key: string; id: string; number: string; name: string; group: string; sh: boolean; shName: string; prelim: number; aje: number; tje: number; adjust: number; reclass: number;
-  final: number; last: number; diff: number; pct: string; flagged: boolean; notes: number; reviewer: boolean; drillable: boolean;
+  final: number; last: number; diff: number; pct: string; notes: number; reviewer: boolean; drillable: boolean;
   lastFrom?: string };   // round 25: "Reclassified from 2707 to 2701"
 export type TbGroupRow = { code: string; name: string; section: string; rows: TbRow[] };
 type ColKey = "prelim" | "adjust" | "aje" | "tje" | "reclass" | "final" | "last" | "diff" | "pct";
@@ -94,7 +94,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
   // A size filter: "(500)" or "-500" reads as 500 (item C: either way a minus or brackets is accepted).
   const size = (t: string) => { const c = t.trim() ? parseAmount(t) : null; return c === null ? null : Math.abs(c); };
   const lo = size(min), hi = size(max);
-  const keep = (r: TbRow) => (!zero || r.final || r.last || r.prelim) && (!onlyFlags || r.flagged || r.reviewer) && (!onlyNotes || r.notes > 0)
+  const keep = (r: TbRow) => (!zero || r.final || r.last || r.prelim) && (!onlyFlags || r.reviewer) && (!onlyNotes || r.notes > 0)
     && (lo === null || Math.abs(r.final) >= lo) && (hi === null || Math.abs(r.final) <= hi);
   const match = (s: string) => !!q && s.toLowerCase().includes(q.toLowerCase());
   const filtered = groups.map((g) => ({ ...g, rows: g.rows.filter(keep) })).filter((g) => g.rows.length);
@@ -169,16 +169,16 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
         ) : r.notes ? <Link href={`/closebook/${fileId}?area=notes`} title={`${r.notes} review note${r.notes === 1 ? "" : "s"}`} className="relative text-danger"><MessageSquare className="h-3.5 w-3.5" fill="currentColor" /><span className="absolute -top-2 -right-1.5 text-[9px] font-bold">{r.notes}</span></Link>
           : <span title="No review note"><MessageSquare className="h-3.5 w-3.5" /></span>}
         <button type="button" disabled={pending || r.reviewer} onClick={() => sendToReviewer(r)} title={r.reviewer ? "With the reviewer" : "Send to the reviewer"} aria-label={`Send ${r.name} to the reviewer`}
-          className={r.reviewer || r.flagged ? "text-warning" : "hover:text-navy-700"}><Flag className="h-3.5 w-3.5" fill={r.reviewer ? "currentColor" : "none"} /></button>
-      </span> : r.flagged ? <Flag className="inline h-3.5 w-3.5 text-warning" /> : null}
+          className={r.reviewer ? "text-warning" : "hover:text-navy-700"}><Flag className="h-3.5 w-3.5" fill={r.reviewer ? "currentColor" : "none"} /></button>
+      </span> : null}
       {msg?.key === r.key && <span className={`ml-2 text-[11px] ${msg.text === "Sent to the reviewer." ? "text-success" : "text-danger"}`}>{msg.text}</span>}
     </td>
   );
   const accountRow = (r: TbRow, path: string) => (
     <tr key={r.key} id={`a-${r.key}`} data-path={path} onClick={(e) => { if (r.drillable && !(e.target as HTMLElement).closest("a,button,input,form")) setPanel(r); }}
-      className={`${rowH} border-b border-sand-100 bg-white target:bg-navy-50 ${r.drillable ? "cursor-pointer hover:bg-sand-50" : ""} ${panel?.key === r.key ? "bg-navy-50" : ""} ${r.flagged ? "shadow-[inset_3px_0_0_#8A4B00]" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
+      className={`${rowH} border-b border-sand-100 bg-white target:bg-navy-50 ${r.drillable ? "cursor-pointer hover:bg-sand-50" : ""} ${panel?.key === r.key ? "bg-navy-50" : ""} ${match(`${r.number} ${r.name}`) ? "bg-[#fffbe0]" : ""}`}>
       <td className={`pr-1 whitespace-nowrap text-ink-2 tabular-nums ${sticky}`} style={{ paddingLeft: grouped ? 30 : 12, width: 70, minWidth: 70 }}>{hl(r.number)}</td>
-      <td className={`px-2 ${sticky} ${pin ? "shadow-[1px_0_0_var(--color-sand-200)]" : ""}`} style={pin ? { left: 70 } : undefined}>{r.flagged && <span className="mr-1.5 text-[11px] font-semibold text-warning" data-flagged>Flagged</span>}{r.drillable
+      <td className={`px-2 ${sticky} ${pin ? "shadow-[1px_0_0_var(--color-sand-200)]" : ""}`} style={pin ? { left: 70 } : undefined}>{r.drillable
         ? <button type="button" id={`ab-${r.key}`} onClick={() => setPanel(r)} className="text-left hover:underline" aria-haspopup="dialog">{hl(r.name)}</button> : hl(r.name)}
         {r.lastFrom && <span className="ml-2 text-[11px] text-ink-2">{r.lastFrom}</span>}</td>
       {shown.map(([k]) => cell(r, k, k === "pct" ? r.pct : (r[k] as number)))}
@@ -200,7 +200,7 @@ export function TbTable({ fileId, groups, view, year, canReview, editable, expor
             <p className="text-[11px] font-bold text-ink-3 uppercase">Final balance, either side</p>
             <div className="flex items-center gap-2"><input value={min} onChange={(e) => setMin(e.target.value)} placeholder="From" inputMode="decimal" className="input input-compact w-24 text-right" />
               <input value={max} onChange={(e) => setMax(e.target.value)} placeholder="To" inputMode="decimal" className="input input-compact w-24 text-right" /></div>
-            {check("Flagged or with the reviewer", onlyFlags, setOnlyFlags)}{check("With review notes", onlyNotes, setOnlyNotes)}
+            {check("With the reviewer", onlyFlags, setOnlyFlags)}{check("With review notes", onlyNotes, setOnlyNotes)}
           </div>
         </Popover>
         {grouped && <button type="button" className={toolbtn} onClick={() => setClosed(anyClosed ? new Set() : new Set(filtered.map((g) => g.code)))}>

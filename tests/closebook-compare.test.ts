@@ -2,7 +2,7 @@
 // Piece 10 (Hashim, Nov 19, 2026): step 6 "Compare to last year": the four lists, from the accounts and entries. Dummy figures (mock L).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compareLists, flagRuleText, YEAR_QUESTIONS } from "../src/lib/closebook/compare.ts";
+import { compareLists, sortEvery, YEAR_QUESTIONS } from "../src/lib/closebook/compare.ts";
 import type { Line } from "../src/lib/closebook/matching.ts";
 
 const L = (line_no: string, name: string, line_type: string, lead_sheet: string | null, tax: string | null = null): Line =>
@@ -25,27 +25,37 @@ const accounts = [
   { id: "a9", account_key: "chart:10900", number: "10900", name: "Clearing", line_no: null, last_year: 0, this_year: 0 },
   { id: "a10", account_key: "opening", number: "", name: "Opening balances to enter", line_no: null, last_year: 0, this_year: 0 },
 ];
-// An AJE brings repairs to 265.49; a TJE books income tax of 9,000.00 (left out of the flags, piece 6).
+// An AJE brings repairs to 265.49; a TJE books income tax of 9,000.00.
 const entries = [{ kind: "AJE", lines: [{ account_id: "a5", amount: 265.49 }, { account_id: "a7", amount: -265.49 }] },
   { kind: "TJE", lines: [{ account_id: "a8", amount: 9000 }, { account_id: "a7", amount: -9000 }] }];
 
-test("a) flagged changes: the lead sheets' rule (over 5,000.00 and 20%), tax entries left out", () => {
-  const r = compareLists(accounts, entries, lines, sheets, { amount: 5000, percent: 20 });
-  // In lead sheet order: Cash (A) first. Chequing: 213,000.00 to 274,289.38 after the two entries, up 28.8%.
-  assert.deepEqual(r.flagged.map((x) => [x.number, x.lastCents, x.finalCents, x.changeCents]), [["10100", 21300000, 27428938, 6128938],
-    ["40100", -21500000, -30000000, -8500000], ["70600", 190000, 734513, 544513], ["65100", 40000, 670000, 630000]]);
-  assert.equal(r.flagged.some((x) => x.number === "90000"), false, "a TJE never raises a flag");
+test("a) every line (CB2-0 step 5, rule 7): every lead sheet account with a balance either year, no flags, lead sheet order", () => {
+  const r = compareLists(accounts, entries, lines, sheets);
+  // In lead sheet order: Cash (A), Revenue (10), Expenses (40). Chequing after the two entries: 213,000.00 to 274,289.38.
+  assert.deepEqual(r.every.map((x) => [x.number, x.lastCents, x.finalCents, x.changeCents]), [["10100", 21300000, 27428938, 6128938],
+    ["40100", -21500000, -30000000, -8500000], ["70600", 190000, 734513, 544513], ["65100", 40000, 670000, 630000], ["67300", 0, 240000, 240000],
+    ["68000", 0, 26549, 26549], ["62000", 50000, 0, -50000], ["90000", 0, 900000, 900000]]);
+  assert.equal(r.every.find((x) => x.number === "40100")!.sheet, "Revenue");
+  assert.equal("flagged" in r, false, "no flagged list");
+});
+
+test("a) sort by $ change and by % change; a line with nothing last year has no % and goes last", () => {
+  const r = compareLists(accounts, entries, lines, sheets);
+  assert.deepEqual(sortEvery(r.every, "dollar").map((x) => x.number).slice(0, 3), ["40100", "10100", "90000"]);
+  const pct = sortEvery(r.every, "pct").map((x) => x.number);
+  assert.deepEqual(pct.slice(0, 3), ["65100", "70600", "62000"], "1,575%, 287%, 100%");
+  assert.deepEqual(pct.slice(-3).sort(), ["67300", "68000", "90000"]);
+  assert.deepEqual(sortEvery(r.every, "sheet"), r.every, "the existing sort is kept");
 });
 
 test("b) new accounts: a balance this year after entries and none last year; c) not used this year", () => {
-  const r = compareLists(accounts, entries, lines, sheets, { amount: 5000, percent: 20 });
+  const r = compareLists(accounts, entries, lines, sheets);
   assert.deepEqual(r.newAccounts.map((x) => [x.number, x.line, x.finalCents]), [["67300", "8915.00", 240000], ["68000", "8960.00", 26549], ["90000", "9990.00", 900000]]);
   assert.deepEqual(r.unused.map((x) => [x.number, x.line, x.lastCents]), [["62000", "8690.00", 50000]]);
   assert.equal([...r.newAccounts, ...r.unused].some((x) => x.key === "chart:10900" || x.key === "opening"), false, "system rows and Clearing are left out");
 });
 
-test("d) six questions, in the mock's order; the flag rule in words", () => {
+test("d) six questions, in the mock's order", () => {
   assert.deepEqual(YEAR_QUESTIONS.map(([k]) => k), ["assets", "loans", "shareholders", "related", "revenue", "equity"]);
   assert.equal(YEAR_QUESTIONS[3][1], "Related-party transactions (rent, management fees, loans)");
-  assert.equal(flagRuleText({ amount: 5000, percent: 20 }), "Over 5,000.00 and 20%. This year's tax entries are left out.");
 });

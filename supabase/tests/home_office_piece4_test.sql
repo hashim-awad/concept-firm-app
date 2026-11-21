@@ -1,11 +1,24 @@
 -- Local tests: piece 4 (Hashim, Nov 18, 2026, version 2): the Home office schedule on the piece 3 engine. Saved with its
--- entry (kind home_office), put in again on the same entry, the amounts locked, "Claim the ITC" only by the reviewer or
--- an owner, History named "Home office schedule", an entry's schedule keeps its kind, deleting the entry deletes the
+-- entry (kind home_office), put in again on the same entry, the amounts locked, "Claim the ITC" by anyone with Edit
+-- (CB2-0), History named "Home office schedule", an entry's schedule keeps its kind, deleting the entry deletes the
 -- schedule, and the vehicle first-car rule does not touch it. T1's figures (worked out by the app,
 -- tests/closebook-home-office.test.ts). Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -26,16 +39,19 @@ select test.check('T1: Dr 65100 1,310.00, Dr 21500 28.60, Cr 23000 1,338.60, tag
   (select string_agg(format('%s %s %s', a.number, l.amount, l.schedule_part), ', ' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e')
   = '65100 1310.00 home, 21500 28.60 home_itc, 23000 -1338.60 home_due');
 select test.check('T1: it goes to the reviewer like a typed entry', (select needs_review from public.cb_entries where id = :'e'));
-select test.check('T5 lock: Edit refuses a changed schedule amount',
+select test.check('T5: Edit with only the owed line changed is refused as unbalanced (the kept hard stop)',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule')$q$, :'e', replace(:lines, '1338.60', '1300')))
-  = 'Change this amount in its schedule: click the Schedule tag.');
+  = 'The entry does not balance: it is out by 38.60.');
+select test.check('T5 (CB2-0 review round): no lock: Edit changes a schedule amount on the entry when it balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule')$q$, :'e',
+    replace(replace(:lines, '"amount":1310,', '"amount":1300,'), '-1338.60', '-1328.60'))) = 'OK');
 select test.check('One schedule per entry: a home office entry is not put in as a vehicle schedule',
   test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', :lines, replace(:sched, '"kind":"home_office"', '"kind":"vehicle"'))) = 'This entry holds another schedule.');
-select test.check('T3: the preparer cannot untick the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
+select test.check('T3: the preparer can untick the ITC (CB2-0: anyone with Edit; rolled back here)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Home office', false, %L, 'Home office schedule', null, '{}', null, %L)$q$,
     :'f', :'e', '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]',
-    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+    '{"kind":"home_office","itc":false,"inputs":{},"lines":[{"schedule_part":"home","amount":1338.60},{"schedule_part":"home_due","amount":-1338.60}]}')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Home office', false,
   '[{"chart":"65100","amount":1338.60,"schedule_part":"home"},{"chart":"23000","amount":-1338.60,"schedule_part":"home_due"}]', 'Home office schedule', null, '{}', null,
@@ -54,7 +70,7 @@ select test.check('T5: the home office entry deletes with its schedule; the vehi
   not exists (select 1 from public.cb_schedules where entry_id = :'e') and exists (select 1 from public.cb_schedules where entry_id = :'v' and kind = 'vehicle'));
 select test.check('History names the Home office schedule',
   (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%' and ref_label = '2026-001 AJE')
-  = 'Home office schedule created for entry 2026-001 AJE | Home office schedule put into entry 2026-001 AJE | Home office schedule 2026-001 AJE: Claim the ITC unticked | Home office schedule put into entry 2026-001 AJE | Home office schedule 2026-001 AJE printed | Entry 2026-001 AJE deleted with its Home office schedule');
+  = 'Home office schedule created for entry 2026-001 AJE | Home office schedule saved for entry 2026-001 AJE: Claim the ITC unticked | Home office schedule 2026-001 AJE printed | Entry 2026-001 AJE deleted with its Home office schedule');   -- CB2-0 v7 item 8: one row per save
 select test.check('the vehicle schedule still names itself', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Vehicle schedule created for entry 2026-002 AJE'));
 select test.check('an unknown kind is refused', test.try($q$insert into public.cb_schedules (file_id, entry_id, kind) values (gen_random_uuid(), gen_random_uuid(), 'boat')$q$) like '%cb_schedules_kind_check%');
 -- T6: the two retired standard entries keep their records (hidden in the app only).

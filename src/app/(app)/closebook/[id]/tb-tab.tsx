@@ -20,7 +20,7 @@ const SOURCE_LABEL: Record<string, string> = { history: "Last year", suggested: 
 
 type Props = {
   file: CbFileRow; accounts: CbAccount[]; imports: CbImport[]; entries: CbEntry[]; editable: boolean; isReviewer: boolean;
-  lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[]; flag: { amount: number; percent: number };
+  lines: Line[]; sheets: { code: string; name: string }[]; taxes: { code: string; name: string }[];
   view: string; craText: Map<string, string>; notes: Map<string, { reason: string; note: string }>; edit?: string;
   bank?: BankData | null;
   // The step page (10 steps): where links point, which views show, and whether the import card shows.
@@ -36,15 +36,12 @@ type Props = {
 // Trial balance tab (Phase 3 batch, section 2 and 4.5; mockup FileTrialBalance): Accounts with their
 // GIFI line and tax code, the reviewer's list, and Lead sheets. Transactions arrive with part 2b.
 export function TbTab(p: Props) {
-  const { file, accounts, imports, entries, editable, isReviewer, lines, sheets, taxes, flag, view } = p;
+  const { file, accounts, imports, entries, editable, isReviewer, lines, sheets, taxes, view } = p;
   const base = p.base ?? `/closebook/${file.id}?tab=tb`;
   const shown = (k: string) => !p.pills || p.pills.includes(k);
   const byNo = new Map(lines.map((l) => [l.line_no, l]));
   const entryTotals = new Map<string, number>();
   for (const e of entries) for (const l of e.lines) entryTotals.set(l.account_id, (entryTotals.get(l.account_id) ?? 0) + l.amount);
-  // Piece 6: this year's tax entries, left out of the flag test.
-  const tjeTotals = new Map<string, number>();
-  for (const e of entries) if (e.kind === "TJE") for (const l of e.lines) tjeTotals.set(l.account_id, (tjeTotals.get(l.account_id) ?? 0) + l.amount);
   const finalOf = (a: CbAccount) => a.this_year + (entryTotals.get(a.id) ?? 0);
   const thisImport = imports.find((i) => i.target === "this_year");
   // Round 6 item 2: the QuickBooks Online Account List, an optional second upload for files that import a
@@ -169,14 +166,13 @@ export function TbTab(p: Props) {
           // hold the lead sheets either (round 8: found on Cedar, where step 5 could otherwise never be signed).
           unmatched.filter((a) => !unusedOf(a)).length + waiting.length > 0 ? <p className="card text-sm text-ink-2">{fromStatements(file.books) ? "Choose a group for every account" : "Match every account in step 4"}: {unmatched.filter((a) => !unusedOf(a)).length + waiting.length} left.</p> : (
             <LeadSheetsView fileId={file.id} full={file.file_type === "full"} editable={editable && !locked}
-              groups={leadSheets(accounts, entryTotals, byNo, sheets, flag, tjeTotals).map((g): LeadGroup => {
+              groups={leadSheets(accounts, entryTotals, byNo, sheets).map((g): LeadGroup => {
                 const rows: LeadAcc[] = g.rows.map((r) => ({
                   id: r.id, key: accounts.find((a) => a.id === r.id)?.account_key, number: r.number, name: r.name, line: byNo.get(r.line)?.name ?? "", last: amt(r.last), before: amt(r.before), entries: r.entries ? amt(r.entries) : "",
-                  final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), flagged: r.flagged, note: p.notes.get(r.id), reclass: r.reclass,
+                  final: amt(r.final), change: amt(r.change), pct: pctChange(Math.round(r.final * 100), Math.round(r.last * 100)), note: p.notes.get(r.id), reclass: r.reclass,
                 }));
                 // Round 35 (Hashim, CaseWare): the lead sheet code shows here, and only here.
-                return { code: g.code, name: `${g.code} ${g.name}`, last: amt(g.last), before: amt(g.before), entries: amt(g.entries), final: amt(g.final), change: amt(g.final - g.last),
-                  flags: rows.filter((r) => r.flagged).length, open: rows.filter((r) => r.flagged && !r.note).length, rows };
+                return { code: g.code, name: `${g.code} ${g.name}`, last: amt(g.last), before: amt(g.before), entries: amt(g.entries), final: amt(g.final), change: amt(g.final - g.last), rows };
               })} />
           )
         ) : (

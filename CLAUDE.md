@@ -1,10 +1,7 @@
 # Concept Studio
 
-## Agent team
+## Agents
 
-- The builder is the only one who writes app code. Agents check, report and propose.
-- Before a build: spec-checker, plus the specialist, tax, accounting and UI reviewers the piece needs. After a build: test-runner, accounting-reviewer and ui-reviewer where they apply, then security-risk. After a merge: docs-keeper.
-- Commands: "Run maintenance", "Run security audit", "Run tax update", "Run best-practice review".
-- Every agent ends with the REPORT block. Paste all reports unedited at the end of the reply to Hashim.
-- A FAIL stops the PR. NEEDS HASHIM stops and asks, with options and one Recommended.
+- When agents run is set by docs/CLOSEBOOK2.md rule 16. No agent runs on the builder's own initiative.
+- The builder is the only one who writes app code. Agents check, report and propose; they never add scope.
 - Agents never merge, deploy, touch Live, or change a rate.

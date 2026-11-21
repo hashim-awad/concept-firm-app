@@ -1,4 +1,5 @@
-# Runs on every push: database tests on a throwaway Postgres, then lint and build, and the name check.
+# Runs on every push (so on every PR): database tests on a throwaway Postgres; lint, type check, unit tests and build;
+# the answer keys on a throwaway local Supabase; and the name check (docs/CLOSEBOOK2.md rule 16: no agent runs tests).
 # Touches no Supabase project. One secret, CLIENT_NAMES, is passed only to the name check step (never printed).
 name: Checks
 
@@ -70,8 +71,26 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx eslint src
+      - run: npx next typegen && npx tsc --noEmit -p .
       - run: npm test
       - run: npx next build
+
+  # CB2-0 v7 item 9: every answer key (tests/answer-keys) on this branch's engine, with the bug checks (balance sheet
+  # balances, statement net income equals the trial balance's). Dummy and disguised data only; a throwaway local Supabase.
+  answer-keys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Local Supabase with this branch's migrations and the dummy owner
+        run: bash scripts/ci/local-supabase.sh
+      - name: Answer keys
+        run: ANSWER_KEYS_DB_URL="$LOCAL_DB_URL" npm run answer-keys
 
   studio-parity:
     runs-on: ubuntu-latest

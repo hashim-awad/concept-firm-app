@@ -10,6 +10,19 @@ select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 
 reset role;
 reset request.jwt.claims;
 update public.role_permissions set level = 'edit' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 \set A '''00000000-0000-0000-0000-00000000000a'''
 \set C '''00000000-0000-0000-0000-00000000000c'''
 -- Staff C prepares; owner A reviews.
@@ -31,24 +44,24 @@ select public.cb_apply_matching(:'f', format('[{"account":"%s","line":"1002.00"}
 select test.check('suggestions applied; no match goes to the reviewer', :'r'::jsonb = '{"history": 0, "suggested": 4, "reviewer": 1}'
   and (select needs_reviewer from public.cb_accounts where id = :'adv'));
 select test.check('no total lines', test.try(format($f$select public.cb_map_account(%L, '2599.00')$f$, :'off')) like '%totals are calculated%');
-select test.check('the preparer cannot decide the reviewer''s list', test.try(format($f$select public.cb_map_account(%L, '1301.10')$f$, :'adv')) like '%waits for the reviewer%');
-select test.check('the preparer cannot change a tax code', test.try(format($f$select public.cb_set_tax_code(%L, 'NONDED')$f$, :'off')) like '%reviewer changes a tax code%');
+select test.check('the preparer can decide an account on the reviewer''s list (CB2-0: anyone with Edit)', test.try_rollback(format($f$select public.cb_map_account(%L, '1301.10')$f$, :'adv')) = 'OK');
+select test.check('the preparer can change a tax code (CB2-0: anyone with Edit)', test.try_rollback(format($f$select public.cb_set_tax_code(%L, 'NONDED')$f$, :'off')) = 'OK');
 select public.cb_map_account(:'off', '8811.00');
 select test.check('the preparer can change a suggestion', (select line_no || '|' || mapping_source from public.cb_accounts where id = :'off') = '8811.00|preparer');
 
 -- Entries.
 select test.check('an entry must balance', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accounting fee', false, '[{"line":"8860.00","amount":2500},{"line":"2620.00","amount":-2400}]', 'Test schedule')$f$, :'f')) like '%out by 100%');
 select test.check('no entry to a total line', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Bad', false, '[{"line":"9368.00","amount":10},{"line":"2620.00","amount":-10}]', 'Test schedule')$f$, :'f')) like '%total line%');
-select test.check('accounts must be matched first', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix', false, '[{"account":"%s","amount":100},{"line":"2620.00","amount":-100}]', 'Test schedule')$f$, :'f', :'adv')) like '%Choose an account from the chart first%');   -- piece R1: wording without GIFI
-select test.check('an RJE cannot change the result', test.try(format($f$select public.cb_add_entry(%L, 'RJE', 'reclassification', 'Move', false, '[{"account":"%s","amount":100},{"line":"2620.00","amount":-100}]', 'Test schedule')$f$, :'f', :'off')) like '%cannot change the result%');
+select test.check('an account not matched yet takes an entry (CB2-0 v7: it shows as unassigned)', test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix', false, '[{"account":"%s","amount":100},{"line":"2620.00","amount":-100}]', 'Test schedule')$f$, :'f', :'adv')) = 'OK');
+select test.check('a reclass may change the result (CB2-0 v7, rule 5: no rule depends on it)', test.try_rollback(format($f$select public.cb_add_entry(%L, 'RJE', 'reclassification', 'Move', false, '[{"account":"%s","amount":100},{"line":"2620.00","amount":-100}]', 'Test schedule')$f$, :'f', :'off')) = 'OK');
 select public.cb_add_entry(:'f', 'AJE', 'accrual', 'Accounting fee accrual', true, '[{"line":"8860.00","amount":2500},{"line":"2620.00","amount":-2500}]', 'Standard entry: accounting fee accrual') as e1 \gset
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Personal expense', false, format('[{"account":"%s","amount":-200},{"line":"2781.10","amount":200}]', :'off')::jsonb, 'Shareholder account') as e2 \gset
 select test.check('entries are numbered in order of creation, with their working paper reference', (select string_agg(seq || ':' || wp_ref, ',' order by seq) from public.cb_entries where file_id = :'f')
   = '1:Standard entry: accounting fee accrual,2:Shareholder account');
 select test.check('a working paper reference is required', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'No ref', false, '[{"line":"8860.00","amount":1},{"line":"2620.00","amount":-1}]', ' ')$f$, :'f')) like '%W/P reference%');
-select test.check('retained earnings only moves through a prior period adjustment', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix RE', false, '[{"line":"3600.00","amount":-50},{"line":"2620.00","amount":50}]', 'Prior year file')$f$, :'f')) like '%Prior period adjustment%');
+select test.check('retained earnings may move with any reason (CB2-0: no prior period reason rule)', test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix RE', false, '[{"line":"3600.00","amount":-50},{"line":"2620.00","amount":50}]', 'Prior year file')$f$, :'f')) = 'OK');
 select public.cb_add_entry(:'f', 'AJE', 'prior_period', 'Missed accrual last year', false, '[{"line":"3600.00","amount":50},{"line":"2620.00","amount":-50}]', 'Prior year file') as e3 \gset
-select test.check('a prior period adjustment posts to GIFI 3720', (select a.line_no from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e3' and l.amount > 0) = '3720.00'
+select test.check('a prior period adjustment posts where it was coded: 3600 (CB2-0 review round: no longer moved to 3720)', (select a.line_no from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'e3' and l.amount > 0) = '3600.00'
   and (select seq from public.cb_entries where id = :'e3') = 3);
 select test.check('numbered AJE-1, AJE-2; free entries go to the reviewer', (select string_agg(kind || '-' || number || ':' || needs_review, ',' order by number) from public.cb_entries where file_id = :'f') = 'AJE-1:true,AJE-2:true,AJE-3:true');
 select test.check('a line given by GIFI line adds an account on that line', (select line_no from public.cb_accounts where file_id = :'f' and account_key = 'line:8860.00') = '8860.00');

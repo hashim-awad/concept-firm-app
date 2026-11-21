@@ -24,14 +24,16 @@ select test.check('paired lines: bank and overdraft', (select pair_line from pub
 select test.check('today''s package captions on the statement lines', (select statement_line from public.cb_master_lines where line_no = '1002.00') = 'Cash and cash equivalents'
   and (select statement_line from public.cb_master_lines where line_no = '9225.00') = 'Telecommunications'
   and (select statement_line from public.cb_master_lines where line_no = '8910.00') = 'Rent');
-select test.check('defaults: 5,000 and 20%, amortization equal to CCA', (select flag_amount = 5000 and flag_percent = 20 and recon_outstanding_max = 5000 and note1_policy = 'amortization_equals_cca' from public.cb_settings));
+select test.check('defaults: no thresholds (CB2-0 v7, rule 7); Note 1 wording', (select note1_policy = 'amortization_equals_cca' from public.cb_settings)
+  and not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public', 'private')
+    and p.prosrc ~ '\m(flag_amount|flag_percent|recon_outstanding_max|entry_review_amount|capital_invoice_amount|t2_rounding)\M'));
 
 -- Staff without Closebook see nothing and change nothing.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('staff without Closebook see no master lines', (select count(*) from public.cb_master_lines) = 0);
 select test.check('staff cannot change a line', test.try($$select public.cb_update_master_line('8810.00', 'X', 'Office expenses', 'FULL', '30', '', 'because')$$) like '%Only an Admin%');
-select test.check('staff cannot change thresholds', test.try($$select public.cb_update_settings(1, 1, 1, 1, 1, 'amortization_equals_cca')$$) like '%Only an Admin%');
+select test.check('staff cannot change Closebook settings', test.try($$select public.cb_update_settings('amortization_equals_cca')$$) like '%Only an Admin%');
 reset role;
 reset request.jwt.claims;
 update public.role_permissions set level = 'view' where area_key = 'closebook' and role_id = (select id from public.roles where name = 'Accountant');
@@ -57,8 +59,8 @@ select test.check('a sub-line takes the next number and its parent''s structure'
   and (select gifi_code || '|' || lead_sheet || '|' || default_tax_code || '|' || mappable from public.cb_master_lines where line_no = '8523.30') = '8523|30|NONDED|true');
 select test.check('the new line is logged', exists (select 1 from public.cb_master_line_log where line_no = '8523.30' and action = 'add'));
 select test.check('sub-lines only under a line staff can map to', test.try($$select public.cb_add_sub_line('2599.00', 'Other assets', null, null, '', 'test')$$) like '%map to%');
-select public.cb_update_settings(5000, 7500, 25, 5000, 5000, 'amortization_equals_cca');
-select test.check('owners change the thresholds', (select flag_amount = 7500 and flag_percent = 25 from public.cb_settings));
+select public.cb_update_settings('amortization_equals_cca');
+select test.check('owners save the Note 1 wording', (select note1_policy = 'amortization_equals_cca' from public.cb_settings));
 select test.check('the activity log has the changes', exists (select 1 from public.activity_log where entity_type = 'cb_settings') and exists (select 1 from public.activity_log where entity_type = 'cb_master_lines'));
 reset role;
 reset request.jwt.claims;

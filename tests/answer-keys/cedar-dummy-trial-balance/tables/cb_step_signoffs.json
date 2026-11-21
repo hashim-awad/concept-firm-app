@@ -1,0 +1,42 @@
+[
+ {
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "opening",
+  "prepared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "prepared_at": "2026-11-14T00:42:10.867707+00:00",
+  "reviewed_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewed_at": "2026-11-14T00:42:11.172611+00:00"
+ },
+ {
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "records",
+  "prepared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "prepared_at": "2026-11-14T00:42:11.520047+00:00",
+  "reviewed_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewed_at": "2026-11-14T00:42:11.796907+00:00"
+ },
+ {
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "code",
+  "prepared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "prepared_at": "2026-11-14T00:42:12.101232+00:00",
+  "reviewed_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewed_at": "2026-11-14T00:42:12.446519+00:00"
+ },
+ {
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "mapping",
+  "prepared_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "prepared_at": "2026-11-14T00:42:12.795445+00:00",
+  "reviewed_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "reviewed_at": "2026-11-14T00:42:13.113195+00:00"
+ },
+ {
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "step": "t2",
+  "prepared_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "prepared_at": "2026-11-14T16:32:36.476169+00:00",
+  "reviewed_by": null,
+  "reviewed_at": null
+ }
+]

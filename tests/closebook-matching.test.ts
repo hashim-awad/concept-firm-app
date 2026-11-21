@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromWorkbook } from "../src/lib/closebook/seed.ts";
-import { effectiveLine, flagged, leadSheets, lockedLines, normalSide, numberType, suggestLine, typeFlag, typeFlagText, typeFromBooksMissing, typeMismatch, typeNotChecked, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
+import { effectiveLine, leadSheets, lockedLines, normalSide, numberType, suggestLine, typeFlag, typeFlagText, typeFromBooksMissing, typeMismatch, typeNotChecked, wrongSign, type Line } from "../src/lib/closebook/matching.ts";
 
 const wb = fromWorkbook(readFileSync(new URL("../docs/phase3/Closebook-master-lines-APPROVED.xlsx", import.meta.url)));
 const lines: Line[] = wb.lines.map((l) => ({ line_no: l.line, name: l.name, gifi_code: l.gifi, line_type: l.type, lead_sheet: l.leadSheet, statement_line: l.statementLine, default_tax_code: l.taxCode, mappable: l.mappable, pair_line: l.pair, locked: ["1301.00", "2781.00", "3701.00"].includes(l.line) }));
@@ -55,23 +55,16 @@ test("a number from a type's range is never flagged on a line of that type", () 
   }
 });
 
-test("flag rule: more than $5,000 AND more than 20%", () => {
-  assert.equal(flagged(10000, 15000, 5000, 20), false, "exactly $5,000 is not more than");
-  assert.equal(flagged(10000, 15001, 5000, 20), true);
-  assert.equal(flagged(100000, 106000, 5000, 20), false, "6% only");
-  assert.equal(flagged(0, 6500, 5000, 20), true, "new and over the amount");
-  assert.equal(flagged(0, 4000, 5000, 20), false);
-});
-
 test("lead sheets: entries added, final balances, grouping", () => {
   const sheets = leadSheets(
     [{ id: "a", number: "1000", name: "Chequing", line_no: "1002.00", last_year: 31850, this_year: 48210 },
      { id: "b", number: "5300", name: "Office", line_no: "8810.00", last_year: 3000, this_year: 3220 },
      { id: "c", number: "", name: "Unmatched", line_no: null, last_year: 0, this_year: 10 }],
-    new Map([["b", -200]]), byNo, wb.leadSheets.map((s) => ({ code: s.code, name: s.name })), { amount: 5000, percent: 20 });
+    new Map([["b", -200]]), byNo, wb.leadSheets.map((s) => ({ code: s.code, name: s.name })));
   assert.deepEqual(sheets.map((s) => s.code), ["A", "30"]);
   assert.equal(sheets[1].rows[0].final, 3020);
-  assert.equal(sheets[0].rows[0].flagged, true, "48,210 vs 31,850: over $5,000 and 51%");
+  assert.equal("flagged" in sheets[0].rows[0], false, "CB2-0 step 5: no year-over-year flag");
+  assert.equal(Math.round(sheets[0].rows[0].pct! * 10) / 10, 51.4, "48,210 vs 31,850: the % change shows");
 });
 
 test("wrong-sign flag: normal side by type, contra lines reversed", () => {

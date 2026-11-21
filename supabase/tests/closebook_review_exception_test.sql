@@ -54,14 +54,16 @@ select test.check('nothing of them waits in step 7 any more',
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_sign_step(:'f', 'code', 'reviewed');
--- Any other change still clears: the reviewer moving an account that waited for nothing.
+-- CB2-0 step 2: any other change keeps the sign-offs too (the reviewer moving an account that waited for nothing); History has it.
 select public.cb_map_account(id, '8811.00') from public.cb_accounts where file_id = :'f' and name = 'Office costs';
 reset role;
 reset request.jwt.claims;
-select test.check('any other change, even by the reviewer, clears the sign-offs',
-  not exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare')));
-select test.check('and the history names it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 'compare'
-  and detail = 'Office costs: Office expenses to Office stationery and supplies'));   -- piece R2 (item 6): no GIFI code before step 8
+select test.check('any other change keeps the sign-offs exactly as signed (CB2-0: software never clears a sign-off)',
+  (select count(*) from public.cb_step_signoffs where file_id = :'f' and step in ('code', 'compare') and prepared_at is not null) = 2
+  and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'code' and reviewed_at is not null));
+select test.check('and the history names it', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'changed' and step = 'code'
+  and detail = 'Office costs: Office expenses to Office stationery and supplies')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));   -- piece R2 (item 6): no GIFI code before step 8
 
 -- A bank-statement file: a line sent to the reviewer.
 set role authenticated;
@@ -79,7 +81,11 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_sign_step(:'g', 'code', 'prepared');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('the reviewer cannot sign step 4 while a line waits', test.try(format($q$select public.cb_sign_step(%L, 'code', 'reviewed')$q$, :'g')) = 'Not yet: 1 line for the reviewer.');
+select test.check('the reviewer can sign step 4 while a line waits (CB2-0: a warning, not a stop)', test.try(format($q$select public.cb_sign_step(%L, 'code', 'reviewed')$q$, :'g')) = 'OK');
+reset role;
+select test.check('the waiting line is recorded on the sign-off''s History row', exists (select 1 from public.cb_file_history where file_id = :'g' and action = 'reviewed' and step = 'code'
+  and detail = 'Signed with open items: 1 line for the reviewer.'));
+set role authenticated;
 -- Item 5: a note on a bank line names that line, not another.
 select public.cb_add_note(:'g', 'code', 'bank_line', id, 'Coded to meals: is this a client lunch? Keep the receipt.') as nb from public.cb_bank_lines where file_id = :'g' and row_no = 1 \gset
 reset role;
@@ -91,10 +97,10 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 update public.cb_bank_lines set status = 'done', tax_code = 'MEALS_HST_50' where file_id = :'g' and row_no = 1;
 select test.check('the reviewer deciding a line sent to the reviewer keeps the preparer''s sign-off',
   exists (select 1 from public.cb_step_signoffs where file_id = :'g' and step = 'code' and prepared_at is not null));
--- The preparer changing a coded line clears it, and the history says which line and what.
+-- CB2-0 step 2: the preparer changing a coded line keeps the sign-off; the history says which line and what.
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 update public.cb_bank_lines set chart_account = '40250' where file_id = :'g' and row_no = 2;
 reset request.jwt.claims;
-select test.check('the preparer recoding a coded line clears the sign-off', not exists (select 1 from public.cb_step_signoffs where file_id = :'g' and step = 'code'));
-select test.check('the history names the line and the change', exists (select 1 from public.cb_file_history where file_id = :'g' and step = 'code'
-  and detail = 'Jan 15 SAMPLE BROKERAGE COMMISSION: account 40200 to 40250'));
+select test.check('the preparer recoding a coded line keeps the sign-offs', exists (select 1 from public.cb_step_signoffs where file_id = :'g' and step = 'code' and prepared_at is not null and reviewed_at is not null));
+select test.check('the history names the line and the change, in one row', (select count(*) from public.cb_file_history where file_id = :'g' and step = 'code' and action = 'line_recoded'
+  and ref_label = 'Jan 15, 2025 · SAMPLE BROKERAGE COMMISSION · 11,300.00' and old_value = '40200 Commission income, HST_ON' and new_value = '40250 Real estate commission, HST_ON') = 1);

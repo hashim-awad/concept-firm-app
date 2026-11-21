@@ -51,7 +51,7 @@ export function trialBalance(accounts: RepAccount[], postings: Posting[]): TbLin
   for (const p of postings) {
     const t = tb.get(p.key)!;
     if (p.kind === "opening") t.opening += p.cents;
-    else if (p.kind === "entry") { if (p.entryKind === "RJE") t.reclass += p.cents; else t.adjust += p.cents; }
+    else if (p.kind === "entry") { if (p.reclass) t.reclass += p.cents; else t.adjust += p.cents; }
     else t.activity += p.cents;
   }
   for (const t of tb.values()) { t.prelim = t.opening + t.activity; t.final = t.prelim + t.adjust + t.reclass; t.diff = t.final - t.last; }
@@ -239,7 +239,7 @@ export function netIncomeBox(accounts: RepAccount[], postings: Posting[], info: 
     const t = info(line.get(p.key)?.line_no ?? null)?.type;
     if (t !== "Revenue" && t !== "Expense") continue;
     after -= p.cents;
-    if (p.kind === "entry") { if (p.entryKind === "RJE") reclass -= p.cents; else adjust -= p.cents; }
+    if (p.kind === "entry") { if (p.reclass) reclass -= p.cents; else adjust -= p.cents; }
   }
   return { before: after - adjust - reclass, adjust, reclass, after };
 }

@@ -66,7 +66,8 @@ export async function recordDelivery(formData: FormData) {
   const supabase = await createClient();
   const d = await loadClose(supabase, id);
   if (!d) redirect(withMessage(back(id), "error", "This file was not found."));
-  if (!d!.reviewed || !d!.email) redirect(withMessage(back(id), "error", "The reviewer signs step 10 first: until then the email is a draft."));
+  // CB2-0 step 4: delivery does not wait for the step 10 review (a warning on the screen).
+  if (!d!.email) redirect(withMessage(back(id), "error", "The email is not built yet."));
   const z = await buildDocumentsZip(supabase, d!);
   if ("error" in z) redirect(withMessage(back(id), "error", (z as { error: string }).error));
   const zz = z as { bytes: Uint8Array; sha256: string };

@@ -100,12 +100,12 @@ test("a vehicle amount with no km is refused; a lease goes to the reviewer", () 
   assert.ok(p.reviewer.some((x) => x.includes("passenger vehicle limits")));
 });
 
-test("a line over $5,000 needs receipts; Other needs a note and an account", () => {
+test("CB2-0 step 5: no receipts amount; Other needs a note and an account", () => {
   const p = planExpenses(DEFS, [{ key: "other", before: 600000, tax: 0 }], head({ summaryTotal: 600000 }), REG);
-  assert.ok(p.problems.includes("Other business expenses is over $5,000: attach the receipts."));
+  assert.equal(p.problems.some((x) => x.includes("receipts")), false, "no receipts rule at any amount");
   assert.ok(p.problems.includes("Other business expenses: choose the account."));
   assert.ok(p.problems.includes("Other business expenses: add a note saying what it is."));
-  const ok = planExpenses(DEFS, [{ key: "other", before: 600000, tax: 0, receipts: 1, account: "65000", note: "Signs for open houses" }], head({ summaryTotal: 600000 }), REG);
+  const ok = planExpenses(DEFS, [{ key: "other", before: 600000, tax: 0, account: "65000", note: "Signs for open houses" }], head({ summaryTotal: 600000 }), REG);
   assert.deepEqual(ok.problems, []);
 });
 

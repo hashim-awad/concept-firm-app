@@ -23,7 +23,8 @@ export const optForChart = (opts: { value: string; chart?: string; picked?: bool
 export type FormLine = { acct: string; dr: string; cr: string; desc: string; tax: string; newName: string; newType: string; newLine: string; sched?: string; isTax?: boolean };
 // Round 15b: the dialog has no Reason field. The reason is worked out from the entry (reasonFor); "inclusive"
 // is QuickBooks Online's "Amounts are: including tax".
-export type FormHead = { kind: string; reason?: string; wpRef: string; memo: string; reverse: boolean; inclusive?: boolean };
+// reclass: the "Reclass entry" box (CB2-0 v7, rule 5): unticked = Adj's, ticked = Reclass. Nothing else depends on it.
+export type FormHead = { kind: string; reason?: string; wpRef: string; memo: string; reverse: boolean; inclusive?: boolean; reclass?: boolean };
 // The reason the database's rules use, from what the dialog shows (round 15b). A standard entry keeps its
 // own reason while its type and reverse box are unchanged, so it can still skip review.
 export function reasonFor(head: FormHead, ppaLine: boolean, std?: { kind: string; reason: string; reverse: boolean } | null): string {

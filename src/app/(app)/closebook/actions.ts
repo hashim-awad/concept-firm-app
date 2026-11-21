@@ -16,7 +16,6 @@ import { loadEntryForm } from "@/lib/closebook/entry-form-server";
 import { planEntry, type FormHead, type FormLine } from "@/lib/closebook/entry-form";
 import { scheduleSaveArgs, type SchedForm } from "@/lib/closebook/vehicle-save";
 import { entryNo } from "@/lib/closebook/reports";
-import { STEP_KEYS, stepTitle, type StepKey } from "@/lib/closebook/steps";
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
@@ -221,29 +220,25 @@ export async function addEntry(formData: FormData) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null;
   const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
     p_date: date, p_standard: form!.standard, p_seq: seq };
+  // CB2-0 v7 item 3: the "Reclass entry" box (rule 5), saved inside the entry's own save (cb_save_entry): one History row.
+  const reclass = form!.head.reclass ?? form!.head.kind === "RJE";
   let res: { data: unknown; error: { message: string } | null };
-  // Piece E1: a change takes back the step's sign-offs (TJE: step 8; others: step 5). Say so only when there were some.
-  // A change of type to or from TJE is a step 5 change (cb_changed); only a TJE that stays a TJE is step 8's.
-  const oldKind = form!.edit ? ((await supabase.from("cb_entries").select("kind").eq("id", form!.edit).maybeSingle()).data as { kind: string } | null)?.kind : undefined;
-  const signStep = form!.head.kind === "TJE" && (!form!.edit || oldKind === "TJE") ? "t2" : "entries";
-  const before = form!.edit ? (await supabase.from("cb_step_signoffs").select("prepared_at, reviewed_at").eq("file_id", id).eq("step", signStep).maybeSingle()).data as { prepared_at: string | null; reviewed_at: string | null } | null : null;
-  const hadSign = !!(before?.prepared_at || before?.reviewed_at);
   if (form!.edit) {
     // Edit (CaseWare): piece 2, the entry changes in place (same id, number, creator, standard entry link); its
     // attachments are kept and new ones added. History records each change (cb_edit_entry).
     const { data: old } = await supabase.from("cb_entries").select("attachments").eq("id", form!.edit).eq("file_id", id).maybeSingle();
-    res = await supabase.rpc("cb_edit_entry", { p_entry: form!.edit, ...args, p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
+    res = await supabase.rpc("cb_save_entry", { p_file: id, p_entry: form!.edit, p_reclass: reclass, ...args,
+      p_attachments: [...((old?.attachments as string[] | null) ?? []), ...paths].slice(0, 10) });
   } else if (form!.origin === "revenue_check") {
     // Fix with an entry (round 9): an AJE with W/P ref "Revenue check", marked as made from the check.
     res = await supabase.rpc("cb_add_revenue_entry", { p_file: id, p_note: form!.head.memo, p_lines: plan.rpc, p_reverse: form!.head.reverse, p_seq: seq });
   } else {
-    res = await supabase.rpc("cb_add_entry", { p_file: id, ...args, p_attachments: paths });
+    res = await supabase.rpc("cb_save_entry", { p_file: id, p_entry: null, p_reclass: reclass, ...args, p_attachments: paths });
   }
   revalidatePath(`/closebook/${id}`);
   if (res.error) redirect(withMessage(dialog, "error", `Nothing was saved. ${res.error.message}`));
-  const { data: e } = await supabase.from("cb_entries").select("needs_review").eq("id", res.data as string).maybeSingle();
-  // Piece E1: no entry approval; step 5's sign-offs cover the entries, and step 7 lists the ones to look at.
-  const msg = form!.edit ? (hadSign ? `Entry changed. Step ${signStep === "t2" ? 8 : 5}'s sign-offs were taken back: sign it again.` : "Entry changed.") : e?.needs_review === false ? "Standard entry added. It is under the review threshold." : "Entry added. It is on the reviewer's list in step 7.";
+  // CB2-0 (rule 14): sign-offs are never taken back and there is no review threshold; History records the change.
+  const msg = form!.edit ? "Entry changed." : "Entry added.";
   const after = s(formData, "then") === "new" ? `${enBack(id)}&new=journal` : sameFile(id, s(formData, "done")) || enBack(id);
   redirect(withMessage(after, "msg", msg));
 }
@@ -350,8 +345,7 @@ export async function saveOpeningInline(fileId: string, lines: [string, number][
   return tb;
 }
 
-// Round 21: as signStep does after "Sign as preparer": the next step opens by itself, with a note naming it.
-// The screen shows the note and goes to `next` (no redirect, so the note shows from the client).
+// Step 2's "Sign as preparer" (the schedule). CB2-0 step 3 (rule 14): it stays on step 2.
 export async function signOpeningInline(fileId: string): Promise<{ error: string } | { next: string; note: string }> {
   const a = await getAccess();
   if (!a || !canEdit(a, "closebook")) return { error: "You need Edit on Closebook." };
@@ -359,10 +353,7 @@ export async function signOpeningInline(fileId: string): Promise<{ error: string
   const { error } = await supabase.rpc("cb_sign_opening", { p_file: fileId });
   if (error) return { error: error.message };
   revalidatePath(`/closebook/${fileId}`);
-  const nextKey = STEP_KEYS[STEP_KEYS.indexOf("opening") + 1];
-  const { data: f } = await supabase.from("cb_files").select("books").eq("id", fileId).maybeSingle();
-  const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
-  return { next: `/closebook/${fileId}?step=${nextKey}`, note: `${STEP_WORD.opening} signed. Next: ${nextName}` };
+  return { next: `/closebook/${fileId}?step=opening`, note: `${STEP_WORD.opening} signed.` };
 }
 
 // The source PDF: the prior T2 or the CRA assessment, kept in the private documents store.
@@ -418,14 +409,12 @@ export async function signStep(formData: FormData) {
   // Round 34: step 3 on a bank file is signed in its sub-steps. Said as information, never as an error.
   if (error && step === "records" && /signed in its sub-steps/.test(error.message))
     redirect(withMessage(back, "msg", "Step 3 is complete when 3.1, 3.2 and 3.3 are signed."));
-  // Round 21 (Hashim): after "Sign as preparer" the next step opens by itself, with a note naming it.
-  const i = STEP_KEYS.indexOf(step as StepKey), nextKey = STEP_KEYS[i + 1];
-  if (!error && role === "prepared" && i >= 0 && nextKey) {
-    const { data: f } = await supabase.from("cb_files").select("books").eq("id", id).maybeSingle();
-    const nextName = stepTitle(nextKey, (f?.books as string) ?? "").replace(/^\d+\.\s*/, "");
-    redirect(withMessage(`/closebook/${id}?step=${nextKey}`, "msg", `${STEP_WORD[step]} signed. Next: ${nextName}`));
-  }
-  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`));
+  // CB2-0 step 3 (rule 14): signing stays on the page it was made on. Step 4 (rule 13): open items do not stop a sign-off;
+  // the message says how many are still open (the Issues panel lists them).
+  let open = 0;
+  if (!error) { const { data: st } = await supabase.rpc("cb_step_status", { p_file: id }); open = ((st as Record<string, { problems?: string[] }> | null)?.[step]?.problems ?? []).length; }
+  const tail = open ? ` ${open} open item${open === 1 ? "" : "s"}: see Issues.` : "";
+  redirect(withMessage(back, error ? "error" : "msg", error ? error.message : (role === "prepared" ? `${STEP_WORD[step] ?? "Step"} signed.` : `${STEP_WORD[step] ?? "Step"} signed as reviewed.`) + tail));
 }
 
 export async function unsignStep(formData: FormData) {

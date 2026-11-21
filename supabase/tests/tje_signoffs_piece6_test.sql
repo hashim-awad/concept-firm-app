@@ -1,6 +1,6 @@
--- Local tests: piece 6 (Hashim, Nov 18, 2026, version 2): a tax entry (TJE) keeps steps 5, 6 and 7 signed and clears step 8;
--- a change of type to or from TJE is an AJE change; lead sheet flags leave out this year's TJE lines and never apply to INCTAX
--- or AMORT accounts. Dummy data only.
+-- Local tests: piece 6 (Hashim, Nov 18, 2026, version 2), updated for CB2-0 (rules 7 and 14): no entry clears a sign-off,
+-- TJE or AJE, added, edited, deleted or changed in type; History records each. There is no $5,000/20% flag on step 6, so no
+-- account is flagged, INCTAX and AMORT included. Dummy data only.
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
@@ -43,60 +43,65 @@ create temporary table sign_all as select 1;
 :signed;
 select test.check('fixture: steps 5 to 8 signed', (:state) = 'compare,entries,review,t2');
 
--- T1: a TJE added: steps 5, 6 and 7 stay signed; step 8 is cleared, with the reason in History.
+-- T1: a TJE added: steps 5 to 8 stay signed (CB2-0 step 2); History has the entry.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12000), jsonb_build_object('account', :'itp', 'amount', -12000)), 'Income tax schedule') as tje \gset
 reset role; reset request.jwt.claims;
-select test.check('T1: a TJE keeps steps 5, 6 and 7; step 8 cleared', (:state) = 'compare,entries,review');
-select test.check('T1: History says why step 8 was cleared', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared' and step = 't2' and detail like 'Entry 2026-001 added%'));
+select test.check('T1: a TJE keeps steps 5, 6, 7 and 8', (:state) = 'compare,entries,review,t2');
+select test.check('T1: History has the entry added, and no sign-off cleared', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'entry_created' and detail = 'Entry 2026-001 added')
+  and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 
--- T2: the TJE's amount edited; then deleted: the same.
+-- T2: the TJE's amount edited; then deleted: the same, nothing cleared.
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'tje', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12500), jsonb_build_object('account', :'itp', 'amount', -12500)), 'Income tax schedule');
 reset role; reset request.jwt.claims;
-select test.check('T2: the TJE edited: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'compare,entries,review');
+select test.check('T2: the TJE edited: steps 5 to 8 kept; History has the edit', (:state) = 'compare,entries,review,t2'
+  and exists (select 1 from public.cb_file_history where entry_id = :'tje' and action = 'entry_edited'));
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_delete_entry(:'tje');
 reset role; reset request.jwt.claims;
-select test.check('T2: the TJE deleted: steps 5, 6 and 7 kept; step 8 cleared', (:state) = 'compare,entries,review');
+select test.check('T2: the TJE deleted: steps 5 to 8 kept; History has the delete', (:state) = 'compare,entries,review,t2'
+  and exists (select 1 from public.cb_file_history where entry_id = :'tje' and action = 'entry_deleted'));
 
--- T4: an AJE added: step 5, and 7 and 8 through the chain; piece 10b: step 6 too (a balance moved).
+-- T4: an AJE added: nothing cleared either (CB2-0 step 2).
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing') as aje \gset
 reset role; reset request.jwt.claims;
-select test.check('T4: an AJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
+select test.check('T4: an AJE keeps steps 5 to 8', (:state) = 'compare,entries,review,t2');
 
--- T3: an AJE changed into a TJE, and back: each an AJE change.
+-- T3: an AJE changed into a TJE, and back: nothing cleared; History has each change of type.
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'TJE', 'tax', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: AJE into TJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
+select test.check('T3: AJE into TJE keeps steps 5 to 8', (:state) = 'compare,entries,review,t2'
+  and exists (select 1 from public.cb_file_history where entry_id = :'aje' and action = 'entry_edited' and reason like '%type%' and new_value like '%Type: TJE%'));
 :signed;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_edit_entry(:'aje', 'AJE', 'correction', 'Accrued accounting fee.', false, jsonb_build_array(jsonb_build_object('account', :'fees', 'amount', 6000), jsonb_build_object('account', :'chq', 'amount', -6000)), 'Payables listing');
 reset role; reset request.jwt.claims;
-select test.check('T3: TJE into AJE clears steps 5, 6, 7 and 8 (piece 10b: step 6 too)', (:state) = 'none');
+select test.check('T3: TJE into AJE keeps steps 5 to 8', (:state) = 'compare,entries,review,t2'
+  and exists (select 1 from public.cb_file_history where entry_id = :'aje' and action = 'entry_edited' and reason like '%type%' and new_value like '%Type: AJE%'));
 
--- T5, T6, T6b: the flags (step 6's check since piece 10).
+-- T5, T6, T6b: the flags (step 6's check since piece 10). CB2-0 step 5: no $5,000/20% threshold, so nothing is flagged.
 \set flags 'select coalesce((select p from unnest(private.cb_step_problems(:''f'', ''compare'')) p where p like ''%flagged change%''), ''none'')'
-select test.check('T6: the AJE moves accounting fees from 8,000.00 to 14,000.00: flagged as before', (:flags) = '1 flagged change to explain in Flagged changes.');
-select test.check('T5: income tax expense (INCTAX, 9,000.00 last year, nothing this year) is not flagged', (:flags) = '1 flagged change to explain in Flagged changes.');
+select test.check('T6: the AJE moves accounting fees from 8,000.00 to 14,000.00: not flagged (no threshold)', (:flags) = 'none');
+select test.check('T5: income tax expense (INCTAX, 9,000.00 last year, nothing this year) is not flagged', (:flags) = 'none');
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Income tax provision.', false, jsonb_build_array(jsonb_build_object('account', :'itx', 'amount', 12000), jsonb_build_object('account', :'itp', 'amount', -12000)), 'Income tax schedule');
 select public.cb_add_entry(:'f', 'TJE', 'tax', 'Amortization for the year.', false, jsonb_build_array(jsonb_build_object('account', :'amo', 'amount', 6400), jsonb_build_object('account', :'acc', 'amount', -6400)), 'Capital assets schedule');
 reset role; reset request.jwt.claims;
-select test.check('T5/T6b: after a TJE of 12,000.00 (expense and payable) and amortization of 6,400.00: no new flag', (:flags) = '1 flagged change to explain in Flagged changes.');
+select test.check('T5/T6b: after a TJE of 12,000.00 (expense and payable) and amortization of 6,400.00: no flag', (:flags) = 'none');
 select test.check('T5: the payable and the accumulated amortization move by the TJEs only: final balances include them',
   (select private.cb_account_final(:'itp')) = -12000 and (select private.cb_account_final(:'acc')) = -20800);
 set role authenticated;

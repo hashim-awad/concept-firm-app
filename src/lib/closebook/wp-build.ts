@@ -41,7 +41,9 @@ export async function buildReportPdf(supabase: SupabaseClient, fileId: string, q
   };
   const name = (key: string) => { const a = data.accounts.find((x) => x.key === key); return a ? `${a.number ? `${a.number} ` : ""}${a.name}` : key; };
   const entries: EntryDoc[] = f.entries.map((e) => {
-    const [no, kind] = entryNo(f.file.year_end, e).split(" ");
+    const [no] = entryNo(f.file.year_end, e).split(" ");
+    // CB2-0 v7 (rule 5): the client sees a reclass from the entry's "Reclass entry" box, not from its type.
+    const kind = e.is_reclass ? "RJE" : e.kind === "RJE" ? "AJE" : e.kind;
     return { no, kind, wpRef: e.wp_ref || "–", memo: e.note, date: e.entry_date ?? null, lines: e.lines.map((l) => {
       const a = data.acctOf(l.account_id);
       // On the working paper, an entry on a GIFI line with no account of its own says so. The client's copy
@@ -101,7 +103,9 @@ export async function buildClientListXlsx(supabase: SupabaseClient, fileId: stri
   const used = new Set(f.entries.flatMap((e) => e.lines.map((l) => l.account_id)));
   const fresh = f.accounts.filter((a) => a.client_new && used.has(a.id)).map((a) => ({ name: a.name, type: a.qbo_type ?? "" }));
   const entries = f.entries.map((e) => {
-    const [no, kind] = entryNo(f.file.year_end, e).split(" ");
+    const [no] = entryNo(f.file.year_end, e).split(" ");
+    // CB2-0 v7 (rule 5): the client sees a reclass from the entry's "Reclass entry" box, not from its type.
+    const kind = e.is_reclass ? "RJE" : e.kind === "RJE" ? "AJE" : e.kind;
     return { no, kind, memo: e.note, date: e.entry_date && e.entry_date !== f.file.year_end ? e.entry_date : null, lines: e.lines.map((l) => { const a = data.acctOf(l.account_id); return { number: a?.number ?? "", name: a?.name ?? "", cents: Math.round(l.amount * 100) }; }) };
   });
   const title = clientListTitle(f.file);

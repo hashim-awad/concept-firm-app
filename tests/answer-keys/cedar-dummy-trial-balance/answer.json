@@ -1,0 +1,263 @@
+[
+ {
+  "year_end": "2026-12-31",
+  "books": "client_software",
+  "tb": [
+   {
+    "account": "10100",
+    "name": "Chequing",
+    "gifi": "1002",
+    "prior": 50000,
+    "prelim": 88300,
+    "adj": 40,
+    "reclass": 0,
+    "final": 88340
+   },
+   {
+    "account": "11000",
+    "name": "Accounts receivable",
+    "gifi": "1062",
+    "prior": 9000,
+    "prelim": 12000,
+    "adj": 0,
+    "reclass": 0,
+    "final": 12000
+   },
+   {
+    "account": "15000",
+    "name": "Computer equipment",
+    "gifi": "1774",
+    "prior": 6000,
+    "prelim": 6000,
+    "adj": 0,
+    "reclass": 0,
+    "final": 6000
+   },
+   {
+    "account": "15100",
+    "name": "Accum. amortization - computer",
+    "gifi": "1775",
+    "prior": -1200,
+    "prelim": -1200,
+    "adj": -1200,
+    "reclass": 0,
+    "final": -2400
+   },
+   {
+    "account": "20000",
+    "name": "Accounts payable",
+    "gifi": "2621",
+    "prior": -3800,
+    "prelim": -4500,
+    "adj": -250,
+    "reclass": 1500,
+    "final": -3250
+   },
+   {
+    "account": "23500",
+    "name": "GST/HST payable",
+    "gifi": "2680",
+    "prior": -2500,
+    "prelim": -3100,
+    "adj": 0,
+    "reclass": 0,
+    "final": -3100
+   },
+   {
+    "account": "26000",
+    "name": "Shareholder loan",
+    "gifi": "2781.10",
+    "prior": -20000,
+    "prelim": -15000,
+    "adj": -6409.05,
+    "reclass": 0,
+    "final": -21409.05
+   },
+   {
+    "account": "30000",
+    "name": "Common shares",
+    "gifi": "3500",
+    "prior": -100,
+    "prelim": -100,
+    "adj": 0,
+    "reclass": 0,
+    "final": -100
+   },
+   {
+    "account": "32000",
+    "name": "Retained earnings",
+    "gifi": "3600",
+    "prior": -20000,
+    "prelim": -37400,
+    "adj": 0,
+    "reclass": 0,
+    "final": -37400
+   },
+   {
+    "account": "41000",
+    "name": "Commission income",
+    "gifi": "8121",
+    "prior": -150000,
+    "prelim": -180000,
+    "adj": 0,
+    "reclass": 0,
+    "final": -180000
+   },
+   {
+    "account": "64250",
+    "name": "Accounting fees",
+    "gifi": "8862",
+    "prior": 2800,
+    "prelim": 3000,
+    "adj": 3000,
+    "reclass": 0,
+    "final": 6000
+   },
+   {
+    "account": "64310.05",
+    "name": "Office supplies:Printing",
+    "gifi": "8811",
+    "prior": 1000,
+    "prelim": 1250,
+    "adj": 0,
+    "reclass": 0,
+    "final": 1250
+   },
+   {
+    "account": "64310.10",
+    "name": "Office supplies:General",
+    "gifi": "8811",
+    "prior": 2600,
+    "prelim": 2750,
+    "adj": 96.05,
+    "reclass": 0,
+    "final": 2846.05
+   },
+   {
+    "account": "68000",
+    "name": "Advertising",
+    "gifi": "8521",
+    "prior": 16000,
+    "prelim": 18000,
+    "adj": 250,
+    "reclass": 0,
+    "final": 18250
+   },
+   {
+    "account": "72000",
+    "name": "Salaries",
+    "gifi": "9060",
+    "prior": 110200,
+    "prelim": 110000,
+    "adj": 0,
+    "reclass": 0,
+    "final": 110000
+   },
+   {
+    "account": "new:accrued liabilities",
+    "name": "Accrued liabilities",
+    "gifi": "2620",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -3000,
+    "reclass": -1500,
+    "final": -4500
+   },
+   {
+    "account": "new:amortization expense",
+    "name": "Amortization expense",
+    "gifi": "8670",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 1200,
+    "reclass": 0,
+    "final": 1200
+   },
+   {
+    "account": "new:dividends declared",
+    "name": "Dividends declared",
+    "gifi": "3700",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 5000,
+    "reclass": 0,
+    "final": 5000
+   },
+   {
+    "account": "new:foreign exchange gain",
+    "name": "Foreign exchange gain",
+    "gifi": "8231",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -40,
+    "reclass": 0,
+    "final": -40
+   },
+   {
+    "account": "new:home office expenses",
+    "name": "Home office expenses",
+    "gifi": "8810",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 1200,
+    "reclass": 0,
+    "final": 1200
+   },
+   {
+    "account": "new:income tax expense",
+    "name": "Income tax expense",
+    "gifi": "9990",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 2600,
+    "reclass": 0,
+    "final": 2600
+   },
+   {
+    "account": "new:income taxes payable",
+    "name": "Income taxes payable",
+    "gifi": "2680",
+    "prior": 0,
+    "prelim": 0,
+    "adj": -2600,
+    "reclass": 0,
+    "final": -2600
+   },
+   {
+    "account": "new:meals and entertainment",
+    "name": "Meals and entertainment",
+    "gifi": "8523",
+    "prior": 0,
+    "prelim": 0,
+    "adj": 113,
+    "reclass": 0,
+    "final": 113
+   }
+  ],
+  "net_income": 36580.95,
+  "gifi": {
+   "1002": 88340,
+   "1062": 12000,
+   "1774": 6000,
+   "1775": -2400,
+   "2620": 4500,
+   "2621": 3250,
+   "2680": 5700,
+   "2781": 21409.05,
+   "3500": 100,
+   "3660": 37400,
+   "3700": -5000,
+   "8121": 180000,
+   "8231": 40,
+   "8521": 18250,
+   "8523": 113,
+   "8670": 1200,
+   "8810": 1200,
+   "8811": 4096.05,
+   "8862": 6000,
+   "9060": 110000,
+   "9990": 2600
+  },
+  "gst": null
+ }
+]

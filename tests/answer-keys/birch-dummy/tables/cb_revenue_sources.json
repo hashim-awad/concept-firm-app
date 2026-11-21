@@ -1,0 +1,35 @@
+[
+ {
+  "id": "0e006f51-2478-49c6-b30f-2ed76fb847c4",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "t4a",
+  "payer": "brokerage",
+  "label": "T4A from Dummy Brokerage",
+  "amount": 8750,
+  "attachment": "closebook/1d7da607-c532-4839-aa48-40a4f36e6de1/revenue/1794626860952-commission-statement.pdf",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T03:27:40.97129+00:00"
+ },
+ {
+  "id": "25a3bb15-d88e-4f22-83e3-2bca376f136c",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "gst_returns",
+  "payer": "",
+  "label": "Annual GST/HST return, amended",
+  "amount": 9500,
+  "attachment": "closebook/1d7da607-c532-4839-aa48-40a4f36e6de1/revenue/1794626860017-commission-statement.pdf",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T03:27:40.03701+00:00"
+ },
+ {
+  "id": "ebd1f3f2-94c5-47e7-833a-078bc2cdafcb",
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "kind": "commission_statement",
+  "payer": "",
+  "label": "Dummy Brokerage, first half only",
+  "amount": 2000,
+  "attachment": "closebook/1d7da607-c532-4839-aa48-40a4f36e6de1/revenue/1794626862732-commission-statement.pdf",
+  "created_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "created_at": "2026-11-14T03:27:42.74786+00:00"
+ }
+]

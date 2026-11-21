@@ -1,0 +1,25 @@
+[
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "group_key": "sh:1",
+  "shareholder": 1,
+  "accounts": [
+   "chart:13000",
+   "chart:23000",
+   "chart:25400"
+  ],
+  "opening": -13400,
+  "closing": -28440.5,
+  "reductions": 17040.5,
+  "last_part": 0,
+  "this_part": 0,
+  "due_on": null,
+  "prior_due_on": null,
+  "prior_opening": null,
+  "prior_repaid": null,
+  "prior_unpaid": null,
+  "flags": [],
+  "decided_left": 0,
+  "decided": []
+ }
+]

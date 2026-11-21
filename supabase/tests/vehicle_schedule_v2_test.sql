@@ -4,6 +4,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -27,12 +40,12 @@ select test.check('Fix 2: then the first car''s entry, now the only one, deletes
 reset role;
 select test.check('Fix 2: History has both deletions', (select count(*) from public.cb_file_history where file_id = :'f' and action = 'schedule_deleted') = 2);
 
--- Fix 5: a preparer cannot change "Claim the ITC" on the server.
+-- Fix 5, CB2-0: anyone with Edit can change "Claim the ITC" (the preparer's save is rolled back here).
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('Fix 5: the preparer is refused by the database',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, null, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :lines, replace(:sched, '"itc":true', '"itc":false'))) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+select test.check('Fix 5: the preparer is not refused by the database (CB2-0: anyone with Edit)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, null, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
+    :'f', :lines, replace(:sched, '"itc":true', '"itc":false'))) = 'OK');
 reset role;
 -- The rule is in the trigger, so a delete that does not go through cb_delete_entry is refused too.
 select public.cb_save_schedule_entry(:'f', null, 'AJE', 'correction', 'Vehicle, owner''s car', false, :lines, 'Vehicle schedule', null, '{}', null, :sched) as car3 \gset

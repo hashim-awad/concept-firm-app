@@ -1,0 +1,84 @@
+[
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "account_key": "chart:13000",
+  "number": "13000",
+  "name": "Due from shareholder 1",
+  "line_no": "1301.10",
+  "opening": 0,
+  "closing": 1000,
+  "tb": 1000,
+  "movements": [
+   {
+    "n": 1,
+    "kind": "other",
+    "amount": 1000
+   }
+  ],
+  "shareholder": 1,
+  "owner_source": "chart"
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "account_key": "chart:23000",
+  "number": "23000",
+  "name": "Due to shareholder 1",
+  "line_no": "2781.10",
+  "opening": -13400,
+  "closing": -26440.5,
+  "tb": -26440.5,
+  "movements": [
+   {
+    "n": 1,
+    "kind": "paid",
+    "amount": 2000
+   },
+   {
+    "n": 2,
+    "kind": "repaid",
+    "amount": -700
+   },
+   {
+    "n": 1,
+    "kind": "expenses",
+    "amount": -1460.5
+   },
+   {
+    "n": 1,
+    "kind": "dividends",
+    "amount": -5000
+   },
+   {
+    "n": 1,
+    "kind": "salary",
+    "amount": -2000
+   },
+   {
+    "n": 2,
+    "kind": "other",
+    "amount": -5880
+   }
+  ],
+  "shareholder": 1,
+  "owner_source": "chart"
+ },
+ {
+  "file_id": "1d7da607-c532-4839-aa48-40a4f36e6de1",
+  "account_key": "chart:25400",
+  "number": "25400",
+  "name": "Loan from shareholder (long-term)",
+  "line_no": "3261.00",
+  "opening": 0,
+  "closing": -3000,
+  "tb": -3000,
+  "movements": [
+   {
+    "n": 1,
+    "kind": "other",
+    "amount": -3000
+   }
+  ],
+  "shareholder": 1,
+  "owner_source": "chart"
+ }
+]

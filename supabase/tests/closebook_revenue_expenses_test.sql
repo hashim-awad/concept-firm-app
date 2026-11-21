@@ -39,8 +39,12 @@ select test.check('a check with no source is open work for the preparer, not a d
 
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('step 5 cannot be signed as prepared before the revenue check',
-  test.try(format($q$select public.cb_sign_step(%L, 'entries', 'prepared')$q$, :'f')) like 'Not yet: %Revenue check%');
+select test.check('step 5 signs as prepared before the revenue check (CB2-0: a warning, not a stop)',
+  test.try(format($q$select public.cb_sign_step(%L, 'entries', 'prepared')$q$, :'f')) = 'OK');
+reset role;
+select test.check('the open revenue check is recorded on the sign-off''s History row',
+  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'prepared' and step = 'entries' and detail like 'Signed with open items: %Revenue check%'));
+set role authenticated;
 select test.check('A1: a source needs its report attached', test.try(format($q$select public.cb_add_revenue_source(%L, 'commission_statement', '', 'Brokerage', 19000, '')$q$, :'f')) = 'Attach the report.');
 select test.check('A1: a T4A says who paid it', test.try(format($q$select public.cb_add_revenue_source(%L, 't4a', '', 'Slip', 19000, 'x.pdf')$q$, :'f')) = 'Say who paid the T4A: the brokerage or another payer.');
 select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Brokerage tax worksheet', 19000, 'files/statement.pdf') as src \gset
@@ -79,22 +83,22 @@ select test.check('the revenue check is done', array(select x from unnest(privat
 select test.check('piece 8: the shareholder loans are no longer step 5''s; step 7 has them', not (private.cb_step5_problems(:'f') @> array['Shareholder loan schedule: prepare it.'])
   and private.cb_sh_review_problems(:'f') = array['Shareholder loans: click Update to work out the figures.']);
 
--- A5: a difference over the threshold goes to the reviewer and waits on the step 6 list.
+-- A5 (CB2-0 step 5, rule 7: no thresholds): a large difference is explained like any other; nothing waits for the reviewer.
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_remove_revenue_source(:'src');
 select public.cb_add_revenue_source(:'f', 'commission_statement', '', 'Brokerage tax worksheet', 10000, 'files/statement.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('A5: over the threshold, each check waits for the reviewer (revenue and T4A here)', private.cb_step5_waiting(:'f')
-  = array['Revenue difference of 9,000.00, over the review threshold.', 'T4A difference of (8,500.00), over the review threshold.']);
-select test.check('A5: and step 6 waits for them', private.cb_step_waiting(:'f', 'entries') @> array['T4A difference of (8,500.00), over the review threshold.']);
+select test.check('A5: no threshold: a large difference does not wait for the reviewer; it is explained (revenue and T4A here)', private.cb_step5_waiting(:'f') = '{}'
+  and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference, or fix it with an entry.', 'Revenue check: explain the difference between the T4A and the commission statement.']);
+select test.check('A5: and step 6 waits for nothing', not exists (select 1 from unnest(private.cb_step_waiting(:'f', 'entries')) x where x like '%threshold%' or x like '%difference%'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('A5: the preparer cannot accept it', test.try(format($q$select public.cb_accept_revenue_difference(%L, 'revenue')$q$, :'f')) like 'Only the reviewer accepts%');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
-select test.check('A5: an explanation written for another difference does not count', test.try(format($q$select public.cb_accept_revenue_difference(%L, 't4a')$q$, :'f')) = 'The preparer explains this difference first.');
-select test.check('A5: nothing to accept on a check within the threshold', test.try(format($q$select public.cb_accept_revenue_difference(%L, 'gst')$q$, :'f')) like 'Nothing to accept%');
+select test.check('A5: the reviewer may accept a difference before it is explained (CB2-0: no waiting rule)', test.try(format($q$select public.cb_accept_revenue_difference(%L, 't4a')$q$, :'f')) = 'OK');
+select test.check('A5: the reviewer may accept a difference of any amount (CB2-0: no threshold)', test.try(format($q$select public.cb_accept_revenue_difference(%L, 'gst')$q$, :'f')) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_revenue_check(:'f', 'Second statement from the old brokerage still to come.', 'The return was filed before the duplicate was found.', 'The slip covers both brokerages.', false);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
@@ -104,7 +108,7 @@ reset role;
 reset request.jwt.claims;
 select test.check('A5: accepted, nothing waits', private.cb_step5_waiting(:'f') = '{}');
 select test.check('A5: the history has each acceptance, signed', (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action = 'revenue_accepted')
-  = 'Revenue difference 9,000.00 accepted | T4A difference (8,500.00) accepted');
+  = 'T4A difference (8,500.00) accepted | GST/HST returns difference (1,000.00) accepted | Revenue difference 9,000.00 accepted | T4A difference (8,500.00) accepted');
 
 -- A sign flip is a different difference: the explanation and the acceptance open again.
 set role authenticated;
@@ -117,7 +121,7 @@ reset role;
 reset request.jwt.claims;
 select test.check('A4: T4A (8,500.00) became 8,500.00: its explanation is open again',
   (private.cb_revenue_state(:'f') ->> 't4a_diff')::numeric = 8500 and private.cb_step5_problems(:'f') @> array['Revenue check: explain the difference between the T4A and the commission statement.']);
-select test.check('A5: and its acceptance too: it waits again', private.cb_step5_waiting(:'f') = array['T4A difference of 8,500.00, over the review threshold.']);
+select test.check('A5: nothing waits for the reviewer (CB2-0: no threshold); the explanation above is what is open', private.cb_step5_waiting(:'f') = '{}');
 select test.check('A4: GST/HST (1,000.00) became 1,000.00: its explanation is open again',
   (private.cb_revenue_state(:'f') ->> 'gst_diff')::numeric = 1000 and private.cb_step8_problems(:'f') @> array['GST/HST revenue: explain the difference between the books and the returns.']);
 set role authenticated;
@@ -127,12 +131,13 @@ select public.cb_add_revenue_source(:'f', 'gst_returns', '', 'Annual return, ame
 select public.cb_add_revenue_source(:'f', 'slips', '', 'T5018', 100, 'files/t5018.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('A5: the GST/HST check over the threshold waits for the reviewer (piece 7: in step 8, not step 5)', (private.cb_revenue_state(:'f') ->> 'gst_waiting')::boolean
+select test.check('A5: a large GST/HST difference does not wait for the reviewer (CB2-0: no threshold); it is explained in step 8, not step 5', not (private.cb_revenue_state(:'f') ->> 'gst_waiting')::boolean
   and private.cb_step8_problems(:'f') @> array['GST/HST revenue: explain the difference between the books and the returns.']
   and not exists (select 1 from unnest(private.cb_step5_waiting(:'f')) x where x like 'GST/HST%'));
 select test.check('A4: an explanation written for another difference is open again',
   private.cb_step5_problems(:'f') @> array['Revenue check: the difference changed since it was explained. Check the explanation and save it again.']);
-select test.check('A5: a new revenue difference waits again', private.cb_step5_waiting(:'f') @> array['Revenue difference of 8,900.00, over the review threshold.']);
+select test.check('A5: a new revenue difference does not wait for the reviewer (CB2-0: no threshold)', private.cb_step5_waiting(:'f') = '{}'
+  and (private.cb_revenue_state(:'f') ->> 'diff')::numeric = 8900);
 
 -- B. Expenses paid personally: the standard entry.
 select (select id from public.cb_standard_entries where name = 'Expenses paid personally') as std \gset
@@ -168,8 +173,8 @@ select test.check('B12: CRA payments never go to an expense',
   test.try(format($q$select public.cb_add_personal_expenses(%L, %L, '{"summary_total":10,"lines":[{"key":"cra","total":10,"account":"60000"}]}', '{sheet.xlsx}', false)$q$, :'f', :'lines')) = 'Payments to CRA for the company: choose one of 21400, 21500, 21300.');
 select test.check('B12: "Not sure" says what it is',
   test.try(format($q$select public.cb_add_personal_expenses(%L, %L, '{"summary_total":10,"lines":[{"key":"not_sure","total":10,"account":"65000"}]}', '{sheet.xlsx}', false)$q$, :'f', :'lines')) = 'Not sure: add a note saying what it is.');
-select test.check('B13: a line over $5,000 needs its receipts',
-  test.try(format($q$select public.cb_add_personal_expenses(%L, %L, '{"summary_total":6000,"lines":[{"key":"rent","total":6000}]}', '{sheet.xlsx}', false)$q$, :'f', :'lines')) = 'Rent for business space is over $5,000: attach the receipts.');
+select test.check('B13: a line over $5,000 is accepted with the client''s sheet alone (CB2-0: no $5,000 receipts rule)',
+  test.try(format($q$select public.cb_add_personal_expenses(%L, %L, '{"summary_total":6000,"lines":[{"key":"rent","total":6000}]}', '{sheet.xlsx}', false)$q$, :'f', :'lines')) = 'OK');
 select public.cb_add_personal_expenses(:'f', :'lines', :'check', '{files/sheet.xlsx}', false) as ent \gset
 reset role;
 reset request.jwt.claims;
@@ -182,7 +187,7 @@ select test.check('B9: on an own-books file the lines go to the client''s accoun
   (select string_agg(a.number || ':' || l.amount, ',' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id where l.entry_id = :'ent' and not l.is_tax)
   = '70600:750.00,60200:106.50,23000:-960.50');
 select test.check('B8: the sheet is attached as the source', (select attachments from public.cb_entries where id = :'ent') = '{files/sheet.xlsx}');
-select test.check('B14: under the threshold with no reviewer line, no review', not (select needs_review from public.cb_entries where id = :'ent'));
+select test.check('B14: no reviewer line, no review (CB2-0: no review amount)', not (select needs_review from public.cb_entries where id = :'ent'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_add_personal_expenses(:'f', '[{"chart":"70600","amount":300,"memo":"Lease"},{"chart":"23000","amount":-300,"memo":"Paid personally"}]',

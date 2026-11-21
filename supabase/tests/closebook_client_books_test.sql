@@ -19,8 +19,10 @@ select public.cb_add_entry(:'f', 'AJE', 'correction', 'To record amortization fo
 select test.check('the new account carries the plain name, its type and the GIFI line', (select name || '|' || qbo_type || '|' || line_no || '|' || client_new from public.cb_accounts where file_id = :'f' and account_key = 'new:amortization expense')
   = 'Amortization expense|Expenses|8670.00|true');
 select public.cb_add_entry(:'f', 'AJE', 'prior_period', 'Missed accrual last year.', false, format('[{"account":"%s","amount":500},{"account":"%s","amount":-500}]', :'re', :'acc')::jsonb, 'Prior year file');
-select test.check('a prior period adjustment in the client''s books goes to a new "Prior period adjustments" account on 3720',
-  (select name || '|' || qbo_type || '|' || line_no from public.cb_accounts where file_id = :'f' and account_key = 'new:prior period adjustments') = 'Prior period adjustments|Equity|3720.00');
+select test.check('a prior period adjustment in the client''s books posts to the account coded, retained earnings (CB2-0 review round: no new 3720 account)',
+  (select string_agg(a.number || ':' || l.amount, ',' order by l.amount desc) from public.cb_entry_lines l join public.cb_accounts a on a.id = l.account_id join public.cb_entries e on e.id = l.entry_id
+    where e.file_id = :'f' and e.reason = 'prior_period') = '32000:500.00,15100:-500.00'
+  and not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key = 'new:prior period adjustments'));
 select test.check('no GIFI-line account was created in the client''s books', not exists (select 1 from public.cb_accounts where file_id = :'f' and account_key like 'line:%'));
 select test.check('32200 Dividends declared is on GIFI 3700, after the other dividend accounts', (select name || '|' || line_no from public.cb_chart_accounts where number = '32200') = 'Dividends declared|3700.00'
   and (select sort_order from public.cb_chart_accounts where number = '32200') = (select sort_order + 1 from public.cb_chart_accounts where number = '32100'));

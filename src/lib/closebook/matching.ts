@@ -3,7 +3,7 @@
 //   A clear single match is suggested; none, or two close ones, go to the reviewer.
 // - effectiveLine: an account whose balance flips sign moves to its paired line (4.1).
 // - typeMismatch: an account numbered as one type matched to a line of another type (4.5).
-// - leadSheets: grouping, entries, final balances and the year-over-year flags (5.5).
+// - leadSheets: grouping, entries, final balances, $ and % change.
 
 export type Line = { line_no: string; name: string; gifi_code: string; line_type: string; lead_sheet: string | null; statement_line: string | null; default_tax_code: string | null; mappable: boolean; pair_line: string | null; section?: string; locked?: boolean };
 
@@ -119,7 +119,7 @@ export function effectiveLine(lineNo: string | null, balance: number, lines: Map
   return opposite ? l.pair_line : lineNo;
 }
 
-export type LeadRow = { id: string; number: string; name: string; line: string; last: number; before: number; entries: number; final: number; change: number; pct: number | null; flagged: boolean;
+export type LeadRow = { id: string; number: string; name: string; line: string; last: number; before: number; entries: number; final: number; change: number; pct: number | null;
   reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
 // Round 25 (Hashim, Nov 17, 2026): last year's figure came from another T2 line than this year's: said once.
 export const reclassNote = (lastLine: string | null | undefined, line: string | null | undefined) =>
@@ -127,25 +127,9 @@ export const reclassNote = (lastLine: string | null | undefined, line: string | 
   lastLine && line && line.slice(0, 4) !== lastLine ? "Last year on another T2 line" : undefined;
 export type LeadSheet = { code: string; name: string; rows: LeadRow[]; last: number; before: number; entries: number; final: number };
 
-// Flag rule (5.5): changed by more than the amount AND more than the percentage. Both conditions.
-export function flagged(last: number, final: number, amount: number, percent: number): boolean {
-  const change = Math.abs(final - last);
-  if (change <= amount) return false;
-  if (last === 0) return true;
-  return (change / Math.abs(last)) * 100 > percent;
-}
-
-// Piece 6 (Hashim, Nov 18, 2026): tax entries never raise a flag. The flag is tested on the final balance less this year's
-// TJE lines, against last year's balance as before; accounts whose tax code (their own, else their GIFI line's) is INCTAX or
-// AMORT are never flagged. The lead sheets still show the final balance. The database applies the same rule
-// (private.cb_step_problems).
-export const NO_FLAG_TAX = ["INCTAX", "AMORT"];
-export const flagTaxFree = (accountTax: string | null | undefined, line: Line | undefined) => NO_FLAG_TAX.includes(accountTax ?? line?.default_tax_code ?? "");
-
 export function leadSheets(
   accounts: { id: string; number: string; name: string; line_no: string | null; last_year: number; this_year: number; last_year_line?: string | null; tax_code?: string | null }[],
-  entryTotals: Map<string, number>, lines: Map<string, Line>, sheets: { code: string; name: string }[], flag: { amount: number; percent: number },
-  tjeTotals?: Map<string, number>,
+  entryTotals: Map<string, number>, lines: Map<string, Line>, sheets: { code: string; name: string }[],
 ): LeadSheet[] {
   const out = new Map(sheets.map((s) => [s.code, { code: s.code, name: s.name, rows: [] as LeadRow[], last: 0, before: 0, entries: 0, final: 0 }]));
   for (const a of accounts) {
@@ -156,10 +140,8 @@ export function leadSheets(
     if (!line || !sheet) continue;
     const change = Math.round((final - a.last_year) * 100) / 100;
     const row: LeadRow = { id: a.id, number: a.number, name: a.name, line, last: a.last_year, before: a.this_year, entries, final, change,
-      // No year-over-year flag on retained earnings at the start of the year (Hashim, round 15).
-      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100,
-      flagged: !/^36(00|60)/.test(line) && !(tjeTotals && flagTaxFree(a.tax_code, lines.get(line)))
-        && flagged(a.last_year, Math.round((final - (tjeTotals?.get(a.id) ?? 0)) * 100) / 100, flag.amount, flag.percent), reclass: reclassNote(a.last_year_line, line) };
+      // CB2-0 step 5 (rule 7, no thresholds): no year-over-year flag. Every line shows its $ and % change.
+      pct: a.last_year === 0 ? null : (change / Math.abs(a.last_year)) * 100, reclass: reclassNote(a.last_year_line, line) };
     const s = out.get(sheet)!;
     s.rows.push(row); s.last += a.last_year; s.before += a.this_year; s.entries += entries; s.final += final;
   }

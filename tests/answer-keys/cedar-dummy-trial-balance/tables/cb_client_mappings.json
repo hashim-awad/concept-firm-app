@@ -1,0 +1,152 @@
+[
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "10100",
+  "line_no": "1002.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "11000",
+  "line_no": "1062.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "15000",
+  "line_no": "1774.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "15100",
+  "line_no": "1775.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "20000",
+  "line_no": "2621.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "23500",
+  "line_no": "2680.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "26000",
+  "line_no": "2781.10",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "30000",
+  "line_no": "3500.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "32000",
+  "line_no": "3600.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "41000",
+  "line_no": "8121.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "64310.05",
+  "line_no": "8811.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "64310.10",
+  "line_no": "8811.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "64250",
+  "line_no": "8862.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "68000",
+  "line_no": "8521.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ },
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "account_key": "72000",
+  "line_no": "9060.00",
+  "tax_code": null,
+  "decided_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "decided_at": "2026-11-13T16:04:33.521362+00:00",
+  "chart_account": null,
+  "name": null
+ }
+]

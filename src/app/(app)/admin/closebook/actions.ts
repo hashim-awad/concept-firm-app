@@ -56,26 +56,15 @@ export async function addSubLine(formData: FormData) {
   redirect(withMessage(`${LINES}/${data}`, "msg", `Line ${data} added.`));
 }
 
-// Thresholds and the Note 1 policy.
+// The Note 1 policy, the instalment amount and the shareholder loan window.
 export async function updateCbSettings(formData: FormData) {
   const back = String(formData.get("back") ?? "/admin/closebook/thresholds");
   await owner(back);
   const n = (k: string) => Number(s(formData, k).replace(/[$,%\s]/g, ""));
-  // Dollar amounts read as every typed amount does (parseAmount: commas, $, a minus sign or brackets);
-  // a negative is refused below. Percentages and days stay plain numbers.
   const d = (k: string) => { const c = parseAmount(s(formData, k)); return c === null ? NaN : c / 100; };
-  const vals = [d("recon"), d("flag_amount"), n("flag_percent"), d("entry_review"), d("capital_invoice")];
-  if (vals.some((v) => !Number.isFinite(v) || v < 0)) redirect(withMessage(back, "error", "Enter each amount as a number, 0 or more."));
-  const { error } = await (await createClient()).rpc("cb_update_settings", {
-    p_recon: vals[0], p_flag_amount: vals[1], p_flag_percent: vals[2], p_entry_review: vals[3], p_capital_invoice: vals[4], p_note1: s(formData, "note1") || "amortization_equals_cca",
-  });
-  // Round 10: the T2 tie-out rounding, on the Thresholds page only (the Note 1 page does not send it).
-  let err = error;
-  if (!err && formData.has("t2_rounding")) {
-    const r = d("t2_rounding");
-    if (!Number.isFinite(r) || r < 0) redirect(withMessage(back, "error", "Rounding allowed in the T2 tie-out: enter a number, 0 or more."));
-    err = (await (await createClient()).rpc("cb_update_t2_rounding", { p_amount: r })).error;
-  }
+  // CB2-0 v7: the Note 1 page sends the policy; the Thresholds page sends only its two amounts.
+  let err: { message: string } | null = null;
+  if (formData.has("note1")) err = (await (await createClient()).rpc("cb_update_settings", { p_note1: s(formData, "note1") || "amortization_equals_cca" })).error;
   // Round 12: the instalment threshold Appendix C's client email uses (step 10).
   if (!err && formData.has("instalment_threshold")) {
     const r = d("instalment_threshold");

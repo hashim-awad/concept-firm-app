@@ -1,6 +1,6 @@
 "use client";
 // Piece 10 (Hashim, Nov 19, 2026; mock L; benchmark CaseWare Cloud's analytical review): step 6, "Compare to last year",
-// the preparer's page. Four sections, top to bottom: Flagged changes (with the Lead sheets view), New accounts this year,
+// the preparer's page. Four sections, top to bottom: Every line (CB2-0 step 5: no flags; sort by $ or % change), New accounts this year,
 // Accounts not used this year, What changed this year. Each change saves at once; the database checks every rule again.
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -10,36 +10,44 @@ import { explainFlagInline, signStep } from "../actions";
 import { YEAR_QUESTIONS } from "@/lib/closebook/compare";
 import { Panel, type Option, type Row } from "./accounts-table";
 
-export type FlagRowView = { id: string; label: string; last: string; final: string; change: string; pct: string; ledger: string; note?: { reason: string; note: string } };
+export type FlagRowView = { id: string; label: string; sheet: string; last: string; final: string; change: string; pct: string; ledger: string; note?: { reason: string; note: string };
+  changeCents: number; pctValue: number | null };
 // Piece R1: pick, the account for "Choose a group" (the existing Change window over the page) when it has no group.
 export type AcctRowView = { key: string; label: string; line: string; amount: string; ledger: string; confirmed?: boolean; pick?: Row };
 
 const th = "px-3 py-2 text-left text-[11.5px] font-semibold text-ink-2";
 const td = "px-3 py-2.5 align-middle text-[13.5px]";
 
-export function CompareStep({ fileId, editable, flagRule, leadHref, flagged, newAccounts, unused, seen, answers, canSign, back, options = [] }: {
-  fileId: string; editable: boolean; flagRule: string; leadHref: string; flagged: FlagRowView[]; newAccounts: AcctRowView[]; unused: AcctRowView[];
+export function CompareStep({ fileId, editable, leadHref, every, newAccounts, unused, seen, answers, canSign, back, options = [] }: {
+  fileId: string; editable: boolean; leadHref: string; every: FlagRowView[]; newAccounts: AcctRowView[]; unused: AcctRowView[];
   seen: boolean; answers: Record<string, { answer: boolean; note: string }>; canSign: boolean; back: string; options?: Option[];
 }) {
   const [err, setErr] = useState("");
   const [pick, setPick] = useState<Row | null>(null);
+  const [sort, setSort] = useState<"sheet" | "dollar" | "pct">("sheet");
+  const rows = sort === "dollar" ? [...every].sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents))
+    : sort === "pct" ? [...every].sort((a, b) => (b.pctValue === null ? -1 : Math.abs(b.pctValue)) - (a.pctValue === null ? -1 : Math.abs(a.pctValue))) : every;
+  const sortBtn = (k: "sheet" | "dollar" | "pct", label: string) => <button type="button" onClick={() => setSort(k)} aria-pressed={sort === k} data-compare-sort={k}
+    className={`h-7 border border-sand-300 px-2.5 text-[12.5px] first:rounded-l last:rounded-r [&+&]:-ml-px ${sort === k ? "bg-navy-900 font-semibold text-white" : "bg-white text-ink-2 hover:bg-sand-50"}`}>{label}</button>;
   const amt = (v: string, href: string) => <Link href={href} className="text-navy-700 hover:underline" data-compare-amount>{v}</Link>;
   return (
-    <div className="grid gap-5" data-compare-step>
+    <div className="grid min-w-0 gap-5" data-compare-step>
       {err && <p role="alert" className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">{err}</p>}
 
-      <section aria-label="Flagged changes" id="flagged">
+      <section aria-label="Every line" id="every-line" className="min-w-0">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-[14px] font-semibold text-navy-900">Flagged changes <span className="ml-1 text-[12.5px] font-normal text-ink-3">{flagRule}</span></h2>
-          <Link href={leadHref} className="text-[12.5px] font-medium text-navy-700 hover:underline" data-lead-view>Lead sheets view</Link>
+          <h2 className="text-[14px] font-semibold text-navy-900">Every line <span className="ml-1 text-[12.5px] font-normal text-ink-3">Last year against this year. A reason and note are optional.</span></h2>
+          <span className="flex flex-wrap items-center gap-3 text-[12.5px]"><Link href={leadHref} className="font-medium text-navy-700 hover:underline" data-lead-view>Lead sheets view</Link>
+            <span className="inline-flex items-center" role="group" aria-label="Sort"><span className="mr-2 text-ink-3">Sort by</span>{sortBtn("sheet", "Lead sheet")}{sortBtn("dollar", "$ change")}{sortBtn("pct", "% change")}</span></span>
         </div>
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full min-w-[900px]">
-            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={`${th} text-right`}>Last year</th><th className={`${th} text-right`}>This year</th>
-              <th className={`${th} text-right`}>Change</th><th className={`${th} text-right`}>%</th><th className={th}>Reason</th><th className={th}>Note</th></tr></thead>
+        <div className="card min-w-0 overflow-x-auto p-0">
+          <table className="w-full min-w-[1040px] table-fixed">
+            <colgroup><col className="w-[19%]" /><col className="w-[15%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[7%]" /><col className="w-[13%]" /><col className="w-[16%]" /></colgroup>
+            <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Lead sheet</th><th className={`${th} text-right`}>Last year</th><th className={`${th} text-right`}>This year</th>
+              <th className={`${th} text-right`}>$ change</th><th className={`${th} text-right`}>% change</th><th className={th}>Reason</th><th className={th}>Note</th></tr></thead>
             <tbody className="divide-y divide-sand-100">
-              {flagged.map((r) => <FlagRow key={r.id} fileId={fileId} r={r} editable={editable} amt={amt} onError={setErr} />)}
-              {flagged.length === 0 && <tr><td colSpan={7} className={`${td} text-ink-2`}>No account changed by more than the flag amount and percentage.</td></tr>}
+              {rows.map((r) => <FlagRow key={r.id} fileId={fileId} r={r} editable={editable} amt={amt} onError={setErr} />)}
+              {rows.length === 0 && <tr><td colSpan={8} className={`${td} text-ink-2`}>No balances this year or last year.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -112,7 +120,7 @@ function Tick({ on, disabled, label, save, onError, data }: { on: boolean; disab
     onChange={(e) => { const next = e.target.checked; setV(next); start(async () => { const err = await save(next); if (err) setV(!next); onError(err ?? ""); }); }} />;
 }
 
-// A flagged change: its reason and note save together, once both are there (the reason list is the lead sheets').
+// A line: its optional reason and note save together, once both are there (the reason list is the lead sheets').
 function FlagRow({ fileId, r, editable, amt, onError }: { fileId: string; r: FlagRowView; editable: boolean; amt: (v: string, href: string) => React.ReactNode; onError: (e: string) => void }) {
   const [reason, setReason] = useState(r.note?.reason ?? "");
   const [note, setNote] = useState(r.note?.note ?? "");
@@ -122,16 +130,15 @@ function FlagRow({ fileId, r, editable, amt, onError }: { fileId: string; r: Fla
     start(async () => onError((await explainFlagInline(fileId, r.id, rs, nt)) ?? ""));
   };
   return (
-    <tr data-flag-row={r.label}>
-      <td className={td}>{r.label}</td>
+    <tr data-compare-row={r.label}>
+      <td className={td}>{r.label}</td><td className={`${td} text-ink-2`}>{r.sheet}</td>
       <td className={`${td} text-right tabular-nums`}>{amt(r.last, r.ledger)}</td><td className={`${td} text-right tabular-nums`}>{amt(r.final, r.ledger)}</td>
       <td className={`${td} text-right tabular-nums`}>{r.change}</td><td className={`${td} text-right tabular-nums`}>{r.pct}</td>
-      <td className={td}><select value={reason} disabled={!editable || pending} aria-label={`Reason: ${r.label}`} className="input h-9 w-40 py-1 text-[13px]"
+      <td className={td}><select value={reason} disabled={!editable || pending} aria-label={`Reason: ${r.label}`} className="input h-9 w-full min-w-[7.5rem] py-1 text-[13px]"
         onChange={(e) => { setReason(e.target.value); save(e.target.value, note); }}>
-        <option value="">Choose a reason</option>{Object.entries(REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-      <td className={td}><input value={note} disabled={!editable || pending} maxLength={500} placeholder="Short note" aria-label={`Note: ${r.label}`} className="input h-9 w-56 py-1 text-[13px]"
-        onChange={(e) => setNote(e.target.value)} onBlur={() => save(reason, note)} />
-        {!r.note && <span className="block text-[12px] text-danger">Explain this change.</span>}</td>
+        <option value="">Reason</option>{Object.entries(REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+      <td className={td}><input value={note} disabled={!editable || pending} maxLength={500} placeholder="Note" aria-label={`Note: ${r.label}`} className="input h-9 w-full min-w-[9rem] py-1 text-[13px]"
+        onChange={(e) => setNote(e.target.value)} onBlur={() => save(reason, note)} /></td>
     </tr>
   );
 }

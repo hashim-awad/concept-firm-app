@@ -59,6 +59,7 @@ insert into expected_chart values
   ('21300', 'Payroll deductions payable', 'Liability', '2627.00', 'Employee deductions payable', 'BS', 'None', ''),
   ('21400', 'Income taxes payable', 'Liability', '2680.00', 'Taxes payable', 'BS', 'None', ''),
   ('21500', 'GST/HST payable', 'Liability', '2680.00', 'Taxes payable', 'BS', 'None', 'The tax column posts here'),
+  ('21510', 'GST/HST instalments paid', 'Liability', '2680.00', 'Taxes payable', 'BS', 'None', 'Instalments paid to the CRA; line 110 of the GST/HST return reads this account'),
   ('21550', 'PST payable', 'Liability', '2680.00', 'Taxes payable', 'BS', 'None', 'PST that BC clients collect on their sales'),
   ('21600', 'Dividends payable', 'Liability', '2962.00', 'Dividends payable', 'BS', 'None', ''),
   ('21700', 'Customer deposits', 'Liability', '2961.00', 'Deposits received', 'BS', 'None', ''),

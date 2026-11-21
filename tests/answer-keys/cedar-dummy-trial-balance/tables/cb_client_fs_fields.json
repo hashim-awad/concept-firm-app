@@ -1,0 +1,13 @@
+[
+ {
+  "client_id": "1a0bb296-4370-4eb8-ad07-4a9ede4f60e0",
+  "officer_name": "Casey Dummy",
+  "officer_position": "Director",
+  "officer_email": "casey.dummy@example.test",
+  "sh_terms": "The amount due to the shareholder is non-interest bearing, unsecured, and has no set terms of repayment.",
+  "related": {},
+  "audit_waiver": true,
+  "updated_by": "0321e4f3-9f55-4e5b-b217-6a798f6c359e",
+  "updated_at": "2026-11-14T06:01:50.485672+00:00"
+ }
+]

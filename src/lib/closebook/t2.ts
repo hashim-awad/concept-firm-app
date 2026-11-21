@@ -115,25 +115,23 @@ export function taxWorkpaper(accounts: WpAccount[], codes: Map<string, { name: s
 }
 
 // The tie-out to ProFile. Closebook's figures come from the final export; the preparer types ProFile's.
-// A difference shows to the cent, Closebook less ProFile (round 10 fix 6). ProFile rounds each GIFI line
-// to whole dollars, so a difference within the rounding allowed (Settings, $5) shows as rounding and does
-// not block (fix 1). CCA is compared only when the client's book amortization is CCA.
+// A difference shows to the cent, Closebook less ProFile (round 10 fix 6). CB2-0 v7 (rule 7): no rounding
+// allowance. ProFile works in whole dollars, so net income and total assets compare Closebook's GIFI line totals
+// rounded to whole dollars; income tax ties to the cent. Amortization is never compared to CCA.
 export type TieItem = { key: "ni" | "assets" | "cca" | "tax"; label: string; closebook: number; profile: number | null; diff: number | null; compared: boolean;
   accepted: { diff: number; by: string; at: string; reason: string } | null; open: boolean; rounding: boolean };
 export function tieOut(closebook: { ni: number; assets: number; amort: number; tax: number }, typed: { ni: number | null; assets: number | null; cca: number | null; tax: number | null },
-  accepted: Record<string, { diff: number; by: string; at: string; reason: string }>, bookAmortization: boolean, roundingAllowed = 5): TieItem[] {
+  accepted: Record<string, { diff: number; by: string; at: string; reason: string }>): TieItem[] {
   const item = (key: TieItem["key"], label: string, cb: number, pf: number | null, compared = true): TieItem => {
-    const diff = pf === null ? null : cents(cb - pf);
+    const whole = key === "ni" || key === "assets";
+    const diff = pf === null ? null : cents((whole ? Math.round(cb) : cb) - pf);
     const acc = accepted[key] ?? null;
-    // Only net income and total assets come from the rounded GIFI lines; CCA and income tax tie to the cent.
-    const allowed = key === "ni" || key === "assets" ? roundingAllowed : 0;
-    const rounding = compared && allowed > 0 && diff !== null && diff !== 0 && Math.abs(diff) <= allowed;
-    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, rounding, open: compared && diff !== null && Math.abs(diff) > allowed && (!acc || acc.diff !== diff) };
+    return { key, label, closebook: cb, profile: pf, diff, compared, accepted: acc, rounding: false, open: compared && diff !== null && diff !== 0 && (!acc || acc.diff !== diff) };
   };
   return [
     item("ni", "Net income (9999)", closebook.ni, typed.ni),
     item("assets", "Total assets (2599)", closebook.assets, typed.assets),
-    item("cca", "Total CCA claimed (Schedule 8) and amortization booked (AMORT lines)", closebook.amort, typed.cca, !bookAmortization),
+    item("cca", "Total CCA claimed (Schedule 8) and amortization booked (AMORT lines)", closebook.amort, typed.cca, false),
     item("tax", "Total income tax, federal plus provincial, and income tax booked (INCTAX lines)", closebook.tax, typed.tax),
   ];
 }

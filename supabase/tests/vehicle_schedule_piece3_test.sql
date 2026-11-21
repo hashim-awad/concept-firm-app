@@ -7,6 +7,19 @@
 \set ON_ERROR_STOP 1
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'owner.a@example.test'), ('00000000-0000-0000-0000-00000000000c', 'staff.c@example.test');
 select private.bootstrap_owner('owner.a@example.test', 'Test Owner A');
+-- CB2-0: runs a statement and rolls it back: 'OK' when it would succeed, or the error. Used where a call that used to be
+-- refused now succeeds, so the rest of the file still runs on the same data.
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.add_staff('00000000-0000-0000-0000-00000000000c', 'Test Staff C', 'staff.c@example.test', (select id from public.roles where name = 'Accountant'));
@@ -43,12 +56,16 @@ select test.check('T4: one schedule with the entry, its inputs kept', (select co
 select test.check('T4: it goes to the reviewer like a typed entry', (select needs_review and reviewed_at is null from public.cb_entries where id = :'e'));
 select test.check('T4: staff can read the schedule', (select count(*) from public.cb_schedules where file_id = :'f') = 1);
 
--- T10: the lock. Edit refuses a changed schedule amount; the account and the description can change.
-select test.check('T10: Edit refuses a changed schedule amount',
-  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e', replace(:lines, '8300', '8000'))) = 'Change this amount in its schedule: click the Schedule tag.');
-select test.check('T10: Edit refuses a schedule line taken out',
+-- T10 (CB2-0 review round): no lock. Edit changes a schedule amount on the entry; the account and the description can change.
+-- An entry that no longer balances is still refused (the kept hard stop).
+select test.check('T10: Edit with only the owed line changed is refused as unbalanced',
+  test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e', replace(:lines, '8300', '8000'))) = 'The entry does not balance: it is out by 300.00.');
+select test.check('T10: Edit changes a schedule amount when the entry balances (rolled back here)',
+  test.try_rollback(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e',
+    replace(replace(:lines, '7345.13', '7045.13'), '-8300', '-8000'))) = 'OK');
+select test.check('T10: a schedule line taken out leaves the entry unbalanced: refused by the hard stop',
   test.try(format($q$select public.cb_edit_entry(%L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule')$q$, :'e',
-    (select jsonb_agg(x) from jsonb_array_elements(:lines::jsonb) x where x ->> 'schedule_part' <> 'company_gst')::text)) = 'Change this amount in its schedule: click the Schedule tag.');
+    (select jsonb_agg(x) from jsonb_array_elements(:lines::jsonb) x where x ->> 'schedule_part' <> 'company_gst')::text)) = 'The entry does not balance: it is out by 51.78.');
 -- The account of the allowance line changed to 70650, and a normal line added; the same schedule amounts.
 \set lines2 '''[{"chart":"70650","amount":7345.13,"tax_code":"HST_ON","schedule_part":"allowance"},{"chart":"21500","amount":954.87,"is_tax":true,"schedule_part":"allowance_itc"},{"chart":"23000","amount":-8300,"schedule_part":"allowance_due"},{"chart":"23000","amount":450,"schedule_part":"company_due"},{"chart":"70600","amount":-398.22,"tax_code":"HST_ON","schedule_part":"company_cost:a"},{"chart":"21500","amount":-51.78,"is_tax":true,"schedule_part":"company_gst"},{"chart":"64000","amount":10},{"chart":"21100","amount":-10}]'''
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Vehicle, owner''s car (2026)', false, :lines2, 'Vehicle schedule', null, '{}', null, null) as e2 \gset
@@ -60,12 +77,12 @@ select test.check('T10: Reclassify refuses any line of the entry, the added norm
     jsonb_build_array(jsonb_build_object('kind', 'entry', 'id', (select id from public.cb_entry_lines where entry_id = :'e' and schedule_part is null and amount > 0)))::text))
   like '%comes from a working paper: change it there. Nothing was changed.');
 
--- T12: "Claim the ITC". The preparer cannot untick it; the file's reviewer (an owner, as every reviewer is) can.
+-- T12: "Claim the ITC". CB2-0: anyone with Edit can untick it (the preparer's try is rolled back here); the reviewer unticks it below.
 \set unticked '''{"kind":"vehicle","method":"prorated","choice":"higher","itc":false,"inputs":{"businessKm":12000},"summary":"Per-km allowance 8,300.00 used","lines":[{"schedule_part":"allowance","amount":8300},{"schedule_part":"allowance_due","amount":-8300}],"changes":[{"what":"Total km in the year","old":"20,000","new":"empty"}]}'''
 \set ulines '''[{"chart":"70600","amount":8300,"schedule_part":"allowance"},{"chart":"23000","amount":-8300,"schedule_part":"allowance_due"}]'''
-select test.check('T12: the preparer cannot change Claim the ITC',
-  test.try(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
-    :'f', :'e', :ulines, :unticked)) = 'Only the file''s reviewer or someone with the Review right can change "Claim the ITC".');
+select test.check('T12: the preparer can change Claim the ITC (CB2-0: anyone with Edit)',
+  test.try_rollback(format($q$select public.cb_save_schedule_entry(%L, %L, 'AJE', 'correction', 'Vehicle, owner''s car', false, %L, 'Vehicle schedule', null, '{}', null, %L)$q$,
+    :'f', :'e', :ulines, :unticked)) = 'OK');
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select public.cb_save_schedule_entry(:'f', :'e', 'AJE', 'correction', 'Vehicle, owner''s car', false, :ulines, 'Vehicle schedule', null, '{}', null, :unticked) as e3 \gset
 select test.check('T12/T9: put in again by the reviewer: same entry, Dr 70600 8,300.00, Cr 23000 8,300.00', :'e3' = :'e'
@@ -78,14 +95,14 @@ select test.check('T12: put in again, it goes to the reviewer again', (select ne
 select public.cb_schedule_printed((select id from public.cb_schedules where entry_id = :'e'));
 reset role;
 
-select test.check('History: created, put in (twice), input changed, ITC unticked by the reviewer, printed',
+select test.check('History: one row per save (CB2-0 v7 item 8): created, saved (input changed), saved (ITC unticked), printed',
   (select string_agg(action, ',' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%')
-  = 'schedule_created,schedule_put_in,schedule_input_changed,schedule_itc,schedule_put_in,schedule_printed');
-select test.check('History: the ITC row names who (the reviewer) with old and new',
-  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_itc' and actor_id = '00000000-0000-0000-0000-00000000000a'
-          and old_value = 'Ticked' and new_value = 'Unticked' and ref_label = '2026-001 AJE'));
-select test.check('History: the input change has old and new', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_input_changed'
-  and reason = 'Total km in the year' and old_value = '20,000' and new_value = 'empty'));
+  = 'schedule_created,schedule_saved,schedule_saved,schedule_printed');
+select test.check('History: the ITC save names who (the reviewer) with old and new',
+  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_saved' and actor_id = '00000000-0000-0000-0000-00000000000a'
+          and old_value like '%Claim the ITC: Ticked%' and new_value like '%Claim the ITC: Unticked%' and ref_label = '2026-001 AJE'));
+select test.check('History: the input change has old and new', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_saved'
+  and old_value like '%Total km in the year: 20,000%' and new_value like '%Total km in the year: empty%'));
 
 -- T11: deleting the entry deletes the schedule; History records it.
 set role authenticated;

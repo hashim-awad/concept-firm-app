@@ -31,8 +31,9 @@ import { ReclassifyPage } from "./areas/reclassify";
 import { loadReclassify } from "@/lib/closebook/reclassify-server";
 import { statements as fsStatements, trialBalance } from "@/lib/closebook/reports";
 import { ReviewNotes } from "./review-notes";
-import { loadHistory } from "@/lib/closebook/history";
-import { HistoryView, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
+import { changedAfterSignoff, loadHistory } from "@/lib/closebook/history";
+import { SidePanel } from "./side-panel";
+import { HistoryView, ItemHistory, ReviewStep, type ChecklistRow, type ReviewGroup, type ReviewItem } from "./review-step";
 import { ReviewLines, type ReviewAccountRow } from "./feed/review-lines";
 import { loadFile, loadReference } from "@/lib/closebook/server";
 import { effectiveLine, lockedLines, normalSide, sideFlag, sideFlagText, typeFlag, typeFlagText } from "@/lib/closebook/matching";
@@ -41,7 +42,7 @@ import { MatchStep, type BoxItem } from "./match-step";
 import type { Row as MatchPanelRow } from "./accounts-table";
 import { TbTab } from "./tb-tab";
 import { CompareStep, NewAccountsReview, MarkReviewed } from "./compare-step";
-import { compareLists, flagRuleText, YEAR_QUESTIONS } from "@/lib/closebook/compare";
+import { compareLists, YEAR_QUESTIONS } from "@/lib/closebook/compare";
 import { entryDialog } from "./areas/entry-dialog";
 import { RevenueCheck } from "./revenue-check";
 import { ShReview, owedLine, type ShNotedRow } from "./sh-review";
@@ -147,6 +148,8 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const isReviewer = access.staff_id === file.reviewer_id;
   // R3a-1: the Closebook switches on the person's role (no Owner role).
   const cb = access.closebook, rv = cb.review;
+  // CB2-0 v7 item 8: History is visible to everyone who can open the file, not only with the Review right.
+  const hv = true;
   // Notes by role (round 15b): the file's reviewer, or someone with the Review right who does not prepare it,
   // reviews; everyone else prepares (replies and marks fixed).
   const preparerRole = !isReviewer && (!rv || access.staff_id === file.preparer_id);
@@ -214,7 +217,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   const asked = (str(sp.step) === "mapping" ? "compare" : str(sp.step)) as StepKey | undefined;
   const step: StepKey = asked && STEP_KEYS.includes(asked) ? asked : stepFromLegacy(str(sp.tab), str(sp.view), file.books) ?? current;
   const view = str(sp.view);
-  const showHistory = rv && str(sp.history) === "1";
+  const showHistory = hv && str(sp.history) === "1";
   const cur = steps.find((s) => s.key === step)!;
   const href = (k: StepKey) => `/closebook/${id}?step=${k}`;
   // Round 15b (CaseWare's document map): a step's working papers, each its own screen. The step's branch
@@ -225,7 +228,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Piece 9: extra.at, the page the screen sits on when it is not the step's own (Trial balance tab > GIFI matching).
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean; at?: string } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
+      taxes={ref.taxes} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={extra.at ?? href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
       noteStep={rv && ["code", "compare"].includes(base) ? base : undefined} />
   );
@@ -469,7 +472,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       pp.key = first.paper;
       body = <BankingPage supabase={supabase} file={{ id: file.id, year_start: file.year_start, year_end: file.year_end, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }}
         names={names} sp={sp} editable={editable && file.phase !== "locked"} sub={first.key} subs={subs} admin={access.admin}
-        lock={feedLock(subs, cb.remove_signoffs || access.staff_id === file.reviewer_id, access.staff_id)} />;
+        lock={feedLock(subs, cb.remove_signoffs || access.staff_id === file.reviewer_id, access.staff_id)} history={hv} />;
     } else body = tb("records", [], "accounts", true, { importOnly: true });
   } else if (step === "code") {
     body = bankFile
@@ -510,7 +513,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         adjustmentsTop({ supabase, file, entries, base: base5, editable, addRevenue: open && rev5 && !rev5.state.added ? (
           <form action={addRevenueCheck}><input type="hidden" name="file_id" value={id} />
             <button className="text-[13px] font-medium text-navy-700 underline" data-add-revenue>+ Add revenue check</button></form>) : undefined, papers: list5.map((x) => ({ name: x.name, href: paperHref("entries", x.key), status: paperProgress("entries", x.key, progress) })) }),
-        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year",
+        entriesArea({ supabase, file, entries, accounts, editable, standard: std, listBase: base5, title: "Entries this year", history: hv,
           rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
           sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source) } }),
       ]);
@@ -558,7 +561,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         return y ? [{ href: `${href("compare")}#year-changes`, label: `${text}: Yes`, detail: y.note, action: ycOpen ? <MarkReviewed fileId={id} question={q} /> : undefined }] : [];
       }) });
       // Piece 10: the new accounts of step 6 and their GIFI lines, each marked reviewed by the reviewer.
-      const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets);
       const amt7 = (c: number) => amt(c / 100);
       const lineName7 = sheetName;   // piece R1: the group is the lead sheet, by name
       const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} canReview={rv}
@@ -584,9 +587,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
           accounts={acctRows} stepFour={href("code")} />;
       }
       // Piece E1: entries are not approved one by one; step 7 lists the ones to look at, and they hold nothing up.
-      const look = entries.filter((e) => e.needs_review).map((e) => (
-        { href: `/closebook/${id}?area=entries&open=${e.id}`, label: `Entry ${entryNo(file.year_end, e)}`, detail: e.note, amount: amt(e.lines.filter((l) => l.amount > 0).reduce((n, l) => n + l.amount, 0)) }));
-      body = <ReviewStep groups={groups} look={look} notes={openNotes} list={list} listCount={listCount}
+      body = <ReviewStep groups={groups} notes={openNotes} list={list} listCount={listCount}
         extra={<>{newList}{shData.status.applies || shRep.cards.length ? <ShReview fileId={id} sh={shData} report={shRep} noted={shNoted} editable={editable && file.phase !== "locked"} canReview={rv} names={names} /> : null}</>} />;
     }
   } else if (step === "compare") {
@@ -599,7 +600,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const lineName = sheetName;   // piece R1: the group is the lead sheet, by name
       const ledger = (key: string) => `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(key)}&back=${encodeURIComponent(href("compare"))}`;
       const label = (r: { number: string; name: string }) => `${r.number ? `${r.number} ` : ""}${r.name}`;
-      const cmp = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const cmp = compareLists(accounts, entries, ref.lines, ref.sheets);
       const seenKeys = new Set((seenRow?.seen_key ?? "").split(",").filter(Boolean));
       const seen = cmp.unused.length > 0 && cmp.unused.length === seenKeys.size && cmp.unused.every((r) => seenKeys.has(r.key));
       const st6 = review.status.compare;
@@ -612,9 +613,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         return { id: a.id, number: a.number, name: a.name, last: amt6(Math.round(a.last_year * 100)), current: amt6(Math.round(a.this_year * 100)), final: amt6(Math.round(fin * 100)), finalNum: fin,
           change: "", lineNo: "", lineLabel: "", movedFrom: "", source: "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: "", tax: "", taxDefault: "", taxOverride: false, attention: false };
       };
-      body = <CompareStep fileId={id} editable={editable && file.phase !== "locked"} flagRule={flagRuleText(ref.flag)} leadHref={`${href("compare")}&view=lead`}
-        flagged={cmp.flagged.map((r) => ({ id: r.id, label: label(r), last: amt6(r.lastCents), final: amt6(r.finalCents), change: amt6(r.changeCents),
-          pct: pctChange(r.finalCents, r.lastCents), ledger: ledger(r.key), note: data.notes.get(r.id) }))}
+      body = <CompareStep fileId={id} editable={editable && file.phase !== "locked"} leadHref={`${href("compare")}&view=lead`}
+        every={cmp.every.map((r) => ({ id: r.id, label: label(r), sheet: r.sheet ?? "", last: amt6(r.lastCents), final: amt6(r.finalCents), change: amt6(r.changeCents),
+          pct: pctChange(r.finalCents, r.lastCents), ledger: ledger(r.key), note: data.notes.get(r.id), changeCents: r.changeCents, pctValue: r.pct ?? null }))}
         newAccounts={cmp.newAccounts.map((r) => ({ key: r.key, label: label(r), line: lineName(r.line), amount: amt6(r.finalCents), ledger: ledger(r.key),
           confirmed: newTicks.some((t) => t.account_key === r.key && t.confirmed_line === r.line), pick: r.line ? undefined : groupPick(r.key) }))}
         options={groupOptions}
@@ -697,10 +698,17 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       reviewed: [...new Set(SUBS.map((x) => subs[x.key].reviewed_by).filter(Boolean).map((i) => names.get(i!) ?? ""))].filter(Boolean) } : undefined });
   if (showHistory) {
     const hstep = str(sp.hstep) ?? null;
-    const hist = await loadHistory(supabase, id, names, hstep);
-    const stepName = (k: string) => { const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
+    // CB2-0 step 2 (rule 14): one filter, "Changed after sign-off": changes made after the latest sign-off of each step they
+    // affect, grouped by step. A row opens its item.
+    const changedOnly = str(sp.changed) === "1";
+    const hist = await loadHistory(supabase, id, names, changedOnly ? null : hstep);
+    const stepName = (k: string) => { if (k === "mal") return "After the MAL was signed"; const x = steps.find((y) => y.key === k); return x ? `${x.n}. ${x.name}` : ""; };
+    const malSigned = changedOnly ? ((await supabase.rpc("cb_fs_status", { p_file: id })).data as { mal_signed_at?: string | null } | null)?.mal_signed_at ?? null : null;
+    const itemHref = (r: { entryId?: string | null; statementId?: string | null; step: string }) =>
+      r.entryId ? `/closebook/${id}?step=entries&open=${r.entryId}` : r.statementId ? `${href("records")}&paper=feeds&ihist=statement:${r.statementId}` : r.step ? href(r.step as StepKey) : null;
     body = <><PageTitle>File history</PageTitle><HistoryView stepName={stepName} rows={hist} current={hstep} base={`/closebook/${id}?history=1`}
-      exportBase={`/closebook/${id}/report-export?report=history`} steps={steps.map((x) => ({ key: x.key, label: `${x.n}. ${x.name}` }))} /></>;
+      exportBase={`/closebook/${id}/report-export?report=history`} steps={steps.map((x) => ({ key: x.key, label: `${x.n}. ${x.name}` }))}
+      changed={changedOnly ? changedAfterSignoff(hist, { ...review.status, mal: { reviewed_at: malSigned } }, [...STEP_KEYS, "mal"]).map((g) => ({ ...g, rows: g.rows.map((r) => ({ ...r, href: itemHref(r) })) })) : null} /></>;
   } else {
     const exports: [string, string][] = [[`/closebook/${id}/report-export?report=tb&format=xlsx`, "Trial balance, Excel"], [`/closebook/${id}/report-export?report=tb&format=pdf`, "Trial balance, PDF"],
       ...(step === "t2" ? [[`/closebook/${id}/tax-workpaper?format=xlsx`, "Tax workpaper, Excel"], [`/closebook/${id}/tax-workpaper?format=pdf`, "Tax workpaper, PDF"]] as [string, string][] : [])];
@@ -819,8 +827,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} canReview={rv} editable={editable && file.phase !== "locked"}
-          view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}
-          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} noteStep={current} />;
+          view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} shNames={await loadShNames(supabase, file)} noteStep={current} />;
   } else if (area === "reporting") {
     // Round 32: the Reporting tab. A report opens full page with "‹ Reporting" at the top left.
     left = null; folded = null;
@@ -834,7 +841,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         : <ReportingList fileId={id} />;
   } else if (area === "entries") {
     const std = (await loadEntryForm(supabase, file, client?.province ?? "ON", client?.legal_name ?? "The client")).standard.map((x) => ({ id: x.id, name: x.name }));
-    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
+    const ea = await entriesArea({ supabase, file, entries, accounts, editable, standard: std, history: hv, rounding: bankFile ? await loadRounding(supabase, { id: file.id, opening_source: file.opening_source ?? null, first_year: file.first_year ?? null }) : [],
       sp: { type: str(sp.type), status: str(sp.status), source: str(sp.source), entry: str(sp.entry), back: backHref ?? undefined } });
     left = ea.left; folded = null; content = ea.content;
   } else if (area === "notes") {
@@ -871,16 +878,32 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Round 34: "3.3 sign-off removed: <reason>", from History, for the person whose action removed it (last minute).
   const signoffPill = subs ? await loadSignoffPill(supabase, id, access.staff_id ?? "") : null;
 
+  // CB2-0 step 2: ⋯ › History on an item opens its history in a side panel (QBO Transaction history).
+  const ihist = /^(entry|statement|line):([0-9a-f-]{36})$/.exec(str(sp.ihist) ?? "");
+  let itemPanel: React.ReactNode = null;
+  if (ihist && hv) {
+    const [, kind, itemId] = ihist;
+    const rows = await loadHistory(supabase, id, names, null, kind === "entry" ? { entry: itemId } : kind === "line" ? { line: itemId } : { statement: itemId });
+    const e = kind === "entry" ? entries.find((x) => x.id === itemId) : undefined;
+    const closeQ = new URLSearchParams(Object.entries(sp).flatMap(([k, v]) => (k === "ihist" || typeof v !== "string" ? [] : [[k, v]])));
+    itemPanel = (
+      <SidePanel title={`History · ${e ? entryNo(file.year_end, e).split(" ")[0] : kind === "statement" ? "Statement" : "Line"}`} closeHref={`/closebook/${id}?${closeQ}`}>
+        <ItemHistory rows={rows} created={e ? { at: e.created_at, who: names.get(e.created_by ?? "") ?? "" } : null} />
+      </SidePanel>
+    );
+  }
+
   return (
     <FileShell people={peopleProps} fileId={id} client={client?.legal_name ?? ""} clientHref={client?.id ? `/clients/${client.id}` : undefined} strip={strip}
       stepSum={area === "steps" && !showHistory ? `${cur.n}. ${cur.name}${paperName ? ` › ${paperName}` : ""}` : undefined}
       narrowFold={area === "steps" && (step === "code" || step === "review") && !showHistory} yearEnd={file.year_end} status={status} netCents={netCents} t2Due={fileBy(file.year_end)} source={bankFile ? dataSourceLabel(file) : "Trial balance"} netNote={!bankFile && unassignedN ? `${unassignedN} account${unassignedN === 1 ? "" : "s"} not yet assigned` : undefined} area={area}
       tools={{ on: !!tool, journal: editable && file.phase !== "locked" }}
-      history={rv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
+      history={hv} left={left} folded={folded} forceFolded={area === "steps" && step === "code" && !bankFile && !showHistory} pinned={(await readMenuPins(supabase, access.staff_id)).steps} notes={openNotes} done={{ n: stepsDone(STEP_KEYS, progress), of: STEP_KEYS.length }}
       toast={{ msg: messageFrom(sp.msg), error: sp.upload || sp.opening ? undefined : messageFrom(sp.error), info: signoffPill }}>
       {backHref && area !== "entries" && area !== "reporting" && <Link href={backHref} className="mb-2 inline-block text-[12.5px] font-semibold text-navy-700 hover:underline">‹ Back</Link>}
       {content}
       {dialog}
+      {itemPanel}
     </FileShell>
   );
 }

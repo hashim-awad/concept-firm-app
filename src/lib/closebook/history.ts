@@ -2,20 +2,55 @@
 // who, what, the statement or line, the reason, the old and new values. Append-only in the database. The Review right reads it (R3a-1).
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type HistoryRow = { at: string; who: string; action: string; step: string; detail: string; ref: string; reason: string; old: string; new: string; erased: boolean };
+export type HistoryRow = { at: string; who: string; action: string; step: string; detail: string; ref: string; reason: string; old: string; new: string; erased: boolean;
+  entryId?: string | null; lineId?: string | null; statementId?: string | null };
 
-export async function loadHistory(supabase: SupabaseClient, fileId: string, names: Map<string, string>, step?: string | null): Promise<HistoryRow[]> {
-  let q = supabase.from("cb_file_history").select("at, actor_id, action, step, detail, ref_label, reason, old_value, new_value, erased_at").eq("file_id", fileId);
+// CB2-0 step 2: one item's history (an entry, a bank line or a statement), QBO's "Audit history" of a transaction.
+export type HistoryItem = { entry?: string; line?: string; statement?: string };
+export async function loadHistory(supabase: SupabaseClient, fileId: string, names: Map<string, string>, step?: string | null, item?: HistoryItem): Promise<HistoryRow[]> {
+  let q = supabase.from("cb_file_history").select("at, actor_id, action, step, detail, ref_label, reason, old_value, new_value, erased_at, entry_id, line_id, statement_id").eq("file_id", fileId);
   if (step) q = q.eq("step", step);
+  if (item?.entry) q = q.eq("entry_id", item.entry);
+  if (item?.line) q = q.eq("line_id", item.line);
+  if (item?.statement) q = q.eq("statement_id", item.statement);
   const { data } = await q.order("at", { ascending: false }).order("id", { ascending: false }).limit(2000);
-  type R = { at: string; actor_id: string | null; action: string; step: string | null; detail: string; ref_label: string | null; reason: string | null; old_value: string | null; new_value: string | null; erased_at: string | null };
+  type R = { at: string; actor_id: string | null; action: string; step: string | null; detail: string; ref_label: string | null; reason: string | null; old_value: string | null; new_value: string | null; erased_at: string | null;
+    entry_id: string | null; line_id: string | null; statement_id: string | null };
   return ((data ?? []) as R[]).map((h) => ({ at: h.at, who: h.actor_id ? names.get(h.actor_id) ?? "" : "System", action: h.action, step: h.step ?? "", detail: h.detail,
-    ref: h.ref_label ?? "", reason: h.reason ?? "", old: h.old_value ?? "", new: h.new_value ?? "", erased: !!h.erased_at }));
+    ref: h.ref_label ?? "", reason: h.reason ?? "", old: h.old_value ?? "", new: h.new_value ?? "", erased: !!h.erased_at,
+    entryId: h.entry_id, lineId: h.line_id, statementId: h.statement_id }));
+}
+
+// CB2-0 step 2 (rule 14): the steps a change affects. Its own step; a change to steps 2 to 5 moves the trial balance,
+// so steps 6, 8 and 9 rest on it too; a change to step 8 reaches step 9.
+const TB_STEPS = ["opening", "records", "code", "entries"];
+// Step 7 (the reviewer's overall review) and step 10 rest on every step after step 1 (CB2-0 review round). "mal": any change
+// after the MAL was signed, in its own group, as the MAL covers every entry made during the compilation.
+export const affectedSteps = (step: string): string[] =>
+  TB_STEPS.includes(step) ? [step, "compare", "review", "t2", "statements", "lock", "mal"]
+    : step === "compare" ? ["compare", "review", "lock", "mal"] : step === "t2" ? ["t2", "review", "statements", "lock", "mal"]
+    : step === "statements" ? ["statements", "lock", "mal"] : step ? [step, "mal"] : [];
+// Rows that are sign-offs, not changes.
+const SIGN_ACTIONS = new Set(["prepared", "reviewed", "unsigned_prepared", "unsigned_reviewed", "signoff_removed", "signoff_cleared", "signoff_changed"]);
+
+// History > "Changed after sign-off": the changes made after the latest sign-off of the steps they affect. Each change
+// shows once, under the first of those steps in the steps' order; "also" names the others (UI review: no repeated rows).
+// A step not signed lists nothing.
+export function changedAfterSignoff(rows: HistoryRow[], signs: Record<string, { prepared_at?: string | null; reviewed_at?: string | null } | undefined>, order: string[]) {
+  const latest = (k: string) => { const s = signs[k]; const t = [s?.prepared_at, s?.reviewed_at].filter((x): x is string => !!x).sort(); return t[t.length - 1] ?? null; };
+  const groups = new Map<string, (HistoryRow & { also: string[] })[]>();
+  for (const r of rows) {
+    if (SIGN_ACTIONS.has(r.action) || r.erased) continue;
+    const hit = order.filter((k) => affectedSteps(r.step).includes(k) && (() => { const t = latest(k); return !!t && Date.parse(r.at) > Date.parse(t); })());
+    if (hit.length) groups.set(hit[0], [...(groups.get(hit[0]) ?? []), { ...r, also: hit.slice(1) }]);
+  }
+  return order.filter((k) => groups.has(k)).map((k) => ({ step: k, rows: groups.get(k)! }));
 }
 
 export const ACTION: Record<string, string> = {
   prepared: "Signed as preparer", reviewed: "Signed as reviewer", unsigned_prepared: "Took back the preparer sign-off", unsigned_reviewed: "Took back the reviewer sign-off",
-  signoff_cleared: "Sign-offs cleared by a change", note_added: "Review note added", note_replied: "Replied to a note", note_fixed: "Marked a note fixed",
+  signoff_cleared: "Sign-offs cleared by a change (before CloseBook2)", changed: "Changed", mapping_changed: "Master account changed",
+  entry_created: "Entry added", entry_changed: "Entry changed", note_added: "Review note added", note_replied: "Replied to a note", note_fixed: "Marked a note fixed",
   note_cleared: "Cleared a note", note_reopened: "Reopened a note", checklist_saved: "Saved the completion checklist",
   revenue_accepted: "Accepted a revenue difference", gifi_exported: "Exported the GIFI file", t2_accepted: "Accepted a T2 tie-out difference", side_confirmed: "Kept a balance on the other side of its line",
   mal_sent: "Sent the MAL for signing", mal_signed: "The MAL was signed", mal_withdrawn: "The MAL was withdrawn",

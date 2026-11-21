@@ -1,0 +1,18 @@
+[
+ {
+  "account_id": "c9a79e28-b0fb-4424-ba78-5bf626e76a95",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "reason": "new_asset",
+  "note": "Business grew this year: more listings sold.",
+  "explained_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "explained_at": "2026-11-14T00:45:24.95474+00:00"
+ },
+ {
+  "account_id": "f515a012-3559-472f-866c-7f462a155fa0",
+  "file_id": "2df089a3-c9ae-467c-be84-6b23bd8facbe",
+  "reason": "new_asset",
+  "note": "Business grew this year: more listings sold.",
+  "explained_by": "fe43f5dd-7ea2-4234-b9c9-e29266b173e5",
+  "explained_at": "2026-11-14T00:45:25.494459+00:00"
+ }
+]
