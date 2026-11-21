@@ -106,16 +106,16 @@ export function ReconcileView({ clientId, accounts, ident, date, ending, beginni
             <div className="card overflow-x-auto p-0">
               <table className="w-full text-[13px]" data-rec-table>
                 <thead className="border-b border-sand-200 bg-sand-50 text-left text-[12px] text-ink-3"><tr>
-                  <th className="px-2 py-2">Date</th><th className="px-2 py-2">Description</th><th className="px-2 py-2 text-right">{outWord}</th><th className="px-2 py-2 text-right">{inWord}</th>
+                  <th className="px-2 py-2">Date</th><th className="px-2 py-2">Description</th><th className="hidden px-2 py-2 text-right sm:table-cell">{outWord}</th><th className="hidden px-2 py-2 text-right sm:table-cell">{inWord}</th>
                   <th className="w-16 px-3 py-2 text-center">{canEdit && <input type="checkbox" aria-label="Tick every line" checked={lines.length > 0 && lines.every((l) => ticked.has(l.id))}
                     onChange={(e) => setTicked(e.target.checked ? new Set(lines.map((l) => l.id)) : new Set())} />}</th></tr></thead>
                 <tbody>
                   {!lines.length && <tr><td colSpan={5} className="px-3 py-6 text-center text-ink-3">No lines to reconcile up to this date.</td></tr>}
                   {lines.map((l) => (
                     <tr key={l.id} className={`border-b border-sand-100 ${ticked.has(l.id) ? "bg-navy-50" : ""}`} data-rec-line={l.id}>
-                      <td className="whitespace-nowrap px-2 py-2">{formatDate(l.date)}</td><td className="px-2 py-2">{l.description}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{isOut(kind, l.cents) ? money(Math.abs(l.cents)) : ""}</td>
-                      <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{isOut(kind, l.cents) ? "" : money(Math.abs(l.cents))}</td>
+                      <td className="whitespace-nowrap px-2 py-2">{formatDate(l.date)}</td><td className="px-2 py-2">{l.description}<div className="font-semibold tabular-nums sm:hidden">{isOut(kind, l.cents) ? outWord : inWord} {money(Math.abs(l.cents))}</div></td>
+                      <td className="hidden whitespace-nowrap px-2 py-2 text-right tabular-nums sm:table-cell">{isOut(kind, l.cents) ? money(Math.abs(l.cents)) : ""}</td>
+                      <td className="hidden whitespace-nowrap px-2 py-2 text-right tabular-nums sm:table-cell">{isOut(kind, l.cents) ? "" : money(Math.abs(l.cents))}</td>
                       <td className="px-3 py-2 text-center">{canEdit && <input type="checkbox" aria-label={`Cleared: ${l.description}`} checked={ticked.has(l.id)}
                         onChange={(e) => { const n = new Set(ticked); if (e.target.checked) n.add(l.id); else n.delete(l.id); setTicked(n); }} />}</td>
                     </tr>
@@ -130,7 +130,7 @@ export function ReconcileView({ clientId, accounts, ident, date, ending, beginni
                 <p className="flex items-center gap-2 font-semibold text-warning"><AlertTriangle className="h-4 w-4" />The difference is {money(diff ?? 0)}, not zero.</p>
                 <p>You can finish now. The difference is recorded with this reconciliation and shows on its report.</p>
                 <div className="flex gap-2"><button type="button" className="btn btn-compact" disabled={busy} onClick={finish} data-rec-finish-anyway>Finish with the difference</button>
-                  <button type="button" className="btn btn-ghost btn-compact" onClick={() => setWarn(false)}>Keep reconciling</button></div>
+                  <button type="button" className="btn btn-secondary btn-compact" onClick={() => setWarn(false)}>Keep reconciling</button></div>
               </div>
             )}
           </>
@@ -143,17 +143,17 @@ export function ReconcileView({ clientId, accounts, ident, date, ending, beginni
             <table className="w-full text-[13px]" data-rec-past>
               <thead className="border-b border-sand-200 bg-sand-50 text-left text-[12px] text-ink-3"><tr>
                 <th className="px-3 py-2">Statement ending date</th><th className="px-2 py-2 text-right">Ending balance</th><th className="hidden px-2 py-2 text-right sm:table-cell">Lines cleared</th>
-                <th className="px-2 py-2 text-right">Difference</th><th className="hidden px-2 py-2 md:table-cell">Reconciled</th><th className="px-2 py-2">Status</th><th className="w-10 px-2 py-2" /></tr></thead>
+                <th className="px-2 py-2 text-right">Difference</th><th className="hidden px-2 py-2 md:table-cell">Reconciled</th><th className="hidden px-2 py-2 sm:table-cell">Status</th><th className="w-10 px-2 py-2" /></tr></thead>
               <tbody>
                 {!past.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-ink-3">No reconciliation yet.</td></tr>}
                 {past.map((r) => (
                   <tr key={r.id} className={`border-b border-sand-100 ${r.status === "undone" ? "text-ink-3" : ""}`} data-rec-row={r.date}>
-                    <td className="px-3 py-2"><Link href={`${base}/${r.id}`} className="font-semibold text-navy-700 hover:underline">{formatDate(r.date)}</Link></td>
+                    <td className="px-3 py-2"><Link href={`${base}/${r.id}`} className="font-semibold text-navy-700 hover:underline">{formatDate(r.date)}</Link><div className="text-[12px] text-ink-3 sm:hidden">{r.status === "finished" ? "Reconciled" : "Undone"}</div></td>
                     <td className="px-2 py-2 text-right tabular-nums">{money(r.ending)}</td>
                     <td className="hidden px-2 py-2 text-right sm:table-cell">{r.lines}</td>
                     <td className={`px-2 py-2 text-right tabular-nums ${r.difference ? "font-semibold text-danger" : ""}`}>{money(r.difference)}</td>
                     <td className="hidden px-2 py-2 md:table-cell">{formatDateTime(r.at)}{r.who ? ` · ${r.who}` : ""}</td>
-                    <td className="px-2 py-2">{r.status === "finished" ? "Reconciled" : "Undone"}</td>
+                    <td className="hidden px-2 py-2 sm:table-cell">{r.status === "finished" ? "Reconciled" : "Undone"}</td>
                     <td className="px-2 py-2 text-right"><PastMenu clientId={clientId} r={r} canEdit={canEdit} /></td>
                   </tr>
                 ))}

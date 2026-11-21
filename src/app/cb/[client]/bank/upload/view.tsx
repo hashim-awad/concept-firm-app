@@ -79,7 +79,7 @@ export function UploadView({ clientId, accounts, initial, saved, years }: { clie
   return (
     <div className="mx-auto grid max-w-5xl gap-4">
       <div className="flex items-center gap-2"><h1 className="text-[22px] font-bold">Upload bank file</h1><span className="flex-1" />
-        <Link href={`/cb/${clientId}/bank?account=${encodeURIComponent(ident)}`} className="btn btn-ghost btn-compact">Back to Bank transactions</Link></div>
+        <Link href={`/cb/${clientId}/bank?account=${encodeURIComponent(ident)}`} className="btn btn-secondary btn-compact">Back to Bank transactions</Link></div>
 
       {result && (
         <div role="status" className="card border-success p-4 text-[14px]" data-upload-done>

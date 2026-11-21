@@ -117,7 +117,7 @@ function Editor({ clientId, l, data, onDone }: { clientId: string; l: BLine; dat
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3 text-[13px]">
-            <button type="button" className="btn btn-compact btn-ghost" onClick={() => setRows([...rows, { account: "", tax: "", amount: "" }])}><Plus className="h-4 w-4" />Add line</button>
+            <button type="button" className="btn btn-compact btn-secondary" onClick={() => setRows([...rows, { account: "", tax: "", amount: "" }])}><Plus className="h-4 w-4" />Add line</button>
             <span className={given === total ? "text-ink-3" : "font-semibold text-danger"} data-left>Left to split: {money(total - given)}</span>
           </div>
         </div>
@@ -182,7 +182,7 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
     <div className="mx-auto grid max-w-6xl gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="text-[22px] font-bold">Bank transactions</h1><span className="flex-1" />
-        <Link href={`/cb/${clientId}/rules`} className="btn btn-ghost btn-compact" data-bank-rules><ListChecks className="h-4 w-4" />Rules</Link>
+        <Link href={`/cb/${clientId}/rules`} className="btn btn-secondary btn-compact" data-bank-rules><ListChecks className="h-4 w-4" />Rules</Link>
         {canEdit && <Link href={`${base}/upload?account=${encodeURIComponent(card.ident)}`} className="btn btn-compact" data-bank-upload><Upload className="h-4 w-4" />Upload bank file</Link>}
       </div>
 
@@ -203,7 +203,7 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
           className={`-mb-px border-b-2 px-2 pb-2 text-[14px] font-semibold ${tab === t.key ? "border-navy-700 text-navy-800" : "border-transparent text-ink-3 hover:text-ink-1"}`} data-tab={t.key}>{t.label} ({counts[t.key]})</Link>)}
         <span className="flex-1" />
         <label className="relative mb-2 w-full max-w-[16rem]"><Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Description, amount or memo" aria-label="Search lines" className="input input-compact w-full pl-8" /></label>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Description, amount or memo" aria-label="Search lines" className="input input-compact w-full !pl-8" /></label>
       </div>
 
       {msg && <p role="status" className="text-[13px] font-semibold text-success" data-bank-msg>{msg}</p>}
@@ -214,7 +214,7 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
           <span className="font-semibold">{plural(tickedShown.length)} ticked</span><span className="flex-1" />
           {tab === "review" && <>
             <button type="button" className="btn btn-compact" disabled={busy} onClick={confirmSelected} data-confirm-selected>Confirm selected</button>
-            <button type="button" className="btn btn-compact btn-ghost bg-white" disabled={busy} onClick={() => setExcl({ reason: "duplicate", note: "" })} data-exclude-selected>Exclude selected</button>
+            <button type="button" className="btn btn-compact btn-secondary" disabled={busy} onClick={() => setExcl({ reason: "duplicate", note: "" })} data-exclude-selected>Exclude selected</button>
           </>}
           {tab === "categorized" && <button type="button" className="btn btn-compact" disabled={busy} onClick={() => run(() => undoLines(clientId, tickedShown.map((l) => l.id)), (n) => `${plural(n)} back For review.`)} data-undo-selected>Undo selected</button>}
           {tab === "excluded" && <button type="button" className="btn btn-compact" disabled={busy} onClick={() => run(() => restoreLines(clientId, tickedShown.map((l) => l.id)), (n) => `${plural(n)} back For review.`)} data-undo-selected>Undo selected</button>}
@@ -229,7 +229,7 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
               <th className="w-8 px-3 py-2">{canEdit && <input type="checkbox" aria-label="Tick every line" checked={all.length > 0 && all.every((l) => ticked.has(l.id))}
                 onChange={(e) => setTicked(e.target.checked ? new Set(all.map((l) => l.id)) : new Set())} />}</th>
               <th className="px-2 py-2">Date</th><th className="px-2 py-2">Description</th>
-              <th className="px-2 py-2 text-right">Spent</th><th className="px-2 py-2 text-right">Received</th>
+              <th className="hidden px-2 py-2 text-right md:table-cell">Spent</th><th className="hidden px-2 py-2 text-right md:table-cell">Received</th>
               <th className="hidden px-2 py-2 md:table-cell">{tab === "review" ? "Suggested" : tab === "categorized" ? "Categorized as" : "Reason"}</th>
               <th className="px-2 py-2 text-right">Action</th>
             </tr>
@@ -249,18 +249,18 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
                   <tr className={`border-b border-sand-100 ${open === l.id ? "bg-sand-50" : "hover:bg-sand-50"} cursor-pointer`} onClick={() => tab !== "excluded" && editable && setOpen(open === l.id ? null : l.id)} data-line={l.id}>
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>{editable && <input type="checkbox" aria-label={`Tick ${l.description}`} checked={ticked.has(l.id)}
                       onChange={(e) => { const n = new Set(ticked); if (e.target.checked) n.add(l.id); else n.delete(l.id); setTicked(n); }} />}</td>
-                    <td className="whitespace-nowrap px-2 py-2">{formatDate(l.date)}</td>
-                    <td className="px-2 py-2">{l.description}{l.memo && <div className="text-[12px] text-ink-3">{l.memo}</div>}<div className="text-[12px] text-ink-3 md:hidden">{what}</div>
+                    <td className="whitespace-nowrap px-2 py-2 text-[12px] md:text-[13px]">{formatDate(l.date)}</td>
+                    <td className="px-2 py-2">{l.description}{l.memo && <div className="text-[12px] text-ink-3">{l.memo}</div>}<div className="font-semibold tabular-nums md:hidden">{outOf(l) ? "Spent" : "Received"} {money(Math.abs(l.cents))}</div><div className="text-[12px] text-ink-3 md:hidden">{what}</div>
                       {l.locked && <div className="text-[12px] text-ink-3">Year locked</div>}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{outOf(l) ? money(Math.abs(l.cents)) : ""}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{outOf(l) ? "" : money(Math.abs(l.cents))}</td>
+                    <td className="hidden whitespace-nowrap px-2 py-2 text-right tabular-nums md:table-cell">{outOf(l) ? money(Math.abs(l.cents)) : ""}</td>
+                    <td className="hidden whitespace-nowrap px-2 py-2 text-right tabular-nums md:table-cell">{outOf(l) ? "" : money(Math.abs(l.cents))}</td>
                     <td className="hidden px-2 py-2 md:table-cell">{what}</td>
                     <td className="whitespace-nowrap px-2 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                       {editable && tab === "review" && (sug && fromSuggestion(l, data.defaultTax)
                         ? <button type="button" className="btn btn-compact" disabled={busy} onClick={() => run(() => confirmLines(clientId, [fromSuggestion(l, data.defaultTax)!]), () => "1 line confirmed.")} data-row-confirm>Confirm</button>
-                        : <button type="button" className="btn btn-compact btn-ghost" onClick={() => setOpen(open === l.id ? null : l.id)} data-row-open>{l.matches.length ? "Match" : "Categorize"}</button>)}
-                      {editable && tab === "categorized" && <button type="button" className="btn btn-compact btn-ghost" disabled={busy} onClick={() => run(() => undoLines(clientId, [l.id]), () => "1 line back For review.")} data-row-undo>Undo</button>}
-                      {editable && tab === "excluded" && <button type="button" className="btn btn-compact btn-ghost" disabled={busy} onClick={() => run(() => restoreLines(clientId, [l.id]), () => "1 line back For review.")} data-row-undo>Undo</button>}
+                        : <button type="button" className="btn btn-compact btn-secondary" onClick={() => setOpen(open === l.id ? null : l.id)} data-row-open>{l.matches.length ? "Match" : "Categorize"}</button>)}
+                      {editable && tab === "categorized" && <button type="button" className="btn btn-compact btn-secondary" disabled={busy} onClick={() => run(() => undoLines(clientId, [l.id]), () => "1 line back For review.")} data-row-undo>Undo</button>}
+                      {editable && tab === "excluded" && <button type="button" className="btn btn-compact btn-secondary" disabled={busy} onClick={() => run(() => restoreLines(clientId, [l.id]), () => "1 line back For review.")} data-row-undo>Undo</button>}
                     </td>
                   </tr>
                   {open === l.id && <tr><td colSpan={7} className="border-b border-sand-200 p-0"><Editor clientId={clientId} l={l} data={data} onDone={(m) => { setMsg(m); setOpen(null); }} /></td></tr>}
@@ -283,7 +283,7 @@ export function BankView({ clientId, data, tab, canEdit }: { clientId: string; d
             <label className="grid gap-1 text-[12px] font-semibold text-ink-3">Note{excl.reason === "other" ? "" : " (optional)"}
               <input value={excl.note} onChange={(e) => setExcl({ ...excl, note: e.target.value })} className="input input-compact" maxLength={300} data-exclude-note /></label>
             <div className="flex justify-end gap-2">
-              <button type="button" className="btn btn-ghost btn-compact" onClick={() => setExcl(null)}>Cancel</button>
+              <button type="button" className="btn btn-secondary btn-compact" onClick={() => setExcl(null)}>Cancel</button>
               <button type="button" className="btn btn-compact" disabled={busy} onClick={() => { const e = excl; setExcl(null); run(() => excludeLines(clientId, tickedShown.map((l) => l.id), e.reason, e.note), (n) => `${plural(n)} excluded.`); }} data-exclude-go>Exclude</button>
             </div>
           </div>
