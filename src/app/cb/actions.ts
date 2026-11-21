@@ -72,8 +72,9 @@ export async function deleteEntry(clientId: string, entryId: string): Promise<{ 
   if (!UUID.test(entryId)) return { error: "Entry not found." };
   const supabase = await createClient();
   // The entry must be this client's (the database checks the firm and the rights).
-  const { data: e } = await supabase.from("cb_entries").select("id, file:file_id(cb_client_id)").eq("id", entryId).maybeSingle();
+  const { data: e } = await supabase.from("cb_entries").select("id, origin, file:file_id(cb_client_id)").eq("id", entryId).maybeSingle();
   if (!e || (e.file as unknown as { cb_client_id: string } | null)?.cb_client_id !== clientId) return { error: "Entry not found." };
+  if (["opening_balances", "opening_difference", "tb_import"].includes((e as { origin?: string | null }).origin ?? "")) return { error: "Change this entry in the old Closebook until the switch-over." };
   const { error } = await supabase.rpc("cb_delete_entry", { p_entry: entryId });
   revalidatePath(`/cb/${clientId}`, "layout");
   return error ? { error: error.message } : {};

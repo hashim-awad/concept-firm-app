@@ -65,10 +65,8 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 35. scripts/checks/drift-check.sql (manual audit) does not list the CB2-1 tables and functions yet.
 
 ## From the one spec-checker run on PR #117 (rule 16), outside the piece or for Hashim
-36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
-    its own HST_ON or 21500, and sees no codes. Needs keys per firm and a starting set per firm (Hashim to decide).
 37. Account numbers written in the new code (rule 12): 21500 and 21550 (sales tax lines, Overview tile), 31000 (retained
-    earnings fallback). To come from markers on the firm's chart template, as item 21 proposes for 21510 (Hashim to decide).
+    earnings fallback). Later, with markers on the chart template, when Closebook Settings becomes editable (Hashim, Nov 21, 2026).
 38. The suggested journal number does not follow the date into another year.
 39. Saving a schedule entry from Books drops its lines' schedule tags.
 40. The Back link on reports and the bank transaction page follows any address given; limit it to /cb.
@@ -76,3 +74,14 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 42. Report subtotals, totals and $ change are not links (QBO links totals).
 43. A worked-out entry's window title reads "Journal entry: Opening balances", not a number (it has none until saved).
 44. Chart search box: the icon overlaps the placeholder.
+
+## Before a second firm
+36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
+    its own HST_ON or 21500, and sees no codes. Keys per firm (firm_id, code) and (firm_id, number), and a starting set for
+    each new firm (Hashim, Nov 21, 2026: later).
+
+## For the switch-over
+45. A bank line dated outside its year posts on the year's first or last day (accepted for now, Hashim, Nov 21, 2026).
+46. "No year in Closebook covers [date]. Add the year first." for an entry dated where no year file exists (accepted for now).
+47. The opening balances, opening difference and trial balance import entries are view-only in Books ("Change this entry in
+    the old Closebook until the switch-over."); at the switch-over they become ordinary entries Books saves and changes.

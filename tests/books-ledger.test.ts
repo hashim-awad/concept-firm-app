@@ -61,7 +61,12 @@ test("a later year whose stored opening differs from last year's closing gets on
   const last = rangeInput(books, "2025-01-01", "2025-12-31", typeOf, "31000", chart);
   assert.equal(trialBalance(last.accounts, last.postings).find((t) => t.key === "10000")?.final, 80000);
   const now = rangeInput(books, "2026-01-01", "2026-12-31", typeOf, "31000", chart);
-  assert.equal(trialBalance(now.accounts, now.postings).find((t) => t.key === "10000")?.final, 135000);
+  const bank = trialBalance(now.accounts, now.postings).find((t) => t.key === "10000")!;
+  assert.equal(bank.final, 135000);
+  // The difference counts in Prelim, like the opening entry, never in Adj's or Reclass (Hashim, Nov 21, 2026).
+  assert.equal(bank.prelim, 135000);
+  assert.equal(bank.adjust, 0);
+  assert.equal(bank.reclass, 0);
 });
 
 test("a trial balance import is one entry at the year end, in Prelim, less the opening", () => {
