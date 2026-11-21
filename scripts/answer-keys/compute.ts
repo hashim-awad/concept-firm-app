@@ -38,7 +38,8 @@ export async function computeClient(sb: SupabaseClient, clientId: string): Promi
       const r = tb.get(p.key) ?? { prior: 0, prelim: 0, adj: 0, reclass: 0 };
       tb.set(p.key, r);
       if (p.kind !== "entry") r.prelim += p.cents;
-      else if (p.reclass) r.reclass += p.cents;
+      // The "Reclass entry" box (CB2-0 v7); an engine before it (the Live check's before run) has only the entry type.
+      else if ((p as { reclass?: boolean }).reclass ?? p.entryKind === "RJE") r.reclass += p.cents;
       else r.adj += p.cents;
     }
     const acct = new Map(rd.accounts.map((a) => [a.key, a]));

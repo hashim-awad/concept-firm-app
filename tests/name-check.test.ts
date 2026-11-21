@@ -43,7 +43,7 @@ test("T6: a number that passes the check digit fails the check, by file and line
   assert.equal(r.code, 1);
   assert.match(r.out, /client\.csv:2: a 9-digit number that passes the business number check digit \(value hidden\)/);
   assert.equal(r.out.includes(passing), false, "the number is never printed");
-  assert.match(r.out, /CLIENT_NAMES is not set/);
+  assert.match(r.out, /CLIENT_NAMES secret not set/);
   // The same branch with the number changed to one that fails the check digit passes.
   writeFileSync(join(dir, "client.csv"), `name,bn\nDummy Co,${failing}RC0001\n`);
   git("commit", "-q", "-am", "made-up number");

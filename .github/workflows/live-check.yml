@@ -1,0 +1,88 @@
+# CB2-0 v7 item 11 (Hashim, Nov 21, 2026): the Live before and after check. Reads Live READ ONLY (pg_dump), copies its
+# Closebook data to a throwaway local database on the runner, works out every file's figures with the engine, and prints
+# only each file's ID and pass, fail or "expected change". No figure is printed or kept: between the two runs only keyed
+# hashes of the figures are stored (artifact, 14 days).
+#   Before the deploy: add the label "live-check" to the pull request. It runs today's engine (main) on Live's data.
+#   After the deploy:  Actions > Live check > Run workflow (branch main, phase "after"). It runs the merged engine and
+#                      compares with the latest before run.
+# Expected change: GST/HST lines 110, 112 and 113 on a file where a payment was coded to 21500 (line 110 now reads only the
+# GST/HST instalments account). Anything else that moves is a fail.
+name: Live check
+run-name: Live check (${{ github.event_name == 'pull_request' && 'before' || inputs.phase }})
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "before or after the deploy"
+        type: choice
+        options: [after, before]
+        default: after
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'live-check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      PHASE: ${{ github.event_name == 'pull_request' && 'before' || inputs.phase }}
+      PROJECT_ID: owysxewnrnvrcpjutxcw # Concept Firm App (Live, ca-central-1)
+      POOLER_HOST: aws-1-ca-central-1.pooler.supabase.com
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Before the deploy, the engine Live runs today (main); this branch's check tools
+        if: env.PHASE == 'before'
+        run: |
+          git fetch origin main
+          rm -rf src supabase/migrations
+          git checkout origin/main -- src supabase/migrations
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Local Supabase (throwaway, on the runner)
+        run: bash scripts/ci/local-supabase.sh
+      - name: Live database address (password stays masked)
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED=$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')
+          echo "::add-mask::$ENCODED"
+          DB_URL="postgresql://postgres.${PROJECT_ID}:${ENCODED}@${POOLER_HOST}:5432/postgres"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+      - name: Copy Live's Closebook data to the local database (read only)
+        run: bash scripts/live-check/copy-live.sh
+      - name: Figures of every file (hashes only)
+        env:
+          LIVE_CHECK_KEY: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          mkdir -p out
+          ANSWER_KEYS_DB_URL="$LOCAL_DB_URL" node --import ./scripts/answer-keys/register.mjs scripts/live-check/figures.ts out/${PHASE}.json
+      - name: Keep the before hashes
+        if: env.PHASE == 'before'
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-check-before
+          path: out/before.json
+          retention-days: 14
+      - name: Compare with the latest before run
+        if: env.PHASE == 'after'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow live-check.yml --status success --limit 50 --json databaseId,displayTitle \
+            --jq '[.[] | select(.displayTitle == "Live check (before)")][0].databaseId')
+          if [ -z "$RUN" ] || [ "$RUN" = "null" ]; then echo "No before run found. Run the check before the deploy first."; exit 1; fi
+          gh run download "$RUN" --repo "$GITHUB_REPOSITORY" -n live-check-before -D before
+          node scripts/live-check/compare.ts before/before.json out/after.json
