@@ -2,24 +2,24 @@
 # Closebook data to a throwaway local database on the runner, works out every file's figures with the engine, and prints
 # only each file's ID and pass, fail or "expected change". No figure is printed or kept: between the two runs only keyed
 # hashes of the figures are stored (artifact, 14 days).
-#   Before the deploy: add the label "live-check" to the pull request. It runs today's engine (main) on Live's data.
-#   After the deploy:  Actions > Live check > Run workflow (branch main, phase "after"). It runs the merged engine and
-#                      compares with the latest before run.
+# Both runs start from main by hand (the production environment allows only main; its rules are not changed):
+#   Before: after the merge, while "Database deploy - Live" waits for approval. Actions > Live check > Run workflow, phase
+#           "before". It runs the engine Live runs today (found from Live's last applied migration) on Live's data.
+#   After:  once the Live database deploy is green. Same, phase "after". It runs the merged engine and compares with the
+#           latest before run.
 # Expected change: GST/HST lines 110, 112 and 113 on a file where a payment was coded to 21500 (line 110 now reads only the
 # GST/HST instalments account). Anything else that moves is a fail.
 name: Live check
-run-name: Live check (${{ github.event_name == 'pull_request' && 'before' || inputs.phase }})
+run-name: Live check (${{ inputs.phase }})
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       phase:
         description: "before or after the deploy"
         type: choice
-        options: [after, before]
-        default: after
+        options: [before, after]
+        default: before
 
 permissions:
   contents: read
@@ -27,31 +27,23 @@ permissions:
 
 jobs:
   check:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'live-check'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
     env:
-      PHASE: ${{ github.event_name == 'pull_request' && 'before' || inputs.phase }}
+      PHASE: ${{ inputs.phase }}
       PROJECT_ID: owysxewnrnvrcpjutxcw # Concept Firm App (Live, ca-central-1)
       POOLER_HOST: aws-1-ca-central-1.pooler.supabase.com
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Before the deploy, the engine Live runs today (main); this branch's check tools
-        if: env.PHASE == 'before'
-        run: |
-          git fetch origin main
-          rm -rf src supabase/migrations
-          git checkout origin/main -- src supabase/migrations
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Local Supabase (throwaway, on the runner)
-        run: bash scripts/ci/local-supabase.sh
       - name: Live database address (password stays masked)
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -61,6 +53,10 @@ jobs:
           DB_URL="postgresql://postgres.${PROJECT_ID}:${ENCODED}@${POOLER_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+      - name: The engine to run (before - the one Live runs today; after - this code, once Live has it)
+        run: bash scripts/live-check/engine-ref.sh
+      - name: Local Supabase (throwaway, on the runner)
+        run: bash scripts/ci/local-supabase.sh
       - name: Copy Live's Closebook data to the local database (read only)
         run: bash scripts/live-check/copy-live.sh
       - name: Figures of every file (hashes only)
