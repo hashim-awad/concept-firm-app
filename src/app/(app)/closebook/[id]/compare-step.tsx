@@ -41,7 +41,8 @@ export function CompareStep({ fileId, editable, leadHref, every, newAccounts, un
             <Link href={leadHref} className="font-medium text-navy-700 hover:underline" data-lead-view>Lead sheets view</Link></span>
         </div>
         <div className="card overflow-x-auto p-0">
-          <table className="w-full min-w-[980px]">
+          <table className="w-full min-w-[1040px] table-fixed">
+            <colgroup><col className="w-[19%]" /><col className="w-[15%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[10%]" /><col className="w-[7%]" /><col className="w-[13%]" /><col className="w-[16%]" /></colgroup>
             <thead className="bg-sand-50"><tr><th className={th}>Account</th><th className={th}>Lead sheet</th><th className={`${th} text-right`}>Last year</th><th className={`${th} text-right`}>This year</th>
               <th className={`${th} text-right`}>$ change</th><th className={`${th} text-right`}>% change</th><th className={th}>Reason</th><th className={th}>Note</th></tr></thead>
             <tbody className="divide-y divide-sand-100">
@@ -133,10 +134,10 @@ function FlagRow({ fileId, r, editable, amt, onError }: { fileId: string; r: Fla
       <td className={td}>{r.label}</td><td className={`${td} text-ink-2`}>{r.sheet}</td>
       <td className={`${td} text-right tabular-nums`}>{amt(r.last, r.ledger)}</td><td className={`${td} text-right tabular-nums`}>{amt(r.final, r.ledger)}</td>
       <td className={`${td} text-right tabular-nums`}>{r.change}</td><td className={`${td} text-right tabular-nums`}>{r.pct}</td>
-      <td className={td}><select value={reason} disabled={!editable || pending} aria-label={`Reason: ${r.label}`} className="input h-9 w-40 py-1 text-[13px]"
+      <td className={td}><select value={reason} disabled={!editable || pending} aria-label={`Reason: ${r.label}`} className="input h-9 w-full min-w-[7.5rem] py-1 text-[13px]"
         onChange={(e) => { setReason(e.target.value); save(e.target.value, note); }}>
-        <option value="">Choose a reason</option>{Object.entries(REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
-      <td className={td}><input value={note} disabled={!editable || pending} maxLength={500} placeholder="Short note" aria-label={`Note: ${r.label}`} className="input h-9 w-56 py-1 text-[13px]"
+        <option value="">Reason</option>{Object.entries(REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></td>
+      <td className={td}><input value={note} disabled={!editable || pending} maxLength={500} placeholder="Note" aria-label={`Note: ${r.label}`} className="input h-9 w-full min-w-[9rem] py-1 text-[13px]"
         onChange={(e) => setNote(e.target.value)} onBlur={() => save(reason, note)} /></td>
     </tr>
   );
