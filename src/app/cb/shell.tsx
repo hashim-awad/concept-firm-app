@@ -40,7 +40,7 @@ function ClientSwitcher({ client, clients }: { client: ShellClient; clients: She
   return (
     <div ref={ref} className="relative min-w-0">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} data-client-switcher
-        className="flex max-w-[16rem] items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13.5px] font-semibold hover:bg-white/10 sm:max-w-[22rem]">
+        className="flex max-w-[8.5rem] items-center gap-1 rounded-md px-1.5 py-1.5 text-[13.5px] font-semibold hover:bg-white/10 sm:max-w-[22rem] sm:gap-1.5 sm:px-2.5">
         <span className="truncate">{client.name}</span><ChevronDown className="h-4 w-4 flex-none opacity-80" />
       </button>
       {open && (
@@ -66,8 +66,8 @@ function NewMenu({ base, canEdit }: { base: string; canEdit: boolean }) {
   const items = [{ label: "Journal entry", href: `${base}/journal/new` }, { label: "Account", href: `${base}/chart?panel=new` }];
   return (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} data-new-menu
-        className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[13px] font-semibold text-navy-800 hover:bg-navy-50"><Plus className="h-4 w-4" />New</button>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label="New" data-new-menu
+        className="flex flex-none items-center gap-1 rounded-full bg-white px-2 py-1.5 text-[13px] font-semibold text-navy-800 hover:bg-navy-50 sm:px-3"><Plus className="h-4 w-4" /><span className="hidden sm:inline">New</span></button>
       {open && (
         <ul className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-sand-200 bg-white p-1 text-ink shadow-xl">
           {items.map((i) => <li key={i.label}><Link href={i.href} onClick={() => setOpen(false)} className="block rounded px-3 py-2 text-[13px] hover:bg-sand-100">{i.label}</Link></li>)}
@@ -108,7 +108,7 @@ export function CbShell({ client, clients, canEdit, children }: { client: ShellC
           </label>
         </form>
         <Link href={`${base}/search`} aria-label="Search" className="ml-auto rounded p-1.5 hover:bg-white/10 md:hidden"><Search className="h-5 w-5" /></Link>
-        <Link href="/" className="flex-none whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] font-semibold hover:bg-white/10" data-back-to-studio>Back to Studio</Link>
+        <Link href="/" className="flex-none whitespace-nowrap rounded-md px-1.5 py-1.5 text-[13px] font-semibold hover:bg-white/10 sm:px-2" data-back-to-studio><span className="sm:hidden">Studio</span><span className="hidden sm:inline">Back to Studio</span></Link>
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-56 flex-none border-r border-sand-200 bg-white md:block print:hidden"><div className="sticky top-14 h-[calc(100vh-3.5rem)]">{nav}</div></aside>
