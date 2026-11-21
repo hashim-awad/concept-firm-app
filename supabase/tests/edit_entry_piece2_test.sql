@@ -52,7 +52,7 @@ set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('2b: staff see who changed the entry last and when (the owner, today)',
   (select changed_by || ' · ' || (changed_at::date = current_date) from public.cb_entry_last_change(:'e1')) = 'Test Owner A · true');
-select test.check('2b: staff still cannot read the file history (round 8 rule)', (select count(*) from public.cb_file_history where file_id = :'f') = 0);
+select test.check('2b: staff read the file history (CB2-0 v7: everyone who can open the file)', (select count(*) from public.cb_file_history where file_id = :'f') > 0);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('2b: owners see the same line, and can read the history', (select changed_by from public.cb_entry_last_change(:'e1')) = 'Test Owner A'
   and (select count(*) from public.cb_file_history where file_id = :'f' and action = 'entry_edited') = 1);

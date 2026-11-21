@@ -111,9 +111,9 @@ revoke all on function public.cb_change_line(uuid, uuid, jsonb) from public, ano
 grant execute on function public.cb_change_line(uuid, uuid, jsonb) to authenticated;
 
 -- Item 8: History is visible to everyone who can open the file (Closebook at View or more), not only the Review right.
+-- The policy keeps its old name (older migrations replayed by tests alter it by name).
 drop policy if exists "Owners read file history" on public.cb_file_history;
-drop policy if exists "Closebook viewers read file history" on public.cb_file_history;
-create policy "Closebook viewers read file history" on public.cb_file_history for select to authenticated
+create policy "Owners read file history" on public.cb_file_history for select to authenticated
   using ((select private.can_view('closebook')));
 
 -- Item 8: a schedule save is one History row (what changed inside it); a reclassify is one row per line, no summary.
@@ -137,6 +137,7 @@ declare
   v_old text[] := '{}';
   v_new text[] := '{}';
   v_created boolean := p_entry is null;
+  v_before text;
 begin
   perform private.require(private.can_edit('closebook'), 'You need Edit on Closebook to add entries.');
   select * into v_file from public.cb_files where id = p_file;
@@ -161,6 +162,7 @@ begin
   v_kind := coalesce(p_schedule ->> 'kind', v_s.kind, 'vehicle');
   v_name := private.cb_schedule_name(v_kind);
   perform private.cb_one_action(true);   -- CB2-0 v7 item 8: one History row for the save, written at the end
+  if p_entry is not null then v_before := private.cb_entry_snapshot(p_entry); end if;
   if p_entry is null then
     v_id := public.cb_add_entry(p_file, p_kind, p_reason, p_note, p_reverse, p_lines, p_wp_ref, p_date, null, p_attachments, p_seq);
     update public.cb_entries set origin = 'schedule' where id = v_id;
@@ -194,7 +196,8 @@ begin
   values (p_file, (select auth.uid()), case when v_created then 'schedule_created' else 'schedule_saved' end, 'entries',
     left(format('%s %s entry %s%s', v_name, case when v_created then 'created for' else 'saved for' end, v_label,
       case when cardinality(v_notes) > 0 then ': ' || array_to_string(v_notes, ', ') else '' end), 500), v_id, v_label, '',
-    left(array_to_string(v_old, E'\n'), 300), left(coalesce(nullif(array_to_string(v_new, E'\n'), ''), p_schedule ->> 'summary', ''), 300));
+    left(concat_ws(E'\n', nullif(array_to_string(v_old, E'\n'), ''), v_before), 2000),
+    left(concat_ws(E'\n', coalesce(nullif(array_to_string(v_new, E'\n'), ''), nullif(p_schedule ->> 'summary', '')), private.cb_entry_snapshot(v_id)), 2000));
   perform private.cb_one_action(true);   -- the entry's own audit row is part of this save
   return v_id;
 end;

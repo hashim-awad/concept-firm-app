@@ -6,6 +6,9 @@
 \ir ../migrations/20261210010000_round21_opening.sql
 -- The later migration that builds on it, again too (it redefines two of its functions).
 \ir ../migrations/20261210030000_round21_chart_accounts.sql
+-- CB2-0: the replays above restore functions that read columns dropped since; the later versions are put back.
+\ir ../migrations/20261221030000_cb2_step5_no_thresholds.sql
+\ir ../migrations/20261221040000_cb2_v7_engine_rules.sql
 -- Step 2's problems, read as the database's owner (the function is private).
 create function test.op(p uuid) returns text[] language sql security definer set search_path = '' as $$ select private.cb_opening_problems(p) $$;
 grant execute on function test.op(uuid) to authenticated;

@@ -3,7 +3,7 @@
 -- rounded to whole dollars with ProFile (no rounding allowance). Amortization is never compared to CCA
 -- (cb_set_book_amortization goes; cb_client_tax_settings is no longer read and is kept as a record). Outstanding items:
 -- rounding at any amount, a clearing line from any account, at either edge. A line may post to an account with no GIFI
--- line or master account yet. A schedule tag may stay on a line edited by hand. Kept as "unbalanced entry": transfer sides
+-- line or master account yet. Kept as "unbalanced entry": transfer sides
 -- must match, split lines must add up to the bank line. Kept as integrity: a line clears one outstanding item, never one
 -- matched as a transfer.
 drop function if exists public.cb_update_t2_rounding(numeric);
@@ -266,7 +266,7 @@ begin
     end if;
     -- Piece 3: a line from a schedule keeps its part (the Schedule tag). Only the schedule writes a new one; an edit of a
     -- schedule entry may keep them, after cb_edit_entry checked the amounts are the schedule's.
-    perform private.require(true
+    perform private.require(nullif(v ->> 'schedule_part', '') is null or coalesce(current_setting('cb.schedule_save', true), '') = 'on'
       or (select origin from public.cb_entries where id = p_entry) = 'schedule', 'Change this amount in its schedule: click the Schedule tag.');
     insert into public.cb_entry_lines (entry_id, account_id, amount, memo, tax_code, is_tax, schedule_part)
     values (p_entry, v_acc, round((v ->> 'amount')::numeric, 2), left(coalesce(v ->> 'memo', ''), 200), nullif(v ->> 'tax_code', ''), coalesce((v ->> 'is_tax')::boolean, false),
@@ -316,5 +316,52 @@ begin
   end if;
   -- CB2-0 v7 item 3 (rule 5): no rule depends on the Reclass checkbox or the entry type; a reclass may change the result.
   return v_plain;
+end;
+$function$;
+
+-- Step 8's warning: net income and total assets compare in whole dollars, with no rounding allowance.
+CREATE OR REPLACE FUNCTION private.cb_step8_problems(p_file uuid)
+ RETURNS text[]
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare v jsonb := private.cb_t2_state(p_file); v_out text[] := '{}'; i jsonb; v_n int;
+begin
+  -- Piece R1: Match accounts to GIFI first (the box empty, the two ties met).
+  v_out := v_out || private.cb_match_problems(p_file);
+  if v ->> 'final_id' is null then
+    v_out := v_out || 'Export the final GIFI file, after the tax entries are booked.'::text;
+  elsif (v ->> 'stale')::boolean then
+    v_out := v_out || 'The trial balance changed after the final export. Export again and import it into ProFile.'::text;
+  end if;
+  if v ->> 'final_id' is not null and not (v ->> 'stale')::boolean then
+    if not (v ->> 'entered')::boolean or coalesce(v ->> 't2_pdf', '') = '' then
+      v_out := v_out || 'Enter the figures from ProFile and attach the T2 PDF.'::text;
+    else
+      for i in select * from jsonb_array_elements(v -> 'items') loop
+        if (i ->> 'open')::boolean then
+          v_out := v_out || case when i ->> 'key' in ('ni', 'assets')
+            then format('%s: Closebook less ProFile is %s, in whole dollars.',
+              case i ->> 'key' when 'ni' then 'Net income' else 'Total assets' end, private.cb_money((i ->> 'diff')::numeric))
+            else format('%s: Closebook less ProFile is %s. It must tie to the cent. Only the reviewer can accept it.',
+              case i ->> 'key' when 'cca' then 'CCA' else 'Income tax' end, private.cb_money((i ->> 'diff')::numeric)) end;
+        end if;
+      end loop;
+    end if;
+  end if;
+  -- A REVIEW line with a balance and no treatment set by the reviewer (round 10 fix 2). Exports go ahead.
+  select count(*) into v_n from public.cb_accounts a join public.cb_master_lines m on m.line_no = a.line_no join public.cb_files f on f.id = a.file_id
+   where a.file_id = p_file and coalesce(a.tax_code, m.default_tax_code) = 'REVIEW' and private.cb_account_final(a.id) <> 0
+     and not exists (select 1 from public.cb_review_treatments t where t.client_id = f.client_id and t.line_no = a.line_no);
+  if v_n > 0 then v_out := v_out || format('%s REVIEW line%s wait%s for the reviewer''s Schedule 1 treatment (tax workpaper).', v_n,
+    case when v_n = 1 then '' else 's' end, case when v_n = 1 then 's' else '' end); end if;
+  -- Round 13: the year's GST/HST returns prepared, and the check against 21500 tied or explained.
+  v_out := v_out || private.cb_gst_problems(p_file);
+  -- Piece 7: the revenue in the books against the revenue on the year's GST/HST returns (moved from step 5).
+  v_out := v_out || private.cb_gst_revenue_problems(p_file);
+  select count(*) into v_n from public.cb_review_notes where file_id = p_file and step = 't2' and status = 'open';
+  if v_n > 0 then v_out := v_out || format('%s review note%s to fix.', v_n, case when v_n = 1 then '' else 's' end); end if;
+  return v_out;
 end;
 $function$;

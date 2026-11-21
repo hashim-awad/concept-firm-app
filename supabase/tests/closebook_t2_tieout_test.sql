@@ -57,8 +57,8 @@ select test.check('the figures save without the T2 PDF (CB2-0 step 3: whatever i
 select public.cb_save_t2_tieout(:'f', 11987.50, 12000, 0, 0, 'files/t2.pdf');
 reset role;
 reset request.jwt.claims;
-select test.check('a difference over the rounding allowed blocks the preparer, Closebook less ProFile',
-  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 12.50, more than the rounding allowed (5.00). Only the reviewer can accept it.']);
+select test.check('a difference shows as a warning, Closebook (whole dollars) less ProFile',
+  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 12.50, in whole dollars.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select test.check('the preparer cannot accept it', test.try(format($q$select public.cb_accept_t2_difference(%L, 'ni', 'Rounding')$q$, :'f')) like 'Only the reviewer accepts%');
@@ -73,18 +73,16 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12012.50, 12000, 0, 0, null);
 reset role;
 reset request.jwt.claims;
-select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is (12.50), more than the rounding allowed (5.00). Only the reviewer can accept it.']);
+select test.check('the acceptance reopens when the signed difference changes', private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is (12.50), in whole dollars.']);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 -- ProFile rounds each line to whole dollars: 11,999 against 12,000.00 is rounding, not a difference.
 select public.cb_save_t2_tieout(:'f', 11999, 12000, 0, 0, null);
 reset role;
 reset request.jwt.claims;
-select test.check('a difference within the rounding allowed ($5) does not block', private.cb_step8_problems(:'f') = '{}'
-  and (select (x ->> 'rounding')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'ni'));
-update public.cb_settings set t2_rounding = 0;
-select test.check('the rounding allowed is a setting', private.cb_step8_problems(:'f') @> array['Net income: Closebook less ProFile is 1.00, more than the rounding allowed (0.00). Only the reviewer can accept it.']);
-update public.cb_settings set t2_rounding = 5;
+select test.check('no rounding allowance (CB2-0 v7, rule 7): 1.00 in whole dollars shows as a difference',
+  private.cb_step8_problems(:'f') = array['Net income: Closebook less ProFile is 1.00, in whole dollars.']
+  and not (select (x ->> 'rounding')::boolean from jsonb_array_elements(private.cb_t2_state(:'f') -> 'items') x where x ->> 'key' = 'ni'));
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 select public.cb_save_t2_tieout(:'f', 12000, 12000, 0, 3, null);
@@ -132,7 +130,7 @@ select test.check('only the reviewer sets a treatment', test.try(format($q$selec
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('only a REVIEW line', test.try(format($q$select public.cb_set_review_treatment(%L, '8862.00', 'deduct100')$q$, :'f')) = 'This line is not a REVIEW line.');
 select public.cb_set_review_treatment(:'f', '8231.00', 'deduct100');
-select test.check('"Set book amortization" is retired (CB2-0 step 4: amortization = CCA rule removed)', test.try(format($q$select public.cb_set_book_amortization(%L, true)$q$, :'f')) like 'Retired: %');
+select test.check('"Set book amortization" is gone (CB2-0 v7: amortization is never compared to CCA)', to_regprocedure('public.cb_set_book_amortization(uuid, boolean)') is null);
 reset role;
 reset request.jwt.claims;
 select test.check('the treatment is kept for the client, so it rolls forward', exists (select 1 from public.cb_review_treatments where client_id = :'client' and line_no = '8231.00' and treatment = 'deduct100'));

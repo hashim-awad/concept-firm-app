@@ -62,7 +62,7 @@ select public.cb_save_schedule_entry(:'f', :'v', 'AJE', 'correction', 'Vehicle, 
 reset role;
 select test.check('S1-6: the step 5 sign-offs are kept exactly as signed', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries'
   and prepared_by = '00000000-0000-0000-0000-00000000000c' and reviewed_by = '00000000-0000-0000-0000-00000000000a'));
-select test.check('S1-6: History has the schedule change on the entry, and no sign-off cleared', exists (select 1 from public.cb_file_history where entry_id = :'v' and action = 'entry_edited' and new_value like '%Dr 9,300.00%')
+select test.check('S1-6: History has the schedule save on the entry, one row with the lines after (CB2-0 v7 item 8), and no sign-off cleared', exists (select 1 from public.cb_file_history where entry_id = :'v' and action = 'schedule_saved' and new_value like '%9,300.00%')
   and not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'signoff_cleared'));
 set role authenticated;
 

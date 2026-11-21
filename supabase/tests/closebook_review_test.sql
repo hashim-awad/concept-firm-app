@@ -211,7 +211,7 @@ select test.check('and History has the change', exists (select 1 from public.cb_
 select test.check('history is for owners only: the preparer sees none', true);
 set role authenticated;
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('the preparer cannot read the file history', (select count(*) from public.cb_file_history where file_id = :'f') = 0);
+select test.check('the preparer reads the file history (CB2-0 v7: everyone who can open the file)', (select count(*) from public.cb_file_history where file_id = :'f') > 0);
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000a"}';
 select test.check('the owner reads the file history', (select count(*) from public.cb_file_history where file_id = :'f') > 20);
 reset role;

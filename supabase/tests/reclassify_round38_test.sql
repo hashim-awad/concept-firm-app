@@ -60,8 +60,7 @@ reset role;
 select test.check('moved: 40000, same tax, same dates and amounts, still posted', (select bool_and(chart_account = '40000' and status = 'done') from public.cb_bank_lines where description like 'CLIENT DEPOSIT DUMMY%')
   and (select string_agg(coalesce(tax_code, '-'), ',' order by description) = 'HST_ON,HST_ON,EXEMPT' from public.cb_bank_lines where description like 'CLIENT DEPOSIT DUMMY%')
   and (select sum(amount) = 395.00 from public.cb_bank_lines where description like 'CLIENT DEPOSIT DUMMY%'));
-select test.check('History: the batch (3 lines, 350.00, from 40100 to 40000) and each line', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reclassified'
-  and detail = 'Reclassified 3 lines' and ref_label = '3 lines, 350.00' and old_value = '40100' and new_value like '40000 %' and actor_id = :C::uuid)
+select test.check('History: one row per line reclassified, no summary row (CB2-0 v7 item 8)', not exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'reclassified')
   and (select count(*) = 3 from public.cb_file_history where file_id = :'f' and action = 'line_recoded' and old_value like '40100%' and new_value like '40000%'));
 select test.check('steps 4 and 5 keep their sign-offs (CB2-0 step 2); no History row says a sign-off was cleared', exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'code' and prepared_by = :C::uuid)
   and exists (select 1 from public.cb_step_signoffs where file_id = :'f' and step = 'entries')

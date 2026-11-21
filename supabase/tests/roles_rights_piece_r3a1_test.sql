@@ -114,7 +114,7 @@ select test.check('without Prepare, no preparer sign-off', test.try(format($q$se
 :as_c;
 select public.cb_sign_step(:'f', 'setup', 'prepared');
 select test.check('an Accountant cannot sign as reviewer', test.try(format($q$select public.cb_sign_step(%L, 'setup', 'reviewed')$q$, :'f')) = 'You need the Review right to sign as reviewer.');
-select test.check('an Accountant cannot read file History', (select count(*) from public.cb_file_history where file_id = :'f') = 0);
+select test.check('an Accountant reads file History (CB2-0 v7: everyone who can open the file)', (select count(*) from public.cb_file_history where file_id = :'f') > 0);
 :as_d;
 select test.check('a Senior accountant reads file History (Review)', (select count(*) from public.cb_file_history where file_id = :'f') > 0);
 :as_b;

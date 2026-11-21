@@ -70,7 +70,7 @@ select test.check('T5: the home office entry deletes with its schedule; the vehi
   not exists (select 1 from public.cb_schedules where entry_id = :'e') and exists (select 1 from public.cb_schedules where entry_id = :'v' and kind = 'vehicle'));
 select test.check('History names the Home office schedule',
   (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%' and ref_label = '2026-001 AJE')
-  = 'Home office schedule created for entry 2026-001 AJE | Home office schedule put into entry 2026-001 AJE | Home office schedule 2026-001 AJE: Claim the ITC unticked | Home office schedule put into entry 2026-001 AJE | Home office schedule 2026-001 AJE printed | Entry 2026-001 AJE deleted with its Home office schedule');
+  = 'Home office schedule created for entry 2026-001 AJE | Home office schedule saved for entry 2026-001 AJE: Claim the ITC unticked | Home office schedule 2026-001 AJE printed | Entry 2026-001 AJE deleted with its Home office schedule');   -- CB2-0 v7 item 8: one row per save
 select test.check('the vehicle schedule still names itself', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Vehicle schedule created for entry 2026-002 AJE'));
 select test.check('an unknown kind is refused', test.try($q$insert into public.cb_schedules (file_id, entry_id, kind) values (gen_random_uuid(), gen_random_uuid(), 'boat')$q$) like '%cb_schedules_kind_check%');
 -- T6: the two retired standard entries keep their records (hidden in the app only).

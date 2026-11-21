@@ -3,6 +3,17 @@
 -- each statement in the upload list; rounding against last year's T2 (whole dollars); sign-off counts gaps as
 -- the page shows them. Dummy data only.
 \set ON_ERROR_STOP 1
+create function test.try_rollback(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    raise exception 'ROLLBACK_OK';
+  exception when others then
+    if sqlerrm = 'ROLLBACK_OK' then return 'OK'; end if;
+    return sqlerrm;
+  end;
+end $$;
+grant execute on function test.try_rollback(text) to authenticated;
 create function test.rp(p uuid) returns text language sql security definer set search_path = '' as $$ select private.cb_records_problems(p)::text $$;
 grant execute on function test.rp(uuid) to authenticated;
 -- Adds a statement straight to the books (as the import does once the checks pass): one line in the middle.
@@ -104,10 +115,10 @@ select test.check('rounding takes the whole difference left, posts nothing, and 
   and test.rp(:'f') not like '%start of the year%');
 select public.cb_add_outstanding(:'chq', 'end', null, null, null, null, null, 'rounding');
 select test.check('rounding at the year end too: nothing left', test.rp(:'f') not like '%DIFFERENCE%');
-select test.check('rounding with nothing left is refused', test.try(format($q$select public.cb_add_outstanding(%L, 'end', null, null, null, null, null, 'rounding')$q$, :'chq')) like 'Rounding is only for a difference left under 1.00.');
+select test.check('rounding with nothing left is refused', test.try(format($q$select public.cb_add_outstanding(%L, 'end', null, null, null, null, null, 'rounding')$q$, :'chq')) like 'There is no difference left to round.');
 select public.cb_remove_outstanding(:'r1');
 select public.cb_save_bank_account(:'f', :'chq', 'chequing', 'RBC', '4321', 98.00, false, false);
-select test.check('a difference of 1.00 or more is not rounding', test.try(format($q$select public.cb_add_outstanding(%L, 'start', null, null, null, null, null, 'rounding')$q$, :'chq')) like 'Rounding is only%');
+select test.check('a difference of 1.00 or more may be rounded too (CB2-0 v7, rule 7)', test.try_rollback(format($q$select public.cb_add_outstanding(%L, 'start', null, null, null, null, null, 'rounding')$q$, :'chq')) = 'OK');
 select test.check('an unknown kind is refused', test.try(format($q$select public.cb_add_outstanding(%L, 'start', '2025-08-30', 'x', 'out', 1, null, 'other')$q$, :'chq')) like 'Choose what kind%');
 select public.cb_add_outstanding(:'chq', 'start', '2025-08-30', 'Cheque #9', 'in', 2.52, null) as item \gset
 select test.check('an ordinary item still works with seven arguments', (select kind from public.cb_bank_outstanding where id = :'item') = 'item');

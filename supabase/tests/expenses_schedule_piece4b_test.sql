@@ -78,7 +78,7 @@ select test.check('T8: the T2 entry deletes with its schedule; T1 stays',
   not exists (select 1 from public.cb_schedules where entry_id = :'e2') and exists (select 1 from public.cb_schedules where entry_id = :'e' and kind = 'expenses'));
 select test.check('History names the Expenses paid personally schedule',
   (select string_agg(detail, ' | ' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%' and ref_label = '2026-001 AJE')
-  = 'Expenses paid personally schedule created for entry 2026-001 AJE | Expenses paid personally schedule put into entry 2026-001 AJE | Expenses paid personally schedule put into entry 2026-001 AJE | Expenses paid personally schedule 2026-001 AJE printed');
+  = 'Expenses paid personally schedule created for entry 2026-001 AJE | Expenses paid personally schedule saved for entry 2026-001 AJE | Expenses paid personally schedule 2026-001 AJE printed');   -- CB2-0 v7 item 8: one row per save
 select test.check('the deleted entry names its schedule', exists (select 1 from public.cb_file_history where file_id = :'f' and detail = 'Entry 2026-002 AJE deleted with its Expenses paid personally schedule'));
 select test.check('an unknown kind is still refused', test.try($q$insert into public.cb_schedules (file_id, entry_id, kind) values (gen_random_uuid(), gen_random_uuid(), 'boat')$q$) like '%cb_schedules_kind_check%');
 select test.check('step 5 problems say nothing about expenses paid personally',

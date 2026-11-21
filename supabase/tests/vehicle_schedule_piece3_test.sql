@@ -95,14 +95,14 @@ select test.check('T12: put in again, it goes to the reviewer again', (select ne
 select public.cb_schedule_printed((select id from public.cb_schedules where entry_id = :'e'));
 reset role;
 
-select test.check('History: created, put in (twice), input changed, ITC unticked by the reviewer, printed',
+select test.check('History: one row per save (CB2-0 v7 item 8): created, saved (input changed), saved (ITC unticked), printed',
   (select string_agg(action, ',' order by id) from public.cb_file_history where file_id = :'f' and action like 'schedule%')
-  = 'schedule_created,schedule_put_in,schedule_input_changed,schedule_itc,schedule_put_in,schedule_printed');
-select test.check('History: the ITC row names who (the reviewer) with old and new',
-  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_itc' and actor_id = '00000000-0000-0000-0000-00000000000a'
-          and old_value = 'Ticked' and new_value = 'Unticked' and ref_label = '2026-001 AJE'));
-select test.check('History: the input change has old and new', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_input_changed'
-  and reason = 'Total km in the year' and old_value = '20,000' and new_value = 'empty'));
+  = 'schedule_created,schedule_saved,schedule_saved,schedule_printed');
+select test.check('History: the ITC save names who (the reviewer) with old and new',
+  exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_saved' and actor_id = '00000000-0000-0000-0000-00000000000a'
+          and old_value like '%Claim the ITC: Ticked%' and new_value like '%Claim the ITC: Unticked%' and ref_label = '2026-001 AJE'));
+select test.check('History: the input change has old and new', exists (select 1 from public.cb_file_history where file_id = :'f' and action = 'schedule_saved'
+  and old_value like '%Total km in the year: 20,000%' and new_value like '%Total km in the year: empty%'));
 
 -- T11: deleting the entry deletes the schedule; History records it.
 set role authenticated;
