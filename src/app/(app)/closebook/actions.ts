@@ -218,7 +218,7 @@ export async function addEntry(formData: FormData) {
     paths.push(path);
   }
   const date = /^\d{4}-\d{2}-\d{2}$/.test(form!.date) ? form!.date : null;
-  const args = { p_kind: form!.head.kind, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
+  const args = { p_kind: form!.head.kind || null, p_reason: plan.reason, p_note: form!.head.memo, p_reverse: form!.head.reverse, p_lines: plan.rpc, p_wp_ref: form!.head.wpRef,
     p_date: date, p_standard: form!.standard, p_seq: seq };
   // CB2-0 v7 item 3: the "Reclass entry" box (rule 5), saved inside the entry's own save (cb_save_entry): one History row.
   const reclass = form!.head.reclass ?? form!.head.kind === "RJE";

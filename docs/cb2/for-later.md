@@ -48,3 +48,31 @@ rules 15 and 16). Nothing here is built. Hashim decides each one when its piece 
 24. The Live check marks "a 21500 payment" from bank lines only, not journal entries (can only give a false fail).
 25. The spec-checker agent's body still says "before anything is built"; only its description follows rule 16.
 26. reports.ts comment still says a reclass "cannot change the result".
+
+## From CB2-1 (Books, PR A)
+27. Journal entry window: Make recurring and Create amortization (QBO), not built (Hashim, Nov 21, 2026).
+28. Dark mode: Closebook is light only, like Studio (Hashim, Nov 21, 2026).
+29. Settings in Books shows the chart template and the tax codes and rates read only. Today's Closebook screens read the
+    same template and rates, so they are still changed where they are kept today until those screens retire.
+30. An entry Books saves for a year's opening balances, opening difference or trial balance import is read by Books only;
+    today's screens keep working them out from the stored figures (so a change made in Books does not show there).
+31. A merge in Books points the account at the other one in Books' reports; the year files keep their own accounts, and
+    today's screens still show both.
+32. An entry dated where no year file exists is refused ("No year in Closebook covers ... Add the year first."). Starting a
+    year from Books comes later.
+33. Changing an entry's journal number alone is recorded on the entry, but its History row does not name the change.
+34. Attachments on an entry are listed by name (as in today's window); opening them from the window comes later.
+35. scripts/checks/drift-check.sql (manual audit) does not list the CB2-1 tables and functions yet.
+
+## From the one spec-checker run on PR #117 (rule 16), outside the piece or for Hashim
+36. Tax codes and the chart template carry a firm ID, but their keys are global (code, number): a second firm cannot hold
+    its own HST_ON or 21500, and sees no codes. Needs keys per firm and a starting set per firm (Hashim to decide).
+37. Account numbers written in the new code (rule 12): 21500 and 21550 (sales tax lines, Overview tile), 31000 (retained
+    earnings fallback). To come from markers on the firm's chart template, as item 21 proposes for 21510 (Hashim to decide).
+38. The suggested journal number does not follow the date into another year.
+39. Saving a schedule entry from Books drops its lines' schedule tags.
+40. The Back link on reports and the bank transaction page follows any address given; limit it to /cb.
+41. The opening entry's "not cleared" warning fires on any line to an Opening Balance Equity account.
+42. Report subtotals, totals and $ change are not links (QBO links totals).
+43. A worked-out entry's window title reads "Journal entry: Opening balances", not a number (it has none until saved).
+44. Chart search box: the icon overlaps the placeholder.

@@ -21,7 +21,11 @@ function remap(v: unknown, ids: Map<string, string>): unknown {
 export function removeLoaded(folder: string) {
   const old = json<string[]>(`select coalesce(json_agg(id), '[]') from public.clients where legal_name = ${lit(`AK ${folder}`)}`);
   const tables = fileTables().reverse();
-  for (const id of old) sql(`begin; set local session_replication_role = replica;\n${tables.map((k) => `delete from public.${k.table} where ${whereOf(k, id)};`).join("\n")}\ncommit;`);
+  // CB2-1: the loaded client's Books client (its chart and History go with it).
+  for (const id of old) sql(`begin; set local session_replication_role = replica;\n${tables.map((k) => `delete from public.${k.table} where ${whereOf(k, id)};`).join("\n")}
+delete from public.cb_client_accounts where cb_client_id in (select id from public.cb_clients where studio_client_id = '${id}');
+delete from public.cb_books_history where cb_client_id in (select id from public.cb_clients where studio_client_id = '${id}');
+delete from public.cb_clients where studio_client_id = '${id}';\ncommit;`);
 }
 
 export function loadFixture(folder: string): string {
@@ -49,6 +53,11 @@ export function loadFixture(folder: string): string {
     const list = keys.map((k) => `"${k}"`).join(", ");
     parts.push(`insert into public.${table} (${list}) overriding system value select ${list} from jsonb_populate_recordset(null::public.${table}, ${lit(JSON.stringify(fixed))}::jsonb);`);
   }
+  // CB2-1: the fixture's Books client (the trigger that makes it is off while loading).
+  parts.push(`do $$ declare v uuid; begin if to_regclass('public.cb_clients') is not null then
+    insert into public.cb_clients (firm_id, studio_client_id, name, province) select f.firm_id, c.id, c.legal_name, coalesce(nullif(c.province, ''), 'ON')
+      from public.clients c join public.cb_files f on f.client_id = c.id where c.id = '${clientId}' limit 1 returning id into v;
+    update public.cb_files set cb_client_id = v where client_id = '${clientId}'; end if; end $$;`);
   parts.push(`do $$ begin if to_regprocedure('private.cb_fixture_upgrade(uuid)') is not null then perform private.cb_fixture_upgrade(f.id) from public.cb_files f where f.client_id = '${clientId}'; end if; end $$;`);
   parts.push("commit;");
   sql(parts.join("\n"));

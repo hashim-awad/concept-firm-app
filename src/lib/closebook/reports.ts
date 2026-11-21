@@ -245,6 +245,7 @@ export function netIncomeBox(accounts: RepAccount[], postings: Posting[], info: 
 }
 
 // An entry's number: the year-end year and its order of creation, with its type (2026-001 AJE).
-export const entryNo = (yearEnd: string, e: { seq: number; kind: string }) => `${yearEnd.slice(0, 4)}-${String(e.seq).padStart(3, "0")} ${e.kind}`;
+// CB2-1: an entry made with no type shows its number alone.
+export const entryNo = (yearEnd: string, e: { seq: number; kind: string | null }) => `${yearEnd.slice(0, 4)}-${String(e.seq).padStart(3, "0")}${e.kind ? ` ${e.kind}` : ""}`;
 
 export const KIND_LABEL: Record<PostingKind, string> = { opening: "Opening balance", bank: "Bank line", entry: "Adjusting entry", import: "Trial balance import" };

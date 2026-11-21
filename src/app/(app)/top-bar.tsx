@@ -98,6 +98,8 @@ export function TopBar({ name, role, initials, clients, newItems, gear, drafts, 
     { key: "myday", label: "My day", href: "/" },
     ...(nav.clients ? [{ key: "clients", label: "Clients", href: "/clients" }] : []),
     ...(nav.closebook ? [{ key: "closebook", label: "Closebook", href: "/closebook" }] : []),
+    // CB2-1: the new Closebook, its own app at /cb (the old item stays as it is).
+    ...(nav.closebook ? [{ key: "cb", label: "Closebook (new)", href: "/cb" }] : []),
     ...(nav.engagements ? [{ key: "engagements", label: "Engagements", href: lettersHref, badge: counts.lettersWaiting, badgeLabel: "letters waiting for signature" }] : []),
     ...(nav.documents ? [{ key: "documents", label: "Documents", href: "/documents" }] : []),
   ];

@@ -100,8 +100,8 @@ set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
 -- Round 2 item 1: memo, W/P reference, prior period adjustments.
 \set L '[{"chart":"66000","amount":100},{"chart":"21100","amount":-100}]'
 set request.jwt.claims = '{"sub":"00000000-0000-0000-0000-00000000000c"}';
-select test.check('a memo is required', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', '', false, %L, 'Payables listing')$f$, :'f', :'L')) like '%memo%');
-select test.check('a W/P reference is required', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue a fee', false, %L, '')$f$, :'f', :'L')) like '%W/P reference%');
+select test.check('a memo is optional (CB2-1, rule 13; rolled back here)', test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', '', false, %L, 'Payables listing')$f$, :'f', :'L')) = 'OK');
+select test.check('a W/P reference is optional (CB2-1, rule 13; rolled back here)', test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Accrue a fee', false, %L, '')$f$, :'f', :'L')) = 'OK');
 select test.check('only an accrual reverses next year', test.try(format($f$select public.cb_add_entry(%L, 'AJE', 'correction', 'Fix a fee', true, %L, 'Payables listing')$f$, :'f', :'L')) like '%Only an accrual%');
 select test.check('a line on 31500 takes any reason (CB2-0: no prior period reason rule; rolled back here)',
   test.try_rollback(format($f$select public.cb_add_entry(%L, 'AJE', 'accrual', 'Missed accrual', false, '[{"chart":"31500","amount":100},{"chart":"21100","amount":-100}]', 'Prior year file')$f$, :'f')) = 'OK');
