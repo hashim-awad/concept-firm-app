@@ -15,6 +15,7 @@ export type BooksData = {
   client: BooksClient; files: BooksFile[]; books: Books; chart: ChartAccount[]; byIdent: Map<string, ChartAccount>;
   typeOf: (ident: string) => AcctType | undefined; re: string; info: (line_no: string | null) => LineInfo | null;
   entries: BooksEntry[]; lineName: Map<string, string>;
+  gifiLines: { line_no: string; name: string; type: string }[];   // the lines an account may take (mappable, not locked)
 };
 
 const TYPES: AcctType[] = ["Asset", "Liability", "Equity", "Revenue", "Expense"];
@@ -102,5 +103,6 @@ export async function loadBooks(supabase: SupabaseClient, clientId: string): Pro
     ...y, accounts: y.accounts.map((a) => { const t = mergedTo.get(identOf(a)); const c = t ? byIdent.get(t) : undefined; return c ? { ...a, number: c.number, name: c.name } : a; }),
   } : y;
   const books = buildBooks(years.map(remap), typeOf, re);
-  return { client: client as BooksClient, files, books, chart, byIdent, typeOf, re, info, entries, lineName };
+  const gifiLines = ref.lines.filter((l) => l.mappable && !l.locked).map((l) => ({ line_no: l.line_no, name: l.name, type: l.line_type }));
+  return { client: client as BooksClient, files, books, chart, byIdent, typeOf, re, info, entries, lineName, gifiLines };
 }

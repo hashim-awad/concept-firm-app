@@ -32,7 +32,6 @@ const SCHED_NAME: Record<SchedKind, string> = { vehicle: "Vehicle schedule", hom
 const SCHED_REF: Record<SchedKind, [string, string]> = { vehicle: [WP_REF, DESCRIPTION], home_office: [HOME_WP_REF, HOME_DESCRIPTION], expenses: [EXP_WP_REF, EXP_DESCRIPTION] };
 type SchedInputs = VehicleInputs | HomeInputs | ExpInputs;
 
-const KIND: [string, string][] = [["AJE", "Adjusting (AJE)"], ["RJE", "Reclassifying (RJE)"], ["TJE", "Tax, from ProFile (TJE)"]];
 const WP_REFS = ["Opening balances", "Bank statements", "Code transactions", "Capital assets schedule", "Revenue check", "Payables listing", "Receivables listing",
   "Prepaid expenses schedule", "Shareholder account", "GST/HST reconciliation", "Payroll reconciliation", "Income tax schedule", "Home office schedule", "Prior year file"];
 
@@ -56,8 +55,8 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
   const lineTypes = useMemo(() => new Map(gifiLines.map(([no, , type]) => [no, type])), [gifiLines]);
   const newLineOf = useMemo(() => new Map(gifiLines.flatMap(([no, , , line]) => (line ? [[no, line] as [string, string]] : []))), [gifiLines]);
   const s0 = standard.find((x) => x.id === init.std);
-  const [head, setHead] = useState<FormHead>({ kind: "AJE", wpRef: "", memo: "", reverse: false, inclusive: false,
-    ...(s0 ? { kind: s0.kind, wpRef: s0.wp_ref, memo: s0.memo, reverse: s0.reverse } : {}), ...init.head });
+  const [head, setHead] = useState<FormHead>({ kind: "", wpRef: "", memo: "", reverse: false, inclusive: false,
+    ...(s0 ? { wpRef: s0.wp_ref, memo: s0.memo, reverse: s0.reverse } : {}), ...init.head });
   const [seq, setSeq] = useState(init.seq ?? nextSeq);
   const [date, setDate] = useState(init.date ?? yearEnd);
   const startLines = (): FormLine[] => {
@@ -105,7 +104,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
     });
     const keep = lines.filter((l) => !l.sched && (l.acct || l.dr.trim() || l.cr.trim()));
     setLines([...fresh, ...keep]);
-    setHead({ ...head, kind: "AJE", wpRef: SCHED_REF[k][0], memo: head.memo.trim() ? head.memo : SCHED_REF[k][1], reverse: false, inclusive: false });
+    setHead({ ...head, wpRef: SCHED_REF[k][0], memo: head.memo.trim() ? head.memo : SCHED_REF[k][1], reverse: false, inclusive: false });
     setDate(yearEnd);
     setSIn({ kind: k, inputs });
     setKind(k);
@@ -158,8 +157,7 @@ export function JournalForm({ fileId, title, nextSeq, yearStart, yearEnd, client
           <label className={fld}>No.<span className="flex items-center gap-1"><span className="text-[13px] font-normal text-ink-3 tabular-nums">{yearEnd.slice(0, 4)}-</span>
             <input aria-label="Entry number" value={seq} onChange={(e) => setSeq(e.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" className={`${box} w-full tabular-nums`} /></span></label>
           <label className={fld}>Date<input type="date" name="date" value={date} min={yearStart} max={yearEnd} onChange={(e) => setDate(e.target.value)} className={box} /></label>
-          <label className={fld}>Type<select value={head.kind} disabled={lock.kind} onChange={(e) => setHead({ ...head, kind: e.target.value })} className={box}>
-            {KIND.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          {/* CB2-1: no Type list. The "Reclass entry" tick is the only control; a new entry has no type, an old one keeps its own. */}
           <label className={fld}>Description<input value={head.memo} onChange={(e) => setHead({ ...head, memo: e.target.value })} maxLength={500} placeholder="Prints on the client entry list" className={box} /></label>
           {hasSched ? <div className={fld}>W/P ref<button type="button" onClick={() => setVOpen(true)} className="h-[30px] text-left text-[13px] font-semibold text-navy-700 underline" data-wp-link>{head.wpRef || SCHED_NAME[kind ?? "vehicle"]}</button></div>
             : <label className={fld}>W/P ref<input value={head.wpRef} readOnly={lock.wp} onChange={(e) => setHead({ ...head, wpRef: e.target.value })} list="wp-refs" maxLength={120} className={`${box} ${lock.wp ? "bg-sand-50" : ""}`} />
