@@ -158,11 +158,11 @@ export async function ruleAction(clientId: string, id: string, action: "copy" | 
   return error ? { ok: false, error: error.message } : done(clientId);
 }
 
-export async function finishReconcile(clientId: string, ident: string, date: string, ending: number, lines: string[]): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+export async function finishReconcile(clientId: string, ident: string, date: string, ending: number, lines: string[], opening = 0): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   await requireAccess("closebook", "edit");
   if (!UUID.test(clientId) || lines.some((i) => !UUID.test(i))) return { ok: false, error: "Client not found." };
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("cb_books_reconcile", { p_client: clientId, p_ident: ident, p_date: date, p_ending: ending, p_lines: lines });
+  const { data, error } = await supabase.rpc("cb_books_reconcile", { p_client: clientId, p_ident: ident, p_date: date, p_ending: ending, p_lines: lines, p_opening: opening });
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/cb/${clientId}`, "layout");
   return { ok: true, id: data as string };

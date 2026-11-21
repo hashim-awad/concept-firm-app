@@ -25,7 +25,15 @@ export default async function ReconcilePage({ params, searchParams }: { params: 
   const all = (recs ?? []) as R[];
   const finished = all.filter((r) => r.status === "finished");
   const done = new Set(finished.flatMap((r) => r.lines));
-  const beginning = finished.length ? Math.round(Number(finished[0].ending) * 100) : 0;
+  // The first reconciliation starts from the account's opening balance in Books (QBO): everything before the first year.
+  const first = b.books.years[0]?.yearStart ?? "9999-12-31";
+  let open = 0;
+  if (card) {
+    for (const x of b.books.postings) if (x.ident === card.ident && x.date < first) open += x.cents;
+    for (const g of b.books.generated) if (g.date < first) for (const l of g.lines) if (l.ident === card.ident) open += l.cents;
+  }
+  const opening = card?.kind === "card" ? -open : open;   // a card's balance owed is positive, like its charges
+  const beginning = finished.length ? Math.round(Number(finished[0].ending) * 100) : opening;
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : null;
   const lines: RecLine[] = [];
   let pending = 0;
@@ -44,5 +52,5 @@ export default async function ReconcilePage({ params, searchParams }: { params: 
     difference: Math.round(Number(r.difference) * 100), lines: r.lines.length, status: r.status as PastRec["status"], who: r.created_by ? names.get(r.created_by) ?? "" : "", at: r.created_at,
     latest: r.id === finished[0]?.id }));
   return <ReconcileView clientId={client} accounts={cards.map((c) => ({ value: c.ident, label: acctLabel({ number: c.ident, name: c.name }), kind: c.kind }))}
-    ident={card?.ident ?? ""} date={date} ending={sp.ending ?? ""} beginning={beginning} lines={lines} pending={pending} past={past} canEdit={canEdit(access, "closebook")} />;
+    ident={card?.ident ?? ""} date={date} ending={sp.ending ?? ""} beginning={beginning} opening={opening} lines={lines} pending={pending} past={past} canEdit={canEdit(access, "closebook")} />;
 }
