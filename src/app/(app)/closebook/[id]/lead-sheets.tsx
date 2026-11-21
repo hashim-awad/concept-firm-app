@@ -1,10 +1,10 @@
 "use client";
 // Lead sheets (Phase 3 batch 5.5): one table, one row per lead sheet, opened to show its accounts so
-// the columns line up all the way down. "Flagged only" shows just the lines that need an explanation.
-// A flagged line's pencil opens the side panel to pick the explanation and add a note.
+// the columns line up all the way down. CB2-0 step 5 (rule 7): no flags. Every line's pencil opens the side panel
+// to add an optional reason and note.
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertCircle, ChevronRight, Pencil, X } from "lucide-react";
+import { ChevronRight, Pencil, X } from "lucide-react";
 import { explainFlagInline } from "../actions";
 import { InfoTip } from "@/components/ds/info-tip";
 
@@ -12,19 +12,17 @@ export const REASONS: Record<string, string> = {
   new_asset: "New asset", new_loan: "New loan", revenue_grew: "Revenue grew", revenue_fell: "Revenue fell", one_time: "One-time expense", reclassified: "Reclassified", error_fixed: "Error found and fixed",
   other: "Other",   // round 38: "Revenue fell" and "Other" (with a note, as every reason)
 };
-export type LeadAcc = { id: string; key?: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; flagged: boolean; note?: { reason: string; note: string };
+export type LeadAcc = { id: string; key?: string; number: string; name: string; line: string; last: string; before: string; entries: string; final: string; change: string; pct: string; note?: { reason: string; note: string };
   reclass?: string };   // round 25: "Reclassified from 2707 to 2701"
-export type LeadGroup = { code: string; name: string; last: string; before: string; entries: string; final: string; change: string; flags: number; open: number; rows: LeadAcc[] };
+export type LeadGroup = { code: string; name: string; last: string; before: string; entries: string; final: string; change: string; rows: LeadAcc[] };
 
 // Which part of the statements a lead sheet belongs to: A to H assets, AA to GG liabilities and equity, 10 to 50 the income statement.
 const part = (code: string) => (!code ? "" : /^\d/.test(code) ? "Income statement" : code.length === 2 ? "Liabilities and equity" : "Assets");
 
 export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: string; groups: LeadGroup[]; full: boolean; editable: boolean }) {
-  const [onlyFlags, setOnlyFlags] = useState(false);
   const [openCodes, setOpenCodes] = useState<Set<string>>(new Set());
   const [panel, setPanel] = useState<LeadAcc | null>(null);
-  const totalFlags = groups.reduce((n, g) => n + g.flags, 0), unexplained = groups.reduce((n, g) => n + g.open, 0);
-  const shown = onlyFlags ? groups.filter((g) => g.flags) : groups;
+  const shown = groups;
   const toggle = (c: string) => setOpenCodes((s) => { const n = new Set(s); if (n.has(c)) n.delete(c); else n.add(c); return n; });
   const cols = full ? 7 : 6;
   // Round 38: every amount opens the account's ledger (as on the Trial balance), with "‹ Lead sheets" to come back.
@@ -33,42 +31,37 @@ export function LeadSheetsView({ fileId, groups, full, editable }: { fileId: str
     className="hover:text-navy-700 hover:underline" data-lead-amount={r.number || r.name}>{v}</Link> : v);
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyFlags} onChange={() => setOnlyFlags(!onlyFlags)} className="h-4 w-4 accent-navy-700" />Flagged only ({totalFlags})</label>
-        <p className="text-sm text-ink-2">{totalFlags === 0 ? "No line changed by more than the flag amount and percentage." : unexplained ? `${unexplained} of ${totalFlags} flagged line${totalFlags === 1 ? "" : "s"} still need${unexplained === 1 ? "s" : ""} an explanation.` : "Every flagged line is explained."}</p>
-      </div>
       <section className="card overflow-x-auto p-0">
         <table className="table min-w-[980px]">
           <thead><tr><th>Group / account</th><th className="text-right">Last year</th><th className="text-right">Before entries</th>{full && <th className="text-right">Entries</th>}<th className="text-right">This year final</th><th className="text-right">Change $</th><th className="text-right">Change %</th><th className="w-10"></th></tr></thead>
           <tbody>{shown.map((g, gi) => {
-            const isOpen = onlyFlags || openCodes.has(g.code);
-            const rows = onlyFlags ? g.rows.filter((r) => r.flagged) : g.rows;
+            const isOpen = openCodes.has(g.code);
+            const rows = g.rows;
             // A plain heading where a new part starts. Round 35: each lead sheet shows its code ("A Cash and bank"), as in CaseWare;
             // the codes appear nowhere else.
             const heading = part(g.code) !== part(shown[gi - 1]?.code ?? "") ? part(g.code) : "";
             return [
               ...(heading ? [<tr key={`h-${heading}`}><td colSpan={cols + 1} className="pt-5 pb-1 text-xs font-semibold tracking-wider text-ink-3 uppercase">{heading}</td></tr>] : []),
               <tr key={g.code} className="cursor-pointer bg-sand-50/70 font-semibold hover:bg-sand-100" onClick={() => toggle(g.code)}>
-                <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden />{g.name}
-                  {g.flags > 0 && <span className={`ml-2 rounded px-1.5 text-xs ${g.open ? "bg-warning-soft text-warning" : "bg-success-soft text-success"}`}>{g.open ? `${g.open} to explain` : `${g.flags} explained`}</span>}</td>
+                <td><ChevronRight className={`mr-1 inline h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden />{g.name}</td>
                 <td className="text-right tabular-nums">{g.last}</td><td className="text-right tabular-nums">{g.before}</td>{full && <td className="text-right tabular-nums">{g.entries}</td>}
                 <td className="text-right tabular-nums">{g.final}</td><td className="text-right tabular-nums">{g.change}</td><td></td><td></td>
               </tr>,
               ...(isOpen ? rows.map((r) => (
-                <tr key={r.id} className={r.flagged && !r.note ? "bg-warning-soft/50" : ""}>
+                <tr key={r.id}>
                   <td className="pl-10">{r.number && <span className="mr-2 text-ink-3 tabular-nums">{r.number}</span>}{r.name}
                     <span className="block text-xs text-muted">{r.line}</span>
                     {r.reclass && <span className="block text-xs text-ink-2">{r.reclass}</span>}
                     {r.note && <span className="block text-xs text-success">{REASONS[r.note.reason]}: {r.note.note}</span>}</td>
                   <td className="text-right tabular-nums">{amt(r, r.last)}</td><td className="text-right tabular-nums">{amt(r, r.before)}</td>{full && <td className="text-right tabular-nums">{amt(r, r.entries)}</td>}
                   <td className="text-right tabular-nums font-medium">{amt(r, r.final)}</td><td className="text-right tabular-nums">{amt(r, r.change)}</td>
-                  <td className="text-right tabular-nums">{r.pct}{r.flagged && <AlertCircle className={`ml-1.5 inline h-4 w-4 ${r.note ? "text-success" : "text-warning"}`} aria-label={r.note ? "Flagged, explained" : "Flagged"} />}</td>
-                  <td>{r.flagged && editable && <button type="button" onClick={() => setPanel(r)} aria-label={`Explain: ${r.name}`} title="Explain" className="rounded p-1.5 text-ink-3 hover:bg-sand-100 hover:text-navy-700"><Pencil className="h-4 w-4" /></button>}</td>
+                  <td className="text-right tabular-nums">{r.pct}</td>
+                  <td>{editable && <button type="button" onClick={() => setPanel(r)} aria-label={`Reason and note: ${r.name}`} title="Reason and note" className="rounded p-1.5 text-ink-3 hover:bg-sand-100 hover:text-navy-700"><Pencil className="h-4 w-4" /></button>}</td>
                 </tr>
               )) : []),
             ];
           })}
-          {shown.length === 0 && <tr><td colSpan={cols + 1} className="text-sm text-ink-2">Nothing flagged.</td></tr>}</tbody>
+          {shown.length === 0 && <tr><td colSpan={cols + 1} className="text-sm text-ink-2">No lead sheets yet.</td></tr>}</tbody>
         </table>
       </section>
       {panel && <ExplainPanel key={panel.id} fileId={fileId} r={panel} onClose={() => setPanel(null)} />}

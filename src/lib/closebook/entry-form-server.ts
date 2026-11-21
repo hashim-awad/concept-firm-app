@@ -9,7 +9,7 @@ import { defaultTaxCode, type TaxCode, type TaxContext, type TaxPart } from "./s
 import type { CbFileRow } from "./files";
 
 export const RETIRED_STANDARD = ["Home office", "Auto expenses"];
-export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string, string?][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; threshold: number; nextNo: string };
+export type EntryFormData = { opts: AcctOpt[]; gifiLines: [string, string, string, string?][]; codes: TaxCode[]; ctx: TaxContext; standard: StdOpt[]; nextNo: string };
 
 export async function loadTaxCodes(supabase: SupabaseClient, province: string, yearEnd: string): Promise<TaxCode[]> {
   const [{ data: codes }, { data: parts }] = await Promise.all([
@@ -26,13 +26,12 @@ export async function loadTaxCodes(supabase: SupabaseClient, province: string, y
 export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, province: string, clientName: string): Promise<EntryFormData> {
   // Piece R2 (D12a): every trial balance file posts to the client's own accounts (monthly QuickBooks files included).
   const own = !["statements", "paper"].includes(file.books);
-  const [{ data: accts }, { data: chart }, { data: master }, { data: std }, { data: thr }, { data: last }, codes] = await Promise.all([
+  const [{ data: accts }, { data: chart }, { data: master }, { data: std }, { data: last }, codes] = await Promise.all([
     supabase.from("cb_accounts").select("id, account_key, number, name, line_no, client_new, chart_account, parent_key").eq("file_id", file.id).order("number").order("name"),
     supabase.from("cb_chart_accounts").select("number, name, account_type, line_no").order("sort_order"),
     supabase.from("cb_master_lines").select("line_no, name, line_type, mappable, locked").order("sort_order"),
     // Round 9: "Expenses paid personally" has its own lines and its own form; the picker offers the simple ones.
     supabase.from("cb_standard_entries").select("id, name, kind, reason, debit_account, credit_account, memo, wp_ref, reverse_next_year, tax_mode").eq("style", "simple").order("sort_order"),
-    supabase.from("cb_settings").select("entry_review_amount").maybeSingle(),
     supabase.from("cb_entries").select("seq").eq("file_id", file.id).order("seq", { ascending: false }).limit(1).maybeSingle(),
     loadTaxCodes(supabase, province, file.year_end),
   ]);
@@ -93,7 +92,7 @@ export async function loadEntryForm(supabase: SupabaseClient, file: CbFileRow, p
   const setup = (file.setup ?? {}) as { gst_registered?: boolean; quick_method?: boolean };
   const seq = ((last as { seq: number } | null)?.seq ?? 0) + 1;
   return {
-    opts, codes, standard, threshold: Number((thr as { entry_review_amount: number } | null)?.entry_review_amount ?? 0),
+    opts, codes, standard,   // CB2-0 step 5 (rule 7): no entry review amount
     // Piece R2 (item 5): a new client account is created with a master account (trial balance files).
     gifiLines: own ? charts.filter((c) => c.line_no).map((c) => [`chart:${c.number}`, `${c.number} ${c.name}`, c.account_type, c.line_no!] as [string, string, string, string])
       : lines.filter((l) => l.mappable && !l.locked).map((l) => [l.line_no, l.name, l.line_type] as [string, string, string]),

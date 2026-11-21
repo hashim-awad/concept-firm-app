@@ -30,9 +30,10 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
   const prep = new Map(g.prepared.map((r) => [r.period_no, r]));
   const allPrepared = g.periods.every((p) => prep.has(p.n)) && g.changed.length === 0;
   const c = g.check, row = g.checkRow;
-  const over = Math.abs(c.diffCents) > g.threshold * 100;
-  const status = c.diffCents === 0 ? chip(true, "Ties", "") : over ? (row?.accepted_at && Math.round(row.diff * 100) === c.diffCents ? chip(true, "Accepted by the reviewer", "") : chip(false, "", "Over the review threshold: the reviewer decides"))
-    : (row?.note && Math.round(row.diff * 100) === c.diffCents ? chip(true, "Explained", "") : chip(false, "", "To explain, or fix with an entry"));
+  // CB2-0 step 5 (rule 7): no review threshold. Any difference is explained in one line, accepted by the reviewer, or fixed.
+  const same = (d: number | undefined) => d !== undefined && Math.round(d * 100) === c.diffCents;
+  const status = c.diffCents === 0 ? chip(true, "Ties", "") : row?.accepted_at && same(row.diff) ? chip(true, "Accepted by the reviewer", "")
+    : row?.note && same(row.diff) ? chip(true, "Explained", "") : chip(false, "", "To explain, or fix with an entry");
   const problems = g.returns.flatMap((r) => r.problems).filter((x, i, a) => a.indexOf(x) === i);
   const d = drill ? g.returns.find((r) => r.period.n === drill.period) : null;
   const items = d && drill ? d.drill[drill.line] ?? [] : [];
@@ -119,7 +120,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
           </form>
         </div>
       )}
-      {canReview && editable && over && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
+      {canReview && editable && c.diffCents !== 0 && !(row?.accepted_at && Math.round(row.diff * 100) === c.diffCents) && allPrepared && (
         <form action={acceptGstCheck} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="file_id" value={fileId} />
           <input name="why" required minLength={3} maxLength={300} placeholder="Why the difference is accepted" className="input input-compact" style={{ width: "24rem" }} aria-label="Reason" />
@@ -154,7 +155,7 @@ export function GstSection({ fileId, g, editable, canReview, drill, names, reven
             ))}
           </div>
           <p className="text-xs text-ink-2">Confirm them against the CRA account.</p>
-          {c.diffCents !== 0 && !over && (
+          {c.diffCents !== 0 && (
             <label><span className="label">Explain the difference with 21500 in one line (or fix it with an entry in step 5)</span>
               <input name="note" className="input" maxLength={300} defaultValue={row?.note ?? ""} style={{ width: "40rem", maxWidth: "100%" }} /></label>
           )}

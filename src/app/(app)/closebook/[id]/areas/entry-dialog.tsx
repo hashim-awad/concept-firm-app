@@ -69,7 +69,7 @@ export async function entryDialog({ supabase, file, province, clientName, entrie
   });
   const pdfHref = (e: CbEntry) => `/closebook/${file.id}/schedule-pdf?entry=${e.id}`;
   const formProps = { fileId: file.id, yearStart: file.year_start, yearEnd: file.year_end, clientList: file.books !== "statements" && file.books !== "paper",   // piece R2 (D12a)
-    opts: form.opts, gifiLines: form.gifiLines, codes: form.codes, ctx: form.ctx, standard: form.standard, threshold: form.threshold, qboTypes: QBO_TYPES,
+    opts: form.opts, gifiLines: form.gifiLines, codes: form.codes, ctx: form.ctx, standard: form.standard, qboTypes: QBO_TYPES,
     closeHref, backHref: here, problem: sp.error ?? null };
 
   // ---- An existing entry: read-only, with its actions (CaseWare).

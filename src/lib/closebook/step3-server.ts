@@ -12,7 +12,7 @@ export type S3Account = FileAccount & {
   opened: string | null; closed: string | null; note: string; reasonBy: string | null; reasonAt: string | null; origin: string;
   cells: Cell[]; cycleDay: number;
   statements: S3Statement[]; start: Edge; end: Edge; endBooks: number | null; waiting: number;
-  early: { id: string; label: string }[];   // lines in the first 90 days, to name the one that cleared an outstanding item
+  early: { id: string; label: string }[];   // the account's lines, to name the one that cleared an outstanding item (CB2-0 step 5: no 90-day limit)
   gaps: Gap[]; card: CardStatus;            // round 22 correction: red rows in the list, one status word on the card
   // Round 23: the account's lines in the year, in date order (outstanding: cleared a start-of-year item, posts nothing).
   lines: { id: string; date: string; description: string; cents: number; outstanding: boolean; statement: string; acctDate: string; memo: string; coded: boolean; printed: string | null }[];
@@ -117,9 +117,8 @@ export async function loadStep3(supabase: SupabaseClient, file: { id: string; ye
     const end = edge(cov.gaps.length || waived || cov.cells.some((c) => c.state === "wait") ? null : lastEdge?.at_end ?? null, endBooks, its.filter((i) => i.account_id === a.id && i.edge === "end"));
     const waiting = uploads.filter((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")).length;
     const label = accountLabel(a);
-    const limit = new Date(Date.UTC(+file.year_start.slice(0, 4), +file.year_start.slice(5, 7) - 1, +file.year_start.slice(8, 10) + 90)).toISOString().slice(0, 10);
     // Round 24: a coded line can be named too (it keeps its coding, and gets it back if the item goes).
-    const early = ls.filter((l) => l.account_id === a.id && l.txn_date <= limit && l.source !== "transfer" && (l.status === "new" || l.status === "done" || l.source === "outstanding"))
+    const early = ls.filter((l) => l.account_id === a.id && l.source !== "transfer" && (l.status === "new" || l.status === "done" || l.source === "outstanding"))
       .sort((x, y) => x.txn_date.localeCompare(y.txn_date)).map((l) => ({ id: l.id, label: `${shortDate(l.txn_date)} · ${l.description} · ${money(toCents(l.amount)!)}` }));
     // A statement already uploaded for the gap, waiting to check: the row says so and offers "Check".
     const gaps = cov.gaps.map((g) => ({ ...g, waiting: uploads.find((u) => u.account === a.id && (u.state.status === "ready" || u.state.status === "needs_look")

@@ -12,7 +12,7 @@ export type RevenueState = {
   explanation: string; gst_explanation: string; t4a_explanation: string; t4a_none: boolean;
   explained: boolean; gst_explained: boolean; t4a_explained: boolean; explained_diff: number | null; gst_explained_diff: number | null; t4a_explained_diff: number | null; accepted_diff: number | null; accepted_by: string | null; accepted_at: string | null;
   gst_accepted_diff: number | null; gst_accepted_by: string | null; gst_accepted_at: string | null; t4a_accepted_diff: number | null; t4a_accepted_by: string | null; t4a_accepted_at: string | null;
-  // From the database: over the threshold, a source entered, and not accepted at this signed amount.
+  // From the database: always false since CB2-0 step 5 (rule 7, no review threshold); kept for old acceptances.
   waiting: boolean; gst_waiting: boolean; t4a_waiting: boolean;
   // Piece 7: the revenue check was added on this file ("+ Add revenue check", or saved before piece 7).
   added: boolean;
@@ -39,11 +39,11 @@ export async function loadRevenue(supabase: SupabaseClient, fileId: string) {
 }
 // What waits for the reviewer on step 7, one item per check (A5). Piece 7: the GST/HST returns difference is step 8's.
 export const revenueWaiting = (s: RevenueState) => [
-  ...(s.waiting ? [{ label: "Revenue difference over the review threshold", diff: s.diff, explained: s.explained, text: s.explanation }] : []),
-  ...(s.t4a_waiting ? [{ label: "T4A difference over the review threshold", diff: s.t4a_diff, explained: s.t4a_explained, text: s.t4a_explanation }] : []),
+  ...(s.waiting ? [{ label: "Revenue difference waiting for the reviewer", diff: s.diff, explained: s.explained, text: s.explanation }] : []),
+  ...(s.t4a_waiting ? [{ label: "T4A difference waiting for the reviewer", diff: s.t4a_diff, explained: s.t4a_explained, text: s.t4a_explanation }] : []),
 ];
 export const gstRevenueWaiting = (s: RevenueState) =>
-  s.gst_waiting ? [{ label: "GST/HST revenue difference over the review threshold", diff: s.gst_diff, explained: s.gst_explained, text: s.gst_explanation }] : [];
+  s.gst_waiting ? [{ label: "GST/HST revenue difference waiting for the reviewer", diff: s.gst_diff, explained: s.gst_explained, text: s.gst_explanation }] : [];
 
 export type ExpensesData = {
   standardId: string; defs: ExpenseDef[]; autoTax: string; autoEntry: boolean; registered: boolean; quick: boolean;

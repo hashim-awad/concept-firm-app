@@ -52,8 +52,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // How each difference was cleared: none, explained (one line), or accepted by the reviewer.
   const cleared = (diff: number, text: string, explained: boolean, waiting: boolean, by: string | null, at: string | null, accepted: number | null) =>
     diff === 0 ? "Ties out"
-      : !waiting && by && accepted === diff && Math.abs(diff) > st.threshold ? `${text} Accepted by ${name(by) || "the reviewer"}, ${formatDate(at)}.`
-      : explained ? (waiting ? `${text} Waiting for the reviewer: over the review threshold.` : text)
+      : !waiting && by && accepted === diff && diff !== 0 ? `${text} Accepted by ${name(by) || "the reviewer"}, ${formatDate(at)}.`
+      : explained ? (waiting ? `${text} Waiting for the reviewer.` : text)
       : "Not explained yet.";
   const checks: any[][] = [[head("Check"), head("Books", true), head("Source", true), head("Difference", true), head("Explanation")],
     [cell("Revenue to its source"), cell(money(st.tb), right), cell(primary.length ? money(st.sources) : "–", right), cell(primary.length ? money(st.diff) : "–", right),
@@ -69,7 +69,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       ...(srcs.length ? [[cell("Total of the sources", { bold: true }), cell(""), cell(""), cell(money(primary.reduce((n, x) => n + Number(x.amount), 0)), tot)]] : [])] }, layout, fontSize: 8.5, margin: [0, 0, 0, 12] },
     { text: "Totals and differences", bold: true, color: C.navy, margin: [0, 0, 0, 4] },
     { table: { headerRows: 1, widths: [140, 75, 75, 75, "*"], body: checks }, layout, fontSize: 8.5 },
-    { text: `Review threshold: ${money(st.threshold)}. A difference over it waits for the reviewer.`, fontSize: 8, color: C.grey, margin: [0, 6, 0, 0] },
   ]]);
   const pdf = await renderWpPdf(def);
   const base = `${client} Revenue check`.replace(/[^\w .-]+/g, "").replace(/\s+/g, " ").trim();

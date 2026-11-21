@@ -42,7 +42,7 @@ import { MatchStep, type BoxItem } from "./match-step";
 import type { Row as MatchPanelRow } from "./accounts-table";
 import { TbTab } from "./tb-tab";
 import { CompareStep, NewAccountsReview, MarkReviewed } from "./compare-step";
-import { compareLists, flagRuleText, YEAR_QUESTIONS } from "@/lib/closebook/compare";
+import { compareLists, YEAR_QUESTIONS } from "@/lib/closebook/compare";
 import { entryDialog } from "./areas/entry-dialog";
 import { RevenueCheck } from "./revenue-check";
 import { ShReview, owedLine, type ShNotedRow } from "./sh-review";
@@ -226,7 +226,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
   // Piece 9: extra.at, the page the screen sits on when it is not the step's own (Trial balance tab > GIFI matching).
   const tb = (base: StepKey, pills: string[], dflt: string, showImport: boolean, extra: { importOnly?: boolean; at?: string } = {}) => (
     <TbTab file={file} accounts={accounts} imports={imports} entries={entries} editable={editable} isReviewer={isReviewer} lines={ref.lines} sheets={ref.sheets}
-      taxes={ref.taxes} flag={ref.flag} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
+      taxes={ref.taxes} view={view && pills.includes(view) || view === "attention" ? view : dflt} craText={ref.craText} notes={data.notes}
       edit={str(sp.edit)} base={extra.at ?? href(base)} pills={pills} showImport={showImport} importOnly={extra.importOnly} causes={openingCauses} names={names}
       noteStep={rv && ["code", "compare"].includes(base) ? base : undefined} />
   );
@@ -559,7 +559,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         return y ? [{ href: `${href("compare")}#year-changes`, label: `${text}: Yes`, detail: y.note, action: ycOpen ? <MarkReviewed fileId={id} question={q} /> : undefined }] : [];
       }) });
       // Piece 10: the new accounts of step 6 and their GIFI lines, each marked reviewed by the reviewer.
-      const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const cmp7 = compareLists(accounts, entries, ref.lines, ref.sheets);
       const amt7 = (c: number) => amt(c / 100);
       const lineName7 = sheetName;   // piece R1: the group is the lead sheet, by name
       const newList = cmp7.newAccounts.length ? <NewAccountsReview fileId={id} editable={editable && file.phase !== "locked"} canReview={rv}
@@ -598,7 +598,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
       const lineName = sheetName;   // piece R1: the group is the lead sheet, by name
       const ledger = (key: string) => `/closebook/${id}?area=reporting&report=gl&account=${encodeURIComponent(key)}&back=${encodeURIComponent(href("compare"))}`;
       const label = (r: { number: string; name: string }) => `${r.number ? `${r.number} ` : ""}${r.name}`;
-      const cmp = compareLists(accounts, entries, ref.lines, ref.sheets, ref.flag);
+      const cmp = compareLists(accounts, entries, ref.lines, ref.sheets);
       const seenKeys = new Set((seenRow?.seen_key ?? "").split(",").filter(Boolean));
       const seen = cmp.unused.length > 0 && cmp.unused.length === seenKeys.size && cmp.unused.every((r) => seenKeys.has(r.key));
       const st6 = review.status.compare;
@@ -611,9 +611,9 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
         return { id: a.id, number: a.number, name: a.name, last: amt6(Math.round(a.last_year * 100)), current: amt6(Math.round(a.this_year * 100)), final: amt6(Math.round(fin * 100)), finalNum: fin,
           change: "", lineNo: "", lineLabel: "", movedFrom: "", source: "", needsReviewer: a.needs_reviewer, reason: a.reviewer_reason, mismatch: "", tax: "", taxDefault: "", taxOverride: false, attention: false };
       };
-      body = <CompareStep fileId={id} editable={editable && file.phase !== "locked"} flagRule={flagRuleText(ref.flag)} leadHref={`${href("compare")}&view=lead`}
-        flagged={cmp.flagged.map((r) => ({ id: r.id, label: label(r), last: amt6(r.lastCents), final: amt6(r.finalCents), change: amt6(r.changeCents),
-          pct: pctChange(r.finalCents, r.lastCents), ledger: ledger(r.key), note: data.notes.get(r.id) }))}
+      body = <CompareStep fileId={id} editable={editable && file.phase !== "locked"} leadHref={`${href("compare")}&view=lead`}
+        every={cmp.every.map((r) => ({ id: r.id, label: label(r), sheet: r.sheet ?? "", last: amt6(r.lastCents), final: amt6(r.finalCents), change: amt6(r.changeCents),
+          pct: pctChange(r.finalCents, r.lastCents), ledger: ledger(r.key), note: data.notes.get(r.id), changeCents: r.changeCents, pctValue: r.pct ?? null }))}
         newAccounts={cmp.newAccounts.map((r) => ({ key: r.key, label: label(r), line: lineName(r.line), amount: amt6(r.finalCents), ledger: ledger(r.key),
           confirmed: newTicks.some((t) => t.account_key === r.key && t.confirmed_line === r.line), pick: r.line ? undefined : groupPick(r.key) }))}
         options={groupOptions}
@@ -824,8 +824,7 @@ export default async function FilePage({ params, searchParams }: PageProps<"/clo
             { n: openingRow && Math.round(openingRow.this_year * 100) !== 0 ? 1 : 0, one: "opening balance to enter", many: "opening balances to enter", href: href("opening") },
           ].filter((t) => t.n > 0)} />
       : <TbArea fileId={id} data={rdata} file={file} accounts={accounts} entries={entries} notes={review.notes} canReview={rv} editable={editable && file.phase !== "locked"}
-          view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} flag={ref.flag}
-          lineTax={new Map(ref.lines.map((l) => [l.line_no, l.default_tax_code ?? null]))} shNames={await loadShNames(supabase, file)} noteStep={current} />;
+          view={tbv === "accounts" ? "accounts" : "groups"} drill={str(sp.drill)} col={str(sp.col)} shNames={await loadShNames(supabase, file)} noteStep={current} />;
   } else if (area === "reporting") {
     // Round 32: the Reporting tab. A report opens full page with "‹ Reporting" at the top left.
     left = null; folded = null;
